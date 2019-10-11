@@ -29,7 +29,7 @@ import (
 const (
 	// maxExtendWait is the longest we'll wait for a disk to be
 	// extended.
-	maxExtendWait = 30 * time.Second
+	maxExtendWait = 10 * time.Minute
 
 	// extendInitialDelay is the shortest time we'll wait for a disk
 	// extend to succeed.
@@ -37,7 +37,7 @@ const (
 
 	// extendMaxDelay is the longest we'll wait before checking
 	// again whether the disk extend has succeeded.
-	extendMaxDelay = 5 * time.Second
+	extendMaxDelay = 30 * time.Second
 
 	// extendBackoffFactor is the multiple the delay will grow by each
 	// attempt.
@@ -459,6 +459,7 @@ func (c *Client) cloneVM(
 	args CreateVirtualMachineParams,
 	srcVM *object.VirtualMachine,
 	vmFolder *object.Folder,
+	datastore *object.Datastore,
 ) (*object.VirtualMachine, error) {
 	taskWaiter := &taskWaiter{
 		args.Clock,
@@ -471,10 +472,12 @@ func (c *Client) cloneVM(
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
 
+	datastoreRef := datastore.Reference()
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
 		Config: vmConfigSpec,
 		Location: types.VirtualMachineRelocateSpec{
-			Pool: &args.ResourcePool,
+			Pool:      &args.ResourcePool,
+			Datastore: &datastoreRef,
 		},
 	})
 	if err != nil {
@@ -651,6 +654,17 @@ func (c *Client) extendDisk(
 		MaxDelay: extendMaxDelay,
 		Jitter:   true,
 	})
+
+	var lastLog time.Time
+	maybeLog := func(currentKB int64) {
+		now := c.clock.Now()
+		if now.Sub(lastLog) > extendMaxDelay {
+			c.logger.Debugf("waiting for disk size >= %d kB - currently %d kB",
+				capacityKB, currentKB)
+			lastLog = now
+		}
+	}
+
 	a := retry.StartWithCancel(strategy, c.clock, ctx.Done())
 	for a.Next() {
 		disk, _, err := c.getDiskWithFileBacking(ctx, vm)
@@ -658,8 +672,10 @@ func (c *Client) extendDisk(
 			return errors.Trace(err)
 		}
 		if disk.CapacityInKB >= capacityKB {
+			c.logger.Debugf("disk extended to %d kB", disk.CapacityInKB)
 			return nil
 		}
+		maybeLog(disk.CapacityInKB)
 	}
 	return errors.Trace(ErrExtendDisk)
 }

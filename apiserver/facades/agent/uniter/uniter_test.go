@@ -191,7 +191,7 @@ func (s *uniterSuiteBase) setupCAASModel(c *gc.C) (*apiuniter.State, *state.CAAS
 	s.CleanupSuite.AddCleanup(func(*gc.C) { _ = apiState.Close() })
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag: unit.Tag(),
+		Tag: app.Tag(),
 	}
 	u, err := apiState.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
@@ -2565,6 +2565,42 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 		RemoteUnit: "application-riak",
 	}}}
 	result, err := uniter.ReadRemoteSettings(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Settings: params.Settings{
+				"black midi": "ducter",
+			}},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettingsForCAASApplicationInPeerRelation(c *gc.C) {
+	_, cm, app, unit := s.setupCAASModel(c)
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	unit2, err := app.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	ep, err := app.Endpoint("ring")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := cm.State().EndpointsRelation(ep)
+	c.Assert(err, jc.ErrorIsNil)
+
+	relUnit, err := rel.Unit(unit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = relUnit.EnterScope(map[string]interface{}{
+		"black midi": "ducter",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
+
+	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
+		Relation:   rel.Tag().String(),
+		LocalUnit:  unit2.Tag().String(),
+		RemoteUnit: unit.Tag().String(),
+	}}}
+	result, err := uniterAPI.ReadRemoteSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{

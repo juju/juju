@@ -2210,6 +2210,11 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag n
 			return "", common.ErrPerm
 		}
 	case names.ApplicationTag:
+		endpoints := relUnit.Relation().Endpoints()
+		isPeerRelation := len(endpoints) == 1 && endpoints[0].Role == charm.RolePeer
+		if isPeerRelation {
+			break
+		}
 		// If called by an application agent, we need
 		// to check the units of the application.
 		app, err := u.st.Application(tag.Name)
