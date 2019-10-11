@@ -827,7 +827,7 @@ type NetworkInfoResultsV6 struct {
 type NetworkInfoParams struct {
 	Unit       string   `json:"unit"`
 	RelationId *int     `json:"relation-id,omitempty"`
-	Bindings   []string `json:"bindings"`
+	Endpoints  []string `json:"bindings"`
 }
 
 // FanConfigEntry holds configuration for a single fan.

@@ -601,8 +601,8 @@ func (s *uniterSuite) TestNetworkInfoSpaceless(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"db"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"db"},
 	}
 
 	privateAddress, err := s.machine0.PrivateAddress()
@@ -4021,28 +4021,23 @@ var _ = gc.Suite(&uniterNetworkInfoSuite{})
 func (s *uniterNetworkInfoSuite) SetUpTest(c *gc.C) {
 	s.uniterSuiteBase.JujuConnSuite.SetUpTest(c)
 
-	// Add the spaces and subnets used by the test.
-	subnetInfos := []network.SubnetInfo{{
-		CIDR:      "8.8.0.0/16",
-		SpaceName: "public",
-	}, {
-		CIDR:      "10.0.0.0/24",
-		SpaceName: "internal",
-	}, {
-		CIDR:      "100.64.0.0/16",
-		SpaceName: "wp-default",
-	}, {
-		CIDR:      "192.168.1.0/24",
-		SpaceName: "database",
-	}, {
-		SpaceName: "layertwo",
-	}}
-	for _, info := range subnetInfos {
-		space, err := s.State.AddSpace(info.SpaceName, "", nil, false)
+	net := map[string][]string{
+		"public":     {"8.8.0.0/16", "1.0.0.0/12"},
+		"internal":   {"10.0.0.0/24"},
+		"wp-default": {"100.64.0.0/16"},
+		"database":   {"192.168.1.0/24"},
+		"layertwo":   nil,
+	}
+
+	for spaceName, cidrs := range net {
+		space, err := s.State.AddSpace(spaceName, "", nil, false)
 		c.Assert(err, jc.ErrorIsNil)
-		if info.CIDR != "" {
-			info.SpaceID = space.Id()
-			_, err = s.State.AddSubnet(info)
+
+		for _, cidr := range cidrs {
+			_, err = s.State.AddSubnet(network.SubnetInfo{
+				CIDR:    cidr,
+				SpaceID: space.Id(),
+			})
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
@@ -4150,6 +4145,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			Name:       "eth4",
 			Type:       network.EthernetDevice,
 			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:54", addrSuffix),
+		}, {
+			Name:       "fan-1",
+			Type:       network.EthernetDevice,
+			MACAddress: fmt.Sprintf("00:11:22:33:%0.2d:55", addrSuffix),
 		}},
 		[]state.LinkLayerDeviceAddress{{
 			DeviceName:   "eth0",
@@ -4179,6 +4178,10 @@ func (s *uniterNetworkInfoSuite) makeMachineDevicesAndAddressesArgs(addrSuffix i
 			DeviceName:   "eth4",
 			ConfigMethod: state.StaticAddress,
 			CIDRAddress:  fmt.Sprintf("192.168.1.%d/24", addrSuffix),
+		}, {
+			DeviceName:   "fan-1",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  fmt.Sprintf("1.1.1.%d/12", addrSuffix),
 		}}
 }
 
@@ -4212,25 +4215,25 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoPermissions(c *gc.C) {
 	}{
 		{
 			"Wrong unit name",
-			params.NetworkInfoParams{Unit: "unit-foo-0", Bindings: []string{"foo"}},
+			params.NetworkInfoParams{Unit: "unit-foo-0", Endpoints: []string{"foo"}},
 			params.NetworkInfoResults{},
 			"permission denied",
 		},
 		{
 			"Invalid tag",
-			params.NetworkInfoParams{Unit: "invalid", Bindings: []string{"db-client"}},
+			params.NetworkInfoParams{Unit: "invalid", Endpoints: []string{"db-client"}},
 			params.NetworkInfoResults{},
 			`"invalid" is not a valid tag`,
 		},
 		{
 			"No access to unit",
-			params.NetworkInfoParams{Unit: "unit-mysql-0", Bindings: []string{"juju-info"}},
+			params.NetworkInfoParams{Unit: "unit-mysql-0", Endpoints: []string{"juju-info"}},
 			params.NetworkInfoResults{},
 			"permission denied",
 		},
 		{
 			"Unknown binding name",
-			params.NetworkInfoParams{Unit: s.wordpressUnit.Tag().String(), Bindings: []string{"unknown"}},
+			params.NetworkInfoParams{Unit: s.wordpressUnit.Tag().String(), Endpoints: []string{"unknown"}},
 			params.NetworkInfoResults{
 				Results: map[string]params.NetworkInfoResult{
 					"unknown": {
@@ -4260,8 +4263,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 	s.addRelationAndAssertInScope(c)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"db", "admin-api", "db-client"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"db", "admin-api", "db-client"},
 	}
 	// For the relation "wordpress:db mysql:server" we expect to see only
 	// ifaces in the "internal" space, where the "db" endpoint itself
@@ -4305,9 +4308,18 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForExplicitlyBoundEndpointAndDef
 					{Address: "8.8.4.11", CIDR: "8.8.0.0/16"},
 				},
 			},
+			{
+				MACAddress:    "00:11:22:33:10:55",
+				InterfaceName: "fan-1",
+				Addresses: []params.InterfaceAddress{
+					{Address: "1.1.1.10", CIDR: "1.0.0.0/12"},
+				},
+			},
 		},
-		EgressSubnets:    []string{"8.8.8.10/32"},
-		IngressAddresses: []string{"8.8.8.10", "8.8.4.10", "8.8.4.11"},
+		// Egress is based on the first ingress address.
+		// Addresses are sorted, with fan always last.
+		EgressSubnets:    []string{"8.8.4.10/32"},
+		IngressAddresses: []string{"8.8.4.10", "8.8.4.11", "8.8.8.10", "1.1.1.10"},
 	}
 
 	// For the "db-client" extra-binding we expect to see interfaces from default
@@ -4342,8 +4354,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoL2Binding(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"foo-bar"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"foo-bar"},
 	}
 
 	expectedInfo := params.NetworkInfoResult{
@@ -4377,8 +4389,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoForImplicitlyBoundEndpoint(c *gc
 	s.assertInScope(c, mysqlRelUnit, true)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.mysqlUnit.Tag().String(),
-		Bindings: []string{"server"},
+		Unit:      s.mysqlUnit.Tag().String(),
+		Endpoints: []string{"server"},
 	}
 
 	expectedInfo := params.NetworkInfoResult{
@@ -4432,7 +4444,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressNonDefaultBin
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.mysqlUnit.Tag().String(),
-		Bindings:   []string{"server"},
+		Endpoints:  []string{"server"},
 		RelationId: &relId,
 	}
 
@@ -4498,7 +4510,7 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoUsesRelationAddressDefaultBindin
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       s.mysqlUnit.Tag().String(),
-		Bindings:   []string{"server"},
+		Endpoints:  []string{"server"},
 		RelationId: &relId,
 	}
 
@@ -4534,8 +4546,8 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
 	args := params.NetworkInfoParams{
-		Unit:     s.wordpressUnit.Tag().String(),
-		Bindings: []string{"db"},
+		Unit:      s.wordpressUnit.Tag().String(),
+		Endpoints: []string{"db"},
 	}
 
 	expectedResult := params.NetworkInfoResultsV6{
@@ -4599,7 +4611,7 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	relId := rel.Id()
 	args := params.NetworkInfoParams{
 		Unit:       gitlabUnit.Tag().String(),
-		Bindings:   []string{"db"},
+		Endpoints:  []string{"db"},
 		RelationId: &relId,
 	}
 
@@ -4646,8 +4658,8 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	c.Assert(wpUnit.Refresh(), jc.ErrorIsNil)
 
 	args := params.NetworkInfoParams{
-		Unit:     wpUnit.Tag().String(),
-		Bindings: []string{"db"},
+		Unit:      wpUnit.Tag().String(),
+		Endpoints: []string{"db"},
 	}
 
 	expectedResult := params.NetworkInfoResult{

@@ -10,22 +10,18 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	k8score "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	leadershipapiserver "github.com/juju/juju/apiserver/facades/agent/leadership"
 	"github.com/juju/juju/apiserver/facades/agent/meterstatus"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
-	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
@@ -1421,10 +1417,15 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			return nil
 		}
 
+		netInfo, err := NewNetworkInfo(u.st, unitTag)
+		if err != nil {
+			return err
+		}
+
 		settings := map[string]interface{}{}
-		_, ingressAddresses, egressSubnets, err := state.NetworksForRelation(relUnit.Endpoint().Name, unit, rel, modelSubnets, false)
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
 		if err == nil && len(ingressAddresses) > 0 {
-			ingressAddress := ingressAddresses[0]
+			ingressAddress := ingressAddresses[0].Value
 			// private-address is historically a cloud local address for the machine.
 			// Existing charms are built to ask for this attribute from relation
 			// settings to find out what address to use to connect to the app
@@ -1438,7 +1439,8 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
 			settings["ingress-address"] = ingressAddress
 		} else {
-			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v", unitTag.Id(), relTag, err)
+			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
+				unitTag.Id(), relTag, err)
 		}
 		if len(egressSubnets) > 0 {
 			settings["egress-subnets"] = strings.Join(egressSubnets, ",")
@@ -2386,158 +2388,12 @@ func (u *UniterAPI) NetworkInfo(args params.NetworkInfoParams) (params.NetworkIn
 		return params.NetworkInfoResults{}, common.ErrPerm
 	}
 
-	unit, err := u.getUnit(unitTag)
+	netInfo, err := NewNetworkInfo(u.st, unitTag)
 	if err != nil {
 		return params.NetworkInfoResults{}, err
 	}
 
-	result := params.NetworkInfoResults{
-		Results: make(map[string]params.NetworkInfoResult),
-	}
-
-	spaces := set.NewStrings()
-	bindingsToSpace := make(map[string]string)
-	bindingsToEgressSubnets := make(map[string][]string)
-	bindingsToIngressAddresses := make(map[string][]string)
-
-	model, err := u.st.Model()
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-	modelCfg, err := model.ModelConfig()
-	if err != nil {
-		return params.NetworkInfoResults{}, err
-	}
-	for _, binding := range args.Bindings {
-		if boundSpace, err := unit.GetSpaceForBinding(binding); err != nil {
-			result.Results[binding] = params.NetworkInfoResult{Error: common.ServerError(err)}
-		} else {
-			spaces.Add(boundSpace)
-			bindingsToSpace[binding] = boundSpace
-		}
-		bindingsToEgressSubnets[binding] = modelCfg.EgressSubnets()
-	}
-
-	if args.RelationId != nil {
-		// We're in a relation context.
-		rel, err := u.st.Relation(*args.RelationId)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		endpoint, err := rel.Endpoint(unit.ApplicationName())
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-
-		pollPublic := unit.ShouldBeAssigned()
-		// For k8s services which may have a public
-		// address, we want to poll in case it's not ready yet.
-		if !pollPublic {
-			app, err := unit.Application()
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			cfg, err := app.ApplicationConfig()
-			if err != nil {
-				return params.NetworkInfoResults{}, err
-			}
-			svcType := cfg.GetString(k8sprovider.ServiceTypeConfigKey, "")
-			switch k8score.ServiceType(svcType) {
-			case k8score.ServiceTypeLoadBalancer, k8score.ServiceTypeExternalName:
-				pollPublic = true
-			}
-		}
-
-		boundSpace, ingress, egress, err := state.NetworksForRelation(endpoint.Name, unit, rel, modelCfg.EgressSubnets(), pollPublic)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		spaces.Add(boundSpace)
-		if len(egress) > 0 {
-			bindingsToEgressSubnets[endpoint.Name] = egress
-		}
-		bindingsToIngressAddresses[endpoint.Name] = ingress
-	}
-
-	var (
-		networkInfos            map[string]state.MachineNetworkInfoResult
-		defaultIngressAddresses []string
-	)
-
-	if unit.ShouldBeAssigned() {
-		machineID, err := unit.AssignedMachineId()
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		machine, err := u.st.Machine(machineID)
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		networkInfos = machine.GetNetworkInfoForSpaces(spaces)
-	} else {
-		// For CAAS units, we build up a minimal result struct
-		// based on the default space and unit public/private addresses,
-		// ie the addresses of the CAAS service.
-		addr, err := unit.AllAddresses()
-		if err != nil {
-			return params.NetworkInfoResults{}, err
-		}
-		corenetwork.SortAddresses(addr)
-
-		// We record the interface addresses as the machine local ones - these
-		// are used later as the binding addresses.
-		// For CAAS models, we need to default ingress addresses to all available
-		// addresses so record those in the default ingress address slice.
-		var interfaceAddr []network.InterfaceAddress
-		for _, a := range addr {
-			if a.Scope == corenetwork.ScopeMachineLocal {
-				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
-			}
-			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
-		}
-		networkInfos = make(map[string]state.MachineNetworkInfoResult)
-		networkInfos[corenetwork.DefaultSpaceName] = state.MachineNetworkInfoResult{
-			NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
-		}
-	}
-
-	for binding, space := range bindingsToSpace {
-		// The binding address information based on link layer devices.
-		info := networkingcommon.MachineNetworkInfoResultToNetworkInfoResult(networkInfos[space])
-
-		// Set egress and ingress address information.
-		info.EgressSubnets = bindingsToEgressSubnets[binding]
-		info.IngressAddresses = bindingsToIngressAddresses[binding]
-
-		// If there is no ingress address explicitly defined for a given binding,
-		// set the ingress addresses to either any defaults set above, or the binding addresses.
-		if len(info.IngressAddresses) == 0 {
-			for _, addr := range defaultIngressAddresses {
-				info.IngressAddresses = append(info.IngressAddresses, addr)
-			}
-		}
-		if len(info.IngressAddresses) == 0 {
-			for _, nwInfo := range info.Info {
-				for _, addr := range nwInfo.Addresses {
-					info.IngressAddresses = append(info.IngressAddresses, addr.Address)
-				}
-			}
-		}
-
-		// If there is no egress subnet explicitly defined for a given binding,
-		// default to the first ingress address. This matches the behaviour when
-		// there's a relation in place.
-		if len(info.EgressSubnets) == 0 && len(info.IngressAddresses) > 0 {
-			info.EgressSubnets, err = network.FormatAsCIDR([]string{info.IngressAddresses[0]})
-			if err != nil {
-				return result, errors.Trace(err)
-			}
-		}
-
-		result.Results[binding] = info
-	}
-
-	return result, nil
+	return netInfo.ProcessAPIRequest(args)
 }
 
 // WatchUnitRelations returns a StringsWatcher, for each given

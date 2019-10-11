@@ -812,7 +812,7 @@ func (u *Unit) NetworkInfo(bindings []string, relationId *int) (map[string]param
 	var results params.NetworkInfoResults
 	args := params.NetworkInfoParams{
 		Unit:       u.tag.String(),
-		Bindings:   bindings,
+		Endpoints:  bindings,
 		RelationId: relationId,
 	}
 
