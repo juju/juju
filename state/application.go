@@ -859,7 +859,6 @@ func (a *Application) changeCharmOps(
 	forceUnits bool,
 	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
-	operatorEndpointBindings map[string]string,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -1009,26 +1008,6 @@ func (a *Application) changeCharmOps(
 		return nil, errors.Trace(err)
 	}
 	ops = append(ops, relOps...)
-
-	// Update any existing endpoint bindings, using defaults for new endpoints.
-	// Fetch existing bindings.
-	currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
-	if err != nil && !errors.IsNotFound(err) {
-		return ops, errors.Trace(err)
-	}
-	b, err := a.bindingsForOps(currentMap)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	endpointBindingsOps, err := b.updateOps(txnRevno, operatorEndpointBindings, ch.Meta())
-	if err == nil {
-		ops = append(ops, endpointBindingsOps...)
-	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
-		// If endpoint bindings do not exist this most likely means the application
-		// itself no longer exists, which will be caught soon enough anyway.
-		// ErrNoOperations on the other hand means there's nothing to update.
-		return nil, errors.Trace(err)
-	}
 
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
@@ -1387,7 +1366,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
 				cfg.StorageConstraints,
-				cfg.EndpointBindings,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1396,8 +1374,29 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			newCharmModifiedVersion++
 		}
 
+		// Always update bindings regardless of whether we upgrade to a
+		// new version or stay at the previous version.
+		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
+		if err != nil && !errors.IsNotFound(err) {
+			return ops, errors.Trace(err)
+		}
+		b, err := a.bindingsForOps(currentMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointBindingsOps, err := b.updateOps(txnRevno, cfg.EndpointBindings, cfg.Charm.Meta())
+		if err == nil {
+			ops = append(ops, endpointBindingsOps...)
+		} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+			// If endpoint bindings do not exist this most likely means the application
+			// itself no longer exists, which will be caught soon enough anyway.
+			// ErrNoOperations on the other hand means there's nothing to update.
+			return nil, errors.Trace(err)
+		}
+
 		return ops, nil
 	}
+
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
