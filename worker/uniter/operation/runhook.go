@@ -249,19 +249,20 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		Step: Pending,
 	}
 
-	hi := &hook.Info{Kind: hooks.ConfigChanged}
 	switch rh.info.Kind {
 	case hooks.ConfigChanged:
-		if state.Started {
-			break
+		if !state.Started {
+			change = stateChange{
+				Kind: RunHook,
+				Step: Queued,
+				Hook: &hook.Info{Kind: hooks.Start},
+			}
 		}
-		hi.Kind = hooks.Start
-		fallthrough
 	case hooks.UpgradeCharm:
 		change = stateChange{
 			Kind: RunHook,
 			Step: Queued,
-			Hook: hi,
+			Hook: &hook.Info{Kind: hooks.ConfigChanged},
 		}
 	case hooks.PreSeriesUpgrade:
 		message := createUpgradeSeriesStatusMessage(rh.name, rh.hookFound)
