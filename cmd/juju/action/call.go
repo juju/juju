@@ -44,7 +44,7 @@ type callCommand struct {
 	api           APIClient
 	unitReceivers []string
 	leaders       map[string]string
-	actionName    string
+	functionName  string
 	paramsYAML    cmd.FileVar
 	parseStrings  bool
 	background    bool
@@ -54,17 +54,16 @@ type callCommand struct {
 }
 
 const callDoc = `
-Run an Action for execution on a given unit, with a given set of params.
-The Action ID is returned for use with 'juju show-action-output <ID>' or
-'juju show-action-status <ID>'.
+Run a charm function for execution on a given unit, with a given set of params.
+An ID is returned for use with 'juju show-task <ID>'.
 
-To queue an action to be run in the background without waiting for it to finish,
+To queue a function to be run in the background without waiting for it to finish,
 use the --background option.
 
-To set the maximum time to wait for an action to complete, use the --max-wait option.
+To set the maximum time to wait for a function to complete, use the --max-wait option.
 
-By default, the output of a single action will just be that action's stdout.
-For multiple actions, each action stdout is printed with the action id.
+By default, the output of a single function will just be that function's stdout.
+For multiple functions, each function stdout is printed with the function id.
 To see more detailed information about run timings etc, use --format yaml.
 
 Valid unit identifiers are: 
@@ -72,10 +71,10 @@ Valid unit identifiers are:
   leader syntax of the form <application>/leader, such as mysql/leader.
 
 If the leader syntax is used, the leader unit for the application will be
-resolved before the action is enqueued.
+resolved before the function is enqueued.
 
 Params are validated according to the charm for the unit's application.  The
-valid params can be seen using "juju actions <application> --schema".
+valid params can be seen using "juju functions <application> --schema".
 Params may be in a yaml file which is passed with the --params option, or they
 may be specified by a key.key.key...=value format (see examples below.)
 
@@ -112,15 +111,15 @@ func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
-	f.BoolVar(&c.background, "background", false, "Run the action in the background")
-	f.DurationVar(&c.maxWait, "max-wait", 0, "Maximum wait time for an action to complete")
+	f.BoolVar(&c.background, "background", false, "Run the function in the background")
+	f.DurationVar(&c.maxWait, "max-wait", 0, "Maximum wait time for a function to complete")
 }
 
 func (c *callCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "call",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
-		Purpose: "Run an action on a specified unit.",
+		Purpose: "Run a function on a specified unit.",
 		Doc:     callDoc,
 	})
 }
@@ -131,17 +130,17 @@ func (c *callCommand) Init(args []string) (err error) {
 		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
 			c.unitReceivers = append(c.unitReceivers, arg)
 		} else if nameRule.MatchString(arg) {
-			c.actionName = arg
+			c.functionName = arg
 			break
 		} else {
-			return errors.Errorf("invalid unit or action name %q", arg)
+			return errors.Errorf("invalid unit or function name %q", arg)
 		}
 	}
 	if len(c.unitReceivers) == 0 {
 		return errors.New("no unit specified")
 	}
-	if c.actionName == "" {
-		return errors.New("no action specified")
+	if c.functionName == "" {
+		return errors.New("no function specified")
 	}
 
 	if c.background && c.maxWait > 0 {
@@ -242,7 +241,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		} else {
 			actions[i].Receiver = names.NewUnitTag(unitReceiver).String()
 		}
-		actions[i].Name = c.actionName
+		actions[i].Name = c.functionName
 		actions[i].Parameters = actionParams
 	}
 	results, err := c.api.Enqueue(params.Actions{Actions: actions})
@@ -261,7 +260,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 			return result.Error
 		}
 		if result.Action == nil {
-			return errors.Errorf("action failed to enqueue on %q", result.Action.Receiver)
+			return errors.Errorf("task failed to enqueue on %q", result.Action.Receiver)
 		}
 		if actionTag, err = names.ParseActionTag(result.Action.Tag); err != nil {
 			return err
