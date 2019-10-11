@@ -508,12 +508,12 @@ func caasPrecheck(
 ) error {
 	if len(args.AttachStorage) > 0 {
 		return errors.Errorf(
-			"AttachStorage may not be specified for CAAS models",
+			"AttachStorage may not be specified for k8s models",
 		)
 	}
 	if len(args.Placement) > 1 {
 		return errors.Errorf(
-			"only 1 placement directive is supported for CAAS models, got %d",
+			"only 1 placement directive is supported for k8s models, got %d",
 			len(args.Placement),
 		)
 	}
@@ -1249,7 +1249,7 @@ func (api *APIBase) Expose(args params.ApplicationExpose) error {
 		}
 		if appConfig.GetString(caas.JujuExternalHostNameKey, "") == "" {
 			return errors.Errorf(
-				"cannot expose a CAAS application without a %q value set, run\n"+
+				"cannot expose a k8s application without a %q value set, run\n"+
 					"juju config %s %s=<value>", caas.JujuExternalHostNameKey, args.ApplicationName, caas.JujuExternalHostNameKey)
 		}
 	}
