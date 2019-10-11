@@ -263,7 +263,7 @@ func (s *SubscriberSuite) TestEnableHAInternalAddress(c *gc.C) {
 	c.Assert(remote5.config.APIInfo.Addrs, jc.DeepEquals, []string{"10.5.4.4"})
 }
 
-func (s *SubscriberSuite) TestSameMessagesForwarded(c *gc.C) {
+func (s *SubscriberSuite) TestSameMessagesForwardedForMachine(c *gc.C) {
 	s.newHAWorker(c)
 
 	var expected []*params.PubSubMessage
@@ -288,6 +288,43 @@ func (s *SubscriberSuite) TestSameMessagesForwarded(c *gc.C) {
 	c.Assert(s.remotes.remotes, gc.HasLen, 2)
 	remote3 := s.remotes.remotes["machine-3"]
 	remote5 := s.remotes.remotes["machine-5"]
+
+	c.Assert(remote3.messages, jc.DeepEquals, expected)
+	c.Assert(remote5.messages, jc.DeepEquals, expected)
+}
+
+func (s *SubscriberSuite) TestSameMessagesForwardedForController(c *gc.C) {
+	tag := names.NewControllerAgentTag("42")
+	s.origin = tag.String()
+	s.hub = centralhub.New(tag)
+	s.config.Origin = s.origin
+	s.config.Hub = s.hub
+	s.config.APIInfo.Tag = tag
+
+	s.newHAWorker(c)
+
+	var expected []*params.PubSubMessage
+	var last <-chan struct{}
+	for i := 0; i < 10; i++ {
+		message := &params.PubSubMessage{
+			Topic: fmt.Sprintf("topic.%d", i),
+			Data:  map[string]interface{}{"origin": "controller-42"},
+		}
+		expected = append(expected, message)
+		done, err := s.hub.Publish(message.Topic, nil)
+		c.Assert(err, jc.ErrorIsNil)
+		last = done
+	}
+	select {
+	case <-last:
+		c.Logf("message processing complete")
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("messages not handled")
+	}
+
+	c.Assert(s.remotes.remotes, gc.HasLen, 2)
+	remote3 := s.remotes.remotes["controller-3"]
+	remote5 := s.remotes.remotes["controller-5"]
 
 	c.Assert(remote3.messages, jc.DeepEquals, expected)
 	c.Assert(remote5.messages, jc.DeepEquals, expected)
