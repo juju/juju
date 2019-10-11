@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/storage"
 )
@@ -457,16 +458,26 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 	machineIds := set.NewStrings()
 	usedSeries := set.NewStrings()
+	spaceNamesByID, err := b.backend.SpaceNamesByID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
-		// Only care about endpoints with non-empty bindings.
 		bindings := make(map[string]string)
-		for ep, space := range application.EndpointBindings() {
-			if space != "" {
-				bindings[ep] = space
+		for ep, spaceID := range application.EndpointBindings() {
+			// Only care about endpoints with bindings not in the default space.
+			if spaceID == network.DefaultSpaceId {
+				continue
 			}
+			spaceName, ok := spaceNamesByID[spaceID]
+			if !ok {
+				logger.Warningf("export bundle: space name for id %q not found", spaceID)
+				continue
+			}
+			bindings[ep] = spaceName
 		}
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
