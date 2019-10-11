@@ -266,10 +266,17 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 		if spaceID != network.DefaultSpaceId && spaceID != "" {
 			space, err := st.SpaceByID(spaceID)
 			if err != nil {
-				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
+				// TODO (manadart 2019-10-10): This is a temporary softening of
+				// the error condition to prevent blocking upgrades due to the
+				// model-cache and by extension the API server being unable to
+				// start.
+				// A patch is in progress to address this in the upgrade logic.
+				// return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
+				logger.Errorf("retrieving space for ID %q", err)
+			} else {
+				mAddr.SpaceName = space.Name()
+				mAddr.SpaceProviderId = string(space.ProviderId())
 			}
-			mAddr.SpaceName = space.Name()
-			mAddr.SpaceProviderId = string(space.ProviderId())
 		}
 
 		info.Addresses = append(info.Addresses, mAddr)

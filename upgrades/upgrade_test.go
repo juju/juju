@@ -20,8 +20,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
@@ -110,19 +108,6 @@ func newUpgradeStep(msg string, targets ...upgrades.Target) *mockUpgradeStep {
 		msg:     msg,
 		targets: targets,
 	}
-}
-
-type mockEnvironUpgradeStep struct {
-	msg string
-	run func() error
-}
-
-func (m *mockEnvironUpgradeStep) Description() string {
-	return m.msg
-}
-
-func (m *mockEnvironUpgradeStep) Run() error {
-	return m.run()
 }
 
 type mockContext struct {
@@ -222,22 +207,6 @@ type mockStateBackend struct {
 func (mock *mockStateBackend) ControllerUUID() string {
 	mock.MethodCall(mock, "ControllerUUID")
 	return "a-b-c-d"
-}
-
-type mockModel struct {
-	testing.Stub
-	config    *config.Config
-	cloudSpec environs.CloudSpec
-}
-
-func (m *mockModel) Config() (*config.Config, error) {
-	m.MethodCall(m, "Config")
-	return m.config, m.NextErr()
-}
-
-func (m *mockModel) CloudSpec() (environs.CloudSpec, error) {
-	m.MethodCall(m, "CloudSpec")
-	return m.cloudSpec, m.NextErr()
 }
 
 func stateUpgradeOperations() []upgrades.Operation {
@@ -582,7 +551,7 @@ func (s *upgradeSuite) checkContextRestriction(c *gc.C, expectedPanic string) {
 	type fakeAgentConfigSetter struct{ agent.ConfigSetter }
 	ctx := upgrades.NewContext(fakeAgentConfigSetter{}, nil, &mockStateBackend{})
 	c.Assert(
-		func() { upgrades.PerformUpgrade(fromVersion, targets(upgrades.Controller), ctx) },
+		func() { _ = upgrades.PerformUpgrade(fromVersion, targets(upgrades.Controller), ctx) },
 		gc.PanicMatches, expectedPanic,
 	)
 }
