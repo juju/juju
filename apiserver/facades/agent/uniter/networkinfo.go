@@ -212,20 +212,7 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 		}
 
 		if len(info.IngressAddresses) == 0 {
-			var ingress corenetwork.SpaceAddresses
-			for _, nwInfo := range info.Info {
-				// We need to construct sortable addresses from link-layer
-				// devices, which unlike machine addresses do not have this
-				// information. We can at least ensure that fan addresses will
-				// be sorted after other addresses.
-				scope := corenetwork.ScopeCloudLocal
-				if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
-					scope = corenetwork.ScopeFanLocal
-				}
-				for _, addr := range nwInfo.Addresses {
-					ingress = append(ingress, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
-				}
-			}
+			ingress := spaceAddressesFromNetworkInfo(networkInfos[space].NetworkInfos)
 			corenetwork.SortAddresses(ingress)
 			info.IngressAddresses = make([]string, len(ingress))
 			for i, addr := range ingress {
@@ -350,29 +337,14 @@ func (n *NetworkInfo) NetworksForRelation(
 			if err != nil {
 				return "", nil, nil, errors.Trace(err)
 			}
-
-			// The binding address information based on link layer devices.
-			for _, nwInfo := range networkInfos[boundSpace].NetworkInfos {
-				// We need to construct sortable addresses from link-layer
-				// devices, which unlike machine addresses do not have this
-				// information. We can at least ensure that fan addresses will
-				// be sorted after other addresses.
-				scope := corenetwork.ScopeCloudLocal
-				if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
-					scope = corenetwork.ScopeFanLocal
-				}
-
-				for _, addr := range nwInfo.Addresses {
-					ingress = append(ingress, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
-				}
-			}
+			ingress = spaceAddressesFromNetworkInfo(networkInfos[boundSpace].NetworkInfos)
 		} else {
 			// Be be consistent with IAAS behaviour above, we'll return all addresses.
 			addrs, err := n.unit.AllAddresses()
 			if err != nil {
 				logger.Warningf("no service address for unit %q in relation %q", n.unit.Name(), rel)
 			} else {
-				ingress = append(ingress, addrs...)
+				ingress = addrs
 			}
 		}
 	}
@@ -445,6 +417,28 @@ func (n *NetworkInfo) lookupSpaces(names ...string) (corenetwork.SpaceInfos, err
 		}
 	}
 	return spaceInfos, nil
+}
+
+// spaceAddressesFromNetworkInfo returns a SpaceAddresses collection
+// from a slice of NetworkInfo.
+// We need to construct sortable addresses from link-layer devices,
+// which unlike addresses from the machines collection, do not have the scope
+// information that we need.
+// The best we can do here is identify fan addresses so that they are sorted
+// after other addresses.
+func spaceAddressesFromNetworkInfo(netInfos []network.NetworkInfo) corenetwork.SpaceAddresses {
+	var addrs corenetwork.SpaceAddresses
+	for _, nwInfo := range netInfos {
+		scope := corenetwork.ScopeCloudLocal
+		if strings.HasPrefix(nwInfo.InterfaceName, "fan-") {
+			scope = corenetwork.ScopeFanLocal
+		}
+
+		for _, addr := range nwInfo.Addresses {
+			addrs = append(addrs, corenetwork.NewScopedSpaceAddress(addr.Address, scope))
+		}
+	}
+	return addrs
 }
 
 func pollForAddress(fetcher func() (corenetwork.SpaceAddress, error)) (corenetwork.SpaceAddress, error) {
