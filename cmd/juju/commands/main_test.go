@@ -630,7 +630,7 @@ var devFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"call", "show-task",
+	"call", "show-task", "functions", "list-functions", "show-function",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -643,8 +643,11 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// since they are not enabled.
 	cmdSet := set.NewStrings(commandNames...)
 	if !featureflag.Enabled(feature.JujuV3) {
+		cmdSet.Add("actions")
+		cmdSet.Add("list-actions")
 		cmdSet.Add("run-action")
 		cmdSet.Add("run")
+		cmdSet.Add("show-action")
 		cmdSet.Add("show-action-status")
 		cmdSet.Add("show-action-output")
 	}
@@ -666,7 +669,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
 	c.Assert(missing, jc.DeepEquals, set.NewStrings(
-		"run", "run-action", "show-action-status", "show-action-output"))
+		"actions", "list-actions", "run", "run-action", "show-action", "show-action-status", "show-action-output"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {

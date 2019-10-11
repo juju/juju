@@ -39,8 +39,8 @@ func (c *CallCommand) UnitNames() []string {
 	return c.unitReceivers
 }
 
-func (c *CallCommand) ActionName() string {
-	return c.actionName
+func (c *CallCommand) FunctionName() string {
+	return c.functionName
 }
 
 func (c *CallCommand) ParseStrings() bool {
@@ -104,7 +104,7 @@ func (c *ShowCommand) ApplicationTag() names.ApplicationTag {
 }
 
 func (c *ShowCommand) ActionName() string {
-	return c.actionName
+	return c.functionName
 }
 
 func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
