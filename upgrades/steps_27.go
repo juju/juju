@@ -4,7 +4,17 @@
 package upgrades
 
 import (
+	"os"
+	"os/user"
+	"path/filepath"
+	"strconv"
+
+	"github.com/juju/juju/juju/paths"
+
+	"github.com/juju/errors"
 	"github.com/juju/juju/service"
+	"github.com/juju/utils/series"
+	"gopkg.in/juju/names.v3"
 )
 
 // stateStepsFor27 returns upgrade steps for Juju 2.7.0.
@@ -68,7 +78,7 @@ func stateStepsFor27() []Step {
 	}
 }
 
-// stepsFor24 returns upgrade steps for Juju 2.4.
+// stepsFor27 returns upgrade steps for Juju 2.7.
 func stepsFor27() []Step {
 	return []Step{
 		&upgradeStep{
@@ -86,14 +96,97 @@ func stepsFor27() []Step {
 	}
 }
 
+func setLogOwnerCorrectLogPermissions(filename string) error {
+	group, err := user.LookupGroup("adm")
+	if err != nil {
+		return err
+	}
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil {
+		return err
+	}
+	usr, err := user.Lookup("syslog")
+	if err != nil {
+		return err
+	}
+	uid, err := strconv.Atoi(usr.Uid)
+	if err != nil {
+		return err
+	}
+	if err := os.Chmod(filename, 0640); err != nil {
+		return err
+	}
+	return os.Chown(filename, uid, gid)
+}
+
+func setFolderPermissionsToAdm(dir string) error {
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if err := setLogOwnerCorrectLogPermissions(info.Name()); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	logger.Infof("Successfully changed permissions of /var/log/juju")
+	return nil
+}
+
 // This adds upgrade steps, we just rewrite the default values which are set before.
 // With this we can make sure that things are changed in one default place
 func resetLogPermissions(context Context) error {
-	sysdManager := service.NewServiceManagerWithDefaults()
-	err := sysdManager.WriteServiceFiles()
+	if context.AgentConfig().Tag().Kind() == names.UnitTagKind {
+		logger.Infof("skipping units, because machine agents are already writing the files")
+		return nil
+	}
+	if context.AgentConfig().Model().Kind() == names.CAASModelTagKind {
+		logger.Infof("skipping CAAS")
+		return nil
+	}
+	hostSeries, isSystemd, err := getCurrentInit()
 	if err != nil {
+		return err
+	}
+	if !isSystemd {
+		return nil
+	}
+	sysdManager := service.NewServiceManagerWithDefaults()
+	if err = sysdManager.WriteServiceFiles(); err != nil {
 		logger.Errorf("unsuccessful writing the service files in /lib/systemd/system path")
 		return err
 	}
+	logDir, err := paths.LogDir(hostSeries)
+	if err != nil {
+		logger.Errorf("unsuccessful trying to access the logDir")
+		return nil
+	}
+	if err = setFolderPermissionsToAdm(logDir); err != nil {
+		logger.Errorf("unsuccessful setting permissions for /var/log/juju/ recursive")
+		return err
+	}
+	logger.Infof("Successfully wrote service files in /lib/systemd/system path")
 	return nil
+	// TODO: either add here or under service/systemd a function to check whether the agent systemd services are correct or not
+}
+
+func getCurrentInit() (string, bool, error) {
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return "", false, errors.Trace(err)
+	}
+	initName, err := service.VersionInitSystem(hostSeries)
+	if err != nil {
+		logger.Errorf("unsuccessful writing the service files in /lib/systemd/system path because unable to access init system")
+		return "", false, err
+	}
+	if initName == service.InitSystemSystemd {
+		return hostSeries, true, nil
+	} else {
+		logger.Infof("upgrade to systemd possible only systems using systemd, current system is running", initName)
+		return "", false, nil
+	}
 }
