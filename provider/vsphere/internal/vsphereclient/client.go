@@ -19,11 +19,9 @@ import (
 	"github.com/vmware/govmomi/list"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/property"
-	"github.com/vmware/govmomi/vim25/methods"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"gopkg.in/retry.v1"
 )
 
 const (
@@ -615,6 +613,26 @@ func (c *Client) getDiskWithFileBacking(
 	return nil, nil, errors.NotFoundf("disk")
 }
 
+func (c *Client) FindDisk(ctx context.Context, list object.VirtualDeviceList) (*types.VirtualDisk, error) {
+	var disks []*types.VirtualDisk
+	for _, device := range list {
+		switch md := device.(type) {
+		case *types.VirtualDisk:
+			disks = append(disks, md)
+		default:
+			continue
+		}
+	}
+
+	switch len(disks) {
+	case 0:
+		return nil, errors.New("no disk found using the given values")
+	case 1:
+		return disks[0], nil
+	}
+	return nil, errors.New("the given disk values match multiple disks")
+}
+
 func (c *Client) extendDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
@@ -623,61 +641,55 @@ func (c *Client) extendDisk(
 	capacityKB int64,
 	taskWaiter *taskWaiter,
 ) error {
-	// NOTE(axw) there's no ExtendVirtualDisk on the disk manager type,
-	// hence why we're dealing with request types directly. Send a patch
-	// to govmomi to add this to VirtualDiskManager.
 
-	diskManager := object.NewVirtualDiskManager(c.client.Client)
-	dcref := datacenter.Reference()
-	req := types.ExtendVirtualDisk_Task{
-		This:          diskManager.Reference(),
-		Name:          datastorePath,
-		Datacenter:    &dcref,
-		NewCapacityKb: capacityKB,
-	}
+        c.logger.Debugf("Changed extendDisk method created")
 
-	_, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
+//	cmd := change.init()
+//	c.logger.Debugf("cmd created")
+
+	devices, err := vm.Device(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// NOTE: not waiting for the returned task because it never
-	// completes - this is because the API actually returns a
-	// permission error when we try to get the status of the task,
-	// even though the task is created and runs happily as far as the
-	// web client is concerned. (You can see this error by adding
-	// logging to govmomi/vim25/methods.WaitForUpdatesEx.) It seems
-	// like this is a bug in the API. Instead we wait for the VM's
-	// disk's capacity to be what we asked for, or return an error.
-	strategy := retry.LimitTime(maxExtendWait, retry.Exponential{
-		Initial:  extendInitialDelay,
-		Factor:   extendBackoffFactor,
-		MaxDelay: extendMaxDelay,
-		Jitter:   true,
-	})
-
-	var lastLog time.Time
-	maybeLog := func(currentKB int64) {
-		now := c.clock.Now()
-		if now.Sub(lastLog) > extendMaxDelay {
-			c.logger.Debugf("waiting for disk size >= %d kB - currently %d kB",
-				capacityKB, currentKB)
-			lastLog = now
-		}
+        c.logger.Debugf("Devices found")
+	
+	editdisk, err := c.FindDisk(ctx, devices)
+	if err != nil {
+		return errors.Trace(err)
 	}
+        c.logger.Debugf("Passed method FindDisk")
 
-	a := retry.StartWithCancel(strategy, c.clock, ctx.Done())
-	for a.Next() {
-		disk, _, err := c.getDiskWithFileBacking(ctx, vm)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if disk.CapacityInKB >= capacityKB {
-			c.logger.Debugf("disk extended to %d kB", disk.CapacityInKB)
-			return nil
-		}
-		maybeLog(disk.CapacityInKB)
+	editdisk.CapacityInKB = capacityKB
+
+	backing := editdisk.Backing.(*types.VirtualDiskFlatVer2BackingInfo)
+	backing.Sharing = ""
+        c.logger.Debugf("backing object created")
+
+
+	spec := types.VirtualMachineConfigSpec{}
+        c.logger.Debugf("spec created")
+
+	config := &types.VirtualDeviceConfigSpec{
+		Device:    editdisk,
+		Operation: types.VirtualDeviceConfigSpecOperationEdit,
 	}
-	return errors.Trace(ErrExtendDisk)
+        c.logger.Debugf("VirtualDeviceConfigSpec created")
+
+	config.FileOperation = ""
+
+	spec.DeviceChange = append(spec.DeviceChange, config)
+
+	task, err := vm.Reconfigure(ctx, spec)
+	if err != nil {
+		return err
+	}
+        c.logger.Debugf("vm.Reconfigure done")
+	info, err := taskWaiter.waitTask(ctx, task, "cloning VM")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	c.logger.Debugf("Info returned by taskWaiter is %s", info)
+	return nil
 }
 
 func isManagedObjectNotFound(err error) bool {
@@ -692,3 +704,4 @@ func isManagedObjectNotFound(err error) bool {
 	}
 	return false
 }
+
