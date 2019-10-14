@@ -211,6 +211,9 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *AddCAASCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.Errorf("missing k8s name.")
 	}
@@ -441,7 +444,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if clusterName == "" {
 		clusterName = newCloud.HostCloudRegion
 	}
-	if c.Local {
+	if c.ClientOnly {
 		successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
 		successMsg += fmt.Sprintf("\nYou can now bootstrap to this cloud by running 'juju bootstrap %s'.", c.caasName)
 		fmt.Fprintln(ctx.Stdout, successMsg)
@@ -491,7 +494,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !c.Local {
+	if !c.ClientOnly {
 		ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
 		if err != nil {
 			return nil, errors.Trace(err)

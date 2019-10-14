@@ -94,6 +94,9 @@ func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *showCloudCommand) Init(args []string) error {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		c.CloudName = args[0]

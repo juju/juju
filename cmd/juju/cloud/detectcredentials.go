@@ -133,6 +133,9 @@ func (c *detectCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *detectCredentialsCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		c.cloudType = strings.ToLower(args[0])
 		return cmd.CheckEmpty(args[1:])
@@ -178,7 +181,7 @@ func (c *detectCredentialsCommand) allClouds(ctxt *cmd.Context) (map[string]juju
 	for k, v := range personalClouds {
 		clouds[k] = v
 	}
-	if !c.Local && c.ControllerName != "" {
+	if !c.ClientOnly && c.ControllerName != "" {
 		ctxt.Infof("\nLooking for cloud information on controller %q...", c.ControllerName)
 		// If there is a cloud definition for the same cloud both
 		// on the controller and on the client and they conflict,
@@ -204,7 +207,7 @@ func (c *detectCredentialsCommand) allClouds(ctxt *cmd.Context) (map[string]juju
 
 func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var err error
-	if !c.Local && c.ControllerName == "" {
+	if !c.ClientOnly && c.ControllerName == "" {
 		// The user may have specified the controller via a --controller option.
 		// If not, let's see if there is a current controller that can be detected.
 		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "add a credential to")
@@ -443,7 +446,7 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 		}
 	}
 upload:
-	if !c.Local && c.ControllerName != "" {
+	if !c.ClientOnly && c.ControllerName != "" {
 		fmt.Fprintln(ctxt.Stderr)
 		return c.addRemoteCredentials(ctxt, clouds, loaded, localErr)
 	}

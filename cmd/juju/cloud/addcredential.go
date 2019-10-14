@@ -172,6 +172,9 @@ func (c *addCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *addCredentialCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) < 1 {
 		return errors.New("Usage: juju add-credential <cloud-name> [-f <credentials.yaml>]")
 	}
@@ -187,7 +190,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var err error
-	if !c.Local && c.ControllerName == "" {
+	if !c.ClientOnly && c.ControllerName == "" {
 		// The user may have specified the controller via a --controller option.
 		// If not, let's see if there is a current controller that can be detected.
 		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "add a credential to")
@@ -197,7 +200,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	// Check that the supplied cloud is valid.
-	if !c.Local && c.ControllerName != "" {
+	if !c.ClientOnly && c.ControllerName != "" {
 		if err := c.maybeRemoteCloud(ctxt); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
@@ -330,7 +333,7 @@ func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb str
 		}
 	}
 	// Remote processing.
-	if !c.Local {
+	if !c.ClientOnly {
 		if c.ControllerName != "" {
 			return c.addRemoteCredentials(ctxt, added, err)
 		} else {

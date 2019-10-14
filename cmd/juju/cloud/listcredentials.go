@@ -180,6 +180,9 @@ func (c *listCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *listCredentialsCommand) Init(args []string) error {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	cloudName, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return errors.Trace(err)
@@ -234,8 +237,8 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	credentials := credentialsMap{Local: local, LocalOnly: c.Local}
-	if c.Local {
+	credentials := credentialsMap{Local: local, LocalOnly: c.ClientOnly}
+	if c.ClientOnly {
 		return c.out.Write(ctxt, credentials)
 	}
 
@@ -390,6 +393,10 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 				} else {
 					credentialNames = append(credentialNames, credentialName)
 				}
+			}
+			if len(credentialNames) == 0 {
+				w.Println(fmt.Sprintf("No credentials for cloud %v to display", cloudName))
+				continue
 			}
 			if haveDefault {
 				sort.Strings(credentialNames[1:])

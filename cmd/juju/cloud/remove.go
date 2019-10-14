@@ -83,6 +83,9 @@ func (c *removeCloudCommand) Info() *cmd.Info {
 }
 
 func (c *removeCloudCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) < 1 {
 		return errors.New("Usage: juju remove-cloud <cloud name>")
 	}
@@ -96,7 +99,7 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.ControllerName == "" {
-		if c.ControllerName == "" && !c.Local {
+		if c.ControllerName == "" && !c.ClientOnly {
 			return errors.Errorf(
 				"There are no controllers running.\nTo remove cloud %q from this client, use the --client option.", c.Cloud)
 		}

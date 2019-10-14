@@ -101,6 +101,9 @@ func (c *removeCredentialCommand) credentialsAPI() (RemoveCredentialAPI, error) 
 }
 
 func (c *removeCredentialCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) < 2 {
 		return errors.New("Usage: juju remove-credential <cloud-name> <credential-name>")
 	}
@@ -113,7 +116,7 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 	if c.ControllerName == "" {
 		// No controller was specified explicitly and we did not detect a current controller,
 		// this operation should be local only.
-		c.Local = true
+		c.ClientOnly = true
 	}
 	return cmd.CheckEmpty(args[2:])
 }
@@ -124,7 +127,7 @@ func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	var client RemoveCredentialAPI
-	if !c.Local {
+	if !c.ClientOnly {
 		var err error
 		client, err = c.credentialAPIFunc()
 		if err != nil {
@@ -141,14 +144,14 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	if err := c.removeFromLocal(ctxt); err != nil {
 		return err
 	}
-	if !c.Local {
+	if !c.ClientOnly {
 		return c.removeFromController(ctxt, client)
 	}
 	return nil
 }
 
 func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCredentialAPI) {
-	if !c.Local {
+	if !c.ClientOnly {
 		if err := c.maybeRemoteCloud(ctxt, client); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)

@@ -99,6 +99,9 @@ func (c *updateCloudCommand) updateCloudAPI(controllerName string) (updateCloudA
 
 // Init populates the command with the args from the command line.
 func (c *updateCloudCommand) Init(args []string) error {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) < 1 {
 		return errors.BadRequestf("cloud name required")
 	}
@@ -152,7 +155,7 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
-	if !c.Local {
+	if !c.ClientOnly {
 		ctxt.Infof(
 			"There are no controllers running.\nUpdating cloud on this client so you can use it to bootstrap a controller.\n")
 	}

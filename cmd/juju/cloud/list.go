@@ -140,6 +140,9 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *listCloudsCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
@@ -189,7 +192,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		result = clouds
 	default:
-		if c.ControllerName == "" && !c.Local {
+		if c.ControllerName == "" && !c.ClientOnly {
 			ctxt.Infof(
 				"There are no controllers running.\nYou can bootstrap a new controller using one of these clouds:\n")
 		}

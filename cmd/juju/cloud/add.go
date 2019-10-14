@@ -232,6 +232,9 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *AddCloudCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		c.Cloud = args[0]
 		if ok := names.IsValidCloud(c.Cloud); !ok {
@@ -351,7 +354,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if !c.Replace && c.existsLocally {
 		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
-	if c.Local {
+	if c.ClientOnly {
 		return returnErr
 	}
 	ctxt.Infof("")

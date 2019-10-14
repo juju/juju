@@ -86,7 +86,7 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 	cmd, fileName := s.setupCloudFileScenario(c, func(controllerName string) (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
-	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--client")
+	_, err := cmdtesting.RunCommand(c, cmd, "garage-maas", "-f", fileName, "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 }

@@ -392,8 +392,19 @@ type OptionalControllerCommand struct {
 	CommandBase
 	Store jujuclient.ClientStore
 
-	EnabledFlag    string
-	Local          bool
+	EnabledFlag string
+
+	// Local stores whether a client side (aka local) copy is requested.
+	Local bool
+
+	// ClientOnly stores whether the command will ONLY operate on a client copy
+	// without affecting controller copy.
+	ClientOnly bool
+
+	// ControllerOnly stores whether the command will ONLY operate on a controller copy
+	// without affecting client copy.
+	ControllerOnly bool
+
 	ControllerName string
 
 	SkipCurrentControllerPrompt bool
@@ -402,12 +413,21 @@ type OptionalControllerCommand struct {
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
+	f.BoolVar(&c.ClientOnly, "client-only", false, "Client operation only; controller not affected")
+	f.BoolVar(&c.ControllerOnly, "controller-only", false, "Controller operation only; client not affected")
 	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client): Local operation only; controller not affected")
-	f.BoolVar(&c.Local, "client", false, "Client operation only; controller not affected")
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
 	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
 	f.StringVar(&c.ControllerName, "controller", "", "")
 	f.BoolVar(&c.SkipCurrentControllerPrompt, "no-prompt", false, "Skip prompting for confirmation to use current controller, always use it when detected")
+}
+
+// Init populates the command with the args from the command line.
+func (c *OptionalControllerCommand) Init(args []string) (err error) {
+	if c.Local && !c.ClientOnly {
+		c.ClientOnly = c.Local
+	}
+	return nil
 }
 
 // ControllerNameFromArg returns either a controller name or empty string.
@@ -415,8 +435,8 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 // Use the --local arg to return an empty string, meaning no controller is selected.
 func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
 	requireExplicitController := !featureflag.Enabled(c.EnabledFlag)
-	if c.Local || (requireExplicitController && c.ControllerName == "") {
-		c.Local = true
+	if c.ClientOnly || (requireExplicitController && c.ControllerName == "") {
+		c.ClientOnly = true
 		return "", nil
 	}
 	controllerName := c.ControllerName
