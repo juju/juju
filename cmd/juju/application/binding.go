@@ -55,7 +55,7 @@ func parseBindExpr(expr string, knownSpaces []string) (map[string]string, error)
 		spaceName = strings.Trim(spaceName, `"`)
 
 		if _, exists := knownSpaceMap[spaceName]; !exists {
-			return nil, errors.NotFoundf("Space with name %q", spaceName)
+			return nil, errors.NotFoundf("space %q", spaceName)
 		}
 
 		parsedBindings[endpoint] = spaceName
