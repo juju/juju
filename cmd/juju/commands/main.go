@@ -310,6 +310,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newUpgradeControllerCommand())
 	r.Register(application.NewUpgradeCharmCommand())
 	r.Register(application.NewSetSeriesCommand())
+	r.Register(application.NewBindCommand())
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())

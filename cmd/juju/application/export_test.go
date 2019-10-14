@@ -154,6 +154,23 @@ func NewUpgradeCharmCommandForTest(
 	return modelcmd.Wrap(cmd)
 }
 
+func NewBindCommandForTest(
+	store jujuclient.ClientStore,
+	apiOpen api.OpenFunc,
+	newApplicationClient func(base.APICallCloser) ApplicationBindClient,
+	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
+	newSpacesClient func(base.APICallCloser) SpacesAPI,
+) cmd.Command {
+	cmd := &bindCommand{
+		NewApplicationClient: newApplicationClient,
+		NewModelConfigGetter: newModelConfigGetter,
+		NewSpacesClient:      newSpacesClient,
+	}
+	cmd.SetClientStore(store)
+	cmd.SetAPIOpen(apiOpen)
+	return modelcmd.Wrap(cmd)
+}
+
 // NewResolvedCommandForTest returns a ResolvedCommand with the api provided as specified.
 func NewResolvedCommandForTest(applicationResolveAPI applicationResolveAPI, clientAPI clientAPI, store jujuclient.ClientStore) modelcmd.ModelCommand {
 	cmd := &resolvedCommand{applicationResolveAPI: applicationResolveAPI, clientAPI: clientAPI}
