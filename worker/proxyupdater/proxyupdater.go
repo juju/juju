@@ -24,14 +24,15 @@ import (
 )
 
 type Config struct {
-	RegistryPath    string
-	EnvFiles        []string
-	SystemdFiles    []string
-	API             API
-	ExternalUpdate  func(proxy.Settings) error
-	InProcessUpdate func(proxy.Settings) error
-	RunFunc         func(string, string, ...string) (string, error)
-	Logger          Logger
+	SupportLegacyValues bool
+	RegistryPath        string
+	EnvFiles            []string
+	SystemdFiles        []string
+	API                 API
+	ExternalUpdate      func(proxy.Settings) error
+	InProcessUpdate     func(proxy.Settings) error
+	RunFunc             func(string, string, ...string) (string, error)
+	Logger              Logger
 }
 
 // Validate ensures that all the required fields have values.
@@ -186,7 +187,7 @@ func (w *proxyWorker) handleProxyValues(legacyProxySettings, jujuProxySettings p
 	}
 
 	// Here we write files to disk. This is done only for legacyProxySettings.
-	if legacyProxySettings != w.proxy || w.first {
+	if w.config.SupportLegacyValues && (legacyProxySettings != w.proxy || w.first) {
 		w.config.Logger.Debugf("saving new legacy proxy settings %#v", legacyProxySettings)
 		w.proxy = legacyProxySettings
 		if err := w.saveProxySettings(); err != nil {

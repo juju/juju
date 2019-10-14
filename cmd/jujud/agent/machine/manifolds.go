@@ -256,6 +256,9 @@ type ManifoldsConfig struct {
 
 	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
 	NewBrokerFunc containerbroker.NewBrokerFunc
+
+	// IsCaasConfig is true if this config is for a caas agent.
+	IsCaasConfig bool
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -287,6 +290,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			return nil, errors.Trace(err)
 		}
 		return crosscontroller.NewClient(conn), nil
+	}
+
+	var externalUpdateProxyFunc func(proxy.Settings) error
+	if runtime.GOOS == "linux" && !config.IsCaasConfig {
+		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
 	agentConfig := config.Agent.CurrentConfig()
@@ -769,6 +777,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewStore:             leasemanager.NewStore,
 		})),
 
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings.
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:           agentName,
+			APICallerName:       apiCallerName,
+			Logger:              loggo.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:          proxyupdater.NewWorker,
+			SupportLegacyValues: !config.IsCaasConfig,
+			ExternalUpdate:      externalUpdateProxyFunc,
+			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
+			RunFunc:             proxyupdater.RunWithStdIn,
+		})),
+
 		// TODO (thumper): It doesn't really make sense in a machine manifold as
 		// not every machine will have credentials. It is here for the
 		// ifCredentialValid function that is used solely for the machine
@@ -788,10 +809,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	var externalUpdateProxyFunc func(proxy.Settings) error
-	if runtime.GOOS == "linux" {
-		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
-	}
 	manifolds := dependency.Manifolds{
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
@@ -801,18 +818,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
-
-		// The proxy config updater is a leaf worker that sets http/https/apt/etc
-		// proxy settings.
-		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:      proxyupdater.NewWorker,
-			ExternalUpdate:  externalUpdateProxyFunc,
-			InProcessUpdate: proxyconfig.DefaultConfig.Set,
-			RunFunc:         proxyupdater.RunWithStdIn,
 		})),
 
 		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{

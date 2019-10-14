@@ -165,6 +165,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"model-worker-manager",
 			"peer-grouper",
 			"presence",
+			"proxy-config-updater",
 			"pubsub-forwarder",
 			"raft",
 			"raft-backstop",

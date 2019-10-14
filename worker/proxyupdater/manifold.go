@@ -25,13 +25,14 @@ type Logger interface {
 
 // ManifoldConfig defines the names of the manifolds on which a Manifold will depend.
 type ManifoldConfig struct {
-	AgentName       string
-	APICallerName   string
-	Logger          Logger
-	WorkerFunc      func(Config) (worker.Worker, error)
-	ExternalUpdate  func(proxy.Settings) error
-	InProcessUpdate func(proxy.Settings) error
-	RunFunc         func(string, string, ...string) (string, error)
+	AgentName           string
+	APICallerName       string
+	Logger              Logger
+	WorkerFunc          func(Config) (worker.Worker, error)
+	SupportLegacyValues bool
+	ExternalUpdate      func(proxy.Settings) error
+	InProcessUpdate     func(proxy.Settings) error
+	RunFunc             func(string, string, ...string) (string, error)
 }
 
 // Manifold returns a dependency manifold that runs a proxy updater worker,
@@ -64,14 +65,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, err
 			}
 			w, err := config.WorkerFunc(Config{
-				SystemdFiles:    []string{"/etc/juju-proxy-systemd.conf"},
-				EnvFiles:        []string{"/etc/juju-proxy.conf"},
-				RegistryPath:    `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`,
-				API:             proxyAPI,
-				ExternalUpdate:  config.ExternalUpdate,
-				InProcessUpdate: config.InProcessUpdate,
-				Logger:          config.Logger,
-				RunFunc:         config.RunFunc,
+				SystemdFiles:        []string{"/etc/juju-proxy-systemd.conf"},
+				EnvFiles:            []string{"/etc/juju-proxy.conf"},
+				RegistryPath:        `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`,
+				API:                 proxyAPI,
+				SupportLegacyValues: config.SupportLegacyValues,
+				ExternalUpdate:      config.ExternalUpdate,
+				InProcessUpdate:     config.InProcessUpdate,
+				Logger:              config.Logger,
+				RunFunc:             config.RunFunc,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)
