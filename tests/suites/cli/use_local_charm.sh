@@ -1,5 +1,5 @@
 # Checks whether the cwd is used for the juju local deploy.
-test_deploy_local_charm_revision() {
+run_deploy_local_charm_revision() {
   echo
 
   file="${TEST_DIR}/local-charm-deploy-no-git.txt"
@@ -7,7 +7,7 @@ test_deploy_local_charm_revision() {
   ensure "local-charm-deploy" "${file}"
 
   TMP_NO_GIT=$(mktemp -d -t ci-XXXXXXXXXX)
-  cd "${TMP_CHARM_GIT}" || exit 1
+  cd "${TMP_NO_GIT}" || exit 1
 
   git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
   cd "${TMP_NO_GIT}/ntp" || exit 1
@@ -20,10 +20,11 @@ test_deploy_local_charm_revision() {
 }
 
 # CWD with git, deploy charm with git, but -> check that git describe is correct
-test_deploy_local_charm_revision_invalid_git() {
+run_deploy_local_charm_revision_invalid_git() {
   echo
 
   file="${TEST_DIR}/local-charm-deploy-wrong-git.txt"
+
   ensure "local-charm-deploy-wrong-git" "${file}"
 
   TMP_CHARM_GIT=$(mktemp -d -t ci-XXXXXXXXXX)
@@ -34,7 +35,6 @@ test_deploy_local_charm_revision_invalid_git() {
 
   cd "${TMP_CHARM_GIT}/ntp" || exit 1
   WANTED_CHARM_SHA=\"$(git describe --dirty --always)\"
-
 
   cd "${TMP_NO_CHARM_GIT}" || exit 1
 
@@ -71,7 +71,7 @@ test_local_charms() {
 
         cd .. || exit
 
-        run "test_deploy_local_charm_revision"
-        run "test_deploy_local_charm_revision_invalid_git"
+        run "run_deploy_local_charm_revision"
+        run "run_deploy_local_charm_revision_invalid_git"
     )
 }

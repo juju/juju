@@ -1,16 +1,17 @@
 test_cli() {
-  if [ "$(skip 'test_cli')" ]; then
-    echo "==> TEST SKIPPED: local charms tests"
-    return
-  fi
+    if [ "$(skip 'test_cli')" ]; then
+        echo "==> TEST SKIPPED: CLI tests"
+        return
+    fi
 
-  echo "==> Checking for dependencies"
-  check_dependencies juju
+    echo "==> Checking for dependencies"
+    check_dependencies juju
 
-  file="${TEST_DIR}/test_local_charms.txt"
-  bootstrap "test_local_charms" "${file}"
+    file="${TEST_DIR}/test-local-charms.txt"
 
-  test_local_charms
+    bootstrap "test-local-charms" "${file}"
 
-  destroy_controller "test_local_charms"
+    test_local_charms
+
+    destroy_controller "test-local-charms"
 }

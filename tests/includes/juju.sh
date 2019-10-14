@@ -69,8 +69,14 @@ bootstrap() {
     fi
     bootstrapped_name=$(grep "." "${TEST_DIR}/jujus" | tail -n 1)
     if [ -z "${bootstrapped_name}" ]; then
-        # No bootstrapped juju found, unset the the variable.
-        unset BOOTSTRAP_REUSE
+        if [ -n "${BOOTSTRAP_REUSE_LOCAL}" ]; then
+            bootstrapped_name="${BOOTSTRAP_REUSE_LOCAL}"
+            export BOOTSTRAP_REUSE="true"
+        else
+            # No bootstrapped juju found, unset the the variable.
+            echo "====> Unable to reuse bootstrapped juju"
+            unset BOOTSTRAP_REUSE
+        fi
     fi
 
     version=$(juju_version)
@@ -79,14 +85,14 @@ bootstrap() {
     if [ -n "${BOOTSTRAP_REUSE}" ]; then
         echo "====> Reusing bootstrapped juju ($(green "${version}"))"
 
-        OUT=$(juju models --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
+        OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
         if [ -n "${OUT}" ]; then
             echo "${model} already exists. Use the following to clean up the environment:"
             echo "    juju destroy-model --force -y ${model}"
             exit 1
         fi
 
-        add_model "${model}" "${provider}"
+        add_model "${model}" "${provider}" "${bootstrapped_name}"
         name="${bootstrapped_name}"
     else
         echo "====> Bootstrapping juju ($(green "${version}"))"
@@ -102,16 +108,17 @@ bootstrap() {
 # add_model is used to add a model for tracking. This is for internal use only
 # and shouldn't be used by any of the tests directly.
 add_model() {
-    local model provider
+    local model provider controller
 
     model=${1}
     provider=${2}
+    controller=${3}
 
     OUT=$(juju controllers --format=json | jq '.controllers | .["${bootstrapped_name}"] | .cloud' | grep "${provider}" || true)
     if [ -n "${OUT}" ]; then
-        juju add-model "${model}" "${provider}"
+        juju add-model -c "${controller}" "${model}" "${provider}"
     else
-        juju add-model "${model}"
+        juju add-model -c "${controller}" "${model}"
     fi
     echo "${model}" >> "${TEST_DIR}/models"
 }
@@ -133,10 +140,15 @@ juju_bootstrap() {
     output=${1}
     shift
 
+    debug="false"
+    if [ "${VERBOSE}" -gt 1 ]; then
+        debug="true"
+    fi
+
     if [ -n "${output}" ]; then
-        juju bootstrap "${provider}" "${name}" -d "${model}" "$@" 2>&1 | add_date >"${output}"
+        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" 2>&1 | add_date >"${output}"
     else
-        juju bootstrap "${provider}" "${name}" -d "${model}" "$@"
+        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
     fi
     echo "${name}" >> "${TEST_DIR}/jujus"
 }
