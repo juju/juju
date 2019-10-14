@@ -3870,47 +3870,6 @@ func hashSettings(db Database, id string, name string) (string, error) {
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
-// WatchAddressesHash returns a StringsWatcher that emits the hash of
-// the machine's (sorted) addresses whenever they change.
-func (m *Machine) WatchAddressesHash() StringsWatcher {
-	mCopy := &Machine{
-		st:  m.st,
-		doc: m.doc,
-	}
-	w := &hashWatcher{
-		commonWatcher: newCommonWatcher(m.st),
-		out:           make(chan []string),
-		collection:    machinesC,
-		id:            m.doc.DocID,
-		hash: func() (string, error) {
-			return hashMachineAddresses(mCopy)
-		},
-	}
-	w.start()
-	return w
-}
-
-func hashMachineAddresses(m *Machine) (string, error) {
-	if err := m.Refresh(); err != nil {
-		return "", errors.Trace(err)
-	}
-	addresses := m.Addresses()
-	sort.Slice(addresses, func(i, j int) bool {
-		// Addresses guarantees that each value will only be
-		// returned once - addresses from provider take
-		// precedence over those from the machine.
-		return addresses[i].Value < addresses[j].Value
-	})
-	hash := sha256.New()
-	for _, address := range addresses {
-		hash.Write([]byte(address.Value))
-		hash.Write([]byte(address.Type))
-		hash.Write([]byte(address.Scope))
-		hash.Write([]byte(address.SpaceID))
-	}
-	return fmt.Sprintf("%x", hash.Sum(nil)), nil
-}
-
 // WatchServiceAddressesHash returns a StringsWatcher that emits a
 // hash of the unit's container address whenever it changes.
 func (a *Application) WatchServiceAddressesHash() StringsWatcher {

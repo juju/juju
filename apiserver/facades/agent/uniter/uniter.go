@@ -3024,15 +3024,7 @@ func (u *UniterAPI) WatchUnitAddressesHash(args params.Entities) (params.Strings
 			}
 			return app.WatchServiceAddressesHash(), nil
 		}
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			return nil, err
-		}
-		machine, err := u.st.Machine(machineId)
-		if err != nil {
-			return nil, err
-		}
-		return machine.WatchAddressesHash(), nil
+		return unit.WatchMachineAndEndpointAddressesHash()
 	}
 	result, err := u.watchHashes(args, getWatcher)
 	if err != nil {
