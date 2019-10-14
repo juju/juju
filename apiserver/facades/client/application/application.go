@@ -2415,6 +2415,43 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 	return params.ApplicationInfoResults{out}, nil
 }
 
+// MergeBindings merges operator-defined bindings with the current bindings for
+// one or more applications.
+func (api *APIBase) MergeBindings(in params.ApplicationMergeBindingsArgs) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(in.Args))
+	for i, arg := range in.Args {
+		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := api.backend.Application(tag.Name)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		bindings, err := state.NewBindings(api.backend, arg.Bindings)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err := app.MergeBindings(bindings, arg.Force); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+	return params.ErrorResults{Results: res}, nil
+}
+
 // lxdCharmProfiler massages a *state.Charm into a LXDProfiler
 // inside of the core package.
 type lxdCharmProfiler struct {

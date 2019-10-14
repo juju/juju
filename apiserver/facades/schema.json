@@ -1732,6 +1732,17 @@
                         }
                     }
                 },
+                "MergeBindings": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationMergeBindingsArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "ResolveUnitErrors": {
                     "type": "object",
                     "properties": {
@@ -2341,6 +2352,46 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ApplicationMergeBindings": {
+                    "type": "object",
+                    "properties": {
+                        "application-tag": {
+                            "type": "string"
+                        },
+                        "bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "force": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-tag",
+                        "bindings",
+                        "force"
+                    ]
+                },
+                "ApplicationMergeBindingsArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationMergeBindings"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "ApplicationMetricCredential": {

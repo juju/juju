@@ -93,6 +93,7 @@ type Application interface {
 	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
+	MergeBindings(*state.Bindings, bool) error
 }
 
 // Bindings defines a subset of the functionality provided by the
