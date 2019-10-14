@@ -1384,7 +1384,7 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		endpointBindingsOps, err := b.updateOps(txnRevno, cfg.EndpointBindings, cfg.Charm.Meta())
+		endpointBindingsOps, err := b.updateOps(txnRevno, cfg.EndpointBindings, cfg.Charm.Meta(), cfg.Force)
 		if err == nil {
 			ops = append(ops, endpointBindingsOps...)
 		} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
@@ -1405,6 +1405,41 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
 	return nil
+}
+
+// MergeBindings merges the provided bindings map with the existing application
+// bindings.
+func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		ch, _, err := a.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		b, err := a.bindingsForOps(currentMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointBindingsOps, err := b.updateOps(txnRevno, operatorBindings.Map(), ch.Meta(), force)
+		if err != nil && !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+			return nil, errors.Trace(err)
+		}
+
+		return endpointBindingsOps, err
+	}
+
+	err := a.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "merging application bindings")
 }
 
 // UpdateApplicationSeries updates the series for the Application.

@@ -189,7 +189,7 @@ func (b *Bindings) createOp(bindings map[string]string, meta *charm.Meta) (txn.O
 // - ids of spaces assigned to endpoints.
 // - application unit count.
 // - endpoint bindings that we are currently trying to update.
-func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *charm.Meta) ([]txn.Op, error) {
+func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *charm.Meta, force bool) ([]txn.Op, error) {
 	var ops []txn.Op
 
 	if b.app == nil {
@@ -197,6 +197,7 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	}
 
 	useTxnRevno := len(b.bindingsMap) > 0
+	defaultSpaceID := b.bindingsMap[defaultEndpointName]
 
 	// Merge existing with new as needed.
 	isModified, err := b.Merge(newMap, newMeta)
@@ -215,8 +216,10 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 
 	// Make sure that all machines which run units of this application
 	// contain addresses in the spaces we are trying to bind to.
-	if err := b.validateForMachines(); err != nil {
-		return ops, errors.Trace(err)
+	if !force {
+		if err := b.validateForMachines(defaultSpaceID); err != nil {
+			return ops, errors.Trace(err)
+		}
 	}
 
 	// Ensure that the spaceIDs needed for the bindings exist.
@@ -264,7 +267,7 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 // validateForMachines checks whether the required space
 // assignments are actually feasible given the network configuration settings
 // of the machines where application units are already running.
-func (b *Bindings) validateForMachines() error {
+func (b *Bindings) validateForMachines(oldDefaultSpaceID string) error {
 	if b.app == nil {
 		return errors.Trace(errors.New("programming error: app is a nil pointer"))
 	}
@@ -286,10 +289,14 @@ func (b *Bindings) validateForMachines() error {
 		}
 	}
 
-	if newDefaultSpace, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpace != network.DefaultSpaceId {
-		if machineCountInSpace[newDefaultSpace] != len(deployedMachines) {
+	if newDefaultSpaceID, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpaceID != oldDefaultSpaceID && newDefaultSpaceID != network.DefaultSpaceId {
+		if machineCountInSpace[newDefaultSpaceID] != len(deployedMachines) {
+			spName := newDefaultSpaceID
+			if bindingsToSpaceNames, _ := b.MapWithSpaceNames(); bindingsToSpaceNames != nil {
+				spName = bindingsToSpaceNames[defaultEndpointName]
+			}
 			msg := "changing default space to %q is not feasible: one or more deployed machines lack an address in this space"
-			return b.spaceNotFeasibleError(msg, newDefaultSpace)
+			return b.spaceNotFeasibleError(msg, spName)
 		}
 	}
 
@@ -314,8 +321,12 @@ func (b *Bindings) validateForMachines() error {
 		// Ensure that all currently deployed machines have an address
 		// in the requested space for this binding
 		if machineCountInSpace[spID] != len(deployedMachines) {
+			spName := spID
+			if bindingsToSpaceNames, _ := b.MapWithSpaceNames(); bindingsToSpaceNames != nil {
+				spName = bindingsToSpaceNames[spID]
+			}
 			msg := fmt.Sprintf("binding endpoint %q to ", epName)
-			return b.spaceNotFeasibleError(msg+"space %q is not feasible: one or more deployed machines lack an address in this space", spID)
+			return b.spaceNotFeasibleError(msg+"space %q is not feasible: one or more deployed machines lack an address in this space", spName)
 		}
 	}
 
