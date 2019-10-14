@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path"
 	"strings"
-	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -23,35 +22,24 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"gopkg.in/retry.v1"
-)
-
-const (
-	// maxExtendWait is the longest we'll wait for a disk to be
-	// extended.
-	maxExtendWait = 10 * time.Minute
-
-	// extendInitialDelay is the shortest time we'll wait for a disk
-	// extend to succeed.
-	extendInitialDelay = 10 * time.Millisecond
-
-	// extendMaxDelay is the longest we'll wait before checking
-	// again whether the disk extend has succeeded.
-	extendMaxDelay = 30 * time.Second
-
-	// extendBackoffFactor is the multiple the delay will grow by each
-	// attempt.
-	extendBackoffFactor = 1.5
 )
 
 // ErrExtendDisk is returned if we timed out trying to extend the root
 // disk of a VM.
-var ErrExtendDisk = errors.Errorf("extending disk failed")
+type extendDiskError struct {
+	err error
+}
+
+// Error is part of the error interface.
+func (e *extendDiskError) Error() string {
+	return "extending disk failed: " + e.err.Error()
+}
 
 // IsExtendDiskError returns whether the cause of this error was a
 // failure to extend a VM disk.
 func IsExtendDiskError(err error) bool {
-	return errors.Cause(err) == ErrExtendDisk
+	_, ok := errors.Cause(err).(*extendDiskError)
+	return ok
 }
 
 // Client encapsulates a vSphere client, exposing the subset of
@@ -636,48 +624,16 @@ func (c *Client) extendDisk(
 		NewCapacityKb: capacityKB,
 	}
 
-	_, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
+	res, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// NOTE: not waiting for the returned task because it never
-	// completes - this is because the API actually returns a
-	// permission error when we try to get the status of the task,
-	// even though the task is created and runs happily as far as the
-	// web client is concerned. (You can see this error by adding
-	// logging to govmomi/vim25/methods.WaitForUpdatesEx.) It seems
-	// like this is a bug in the API. Instead we wait for the VM's
-	// disk's capacity to be what we asked for, or return an error.
-	strategy := retry.LimitTime(maxExtendWait, retry.Exponential{
-		Initial:  extendInitialDelay,
-		Factor:   extendBackoffFactor,
-		MaxDelay: extendMaxDelay,
-		Jitter:   true,
-	})
-
-	var lastLog time.Time
-	maybeLog := func(currentKB int64) {
-		now := c.clock.Now()
-		if now.Sub(lastLog) > extendMaxDelay {
-			c.logger.Debugf("waiting for disk size >= %d kB - currently %d kB",
-				capacityKB, currentKB)
-			lastLog = now
-		}
+	task := object.NewTask(c.client.Client, res.Returnval)
+	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
+	if err != nil {
+		return errors.Trace(&extendDiskError{err})
 	}
-
-	a := retry.StartWithCancel(strategy, c.clock, ctx.Done())
-	for a.Next() {
-		disk, _, err := c.getDiskWithFileBacking(ctx, vm)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		if disk.CapacityInKB >= capacityKB {
-			c.logger.Debugf("disk extended to %d kB", disk.CapacityInKB)
-			return nil
-		}
-		maybeLog(disk.CapacityInKB)
-	}
-	return errors.Trace(ErrExtendDisk)
+	return nil
 }
 
 func isManagedObjectNotFound(err error) bool {
