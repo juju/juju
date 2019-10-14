@@ -143,6 +143,9 @@ func (*RestrictedContext) HookRelation() (ContextRelation, error) {
 // RemoteUnitName implements hooks.Context.
 func (*RestrictedContext) RemoteUnitName() (string, error) { return "", ErrRestrictedContext }
 
+// RemoteApplicationName implements hooks.Context.
+func (*RestrictedContext) RemoteApplicationName() (string, error) { return "", ErrRestrictedContext }
+
 // ActionParams implements hooks.Context.
 func (*RestrictedContext) ActionParams() (map[string]interface{}, error) {
 	return nil, ErrRestrictedContext

@@ -24,8 +24,8 @@ type RelationGetSuite struct {
 
 var _ = gc.Suite(&RelationGetSuite{})
 
-func (s *RelationGetSuite) newHookContext(relid int, remote string) (jujuc.Context, *relationInfo) {
-	hctx, info := s.relationSuite.newHookContext(relid, remote)
+func (s *RelationGetSuite) newHookContext(relid int, remote string, app string) (jujuc.Context, *relationInfo) {
+	hctx, info := s.relationSuite.newHookContext(relid, remote, app)
 	info.rels[0].Units["u/0"]["private-address"] = "foo: bar\n"
 	info.rels[1].SetRelated("m/0", jujuctesting.Settings{"pew": "pew\npew\n"})
 	info.rels[1].SetRelated("u/1", jujuctesting.Settings{"value": "12345"})
@@ -33,13 +33,14 @@ func (s *RelationGetSuite) newHookContext(relid int, remote string) (jujuc.Conte
 }
 
 var relationGetTests = []struct {
-	summary  string
-	relid    int
-	unit     string
-	args     []string
-	code     int
-	out      string
-	checkctx func(*gc.C, *cmd.Context)
+	summary     string
+	relid       int
+	unit        string
+	args        []string
+	code        int
+	out         string
+	key         string
+	application bool
 }{
 	{
 		summary: "no default relation",
@@ -56,13 +57,13 @@ var relationGetTests = []struct {
 		summary: "default relation, no unit chosen",
 		relid:   1,
 		code:    2,
-		out:     `no unit id specified`,
+		out:     `no unit or application specified`,
 	}, {
 		summary: "explicit relation, no unit chosen",
 		relid:   -1,
 		code:    2,
 		args:    []string{"-r", "burble:1"},
-		out:     `no unit id specified`,
+		out:     `no unit or application specified`,
 	}, {
 		summary: "missing key",
 		relid:   1,
@@ -143,7 +144,7 @@ var relationGetTests = []struct {
 func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx, _ := s.newHookContext(t.relid, t.unit)
+		hctx, _ := s.newHookContext(t.relid, t.unit, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
@@ -199,7 +200,7 @@ func (s *RelationGetSuite) TestRelationGetFormat(c *gc.C) {
 	testFormat := func(format string, checker gc.Checker) {
 		for i, t := range relationGetFormatTests {
 			c.Logf("test %d: %s %s", i, format, t.summary)
-			hctx, _ := s.newHookContext(t.relid, t.unit)
+			hctx, _ := s.newHookContext(t.relid, t.unit, "")
 			com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 			c.Assert(err, jc.ErrorIsNil)
 			ctx := cmdtesting.Context(c)
@@ -222,16 +223,25 @@ Summary:
 get relation settings
 
 Options:
+--app  (= false)
+    Get the relation data for the overall application, not just a unit
 --format  (= smart)
     Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
 -r, --relation  (= %s)
-    specify a relation by id
+    Specify a relation by id
 
 Details:
 relation-get prints the value of a unit's relation setting, specified by key.
 If no key is given, or if the key is "-", all keys and values will be printed.
+
+A unit can see its own settings by calling "relation-get - MYUNIT", this will include
+any changes that have been made with "relation-set".
+
+When reading remote relation data, a charm can call relation-get --app - to get
+the data for the application data bag that is set by the remote applications
+leader.
 %s`[1:]
 
 var relationGetHelpTests = []struct {
@@ -262,7 +272,7 @@ var relationGetHelpTests = []struct {
 func (s *RelationGetSuite) TestHelp(c *gc.C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
-		hctx, _ := s.newHookContext(t.relid, t.unit)
+		hctx, _ := s.newHookContext(t.relid, t.unit, "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
@@ -279,7 +289,7 @@ func (s *RelationGetSuite) TestHelp(c *gc.C) {
 }
 
 func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
-	hctx, _ := s.newHookContext(1, "m/0")
+	hctx, _ := s.newHookContext(1, "m/0", "")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
@@ -290,4 +300,180 @@ func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, "pew\npew\n\n")
+}
+
+type relationGetInitTest struct {
+	summary     string
+	ctxrelid    int
+	ctxunit     string
+	ctxapp      string
+	args        []string
+	content     string
+	err         string
+	relid       int
+	key         string
+	unit        string
+	application bool
+}
+
+func (t relationGetInitTest) log(c *gc.C, i int) {
+	var summary string
+	if t.summary != "" {
+		summary = " - " + t.summary
+	}
+	c.Logf("test %d%s", i, summary)
+}
+
+func (t relationGetInitTest) init(c *gc.C, s *RelationGetSuite) (cmd.Command, []string) {
+	args := make([]string, len(t.args))
+	copy(args, t.args)
+
+	hctx, _ := s.newHookContext(t.ctxrelid, t.ctxunit, t.ctxapp)
+	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
+	c.Assert(err, jc.ErrorIsNil)
+
+	return com, args
+}
+
+func (t relationGetInitTest) check(c *gc.C, com cmd.Command, err error) {
+	if t.err == "" {
+		if !c.Check(err, jc.ErrorIsNil) {
+			return
+		}
+
+		rset := com.(*jujuc.RelationGetCommand)
+		c.Check(rset.RelationId, gc.Equals, t.relid)
+		c.Check(rset.Key, gc.Equals, t.key)
+		c.Check(rset.UnitOrAppName, gc.Equals, t.unit)
+		c.Check(rset.Application, gc.Equals, t.application)
+	} else {
+		c.Check(err, gc.ErrorMatches, t.err)
+	}
+}
+
+var relationGetInitTests = []relationGetInitTest{
+	{
+		summary:  "no relation id",
+		ctxrelid: -1,
+		err:      `no relation id specified`,
+	}, {
+		summary:  "invalid relation id",
+		ctxrelid: -1,
+		args:     []string{"-r", "one"},
+		err:      `invalid value "one" for option -r: invalid relation id`,
+	}, {
+		summary:  "invalid relation id with builtin context relation id",
+		ctxrelid: 1,
+		args:     []string{"-r", "one"},
+		err:      `invalid value "one" for option -r: invalid relation id`,
+	}, {
+		summary:  "relation not found",
+		ctxrelid: -1,
+		args:     []string{"-r", "2"},
+		err:      `invalid value "2" for option -r: relation not found`,
+	}, {
+		summary:  "-r overrides context relation id",
+		ctxrelid: 1,
+		ctxunit:  "u/0",
+		unit:     "u/0",
+		args:     []string{"-r", "ignored:0"},
+		relid:    0,
+	}, {
+		summary:  "key=value for relation-get (maybe should be invalid?)",
+		ctxrelid: 1,
+		relid:    1,
+		ctxunit:  "u/0",
+		unit:     "u/0",
+		args:     []string{"key=value"},
+		key:      "key=value",
+	}, {
+		summary:  "key supplied",
+		ctxrelid: 1,
+		relid:    1,
+		ctxunit:  "u/0",
+		unit:     "u/0",
+		args:     []string{"key"},
+		key:      "key",
+	}, {
+		summary: "magic key supplied",
+		ctxunit: "u/0",
+		unit:    "u/0",
+		args:    []string{"-"},
+		key:     "",
+	}, {
+		summary: "override ctxunit with explicit unit",
+		ctxunit: "u/0",
+		args:    []string{"key", "u/1"},
+		key:     "key",
+		unit:    "u/1",
+	}, {
+		summary: "magic key with unit",
+		ctxunit: "u/0",
+		args:    []string{"-", "u/1"},
+		key:     "",
+		unit:    "u/1",
+	}, {
+		summary:     "supply --app will use context app",
+		ctxunit:     "u/0",
+		ctxapp:      "u",
+		args:        []string{"--app"},
+		application: true,
+		unit:        "u",
+	}, {
+		summary:     "supply --app and app name",
+		ctxunit:     "u/0",
+		args:        []string{"--app", "-", "mysql"},
+		application: true,
+		unit:        "mysql",
+	}, {
+		summary:     "--app plus unit/0 name passes in app name",
+		ctxunit:     "u/0",
+		ctxapp:      "u",
+		args:        []string{"--app", "-", "mysql/0"},
+		application: true,
+		unit:        "mysql",
+	}, {
+		summary:     "--app without context app and no args is an error",
+		ctxapp:      "",
+		args:        []string{"--app"},
+		application: false,
+		err:         `no unit or application specified`,
+	}, {
+		summary:     "default with no context unit but a context app is --app",
+		ctxunit:     "",
+		ctxapp:      "u",
+		unit:        "u",
+		application: true,
+	}, {
+		summary:     "app name but overridden by args",
+		ctxunit:     "",
+		ctxapp:      "u",
+		unit:        "mysql/0",
+		args:        []string{"-", "mysql/0"},
+		application: false,
+	}, {
+		summary: "app name but overridden by unit args",
+		ctxunit: "",
+		ctxapp:  "u",
+		unit:    "mysql",
+		args:    []string{"-", "mysql"},
+		// This doesn't get auto set if we didn't pull it from the context
+		application: false,
+	}, {
+		summary: "extra arguments",
+		ctxunit: "u/0",
+		ctxapp:  "u",
+		args:    []string{"-", "mysql", "args"},
+		err:     `unrecognized args: \["args"\]`,
+	},
+}
+
+func (s *RelationGetSuite) TestInit(c *gc.C) {
+	for i, t := range relationGetInitTests {
+		t.log(c, i)
+		com, args := t.init(c, s)
+
+		err := cmdtesting.InitCommand(com, args)
+		t.check(c, com, err)
+	}
 }

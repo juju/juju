@@ -6,6 +6,8 @@ package context
 import (
 	"sort"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -24,6 +26,8 @@ type RelationCache struct {
 	// members' keys define the relation's membership; non-nil values hold
 	// cached settings.
 	members SettingsMap
+	// applications is the cached settings for an application.
+	applications SettingsMap
 	// others is a short-term cache for non-member settings.
 	others SettingsMap
 }
@@ -48,6 +52,9 @@ func (cache *RelationCache) Prune(memberNames []string) {
 	}
 	cache.members = newMembers
 	cache.others = SettingsMap{}
+	// TODO(jam): 2019-07-25 We should probably prune the application map to just the
+	//  applications that match the member names.
+	cache.applications = SettingsMap{}
 }
 
 // MemberNames returns the names of the remote units present in the relation.
@@ -62,6 +69,9 @@ func (cache *RelationCache) MemberNames() (memberNames []string) {
 // Settings returns the settings of the named remote unit. It's valid to get
 // the settings of any unit that has ever been in the relation.
 func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
+	// TODO(jam): 2019-10-10 We should probably validate that 'unitName' is a valid
+	//  application name and not a unit name. ReadSettings used to validate that
+	//  it was a valid unit name, but now it can be a unitName or appName
 	settings, isMember := cache.members[unitName]
 	if settings == nil {
 		if !isMember {
@@ -71,7 +81,7 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 			var err error
 			settings, err = cache.readSettings(unitName)
 			if err != nil {
-				return nil, err
+				return nil, errors.Trace(err)
 			}
 		}
 	}
@@ -83,11 +93,35 @@ func (cache *RelationCache) Settings(unitName string) (params.Settings, error) {
 	return settings, nil
 }
 
+// ApplicationSettings returns the relation settings of the named application.
+func (cache *RelationCache) ApplicationSettings(appName string) (params.Settings, error) {
+	// TODO(jam): 2019-10-10 We should probably validate that 'appName' is a valid
+	//  application name and not a unit name. ReadSettings used to validate that
+	//  it was a valid unit name, but now it can be a unitName or appName
+	settings, found := cache.applications[appName]
+	if !found {
+		var err error
+		settings, err = cache.readSettings(appName)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		cache.applications[appName] = settings
+	}
+	return settings, nil
+}
+
 // InvalidateMember ensures that the named remote unit will be considered a
 // member of the relation, and that the next attempt to read its settings will
 // use fresh data.
 func (cache *RelationCache) InvalidateMember(memberName string) {
 	cache.members[memberName] = nil
+}
+
+// InvalidateMember ensures that the named remote unit will be considered a
+// member of the relation, and that the next attempt to read its settings will
+// use fresh data.
+func (cache *RelationCache) InvalidateApplication(appName string) {
+	delete(cache.applications, appName)
 }
 
 // RemoveMember ensures that the named remote unit will not be considered a

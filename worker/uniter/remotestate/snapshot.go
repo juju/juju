@@ -86,10 +86,17 @@ type Snapshot struct {
 	UpgradeSeriesStatus model.UpgradeSeriesStatus
 }
 
+// RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.
 type RelationSnapshot struct {
-	Life      params.Life
+	// Life indicates whether this relation is active, stopping or dead
+	Life params.Life
+
+	// Suspended is used by cross-model relations to indicate the offer has
+	// disabled the relation, but has not removed it entirely.
 	Suspended bool
-	Members   map[string]int64
+
+	// Members tracks the Change version of each member's data bag
+	Members map[string]int64
 }
 
 // StorageSnapshot has information relating to a storage

@@ -6,6 +6,8 @@ package context
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
@@ -25,6 +27,9 @@ type ContextRelation struct {
 
 	// settings allows read and write access to the relation unit settings.
 	settings *uniter.Settings
+
+	// applicationSettings allows read and write access to the relation application settings.
+	applicationSettings *uniter.Settings
 
 	// cache holds remote unit membership and settings.
 	cache *RelationCache
@@ -61,23 +66,43 @@ func (ctx *ContextRelation) ReadSettings(unit string) (settings params.Settings,
 	return ctx.cache.Settings(unit)
 }
 
+func (ctx *ContextRelation) ReadApplicationSettings(app string) (settings params.Settings, err error) {
+	return ctx.cache.ApplicationSettings(app)
+}
+
 func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	if ctx.settings == nil {
 		node, err := ctx.ru.Settings()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		ctx.settings = node
 	}
 	return ctx.settings, nil
 }
 
-// WriteSettings persists all changes made to the unit's relation settings.
-func (ctx *ContextRelation) WriteSettings() (err error) {
-	if ctx.settings != nil {
-		err = ctx.settings.Write()
+func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
+	if ctx.applicationSettings == nil {
+		settings, err := ctx.ru.ApplicationSettings()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ctx.applicationSettings = settings
 	}
-	return
+	return ctx.applicationSettings, nil
+}
+
+// WriteSettings persists all changes made to the relation settings (unit and application)
+func (ctx *ContextRelation) WriteSettings() error {
+	var appSettings params.Settings
+	if ctx.applicationSettings != nil {
+		appSettings = ctx.applicationSettings.FinalResult()
+	}
+	var unitSettings params.Settings
+	if ctx.settings != nil {
+		unitSettings = ctx.settings.FinalResult()
+	}
+	return errors.Trace(ctx.ru.UpdateRelationSettings(unitSettings, appSettings))
 }
 
 // Suspended returns true if the relation is suspended.
@@ -87,5 +112,5 @@ func (ctx *ContextRelation) Suspended() bool {
 
 // SetStatus sets the relation's status.
 func (ctx *ContextRelation) SetStatus(status relation.Status) error {
-	return ctx.ru.Relation().SetStatus(status)
+	return errors.Trace(ctx.ru.Relation().SetStatus(status))
 }

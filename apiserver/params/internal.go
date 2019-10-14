@@ -318,7 +318,7 @@ type RelationUnitSettings struct {
 }
 
 // RelationUnitsSettings holds the arguments for making a EnterScope
-// or WriteSettings API calls.
+// or UpdateRelationSettings API calls.
 type RelationUnitsSettings struct {
 	RelationUnits []RelationUnitSettings `json:"relation-units"`
 }

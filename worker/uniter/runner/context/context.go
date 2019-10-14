@@ -180,6 +180,10 @@ type HookContext struct {
 	// or if it is running a relation-broken hook.
 	remoteUnitName string
 
+	// remoteApplicationName identifies the application name in response to
+	// relation-set --app.
+	remoteApplicationName string
+
 	// relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
 	relations map[int]*ContextRelation
@@ -629,6 +633,13 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 	return ctx.remoteUnitName, nil
 }
 
+func (ctx *HookContext) RemoteApplicationName() (string, error) {
+	if ctx.remoteApplicationName == "" {
+		return "", errors.NotFoundf("remote application")
+	}
+	return ctx.remoteApplicationName, nil
+}
+
 func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
 	r, found := ctx.relations[id]
 	if !found {
@@ -712,6 +723,8 @@ func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error)
 			"JUJU_RELATION="+r.Name(),
 			"JUJU_RELATION_ID="+r.FakeId(),
 			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
+			// TODO(jam): 2019-10-03 implement JUJU_REMOTE_APP
+			// "JUJU_REMOTE_APP="+context.remoteApplicationName,
 		)
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)

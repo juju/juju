@@ -40,6 +40,11 @@ func (info *ContextInfo) SetAsRelationHook(id int, remote string) {
 	info.RemoteUnitName = remote
 }
 
+// SetRemoteApplicationName defines the remote application
+func (info *ContextInfo) SetRemoteApplicationName(remote string) {
+	info.RemoteApplicationName = remote
+}
+
 // SetAsActionHook updates the context to work as an action hook context.
 func (info *ContextInfo) SetAsActionHook() {
 	panic("not supported yet")

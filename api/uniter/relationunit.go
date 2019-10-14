@@ -4,8 +4,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -69,9 +67,9 @@ func (ru *RelationUnit) EnterScope() error {
 	}
 	err := ru.st.facade.FacadeCall("EnterScope", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return result.OneError()
+	return errors.Trace(result.OneError())
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -89,9 +87,9 @@ func (ru *RelationUnit) LeaveScope() error {
 	}
 	err := ru.st.facade.FacadeCall("LeaveScope", args, &result)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
-	return result.OneError()
+	return errors.Trace(result.OneError())
 }
 
 // Settings returns a Settings which allows access to the unit's settings
@@ -106,16 +104,44 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	}
 	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
+}
+
+// ApplicationSettings returns a Settings which allows access to this unit's
+// application settings within the relation. This can only be used from the
+// leader unit. Calling it from a non-Leader generates a NotLeader error.
+func (ru *RelationUnit) ApplicationSettings() (*Settings, error) {
+	var results params.SettingsResults
+	appTag := ru.unit.ApplicationTag()
+	args := params.RelationUnits{
+		RelationUnits: []params.RelationUnit{{
+			Relation: ru.relation.tag.String(),
+			Unit:     appTag.String(),
+		}},
+	}
+	err := ru.st.facade.FacadeCall("ReadSettings", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	results.Results = append(results.Results, params.SettingsResult{})
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, errors.Trace(result.Error)
+	}
+	return newSettings(ru.st, ru.relation.tag.String(), appTag.String(), result.Settings), nil
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -125,11 +151,15 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // unit is not grounds for an error, because the unit settings are
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
-func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
-	if !names.IsValidUnit(uname) {
-		return nil, errors.Errorf("%q is not a valid unit", uname)
+func (ru *RelationUnit) ReadSettings(name string) (params.Settings, error) {
+	var tag names.Tag
+	if names.IsValidUnit(name) {
+		tag = names.NewUnitTag(name)
+	} else if names.IsValidApplication(name) {
+		tag = names.NewApplicationTag(name)
+	} else {
+		return nil, errors.Errorf("%q is not a valid unit or application", name)
 	}
-	tag := names.NewUnitTag(uname)
 	var results params.SettingsResults
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{
@@ -140,20 +170,48 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.Settings, error) {
 	}
 	err := ru.st.facade.FacadeCall("ReadRemoteSettings", args, &results)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, errors.Trace(result.Error)
 	}
 	return result.Settings, nil
+}
+
+// UpdateRelationSettings is used to record any changes to settings for this unit and application.
+// It is only valid to update application settings if this unit is the leader, otherwise
+// it is a NotLeader error. Note that either unit or application is allowed to be nil.
+func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings) error {
+	var result params.ErrorResults
+	args := params.RelationUnitsSettings{
+		RelationUnits: []params.RelationUnitSettings{{
+			Relation:            ru.relation.tag.String(),
+			Unit:                ru.unit.tag.String(),
+			Settings:            unit,
+			ApplicationSettings: application,
+		}},
+	}
+	err := ru.st.facade.FacadeCall("UpdateSettings", args, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = result.OneError()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // Watch returns a watcher that notifies of changes to counterpart
 // units in the relation.
 func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
-	return ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
+	watcher, err := ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return watcher, nil
 }

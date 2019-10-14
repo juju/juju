@@ -212,6 +212,8 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsRelation() {
 		ctx.relationId = hookInfo.RelationId
 		ctx.remoteUnitName = hookInfo.RemoteUnit
+		// TODO(jam): 2019-10-03 implement remoteApplicationName
+		// ctx.remoteApplicationName = hookInfo.RemoteApplication
 		relation, found := ctx.relations[hookInfo.RelationId]
 		if !found {
 			return nil, errors.Errorf("unknown relation id: %v", hookInfo.RelationId)
@@ -220,6 +222,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			relation.cache.RemoveMember(hookInfo.RemoteUnit)
 		} else if hookInfo.RemoteUnit != "" {
 			// Clear remote settings cache for changing remote unit.
+			// TODO(jam): 2019-10-03 RemoteApplication
 			relation.cache.InvalidateMember(hookInfo.RemoteUnit)
 		}
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)

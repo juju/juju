@@ -5,11 +5,10 @@
 package jujuc
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	relation "github.com/juju/juju/core/relation"
+	reflect "reflect"
 )
 
 // MockContextRelation is a mock of ContextRelation interface
@@ -33,6 +32,19 @@ func NewMockContextRelation(ctrl *gomock.Controller) *MockContextRelation {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockContextRelation) EXPECT() *MockContextRelationMockRecorder {
 	return m.recorder
+}
+
+// ApplicationSettings mocks base method
+func (m *MockContextRelation) ApplicationSettings() (Settings, error) {
+	ret := m.ctrl.Call(m, "ApplicationSettings")
+	ret0, _ := ret[0].(Settings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationSettings indicates an expected call of ApplicationSettings
+func (mr *MockContextRelationMockRecorder) ApplicationSettings() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationSettings", reflect.TypeOf((*MockContextRelation)(nil).ApplicationSettings))
 }
 
 // FakeId mocks base method
@@ -69,6 +81,19 @@ func (m *MockContextRelation) Name() string {
 // Name indicates an expected call of Name
 func (mr *MockContextRelationMockRecorder) Name() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Name", reflect.TypeOf((*MockContextRelation)(nil).Name))
+}
+
+// ReadApplicationSettings mocks base method
+func (m *MockContextRelation) ReadApplicationSettings(arg0 string) (params.Settings, error) {
+	ret := m.ctrl.Call(m, "ReadApplicationSettings", arg0)
+	ret0, _ := ret[0].(params.Settings)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadApplicationSettings indicates an expected call of ReadApplicationSettings
+func (mr *MockContextRelationMockRecorder) ReadApplicationSettings(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadApplicationSettings", reflect.TypeOf((*MockContextRelation)(nil).ReadApplicationSettings), arg0)
 }
 
 // ReadSettings mocks base method

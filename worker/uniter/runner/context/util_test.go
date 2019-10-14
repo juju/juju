@@ -200,10 +200,25 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int, remot
 	env, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	context, err := context.NewHookContext(s.apiUnit, facade, "TestCtx", uuid,
-		env.Name(), relid, remote, relctxs, apiAddrs,
-		noProxies, noProxies, false, nil, nil, s.machine.Tag().(names.MachineTag),
-		runnertesting.NewRealPaths(c), s.clock)
+	context, err := context.NewHookContext(context.HookContextParams{
+		Unit:                s.apiUnit,
+		State:               facade,
+		ID:                  "TestCtx",
+		UUID:                uuid,
+		ModelName:           env.Name(),
+		RelationID:          relid,
+		RemoteUnitName:      remote,
+		Relations:           relctxs,
+		APIAddrs:            apiAddrs,
+		LegacyProxySettings: noProxies,
+		JujuProxySettings:   noProxies,
+		CanAddMetrics:       false,
+		CharmMetrics:        nil,
+		ActionData:          nil,
+		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
+		Paths:               runnertesting.NewRealPaths(c),
+		Clock:               s.clock,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }
@@ -223,10 +238,25 @@ func (s *HookContextSuite) getMeteredHookContext(c *gc.C, uuid string, relid int
 		relctxs[relId] = context.NewContextRelation(relUnit, cache)
 	}
 
-	context, err := context.NewHookContext(s.meteredAPIUnit, facade, "TestCtx", uuid,
-		"test-model-name", relid, remote, relctxs, apiAddrs,
-		noProxies, noProxies, canAddMetrics, metrics, nil, s.machine.Tag().(names.MachineTag),
-		paths, s.clock)
+	context, err := context.NewHookContext(context.HookContextParams{
+		Unit:                s.meteredAPIUnit,
+		State:               facade,
+		ID:                  "TestCtx",
+		UUID:                uuid,
+		ModelName:           "test-model-name",
+		RelationID:          relid,
+		RemoteUnitName:      remote,
+		Relations:           relctxs,
+		APIAddrs:            apiAddrs,
+		LegacyProxySettings: noProxies,
+		JujuProxySettings:   noProxies,
+		CanAddMetrics:       canAddMetrics,
+		CharmMetrics:        metrics,
+		ActionData:          nil,
+		AssignedMachineTag:  s.machine.Tag().(names.MachineTag),
+		Paths:               paths,
+		Clock:               s.clock,
+	})
 	c.Assert(err, jc.ErrorIsNil)
 	return context
 }

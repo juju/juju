@@ -33,7 +33,7 @@ var helpTests = []struct {
 func (s *RelationSetSuite) TestHelp(c *gc.C) {
 	for i, t := range helpTests {
 		c.Logf("test %d", i)
-		hctx, _ := s.newHookContext(t.relid, "")
+		hctx, _ := s.newHookContext(t.relid, "", "")
 		com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 		c.Assert(err, jc.ErrorIsNil)
 		ctx := cmdtesting.Context(c)
@@ -46,6 +46,8 @@ Summary:
 set relation settings
 
 Options:
+--app  (= false)
+    pick whether you are setting "application" settings or "unit" settings
 --file  (= )
     file containing key-value pairs
 --format (= "")
@@ -60,6 +62,11 @@ setting values are not inspected and are stored as strings. Setting
 an empty string causes the setting to be removed. Duplicate settings
 are not allowed.
 
+If the unit is the leader, it can set the application settings using
+"--app". These are visible to related applications via 'relation-get --app'
+or by supplying the application name to 'relation-get' in place of
+a unit name.
+
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
 operating system. The file will contain a YAML map containing the
@@ -71,13 +78,14 @@ key-value arguments. A value of "-" for the filename means <stdin>.
 }
 
 type relationSetInitTest struct {
-	summary  string
-	ctxrelid int
-	args     []string
-	content  string
-	err      string
-	relid    int
-	settings map[string]string
+	summary     string
+	ctxrelid    int
+	args        []string
+	content     string
+	err         string
+	relid       int
+	settings    map[string]string
+	application bool
 }
 
 func (t relationSetInitTest) log(c *gc.C, i int) {
@@ -102,7 +110,7 @@ func (t relationSetInitTest) init(c *gc.C, s *RelationSetSuite) (cmd.Command, []
 	args := make([]string, len(t.args))
 	copy(args, t.args)
 
-	hctx, _ := s.newHookContext(t.ctxrelid, "")
+	hctx, _ := s.newHookContext(t.ctxrelid, "", "")
 	com, err := jujuc.NewCommand(hctx, cmdString("relation-set"))
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -130,6 +138,7 @@ func (t relationSetInitTest) check(c *gc.C, com cmd.Command, err error) {
 
 		rset := com.(*jujuc.RelationSetCommand)
 		c.Check(rset.RelationId, gc.Equals, t.relid)
+		c.Check(rset.Application, gc.Equals, t.application)
 
 		settings := t.settings
 		if settings == nil {
@@ -314,6 +323,11 @@ var relationSetInitTests = []relationSetInitTest{
 		args:     []string{"--file", "-"},
 		content:  "{foo: bar}",
 		settings: map[string]string{"foo": "bar"},
+	}, {
+		summary:     "pass --app",
+		args:        []string{"--app", "baz=qux"},
+		settings:    map[string]string{"baz": "qux"},
+		application: true,
 	},
 }
 
@@ -348,7 +362,7 @@ var relationSetRunTests = []struct {
 }
 
 func (s *RelationSetSuite) TestRun(c *gc.C) {
-	hctx, info := s.newHookContext(0, "")
+	hctx, info := s.newHookContext(0, "", "")
 	for i, t := range relationSetRunTests {
 		c.Logf("test %d", i)
 
@@ -374,7 +388,7 @@ func (s *RelationSetSuite) TestRun(c *gc.C) {
 }
 
 func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
-	hctx, _ := s.newHookContext(0, "")
+	hctx, _ := s.newHookContext(0, "", "")
 	com, _ := jujuc.NewCommand(hctx, cmdString("relation-set"))
 	com = jujuc.NewJujucCommandWrappedForTest(com)
 	// The rel= is needed to make this a valid command.

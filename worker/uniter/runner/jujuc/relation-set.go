@@ -24,6 +24,11 @@ setting values are not inspected and are stored as strings. Setting
 an empty string causes the setting to be removed. Duplicate settings
 are not allowed.
 
+If the unit is the leader, it can set the application settings using
+"--app". These are visible to related applications via 'relation-get --app'
+or by supplying the application name to 'relation-get' in place of
+a unit name.
+
 The --file option should be used when one or more key-value pairs are
 too long to fit within the command length limit of the shell or
 operating system. The file will contain a YAML map containing the
@@ -40,6 +45,7 @@ type RelationSetCommand struct {
 	Settings        map[string]string
 	settingsFile    cmd.FileVar
 	formatFlag      string // deprecated
+	Application     bool
 }
 
 func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
@@ -50,6 +56,7 @@ func NewRelationSetCommand(ctx Context) (cmd.Command, error) {
 		return nil, errors.Trace(err)
 	}
 	c.relationIdProxy = rV
+	c.Application = false
 
 	return c, nil
 }
@@ -69,6 +76,8 @@ func (c *RelationSetCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	c.settingsFile.SetStdin()
 	f.Var(&c.settingsFile, "file", "file containing key-value pairs")
+
+	f.BoolVar(&c.Application, "app", false, `pick whether you are setting "application" settings or "unit" settings`)
 
 	f.StringVar(&c.formatFlag, "format", "", "deprecated format flag")
 }
@@ -137,7 +146,12 @@ func (c *RelationSetCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	settings, err := r.Settings()
+	var settings Settings
+	if c.Application {
+		settings, err = r.ApplicationSettings()
+	} else {
+		settings, err = r.Settings()
+	}
 	if err != nil {
 		return errors.Annotate(err, "cannot read relation settings")
 	}

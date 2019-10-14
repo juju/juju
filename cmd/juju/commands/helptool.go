@@ -58,6 +58,9 @@ func (dummyHookContext) HookRelation() (jujuc.ContextRelation, error) {
 func (dummyHookContext) RemoteUnitName() (string, error) {
 	return "", errors.NotFoundf("RemoteUnitName")
 }
+func (dummyHookContext) RemoteApplicationName() (string, error) {
+	return "", errors.NotFoundf("RemoteApplicationName")
+}
 func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, error) {
 	return nil, errors.NotFoundf("Relation")
 }

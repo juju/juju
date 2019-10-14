@@ -683,7 +683,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			// If it's actually gone, this unit cannot have entered
 			// scope, and therefore never needs to know about it.
 			if ruw, ok := w.relations[relationTag]; ok {
-				worker.Stop(ruw)
+				_ = worker.Stop(ruw)
 				delete(w.relations, relationTag)
 				delete(w.current.Relations, ruw.relationId)
 			}
@@ -700,7 +700,7 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 					// The relation itself is retained in the current relations
 					// in the suspended state so that departed/broken hooks can run.
 					if ruw, ok := w.relations[relationTag]; ok {
-						worker.Stop(ruw)
+						_ = worker.Stop(ruw)
 						delete(w.relations, relationTag)
 					}
 				}

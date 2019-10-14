@@ -4,6 +4,8 @@
 package uniter_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
@@ -191,6 +194,44 @@ func (s *relationUnitSuite) TestSettings(c *gc.C) {
 	})
 }
 
+func (s *relationUnitSuite) claimLeadership(c *gc.C, appName, unitName string) lease.Token {
+	claimer, err := s.LeaseManager.Claimer(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(claimer.Claim(appName, unitName, time.Minute), jc.ErrorIsNil)
+	checker, err := s.LeaseManager.Checker(lease.ApplicationLeadershipNamespace, s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	return checker.Token(appName, unitName)
+}
+
+func (s *relationUnitSuite) claimLeadershipFor(c *gc.C, unit *state.Unit) lease.Token {
+	return s.claimLeadership(c, unit.ApplicationName(), unit.Name())
+}
+
+func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	}
+	err := wpRelUnit.EnterScope(settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	token := s.claimLeadershipFor(c, s.wordpressUnit)
+
+	err = s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, token, map[string]interface{}{
+		"foo": "bar",
+		"baz": "1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	gotSettings, err := apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"foo": "bar",
+		"baz": "1",
+	})
+
+}
+
 func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
@@ -225,6 +266,29 @@ func (s *relationUnitSuite) TestReadSettings(c *gc.C) {
 	})
 }
 
+func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
+	// First try to read the settings which are not set.
+	myRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	err = myRelUnit.EnterScope(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Set an application setting for mysql, notice that wordpress can read it
+
+	// Add Wordpress Application Settings, and see that MySQL can read those App settings.
+	token := s.claimLeadershipFor(c, s.mysqlUnit)
+	settings := map[string]interface{}{
+		"app": "settings",
+	}
+	err = s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, token, settings)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, myRelUnit, true)
+	_, apiRelUnit := s.getRelationUnits(c)
+	gotSettings, err := apiRelUnit.ReadSettings("mysql")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings, gc.DeepEquals, params.Settings{
+		"app": "settings",
+	})
+}
 func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	// First try to read the settings which are not set.
 	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
@@ -233,11 +297,11 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 
-	// Try reading - should be ok.
 	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
 	s.assertInScope(c, wpRelUnit, false)
-	_, err = apiRelUnit.ReadSettings("mysql")
-	c.Assert(err, gc.ErrorMatches, "\"mysql\" is not a valid unit")
+	// Not a valid unit or application name
+	_, err = apiRelUnit.ReadSettings("0mysql")
+	c.Assert(err, gc.ErrorMatches, "\"0mysql\" is not a valid unit or application")
 }
 
 func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
@@ -276,4 +340,139 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnit(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err := wpRelUnit.EnterScope(map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(params.Settings{
+		"some": "thing else",
+	}, nil), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "thing else",
+		"other": "things",
+	})
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitWithDelete(c *gc.C) {
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	err := wpRelUnit.EnterScope(map[string]interface{}{
+		"some":  "settings",
+		"other": "things",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some":  "settings",
+		"other": "things",
+	})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(params.Settings{
+		"some": "",
+	}, nil), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"other": "things",
+	})
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForApplication(c *gc.C) {
+	// Claim the leadership, but we don't need the token right now, we just need
+	// to be the leader to call UpdateRelationSettings
+	_ = s.claimLeadershipFor(c, s.wordpressUnit)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+
+	c.Assert(apiRelUnit.UpdateRelationSettings(nil, params.Settings{"some": "value"}), jc.ErrorIsNil)
+	gotSettings, err = apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{
+		"some": "value",
+	})
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForApplicationNotLeader(c *gc.C) {
+	// s.wordpressUnit is wordpress/0, claim leadership by another unit
+	_ = s.claimLeadership(c, "wordpress", "wordpress/2")
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(nil), jc.ErrorIsNil)
+	_, err := apiRelUnit.ApplicationSettings()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+
+	err = apiRelUnit.UpdateRelationSettings(nil, params.Settings{"some": "value"})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplication(c *gc.C) {
+	_ = s.claimLeadershipFor(c, s.wordpressUnit)
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(map[string]interface{}{
+		"foo": "bar",
+	}), jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	c.Assert(apiRelUnit.UpdateRelationSettings(params.Settings{
+		"foo": "quux",
+	}, params.Settings{
+		"app": "bar",
+	}), jc.ErrorIsNil)
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"foo": "quux"})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"app": "bar"})
+}
+
+func (s *relationUnitSuite) TestUpdateRelationSettingsForUnitAndApplicationNotLeader(c *gc.C) {
+	_ = s.claimLeadership(c, "wordpress", "wordpress/2")
+
+	wpRelUnit, apiRelUnit := s.getRelationUnits(c)
+	c.Assert(wpRelUnit.EnterScope(map[string]interface{}{
+		"foo": "bar",
+	}), jc.ErrorIsNil)
+	s.assertInScope(c, wpRelUnit, true)
+	err := apiRelUnit.UpdateRelationSettings(params.Settings{
+		"foo": "quux",
+	}, params.Settings{
+		"app": "bar",
+	})
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	// Since we refused the change to the application settings, the change for the unit is also
+	// rejected.
+
+	gotSettings, err := apiRelUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(gotSettings.Map(), gc.DeepEquals, params.Settings{"foo": "bar"})
+	gotSettings, err = apiRelUnit.ApplicationSettings()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

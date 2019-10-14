@@ -31,11 +31,13 @@ if [ $(is-leader) != "False" ]; then exit -1; fi
 `[1:]
 
 	// Different hook file contents. These are used in util_test
+	// TODO(jam): 2019-10-09 add $JUJU_REMOTE_APP
 	goodHook = `
 #!/bin/bash --norc
 juju-log $JUJU_MODEL_UUID %s $JUJU_REMOTE_UNIT
 `[1:]
 
+	// TODO(jam): 2019-10-09 add $JUJU_REMOTE_APP
 	badHook = `
 #!/bin/bash --norc
 juju-log $JUJU_MODEL_UUID fail-%s $JUJU_REMOTE_UNIT
@@ -142,6 +144,8 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			relationRunCommands{
 				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
 				fmt.Sprintf("echo $JUJU_REMOTE_UNIT >> %s", testFile("jujuc-env.output")),
+				// TODO(jam): 2019-10-09 support JUJU_REMOTE_APP
+				// fmt.Sprintf("echo $JUJU_REMOTE_APP >> %s", testFile("jujuc-env.output")),
 			},
 			verifyFile{
 				testFile("jujuc-env.output"),

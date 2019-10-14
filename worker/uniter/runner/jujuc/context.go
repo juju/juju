@@ -63,6 +63,11 @@ type relationHookContext interface {
 	// is associated with if it was found, and an error if it was not found or is not
 	// available.
 	RemoteUnitName() (string, error)
+
+	// RemoteApplicationName returns the name of the remote application the hook execution
+	// is associated with if it was found, and an error if it was not found or is not
+	// available.
+	RemoteApplicationName() (string, error)
 }
 
 // ActionHookContext is the context for an action hook.
@@ -265,11 +270,18 @@ type ContextRelation interface {
 	// this relation.
 	Settings() (Settings, error)
 
+	// ApplicationSettings allows read/write access to the application settings in
+	// this relation, but only if the current unit is leader.
+	ApplicationSettings() (Settings, error)
+
 	// UnitNames returns a list of the remote units in the relation.
 	UnitNames() []string
 
 	// ReadSettings returns the settings of any remote unit in the relation.
 	ReadSettings(unit string) (params.Settings, error)
+
+	// ReadApplicationSettings returns the application settings of any remote unit in the relation.
+	ReadApplicationSettings(app string) (params.Settings, error)
 
 	// Suspended returns true if the relation is suspended.
 	Suspended() bool

@@ -82,10 +82,10 @@ func (s *RelationCacheSuite) TestSettingsPropagatesError(c *gc.C) {
 	}}
 	cache := context.NewRelationCache(s.ReadSettings, nil)
 
-	settings, err := cache.Settings("whatever")
+	settings, err := cache.Settings("whatever/0")
 	c.Assert(settings, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "blam")
-	c.Assert(s.calls, jc.DeepEquals, []string{"whatever"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"whatever/0"})
 }
 
 func (s *RelationCacheSuite) TestSettingsCachesMemberSettings(c *gc.C) {
@@ -212,4 +212,41 @@ func (s *RelationCacheSuite) TestPruneUncachesOtherSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settings, jc.DeepEquals, params.Settings{"baz": "qux"})
 	c.Assert(s.calls, jc.DeepEquals, []string{"x/2", "x/2"})
+}
+
+func (s *RelationCacheSuite) TestApplicationSettings(c *gc.C) {
+	s.results = []settingsResult{{
+		params.Settings{"foo": "bar"}, nil,
+	}}
+	cache := context.NewRelationCache(s.ReadSettings, nil)
+	settings, err := cache.ApplicationSettings("x")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x"})
+}
+
+func (s *RelationCacheSuite) TestInvalidateApplicationSettings(c *gc.C) {
+	s.results = []settingsResult{{
+		params.Settings{"foo": "bar"}, nil,
+	}, {
+		params.Settings{"foo": "baz"}, nil,
+	}}
+	cache := context.NewRelationCache(s.ReadSettings, nil)
+	settings, err := cache.ApplicationSettings("x")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x"})
+
+	// Calling it a second time returns the value from the cache
+	settings, err = cache.ApplicationSettings("x")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "bar"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x"})
+
+	// Now when we Invalidate the application, it will read it again
+	cache.InvalidateApplication("x")
+	settings, err = cache.ApplicationSettings("x")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(settings, jc.DeepEquals, params.Settings{"foo": "baz"})
+	c.Assert(s.calls, jc.DeepEquals, []string{"x", "x"})
 }
