@@ -36,10 +36,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v12) of the Uniter API,
-// Removes the embedded LXDProfileAPI, which in turn removes the following;
-// RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
-// and WatchLXDProfileUpgradeNotifications
+// UniterAPI implements the latest version (v13) of the Uniter API,
+// which adds UpdateNetworkInfo.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -76,11 +74,20 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
-// UniterAPIV11 implements the latest version (v11) of the Uniter API,
-// which adds CloudAPIVersion.
-type UniterAPIV11 struct {
+// UniterAPIV12 implements version (v12) of the Uniter API,
+// Removes the embedded LXDProfileAPI, which in turn removes the following;
+// RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
+// and WatchLXDProfileUpgradeNotifications
+type UniterAPIV12 struct {
 	*LXDProfileAPI
 	UniterAPI
+}
+
+// UniterAPIV11 implements version (v11) of the Uniter API, which adds
+// CloudAPIVersion.
+type UniterAPIV11 struct {
+	*LXDProfileAPI
+	UniterAPIV12
 }
 
 // UniterAPIV10 adds WatchUnitLXDProfileUpgradeNotifications and
@@ -215,9 +222,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
+// NewUniterAPIV12 creates an instance of the V12 uniter API.
+func NewUniterAPIV12(context facade.Context) (*UniterAPIV12, error) {
+	uniterAPI, err := NewUniterAPI(context)
+	if err != nil {
+		return nil, err
+	}
+	authorizer := context.Auth()
+	st := context.State()
+	resources := context.Resources()
+	accessUnit := unitAccessor(authorizer, st)
+	return &UniterAPIV12{
+		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
+		UniterAPI:     *uniterAPI,
+	}, nil
+}
+
 // NewUniterAPIV11 creates an instance of the V11 uniter API.
 func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
-	uniterAPI, err := NewUniterAPI(context)
+	uniterAPI, err := NewUniterAPIV12(context)
 	if err != nil {
 		return nil, err
 	}
@@ -227,7 +250,7 @@ func NewUniterAPIV11(context facade.Context) (*UniterAPIV11, error) {
 	accessUnit := unitAccessor(authorizer, st)
 	return &UniterAPIV11{
 		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
-		UniterAPI:     *uniterAPI,
+		UniterAPIV12:  *uniterAPI,
 	}, nil
 }
 
@@ -3024,15 +3047,7 @@ func (u *UniterAPI) WatchUnitAddressesHash(args params.Entities) (params.Strings
 			}
 			return app.WatchServiceAddressesHash(), nil
 		}
-		machineId, err := unit.AssignedMachineId()
-		if err != nil {
-			return nil, err
-		}
-		machine, err := u.st.Machine(machineId)
-		if err != nil {
-			return nil, err
-		}
-		return machine.WatchAddressesHash(), nil
+		return unit.WatchMachineAndEndpointAddressesHash()
 	}
 	result, err := u.watchHashes(args, getWatcher)
 	if err != nil {
@@ -3116,4 +3131,87 @@ func (u *UniterAPI) CloudAPIVersion() (params.StringResult, error) {
 	}
 	result.Result = apiVersion
 	return result, err
+}
+
+// UpdateNetworkInfo refreshes the network settings for a unit's bound
+// endpoints.
+func (u *UniterAPI) UpdateNetworkInfo(args params.Entities) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err = u.updateUnitNetworkInfo(unitTag); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+
+	return params.ErrorResults{Results: res}, nil
+}
+
+func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	joinedRelations, err := unit.RelationsJoined()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	settingsGroup := make(state.SettingsGroup, len(joinedRelations))
+	for idx, rel := range joinedRelations {
+		relUnit, err := rel.Unit(unit)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		relSettings, err := relUnit.Settings()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		netInfo, err := NewNetworkInfo(u.st, unitTag)
+		if err != nil {
+			return err
+		}
+
+		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		if len(ingressAddresses) == 0 {
+			relSettings.Delete("private-address")
+			relSettings.Delete("ingress-address")
+		} else {
+			ingressAddress := ingressAddresses[0].Value
+			relSettings.Set("private-address", ingressAddress)
+			relSettings.Set("ingress-address", ingressAddress)
+		}
+
+		if len(egressSubnets) == 0 {
+			relSettings.Delete("egress-subnets")
+		} else {
+			relSettings.Set("egress-subnets", strings.Join(egressSubnets, ","))
+		}
+
+		settingsGroup[idx] = relSettings
+	}
+
+	return settingsGroup.Write()
 }

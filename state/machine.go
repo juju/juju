@@ -1612,6 +1612,30 @@ func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 	return
 }
 
+// AddressesBySpaceName groups the machine addresses by space name and
+// returns the result as a map where the space name is used a the key.
+func (m *Machine) AddressesBySpaceName() (map[string][]corenetwork.SpaceAddress, error) {
+	addresses, err := m.AllAddresses()
+	if err != nil {
+		return nil, err
+	}
+
+	res := make(map[string][]corenetwork.SpaceAddress)
+	for _, address := range addresses {
+		// TODO(achilleasa): currently, addresses do not come with
+		// resolved space IDs (except MAAS). For the time being, we
+		// need to pull out the space ID information from the
+		// associated subnet.
+		subnet, err := address.Subnet()
+		if err != nil {
+			return nil, err
+		}
+		spaceName := subnet.SpaceName()
+		res[spaceName] = append(res[spaceName], address.NetworkAddress())
+	}
+	return res, nil
+}
+
 // MachineAddresses returns any hostnames and ips associated with a machine,
 // determined by asking the machine itself.
 func (m *Machine) MachineAddresses() (addresses corenetwork.SpaceAddresses) {

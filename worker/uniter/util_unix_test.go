@@ -134,7 +134,7 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			},
 			verifyFile{
 				testFile("jujuc.output"),
-				"private.address.example.com\npublic.address.example.com\n",
+				fmt.Sprintf("%s\n%s\n", dummyPrivateAddress.Value, dummyPublicAddress.Value),
 			},
 		), ut(
 			"run commands: jujuc model",
