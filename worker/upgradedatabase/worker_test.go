@@ -1,0 +1,97 @@
+// Copyright 2019 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package upgradedatabase_test
+
+import (
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v2"
+	"gopkg.in/juju/worker.v1/workertest"
+
+	"github.com/juju/juju/worker/upgradedatabase"
+	. "github.com/juju/juju/worker/upgradedatabase/mocks"
+)
+
+type workerSuite struct {
+	testing.IsolationSuite
+
+	logger *MockLogger
+	pool   *MockPool
+}
+
+var _ = gc.Suite(&workerSuite{})
+
+func (s *workerSuite) TestValidateConfig(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	cfg := s.getConfig()
+	c.Check(cfg.Validate(), jc.ErrorIsNil)
+
+	cfg.Tag = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
+	cfg.Logger = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
+	cfg.OpenState = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+}
+
+func (s *workerSuite) TestNotPrimary(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
+
+	w, err := upgradedatabase.NewWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) getConfig() upgradedatabase.Config {
+	return upgradedatabase.Config{
+		Tag:       names.NewMachineTag("0"),
+		Logger:    s.logger,
+		OpenState: func() (upgradedatabase.Pool, error) { return s.pool, nil },
+	}
+}
+
+func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.logger = NewMockLogger(ctrl)
+	s.ignoreLogging(c)
+
+	s.pool = NewMockPool(ctrl)
+	s.pool.EXPECT().Close().Return(nil).AnyTimes()
+
+	return ctrl
+}
+
+// ignoreLogging turns the suite's mock logger into a sink, with no validation.
+// Logs are still emitted via the test logger.
+func (s *workerSuite) ignoreLogging(c *gc.C) {
+	debugIt := func(message string, args ...interface{}) { logIt(c, loggo.DEBUG, message, args) }
+
+	e := s.logger.EXPECT()
+	e.Debugf(gomock.Any(), gomock.Any()).AnyTimes().Do(debugIt)
+}
+
+func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
+	var nArgs []interface{}
+	var ok bool
+	if nArgs, ok = args.([]interface{}); ok {
+		nArgs = append([]interface{}{level}, nArgs...)
+	} else {
+		nArgs = append([]interface{}{level}, args)
+	}
+
+	c.Logf("%s "+message, nArgs...)
+}
