@@ -10,6 +10,7 @@ import (
 	"sort"
 
 	jujuos "github.com/juju/os"
+	"github.com/juju/os/series"
 	"github.com/juju/proxy"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/keyvalues"
@@ -171,22 +172,120 @@ func (s *EnvSuite) TestEnvWindows(c *gc.C) {
 func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.Ubuntu })
 	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
+
+	// As TERM is series-specific we need to make sure all supported versions are covered.
+	for _, testSeries := range series.OSSupportedSeries(jujuos.Ubuntu) {
+		s.PatchValue(&series.MustHostSeries, func() string { return testSeries })
+		os.Setenv("PATH", "foo:bar")
+		ubuntuVars := []string{
+			"APT_LISTCHANGES_FRONTEND=none",
+			"DEBIAN_FRONTEND=noninteractive",
+			"LANG=C.UTF-8",
+			"PATH=path-to-tools:foo:bar",
+		}
+
+		if testSeries == "trusty" {
+			ubuntuVars = append(ubuntuVars, "TERM=screen-256color")
+		} else {
+			ubuntuVars = append(ubuntuVars, "TERM=tmux-256color")
+		}
+
+		ctx, contextVars := s.getContext(false)
+		paths, pathsVars := s.getPaths()
+		actualVars, err := ctx.HookVars(paths, false)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
+
+		relationVars := s.setRelation(ctx)
+		actualVars, err = ctx.HookVars(paths, false)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
+	}
+}
+
+func (s *EnvSuite) TestEnvCentos(c *gc.C) {
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.CentOS })
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
+
+	// As TERM is series-specific we need to make sure all supported versions are covered.
+	for _, testSeries := range series.OSSupportedSeries(jujuos.CentOS) {
+		s.PatchValue(&series.MustHostSeries, func() string { return testSeries })
+		os.Setenv("PATH", "foo:bar")
+		centosVars := []string{
+			"LANG=C.UTF-8",
+			"PATH=path-to-tools:foo:bar",
+		}
+
+		if testSeries == "centos7" {
+			centosVars = append(centosVars, "TERM=screen-256color")
+		} else {
+			centosVars = append(centosVars, "TERM=tmux-256color")
+		}
+
+		ctx, contextVars := s.getContext(false)
+		paths, pathsVars := s.getPaths()
+		actualVars, err := ctx.HookVars(paths, false)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars)
+
+		relationVars := s.setRelation(ctx)
+		actualVars, err = ctx.HookVars(paths, false)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertVars(c, actualVars, contextVars, pathsVars, centosVars, relationVars)
+	}
+}
+
+func (s *EnvSuite) TestEnvOpenSUSE(c *gc.C) {
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.OpenSUSE })
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
+
+	// As TERM is series-specific we need to make sure all supported versions are covered.
+	for _, testSeries := range series.OSSupportedSeries(jujuos.OpenSUSE) {
+		s.PatchValue(&series.MustHostSeries, func() string { return testSeries })
+		os.Setenv("PATH", "foo:bar")
+		openSUSEVars := []string{
+			"LANG=C.UTF-8",
+			"PATH=path-to-tools:foo:bar",
+		}
+
+		if testSeries == "opensuseleap" {
+			openSUSEVars = append(openSUSEVars, "TERM=screen-256color")
+		} else {
+			openSUSEVars = append(openSUSEVars, "TERM=tmux-256color")
+		}
+
+		ctx, contextVars := s.getContext(false)
+		paths, pathsVars := s.getPaths()
+		actualVars, err := ctx.HookVars(paths, false)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars)
+
+		relationVars := s.setRelation(ctx)
+		actualVars, err = ctx.HookVars(paths, false)
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertVars(c, actualVars, contextVars, pathsVars, openSUSEVars, relationVars)
+	}
+}
+
+func (s *EnvSuite) TestEnvGenericLinux(c *gc.C) {
+	s.PatchValue(&jujuos.HostOS, func() jujuos.OSType { return jujuos.GenericLinux })
+	s.PatchValue(&jujuversion.Current, version.MustParse("1.2.3"))
+
 	os.Setenv("PATH", "foo:bar")
-	ubuntuVars := []string{
-		"APT_LISTCHANGES_FRONTEND=none",
-		"DEBIAN_FRONTEND=noninteractive",
+	genericLinuxVars := []string{
 		"LANG=C.UTF-8",
 		"PATH=path-to-tools:foo:bar",
+		"TERM=screen",
 	}
 
 	ctx, contextVars := s.getContext(false)
 	paths, pathsVars := s.getPaths()
 	actualVars, err := ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars)
 
 	relationVars := s.setRelation(ctx)
 	actualVars, err = ctx.HookVars(paths, false)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)
+	s.assertVars(c, actualVars, contextVars, pathsVars, genericLinuxVars, relationVars)
 }
