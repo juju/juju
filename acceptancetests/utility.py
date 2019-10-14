@@ -184,7 +184,7 @@ def _get_test_name_from_filename():
     try:
         calling_file = sys._getframe(2).f_back.f_globals['__file__']
         return os.path.splitext(os.path.basename(calling_file))[0]
-    except:
+    except:  # noqa: E722
         return 'unknown_test'
 
 
@@ -323,7 +323,7 @@ add_basic_testing_arguments.__test__ = False
 
 
 def configure_logging(log_level, logger=None):
-    format  = '%(asctime)s %(levelname)s %(message)s'
+    format = '%(asctime)s %(levelname)s %(message)s'
     datefmt = '%Y-%m-%d %H:%M:%S'
     logging.basicConfig(
         level=log_level, format=format,
@@ -482,8 +482,10 @@ def list_models(client):
         raise e
     return json.loads(raw)
 
+
 def is_subordinate(app_data):
-    return (not 'unit' in app_data) and ('subordinate-to' in app_data)
+    return ('unit' not in app_data) and ('subordinate-to' in app_data)
+
 
 def application_machines_from_app_info(app_data):
     """Get all the machines used to host the given application from the
@@ -494,6 +496,7 @@ def application_machines_from_app_info(app_data):
     machines = [unit_data['machine'] for unit_data in
                 app_data['units'].values()]
     return machines
+
 
 def subordinate_machines_from_app_info(app_data, apps):
     """Get the subordinate machines from a given application from the
@@ -507,6 +510,7 @@ def subordinate_machines_from_app_info(app_data, apps):
             if sub_name == app_name:
                 machines.extend(application_machines_from_app_info(prim_app_data))
     return machines
+
 
 def align_machine_profiles(machine_profiles):
     """Align machine profiles will create a dict from a list of machine

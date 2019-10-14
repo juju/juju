@@ -592,11 +592,13 @@ class CreateController:
 
     def get_hosts(self):
         """Provide the controller host."""
-        host = get_machine_dns_name(
+        hosts = {}
+        host_0 = get_machine_dns_name(
             self.client.get_controller_client(), '0')
-        if host is None:
-            raise ValueError('Could not get machine 0 host')
-        return {'0': host}
+        if host_0 is not None:
+            # Only IaaS controller has machine now.
+            hosts['0'] = host_0
+        return hosts
 
     def tear_down(self, has_controller):
         """Tear down via client.tear_down."""
