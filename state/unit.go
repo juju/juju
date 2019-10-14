@@ -743,13 +743,12 @@ func (u *Unit) destroyHostOps(a *Application, op *ForcedOperation) (ops []txn.Op
 		}
 		return nil, err
 	}
-	hasVote := false
 	node, err := u.st.ControllerNode(u.doc.MachineId)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 	haveControllerNode := err == nil
-	hasVote = haveControllerNode && node.HasVote()
+	hasVote := haveControllerNode && node.HasVote()
 
 	containerCheck := true // whether container conditions allow destroying the host machine
 	containers, err := m.Containers()
@@ -3147,28 +3146,6 @@ func (g *HistoryGetter) StatusHistory(filter status.StatusHistoryFilter) ([]stat
 		filter:    filter,
 	}
 	return statusHistory(args)
-}
-
-// GetSpaceForBinding returns the space name associated with the specified endpoint.
-func (u *Unit) GetSpaceForBinding(bindingName string) (string, error) {
-	app, err := u.Application()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	bindings, err := app.EndpointBindings()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	boundSpace, known := bindings[bindingName]
-	if !known {
-		// If default binding is not explicitly defined we'll use default space
-		if bindingName == corenetwork.DefaultSpaceName {
-			return corenetwork.DefaultSpaceName, nil
-		}
-		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", bindingName))
-	}
-	return boundSpace, nil
 }
 
 // UpgradeSeriesStatus returns the upgrade status of the units assigned machine.

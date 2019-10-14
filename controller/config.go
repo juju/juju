@@ -423,6 +423,16 @@ func (c Config) intOrDefault(name string, defaultVal int) int {
 	return defaultVal
 }
 
+func (c Config) sizeMBOrDefault(name string, defaultVal int) int {
+	size := c.asString(name)
+	if size != "" {
+		// Value has already been validated.
+		value, _ := utils.ParseSize(size)
+		return int(value)
+	}
+	return defaultVal
+}
+
 // asString is a private helper method to keep the ugly string casting
 // in once place. It returns the given named attribute as a string,
 // returning "" if it isn't found.
@@ -496,9 +506,7 @@ func (c Config) AuditLogCaptureArgs() bool {
 // AuditLogMaxSizeMB returns the maximum size for an audit log file in
 // MB.
 func (c Config) AuditLogMaxSizeMB() int {
-	// Value has already been validated.
-	value, _ := utils.ParseSize(c.asString(AuditLogMaxSize))
-	return int(value)
+	return c.sizeMBOrDefault(AuditLogMaxSize, DefaultAuditLogMaxSizeMB)
 }
 
 // AuditLogMaxBackups returns the maximum number of backup audit log
@@ -626,17 +634,13 @@ func (c Config) ModelLogfileMaxBackups() int {
 // ModelLogfileMaxSizeMB is the maximum size of the log file written out by the
 // controller on behalf of workers running for a model.
 func (c Config) ModelLogfileMaxSizeMB() int {
-	// Value has already been validated.
-	val, _ := utils.ParseSize(c.mustString(ModelLogfileMaxSize))
-	return int(val)
+	return c.sizeMBOrDefault(ModelLogfileMaxSize, DefaultModelLogfileMaxSize)
 }
 
 // ModelLogsSizeMB is the size of the capped collection used to store the model
 // logs. Total size on disk will be ModelLogsSizeMB * number of models.
 func (c Config) ModelLogsSizeMB() int {
-	// Value has already been validated.
-	val, _ := utils.ParseSize(c.mustString(ModelLogsSize))
-	return int(val)
+	return c.sizeMBOrDefault(ModelLogsSize, DefaultModelLogsSizeMB)
 }
 
 // MaxDebugLogDuration is the maximum time a debug-log session is allowed
@@ -651,9 +655,7 @@ func (c Config) MaxDebugLogDuration() time.Duration {
 
 // MaxTxnLogSizeMB is the maximum size in MiB of the txn log collection.
 func (c Config) MaxTxnLogSizeMB() int {
-	// Value has already been validated.
-	val, _ := utils.ParseSize(c.mustString(MaxTxnLogSize))
-	return int(val)
+	return c.sizeMBOrDefault(MaxTxnLogSize, DefaultMaxTxnLogCollectionMB)
 }
 
 // MaxPruneTxnBatchSize is the maximum size of the txn log collection.

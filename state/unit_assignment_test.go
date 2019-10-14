@@ -103,6 +103,48 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementMakesContainerInNewMach
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraints(c *gc.C) {
+	_, err := s.State.AddSpace("special-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charm := s.AddTestingCharm(c, "dummy")
+	placement := instance.Placement{Scope: "lxd"}
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:      "dummy",
+		Charm:     charm,
+		NumUnits:  1,
+		Placement: []*instance.Placement{&placement},
+		EndpointBindings: map[string]string{
+			"": "special-space",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+
+	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	c.Assert(err, jc.ErrorIsNil)
+
+	guestID, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	guest, err := s.State.Machine(guestID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostID, _ := guest.ParentId()
+	host, err := s.State.Machine(hostID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, m := range []*state.Machine{guest, host} {
+		cons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cons.IncludeSpaces(), gc.DeepEquals, []string{"special-space"})
+	}
+}
+
 func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementDirective(c *gc.C) {
 	// Enables juju deploy <charm> --to <container-type>
 	// It creates a new machine with a new container of that type.

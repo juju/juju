@@ -178,7 +178,26 @@ func (s *subscriber) apiServerChanges(topic string, details apiserver.Details, e
 	defer s.mutex.Unlock()
 	apiServers := set.NewStrings()
 	for id, apiServer := range details.Servers {
-		target := names.NewMachineTag(id).String()
+		originTag, err := names.ParseTag(s.config.Origin)
+		if err != nil {
+			// This should never happen.
+			s.config.Logger.Errorf("subscriber origin tag error: %v", err)
+			continue
+		}
+		// The target is constructed from an id, and the tag type
+		// needs to match that of the origin tag.
+		var target string
+		switch originTag.Kind() {
+		case names.MachineTagKind:
+			target = names.NewMachineTag(id).String()
+		case names.ControllerAgentTagKind:
+			target = names.NewControllerAgentTag(id).String()
+		default:
+			// This should never happen.
+			s.config.Logger.Errorf("unknown subscriber origin tag: %v", originTag)
+			continue
+		}
+
 		apiServers.Add(target)
 		if target == s.config.Origin {
 			// We don't need to forward messages to ourselves.

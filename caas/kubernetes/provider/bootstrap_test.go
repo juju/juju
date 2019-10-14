@@ -31,7 +31,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
-	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
 
@@ -70,11 +69,11 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	pcfg.JujuVersion = jujuversion.Current
 	pcfg.APIInfo = &api.Info{
 		Password: "password",
-		CACert:   coretesting.CACert,
-		ModelTag: coretesting.ModelTag,
+		CACert:   testing.CACert,
+		ModelTag: testing.ModelTag,
 	}
 	pcfg.Controller.MongoInfo = &mongo.MongoInfo{
-		Password: "password", Info: mongo.Info{CACert: coretesting.CACert},
+		Password: "password", Info: mongo.Info{CACert: testing.CACert},
 	}
 	pcfg.Bootstrap.ControllerModelConfig = s.cfg
 	pcfg.Bootstrap.BootstrapMachineInstanceId = "instance-id"
@@ -82,16 +81,16 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 		"name": "hosted-model",
 	}
 	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
-		Cert:         coretesting.ServerCert,
-		PrivateKey:   coretesting.ServerKey,
-		CAPrivateKey: coretesting.CAKey,
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		CAPrivateKey: testing.CAKey,
 		StatePort:    123,
 		APIPort:      456,
 	}
 	pcfg.Bootstrap.StateServingInfo = params.StateServingInfo{
-		Cert:         coretesting.ServerCert,
-		PrivateKey:   coretesting.ServerKey,
-		CAPrivateKey: coretesting.CAKey,
+		Cert:         testing.ServerCert,
+		PrivateKey:   testing.ServerKey,
+		CAPrivateKey: testing.CAKey,
 		StatePort:    123,
 		APIPort:      456,
 	}
@@ -806,7 +805,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		c.Assert(workertest.CheckKilled(c, s.watchers[1]), jc.ErrorIsNil)
 		c.Assert(podWatcher.IsStopped(), jc.IsTrue)
 		c.Assert(eventWatcher.IsStopped(), jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for deploy return")
 	}
 }

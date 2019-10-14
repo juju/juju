@@ -5,6 +5,7 @@ package action
 
 import (
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/juju/cmd"
@@ -32,10 +33,10 @@ type showOutputCommand struct {
 }
 
 const showOutputDoc = `
-Show the results returned by an action with the given ID.  A partial ID may
-also be used.  To block until the result is known completed or failed, use
-the --wait option with a duration, as in --wait 5s or --wait 1h.  Use --wait 0
-to wait indefinitely.  If units are left off, seconds are assumed.
+Show the results returned by an action with the given ID.  
+To block until the result is known completed or failed, use
+the --wait option with a duration, as in --wait 5s or --wait 1h.
+Use --wait 0 to wait indefinitely.  If units are left off, seconds are assumed.
 
 The default behavior without --wait is to immediately check and return; if
 the results are "pending" then only the available information will be
@@ -69,6 +70,7 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		info.Name = "show-task"
 		info.Args = "<task ID>"
 		info.Purpose = "Show results of a task by ID."
+		info.Doc = strings.Replace(info.Doc, "an action", "a function call", -1)
 	}
 	return info
 }
@@ -208,11 +210,15 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 	}
 	actionResults := actions.Results
 	numActionResults := len(actionResults)
+	task := "task"
+	if !featureflag.Enabled(feature.JujuV3) {
+		task = "action"
+	}
 	if numActionResults == 0 {
-		return none, errors.Errorf("no results for action %s", requestedId)
+		return none, errors.Errorf("no results for %s %s", task, requestedId)
 	}
 	if numActionResults != 1 {
-		return none, errors.Errorf("too many results for action %s", requestedId)
+		return none, errors.Errorf("too many results for %s %s", task, requestedId)
 	}
 
 	result := actionResults[0]

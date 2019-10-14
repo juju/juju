@@ -721,7 +721,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 	}
 	// noUnits asserts that the machine has no principal units.
 	noUnits := bson.DocElem{
-		"$or", []bson.D{
+		Name: "$or", Value: []bson.D{
 			{{"principals", bson.D{{"$size", 0}}}},
 			{{"principals", bson.D{{"$exists", false}}}},
 		},
@@ -770,7 +770,7 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 				return nil, errors.Errorf("machine %s is still a controller member", m.Id())
 			}
 			asserts = append(asserts, bson.DocElem{
-				"jobs", bson.D{{"$nin", []MachineJob{JobManageModel}}}})
+				Name: "jobs", Value: bson.D{{Name: "$nin", Value: []MachineJob{JobManageModel}}}})
 			asserts = append(asserts, notDeadDoc...)
 			controllerOp := txn.Op{
 				C:  controllersC,
@@ -846,10 +846,10 @@ func (original *Machine) advanceLifecycle(life Life, force bool, maxWait time.Du
 			}
 			if canDie {
 				checkUnits := bson.DocElem{
-					"$or", []bson.D{
-						{{"principals", principalUnitnames}},
-						{{"principals", bson.D{{"$size", 0}}}},
-						{{"principals", bson.D{{"$exists", false}}}},
+					Name: "$or", Value: []bson.D{
+						{{Name: "principals", Value: principalUnitnames}},
+						{{Name: "principals", Value: bson.D{{"$size", 0}}}},
+						{{Name: "principals", Value: bson.D{{"$exists", false}}}},
 					},
 				}
 				ops[0].Assert = append(asserts, checkUnits)
@@ -929,7 +929,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 	// but if we're advancing from Alive to Dead then we
 	// must ensure no concurrent attachments are made.
 	noNewVolumes := bson.DocElem{
-		"volumes", bson.D{{
+		Name: "volumes", Value: bson.D{{
 			"$not", bson.D{{
 				"$elemMatch", bson.D{{
 					"$nin", m.doc.Volumes,
@@ -942,7 +942,7 @@ func (m *Machine) assertNoPersistentStorage() (bson.D, error) {
 		// is a subset of the previously known set.
 	}
 	noNewFilesystems := bson.DocElem{
-		"filesystems", bson.D{{
+		Name: "filesystems", Value: bson.D{{
 			"$not", bson.D{{
 				"$elemMatch", bson.D{{
 					"$nin", m.doc.Filesystems,
@@ -1954,7 +1954,7 @@ func (m *Machine) markInvalidContainers() error {
 					Data:    map[string]interface{}{"type": containerType},
 					Since:   &now,
 				}
-				container.SetStatus(s)
+				_ = container.SetStatus(s)
 			} else {
 				logger.Errorf("unsupported container %v has unexpected status %v", containerId, statusInfo.Status)
 			}

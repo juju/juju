@@ -21,8 +21,31 @@ import (
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/resource"
+	"github.com/juju/juju/state/migrations"
 	"github.com/juju/juju/storage/poolmanager"
 )
+
+// The following exporter type is being refactored. This is to better model the
+// dependencies for creating the exported yaml and to correctly provide us to
+// unit tests at the right level of work. Rather than create integration tests
+// at the "unit" level.
+//
+// All exporting migrations have been currently moved to `state/migrations`.
+// Each provide their own type that allows them to execute a migration step
+// before return if successful or not via an error. The step resembles the
+// visitor pattern for good reason, as it allows us to safely model what is
+// required at a type level and type safety level. Everything is typed all the
+// way down. We can then create mocks for each one independently from other
+// migration steps (see examples).
+//
+// As this is in its infancy, there are intermediary steps. Each export type
+// creates its own StateExportMigration. In the future, there will be only
+// one and each migration step will add itself to that and Run for completion.
+//
+// Whilst we're creating these steps, it is expected to create the unit tests
+// and suppliment all of these tests with existing tests, to ensure that no
+// gaps are missing. In the future the integration tests should be replaced with
+// the new shell tests to ensure a full end to end test is performed.
 
 const maxStatusHistoryEntries = 20
 
@@ -150,33 +173,33 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.relations(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.remoteEntities(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.relationNetworks(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.spaces(); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := export.subnets(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := export.ipaddresses(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := export.linklayerdevices(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := export.sshHostKeys(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := export.actions(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := export.cloudimagemetadata(); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	if err := export.storage(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -200,6 +223,34 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	}
 
 	return export.model, nil
+}
+
+// ExportStateMigration defines a migration for exporting various entities into
+// a destiniation description model from the source state.
+// It accumulates a series of migrations to Run at a later time.
+// Running the state migration visits all the migrations and exits upon seeing
+// the first error from the migration.
+type ExportStateMigration struct {
+	src        *State
+	dst        description.Model
+	exporter   *exporter
+	migrations []func() error
+}
+
+// Add adds a migration to execute at a later time
+// Return error from the addition will cause the Run to terminate early.
+func (m *ExportStateMigration) Add(f func() error) {
+	m.migrations = append(m.migrations, f)
+}
+
+// Run executes all the migrations required to be run.
+func (m *ExportStateMigration) Run() error {
+	for _, f := range m.migrations {
+		if err := f(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
 }
 
 type exporter struct {
@@ -1121,6 +1172,74 @@ func (e *exporter) relations() error {
 	return nil
 }
 
+func (e *exporter) remoteEntities() error {
+	e.logger.Debugf("reading remote entities")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportRemoteEntities{}
+		return m.Execute(remoteEntitiesShim{
+			st: migration.src,
+		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// remoteEntitiesShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type remoteEntitiesShim struct {
+	st *State
+}
+
+func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEntity, error) {
+	entities, err := s.st.AllRemoteEntities()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRemoteEntity, len(entities))
+	for k, v := range entities {
+		result[k] = v
+	}
+	return result, nil
+}
+
+func (e *exporter) relationNetworks() error {
+	e.logger.Debugf("reading relation networks")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportRelationNetworks{}
+		return m.Execute(relationNetworksShim{
+			st: migration.src,
+		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// relationNetworksShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type relationNetworksShim struct {
+	st *State
+}
+
+func (s relationNetworksShim) AllRelationNetworks() ([]migrations.MigrationRelationNetworks, error) {
+	entities, err := NewRelationNetworks(s.st).AllRelationNetworks()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRelationNetworks, len(entities))
+	for k, v := range entities {
+		result[k] = v
+	}
+	return result, nil
+}
+
 func (e *exporter) spaces() error {
 	spaces, err := e.st.AllSpaces()
 	if err != nil {
@@ -1768,73 +1887,96 @@ func (e *exporter) checkUnexportedValues() error {
 }
 
 func (e *exporter) remoteApplications() error {
-	remoteApps, err := e.st.AllRemoteApplications()
-	if err != nil {
-		return errors.Trace(err)
+	e.logger.Debugf("read remote applications")
+	migration := &ExportStateMigration{
+		src:      e.st,
+		dst:      e.model,
+		exporter: e,
 	}
-	e.logger.Debugf("read %d remote applications", len(remoteApps))
-	for _, remoteApp := range remoteApps {
-		err := e.addRemoteApplication(remoteApp)
-		if err != nil {
-			return errors.Trace(err)
+	migration.Add(func() error {
+		m := migrations.ExportRemoteApplications{}
+		return m.Execute(remoteApplicationsShim{
+			st:       migration.src,
+			exporter: e,
+		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// remoteApplicationsShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type remoteApplicationsShim struct {
+	st       *State
+	exporter *exporter
+}
+
+func (s remoteApplicationsShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
+	entities, err := s.st.AllRemoteApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRemoteApplication, len(entities))
+	for k, v := range entities {
+		result[k] = remoteApplicationShim{
+			RemoteApplication: v,
 		}
 	}
-	return nil
+	return result, nil
 }
 
-func (e *exporter) addRemoteApplication(app *RemoteApplication) error {
-	url, _ := app.URL()
-	args := description.RemoteApplicationArgs{
-		Tag:             app.Tag().(names.ApplicationTag),
-		OfferUUID:       app.OfferUUID(),
-		URL:             url,
-		SourceModel:     app.SourceModel(),
-		IsConsumerProxy: app.IsConsumerProxy(),
-		Bindings:        app.Bindings(),
-	}
-	descApp := e.model.AddRemoteApplication(args)
-	status, err := e.statusArgs(app.globalKey())
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	// Not all remote applications have status.
-	if err == nil {
-		descApp.SetStatus(status)
-	}
-	endpoints, err := app.Endpoints()
+func (s remoteApplicationsShim) StatusArgs(key string) (description.StatusArgs, error) {
+	return s.exporter.statusArgs(key)
+}
+
+type remoteApplicationShim struct {
+	*RemoteApplication
+}
+
+func (s remoteApplicationShim) Endpoints() ([]migrations.MigrationRemoteEndpoint, error) {
+	endpoints, err := s.RemoteApplication.Endpoints()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	for _, ep := range endpoints {
-		descApp.AddEndpoint(description.RemoteEndpointArgs{
-			Name:      ep.Name,
-			Role:      string(ep.Role),
-			Interface: ep.Interface,
-		})
+	result := make([]migrations.MigrationRemoteEndpoint, len(endpoints))
+	for k, v := range endpoints {
+		result[k] = migrations.MigrationRemoteEndpoint{
+			Name:      v.Name,
+			Role:      v.Role,
+			Interface: v.Interface,
+		}
 	}
-	for _, space := range app.Spaces() {
-		e.addRemoteSpace(descApp, space)
-	}
-	return nil
+	return result, nil
 }
 
-func (e *exporter) addRemoteSpace(descApp description.RemoteApplication, space RemoteSpace) {
-	descSpace := descApp.AddSpace(description.RemoteSpaceArgs{
-		CloudType:          space.CloudType,
-		Name:               space.Name,
-		ProviderId:         space.ProviderId,
-		ProviderAttributes: space.ProviderAttributes,
-	})
-	for _, subnet := range space.Subnets {
-		descSpace.AddSubnet(description.SubnetArgs{
-			CIDR:              subnet.CIDR,
-			ProviderId:        subnet.ProviderId,
-			VLANTag:           subnet.VLANTag,
-			AvailabilityZones: subnet.AvailabilityZones,
-			ProviderSpaceId:   subnet.ProviderSpaceId,
-			ProviderNetworkId: subnet.ProviderNetworkId,
-		})
+func (s remoteApplicationShim) Spaces() []migrations.MigrationRemoteSpace {
+	spaces := s.RemoteApplication.Spaces()
+	result := make([]migrations.MigrationRemoteSpace, len(spaces))
+	for k, v := range spaces {
+		subnets := make([]migrations.MigrationRemoteSubnet, len(v.Subnets))
+		for k, v := range v.Subnets {
+			subnets[k] = migrations.MigrationRemoteSubnet{
+				CIDR:              v.CIDR,
+				ProviderId:        v.ProviderId,
+				VLANTag:           v.VLANTag,
+				AvailabilityZones: v.AvailabilityZones,
+				ProviderSpaceId:   v.ProviderSpaceId,
+				ProviderNetworkId: v.ProviderNetworkId,
+			}
+		}
+		result[k] = migrations.MigrationRemoteSpace{
+			CloudType:          v.CloudType,
+			Name:               v.Name,
+			ProviderId:         v.ProviderId,
+			ProviderAttributes: v.ProviderAttributes,
+			Subnets:            subnets,
+		}
 	}
+	return result
+}
+
+func (s remoteApplicationShim) GlobalKey() string {
+	return s.RemoteApplication.globalKey()
 }
 
 func (e *exporter) storage() error {

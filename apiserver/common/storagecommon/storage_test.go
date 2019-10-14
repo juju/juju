@@ -92,6 +92,11 @@ func (s *VolumeStorageAttachmentInfoSuite) TestStorageAttachmentPlanInfoDeviceNa
 	// on the machine itself, as opposed to volumeInfo which is "guessed" by the provider
 	s.volumeAttachmentPlan.blockInfo.DeviceName = "sdb"
 	s.volumeAttachmentPlan.err = nil
+	s.blockDevices = []state.BlockDeviceInfo{{
+		DeviceName: "sda",
+	}, {
+		DeviceName: "sdb",
+	}}
 	s.volumeAttachment.info.DeviceName = "sda"
 	info, err := storagecommon.StorageAttachmentInfo(s.st, s.st, s.st, s.storageAttachment, s.machineTag)
 	c.Assert(err, jc.ErrorIsNil)

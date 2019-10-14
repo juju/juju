@@ -515,7 +515,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		c.Check(request, gc.Equals, "NetworkInfo")
 		c.Check(arg, gc.DeepEquals, params.NetworkInfoParams{
 			Unit:       "unit-mysql-0",
-			Bindings:   []string{"server"},
+			Endpoints:  []string{"server"},
 			RelationId: &relId,
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.NetworkInfoResults{})

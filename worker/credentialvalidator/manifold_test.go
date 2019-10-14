@@ -79,6 +79,12 @@ func (*ManifoldSuite) TestStartMissingNewWorker(c *gc.C) {
 	checkManifoldNotValid(c, config, "nil NewWorker not valid")
 }
 
+func (*ManifoldSuite) TestStartMissingLogger(c *gc.C) {
+	config := validManifoldConfig()
+	config.Logger = nil
+	checkManifoldNotValid(c, config, "nil Logger not valid")
+}
+
 func (*ManifoldSuite) TestStartMissingAPICaller(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
 		"api-caller": dependency.ErrMissing,

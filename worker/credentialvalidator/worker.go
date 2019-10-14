@@ -5,7 +5,6 @@ package credentialvalidator
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -13,7 +12,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-var logger = loggo.GetLogger("juju.api.credentialvalidator")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // ErrValidityChanged indicates that a Worker has bounced because its
 // credential validity has changed: either a valid credential became invalid
@@ -42,6 +43,7 @@ type Facade interface {
 // Config holds the dependencies and configuration for a Worker.
 type Config struct {
 	Facade Facade
+	Logger Logger
 }
 
 // Validate returns an error if the config cannot be expected to
@@ -49,6 +51,9 @@ type Config struct {
 func (config Config) Validate() error {
 	if config.Facade == nil {
 		return errors.NotValidf("nil Facade")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -75,6 +80,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 
 	v := &validator{
 		validatorFacade:        config.Facade,
+		logger:                 config.Logger,
 		credential:             mc,
 		modelCredentialWatcher: mcw,
 	}
@@ -112,6 +118,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 type validator struct {
 	catacomb        catacomb.Catacomb
 	validatorFacade Facade
+	logger          Logger
 
 	modelCredentialWatcher watcher.NotifyWatcher
 

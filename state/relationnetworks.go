@@ -58,10 +58,22 @@ type RelationNetworker interface {
 	Networks(relationKey string) (RelationNetworks, error)
 }
 
-const (
-	ingress = "ingress"
-	egress  = "egress"
+// RelationNetworkDirection represents a type that describes the direction of
+// the network, either ingress or egress.
+type RelationNetworkDirection string
 
+func (r RelationNetworkDirection) String() string {
+	return string(r)
+}
+
+const (
+	// IngressDirection for a ingress relation network direction
+	IngressDirection RelationNetworkDirection = "ingress"
+	// EgressDirection for a egress relation network direction
+	EgressDirection RelationNetworkDirection = "egress"
+)
+
+const (
 	// relationNetworkDefault is a default, non-override network.
 	relationNetworkDefault = relationNetworkType("default")
 
@@ -71,6 +83,43 @@ const (
 
 type relationNetworkType string
 
+type rootRelationNetworksState struct {
+	st *State
+}
+
+// NewRelationNetworks creates a root RelationNetworks without a direction, so
+// accessing RelationNetworks is possible agnostically.
+func NewRelationNetworks(st *State) *rootRelationNetworksState {
+	return &rootRelationNetworksState{st: st}
+}
+
+// AllRelationNetworks returns all the relation networks for the model.
+func (rin *rootRelationNetworksState) AllRelationNetworks() ([]RelationNetworks, error) {
+	relationNetworksCollection, closer := rin.st.db().GetCollection(relationNetworksC)
+	defer closer()
+
+	var docs []relationNetworksDoc
+	if err := relationNetworksCollection.Find(nil).All(&docs); err != nil {
+		return nil, errors.Annotatef(err, "cannot get all relation networks")
+	}
+	entities := make([]RelationNetworks, len(docs))
+	for i, doc := range docs {
+		id, err := rin.st.strictLocalID(doc.Id)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		entities[i] = &relationNetworks{
+			st: rin.st,
+			doc: relationNetworksDoc{
+				Id:          id,
+				RelationKey: doc.RelationKey,
+				CIDRS:       doc.CIDRS,
+			},
+		}
+	}
+	return entities, nil
+}
+
 type relationNetworksState struct {
 	st        *State
 	direction string
@@ -79,13 +128,13 @@ type relationNetworksState struct {
 // NewRelationIngressNetworks creates a RelationNetworks instance for ingress
 // CIDRS backed by a state.
 func NewRelationIngressNetworks(st *State) *relationNetworksState {
-	return &relationNetworksState{st: st, direction: ingress}
+	return &relationNetworksState{st: st, direction: IngressDirection.String()}
 }
 
-// RelationEgressNetworks creates a RelationNetworks instance for egress
+// NewRelationEgressNetworks creates a RelationNetworks instance for egress
 // CIDRS backed by a state.
 func NewRelationEgressNetworks(st *State) *relationNetworksState {
-	return &relationNetworksState{st: st, direction: egress}
+	return &relationNetworksState{st: st, direction: EgressDirection.String()}
 }
 
 func relationNetworkDocID(relationKey, direction string, label relationNetworkType) string {
@@ -187,19 +236,19 @@ func (rin *relationNetworksState) Networks(relationKey string) (RelationNetworks
 func removeRelationNetworksOps(st *State, relationKey string) []txn.Op {
 	ops := []txn.Op{{
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, ingress, relationNetworkAdmin)),
+		Id:     st.docID(relationNetworkDocID(relationKey, IngressDirection.String(), relationNetworkAdmin)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, ingress, relationNetworkDefault)),
+		Id:     st.docID(relationNetworkDocID(relationKey, IngressDirection.String(), relationNetworkDefault)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, egress, relationNetworkAdmin)),
+		Id:     st.docID(relationNetworkDocID(relationKey, EgressDirection.String(), relationNetworkAdmin)),
 		Remove: true,
 	}, {
 		C:      relationNetworksC,
-		Id:     st.docID(relationNetworkDocID(relationKey, egress, relationNetworkDefault)),
+		Id:     st.docID(relationNetworkDocID(relationKey, EgressDirection.String(), relationNetworkDefault)),
 		Remove: true,
 	}}
 	return ops

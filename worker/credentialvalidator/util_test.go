@@ -5,6 +5,7 @@ package credentialvalidator_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -80,6 +81,7 @@ func panicWorker(credentialvalidator.Config) (worker.Worker, error) {
 func validConfig() credentialvalidator.Config {
 	return credentialvalidator.Config{
 		Facade: struct{ credentialvalidator.Facade }{},
+		Logger: loggo.GetLogger("test"),
 	}
 }
 
@@ -106,6 +108,7 @@ func validManifoldConfig() credentialvalidator.ManifoldConfig {
 		APICallerName: "api-caller",
 		NewFacade:     panicFacade,
 		NewWorker:     panicWorker,
+		Logger:        loggo.GetLogger("test"),
 	}
 }
 

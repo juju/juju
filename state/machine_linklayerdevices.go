@@ -1146,33 +1146,41 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([
 // GetNetworkInfoForSpaces returns MachineNetworkInfoResult with a list of devices for each space in spaces
 // TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
 // When changing the method we have to keep the ordering.
-func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]MachineNetworkInfoResult {
+func (m *Machine) GetNetworkInfoForSpaces(spaces corenetwork.SpaceInfos) map[string]MachineNetworkInfoResult {
 	results := make(map[string]MachineNetworkInfoResult)
 
 	var privateAddress corenetwork.SpaceAddress
 
-	if spaces.Contains(corenetwork.DefaultSpaceName) {
+	if spaces.GetByName(corenetwork.DefaultSpaceName) != nil {
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
 			results[corenetwork.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(
 				err, "getting machine %q preferred private address", m.MachineTag())}
-			spaces.Remove(corenetwork.DefaultSpaceName)
+
+			// Remove this space to prevent further processing.
+			var newSpaces corenetwork.SpaceInfos
+			for _, sp := range spaces {
+				if sp.Name != corenetwork.DefaultSpaceName {
+					newSpaces = append(newSpaces, sp)
+				}
+			}
+			spaces = newSpaces
 		}
 	}
 
 	addresses, err := m.AllAddresses()
 	logger.Debugf("Looking for something from spaces %v in %v", spaces, addresses)
 	if err != nil {
-		result := MachineNetworkInfoResult{Error: errors.Annotate(err, "cannot get devices addresses")}
-		for space := range spaces {
-			if _, ok := results[space]; !ok {
-				results[space] = result
+		result := MachineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
+		for _, space := range spaces {
+			if _, ok := results[string(space.Name)]; !ok {
+				results[string(space.Name)] = result
 			}
 		}
 		return results
 	}
-	actualSpaces := set.NewStrings()
+
 	for _, addr := range addresses {
 		subnet, err := addr.Subnet()
 		switch {
@@ -1181,18 +1189,17 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 		case err != nil:
 			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
 		default:
-			space := subnet.SpaceName()
-			actualSpaces.Add(space)
-			if spaces.Contains(space) {
-				r := results[space]
+			space := spaces.GetByID(subnet.spaceID)
+			if space != nil {
+				r := results[string(space.Name)]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[space] = r
+					results[string(space.Name)] = r
 				}
 			}
-			if spaces.Contains(corenetwork.DefaultSpaceName) && privateAddress.Value == addr.Value() {
+			if spaces.GetByName(corenetwork.DefaultSpaceName) != nil && privateAddress.Value == addr.Value() {
 				r := results[corenetwork.DefaultSpaceName]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
@@ -1206,7 +1213,7 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 
 	// For a spaceless model we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information.
-	if r, ok := results[corenetwork.DefaultSpaceName]; !ok && spaces.Contains(corenetwork.DefaultSpaceName) {
+	if r, ok := results[corenetwork.DefaultSpaceName]; !ok && spaces.GetByName(corenetwork.DefaultSpaceName) != nil {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{
 				Address: privateAddress.Value,
@@ -1214,13 +1221,11 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 		}}
 		results[corenetwork.DefaultSpaceName] = r
 	}
-	actualSpacesStr := network.QuoteSpaceSet(actualSpaces)
 
-	for space := range spaces {
-		if _, ok := results[space]; !ok {
-			results[space] = MachineNetworkInfoResult{
-				Error: errors.Errorf("machine %q has no devices in space %q, only spaces %s",
-					m.doc.Id, space, actualSpacesStr),
+	for _, space := range spaces {
+		if _, ok := results[string(space.Name)]; !ok {
+			results[string(space.Name)] = MachineNetworkInfoResult{
+				Error: errors.Errorf("machine %q has no devices in space %q", m.doc.Id, space.Name),
 			}
 		}
 	}

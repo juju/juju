@@ -210,11 +210,11 @@ func (s *ApplicationSuite) TestCAASSetCharm(c *gc.C) {
 	})
 	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
-	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
-	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
+	ch := f.MakeCharm(c, &factory.CharmParams{Name: "mysql", Series: "kubernetes"})
+	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "mysql", Charm: ch})
 
 	// Add a compatible charm and force it.
-	sch := state.AddCustomCharm(c, st, "gitlab", "metadata.yaml", metaBase, "kubernetes", 2)
+	sch := state.AddCustomCharm(c, st, "mysql", "metadata.yaml", metaBase, "kubernetes", 2)
 
 	cfg := state.SetCharmConfig{
 		Charm:      sch,

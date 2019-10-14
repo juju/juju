@@ -8,6 +8,8 @@ import (
 	"sort"
 	"time"
 
+	"gopkg.in/mgo.v2/txn"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -3087,19 +3089,6 @@ func (s *upgradesSuite) TestEnsureDefaultModificationStatus(c *gc.C) {
 	)
 }
 
-func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
-	coll, closer := s.state.db().GetRawCollection(machinesC)
-	defer closer()
-
-	err := coll.Insert(machineDoc{
-		DocID:     ensureModelUUID(uuid, id),
-		Id:        id,
-		ModelUUID: uuid,
-		Life:      life,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
 func (s *upgradesSuite) TestEnsureApplicationDeviceConstraints(c *gc.C) {
 	coll, closer := s.state.db().GetRawCollection(deviceConstraintsC)
 	defer closer()
@@ -3470,7 +3459,7 @@ func (s *upgradesSuite) TestEnsureRelationApplicationSettings(c *gc.C) {
 	defer relationsCloser()
 
 	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
-	defer model1.Close()
+	defer func() { _ = model1.Close() }()
 
 	uuid1 := model1.ModelUUID()
 
@@ -3801,14 +3790,174 @@ func (s *upgradesSuite) TestReplacePortsDocSubnetIDCIDR(c *gc.C) {
 	s.assertUpgradedData(c, ReplacePortsDocSubnetIDCIDR, upgradedData(col, expected))
 }
 
+func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
+	mod := s.makeModel(c, "the-model", coretesting.Attrs{})
+	defer func() { _ = mod.Close() }()
+
+	uuid := mod.modelUUID()
+	s.makeMachine(c, uuid, "0", Alive)
+	s.makeMachine(c, uuid, "1", Alive)
+
+	type oldAddress struct {
+		Value       string `bson:"value"`
+		AddressType string `bson:"addresstype"`
+		Scope       string `bson:"networkscope,omitempty"`
+		Origin      string `bson:"origin,omitempty"`
+		SpaceName   string `bson:"spacename,omitempty"`
+		SpaceID     string `bson:"spaceid,omitempty"`
+	}
+
+	m1Addrs := []oldAddress{
+		{
+			Value:     "1.1.1.1",
+			SpaceName: "space1",
+			SpaceID:   "provider1",
+		},
+		{
+			Value:   "2.2.2.2",
+			SpaceID: "no-change",
+		},
+	}
+	m1MachineAddrs := []oldAddress{
+		{
+			Value:     "3.3.3.3",
+			SpaceName: "space3",
+			SpaceID:   "provider3",
+		},
+	}
+	m2Private := oldAddress{
+		Value:     "4.4.4.4",
+		SpaceName: "space1",
+		SpaceID:   "provider1",
+	}
+	m2Public := oldAddress{
+		Value: "5.5.5.5",
+	}
+
+	// Update the various machine addresses.
+	ops := []txn.Op{
+		{
+			C:  machinesC,
+			Id: ensureModelUUID(uuid, "0"),
+			Update: bson.D{
+				{"$set", bson.D{{"addresses", m1Addrs}}},
+				{"$set", bson.D{{"machineaddresses", m1MachineAddrs}}},
+			},
+		},
+		{
+			C:  machinesC,
+			Id: ensureModelUUID(uuid, "1"),
+			Update: bson.D{
+				{"$set", bson.D{{"preferredprivateaddress", m2Private}}},
+				{"$set", bson.D{{"preferredpublicaddress", m2Public}}},
+			},
+		},
+	}
+	c.Assert(s.state.db().RunRawTransaction(ops), jc.ErrorIsNil)
+
+	// Add spaces for our lookup.
+	s.makeSpace(c, uuid, "space1", "1")
+	s.makeSpace(c, uuid, "space2", "2")
+	s.makeSpace(c, uuid, "space3", "3")
+
+	expected := bsonMById{
+		{
+			"_id":                      ensureModelUUID(uuid, "0"),
+			"model-uuid":               uuid,
+			"machineid":                "0",
+			"nonce":                    "",
+			"passwordhash":             "",
+			"clean":                    false,
+			"life":                     0,
+			"series":                   "",
+			"jobs":                     []interface{}{},
+			"supportedcontainersknown": false,
+			"containertype":            "",
+			"principals":               []interface{}{},
+			"addresses": []interface{}{
+				bson.M{
+					"value":       "1.1.1.1",
+					"spaceid":     "1",
+					"addresstype": "",
+				},
+				bson.M{
+					"value":       "2.2.2.2",
+					"spaceid":     "no-change",
+					"addresstype": "",
+				},
+			},
+			"machineaddresses": []interface{}{
+				bson.M{
+					"value":       "3.3.3.3",
+					"spaceid":     "3",
+					"addresstype": "",
+				},
+			},
+			// These were unset and end up with the zero-types.
+			"preferredpublicaddress": bson.M{
+				"value":       "",
+				"addresstype": "",
+			},
+			"preferredprivateaddress": bson.M{
+				"value":       "",
+				"addresstype": "",
+			},
+		}, {
+			"_id":                      ensureModelUUID(uuid, "1"),
+			"model-uuid":               uuid,
+			"machineid":                "1",
+			"nonce":                    "",
+			"passwordhash":             "",
+			"clean":                    false,
+			"life":                     0,
+			"series":                   "",
+			"jobs":                     []interface{}{},
+			"supportedcontainersknown": false,
+			"containertype":            "",
+			"principals":               []interface{}{},
+			"addresses":                []interface{}{},
+			"machineaddresses":         []interface{}{},
+			"preferredprivateaddress": bson.M{
+				"value":       "4.4.4.4",
+				"spaceid":     "1",
+				"addresstype": "",
+			},
+			// Address without space ends up in the default (empty) space.
+			"preferredpublicaddress": bson.M{
+				"value":       "5.5.5.5",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+		},
+	}
+
+	col, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+	s.assertUpgradedData(c, ConvertAddressSpaceIDs, upgradedData(col, expected))
+}
+
+func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
+	col, closer := s.state.db().GetRawCollection(machinesC)
+	defer closer()
+
+	err := col.Insert(machineDoc{
+		DocID:     ensureModelUUID(uuid, id),
+		Id:        id,
+		ModelUUID: uuid,
+		Life:      life,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *upgradesSuite) makeSpace(c *gc.C, uuid, name, id string) {
 	coll, closer := s.state.db().GetRawCollection(spacesC)
 	defer closer()
 
-	err := coll.Insert(spaceDoc{
-		DocId: ensureModelUUID(uuid, id),
-		Name:  name,
-		Id:    id,
+	err := coll.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid, id),
+		"model-uuid": uuid,
+		"spaceid":    id,
+		"name":       name,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 }

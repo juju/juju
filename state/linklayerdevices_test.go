@@ -6,7 +6,6 @@ package state_test
 import (
 	"fmt"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -784,7 +783,12 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("default", "dmz", "doesnotexists", ""))
+	res := s.machine.GetNetworkInfoForSpaces(corenetwork.SpaceInfos{
+		s.spaces["default"],
+		s.spaces["dmz"],
+		corenetwork.SpaceInfo{ID: "666", Name: "doesnotexist"},
+		s.spaces[corenetwork.DefaultSpaceName],
+	})
 	c.Check(res, gc.HasLen, 4)
 
 	resDefault, ok := res["default"]
@@ -814,9 +818,9 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
 	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
 
-	resDoesNotExists, ok := res["doesnotexists"]
+	resDoesNotExists, ok := res["doesnotexist"]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "doesnotexists".*`)
+	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "doesnotexist".*`)
 	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)
 }
 
@@ -1431,7 +1435,7 @@ func (s *linkLayerDevicesStateSuite) TestMachineSetParentLinkLayerDevicesBeforeT
 	s.testMachineSetParentLinkLayerDevicesBeforeTheirChildren(c)
 }
 
-func (s *linkLayerDevicesStateSuite) TestSetDeviceAddresssesWithSubnetID(c *gc.C) {
+func (s *linkLayerDevicesStateSuite) TestSetDeviceAddressesWithSubnetID(c *gc.C) {
 	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
 	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
 	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
@@ -1468,7 +1472,10 @@ func (s *linkLayerDevicesStateSuite) TestSetDeviceAddresssesWithSubnetID(c *gc.C
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings("private", "dmz"))
+	res := s.machine.GetNetworkInfoForSpaces(corenetwork.SpaceInfos{
+		s.spaces["default"],
+		s.spaces["dmz"],
+	})
 	c.Check(res, gc.HasLen, 2)
 
 	allAddr, err := s.machine.AllAddresses()

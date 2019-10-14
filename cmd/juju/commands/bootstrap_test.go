@@ -517,6 +517,19 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerName(c *gc.C) {
 	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
 }
 
+func (s *BootstrapSuite) TestBootstrapDefaultControllerNameWithCaps(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy-cloud/Region-1", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "dummy-cloud-region-1")
+	details, err := s.store.ControllerByName(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(*details.MachineCount, gc.Equals, 1)
+	c.Assert(details.AgentVersion, gc.Equals, jujuversion.Current.String())
+}
+
 func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "raring")
 
@@ -524,6 +537,21 @@ func (s *BootstrapSuite) TestBootstrapDefaultControllerNameNoRegions(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	currentController := s.store.CurrentControllerName
 	c.Assert(currentController, gc.Equals, "no-cloud-regions")
+}
+
+func (s *BootstrapSuite) TestBootstrapSetsCurrentModelWithCaps(c *gc.C) {
+	s.setupAutoUploadTest(c, "1.8.3", "raring")
+
+	_, err := cmdtesting.RunCommand(c, s.newBootstrapCommand(), "dummy", "DevController", "--auto-upgrade")
+	c.Assert(err, jc.ErrorIsNil)
+	currentController := s.store.CurrentControllerName
+	c.Assert(currentController, gc.Equals, "devcontroller")
+	modelName, err := s.store.CurrentModel(currentController)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(modelName, gc.Equals, "admin/default")
+	m, err := s.store.ModelByName(currentController, modelName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(m.ModelType, gc.Equals, model.IAAS)
 }
 
 func (s *BootstrapSuite) TestBootstrapSetsCurrentModel(c *gc.C) {

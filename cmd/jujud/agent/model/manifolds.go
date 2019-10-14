@@ -168,6 +168,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
+			// No Logger defined in lifeflag package.
 		}),
 		notAliveFlagName: lifeflag.Manifold(lifeflag.ManifoldConfig{
 			APICallerName: apiCallerName,
@@ -177,6 +178,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: lifeflag.NewFacade,
 			NewWorker: lifeflag.NewWorker,
+			// No Logger defined in lifeflag package.
 		}),
 		isResponsibleFlagName: singular.Manifold(singular.ManifoldConfig{
 			Clock:         config.Clock,
@@ -187,6 +189,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: singular.NewFacade,
 			NewWorker: singular.NewWorker,
+			// No Logger defined in singular package.
 		}),
 		// This flag runs on all models, and
 		// indicates if model's cloud credential is valid.
@@ -194,6 +197,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     credentialvalidator.NewFacade,
 			NewWorker:     credentialvalidator.NewWorker,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.credentialvalidator"),
 		}),
 
 		// The migration workers collaborate to run migrations;
@@ -209,12 +213,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// Note that the fortress and flag will only exist while
 		// the model is not dead, and not upgrading; this frees
 		// their dependencies from model-lifetime/upgrade concerns.
-		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold())),
+		migrationFortressName: ifNotUpgrading(ifNotDead(fortress.Manifold(
+		// No Logger defined in fortress package.
+		))),
 		migrationInactiveFlagName: ifNotUpgrading(ifNotDead(migrationflag.Manifold(migrationflag.ManifoldConfig{
 			APICallerName: apiCallerName,
 			Check:         migrationflag.IsTerminal,
 			NewFacade:     migrationflag.NewFacade,
 			NewWorker:     migrationflag.NewWorker,
+			// No Logger defined in migrationflag package.
 		}))),
 		migrationMasterName: ifNotUpgrading(ifNotDead(migrationmaster.Manifold(migrationmaster.ManifoldConfig{
 			AgentName:     agentName,
@@ -223,6 +230,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Clock:         config.Clock,
 			NewFacade:     migrationmaster.NewFacade,
 			NewWorker:     config.NewMigrationMaster,
+			// No Logger defined in migrationmaster package.
 		}))),
 
 		// Everything else should be wrapped in ifResponsible,
@@ -255,6 +263,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 			NewFacade: charmrevisionmanifold.NewAPIFacade,
 			NewWorker: charmrevision.NewWorker,
+			// No Logger defined in charmrevision or charmrevisionmanifold package.
 		})),
 		remoteRelationsName: ifNotMigrating(remoterelations.Manifold(remoterelations.ManifoldConfig{
 			AgentName:                agentName,

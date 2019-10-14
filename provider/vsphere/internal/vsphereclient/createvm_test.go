@@ -85,13 +85,13 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
-		retrievePropertiesStubCall("FakeRootFolder"),
-		retrievePropertiesStubCall("FakeRootFolder"),
-		retrievePropertiesStubCall("FakeDatacenter"),
-		retrievePropertiesStubCall("FakeVmFolder"),
-		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeDatastore1", "FakeDatastore2"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
+		retrievePropertiesStubCall("FakeVmFolder"),
+		retrievePropertiesStubCall("FakeVmFolder"),
 		{"CreateImportSpec", []interface{}{
 			UbuntuOVF,
 			types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
@@ -138,6 +138,10 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 					}},
 				},
 			},
+			types.VirtualMachineRelocateSpec{
+				Pool:      &args.ResourcePool,
+				Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
+			},
 		}},
 		{"CreatePropertyCollector", nil},
 		{"CreateFilter", nil},
@@ -171,6 +175,9 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
 			}},
 		},
+	}, types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
 	})
 }
 
@@ -199,6 +206,26 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 		cisp,
 	)
+
+	s.roundTripper.CheckCall(
+		c, 31, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+			ExtraConfig: []types.BaseOptionValue{
+				&types.OptionValue{Key: "k", Value: "v"},
+			},
+			Flags: &types.VirtualMachineFlagInfo{DiskUuidEnabled: newBool(true)},
+			VAppConfig: &types.VmConfigSpec{
+				Property: []types.VAppPropertySpec{{
+					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+					Info:            &types.VAppPropertyInfo{Key: 1, Value: "vm-0"},
+				}, {
+					ArrayUpdateSpec: types.ArrayUpdateSpec{Operation: "edit"},
+					Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
+				}},
+			},
+		}, types.VirtualMachineRelocateSpec{
+			Pool:      &args.ResourcePool,
+			Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
+		})
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFound(c *gc.C) {
@@ -208,7 +235,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFound(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating template VM: could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
+	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore2"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
@@ -220,7 +247,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNoneAccessible(c *gc.C) {
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, "creating template VM: no accessible datastores available")
+	c.Assert(err, gc.ErrorMatches, "no accessible datastores available")
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithMultipleAvailable(c *gc.C) {
@@ -243,7 +270,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithMultipleAvail
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating template VM: could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
+	c.Assert(err, gc.ErrorMatches, `could not find datastore "datastore3", datastore\(s\) accessible: "datastore1", "datastore2"`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithNoAvailable(c *gc.C) {
@@ -266,7 +293,7 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreNotFoundWithNoAvailable(c
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
 	_, err := client.CreateVirtualMachine(context.Background(), args)
-	c.Assert(err, gc.ErrorMatches, `creating template VM: no accessible datastores available`)
+	c.Assert(err, gc.ErrorMatches, `no accessible datastores available`)
 }
 
 func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefault(c *gc.C) {
@@ -335,6 +362,9 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
 			}},
 		},
+	}, types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
 	})
 }
 
@@ -388,6 +418,9 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 				Info:            &types.VAppPropertyInfo{Key: 4, Value: "baz"},
 			}},
 		},
+	}, types.VirtualMachineRelocateSpec{
+		Pool:      &args.ResourcePool,
+		Datastore: &types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore2"},
 	})
 }
 
@@ -501,7 +534,7 @@ func (s *clientSuite) TestCreateVirtualMachineTimesOut(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 
-	err := s.clock.WaitAdvance(35*time.Second, coretesting.LongWait, 1)
+	err := s.clock.WaitAdvance(601*time.Second, coretesting.LongWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

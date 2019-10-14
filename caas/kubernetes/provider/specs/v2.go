@@ -4,6 +4,7 @@
 package specs
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
@@ -38,8 +39,6 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec.Service = p.caaSSpec.Service
 	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
 	pSpec.ServiceAccount = p.caaSSpec.ServiceAccount
-	// if p.k8sSpec.KubernetesResources != nil {
-	// }
 	pSpec.ProviderPod = &p.k8sSpec
 	return pSpec
 }
@@ -96,8 +95,18 @@ type KubernetesResources struct {
 
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
+	for k, crd := range krs.CustomResourceDefinitions {
+		if crd.Scope != apiextensionsv1beta1.NamespaceScoped {
+			return errors.NewNotSupported(nil,
+				fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q scope",
+					k, crd.Scope, apiextensionsv1beta1.NamespaceScoped),
+			)
+		}
+	}
 	for _, sa := range krs.ServiceAccounts {
-		return errors.Trace(sa.Validate())
+		if err := sa.Validate(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }

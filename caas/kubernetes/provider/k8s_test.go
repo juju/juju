@@ -1485,7 +1485,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 			"kubernetes-service-externalname":    "ext-name",
 		},
 	)
-	c.Assert(err, gc.ErrorMatches, `ports are required for kubernetes service`)
+	c.Assert(err, gc.ErrorMatches, `ports are required for kubernetes service "app-name"`)
 }
 
 func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
@@ -2066,6 +2066,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Times(1).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -2086,13 +2088,25 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		PodSpec:      podSpec,
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
-		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
-		"kubernetes-service-externalname":    "ext-name",
-		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
-	})
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+			"kubernetes-service-type":            "nodeIP",
+			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+			"kubernetes-service-externalname":    "ext-name",
+			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+		})
+	}()
+	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for EnsureService return")
+	}
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClusterRole(c *gc.C) {
@@ -2239,11 +2253,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb1}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("app-name-existingClusterRole1", s.deleteOptions(v1.DeletePropagationForeground, &rbUID1)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("app-name-existingClusterRole1", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(rb1, nil),
+		s.mockRoleBindings.EXPECT().Get("app-name-existingClusterRole1", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb1).Times(1).Return(rb1, nil),
 		s.mockClusterRoles.EXPECT().Get("existingClusterRole2", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(existingClusterRole2, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).Times(1).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb2}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("app-name-existingClusterRole2", s.deleteOptions(v1.DeletePropagationForeground, &rbUID2)).Times(1).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("app-name-existingClusterRole2", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(rb2, nil),
+		s.mockRoleBindings.EXPECT().Get("app-name-existingClusterRole2", v1.GetOptions{IncludeUninitialized: true}).Times(1).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb2).Times(1).Return(rb1, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Times(1).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Times(1).
@@ -2264,13 +2282,29 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountReferenceExistingClu
 		PodSpec:      podSpec,
 		ResourceTags: map[string]string{"fred": "mary"},
 	}
-	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
-		"kubernetes-service-type":            "nodeIP",
-		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
-		"kubernetes-service-externalname":    "ext-name",
-		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
-	})
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
+			"kubernetes-service-type":            "nodeIP",
+			"kubernetes-service-loadbalancer-ip": "10.0.0.1",
+			"kubernetes-service-externalname":    "ext-name",
+			"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
+		})
+	}()
+	// checking app-name-existingClusterRole1 has already been deleted.
+	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
+	// checking app-name-existingClusterRole2 has already been deleted.
+	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for EnsureService return")
+	}
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount(c *gc.C) {

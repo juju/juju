@@ -472,7 +472,7 @@ class JujuData:
         cloud_name = self.get_cloud()
         cloud = self.credentials['credentials'][cloud_name]
         # cloud credential info may include defaults we need to remove
-        cloud_cred = {k: v for k, v in cloud.iteritems() if k not in ['default-region', 'default-credential']}
+        cloud_cred = {k: v for k, v in cloud.items() if k not in ['default-region', 'default-credential']}
         (credentials_item,) = cloud_cred.items()
         return credentials_item
 
@@ -923,7 +923,7 @@ class ModelClient:
                          '--db-snap-asserts', db_snap_asserts_path])
         return tuple(args)
 
-    def add_model(self, env, cloud_region=None):
+    def add_model(self, env, cloud_region=None, use_bootstrap_config=True):
         """Add a model to this model's controller and return its client.
 
         :param env: Either a class representing the new model/environment
@@ -932,8 +932,12 @@ class ModelClient:
         if not isinstance(env, JujuData):
             env = self.env.clone(env)
         model_client = self.clone(env)
-        with model_client._bootstrap_config() as config_file:
-            self._add_model(env.environment, config_file, cloud_region=cloud_region)
+        if use_bootstrap_config:
+            with model_client._bootstrap_config() as config_file:
+                self._add_model(env.environment, config_file, cloud_region=cloud_region)
+        else:
+            # This allows the model to inherit model defaults
+            self._add_model(env.environment, None, cloud_region=cloud_region)
         # Make sure we track this in case it needs special cleanup (i.e. using
         # an existing controller).
         self._backend.track_model(model_client)
@@ -1067,8 +1071,8 @@ class ModelClient:
             cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                                  self.env.get_region())
             region_args = (cloud_region, '--credential', credential_name)
-        self.controller_juju('add-model', (model_name,) + region_args +
-                             ('--config', config_file,))
+        config_args = ('--config', config_file) if config_file is not None else ()
+        self.controller_juju('add-model', (model_name,) + region_args + config_args)
 
     def destroy_model(self):
         exit_status, _ = self.juju(

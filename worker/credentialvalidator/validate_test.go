@@ -26,3 +26,9 @@ func (*ValidateSuite) TestNilFacade(c *gc.C) {
 	config.Facade = nil
 	checkNotValid(c, config, "nil Facade not valid")
 }
+
+func (*ValidateSuite) TestNilLogger(c *gc.C) {
+	config := validConfig()
+	config.Logger = nil
+	checkNotValid(c, config, "nil Logger not valid")
+}
