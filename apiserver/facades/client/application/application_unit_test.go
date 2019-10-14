@@ -775,8 +775,8 @@ func (s *ApplicationSuite) TestDeployCAASModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 4)
 	c.Assert(results.Results[0].Error, gc.IsNil)
 	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for caas models")
-	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for caas models, got 2")
+	c.Assert(results.Results[2].Error, gc.ErrorMatches, "AttachStorage may not be specified for k8s models")
+	c.Assert(results.Results[3].Error, gc.ErrorMatches, "only 1 placement directive is supported for k8s models, got 2")
 
 	c.Assert(s.deployParams["foo"].ApplicationConfig.Attributes()["kubernetes-service-type"], gc.Equals, "NodeIP")
 	// Check parsing of k8s service annotations.
@@ -1692,7 +1692,7 @@ func (s *ApplicationSuite) TestCAASExposeWithoutHostname(c *gc.C) {
 		ApplicationName: "postgresql",
 	})
 	c.Assert(err, gc.ErrorMatches,
-		`cannot expose a CAAS application without a "juju-external-hostname" value set, run\n`+
+		`cannot expose a k8s application without a "juju-external-hostname" value set, run\n`+
 			`juju config postgresql juju-external-hostname=<value>`)
 }
 

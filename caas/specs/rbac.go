@@ -14,18 +14,36 @@ type PolicyRule struct {
 	Resources []string `yaml:"resources,omitempty"`
 }
 
-// ServiceAccountSpec defines spec for referencing to or creating a service account.
-type ServiceAccountSpec struct {
-	name                         string
+// RBACSpec defines RBAC related spec.
+type RBACSpec struct {
 	AutomountServiceAccountToken *bool    `yaml:"automountServiceAccountToken,omitempty"`
 	ClusterRoleNames             []string `yaml:"ClusterRoleNames,omitempty"`
 
-	Rules []PolicyRule `yaml:"rules,omitempty"` // TODO: still think we either need to model further or move rbac to k8specs level!!!!!!!!!!!!!
+	Rules []PolicyRule `yaml:"rules,omitempty"`
+}
+
+// Validate returns an error if the spec is not valid.
+func (rs RBACSpec) Validate() error {
+	if len(rs.ClusterRoleNames) == 0 && len(rs.Rules) == 0 {
+		return errors.NewNotValid(nil, "rules or clusterRoleNames are required")
+	}
+	return nil
+}
+
+// ServiceAccountSpec defines spec for referencing or creating a service account.
+type ServiceAccountSpec struct {
+	name     string
+	RBACSpec `yaml:",inline"`
 }
 
 // GetName returns the service accout name.
 func (sa ServiceAccountSpec) GetName() string {
 	return sa.name
+}
+
+// GetSpec returns the RBAC spec.
+func (sa ServiceAccountSpec) GetSpec() RBACSpec {
+	return sa.RBACSpec
 }
 
 // SetName sets the service accout name.
@@ -35,8 +53,5 @@ func (sa *ServiceAccountSpec) SetName(name string) {
 
 // Validate returns an error if the spec is not valid.
 func (sa ServiceAccountSpec) Validate() error {
-	if len(sa.ClusterRoleNames) == 0 && len(sa.Rules) == 0 {
-		return errors.NewNotValid(nil, "rules or clusterRoleNames are required")
-	}
-	return nil
+	return errors.Trace(sa.RBACSpec.Validate())
 }
