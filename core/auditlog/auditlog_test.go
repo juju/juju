@@ -71,7 +71,7 @@ func (s *AuditLogSuite) TestAuditLogFilePriming(c *gc.C) {
 
 	info, err := os.Stat(filepath.Join(dir, "audit.log"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode(), gc.Equals, os.FileMode(0600))
+	c.Assert(info.Mode(), gc.Equals, os.FileMode(0640))
 	// The chown will only work when run as root.
 }
 

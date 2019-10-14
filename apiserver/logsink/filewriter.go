@@ -7,8 +7,9 @@ import (
 	"io"
 	"os"
 
+	"github.com/juju/juju/core/auditlog"
+
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -29,11 +30,13 @@ func NewFileWriter(logPath string) (io.WriteCloser, error) {
 // primeLogFile ensures the logsink log file is created with the
 // correct mode and ownership.
 func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+	permissions := os.FileMode(0640)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, permissions)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	f.Close()
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
+	if err := f.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	return auditlog.SetOwnerGroupLogPermissions(path, "syslog", "adm", permissions)
 }

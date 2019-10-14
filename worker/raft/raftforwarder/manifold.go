@@ -8,10 +8,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/juju/core/auditlog"
+
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -122,10 +123,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Target: notifyTarget,
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 // Manifold builds a dependency.Manifold for running a raftforwarder
@@ -159,13 +160,13 @@ func makeLogger(path string) *lumberjack.Logger {
 // primeLogFile ensures the lease log file is created with the
 // correct mode and ownership.
 func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+	permissions := os.FileMode(0640)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, permissions)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := f.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
+	return auditlog.SetOwnerGroupLogPermissions(path, "syslog", "adm", permissions)
 }

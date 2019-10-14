@@ -43,7 +43,8 @@ type confRenderer interface {
 	shell.ScriptRenderer
 }
 
-func syslogUserGroup() (string, string) {
+// SyslogUserGroup returns the names of the user and group that own the log files.
+func SyslogUserGroup() (string, string) {
 	switch os.HostOS() {
 	case os.CentOS:
 		return "root", "adm"
@@ -67,7 +68,7 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 		cmds = append(cmds, renderer.Touch(filename, nil)...)
 		// TODO(ericsnow) We should drop the assumption that the logfile
 		// is syslog.
-		user, group := syslogUserGroup()
+		user, group := SyslogUserGroup()
 		cmds = append(cmds, renderer.Chown(filename, user, group)...)
 		cmds = append(cmds, renderer.Chmod(filename, 0640)...)
 		cmds = append(cmds, renderer.RedirectOutput(filename)...)

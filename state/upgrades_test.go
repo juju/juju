@@ -3240,40 +3240,6 @@ func (s *upgradesSuite) TestAddModelLogsSize(c *gc.C) {
 	s.assertUpgradedData(c, AddModelLogsSize, upgradedData(settingsColl, expectedSettings))
 }
 
-func (s *upgradesSuite) TestAddModelLogfileControllerConfig(c *gc.C) {
-	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
-	defer settingsCloser()
-	_, err := settingsColl.RemoveAll(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	err = settingsColl.Insert(bson.M{
-		"_id": "controllerSettings",
-		"settings": bson.M{
-			"key": "value",
-		},
-	}, bson.M{
-		"_id": "someothersettingshouldnotbetouched",
-		// non-controller data: should not be touched
-		"settings": bson.M{"key": "value"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedSettings := []bson.M{
-		{
-			"_id": "controllerSettings",
-			"settings": bson.M{
-				"key":                       "value",
-				"model-logfile-max-backups": 2,
-				"model-logfile-max-size":    "10M",
-			},
-		}, {
-			"_id":      "someothersettingshouldnotbetouched",
-			"settings": bson.M{"key": "value"},
-		},
-	}
-
-	s.assertUpgradedData(c, AddModelLogfileControllerConfig, upgradedData(settingsColl, expectedSettings))
-}
-
 func (s *upgradesSuite) TestAddControllerNodeDocs(c *gc.C) {
 	machinesColl, closer := s.state.db().GetRawCollection(machinesC)
 	defer closer()

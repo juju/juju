@@ -9,13 +9,14 @@ import (
 	"io"
 	"math/rand"
 	"os"
+	"os/user"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -245,13 +246,36 @@ func idString(id uint64) string {
 // primeLogFile ensures the logsink log file is created with the
 // correct mode and ownership.
 func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
+	permissions := os.FileMode(0640)
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, permissions)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if err := f.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
+	return SetOwnerGroupLogPermissions(path, "syslog", "adm", permissions)
+}
+
+func SetOwnerGroupLogPermissions(filePath string, wantedOwner string, wantedGroup string, permissions os.FileMode) error {
+	group, err := user.LookupGroup(wantedGroup)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	usr, err := user.Lookup(wantedOwner)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	uid, err := strconv.Atoi(usr.Uid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := os.Chmod(filePath, permissions); err != nil {
+		return errors.Trace(err)
+	}
+	return os.Chown(filePath, uid, gid)
 }

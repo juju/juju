@@ -186,7 +186,7 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	c.Assert(args[1].(*lumberjack.Logger).Filename, gc.Equals, expectedPath)
 	stat, err := os.Stat(expectedPath)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(stat.Mode(), gc.Equals, os.FileMode(0600))
+	c.Assert(stat.Mode(), gc.Equals, os.FileMode(0640))
 	c.Assert(args[2], gc.Equals, &s.logger)
 
 	args = s.stub.Calls()[1].Args
