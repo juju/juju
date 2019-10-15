@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
 
@@ -458,26 +458,17 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 	machineIds := set.NewStrings()
 	usedSeries := set.NewStrings()
-	spaceNamesByID, err := b.backend.SpaceNamesByID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
-		bindings := make(map[string]string)
-		for ep, spaceID := range application.EndpointBindings() {
-			// Only care about endpoints with bindings not in the default space.
-			if spaceID == network.DefaultSpaceId {
-				continue
-			}
-			spaceName, ok := spaceNamesByID[spaceID]
-			if !ok {
-				logger.Warningf("export bundle: space name for id %q not found", spaceID)
-				continue
-			}
-			bindings[ep] = spaceName
+		endpointBindings, err := state.NewBindings(b.backend, application.EndpointBindings())
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointsWithSpaceNames, err := endpointBindings.MapWithSpaceNames()
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
 		if application.Subordinate() {
 			newApplication = &charm.ApplicationSpec{
@@ -485,7 +476,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Expose:           application.Exposed(),
 				Options:          application.CharmConfig(),
 				Annotations:      application.Annotations(),
-				EndpointBindings: bindings,
+				EndpointBindings: endpointsWithSpaceNames,
 			}
 			if appSeries != defaultSeries {
 				newApplication.Series = appSeries
@@ -525,7 +516,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 				Expose:           application.Exposed(),
 				Options:          application.CharmConfig(),
 				Annotations:      application.Annotations(),
-				EndpointBindings: bindings,
+				EndpointBindings: endpointsWithSpaceNames,
 			}
 			if appSeries != defaultSeries {
 				newApplication.Series = appSeries

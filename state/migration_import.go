@@ -841,7 +841,7 @@ func (i *importer) application(a description.Application) error {
 		return errors.Trace(err)
 	}
 
-	bindings, err := i.st.translateSpaceNameToID(a.EndpointBindings())
+	bindings, err := NewBindings(i.st, a.EndpointBindings())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -851,7 +851,7 @@ func (i *importer) application(a description.Application) error {
 		Id:     app.globalKey(),
 		Assert: txn.DocMissing,
 		Insert: endpointBindingsDoc{
-			Bindings: bindingsMap(bindings),
+			Bindings: bindings.Map(),
 		},
 	})
 

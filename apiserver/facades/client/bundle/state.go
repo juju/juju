@@ -12,7 +12,7 @@ import (
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 	GetExportConfig() state.ExportConfig
-	SpaceNamesByID() (map[string]string, error)
+	state.EndpointBinding
 }
 
 type stateShim struct {
