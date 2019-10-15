@@ -47,9 +47,10 @@ const (
 // PreferredStorage defines preferred storage
 // attributes on a given cluster.
 type PreferredStorage struct {
-	Name        string
-	Provisioner string
-	Parameters  map[string]string
+	Name              string
+	Provisioner       string
+	Parameters        map[string]string
+	VolumeBindingMode string
 }
 
 // StorageProvisioner defines the a storage provisioner available on a cluster.

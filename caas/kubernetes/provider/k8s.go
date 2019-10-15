@@ -569,25 +569,10 @@ func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClas
 
 // EnsureStorageProvisioner creates a storage class with the specified config, or returns an existing one.
 func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, error) {
-	toCaaSSC := func(sc *k8sstorage.StorageClass) *caas.StorageProvisioner {
-		csc := &caas.StorageProvisioner{
-			Name:        sc.Name,
-			Provisioner: sc.Provisioner,
-			Parameters:  sc.Parameters,
-		}
-		if sc.VolumeBindingMode != nil {
-			csc.VolumeBindingMode = string(*sc.VolumeBindingMode)
-		}
-		if sc.ReclaimPolicy != nil {
-			csc.ReclaimPolicy = string(*sc.ReclaimPolicy)
-		}
-		return csc
-	}
-
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return toCaaSSC(sc), nil
+		return toCaaSStorageProvisioner(*sc), nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		return nil, errors.Annotatef(err, "getting storage class %q", cfg.Name)
@@ -623,7 +608,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
-	return toCaaSSC(sc), nil
+	return toCaaSStorageProvisioner(*sc), nil
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {

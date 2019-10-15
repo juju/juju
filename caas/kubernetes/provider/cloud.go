@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	"gopkg.in/yaml.v2"
-	k8sstorage "k8s.io/api/storage/v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -192,13 +191,15 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	// --storage provided or nominated storage found but Juju does not have preferred storage config to
 	// compare with for the cloudType(like maas for example);
 	var (
-		provisioner string
-		params      map[string]string
+		provisioner       string
+		volumeBindingMode string
+		params            map[string]string
 	)
 	scName := storageParams.WorkloadStorage
 	nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
 	if ok {
 		provisioner = nonPreferredStorageErr.Provisioner
+		volumeBindingMode = nonPreferredStorageErr.VolumeBindingMode
 		params = nonPreferredStorageErr.Parameters
 	} else if clusterMetadata.NominatedStorageClass != nil {
 		// no preferred storage class config but nominated storage found.
@@ -206,13 +207,10 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}
 	var sp *caas.StorageProvisioner
 	sp, err = storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
-		Name:        scName,
-		Provisioner: provisioner,
-		Parameters:  params,
-		// WaitForFirstConsumer mode which will delay the binding and provisioning of a PersistentVolume until a
-		// Pod using the PersistentVolumeClaim is created.
-		// https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode
-		VolumeBindingMode: string(k8sstorage.VolumeBindingWaitForFirstConsumer),
+		Name:              scName,
+		Provisioner:       provisioner,
+		Parameters:        params,
+		VolumeBindingMode: volumeBindingMode,
 	})
 	if errors.IsNotFound(err) {
 		return "", errors.Wrap(err, errors.NotFoundf("storage class %q", scName))
