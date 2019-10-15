@@ -206,9 +206,12 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}
 	var sp *caas.StorageProvisioner
 	sp, err = storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
-		Name:              scName,
-		Provisioner:       provisioner,
-		Parameters:        params,
+		Name:        scName,
+		Provisioner: provisioner,
+		Parameters:  params,
+		// WaitForFirstConsumer mode which will delay the binding and provisioning of a PersistentVolume until a
+		// Pod using the PersistentVolumeClaim is created.
+		// https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode
 		VolumeBindingMode: string(k8sstorage.VolumeBindingWaitForFirstConsumer),
 	})
 	if errors.IsNotFound(err) {
