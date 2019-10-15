@@ -2595,6 +2595,26 @@ func EnsureRelationApplicationSettings(pool *StatePool) error {
 // Where such addresses include a space name or provider ID,
 // The space is retrieved and these fields are removed in favour of space's ID.
 func ConvertAddressSpaceIDs(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		lookup, err := st.SpaceIDsByName()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		db := st.db()
+		ops, err := convertMachineAddressSpaceIDs(db, lookup)
+		if err != nil {
+			return errors.Annotate(err, "getting machine upgrade ops")
+		}
+
+		if len(ops) == 0 {
+			return nil
+		}
+		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+func convertMachineAddressSpaceIDs(db Database, lookup map[string]string) ([]txn.Op, error) {
 	// machine is a subset of machine document fields that we care about
 	// for updating the address fields.
 	type machine struct {
@@ -2606,53 +2626,44 @@ func ConvertAddressSpaceIDs(pool *StatePool) error {
 		PreferredPrivateAddress upgrade.OldAddress27 `bson:",omitempty"`
 	}
 
-	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		lookup, err := st.SpaceIDsByName()
-		if err != nil {
-			return errors.Trace(err)
-		}
+	col, closer := db.GetCollection(machinesC)
+	defer closer()
 
-		col, closer := st.db().GetCollection(machinesC)
-		defer closer()
+	var err error
+	var machines []machine
+	if err = col.Find(nil).All(&machines); err != nil {
+		return nil, errors.Trace(err)
+	}
 
-		var machines []machine
-		if err := col.Find(nil).All(&machines); err != nil {
-			return errors.Trace(err)
-		}
-
-		var ops []txn.Op
-		for _, machine := range machines {
-			allAddrs := [][]upgrade.OldAddress27{machine.Addresses, machine.MachineAddresses}
-			for i, addrs := range allAddrs {
-				for j, addr := range addrs {
-					if allAddrs[i][j], err = addr.Upgrade(lookup); err != nil {
-						return errors.Trace(err)
-					}
+	var ops []txn.Op
+	for _, machine := range machines {
+		allAddrs := [][]upgrade.OldAddress27{machine.Addresses, machine.MachineAddresses}
+		for i, addrs := range allAddrs {
+			for j, addr := range addrs {
+				if allAddrs[i][j], err = addr.Upgrade(lookup); err != nil {
+					return nil, errors.Trace(err)
 				}
 			}
-
-			if machine.PreferredPublicAddress, err = machine.PreferredPublicAddress.Upgrade(lookup); err != nil {
-				return errors.Trace(err)
-			}
-			if machine.PreferredPrivateAddress, err = machine.PreferredPrivateAddress.Upgrade(lookup); err != nil {
-				return errors.Trace(err)
-			}
-
-			ops = append(ops, txn.Op{
-				C:  machinesC,
-				Id: machine.DocID,
-				Update: bson.D{
-					{"$set", bson.D{{"addresses", machine.Addresses}}},
-					{"$set", bson.D{{"machineaddresses", machine.MachineAddresses}}},
-					{"$set", bson.D{{"preferredpublicaddress", machine.PreferredPublicAddress}}},
-					{"$set", bson.D{{"preferredprivateaddress", machine.PreferredPrivateAddress}}},
-				},
-			})
 		}
 
-		if len(ops) == 0 {
-			return nil
+		if machine.PreferredPublicAddress, err = machine.PreferredPublicAddress.Upgrade(lookup); err != nil {
+			return nil, errors.Trace(err)
 		}
-		return errors.Trace(st.db().RunTransaction(ops))
-	}))
+		if machine.PreferredPrivateAddress, err = machine.PreferredPrivateAddress.Upgrade(lookup); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops = append(ops, txn.Op{
+			C:  machinesC,
+			Id: machine.DocID,
+			Update: bson.D{
+				{"$set", bson.D{{"addresses", machine.Addresses}}},
+				{"$set", bson.D{{"machineaddresses", machine.MachineAddresses}}},
+				{"$set", bson.D{{"preferredpublicaddress", machine.PreferredPublicAddress}}},
+				{"$set", bson.D{{"preferredprivateaddress", machine.PreferredPrivateAddress}}},
+			},
+		})
+	}
+
+	return ops, nil
 }
