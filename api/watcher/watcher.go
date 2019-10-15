@@ -267,12 +267,16 @@ func copyRelationUnitsChanged(src params.RelationUnitsChange) watcher.RelationUn
 		Departed: src.Departed,
 	}
 	if src.Changed != nil {
-		dst.Changed = make(map[string]watcher.UnitSettings)
+		dst.Changed = make(map[string]watcher.UnitSettings, len(src.Changed))
 		for name, unitSettings := range src.Changed {
 			dst.Changed[name] = watcher.UnitSettings{
 				Version: unitSettings.Version,
 			}
 		}
+		// dst.AppChanged = make(map[string]int64, len(src.AppChanged))
+		// for name, appVersion := range src.AppChanged {
+		// 	dst.AppChanged[name] = appVersion
+		// }
 	}
 	return dst
 }

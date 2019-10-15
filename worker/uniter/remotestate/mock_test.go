@@ -104,6 +104,7 @@ type mockState struct {
 	relations                   map[names.RelationTag]*mockRelation
 	storageAttachment           map[params.StorageAttachmentId]params.StorageAttachment
 	relationUnitsWatchers       map[names.RelationTag]*mockRelationUnitsWatcher
+	relationAppWatchers         map[names.RelationTag]map[string]*mockNotifyWatcher
 	storageAttachmentWatchers   map[names.StorageTag]*mockNotifyWatcher
 	updateStatusInterval        time.Duration
 	updateStatusIntervalWatcher *mockNotifyWatcher
@@ -186,6 +187,19 @@ func (st *mockState) WatchStorageAttachment(
 	return watcher, nil
 }
 
+func (st *mockState) WatchRelationApplicationSettings(
+	relationTag names.RelationTag, appTag names.ApplicationTag,
+) (watcher.NotifyWatcher, error) {
+	apps, ok := st.relationAppWatchers[relationTag]
+	if !ok {
+		return nil, &params.Error{Code: params.CodeNotFound}
+	}
+	watcher, ok := apps[appTag.Id()]
+	if !ok {
+		return nil, &params.Error{Code: params.CodeNotFound}
+	}
+	return watcher, nil
+}
 func (st *mockState) UpdateStatusHookInterval() (time.Duration, error) {
 	return st.updateStatusInterval, nil
 }
@@ -313,9 +327,14 @@ func (s *mockApplication) WatchLeadershipSettings() (watcher.NotifyWatcher, erro
 }
 
 type mockRelation struct {
+	tag       names.RelationTag
 	id        int
 	life      params.Life
 	suspended bool
+}
+
+func (r *mockRelation) Tag() names.RelationTag {
+	return r.tag
 }
 
 func (r *mockRelation) Id() int {

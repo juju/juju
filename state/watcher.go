@@ -1013,7 +1013,7 @@ type relationUnitsWatcher struct {
 	out      chan params.RelationUnitsChange
 }
 
-// Watch returns a watcher that notifies of changes to conterpart units in
+// Watch returns a watcher that notifies of changes to counterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 	return newRelationUnitsWatcher(ru.st, ru.WatchScope())
@@ -1023,11 +1023,7 @@ func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 // specified application endpoint in the relation. This method will return an error
 // if the endpoint is not globally scoped.
 func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
-	return r.watchUnits(appName, false)
-}
-
-func (r *Relation) watchUnits(applicationName string, counterpart bool) (RelationUnitsWatcher, error) {
-	ep, err := r.Endpoint(applicationName)
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return nil, err
 	}
@@ -1035,9 +1031,6 @@ func (r *Relation) watchUnits(applicationName string, counterpart bool) (Relatio
 		return nil, errors.Errorf("%q endpoint is not globally scoped", ep.Name)
 	}
 	role := ep.Role
-	if counterpart {
-		role = counterpartRole(role)
-	}
 	rsw := watchRelationScope(r.st, r.globalScope(), role, "")
 	return newRelationUnitsWatcher(r.st, rsw), nil
 }

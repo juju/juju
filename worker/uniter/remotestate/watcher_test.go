@@ -67,6 +67,7 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		relations:                   make(map[names.RelationTag]*mockRelation),
 		storageAttachment:           make(map[params.StorageAttachmentId]params.StorageAttachment),
 		relationUnitsWatchers:       make(map[names.RelationTag]*mockRelationUnitsWatcher),
+		relationAppWatchers:         make(map[names.RelationTag]map[string]*mockNotifyWatcher),
 		storageAttachmentWatchers:   make(map[names.StorageTag]*mockNotifyWatcher),
 		updateStatusInterval:        5 * time.Minute,
 		updateStatusIntervalWatcher: newMockNotifyWatcher(),
@@ -520,10 +521,11 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive, suspended: false,
+		tag: relationTag, id: 123, life: params.Alive, suspended: false,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
+	s.st.relationAppWatchers[relationTag] = map[string]*mockNotifyWatcher{"mysql": newMockNotifyWatcher()}
 
 	// There should not be any signal until the relation units watcher has
 	// returned its initial event also.
@@ -537,9 +539,10 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 		jc.DeepEquals,
 		map[int]remotestate.RelationSnapshot{
 			123: {
-				Life:      params.Alive,
-				Suspended: false,
-				Members:   map[string]int64{"mysql/1": 1, "mysql/2": 2},
+				Life:               params.Alive,
+				Suspended:          false,
+				Members:            map[string]int64{"mysql/1": 1, "mysql/2": 2},
+				ApplicationMembers: map[string]int64{},
 			},
 		},
 	)
@@ -566,7 +569,7 @@ func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive, suspended: false,
+		tag: relationTag, id: 123, life: params.Alive, suspended: false,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
@@ -589,7 +592,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive,
+		tag: relationTag, id: 123, life: params.Alive,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 
@@ -626,7 +629,7 @@ func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		id: 123, life: params.Alive,
+		tag: relationTag, id: 123, life: params.Alive,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 

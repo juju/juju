@@ -1239,6 +1239,23 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// will be handled by the deferred kill/stop calls. Phew.
 }
 
+func (s *WatchScopeSuite) TestWatchAppSettings(c *gc.C) {
+	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wpUnit0, err := wordpress.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	wpRelUnit0, err := rel.Unit(wpUnit0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wpRelUnit0.EnterScope(nil), jc.ErrorIsNil)
+}
+
 func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Create a pair of application and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))

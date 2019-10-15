@@ -27,6 +27,7 @@ type State interface {
 	StorageAttachmentLife([]params.StorageAttachmentId) ([]params.LifeResult, error)
 	Unit(names.UnitTag) (Unit, error)
 	WatchRelationUnits(names.RelationTag, names.UnitTag) (watcher.RelationUnitsWatcher, error)
+	WatchRelationApplicationSettings(names.RelationTag, names.ApplicationTag) (watcher.NotifyWatcher, error)
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) (watcher.NotifyWatcher, error)
 	WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, error)
 	UpdateStatusHookInterval() (time.Duration, error)
@@ -73,6 +74,7 @@ type Application interface {
 
 type Relation interface {
 	Id() int
+	Tag() names.RelationTag
 	Life() params.Life
 	Suspended() bool
 	UpdateSuspended(bool)
