@@ -316,13 +316,13 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(apiUnit)
+	_, err = apiRel.Unit(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We just created the wordpress unit, make sure its event isn't still in the queue
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
-	w, err := apiRelUnit.Watch()
+	w, err := s.uniter.WatchRelationUnits(s.stateRelation.Tag().(names.RelationTag), apiUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
