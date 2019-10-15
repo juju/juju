@@ -42,7 +42,7 @@ func (s *listSuite) TestListNoCredentialsRegistered(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-No clouds with registered credentials to show.
+Only clouds with registered credentials are shown.
 There are more clouds, use --all to see them.
 No controllers were specified.
 `[1:])

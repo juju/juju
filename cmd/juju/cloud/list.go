@@ -297,8 +297,6 @@ func (c *cloudList) filter(all bool) bool {
 	}
 
 	examine(c.public)
-	examine(c.builtin)
-	examine(c.personal)
 	return result
 }
 
