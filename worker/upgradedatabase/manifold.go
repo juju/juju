@@ -1,0 +1,69 @@
+// Copyright 2019 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package upgradedatabase
+
+import (
+	"github.com/juju/errors"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
+)
+
+// ManifoldConfig defines the configuration on which this manifold depends.
+type ManifoldConfig struct {
+	AgentName string
+	//UpgradeStepsGateName string
+	Logger    Logger
+	OpenState func() (*state.StatePool, error)
+	//PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool, bool) error
+	//NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
+}
+
+// Validate returns an error if the manifold config is not valid.
+func (cfg ManifoldConfig) Validate() error {
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
+	if cfg.OpenState == nil {
+		return errors.NotValidf("nil OpenState function")
+	}
+	return nil
+}
+
+// Manifold returns a dependency manifold that runs a database upgrade worker
+// using the resource names defined in the supplied config.
+func Manifold(cfg ManifoldConfig) dependency.Manifold {
+	return dependency.Manifold{
+		Inputs: []string{
+			cfg.AgentName,
+			//cfg.UpgradeStepsGateName,
+		},
+		Start: func(context dependency.Context) (worker.Worker, error) {
+			// Determine this machine's tag.
+			var a agent.Agent
+			if err := context.Get(cfg.AgentName, &a); err != nil {
+				return nil, errors.Trace(err)
+			}
+			tag := a.CurrentConfig().Tag()
+
+			// Wrap the state pool factory to return our implementation.
+			openState := func() (Pool, error) {
+				p, err := cfg.OpenState()
+				if err != nil {
+					return nil, errors.Trace(err)
+				}
+				return &pool{p}, nil
+			}
+
+			workerCfg := Config{
+				Tag:       tag,
+				Logger:    cfg.Logger,
+				OpenState: openState,
+			}
+			w, err := NewWorker(workerCfg)
+			return w, errors.Annotate(err, "starting database upgrade worker")
+		},
+	}
+}

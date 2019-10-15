@@ -35,7 +35,7 @@ func (cfg Config) Validate() error {
 		return errors.NotValidf("nil Logger")
 	}
 	if cfg.OpenState == nil {
-		return errors.NotValidf("nil OpenState")
+		return errors.NotValidf("nil OpenState function")
 	}
 	return nil
 }
@@ -51,8 +51,8 @@ type upgradeDB struct {
 	pool   Pool
 }
 
-// NewWorker validates the input configuration, then uses it to create, start
-// and return an upgradeDB worker.
+// NewWorker validates the input configuration, then uses it to create,
+// start and return an upgradeDB worker.
 func NewWorker(cfg Config) (worker.Worker, error) {
 	var err error
 
