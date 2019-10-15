@@ -43,10 +43,10 @@ var listCloudsDoc = "" +
 	"\n" +
 	"The default behaviour is to show clouds available on the current controller.\n" +
 	"Another controller can specified using the --controller option. When no controllers\n" +
-	"are available, --client is implied.\n" +
+	"are available, --client-only is implied.\n" +
 	"\n" +
-	"If --client is specified, the public clouds known to Juju out of the box are displayed,\n" +
-	"along with any which have been added with `add-cloud --client`. These clouds can be\n" +
+	"If --client-only is specified, the public clouds known to Juju out of the box are displayed,\n" +
+	"along with any which have been added with `add-cloud --client-only`. These clouds can be\n" +
 	"used to create a controller.\n" +
 	"\n" +
 	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
@@ -79,7 +79,7 @@ Examples:
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller
-    juju clouds --client
+    juju clouds --client-only
 
 See also:
     add-cloud

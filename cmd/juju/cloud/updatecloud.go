@@ -48,7 +48,7 @@ will use the cloud defined on this client or you can provide a cloud
 definition yaml file from which to retrieve the cloud details; the current
 controller is used unless the --controller option is specified.
 
-When <cloud definition file> is provided with <cloud name> and --client is
+When <cloud definition file> is provided with <cloud name> and --client-only is
 specified, Juju stores that definition in its internal cache directly after
 validating the contents.
 
@@ -57,7 +57,7 @@ Examples:
     juju update-cloud mymaas -f path/to/maas.yaml
     juju update-cloud mymaas -f path/to/maas.yaml --controller mycontroller
     juju update-cloud mymaas --controller mycontroller
-    juju update-cloud mymaas --client -f path/to/maas.yaml
+    juju update-cloud mymaas --client-only -f path/to/maas.yaml
 
 See also:
     add-cloud

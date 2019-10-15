@@ -57,11 +57,11 @@ material, can be listed with `[1:] + "`juju credentials`" + `.
 By default, after validating the contents, credentials are removed
 from both the current controller and the current client device. 
 Use --controller option to remove credentials from a different controller. 
-Use --client option to remove credentials from the current client only.
+Use --client-only option to remove credentials from the current client only.
 
 Examples:
     juju remove-credential rackspace credential_name
-    juju remove-credential rackspace credential_name --client
+    juju remove-credential rackspace credential_name --client-only
     juju remove-credential rackspace credential_name -c another_controller
 
 See also: 

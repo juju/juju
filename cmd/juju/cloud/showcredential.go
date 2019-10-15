@@ -29,7 +29,16 @@ type showCredentialCommand struct {
 	CredentialName string
 
 	ShowSecrets bool
-	Local       bool
+	// Local stores whether a client side (aka local) copy is requested.
+	Local bool
+
+	// ClientOnly stores whether the command will ONLY operate on a client copy
+	// without affecting controller copy.
+	ClientOnly bool
+
+	// ControllerOnly stores whether the command will ONLY operate on a controller copy
+	// without affecting client copy.
+	ControllerOnly bool
 }
 
 // NewShowCredentialCommand returns a command to show information about
@@ -51,12 +60,16 @@ func (c *showCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 		"yaml": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.ShowSecrets, "show-secrets", false, "Display credential secret attributes")
+	f.BoolVar(&c.ClientOnly, "client-only", false, "Client operation only; controller not affected")
+	f.BoolVar(&c.ControllerOnly, "controller-only", false, "Controller operation only; client not affected")
 	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller credential not shown")
-	f.BoolVar(&c.Local, "client", false, "Client operation only; controller credential not shown")
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
 }
 
 func (c *showCredentialCommand) Init(args []string) error {
+	if c.Local && !c.ClientOnly {
+		c.ClientOnly = c.Local
+	}
 	switch len(args) {
 	case 0:
 		// will get all credentials stored on the controller for this user.
@@ -88,7 +101,7 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("local credential content lookup failed: %v", err)
 	}
 	all := ControllerCredentials{Local: c.parseContents(ctxt, result)}
-	if c.Local {
+	if c.ClientOnly {
 		return c.out.Write(ctxt, all)
 	}
 
@@ -253,13 +266,13 @@ To see all credentials stored for you, supply no arguments.
 
 To see secrets, content attributes marked as hidden, use --show-secrets option.
 
-To see only credentials from this client, use "--client" option.
+To see only credentials from this client, use "--client-only" option.
 
 Examples:
 
     juju show-credential google my-admin-credential
     juju show-credentials 
-    juju show-credentials --client
+    juju show-credentials --client-only
     juju show-credentials --show-secrets
 
 See also: 

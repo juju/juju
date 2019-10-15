@@ -212,7 +212,7 @@ func (s *addSuite) TestAddExisting(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(mockCloud, nil)
 
 	_, err = s.runCommand(c, fake, "homestack", cloudFile.Name())
-	c.Assert(err, gc.ErrorMatches, "use `update-cloud homestack --client` to override known definition: local cloud \"homestack\" already exists")
+	c.Assert(err, gc.ErrorMatches, "use `update-cloud homestack --client-only` to override known definition: local cloud \"homestack\" already exists")
 }
 
 func (s *addSuite) TestAddExistingReplace(c *gc.C) {
@@ -251,7 +251,7 @@ func (s *addSuite) TestAddExistingPublic(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 
 	_, err = s.runCommand(c, fake, "aws", cloudFile.Name())
-	c.Assert(err, gc.ErrorMatches, "use `update-cloud aws --client` to override known definition: local cloud \"aws\" already exists")
+	c.Assert(err, gc.ErrorMatches, "use `update-cloud aws --client-only` to override known definition: local cloud \"aws\" already exists")
 }
 
 func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
@@ -269,7 +269,7 @@ func (s *addSuite) TestAddExistingBuiltin(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(map[string]jujucloud.Cloud{}, nil)
 
 	_, err = s.runCommand(c, fake, "localhost", cloudFile.Name())
-	c.Assert(err, gc.ErrorMatches, "use `update-cloud localhost --client` to override known definition: local cloud \"localhost\" already exists")
+	c.Assert(err, gc.ErrorMatches, "use `update-cloud localhost --client-only` to override known definition: local cloud \"localhost\" already exists")
 }
 
 func (s *addSuite) TestAddExistingPublicReplace(c *gc.C) {

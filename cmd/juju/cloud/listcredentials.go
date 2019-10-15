@@ -395,7 +395,7 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 				}
 			}
 			if len(credentialNames) == 0 {
-				w.Println(fmt.Sprintf("No credentials for cloud %v to display", cloudName))
+				w.Println(fmt.Sprintf("No credentials to display for cloud %v", cloudName))
 				continue
 			}
 			if haveDefault {

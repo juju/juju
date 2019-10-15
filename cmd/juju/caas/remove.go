@@ -24,11 +24,11 @@ If --controller is used, also removes the cloud
 from the specified controller (if it is not in use).
 
 If you just want to update your current client and not
-a running controller, use the --client option.
+a running controller, use the --client-only option.
 
 Examples:
     juju remove-k8s myk8scloud
-    juju remove-k8s myk8scloud --client
+    juju remove-k8s myk8scloud --client-only
     juju remove-k8s --controller mycontroller myk8scloud
     
 See also:
@@ -103,7 +103,7 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	if c.ControllerName == "" && !c.ClientOnly {
 		return errors.Errorf(
-			"There are no controllers running.\nTo remove cloud %q from the current client, use the --client option.", c.cloudName)
+			"There are no controllers running.\nTo remove cloud %q from the current client, use the --client-only option.", c.cloudName)
 	}
 	if err := removeCloudFromLocal(c.cloudMetadataStore, c.cloudName); err != nil {
 		return errors.Annotatef(err, "cannot remove cloud from current client")

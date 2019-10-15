@@ -143,7 +143,7 @@ func (s *removeCAASSuite) TestRemoveNoController(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	msg := err.Error()
 	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the current client, use the --client option.*`)
+	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the current client, use the --client-only option.*`)
 
 	s.fakeCloudAPI.CheckNoCalls(c)
 	s.cloudMetadataStore.CheckNoCalls(c)
