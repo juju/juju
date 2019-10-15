@@ -722,7 +722,8 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 		Provisioner: "kubernetes.io/gce-pd",
 	}
 	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
+		Name:              "mystorage",
+		VolumeBindingMode: "WaitForFirstConsumer",
 	}).Returns(storageProvisioner, nil)
 
 	command := s.makeCommand(c, true, false, true)
@@ -747,8 +748,9 @@ func (s *addCAASSuite) TestCreateDefaultStorageProvisioner(c *gc.C) {
 		Provisioner: "kubernetes.io/gce-pd",
 	}
 	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name:        "mystorage",
-		Provisioner: "kubernetes.io/gce-pd",
+		Name:              "mystorage",
+		Provisioner:       "kubernetes.io/gce-pd",
+		VolumeBindingMode: "WaitForFirstConsumer",
 	}).Returns(storageProvisioner, nil)
 
 	command := s.makeCommand(c, true, false, true)
@@ -771,7 +773,8 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 		Provisioner: "my disk provisioner",
 	}
 	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
+		Name:              "mystorage",
+		VolumeBindingMode: "WaitForFirstConsumer",
 	}).Returns(storageProvisioner, nil)
 
 	command := s.makeCommand(c, true, false, true)
@@ -795,7 +798,8 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 	}, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("no sc config for this cloud type"))
 	s.fakeK8sClusterMetadataChecker.Call("EnsureStorageProvisioner", jujucaas.StorageProvisioner{
-		Name: "mystorage",
+		Name:              "mystorage",
+		VolumeBindingMode: "WaitForFirstConsumer",
 	}).Returns(storageProvisioner, nil)
 
 	command := s.makeCommand(c, true, false, true)

@@ -578,6 +578,9 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 		if sc.VolumeBindingMode != nil {
 			csc.VolumeBindingMode = string(*sc.VolumeBindingMode)
 		}
+		if sc.ReclaimPolicy != nil {
+			csc.ReclaimPolicy = string(*sc.ReclaimPolicy)
+		}
 		return csc
 	}
 
