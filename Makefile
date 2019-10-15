@@ -7,7 +7,7 @@ endif
 
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
-PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/)
+PROJECT_PACKAGES := $(shell go list $(PROJECT)/... | grep -v /vendor/ | grep -v /acceptancetests/ | grep -v mocks)
 
 # Allow the tests to take longer on arm platforms.
 ifeq ($(shell uname -p | sed -E 's/.*(armel|armhf|aarch64|ppc64le|ppc64|s390x).*/golang/'), golang)
