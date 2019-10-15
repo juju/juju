@@ -75,19 +75,20 @@ bootstrap() {
         else
             # No bootstrapped juju found, unset the the variable.
             echo "====> Unable to reuse bootstrapped juju"
-            unset BOOTSTRAP_REUSE
+            export BOOTSTRAP_REUSE="false"
         fi
     fi
 
     version=$(juju_version)
 
     START_TIME=$(date +%s)
-    if [ -n "${BOOTSTRAP_REUSE}" ]; then
+    if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
         echo "====> Reusing bootstrapped juju ($(green "${version}"))"
 
         OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
         if [ -n "${OUT}" ]; then
             echo "${model} already exists. Use the following to clean up the environment:"
+            echo "    juju switch ${bootstrapped_name}"
             echo "    juju destroy-model --force -y ${model}"
             exit 1
         fi
@@ -146,7 +147,7 @@ juju_bootstrap() {
     fi
 
     if [ -n "${output}" ]; then
-        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" 2>&1 | add_date >"${output}"
+        juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@" > "${output}" 2>&1
     else
         juju bootstrap --debug="${debug}" "${provider}" "${name}" -d "${model}" "$@"
     fi
