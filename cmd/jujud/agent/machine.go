@@ -602,6 +602,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			MuxShutdownWait:                   1 * time.Minute,
 			NewContainerBrokerFunc:            newCAASBroker,
 			NewBrokerFunc:                     newBroker,
+			IsCaasConfig:                      a.isCaasAgent,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {

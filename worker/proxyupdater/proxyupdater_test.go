@@ -92,9 +92,10 @@ func (s *ProxyUpdaterSuite) SetUpTest(c *gc.C) {
 	logger := loggo.GetLogger("test.proxyupdater")
 	logger.SetLogLevel(loggo.TRACE)
 	s.config = proxyupdater.Config{
-		SystemdFiles: []string{s.proxySystemdFile},
-		EnvFiles:     []string{s.proxyEnvFile},
-		API:          s.api,
+		SupportLegacyValues: true,
+		SystemdFiles:        []string{s.proxySystemdFile},
+		EnvFiles:            []string{s.proxyEnvFile},
+		API:                 s.api,
 		InProcessUpdate: func(newSettings proxy.Settings) error {
 			select {
 			case s.inProcSettings <- newSettings:

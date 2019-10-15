@@ -46,8 +46,9 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 			}
 			return &dummyWorker{config: cfg}, nil
 		},
-		ExternalUpdate:  MakeUpdateFunc("external"),
-		InProcessUpdate: MakeUpdateFunc("in-process"),
+		SupportLegacyValues: true,
+		ExternalUpdate:      MakeUpdateFunc("external"),
+		InProcessUpdate:     MakeUpdateFunc("in-process"),
 	}
 }
 
@@ -121,6 +122,7 @@ func (s *ManifoldSuite) TestStartSuccess(c *gc.C) {
 	c.Check(dummy.config.SystemdFiles, gc.DeepEquals, []string{"/etc/juju-proxy-systemd.conf"})
 	c.Check(dummy.config.EnvFiles, gc.DeepEquals, []string{"/etc/juju-proxy.conf"})
 	c.Check(dummy.config.RegistryPath, gc.Equals, `HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings`)
+	c.Check(dummy.config.SupportLegacyValues, jc.IsTrue)
 	c.Check(dummy.config.API, gc.NotNil)
 	// Checking function equality is problematic, use the errors they
 	// return.
