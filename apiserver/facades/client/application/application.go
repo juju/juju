@@ -386,7 +386,6 @@ func (api *APIBase) Deploy(args params.ApplicationsDeploy) (params.ErrorResults,
 	}
 
 	for i, arg := range args.Applications {
-		state.TranslateSpaceNameToID(api.backend, arg.EndpointBindings)
 		err := deployApplication(
 			api.backend,
 			api.model,
