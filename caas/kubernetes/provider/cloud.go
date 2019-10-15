@@ -12,6 +12,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
 	"gopkg.in/yaml.v2"
+	k8sstorage "k8s.io/api/storage/v1"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
@@ -205,9 +206,10 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}
 	var sp *caas.StorageProvisioner
 	sp, err = storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
-		Name:        scName,
-		Provisioner: provisioner,
-		Parameters:  params,
+		Name:              scName,
+		Provisioner:       provisioner,
+		Parameters:        params,
+		VolumeBindingMode: string(k8sstorage.VolumeBindingWaitForFirstConsumer),
 	})
 	if errors.IsNotFound(err) {
 		return "", errors.Wrap(err, errors.NotFoundf("storage class %q", scName))
