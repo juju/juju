@@ -1612,9 +1612,9 @@ func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 	return
 }
 
-// AddressesBySpaceName groups the machine addresses by space name and
-// returns the result as a map where the space name is used a the key.
-func (m *Machine) AddressesBySpaceName() (map[string][]corenetwork.SpaceAddress, error) {
+// AddressesBySpaceID groups the machine addresses by space id and
+// returns the result as a map where the space id is used a the key.
+func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
 		return nil, err
@@ -1630,8 +1630,8 @@ func (m *Machine) AddressesBySpaceName() (map[string][]corenetwork.SpaceAddress,
 		if err != nil {
 			return nil, err
 		}
-		spaceName := subnet.SpaceName()
-		res[spaceName] = append(res[spaceName], address.NetworkAddress())
+		spaceID := subnet.SpaceID()
+		res[spaceID] = append(res[spaceID], address.NetworkAddress())
 	}
 	return res, nil
 }

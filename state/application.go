@@ -2491,7 +2491,7 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
-// name it is bound to (or empty if unspecified). When no bindings are stored
+// ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
 func (a *Application) EndpointBindings() (map[string]string, error) {
 	// We don't need the TxnRevno below.

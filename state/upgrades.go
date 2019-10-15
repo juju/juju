@@ -2656,3 +2656,34 @@ func ConvertAddressSpaceIDs(pool *StatePool) error {
 		return errors.Trace(st.db().RunTransaction(ops))
 	}))
 }
+
+func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(endpointBindingsC)
+		defer closer()
+
+		var docs []endpointBindingsDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			updatedMap, err := TranslateSpaceNameToID(st, doc.Bindings)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, txn.Op{
+				C:      endpointBindingsC,
+				Id:     doc.DocID,
+				Update: bson.M{"$set": bson.M{"bindings": updatedMap}},
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
+	}))
+}

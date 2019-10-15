@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Spaces
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Spaces,Address,Subnet,LinkLayerDevice
 
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {
@@ -107,8 +107,8 @@ var _ LinkLayerDevice = (*linkLayerDevice)(nil)
 // describing a machine that is to host containers.
 type Machine interface {
 	Id() string
+	AllAddresses() ([]Address, error)
 	AllSpaces() (set.Strings, error)
-	LinkLayerDevicesForSpaces(infos network.SpaceInfos) (map[string][]LinkLayerDevice, error)
 	SetLinkLayerDevices(devicesArgs ...state.LinkLayerDeviceArgs) (err error)
 	AllLinkLayerDevices() ([]LinkLayerDevice, error)
 
@@ -135,26 +135,6 @@ func NewMachine(m *state.Machine) *MachineShim {
 	return &MachineShim{m}
 }
 
-// LinkLayerDevicesForSpaces implements Machine by unwrapping the inner
-// state.Machine call and wrapping the raw state.LinkLayerDevice references
-// with the local LinkLayerDevice implementation.
-func (m *MachineShim) LinkLayerDevicesForSpaces(spaces network.SpaceInfos) (map[string][]LinkLayerDevice, error) {
-	spaceDevs, err := m.Machine.LinkLayerDevicesForSpaces(spaces)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	wrapped := make(map[string][]LinkLayerDevice, len(spaceDevs))
-	for space, devs := range spaceDevs {
-		wrappedDevs := make([]LinkLayerDevice, len(devs))
-		for i, d := range devs {
-			wrappedDevs[i] = &linkLayerDevice{d}
-		}
-		wrapped[space] = wrappedDevs
-	}
-	return wrapped, nil
-}
-
 // AllLinkLayerDevices implements Machine by wrapping each
 // state.LinkLayerDevice reference in returned collection with the local
 // LinkLayerDevice implementation.
@@ -171,12 +151,44 @@ func (m *MachineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 	return wrapped, nil
 }
 
+func (m *MachineShim) AllAddresses() ([]Address, error) {
+	addrs, err := m.Machine.AllAddresses()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	wrapped := make([]Address, len(addrs))
+	for i, a := range addrs {
+		wrapped[i] = &addressShim{a}
+	}
+	return wrapped, nil
+}
+
 // Raw returns the inner state.Machine reference.
 func (m *MachineShim) Raw() *state.Machine {
 	return m.Machine
 }
 
-// Machine is an indirection for state.Machine,
+// Address is an indirection for state.Address
+type Address interface {
+	Subnet() (Subnet, error)
+	DeviceName() string
+}
+
+type addressShim struct {
+	*state.Address
+}
+
+func (a *addressShim) Subnet() (Subnet, error) {
+	return a.Address.Subnet()
+}
+
+// Subnet is an indirection for state.Subnet
+type Subnet interface {
+	SpaceID() string
+}
+
+// Container is an indirection for state.Machine,
 // describing a container.
 type Container interface {
 	Machine

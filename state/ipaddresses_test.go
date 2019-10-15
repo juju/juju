@@ -376,7 +376,7 @@ func (s *ipAddressesStateSuite) TestAllSpacesOneSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space.Name()})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space.Id()})
 }
 
 func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
@@ -397,14 +397,14 @@ func (s *ipAddressesStateSuite) TestAllSpacesMultiSpace(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space1.Name(), space2.Name()})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{space1.Id(), space2.Id()})
 }
 
-func (s *ipAddressesStateSuite) TestAllSpacesIgnoresEmptySpaceNames(c *gc.C) {
+func (s *ipAddressesStateSuite) TestAllSpacesReturnsDefaultSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{corenetwork.DefaultSpaceId})
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesDoesNothingWithEmptyArgs(c *gc.C) {

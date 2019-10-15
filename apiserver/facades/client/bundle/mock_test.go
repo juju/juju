@@ -14,7 +14,8 @@ import (
 type mockState struct {
 	testing.Stub
 	bundle.Backend
-	model description.Model
+	model  description.Model
+	Spaces map[string]string
 }
 
 func (m *mockState) ExportPartial(config state.ExportConfig) (description.Model, error) {
@@ -38,9 +39,14 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 	}
 }
 
+func (m *mockState) SpaceNamesByID() (map[string]string, error) {
+	return m.Spaces, nil
+}
+
 func newMockState() *mockState {
 	st := &mockState{
 		Stub: testing.Stub{},
 	}
+	st.Spaces = make(map[string]string)
 	return st
 }

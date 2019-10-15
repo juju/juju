@@ -49,6 +49,8 @@ type Backend interface {
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
+	Space(name string) (*state.Space, error)
+	SpaceByID(id string) (*state.Space, error)
 }
 
 // BlockChecker defines the block-checking functionality required by
@@ -423,9 +425,4 @@ type Subnet interface {
 	VLANTag() int
 	ProviderId() network.Id
 	ProviderNetworkId() network.Id
-}
-
-type Space interface {
-	Name() string
-	ProviderId() network.Id
 }

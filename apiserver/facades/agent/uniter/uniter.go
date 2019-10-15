@@ -2554,7 +2554,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	var results []params.NetworkConfig
-	if boundSpace == "" {
+	if boundSpace == corenetwork.DefaultSpaceId {
 		logger.Debugf(
 			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
 			bindingName, machineID,
@@ -2596,7 +2596,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 			return nil, errors.Annotatef(err, "cannot get subnet for address %q", addr)
 		}
 
-		if space := subnet.SpaceName(); space != boundSpace {
+		if space := subnet.SpaceID(); space != boundSpace {
 			logger.Debugf("skipping %s: want bound to space %q, got space %q", addr, boundSpace, space)
 			continue
 		}

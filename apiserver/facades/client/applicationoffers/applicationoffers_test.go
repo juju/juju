@@ -42,7 +42,7 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	}
 
 	resources := common.NewResources()
-	resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
+	_ = resources.RegisterNamed("dataDir", common.StringResource(c.MkDir()))
 
 	getEnviron := func(modelUUID string) (environs.Environ, error) {
 		return s.env, nil
@@ -80,9 +80,9 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "1"}},
 	}
-	s.mockState.spaces["myspace"] = &mockSpace{
+	s.mockState.spaces["1"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
@@ -91,6 +91,7 @@ func (s *applicationOffersSuite) assertOffer(c *gc.C, expectedErr error) {
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
 		SpaceInfo: network.SpaceInfo{
+			ID:         "1",
 			Name:       "myspace",
 			ProviderId: "juju-space-myspace",
 			Subnets: []network.SubnetInfo{{
@@ -160,9 +161,9 @@ func (s *applicationOffersSuite) TestOfferSomeFail(c *gc.C) {
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		"one":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
-		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		"one":        &mockApplication{charm: ch, bindings: map[string]string{"db": "1"}},
+		"two":        &mockApplication{charm: ch, bindings: map[string]string{"db": "1"}},
+		"paramsfail": &mockApplication{charm: ch, bindings: map[string]string{"db": "1"}},
 	}
 
 	errs, err := s.api.Offer(all)
@@ -194,7 +195,7 @@ func (s *applicationOffersSuite) TestOfferError(c *gc.C) {
 	}
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
-		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "myspace"}},
+		applicationName: &mockApplication{charm: ch, bindings: map[string]string{"db": "1"}},
 	}
 
 	errs, err := s.api.Offer(all)
@@ -566,7 +567,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	ch := &mockCharm{meta: &charm.Meta{Description: "A pretty popular blog engine"}}
 	s.mockState.applications = map[string]crossmodel.Application{
 		"test": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db": "myspace"}},
+			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db": "1"}},
 	}
 
 	model := &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
@@ -574,7 +575,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 
 	s.mockState.model = model
 	s.mockState.allmodels = []applicationoffers.Model{model, anotherModel}
-	s.mockState.spaces["myspace"] = &mockSpace{
+	s.mockState.spaces["1"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
@@ -583,6 +584,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
 		SpaceInfo: network.SpaceInfo{
+			ID:         "1",
 			Name:       "myspace",
 			ProviderId: "juju-space-myspace",
 			Subnets: []network.SubnetInfo{{
@@ -607,9 +609,9 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 	}
 	anotherState.applications = map[string]crossmodel.Application{
 		"testagain": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"db2": "anotherspace"}},
+			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"db2": "2"}},
 	}
-	anotherState.spaces["anotherspace"] = &mockSpace{
+	anotherState.spaces["2"] = &mockSpace{
 		name:       "anotherspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
@@ -771,7 +773,7 @@ func (s *applicationOffersSuite) TestFindPermission(c *gc.C) {
 		},
 	}
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ReadAccess)
 	s.assertFind(c, expected)
 }
 
@@ -846,10 +848,10 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	s.mockState.applications = map[string]crossmodel.Application{
 		"db2": &mockApplication{
 			name:  "db2",
-			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db2": "myspace"}},
+			charm: ch, curl: charm.MustParseURL("db2-2"), bindings: map[string]string{"db2": "1"}},
 	}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
-	s.mockState.spaces["myspace"] = &mockSpace{
+	s.mockState.spaces["1"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
@@ -858,6 +860,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
 		SpaceInfo: network.SpaceInfo{
+			ID:         "1",
 			Name:       "myspace",
 			ProviderId: "juju-space-myspace",
 			Subnets: []network.SubnetInfo{{
@@ -871,7 +874,7 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	user := names.NewUserTag("someone")
 	s.authorizer.Tag = user
 	s.mockState.users[user.Name()] = &mockUser{user.Name()}
-	s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ConsumeAccess)
+	_ = s.mockState.CreateOfferAccess(names.NewApplicationOfferTag("hosted-db2"), user, permission.ConsumeAccess)
 
 	anotherState := &mockState{
 		modelUUID:   "uuid2",
@@ -883,11 +886,11 @@ func (s *applicationOffersSuite) TestFindMulti(c *gc.C) {
 	anotherState.applications = map[string]crossmodel.Application{
 		"mysql": &mockApplication{
 			name:  "mysql",
-			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"mysql": "anotherspace"}},
+			charm: ch, curl: charm.MustParseURL("mysql-2"), bindings: map[string]string{"mysql": "2"}},
 		"postgresql": &mockApplication{
-			charm: ch, curl: charm.MustParseURL("postgresql-2"), bindings: map[string]string{"postgresql": "anotherspace"}},
+			charm: ch, curl: charm.MustParseURL("postgresql-2"), bindings: map[string]string{"postgresql": "2"}},
 	}
-	anotherState.spaces["anotherspace"] = &mockSpace{
+	anotherState.spaces["2"] = &mockSpace{
 		name:       "anotherspace",
 		providerId: "juju-space-anotherspace",
 		subnets: []applicationoffers.Subnet{
@@ -1165,8 +1168,8 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
 	st.users["someone"] = &mockUser{"someone"}
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
-	st.spaces[""] = &mockSpace{
-		name: "",
+	st.spaces[network.DefaultSpaceId] = &mockSpace{
+		name: network.DefaultSpaceName,
 	}
 
 	apiUser := names.NewUserTag("someone")
@@ -1188,7 +1191,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
-		Bindings:               map[string]string{"database": ""},
+		Bindings:               map[string]string{"database": network.DefaultSpaceName},
 		Users: []params.OfferUserDetails{
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},
@@ -1224,13 +1227,13 @@ func (s *consumeSuite) setupOffer() {
 	st.applications["mysql"] = &mockApplication{
 		name:     "mysql",
 		charm:    &mockCharm{meta: &charm.Meta{Description: "A pretty popular database"}},
-		bindings: map[string]string{"database": "myspace"},
+		bindings: map[string]string{"database": "1"},
 		endpoints: []state.Endpoint{
 			{Relation: charm.Relation{Name: "juju-info", Role: "provider", Interface: "juju-info", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server", Role: "provider", Interface: "mysql", Limit: 0, Scope: "global"}},
 			{Relation: charm.Relation{Name: "server-admin", Role: "provider", Interface: "mysql-root", Limit: 0, Scope: "global"}}},
 	}
-	st.spaces["myspace"] = &mockSpace{
+	st.spaces["1"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{
@@ -1239,6 +1242,7 @@ func (s *consumeSuite) setupOffer() {
 	}
 	s.env.spaceInfo = &environs.ProviderSpaceInfo{
 		SpaceInfo: network.SpaceInfo{
+			ID:         "1",
 			Name:       "myspace",
 			ProviderId: "juju-space-myspace",
 			Subnets: []network.SubnetInfo{{

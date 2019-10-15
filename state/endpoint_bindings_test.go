@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -18,6 +19,9 @@ type BindingsSuite struct {
 	oldDefaults map[string]string
 	newMeta     *charm.Meta
 	newDefaults map[string]string
+
+	clientSpaceID string
+	appsSpaceID   string
 }
 
 var _ = gc.Suite(&BindingsSuite{})
@@ -44,10 +48,11 @@ extra-bindings:
 	oldCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithOneOfEachRelationTypeAndExtraBindings, 1)
 	s.oldMeta = oldCharm.Meta()
 	s.oldDefaults = map[string]string{
-		"foo1":      "",
-		"bar1":      "",
-		"self":      "",
-		"one-extra": "",
+		"":          network.DefaultSpaceId,
+		"foo1":      network.DefaultSpaceId,
+		"bar1":      network.DefaultSpaceId,
+		"self":      network.DefaultSpaceId,
+		"one-extra": network.DefaultSpaceId,
 	}
 
 	const dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings = `
@@ -71,20 +76,23 @@ peers:
 	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings, 2)
 	s.newMeta = newCharm.Meta()
 	s.newDefaults = map[string]string{
-		"foo1": "",
-		"foo2": "",
-		"bar2": "",
-		"bar3": "",
-		"self": "",
-		"me":   "",
+		"foo1": network.DefaultSpaceId,
+		"foo2": network.DefaultSpaceId,
+		"bar2": network.DefaultSpaceId,
+		"bar3": network.DefaultSpaceId,
+		"self": network.DefaultSpaceId,
+		"me":   network.DefaultSpaceId,
 	}
 
 	// Add some spaces to use in bindings, but notably NOT the default space, as
 	// it should be always allowed.
-	_, err := s.State.AddSpace("client", "", nil, true)
+
+	clientSpace, err := s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("apps", "", nil, false)
+	s.clientSpaceID = clientSpace.Id()
+	appsSpace, err := s.State.AddSpace("apps", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
+	s.appsSpaceID = appsSpace.Id()
 }
 
 func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
@@ -109,35 +117,38 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		about:  "oldMap overrides defaults, newMap is nil",
 		newMap: nil,
 		oldMap: map[string]string{
-			"foo1": "client",
+			"foo1": s.clientSpaceID,
 			"self": "db",
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1":      "client",
-			"bar1":      "",
+			"":          network.DefaultSpaceId,
+			"foo1":      s.clientSpaceID,
+			"bar1":      network.DefaultSpaceId,
 			"self":      "db",
-			"one-extra": "",
+			"one-extra": network.DefaultSpaceId,
 		},
 		modified: true,
 	}, {
 		about: "oldMap overrides defaults, newMap overrides oldMap",
 		newMap: map[string]string{
-			"foo1":      "",
+			"":          network.DefaultSpaceId,
+			"foo1":      network.DefaultSpaceId,
 			"self":      "db",
-			"bar1":      "client",
-			"one-extra": "apps",
+			"bar1":      s.clientSpaceID,
+			"one-extra": s.appsSpaceID,
 		},
 		oldMap: map[string]string{
-			"foo1": "client",
+			"foo1": s.clientSpaceID,
 			"bar1": "db",
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1":      "",
-			"bar1":      "client",
+			"":          network.DefaultSpaceId,
+			"foo1":      network.DefaultSpaceId,
+			"bar1":      s.clientSpaceID,
 			"self":      "db",
-			"one-extra": "apps",
+			"one-extra": s.appsSpaceID,
 		},
 		modified: true,
 	}, {
@@ -148,10 +159,11 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		oldMap: nil,
 		meta:   s.oldMeta,
 		updated: map[string]string{
-			"foo1":      "",
-			"bar1":      "",
+			"":          network.DefaultSpaceId,
+			"foo1":      network.DefaultSpaceId,
+			"bar1":      network.DefaultSpaceId,
 			"self":      "db",
-			"one-extra": "",
+			"one-extra": network.DefaultSpaceId,
 		},
 		modified: true,
 	}, {
@@ -160,32 +172,34 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		oldMap: map[string]string{
 			"any-old-thing": "boo",
 			"self":          "db",
-			"one-extra":     "apps",
+			"one-extra":     s.appsSpaceID,
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"foo1":      "",
-			"bar1":      "",
+			"":          network.DefaultSpaceId,
+			"foo1":      network.DefaultSpaceId,
+			"bar1":      network.DefaultSpaceId,
 			"self":      "db",
-			"one-extra": "apps",
+			"one-extra": s.appsSpaceID,
 		},
 		modified: true,
 	}, {
 		about: "new endpoints use defaults unless specified in newMap, existing ones are kept",
 		newMap: map[string]string{
 			"foo2": "db",
-			"me":   "client",
+			"me":   s.clientSpaceID,
 			"bar3": "db",
 		},
 		oldMap: s.copyMap(s.oldDefaults),
 		meta:   s.newMeta,
 		updated: map[string]string{
-			"foo1": "",
+			"":     network.DefaultSpaceId,
+			"foo1": network.DefaultSpaceId,
 			"foo2": "db",
-			"bar2": "",
+			"bar2": network.DefaultSpaceId,
 			"bar3": "db",
-			"self": "",
-			"me":   "client",
+			"self": network.DefaultSpaceId,
+			"me":   s.clientSpaceID,
 		},
 		modified: true,
 	}, {
@@ -260,6 +274,24 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		c.Check(updated, jc.DeepEquals, test.updated)
 		c.Check(isModified, gc.Equals, test.modified)
 	}
+}
+
+func (s *BindingsSuite) TestTranslateSpaceNameToID(c *gc.C) {
+	bindingMap := map[string]string{
+		"self": "",
+		"":     "",
+		"foo":  "client",
+		"bar":  "apps",
+	}
+	expectedMap := map[string]string{
+		"self": network.DefaultSpaceId,
+		"":     network.DefaultSpaceId,
+		"foo":  s.clientSpaceID,
+		"bar":  s.appsSpaceID,
+	}
+	obtainedMap, err := state.TranslateSpaceNameToID(s.State, bindingMap)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedMap, gc.DeepEquals, expectedMap)
 }
 
 func (s *BindingsSuite) copyMap(input map[string]string) map[string]string {

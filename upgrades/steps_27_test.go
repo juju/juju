@@ -64,3 +64,8 @@ func (s *steps27Suite) TestConvertAddressSpaceIDs(c *gc.C) {
 	step := findStateStep(c, v27, `ensure stored addresses refer to space by ID, and remove old space name/provider ID`)
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
+
+func (s *steps27Suite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
+	step := findStateStep(c, v27, `replace space name in endpointBindingDoc bindings with an space ID`)
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}

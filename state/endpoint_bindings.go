@@ -28,7 +28,7 @@ type endpointBindingsDoc struct {
 	// DocID is always the same as a application's global key.
 	DocID string `bson:"_id"`
 
-	// Bindings maps an application endpoint name to the space name it is bound to.
+	// Bindings maps an application endpoint name to the space ID it is bound to.
 	Bindings bindingsMap `bson:"bindings"`
 
 	// TxnRevno is used to assert the collection have not changed since this
@@ -82,8 +82,11 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 // Returns true/false if there are any actual differences.
 func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, bool, error) {
 	defaultsMap := DefaultEndpointBindingsForCharm(meta)
-	defaultBinding := oldMap[defaultEndpointName]
-	if newDefaultBinding, ok := newMap[defaultEndpointName]; ok {
+	defaultBinding, oldOk := oldMap[defaultEndpointName]
+	if !oldOk {
+		defaultBinding = network.DefaultSpaceId
+	}
+	if newDefaultBinding, newOk := newMap[defaultEndpointName]; newOk {
 		// new default binding supersedes the old default binding
 		defaultBinding = newDefaultBinding
 	}
@@ -91,6 +94,7 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 	// defaultsMap contains all endpoints that must be bound for the given charm
 	// metadata, but we need to figure out which value to use for each key.
 	updated := make(map[string]string)
+	updated[defaultEndpointName] = defaultBinding
 	for key, defaultValue := range defaultsMap {
 		effectiveValue := defaultValue
 
@@ -110,9 +114,6 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 		}
 
 		updated[key] = effectiveValue
-	}
-	if defaultBinding != network.DefaultSpaceName {
-		updated[defaultEndpointName] = defaultBinding
 	}
 
 	// Any other bindings in newMap are most likely extraneous, but add them
@@ -145,9 +146,13 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 // bindings using the optional givenMap and the specified charm metadata to for
 // determining defaults and to validate the effective bindings.
 func createEndpointBindingsOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
+	endpointSpaceIDMap, err := ensureEndpointSpaceID(st, givenMap)
+	if err != nil {
+		return txn.Op{}, errors.Trace(err)
+	}
 
 	// No existing map to merge, just use the defaults.
-	initialMap, _, err := mergeBindings(givenMap, nil, meta)
+	initialMap, _, err := mergeBindings(endpointSpaceIDMap, nil, meta)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
@@ -167,6 +172,31 @@ func createEndpointBindingsOp(st *State, key string, givenMap map[string]string,
 	}, nil
 }
 
+func ensureEndpointSpaceID(st *State, givenMap map[string]string) (map[string]string, error) {
+	spacesNamesToIDs, err := st.SpaceIDsByName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spacesIDsToNames, err := st.SpaceNamesByID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newMap := make(map[string]string, len(givenMap))
+	for endpoint, space := range givenMap {
+		if id, haveName := spacesNamesToIDs[space]; haveName {
+			newMap[endpoint] = id
+			continue
+		}
+		_, haveID := spacesIDsToNames[space]
+		if haveID || space == "" {
+			newMap[endpoint] = space
+			continue
+		}
+		return nil, errors.NotFoundf("endpoint %q value %q, space name or ID", endpoint, space)
+	}
+	return newMap, nil
+}
+
 // updateEndpointBindingsOps returns an op list that merges the existing
 // bindings with givenMap, using newMeta to validate the merged bindings, and
 // asserting that the following items have not changed since we last fetched
@@ -178,19 +208,19 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 	var ops []txn.Op
 
 	// Fetch existing bindings.
-	existingMap, txnRevno, err := readEndpointBindings(st, a.globalKey())
+	oldMap, txnRevno, err := readEndpointBindings(st, a.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
 		return ops, errors.Trace(err)
 	}
 
-	// Merge existing with given as needed.
-	updatedMap, isModified, err := mergeBindings(givenMap, existingMap, newMeta)
+	newMap, err := ensureEndpointSpaceID(st, givenMap)
 	if err != nil {
 		return ops, errors.Trace(err)
 	}
 
-	// Validate the bindings before updating.
-	if err := validateEndpointBindingsForCharm(st, updatedMap, newMeta); err != nil {
+	// Merge existing with given as needed.
+	updatedMap, isModified, err := mergeBindings(newMap, oldMap, newMeta)
+	if err != nil {
 		return ops, errors.Trace(err)
 	}
 
@@ -198,28 +228,27 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 		return ops, jujutxn.ErrNoOperations
 	}
 
-	// Make sure that all machines which run units of this application
-	// contain addresses in the spaces we are trying to bind to.
-	if err := validateEndpointBindingsForMachines(a, existingMap, updatedMap); err != nil {
+	// Validate the bindings before updating.
+	if err := validateEndpointBindingsForCharm(st, updatedMap, newMeta); err != nil {
 		return ops, errors.Trace(err)
 	}
 
-	// Ensure that the space names needed for the bindings do not change.
-	// TODO(achilleasa) this block will be removed once we switch from
-	// space names to spaceIDs for endpoint bindings.
-	assignedSpaces := set.NewStrings()
-	for _, spName := range updatedMap {
-		assignedSpaces.Add(spName)
+	// Make sure that all machines which run units of this application
+	// contain addresses in the spaces we are trying to bind to.
+	if err := validateEndpointBindingsForMachines(a, updatedMap); err != nil {
+		return ops, errors.Trace(err)
 	}
-	for spName := range assignedSpaces {
-		sp, err := st.Space(spName)
+
+	// Ensure that the spaceIDs needed for the bindings exist.
+	for _, spID := range updatedMap {
+		sp, err := st.SpaceByID(spID)
 		if err != nil {
 			return ops, errors.Trace(err)
 		}
 		ops = append(ops, txn.Op{
 			C:      spacesC,
 			Id:     sp.doc.DocId,
-			Assert: bson.D{{"name", spName}},
+			Assert: txn.DocExists,
 		})
 	}
 
@@ -244,7 +273,7 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 		Id:     a.globalKey(),
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
-	if existingMap != nil {
+	if oldMap != nil {
 		// Only assert existing haven't changed when they actually exist.
 		updateOp.Assert = bson.D{{"txn-revno", txnRevno}}
 	}
@@ -255,7 +284,7 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 // validateEndpointBindingsForMachines checks whether the required space
 // assignments are actually feasible given the network configuration settings
 // of the machines where application units are already running.
-func validateEndpointBindingsForMachines(a *Application, oldBindings, newBindings map[string]string) error {
+func validateEndpointBindingsForMachines(a *Application, newBindings map[string]string) error {
 	// Get a list of deployed machines and create a map where we track the
 	// count of deployed machines for each space.
 	machineCountInSpace := make(map[string]int)
@@ -269,18 +298,18 @@ func validateEndpointBindingsForMachines(a *Application, oldBindings, newBinding
 		if err != nil {
 			return errors.Annotatef(err, "unable to get space assignments for machine %q", m.Id())
 		}
-		for spName := range machineSpaces {
-			machineCountInSpace[spName]++
+		for spID := range machineSpaces {
+			machineCountInSpace[spID]++
 		}
 	}
 
-	if newDefaultSpace, defined := newBindings[""]; defined && newDefaultSpace != network.DefaultSpaceName {
+	if newDefaultSpace, defined := newBindings[defaultEndpointName]; defined && newDefaultSpace != network.DefaultSpaceId {
 		if machineCountInSpace[newDefaultSpace] != len(deployedMachines) {
 			return errors.Errorf("changing default space to %q is not feasible: one or more deployed machines lack an address in this space", newDefaultSpace)
 		}
 	}
 
-	for epName, spName := range newBindings {
+	for epName, spID := range newBindings {
 		if epName == "" {
 			continue
 		}
@@ -294,14 +323,14 @@ func validateEndpointBindingsForMachines(a *Application, oldBindings, newBinding
 		// it will not have a provider address in the default
 		// space so the machine-count check below would
 		// otherwise fail.
-		if spName == network.DefaultSpaceName {
+		if spID == network.DefaultSpaceId {
 			continue
 		}
 
 		// Ensure that all currently deployed machines have an address
 		// in the requested space for this binding
-		if machineCountInSpace[spName] != len(deployedMachines) {
-			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spName)
+		if machineCountInSpace[spID] != len(deployedMachines) {
+			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spID)
 		}
 	}
 
@@ -359,14 +388,12 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	if charmMeta == nil {
 		return errors.NotValidf("nil charm metadata")
 	}
-	spaces, err := st.AllSpaces()
+
+	// We do not need the space names, but a handy way to
+	// determine valid space IDs.
+	spaceIDs, err := st.SpaceNamesByID()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	spacesNamesSet := set.NewStrings()
-	for _, space := range spaces {
-		spacesNamesSet.Add(space.Name())
 	}
 
 	allBindings := DefaultEndpointBindingsForCharm(charmMeta)
@@ -384,7 +411,7 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 		if endpoint != defaultEndpointName && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if space != network.DefaultSpaceName && !spacesNamesSet.Contains(space) {
+		if _, ok := spaceIDs[space]; !ok {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -398,10 +425,35 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = network.DefaultSpaceName
+		bindings[name] = network.DefaultSpaceId
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = network.DefaultSpaceName
+		bindings[name] = network.DefaultSpaceId
 	}
 	return bindings
+}
+
+type TranslateBindingMap interface {
+	Space(name string) (*Space, error)
+	SpaceByID(id string) (*Space, error)
+}
+
+func TranslateSpaceNameToID(st TranslateBindingMap, current map[string]string) (map[string]string, error) {
+	retVal := make(map[string]string, len(current))
+	for k, v := range current {
+		if v == network.DefaultSpaceName || v == network.DefaultSpaceId {
+			retVal[k] = network.DefaultSpaceId
+			continue
+		}
+		if _, err := st.SpaceByID(v); err == nil {
+			// If one binding endpoint is a SpaceID, so are the rest.
+			return current, nil
+		}
+		sp, err := st.Space(v)
+		if err != nil {
+			return nil, err
+		}
+		retVal[k] = sp.Id()
+	}
+	return retVal, nil
 }
