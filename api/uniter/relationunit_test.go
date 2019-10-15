@@ -304,13 +304,13 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"0mysql\" is not a valid unit or application")
 }
 
-func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
+func (s *relationUnitSuite) setupMysqlRelatedToWordpress(c *gc.C) (*state.RelationUnit, *uniter.Unit) {
 	// Enter scope with mysqlUnit.
-	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
+	mysqlRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = myRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, myRelUnit, true)
+	s.assertInScope(c, mysqlRelUnit, true)
 
 	apiRel, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -321,8 +321,13 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 
 	// We just created the wordpress unit, make sure its event isn't still in the queue
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	return mysqlRelUnit, apiUnit
+}
 
-	w, err := s.uniter.WatchRelationUnits(s.stateRelation.Tag().(names.RelationTag), apiUnit.Tag())
+func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
+	mysqlRelUnit, wpAPIUnit := s.setupMysqlRelatedToWordpress(c)
+
+	w, err := s.uniter.WatchRelationUnits(s.stateRelation.Tag().(names.RelationTag), wpAPIUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
@@ -331,15 +336,41 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	wc.AssertChange([]string{"mysql/0"}, nil)
 
 	// Leave scope with mysqlUnit, check it's detected.
-	err = myRelUnit.LeaveScope()
+	err = mysqlRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, myRelUnit, false)
+	s.assertInScope(c, mysqlRelUnit, false)
 	wc.AssertChange(nil, []string{"mysql/0"})
 
 	// Non-change is not reported.
-	err = myRelUnit.LeaveScope()
+	err = mysqlRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+}
+
+func (s *relationUnitSuite) TestWatchRelationApplicationSettings(c *gc.C) {
+	_, _ = s.setupMysqlRelatedToWordpress(c)
+	// Make sure Wordpress is also in scope
+	wordpressRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(wordpressRelUnit.EnterScope(nil), jc.ErrorIsNil)
+	s.assertInScope(c, wordpressRelUnit, true)
+
+	// As the Wordpress uniter, watch the application settings of the related app "mysql"
+	w, err := s.uniter.WatchRelationApplicationSettings(s.stateRelation.Tag().(names.RelationTag), names.NewApplicationTag("mysql"))
+	c.Assert(err, jc.ErrorIsNil)
+	wc := watchertest.NewNotifyWatcherC(c, w, s.BackingState.StartSync)
+	defer wc.AssertStops()
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	token := s.claimLeadershipFor(c, s.mysqlUnit)
+	// Update the application settings of the mysql application, check it is detected
+	s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, token, map[string]interface{}{
+		"foo": "bar",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnit(c *gc.C) {

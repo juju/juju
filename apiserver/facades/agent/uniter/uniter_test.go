@@ -2767,11 +2767,11 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
+	wpRelationUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
+	err = wpRelationUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
+	s.assertInScope(c, wpRelationUnit, true)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	args := params.RelationApplications{RelationApplications: []params.RelationApplication{{
@@ -2788,6 +2788,9 @@ func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
 		Application: "application-wordpress",
 	}}}
 
+	// As the wordpress unit, ask to watch the ApplicationSettings for each of
+	// the above applications. Note that we aren't allowed to watch anything but
+	// mysql, as that is the only application that we are related to.
 	result, err := s.uniter.WatchRelationApplicationSettings(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
@@ -2826,6 +2829,7 @@ func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
 
 func (s *uniterSuite) TestWatchRelationApplicationSettingsUnrelatedUnit(c *gc.C) {
 	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
+	// logging is related to mysql, but not to wordpress
 	rel := s.addRelation(c, "logging", "mysql")
 
 	args := params.RelationApplications{

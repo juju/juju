@@ -392,6 +392,34 @@ func (st *State) WatchRelationUnits(
 	return w, nil
 }
 
+// WatchRelationApplicationSettings returns a watcher that notifies of changes to the
+// counterpart application settings in the relation for the given unit.
+func (st *State) WatchRelationApplicationSettings(
+	relationTag names.RelationTag,
+	appTag names.ApplicationTag,
+) (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.RelationApplications{
+		RelationApplications: []params.RelationApplication{{
+			Relation:    relationTag.String(),
+			Application: appTag.String(),
+		}},
+	}
+	err := st.facade.FacadeCall("WatchRelationApplicationSettings", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // ErrIfNotVersionFn returns a function which can be used to check for
 // the minimum supported version, and, if appropriate, generate an
 // error.

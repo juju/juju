@@ -1638,6 +1638,8 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 			return false, errors.Trace(err)
 		}
 
+		logger.Tracef("checking if unit %v can access app %q in relation %v",
+			u.auth.GetAuthTag(), app.Name(), rel)
 		var authApplication string
 		switch tag := u.auth.GetAuthTag().(type) {
 		case names.ApplicationTag:
@@ -1645,10 +1647,12 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 		case names.UnitTag:
 			unit, err := u.st.Unit(tag.Id())
 			if err != nil {
+				logger.Tracef("could not find auth unit: %v", tag)
 				return false, errors.Trace(err)
 			}
 			relUnit, err := rel.Unit(unit)
 			if errors.IsNotFound(err) {
+				logger.Tracef("could not find auth unit: %v in relation: %v", tag, rel)
 				return false, nil
 			}
 			if err != nil {
@@ -1656,9 +1660,11 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 			}
 			inScope, err := relUnit.InScope()
 			if err != nil {
+				logger.Tracef("unit: %v error checking in scope of relation: %v  %v", tag, rel, err)
 				return false, errors.Trace(err)
 			}
 			if !inScope {
+				logger.Tracef("unit: %v not in scope of relation: %v", tag, rel)
 				return false, nil
 			}
 			authApplication = unit.ApplicationName()
@@ -1667,6 +1673,8 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 		}
 		for _, ep := range relatedEPs {
 			if authApplication == ep.ApplicationName {
+				logger.Debugf("found related application %v in endpoints for unit: %v relation: %v",
+					authApplication, u)
 				return true, nil
 			}
 		}
