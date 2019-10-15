@@ -189,13 +189,15 @@ type RegionDetails struct {
 type CloudDetails struct {
 	Source           string   `yaml:"defined,omitempty" json:"defined,omitempty"`
 	CloudType        string   `yaml:"type" json:"type"`
-	CloudDescription string   `yaml:"description" json:"description"`
+	CloudDescription string   `yaml:"description,omitempty" json:"description,omitempty"`
 	AuthTypes        []string `yaml:"auth-types,omitempty,flow" json:"auth-types,omitempty"`
 	Endpoint         string   `yaml:"endpoint,omitempty" json:"endpoint,omitempty"`
 	IdentityEndpoint string   `yaml:"identity-endpoint,omitempty" json:"identity-endpoint,omitempty"`
 	StorageEndpoint  string   `yaml:"storage-endpoint,omitempty" json:"storage-endpoint,omitempty"`
 	// DefaultRegion is a default region as known to this client.
 	DefaultRegion string `yaml:"default-region,omitempty" json:"default-region,omitempty"`
+	// CredentialCount contains the number of credentials that exist for this cloud on this client.
+	CredentialCount int `yaml:"credential-count,omitempty" json:"credential-count,omitempty"`
 	// Regions is for when we want to print regions in order for yaml output.
 	Regions yaml.MapSlice `yaml:"regions,omitempty" json:"-"`
 	// Regions map is for json marshalling where format is important but not order.
@@ -238,6 +240,7 @@ func makeCloudDetails(store jujuclient.CredentialGetter, cloud jujucloud.Cloud) 
 	}
 	if cred, err := store.CredentialForCloud(cloud.Name); err == nil {
 		result.DefaultRegion = cred.DefaultRegion
+		result.CredentialCount = len(cred.AuthCredentials)
 	}
 	return result
 }
@@ -272,7 +275,7 @@ func getCloudConfigDetails(cloudType string) map[string]interface{} {
 
 // GetAllCloudDetails returns a list of all cloud details.
 func GetAllCloudDetails(store jujuclient.CredentialGetter) (map[string]*CloudDetails, error) {
-	result, err := listCloudDetails(store)
+	result, err := listLocalCloudDetails(store)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

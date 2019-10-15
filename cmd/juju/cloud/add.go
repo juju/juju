@@ -411,7 +411,7 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujucloud.Cloud, error) {
-	details, err := listCloudDetails(store)
+	details, err := listLocalCloudDetails(store)
 	if err != nil {
 		return nil, err
 	}
