@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -18,7 +19,6 @@ type ManifoldConfig struct {
 	UpgradeDBGateName string
 	Logger            Logger
 	OpenState         func() (*state.StatePool, error)
-	//PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool, bool) error
 	//NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }
 
@@ -73,6 +73,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				Agent:           machineAgent,
 				Logger:          cfg.Logger,
 				OpenState:       openState,
+				PerformUpgrade:  upgrades.PerformUpgrade,
 			}
 			w, err := NewWorker(workerCfg)
 			return w, errors.Annotate(err, "starting database upgrade worker")

@@ -4,7 +4,10 @@
 package upgradedatabase
 
 import (
+	"time"
+
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 )
@@ -25,6 +28,9 @@ type Pool interface {
 	// running on the machine with the input ID.
 	IsPrimary(string) (bool, error)
 
+	// SetStatus updates the status of the machine with the input ID.
+	SetStatus(string, status.Status, string) error
+
 	// Close closes the state pool.
 	Close() error
 }
@@ -44,4 +50,19 @@ func (p *pool) IsPrimary(machineID string) (bool, error) {
 
 	isPrimary, err := mongo.IsMaster(st.MongoSession(), machine)
 	return isPrimary, errors.Trace(err)
+}
+
+// SetStatus implements Pool.
+func (p *pool) SetStatus(machineID string, sts status.Status, msg string) error {
+	machine, err := p.SystemState().Machine(machineID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	now := time.Now()
+	return errors.Trace(machine.SetStatus(status.StatusInfo{
+		Status:  sts,
+		Message: msg,
+		Since:   &now,
+	}))
 }

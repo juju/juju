@@ -6,14 +6,16 @@ package upgradedatabase_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/upgrades"
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgradedatabase"
 	. "github.com/juju/juju/worker/upgradedatabase/mocks"
 )
@@ -82,6 +84,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.OpenState = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
+	cfg.PerformUpgrade = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
@@ -114,7 +120,7 @@ func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Current)
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
 	s.lock.EXPECT().Unlock()
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
@@ -130,6 +136,7 @@ func (s *workerSuite) getConfig() upgradedatabase.Config {
 		Agent:           s.agent,
 		Logger:          s.logger,
 		OpenState:       func() (upgradedatabase.Pool, error) { return s.pool, nil },
+		PerformUpgrade:  func(version.Number, []upgrades.Target, upgrades.Context) error { return nil },
 	}
 }
 

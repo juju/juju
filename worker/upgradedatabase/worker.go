@@ -4,14 +4,18 @@
 package upgradedatabase
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/version"
 	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
@@ -33,6 +37,9 @@ type Config struct {
 
 	// Open state is a function pointer for returning a state pool indirection.
 	OpenState func() (Pool, error)
+
+	// PerformUpgrade is a function pointer for executing the DB upgrade steps.
+	PerformUpgrade func(version.Number, []upgrades.Target, upgrades.Context) error
 }
 
 // Validate returns an error if the worker config is not valid.
@@ -56,6 +63,9 @@ func (cfg Config) Validate() error {
 	if cfg.OpenState == nil {
 		return errors.NotValidf("nil OpenState function")
 	}
+	if cfg.PerformUpgrade == nil {
+		return errors.NotValidf("nil PerformUpgrade function")
+	}
 	return nil
 }
 
@@ -66,10 +76,11 @@ type upgradeDB struct {
 	tomb            tomb.Tomb
 	upgradeComplete gate.Lock
 
-	tag    names.Tag
-	agent  agent.Agent
-	logger Logger
-	pool   Pool
+	tag            names.Tag
+	agent          agent.Agent
+	logger         Logger
+	pool           Pool
+	performUpgrade func(version.Number, []upgrades.Target, upgrades.Context) error
 
 	fromVersion version.Number
 	toVersion   version.Number
@@ -101,7 +112,11 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 func (w *upgradeDB) run() error {
 	defer func() { _ = w.pool.Close() }()
 
-	if runUpgrade, err := w.upgradeNeedsRunning(); !runUpgrade {
+	if mustRun, err := w.upgradeNeedsRunning(); !mustRun {
+		return errors.Trace(err)
+	}
+
+	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -138,6 +153,16 @@ func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
 	}
 
 	return true, nil
+}
+
+// runUpgradeSteps runs the required database upgrade steps for the agent,
+// retrying on failure.
+func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
+	if err := w.pool.SetStatus(w.tag.Id(), status.Started, fmt.Sprintf("upgrading to %v", w.toVersion)); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
 }
 
 // Kill is part of the worker.Worker interface.

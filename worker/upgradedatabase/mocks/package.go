@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	status "github.com/juju/juju/core/status"
 	reflect "reflect"
 )
 
@@ -93,4 +94,16 @@ func (m *MockPool) IsPrimary(arg0 string) (bool, error) {
 // IsPrimary indicates an expected call of IsPrimary
 func (mr *MockPoolMockRecorder) IsPrimary(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsPrimary", reflect.TypeOf((*MockPool)(nil).IsPrimary), arg0)
+}
+
+// SetStatus mocks base method
+func (m *MockPool) SetStatus(arg0 string, arg1 status.Status, arg2 string) error {
+	ret := m.ctrl.Call(m, "SetStatus", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetStatus indicates an expected call of SetStatus
+func (mr *MockPoolMockRecorder) SetStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockPool)(nil).SetStatus), arg0, arg1, arg2)
 }
