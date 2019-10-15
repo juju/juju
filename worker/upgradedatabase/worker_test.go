@@ -6,6 +6,7 @@ package upgradedatabase_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/version"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -49,8 +50,10 @@ func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
 type workerSuite struct {
 	baseSuite
 
-	lock *MockLock
-	pool *MockPool
+	lock     *MockLock
+	agent    *MockAgent
+	agentCfg *MockConfig
+	pool     *MockPool
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -66,6 +69,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.Tag = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
+	cfg.Agent = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
 	cfg = s.getConfig()
@@ -93,6 +100,22 @@ func (s *workerSuite) TestNotPrimaryNoWork(c *gc.C) {
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
+	s.lock.EXPECT().Unlock()
+
+	w, err := upgradedatabase.NewWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
+	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
+	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Current)
+	s.lock.EXPECT().Unlock()
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
 	c.Assert(err, jc.ErrorIsNil)
@@ -104,6 +127,7 @@ func (s *workerSuite) getConfig() upgradedatabase.Config {
 	return upgradedatabase.Config{
 		UpgradeComplete: s.lock,
 		Tag:             names.NewMachineTag("0"),
+		Agent:           s.agent,
 		Logger:          s.logger,
 		OpenState:       func() (upgradedatabase.Pool, error) { return s.pool, nil },
 	}
@@ -113,6 +137,8 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.lock = NewMockLock(ctrl)
+	s.agent = NewMockAgent(ctrl)
+	s.agentCfg = NewMockConfig(ctrl)
 
 	s.logger = NewMockLogger(ctrl)
 	s.ignoreLogging(c)

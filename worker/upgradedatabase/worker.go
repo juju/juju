@@ -5,10 +5,14 @@ package upgradedatabase
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/agent"
+	"github.com/juju/version"
+	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
+	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
 )
 
@@ -20,6 +24,9 @@ type Config struct {
 
 	// Tag is the current machine tag.
 	Tag names.Tag
+
+	// agent is the running machine agent.
+	Agent agent.Agent
 
 	// Logger is the logger for this worker.
 	Logger Logger
@@ -40,6 +47,9 @@ func (cfg Config) Validate() error {
 	if k != names.MachineTagKind {
 		return errors.NotValidf("%q tag kind", k)
 	}
+	if cfg.Agent == nil {
+		return errors.NotValidf("nil Agent")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -57,8 +67,12 @@ type upgradeDB struct {
 	upgradeComplete gate.Lock
 
 	tag    names.Tag
+	agent  agent.Agent
 	logger Logger
 	pool   Pool
+
+	fromVersion version.Number
+	toVersion   version.Number
 }
 
 // NewWorker validates the input configuration, then uses it to create,
@@ -73,6 +87,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	w := &upgradeDB{
 		upgradeComplete: cfg.UpgradeComplete,
 		tag:             cfg.Tag,
+		agent:           cfg.Agent,
 		logger:          cfg.Logger,
 	}
 	if w.pool, err = cfg.OpenState(); err != nil {
@@ -86,23 +101,43 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 func (w *upgradeDB) run() error {
 	defer func() { _ = w.pool.Close() }()
 
+	if runUpgrade, err := w.upgradeNeedsRunning(); !runUpgrade {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+// upgradeNeedsRunning returns true if this worker
+// should run the database upgrade steps.
+func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
 	// If we are already unlocked, there is nothing to do.
 	if w.upgradeComplete.IsUnlocked() {
-		return nil
+		return false, nil
 	}
 
 	// If this controller is not running the Mongo primary,
 	// we have no work to do and can just exit cleanly.
 	isPrimary, err := w.pool.IsPrimary(w.tag.Id())
 	if err != nil {
-		return errors.Trace(err)
+		return false, errors.Trace(err)
 	}
 	if !isPrimary {
 		w.logger.Debugf("not running the Mongo primary; exiting")
-		return nil
+		w.upgradeComplete.Unlock()
+		return false, nil
 	}
 
-	return nil
+	// If we are already on the current version, there is nothing to do.
+	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
+	w.toVersion = jujuversion.Current
+	if w.fromVersion == w.toVersion {
+		logger.Debugf("database upgrade to %v already completed", w.toVersion)
+		w.upgradeComplete.Unlock()
+		return false, nil
+	}
+
+	return true, nil
 }
 
 // Kill is part of the worker.Worker interface.

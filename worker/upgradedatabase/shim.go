@@ -11,6 +11,7 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/package.go github.com/juju/juju/worker/upgradedatabase Logger,Pool
 //go:generate mockgen -package mocks -destination mocks/lock.go github.com/juju/juju/worker/gate Lock
+//go:generate mockgen -package mocks -destination mocks/agent.go github.com/juju/juju/agent Agent,Config
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
