@@ -44,14 +44,14 @@ If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
 The current controller is used unless the --controller option is specified.
-If --client is specified, Juju shows the cloud from this client.
+If --client-only is specified, Juju shows the cloud from this client.
 
 Examples:
 
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
     juju show-cloud myopenstack --controller mycontroller
-    juju show-cloud myopenstack --client
+    juju show-cloud myopenstack --client-only
 
 See also:
     clouds
@@ -94,6 +94,9 @@ func (c *showCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *showCloudCommand) Init(args []string) error {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		c.CloudName = args[0]
@@ -103,7 +106,7 @@ func (c *showCloudCommand) Init(args []string) error {
 	var err error
 	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil {
-		return errors.Wrap(err, errors.New(err.Error()+"\nUse --client to query this client."))
+		return errors.Wrap(err, errors.New(err.Error()+"\nUse --client-only to query this client."))
 	}
 	return cmd.CheckEmpty(args[1:])
 }

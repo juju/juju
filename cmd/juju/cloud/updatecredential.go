@@ -35,9 +35,9 @@ a model was created with to the new and valid details on controller.
 This command allows to update an existing, already-stored, named,
 cloud-specific credential on a controller or the one from this client.
 
-If --client is used, Juju updates credential only on this client.
+If --client-only is used, Juju updates credential only on this client.
 If a user will use a different client, say a different laptop, the update will not affect that 
-client's copy. By extension, when using --client, remote credential copies,
+client's copy. By extension, when using --client-only, remote credential copies,
 on controllers, will not be affected.
 
 Before credential is updated, the new content is validated. For some providers, 
@@ -47,7 +47,7 @@ use --region.
 Examples:
     juju update-credential aws mysecrets
     juju update-credential -f mine.yaml
-    juju update-credential -f mine.yaml --client
+    juju update-credential -f mine.yaml --client-only
     juju update-credential aws -f mine.yaml
     juju update-credential azure --region brazilsouth -f mine.yaml
 
@@ -66,8 +66,16 @@ type updateCredentialCommand struct {
 	// CredentialsFile is the name of the file that contains credentials to update.
 	CredentialsFile string
 
-	// Local determines if only local credentials are updated.
+	// Local stores whether a client side (aka local) copy is requested.
 	Local bool
+
+	// ClientOnly stores whether the command will ONLY operate on a client copy
+	// without affecting controller copy.
+	ClientOnly bool
+
+	// ControllerOnly stores whether the command will ONLY operate on a controller copy
+	// without affecting client copy.
+	ControllerOnly bool
 
 	// Region is the region that credentials will be validated for before an update.
 	Region string
@@ -81,6 +89,9 @@ func NewUpdateCredentialCommand() cmd.Command {
 
 // Init implements Command.Init.
 func (c *updateCredentialCommand) Init(args []string) error {
+	if c.Local && !c.ClientOnly {
+		c.ClientOnly = c.Local
+	}
 	argsCount := len(args)
 	if argsCount == 0 {
 		// We are either in the interactive mode or updating from a file.
@@ -115,8 +126,9 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credential details to update")
 	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credential details to update")
 	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client instead): Local operation only; controller not affected")
-	f.BoolVar(&c.Local, "client", false, "Client operation only; controller not affected")
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only instead): Local operation only; controller not affected")
+	f.BoolVar(&c.ClientOnly, "client-only", false, "Client operation only; controller not affected")
+	f.BoolVar(&c.ControllerOnly, "controller-only", false, "Controller operation only; client not affected")
 	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
 }
 
@@ -158,7 +170,7 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 			return errors.Annotatef(err, "could not get credentials from local client")
 		}
 	}
-	if c.Local {
+	if c.ClientOnly {
 		return c.updateLocalCredentials(ctx, credentials)
 	}
 	return c.updateRemoteCredentials(ctx, credentials)

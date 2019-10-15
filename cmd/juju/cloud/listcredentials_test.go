@@ -218,7 +218,7 @@ aws    down*, bob
 }
 
 func (s *listCredentialsSuite) TestListCredentialsTabularFilteredLocalOnly(c *gc.C) {
-	out := s.listCredentials(c, "aws", "--client")
+	out := s.listCredentials(c, "aws", "--client-only")
 	c.Assert(out, gc.Equals, `
 Cloud  Credentials
 aws    down*, bob  

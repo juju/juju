@@ -79,7 +79,7 @@ Use --no-prompt option when this prompt is undesirable, but the upload to
 the current controller is wanted.
 Use --controller option to upload a cloud to a different controller. 
 
-Use --client option to add cloud to the current client only.
+Use --client-only option to add cloud to the current client only.
 
 DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
 option is required. Use 'update-credential' instead.
@@ -133,7 +133,7 @@ If the "multi-cloud" feature flag is turned on in the controller:
 
     juju add-cloud --controller mycontroller mycloud
     juju add-cloud --controller mycontroller mycloud --credential mycred
-    juju add-cloud --client mycloud ~/mycloud.yaml
+    juju add-cloud --client-only mycloud ~/mycloud.yaml
 
 See also: 
     clouds
@@ -232,6 +232,9 @@ func (c *AddCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *AddCloudCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		c.Cloud = args[0]
 		if ok := names.IsValidCloud(c.Cloud); !ok {
@@ -349,9 +352,9 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	if !c.Replace && c.existsLocally {
-		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
+		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client-only` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
-	if c.Local {
+	if c.ClientOnly {
 		return returnErr
 	}
 	ctxt.Infof("")
@@ -780,14 +783,14 @@ func (p *cloudFileReader) verifyName(name string) error {
 		return err
 	}
 	if _, ok := personal[name]; ok {
-		return errors.AlreadyExistsf("use `update-cloud %s --client` to replace this cloud locally: %q", name, name)
+		return errors.AlreadyExistsf("use `update-cloud %s --client-only` to replace this cloud locally: %q", name, name)
 	}
 	msg, err := nameExists(name, public)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if msg != "" {
-		return errors.AlreadyExistsf(msg + "; use `update-cloud --client` to override this definition locally")
+		return errors.AlreadyExistsf(msg + "; use `update-cloud --client-only` to override this definition locally")
 	}
 	return nil
 }

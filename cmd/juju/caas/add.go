@@ -61,7 +61,7 @@ The new k8s cloud can then be used to bootstrap into, or it
 can be added to an existing controller; the current controller
 is used unless the --controller option is specified. If you just
 want to update your current client and not a running controller, use
-the --client option.
+the --client-only option.
 
 Specify a non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin.
@@ -81,7 +81,7 @@ necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
-    juju add-k8s myk8scloud --client
+    juju add-k8s myk8scloud --client-only
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudNameOrCloudType>/<someregion>
@@ -211,6 +211,9 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *AddCAASCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.Errorf("missing k8s name.")
 	}
@@ -441,7 +444,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if clusterName == "" {
 		clusterName = newCloud.HostCloudRegion
 	}
-	if c.Local {
+	if c.ClientOnly {
 		successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
 		successMsg += fmt.Sprintf("\nYou can now bootstrap to this cloud by running 'juju bootstrap %s'.", c.caasName)
 		fmt.Fprintln(ctx.Stdout, successMsg)
@@ -491,7 +494,7 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !c.Local {
+	if !c.ClientOnly {
 		ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
 		if err != nil {
 			return nil, errors.Trace(err)

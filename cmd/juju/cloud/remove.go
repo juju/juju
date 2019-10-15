@@ -23,11 +23,11 @@ Remove a named, user-defined cloud from Juju's internal cache.
 
 If the multi-cloud feature flag is enabled, the cloud is removed from a controller.
 The current controller is used unless the --controller option is specified.
-If --client is specified, Juju removes the cloud from this client.
+If --client-only is specified, Juju removes the cloud from this client.
 
 Examples:
     juju remove-cloud mycloud
-    juju remove-cloud mycloud --client
+    juju remove-cloud mycloud --client-only
     juju remove-cloud mycloud --controller mycontroller
 
 See also:
@@ -83,6 +83,9 @@ func (c *removeCloudCommand) Info() *cmd.Info {
 }
 
 func (c *removeCloudCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) < 1 {
 		return errors.New("Usage: juju remove-cloud <cloud name>")
 	}
@@ -96,9 +99,9 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.ControllerName == "" {
-		if c.ControllerName == "" && !c.Local {
+		if c.ControllerName == "" && !c.ClientOnly {
 			return errors.Errorf(
-				"There are no controllers running.\nTo remove cloud %q from this client, use the --client option.", c.Cloud)
+				"There are no controllers running.\nTo remove cloud %q from this client, use the --client-only option.", c.Cloud)
 		}
 		return c.removeLocalCloud(ctxt)
 	}

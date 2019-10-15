@@ -43,10 +43,10 @@ var listCloudsDoc = "" +
 	"\n" +
 	"The default behaviour is to show clouds available on the current controller.\n" +
 	"Another controller can specified using the --controller option. When no controllers\n" +
-	"are available, --client is implied.\n" +
+	"are available, --client-only is implied.\n" +
 	"\n" +
-	"If --client is specified, the public clouds known to Juju out of the box are displayed,\n" +
-	"along with any which have been added with `add-cloud --client`. These clouds can be\n" +
+	"If --client-only is specified, the public clouds known to Juju out of the box are displayed,\n" +
+	"along with any which have been added with `add-cloud --client-only`. These clouds can be\n" +
 	"used to create a controller.\n" +
 	"\n" +
 	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
@@ -79,7 +79,7 @@ Examples:
     juju clouds
     juju clouds --format yaml
     juju clouds --controller mycontroller
-    juju clouds --client
+    juju clouds --client-only
 
 See also:
     add-cloud
@@ -140,6 +140,9 @@ func (c *listCloudsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *listCloudsCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	c.ControllerName, err = c.ControllerNameFromArg()
 	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
 		return errors.Trace(err)
@@ -189,7 +192,7 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		result = clouds
 	default:
-		if c.ControllerName == "" && !c.Local {
+		if c.ControllerName == "" && !c.ClientOnly {
 			ctxt.Infof(
 				"There are no controllers running.\nYou can bootstrap a new controller using one of these clouds:\n")
 		}

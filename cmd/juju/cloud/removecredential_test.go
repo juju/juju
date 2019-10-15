@@ -131,7 +131,7 @@ func (s *removeCredentialSuite) TestGettingApiClientErrorButLocal(c *gc.C) {
 	store := s.setupStore(c)
 	s.clientF = func() (cloud.RemoveCredentialAPI, error) { return s.fakeClient, errors.New("kaboom") }
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
+	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeClient.CheckNoCalls(c)
 }
