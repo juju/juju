@@ -102,6 +102,7 @@ while getopts "h?:vVsaxrp" opt; do
     V)
         VERBOSE=3
         shift
+        alias juju="juju --debug"
         ;;
     s)
         SKIP_LIST="${2}"
