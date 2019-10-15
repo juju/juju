@@ -4025,7 +4025,7 @@ func hashMachineAddressesForEndpointBindings(m *Machine, bindings map[string]str
 	}
 
 	// Also include endpoint to machine address assignments to the hash
-	addrsBySpaceName, err := m.AddressesBySpaceName()
+	addrsBySpaceID, err := m.AddressesBySpaceID()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -4040,8 +4040,8 @@ func hashMachineAddressesForEndpointBindings(m *Machine, bindings map[string]str
 		if epName == "" {
 			continue
 		}
-		spName := bindings[epName]
-		addresses := addrsBySpaceName[spName]
+		spID := bindings[epName]
+		addresses := addrsBySpaceID[spID]
 		sort.Slice(addresses, func(i, j int) bool { return addresses[i].Value < addresses[j].Value })
 		for _, address := range addresses {
 			hashAddr(hash, address)
