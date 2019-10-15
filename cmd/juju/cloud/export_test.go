@@ -198,3 +198,10 @@ func AddLoadedCredentialForTest(
 	}
 	addLoadedCredential(all, cloudName, discovered)
 }
+
+func NewListRegionsCommandForTest(store jujuclient.ClientStore, cloudAPI func() (CloudRegionsAPI, error)) *listRegionsCommand {
+	return &listRegionsCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudAPIFunc:              cloudAPI,
+	}
+}
