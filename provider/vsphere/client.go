@@ -33,6 +33,7 @@ type Client interface {
 	RemoveVirtualMachines(context.Context, string) error
 	UpdateVirtualMachineExtraConfig(context.Context, *mo.VirtualMachine, map[string]string) error
 	VirtualMachines(context.Context, string) ([]*mo.VirtualMachine, error)
+	UserHasRootLevelPrivilege(context.Context, string) (bool, error)
 }
 
 func dialClient(
