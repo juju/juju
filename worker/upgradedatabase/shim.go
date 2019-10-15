@@ -9,7 +9,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/upgradedatabase Logger,Pool
+//go:generate mockgen -package mocks -destination mocks/package.go github.com/juju/juju/worker/upgradedatabase Logger,Pool
+//go:generate mockgen -package mocks -destination mocks/lock.go github.com/juju/juju/worker/gate Lock
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {

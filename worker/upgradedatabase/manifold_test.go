@@ -23,6 +23,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
+	cfg.UpgradeDBGateName = ""
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
 	cfg.Logger = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
@@ -33,9 +37,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 
 func (s *manifoldSuite) getConfig() upgradedatabase.ManifoldConfig {
 	return upgradedatabase.ManifoldConfig{
-		AgentName: "agent-name",
-		Logger:    s.logger,
-		OpenState: func() (*state.StatePool, error) { return nil, nil },
+		AgentName:         "agent-name",
+		UpgradeDBGateName: "upgrade-database-lock",
+		Logger:            s.logger,
+		OpenState:         func() (*state.StatePool, error) { return nil, nil },
 	}
 }
 

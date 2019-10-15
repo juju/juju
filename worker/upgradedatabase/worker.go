@@ -8,10 +8,16 @@ import (
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
+
+	"github.com/juju/juju/worker/gate"
 )
 
 // Config is the configuration needed to construct an upgradeDB worker.
 type Config struct {
+	// UpgradeComplete is a lock used to synchronise workers that must start
+	// after database upgrades are verified as completed.
+	UpgradeComplete gate.Lock
+
 	// Tag is the current machine tag.
 	Tag names.Tag
 
@@ -24,6 +30,9 @@ type Config struct {
 
 // Validate returns an error if the worker config is not valid.
 func (cfg Config) Validate() error {
+	if cfg.UpgradeComplete == nil {
+		return errors.NotValidf("nil UpgradeComplete lock")
+	}
 	if cfg.Tag == nil {
 		return errors.NotValidf("nil machine tag")
 	}
@@ -44,7 +53,8 @@ func (cfg Config) Validate() error {
 // It is responsible for running upgrade steps of type `DatabaseMaster` on the
 // primary MongoDB instance.
 type upgradeDB struct {
-	tomb tomb.Tomb
+	tomb            tomb.Tomb
+	upgradeComplete gate.Lock
 
 	tag    names.Tag
 	logger Logger
@@ -61,8 +71,9 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 	}
 
 	w := &upgradeDB{
-		tag:    cfg.Tag,
-		logger: cfg.Logger,
+		upgradeComplete: cfg.UpgradeComplete,
+		tag:             cfg.Tag,
+		logger:          cfg.Logger,
 	}
 	if w.pool, err = cfg.OpenState(); err != nil {
 		return nil, err
@@ -74,6 +85,11 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 
 func (w *upgradeDB) run() error {
 	defer func() { _ = w.pool.Close() }()
+
+	// If we are already unlocked, there is nothing to do.
+	if w.upgradeComplete.IsUnlocked() {
+		return nil
+	}
 
 	// If this controller is not running the Mongo primary,
 	// we have no work to do and can just exit cleanly.

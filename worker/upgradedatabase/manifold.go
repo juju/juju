@@ -7,22 +7,26 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker/gate"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 )
 
 // ManifoldConfig defines the configuration on which this manifold depends.
 type ManifoldConfig struct {
-	AgentName string
-	//UpgradeStepsGateName string
-	Logger    Logger
-	OpenState func() (*state.StatePool, error)
+	AgentName         string
+	UpgradeDBGateName string
+	Logger            Logger
+	OpenState         func() (*state.StatePool, error)
 	//PreUpgradeSteps      func(*state.StatePool, agent.Config, bool, bool, bool) error
 	//NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }
 
 // Validate returns an error if the manifold config is not valid.
 func (cfg ManifoldConfig) Validate() error {
+	if cfg.UpgradeDBGateName == "" {
+		return errors.NotValidf("emtpy UpgradeDBGateName")
+	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
 	}
@@ -38,9 +42,15 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			cfg.AgentName,
-			//cfg.UpgradeStepsGateName,
+			cfg.UpgradeDBGateName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
+			// Get the completed lock.
+			var upgradeStepsLock gate.Lock
+			if err := context.Get(cfg.UpgradeDBGateName, &upgradeStepsLock); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			// Determine this machine's tag.
 			var a agent.Agent
 			if err := context.Get(cfg.AgentName, &a); err != nil {
@@ -58,9 +68,10 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			}
 
 			workerCfg := Config{
-				Tag:       tag,
-				Logger:    cfg.Logger,
-				OpenState: openState,
+				UpgradeComplete: upgradeStepsLock,
+				Tag:             tag,
+				Logger:          cfg.Logger,
+				OpenState:       openState,
 			}
 			w, err := NewWorker(workerCfg)
 			return w, errors.Annotate(err, "starting database upgrade worker")

@@ -49,6 +49,7 @@ func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
 type workerSuite struct {
 	baseSuite
 
+	lock *MockLock
 	pool *MockPool
 }
 
@@ -60,6 +61,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
+	cfg.UpgradeComplete = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
 	cfg.Tag = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 
@@ -72,9 +77,21 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *workerSuite) TestNotPrimary(c *gc.C) {
+func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
+	s.lock.EXPECT().IsUnlocked().Return(true)
+
+	w, err := upgradedatabase.NewWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNotPrimaryNoWork(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
@@ -85,14 +102,17 @@ func (s *workerSuite) TestNotPrimary(c *gc.C) {
 
 func (s *workerSuite) getConfig() upgradedatabase.Config {
 	return upgradedatabase.Config{
-		Tag:       names.NewMachineTag("0"),
-		Logger:    s.logger,
-		OpenState: func() (upgradedatabase.Pool, error) { return s.pool, nil },
+		UpgradeComplete: s.lock,
+		Tag:             names.NewMachineTag("0"),
+		Logger:          s.logger,
+		OpenState:       func() (upgradedatabase.Pool, error) { return s.pool, nil },
 	}
 }
 
 func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
+
+	s.lock = NewMockLock(ctrl)
 
 	s.logger = NewMockLogger(ctrl)
 	s.ignoreLogging(c)
