@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -235,7 +237,7 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 
 	// Make sure that all machines which run units of this application
 	// contain addresses in the spaces we are trying to bind to.
-	if err := validateEndpointBindingsForMachines(a, updatedMap); err != nil {
+	if err := validateEndpointBindingsForMachines(st, a, updatedMap); err != nil {
 		return ops, errors.Trace(err)
 	}
 
@@ -284,7 +286,7 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 // validateEndpointBindingsForMachines checks whether the required space
 // assignments are actually feasible given the network configuration settings
 // of the machines where application units are already running.
-func validateEndpointBindingsForMachines(a *Application, newBindings map[string]string) error {
+func validateEndpointBindingsForMachines(st *State, a *Application, newBindings map[string]string) error {
 	// Get a list of deployed machines and create a map where we track the
 	// count of deployed machines for each space.
 	machineCountInSpace := make(map[string]int)
@@ -305,7 +307,8 @@ func validateEndpointBindingsForMachines(a *Application, newBindings map[string]
 
 	if newDefaultSpace, defined := newBindings[defaultEndpointName]; defined && newDefaultSpace != network.DefaultSpaceId {
 		if machineCountInSpace[newDefaultSpace] != len(deployedMachines) {
-			return errors.Errorf("changing default space to %q is not feasible: one or more deployed machines lack an address in this space", newDefaultSpace)
+			msg := "changing default space to %q is not feasible: one or more deployed machines lack an address in this space"
+			return st.spaceNotFeasibleError(msg, newDefaultSpace)
 		}
 	}
 
@@ -330,11 +333,21 @@ func validateEndpointBindingsForMachines(a *Application, newBindings map[string]
 		// Ensure that all currently deployed machines have an address
 		// in the requested space for this binding
 		if machineCountInSpace[spID] != len(deployedMachines) {
-			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spID)
+			msg := fmt.Sprintf("binding endpoint %q to ", epName)
+			return st.spaceNotFeasibleError(msg+"space %q is not feasible: one or more deployed machines lack an address in this space", spID)
 		}
 	}
 
 	return nil
+}
+
+func (st *State) spaceNotFeasibleError(msg, id string) error {
+	space, err := st.SpaceByID(id)
+	if err != nil {
+		logger.Errorf(msg, id)
+		return errors.Annotatef(err, "cannot get space name for id %q", id)
+	}
+	return errors.Errorf(msg, space.Name())
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
@@ -433,13 +446,14 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	return bindings
 }
 
-type TranslateBindingMap interface {
-	Space(name string) (*Space, error)
-	SpaceByID(id string) (*Space, error)
-}
-
-func TranslateSpaceNameToID(st TranslateBindingMap, current map[string]string) (map[string]string, error) {
+// translateSpaceNameToID takes a map of endpoint bindings to space names and
+// and returns a map of endpoint bindings to space ids
+func (st *State) translateSpaceNameToID(current map[string]string) (map[string]string, error) {
 	retVal := make(map[string]string, len(current))
+	namesToIDs, err := st.SpaceIDsByName()
+	if err != nil {
+		return nil, err
+	}
 	for k, v := range current {
 		if v == network.DefaultSpaceName || v == network.DefaultSpaceId {
 			retVal[k] = network.DefaultSpaceId
@@ -449,11 +463,11 @@ func TranslateSpaceNameToID(st TranslateBindingMap, current map[string]string) (
 			// If one binding endpoint is a SpaceID, so are the rest.
 			return current, nil
 		}
-		sp, err := st.Space(v)
-		if err != nil {
-			return nil, err
+		spaceID, found := namesToIDs[v]
+		if !found {
+			return nil, errors.NotFoundf("space id for space %q", v)
 		}
-		retVal[k] = sp.Id()
+		retVal[k] = spaceID
 	}
 	return retVal, nil
 }

@@ -276,24 +276,6 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 	}
 }
 
-func (s *BindingsSuite) TestTranslateSpaceNameToID(c *gc.C) {
-	bindingMap := map[string]string{
-		"self": "",
-		"":     "",
-		"foo":  "client",
-		"bar":  "apps",
-	}
-	expectedMap := map[string]string{
-		"self": network.DefaultSpaceId,
-		"":     network.DefaultSpaceId,
-		"foo":  s.clientSpaceID,
-		"bar":  s.appsSpaceID,
-	}
-	obtainedMap, err := state.TranslateSpaceNameToID(s.State, bindingMap)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedMap, gc.DeepEquals, expectedMap)
-}
-
 func (s *BindingsSuite) copyMap(input map[string]string) map[string]string {
 	output := make(map[string]string, len(input))
 	for key, value := range input {
