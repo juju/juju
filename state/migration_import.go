@@ -841,7 +841,7 @@ func (i *importer) application(a description.Application) error {
 		return errors.Trace(err)
 	}
 
-	bindings, err := TranslateSpaceNameToID(i.st, a.EndpointBindings())
+	bindings, err := i.st.translateSpaceNameToID(a.EndpointBindings())
 	if err != nil {
 		return errors.Trace(err)
 	}

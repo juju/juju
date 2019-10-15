@@ -2765,6 +2765,8 @@ func convertCloudContainerAddressSpaceIDs(db Database) ([]txn.Op, error) {
 	return ops, nil
 }
 
+// ReplaceSpaceNameWithIDEndpointBindings replaces space names with
+// space ids for endpoint bindings.
 func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		col, closer := st.db().GetCollection(endpointBindingsC)
@@ -2778,7 +2780,7 @@ func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
 
 		var ops []txn.Op
 		for _, doc := range docs {
-			updatedMap, err := TranslateSpaceNameToID(st, doc.Bindings)
+			updatedMap, err := st.translateSpaceNameToID(doc.Bindings)
 			if err != nil {
 				return errors.Trace(err)
 			}
