@@ -405,6 +405,11 @@ type OptionalControllerCommand struct {
 	// without affecting client copy.
 	ControllerOnly bool
 
+	// BothClientAndController indicates that the operation need to take place on
+	// both client and controller. This is the default argument, only selected if
+	// neither ClientOnly nor ControllerOnly specified.
+	BothClientAndController bool
+
 	ControllerName string
 
 	SkipCurrentControllerPrompt bool
@@ -427,6 +432,7 @@ func (c *OptionalControllerCommand) Init(args []string) (err error) {
 	if c.Local && !c.ClientOnly {
 		c.ClientOnly = c.Local
 	}
+	c.BothClientAndController = !c.ClientOnly && !c.ControllerOnly
 	return nil
 }
 

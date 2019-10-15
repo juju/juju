@@ -7,26 +7,52 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
 
+	cloudapi "github.com/juju/juju/api/cloud"
+	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/jujuclient"
 )
 
 type listRegionsCommand struct {
-	cmd.CommandBase
+	modelcmd.OptionalControllerCommand
 	out       cmd.Output
 	cloudName string
+
+	cloudAPIFunc func() (CloudRegionsAPI, error)
+	found        *FoundRegions
 }
 
 var listRegionsDoc = `
+List regions for a given cloud.
+
+If the current controller can be detected, a user will be prompted to 
+confirm if regions for the cloud known to the controller need to be 
+listed as well. If the prompt is not needed and the regions from 
+current controller's cloud are always to be listed, use --no-prompt option.
+
+Use --controller option to list regions from the cloud from a different controller.
+
+Use --client-only option to only list regions known locally on this client.
+
+Use --controller-only option to only list regions known remotely on a controller.
+
+
 Examples:
 
     juju regions aws
+    juju regions aws --controller mycontroller
+    juju regions aws --client-only
+    juju regions aws --no-prompt
 
 See also:
     add-cloud
@@ -35,9 +61,29 @@ See also:
     update-clouds
 `
 
+type CloudRegionsAPI interface {
+	Cloud(tag names.CloudTag) (jujucloud.Cloud, error)
+	Close() error
+}
+
 // NewListRegionsCommand returns a command to list cloud region information.
 func NewListRegionsCommand() cmd.Command {
-	return &listRegionsCommand{}
+	store := jujuclient.NewFileClientStore()
+	c := &listRegionsCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: store,
+		},
+	}
+	c.cloudAPIFunc = c.cloudAPI
+	return modelcmd.WrapBase(c)
+}
+
+func (c *listRegionsCommand) cloudAPI() (CloudRegionsAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudapi.NewClient(root), nil
 }
 
 // Info implements Command.Info.
@@ -53,7 +99,7 @@ func (c *listRegionsCommand) Info() *cmd.Info {
 
 // SetFlags implements Command.SetFlags.
 func (c *listRegionsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.CommandBase.SetFlags(f)
+	c.OptionalControllerCommand.SetFlags(f)
 	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"yaml":    cmd.FormatYaml,
 		"json":    cmd.FormatJson,
@@ -63,6 +109,9 @@ func (c *listRegionsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.Init.
 func (c *listRegionsCommand) Init(args []string) error {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	switch len(args) {
 	case 0:
 		return errors.New("no cloud specified")
@@ -72,60 +121,134 @@ func (c *listRegionsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args[1:])
 }
 
+type FoundRegions struct {
+	Local  interface{} `yaml:"client-cloud-regions,omitempty" json:"client-cloud-regions,omitempty"`
+	Remote interface{} `yaml:"controller-cloud-regions,omitempty" json:"controller-cloud-regions,omitempty"`
+}
+
+func (f *FoundRegions) IsEmpty() bool {
+	return f == &FoundRegions{}
+}
+
 // Run implements Command.Run.
 func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
+	c.found = &FoundRegions{}
+	var returnErr error
+	if c.BothClientAndController || c.ClientOnly {
+		if err := c.findLocalRegions(ctxt); err != nil {
+			ctxt.Warningf("%v", err)
+			returnErr = cmd.ErrSilent
+		}
+	}
+
+	if c.BothClientAndController || c.ControllerOnly {
+		if err := c.findRemoteRegions(ctxt); err != nil {
+			ctxt.Warningf("%v", err)
+			returnErr = cmd.ErrSilent
+		}
+	}
+	if !c.found.IsEmpty() {
+		if err := c.out.Write(ctxt, *c.found); err != nil {
+			ctxt.Warningf("%v", err)
+			returnErr = cmd.ErrSilent
+		}
+	}
+	return returnErr
+}
+
+func (c *listRegionsCommand) findRemoteRegions(ctxt *cmd.Context) error {
+	if c.ControllerName == "" {
+		// The user may have specified the controller via a --controller option.
+		// If not, let's see if there is a current controller that can be detected.
+		var err error
+		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("list regions for cloud %q from", c.cloudName))
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if c.ControllerName == "" {
+		return errors.Errorf("Not listing regions for cloud %q from a controller: no controller specified.", c.cloudName)
+	}
+
+	api, err := c.cloudAPIFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer api.Close()
+	aCloud, err := api.Cloud(names.NewCloudTag(c.cloudName))
+	if err != nil {
+		return errors.Annotatef(err, "on controller %q", c.ControllerName)
+	}
+
+	if len(aCloud.Regions) == 0 {
+		fmt.Fprintf(ctxt.GetStdout(), "Cloud %q has no regions defined on controller %q.\n", c.cloudName, c.ControllerName)
+		return nil
+	}
+	c.found.Remote = c.parseRegions(aCloud)
+	return nil
+}
+
+func (c *listRegionsCommand) findLocalRegions(ctxt *cmd.Context) error {
 	cloud, err := common.CloudByName(c.cloudName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	if len(cloud.Regions) == 0 {
-		fmt.Fprintf(ctxt.GetStdout(), "Cloud %q has no regions defined.\n", c.cloudName)
+		fmt.Fprintf(ctxt.GetStdout(), "Cloud %q has no regions defined locally on this client.\n", c.cloudName)
 		return nil
 	}
-	var regions interface{}
+	c.found.Local = c.parseRegions(*cloud)
+	return nil
+}
+
+func (c *listRegionsCommand) parseRegions(aCloud jujucloud.Cloud) interface{} {
 	if c.out.Name() == "json" {
 		details := make(map[string]RegionDetails)
-		for _, r := range cloud.Regions {
+		for _, r := range aCloud.Regions {
 			details[r.Name] = RegionDetails{
 				Endpoint:         r.Endpoint,
 				IdentityEndpoint: r.IdentityEndpoint,
 				StorageEndpoint:  r.StorageEndpoint,
 			}
 		}
-		regions = details
-	} else {
-		details := make(yaml.MapSlice, len(cloud.Regions))
-		for i, r := range cloud.Regions {
-			details[i] = yaml.MapItem{r.Name, RegionDetails{
-				Name:             r.Name,
-				Endpoint:         r.Endpoint,
-				IdentityEndpoint: r.IdentityEndpoint,
-				StorageEndpoint:  r.StorageEndpoint,
-			}}
-		}
-		regions = details
+		return details
 	}
-	err = c.out.Write(ctxt, regions)
-	if err != nil {
-		return err
+	details := make(yaml.MapSlice, len(aCloud.Regions))
+	for i, r := range aCloud.Regions {
+		details[i] = yaml.MapItem{r.Name, RegionDetails{
+			Name:             r.Name,
+			Endpoint:         r.Endpoint,
+			IdentityEndpoint: r.IdentityEndpoint,
+			StorageEndpoint:  r.StorageEndpoint,
+		}}
 	}
-	return nil
+	return details
 }
 
 func (c *listRegionsCommand) formatRegionsListTabular(writer io.Writer, value interface{}) error {
-	regions, ok := value.(yaml.MapSlice)
+	regions, ok := value.(FoundRegions)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", regions, value)
 	}
 	return formatRegionsTabular(writer, regions)
 }
 
-func formatRegionsTabular(writer io.Writer, regions yaml.MapSlice) error {
+func formatRegionsTabular(writer io.Writer, regions FoundRegions) error {
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	for _, r := range regions {
-		w.Println(r.Key)
+
+	if locals, ok := regions.Local.(yaml.MapSlice); ok {
+		w.Println("\nClient Cloud Regions")
+		for _, r := range locals {
+			w.Println(r.Key)
+		}
+	}
+	if remotes, ok := regions.Remote.(yaml.MapSlice); ok {
+		w.Println("\nController Cloud Regions")
+		for _, r := range remotes {
+			w.PrintColor(ansiterm.Foreground(ansiterm.BrightBlue), r.Key)
+			w.Println()
+		}
 	}
 	tw.Flush()
 	return nil
