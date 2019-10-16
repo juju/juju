@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "b62f496a731efebe602805523347d4f936a6afb7"
+  revision = "c769faf4c30ef9abde1b7a8c32b6404c8167f999"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
