@@ -159,8 +159,16 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (map[string]string, error) {
-	return m.bindings, nil
+func (m *mockApplication) EndpointBindings() (crossmodel.Bindings, error) {
+	return &mockBindings{bMap: m.bindings}, nil
+}
+
+type mockBindings struct {
+	bMap map[string]string
+}
+
+func (b *mockBindings) Map() map[string]string {
+	return b.bMap
 }
 
 type mockSpace struct {

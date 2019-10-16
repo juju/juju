@@ -187,13 +187,19 @@ type Application interface {
 	// to the charm with that URL even if they are in an error state.
 	CharmURL() (curl *charm.URL, force bool)
 
-	// EndpointBindings returns the mapping for each endpoint name and the space
-	// name it is bound to (or empty if unspecified). When no bindings are stored
-	// for the application, defaults are returned.
-	EndpointBindings() (map[string]string, error)
+	// EndpointBindings returns the Bindings object for this application.
+	EndpointBindings() (Bindings, error)
 
 	// Status returns the status of the application.
 	Status() (status.StatusInfo, error)
+}
+
+// Bindings defines a subset of the functionality provided by the
+// state.Bindings type, as required by the application facade. For
+// details on the methods, see the methods on state.Bindings with
+// the same names.
+type Bindings interface {
+	Map() map[string]string
 }
 
 type Charm interface {

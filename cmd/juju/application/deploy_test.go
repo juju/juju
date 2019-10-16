@@ -1366,7 +1366,7 @@ func (s *charmstoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[st
 	for _, application := range applications {
 		endpointBindings, err := application.EndpointBindings()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(endpointBindings, jc.DeepEquals, info[application.Name()].endpointBindings)
+		c.Assert(endpointBindings.Map(), jc.DeepEquals, info[application.Name()].endpointBindings)
 	}
 }
 
@@ -1764,7 +1764,7 @@ func (s *legacyCharmStoreSuite) assertDeployedApplicationBindings(c *gc.C, info 
 	for _, application := range applications {
 		endpointBindings, err := application.EndpointBindings()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(endpointBindings, jc.DeepEquals, info[application.Name()].endpointBindings)
+		c.Assert(endpointBindings.Map(), jc.DeepEquals, info[application.Name()].endpointBindings)
 	}
 }
 

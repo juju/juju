@@ -288,7 +288,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 
 	updatedBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *gc.C) {
@@ -314,7 +314,7 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 
 	updatedBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
 }
 
 func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a *state.Application, spaceName string) *state.Space {
@@ -515,7 +515,7 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	updatedBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
+	c.Assert(updatedBindings.Map(), jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
 		"":        dbSpace.Id(),
 		"server":  dbSpace.Id(),
@@ -1123,7 +1123,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 
 	oldBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(oldBindings, jc.DeepEquals, map[string]string{
+	c.Assert(oldBindings.Map(), jc.DeepEquals, map[string]string{
 		"":        network.DefaultSpaceId,
 		"server":  network.DefaultSpaceId,
 		"kludge":  network.DefaultSpaceId,
@@ -1166,7 +1166,7 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 				// Verify final bindings.
 				newBindings, err := s.mysql.EndpointBindings()
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(newBindings, jc.DeepEquals, map[string]string{
+				c.Assert(newBindings.Map(), jc.DeepEquals, map[string]string{
 					"":        network.DefaultSpaceId,
 					"server":  dbSpace.Id(), // from the first change.
 					"foo":     network.DefaultSpaceId,
@@ -3447,9 +3447,9 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setBindings, gc.NotNil)
+	c.Assert(setBindings.Map(), gc.NotNil)
 
-	for endpoint, space := range setBindings {
+	for endpoint, space := range setBindings.Map() {
 		c.Check(knownEndpoints.Contains(endpoint), jc.IsTrue)
 		c.Check(space, gc.Equals, network.DefaultSpaceId, gc.Commentf("expected default space for endpoint %q, got %q", endpoint, space))
 	}
@@ -3480,7 +3480,7 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setBindings, jc.DeepEquals, map[string]string{
+	c.Assert(setBindings.Map(), jc.DeepEquals, map[string]string{
 		"":        network.DefaultSpaceId,
 		"server":  dbSpace.Id(),
 		"client":  network.DefaultSpaceId,
@@ -3508,7 +3508,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		"client":  dbSpace.Id(),
 		"cluster": network.DefaultSpaceId,
 	}
-	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
+	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveOld)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 
@@ -3529,7 +3529,7 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 		"baz":  network.DefaultSpaceId,
 		"just": network.DefaultSpaceId,
 	}
-	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
+	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 
 	s.assertApplicationRemovedWithItsBindings(c, application)
 }
@@ -3557,7 +3557,7 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 		"baz":  network.DefaultSpaceId,
 		"just": network.DefaultSpaceId,
 	}
-	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
+	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 
 	s.assertApplicationRemovedWithItsBindings(c, application)
 }

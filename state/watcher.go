@@ -4005,7 +4005,7 @@ func (u *Unit) WatchMachineAndEndpointAddressesHash() (StringsWatcher, error) {
 			if err != nil {
 				return "", err
 			}
-			return hashMachineAddressesForEndpointBindings(mCopy, bindings)
+			return hashMachineAddressesForEndpointBindings(mCopy, bindings.Map())
 		},
 	}
 	w.start()

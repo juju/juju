@@ -125,11 +125,11 @@ func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL
 
 func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, expected map[string]string) {
 	type withEndpointBindings interface {
-		EndpointBindings() (map[string]string, error)
+		EndpointBindings() (application.Bindings, error)
 	}
 	bindings, err := app.(withEndpointBindings).EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, expected)
+	c.Assert(bindings.Map(), jc.DeepEquals, expected)
 }
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {

@@ -378,14 +378,14 @@ func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string
 		}
 		processedApplicationsSet.Add(application.Name())
 
-		if len(bindings) == 0 {
+		if len(bindings.Map()) == 0 {
 			continue
 		}
 		if combinedBindings == nil {
 			combinedBindings = make(map[string]string)
 		}
 
-		for endpoint, spaceID := range bindings {
+		for endpoint, spaceID := range bindings.Map() {
 			// All endpoint bindings having a value is a side effect of
 			// changing the endpoint bindings from a space name to id.
 			// For the provisioning code, assuming that the default space

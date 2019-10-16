@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Spaces,Address,Subnet,LinkLayerDevice
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Spaces,Address,Subnet,LinkLayerDevice,Bindings
 
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {
@@ -247,14 +247,22 @@ var _ Application = (*applicationShim)(nil)
 type Application interface {
 	Charm() (Charm, bool, error)
 	Name() string
-	EndpointBindings() (map[string]string, error)
+	EndpointBindings() (Bindings, error)
 }
 
 func (a *applicationShim) Charm() (Charm, bool, error) {
 	return a.Application.Charm()
 }
 
+func (a *applicationShim) EndpointBindings() (Bindings, error) {
+	return a.Application.EndpointBindings()
+}
+
 type Charm interface {
 	LXDProfile() *jujucharm.LXDProfile
 	Revision() int
+}
+
+type Bindings interface {
+	Map() map[string]string
 }

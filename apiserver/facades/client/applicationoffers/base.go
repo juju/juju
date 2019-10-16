@@ -478,12 +478,13 @@ func (api *BaseAPI) spacesAndBindingParams(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
+	appBindingsMap := appBindings.Map()
 
 	var bindings map[string]string
 
 	spaceIDs := set.NewStrings()
 	for _, ep := range offerEndpoints {
-		spaceID, haveID := appBindings[ep.Name]
+		spaceID, haveID := appBindingsMap[ep.Name]
 		if haveID {
 			spaceIDs.Add(spaceID)
 			continue
@@ -512,7 +513,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 	// Ensure bindings only contain entries for which we have remoteSpaces.
 	spaces := make([]params.RemoteSpace, 0)
 
-	for epName, spaceID := range appBindings {
+	for epName, spaceID := range appBindingsMap {
 		space, haveSpace := remoteSpaces[spaceID]
 		if !haveSpace {
 			continue

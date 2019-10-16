@@ -75,9 +75,11 @@ func (n *NetworkInfo) init(tag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 
-	if n.bindings, err = n.app.EndpointBindings(); err != nil {
+	bindings, err := n.app.EndpointBindings()
+	if err != nil {
 		return errors.Trace(err)
 	}
+	n.bindings = bindings.Map()
 
 	if n.defaultEgress, err = n.getModelEgressSubnets(); err != nil {
 		return errors.Trace(err)

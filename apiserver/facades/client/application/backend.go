@@ -75,7 +75,7 @@ type Application interface {
 	Constraints() (constraints.Value, error)
 	Destroy() error
 	DestroyOperation() *state.DestroyApplicationOperation
-	EndpointBindings() (map[string]string, error)
+	EndpointBindings() (Bindings, error)
 	Endpoints() ([]state.Endpoint, error)
 	IsExposed() bool
 	IsPrincipal() bool
@@ -92,6 +92,14 @@ type Application interface {
 	SetScale(int, int64, bool) error
 	ChangeScale(int) (int, error)
 	AgentTools() (*tools.Tools, error)
+}
+
+// Bindings defines a subset of the functionality provided by the
+// state.Bindings type, as required by the application facade. For
+// details on the methods, see the methods on state.Bindings with
+// the same names.
+type Bindings interface {
+	Map() map[string]string
 }
 
 // Charm defines a subset of the functionality provided by the
@@ -391,6 +399,10 @@ func (a stateApplicationShim) AllUnits() ([]Unit, error) {
 		out[i] = stateUnitShim{u, a.st}
 	}
 	return out, nil
+}
+
+func (a stateApplicationShim) EndpointBindings() (Bindings, error) {
+	return a.Application.EndpointBindings()
 }
 
 type stateCharmShim struct {

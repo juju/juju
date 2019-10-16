@@ -76,13 +76,12 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 	return rawMap, nil
 }
 
-// mergeBindings returns the effective bindings, by combining the default
-// bindings based on the given charm metadata, overriding them first with
-// matching oldMap values, and then with newMap values (for the same keys).
-// newMap and oldMap are both optional and will ignored when empty. Returns a
-// map containing the combined finalized bindings.
-// Returns true/false if there are any actual differences.
-func (b *Bindings) merge(mergeWith map[string]string, meta *charm.Meta) (bool, error) {
+// Merge the default bindings based on the given charm metadata, overriding
+// them first with matching current values, and then with mergeWith values
+// (for the same keys). Current values and mergeWith are both optional and
+// will ignored when empty. The current object contains the combined finalized
+// bindings. Returns true/false if there are any actual differences.
+func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, error) {
 	defaultsMap := DefaultEndpointBindingsForCharm(meta)
 	defaultBinding, oldOk := mergeWith[defaultEndpointName]
 	if !oldOk {
@@ -147,59 +146,55 @@ func (b *Bindings) merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 	return isModified, nil
 }
 
-// createEndpointBindingsOp returns the op needed to create new endpoint
-// bindings using the optional givenMap and the specified charm metadata to for
+// createOp returns the op needed to create new endpoint bindings using the
+// optional current bindings and the specified charm metadata to for
 // determining defaults and to validate the effective bindings.
-func createEndpointBindingsOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
-	givenBindings, err := NewBindings(st, givenMap)
-	if err != nil {
-		return txn.Op{}, errors.Trace(err)
+func (b *Bindings) createOp(meta *charm.Meta) (txn.Op, error) {
+	if b.app == nil {
+		return txn.Op{}, errors.Trace(errors.New("programming error: app is a nil pointer"))
 	}
-
-	// No existing map to merge, just use the defaults.
-	_, err = givenBindings.merge(nil, meta)
+	// No existing map to Merge, just use the defaults.
+	_, err := b.Merge(nil, meta)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
 
 	// Validate the bindings before inserting.
-	if err := givenBindings.validateForCharm(meta); err != nil {
+	if err := b.validateForCharm(meta); err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
 
 	return txn.Op{
 		C:      endpointBindingsC,
-		Id:     key,
+		Id:     b.app.globalKey(),
 		Assert: txn.DocMissing,
 		Insert: endpointBindingsDoc{
-			Bindings: givenBindings.Map(),
+			Bindings: b.Map(),
 		},
 	}, nil
 }
 
-// updateEndpointBindingsOps returns an op list that merges the existing
-// bindings with givenMap, using newMeta to validate the merged bindings, and
-// asserting that the following items have not changed since we last fetched
-// them:
-// - names of spaces assigned to endpoints.
+// updateOps returns an op list that merges the current bindings and the old
+// bindings, using newMeta to validate the merged bindings, and asserting that
+// the following items have not changed since we last fetched them:
+// - ids of spaces assigned to endpoints.
 // - application unit count.
 // - endpoint bindings that we are currently trying to update.
-func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]string, newMeta *charm.Meta) ([]txn.Op, error) {
+func (b *Bindings) updateOps(newMeta *charm.Meta) ([]txn.Op, error) {
 	var ops []txn.Op
 
+	if b.app == nil {
+		return ops, errors.Trace(errors.New("programming error: app is a nil pointer"))
+	}
+
 	// Fetch existing bindings.
-	oldMap, txnRevno, err := readEndpointBindings(st, a.globalKey())
+	oldMap, txnRevno, err := readEndpointBindings(b.app.st, b.app.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
 		return ops, errors.Trace(err)
 	}
 
-	givenBindings, err := NewBindings(st, givenMap)
-	if err != nil {
-		return ops, errors.Trace(err)
-	}
-
 	// Merge existing with given as needed.
-	isModified, err := givenBindings.merge(oldMap, newMeta)
+	isModified, err := b.Merge(oldMap, newMeta)
 	if err != nil {
 		return ops, errors.Trace(err)
 	}
@@ -209,19 +204,19 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 	}
 
 	// Validate the bindings before updating.
-	if err := givenBindings.validateForCharm(newMeta); err != nil {
+	if err := b.validateForCharm(newMeta); err != nil {
 		return ops, errors.Trace(err)
 	}
 
 	// Make sure that all machines which run units of this application
 	// contain addresses in the spaces we are trying to bind to.
-	if err := givenBindings.validateForMachines(st, a); err != nil {
+	if err := b.validateForMachines(); err != nil {
 		return ops, errors.Trace(err)
 	}
 
 	// Ensure that the spaceIDs needed for the bindings exist.
-	for _, spID := range givenBindings.Map() {
-		sp, err := st.SpaceByID(spID)
+	for _, spID := range b.Map() {
+		sp, err := b.st.SpaceByID(spID)
 		if err != nil {
 			return ops, errors.Trace(err)
 		}
@@ -238,19 +233,19 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 	// count for the current application.
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: bson.D{{"unitcount", a.UnitCount()}},
+		Id:     b.app.doc.DocID,
+		Assert: bson.D{{"unitcount", b.app.UnitCount()}},
 	})
 
 	// Prepare the update operations.
-	escaped := make(bson.M, len(givenBindings.Map()))
-	for endpoint, space := range givenBindings.Map() {
+	escaped := make(bson.M, len(b.Map()))
+	for endpoint, space := range b.Map() {
 		escaped[utils.EscapeKey(endpoint)] = space
 	}
 
 	updateOp := txn.Op{
 		C:      endpointBindingsC,
-		Id:     a.globalKey(),
+		Id:     b.app.globalKey(),
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
 	if oldMap != nil {
@@ -264,11 +259,14 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 // validateForMachines checks whether the required space
 // assignments are actually feasible given the network configuration settings
 // of the machines where application units are already running.
-func (b *Bindings) validateForMachines(st *State, a *Application) error {
+func (b *Bindings) validateForMachines() error {
+	if b.app == nil {
+		return errors.Trace(errors.New("programming error: app is a nil pointer"))
+	}
 	// Get a list of deployed machines and create a map where we track the
 	// count of deployed machines for each space.
 	machineCountInSpace := make(map[string]int)
-	deployedMachines, err := a.DeployedMachines()
+	deployedMachines, err := b.app.DeployedMachines()
 	if err != nil {
 		return err
 	}
@@ -421,6 +419,7 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	return bindings
 }
 
+//go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
 	SpaceByID(id string) (*Space, error)
 	SpaceIDsByName() (map[string]string, error)
@@ -428,7 +427,8 @@ type EndpointBinding interface {
 }
 
 type Bindings struct {
-	st EndpointBinding
+	st  EndpointBinding
+	app *Application
 	bindingsMap
 }
 
@@ -438,28 +438,81 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	haveAllNames := allOfOne(spacesNamesToIDs, givenMap)
+
 	spacesIDsToNames, err := st.SpaceNamesByID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	newMap := make(map[string]string, len(givenMap))
-	for endpoint, space := range givenMap {
-		if id, haveName := spacesNamesToIDs[space]; haveName {
-			newMap[endpoint] = id
-			continue
-		}
-		_, haveID := spacesIDsToNames[space]
-		if haveID || space == "" {
-			newMap[endpoint] = space
-			continue
-		}
-		return nil, errors.NotFoundf("endpoint %q value %q, space name or ID", endpoint, space)
+	haveAllIDs := allOfOne(spacesIDsToNames, givenMap)
+
+	// Ensure the spaces values are all names OR ids in the
+	// given map.
+	var newMap map[string]string
+	switch {
+	case !haveAllIDs && !haveAllNames:
+		return nil, errors.NotValidf("%v contains both space names and ids", givenMap)
+	case haveAllNames && haveAllIDs:
+		// The givenMap is empty, just continue, the loop will be skipped.
+		newMap = make(map[string]string, len(givenMap))
+	case haveAllNames:
+		logger.Criticalf("allNames %+v", givenMap)
+		logger.Criticalf("%+v", spacesNamesToIDs)
+		newMap, err = newBindingsFromNames(spacesNamesToIDs, givenMap)
+	case haveAllIDs:
+		logger.Criticalf("allIDs %+v", givenMap)
+		logger.Criticalf("%+v", spacesIDsToNames)
+		newMap, err = newBindingsFromIDs(spacesIDsToNames, givenMap)
 	}
-	return &Bindings{st: st, bindingsMap: newMap}, nil
+
+	return &Bindings{st: st, bindingsMap: newMap}, err
+}
+
+func allOfOne(currentSpaces, givenMap map[string]string) bool {
+	for _, id := range givenMap {
+		if _, ok := currentSpaces[id]; !ok && id != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[string]string, error) {
+	newMap := make(map[string]string, len(givenMap))
+	for epName, name := range givenMap {
+		if name == "" {
+			newMap[epName] = ""
+			continue
+		}
+		// check that the name is valid and get id.
+		value, ok := verificationMap[name]
+		if !ok {
+			return nil, errors.NotFoundf("epName %q space name value %q", epName, name)
+		}
+		newMap[epName] = value
+	}
+	return newMap, nil
+}
+
+func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string]string, error) {
+	newMap := make(map[string]string, len(givenMap))
+	for epName, id := range givenMap {
+		if id == "" {
+			newMap[epName] = ""
+			continue
+		}
+		// check that the id is valid.
+		if _, ok := verificationMap[id]; ok || id == "" {
+			newMap[epName] = id
+			continue
+		}
+		return nil, errors.NotFoundf("epName %q space id value %q", epName, id)
+	}
+	return newMap, nil
 }
 
 // MapWithSpaceNames returns the current bindingMap with space names rather than ids.
-func (b *Bindings) MapWithSpaceNames() (bindingsMap, error) {
+func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	retVal := make(map[string]string, len(b.bindingsMap))
 	namesToIDs, err := b.st.SpaceIDsByName()
 	if err != nil {
@@ -484,6 +537,6 @@ func (b *Bindings) MapWithSpaceNames() (bindingsMap, error) {
 }
 
 // Map returns the current bindingMap.
-func (b *Bindings) Map() bindingsMap {
+func (b *Bindings) Map() map[string]string {
 	return b.bindingsMap
 }

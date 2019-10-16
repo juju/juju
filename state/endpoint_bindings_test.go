@@ -4,6 +4,10 @@
 package state_test
 
 import (
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
+	"github.com/juju/juju/state/mocks"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -12,7 +16,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-type BindingsSuite struct {
+type bindingsSuite struct {
 	ConnSuite
 
 	oldMeta     *charm.Meta
@@ -24,9 +28,9 @@ type BindingsSuite struct {
 	appsSpaceID   string
 }
 
-var _ = gc.Suite(&BindingsSuite{})
+var _ = gc.Suite(&bindingsSuite{})
 
-func (s *BindingsSuite) SetUpTest(c *gc.C) {
+func (s *bindingsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 
 	const dummyCharmWithOneOfEachRelationTypeAndExtraBindings = `
@@ -87,15 +91,11 @@ peers:
 	// Add some spaces to use in bindings, but notably NOT the default space, as
 	// it should be always allowed.
 
-	clientSpace, err := s.State.AddSpace("client", "", nil, true)
-	c.Assert(err, jc.ErrorIsNil)
-	s.clientSpaceID = clientSpace.Id()
-	appsSpace, err := s.State.AddSpace("apps", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-	s.appsSpaceID = appsSpace.Id()
+	s.clientSpaceID = "1"
+	s.appsSpaceID = "2"
 }
 
-func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
+func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 	// The test cases below are not exhaustive, but just check basic
 	// functionality. Most of the logic is tested by calling application.SetCharm()
 	// in various ways.
@@ -268,18 +268,122 @@ func (s *BindingsSuite) TestMergeBindings(c *gc.C) {
 		modified: true,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-
-		updated, isModified, err := state.MergeBindings(test.newMap, test.oldMap, test.meta)
+		b := state.NewBindingsForMergeTest(test.newMap)
+		isModified, err := b.Merge(test.oldMap, test.meta)
 		c.Check(err, jc.ErrorIsNil)
-		c.Check(updated, jc.DeepEquals, test.updated)
+		c.Check(b.Map(), jc.DeepEquals, test.updated)
 		c.Check(isModified, gc.Equals, test.modified)
 	}
 }
 
-func (s *BindingsSuite) copyMap(input map[string]string) map[string]string {
+func (s *bindingsSuite) copyMap(input map[string]string) map[string]string {
 	output := make(map[string]string, len(input))
 	for key, value := range input {
 		output[key] = value
 	}
 	return output
+}
+
+var _ = gc.Suite(&bindingsMockSuite{})
+
+type bindingsMockSuite struct {
+	testing.IsolationSuite
+
+	endpointBinding *mocks.MockEndpointBinding
+}
+
+func (s *bindingsMockSuite) TestNewBindingsNilMap(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectIDsByName()
+	s.expectNamesByID()
+
+	binding, err := state.NewBindings(s.endpointBinding, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+	c.Assert(binding.Map(), gc.DeepEquals, map[string]string{})
+}
+
+func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectIDsByName()
+	s.expectNamesByID()
+	initial := map[string]string{
+		"db":      "2",
+		"testing": "5",
+		"empty":   "",
+	}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+
+	c.Assert(binding.Map(), jc.DeepEquals, initial)
+}
+
+func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectIDsByName()
+	s.expectNamesByID()
+	initial := map[string]string{
+		"db":      "two",
+		"testing": "42",
+		"empty":   "",
+	}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+
+	expected := map[string]string{
+		"db":      "2",
+		"testing": "5",
+		"empty":   "",
+	}
+	c.Logf("%+v", binding.Map())
+	c.Assert(binding.Map(), jc.DeepEquals, expected)
+}
+
+func (s *bindingsMockSuite) TestNewBindingsInvalid(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectIDsByName()
+	s.expectNamesByID()
+	initial := map[string]string{
+		"db":      "2",
+		"testing": "three",
+		"empty":   "",
+	}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(binding, gc.IsNil)
+}
+
+func (s *bindingsMockSuite) expectNamesByID() {
+	n2i := map[string]string{
+		network.DefaultSpaceId: network.DefaultSpaceName,
+		"1":                    "one",
+		"2":                    "two",
+		"3":                    "three",
+		"4":                    "four",
+		"5":                    "42",
+	}
+	s.endpointBinding.EXPECT().SpaceNamesByID().Return(n2i, nil).AnyTimes()
+}
+
+func (s *bindingsMockSuite) expectIDsByName() {
+	i2n := map[string]string{
+		network.DefaultSpaceName: network.DefaultSpaceId,
+		"one":                    "1",
+		"two":                    "2",
+		"three":                  "3",
+		"four":                   "4",
+		"42":                     "5",
+	}
+	s.endpointBinding.EXPECT().SpaceIDsByName().Return(i2n, nil).AnyTimes()
+}
+
+func (s *bindingsMockSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.endpointBinding = mocks.NewMockEndpointBinding(ctrl)
+	return ctrl
 }

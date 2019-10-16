@@ -1785,7 +1785,7 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	// expected.
 	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, map[string]string{
+	c.Assert(bindings.Map(), jc.DeepEquals, map[string]string{
 		"":        network.DefaultSpaceId,
 		"server":  network.DefaultSpaceId,
 		"client":  network.DefaultSpaceId,
@@ -1823,7 +1823,7 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 	// expected.
 	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, map[string]string{
+	c.Assert(bindings.Map(), jc.DeepEquals, map[string]string{
 		"":        network.DefaultSpaceId,
 		"server":  network.DefaultSpaceId, // inherited from defaults.
 		"client":  clientSpace.Id(),

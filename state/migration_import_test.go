@@ -1121,8 +1121,8 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Check the "db" endpoint has the correct space ID, the others
 	// should have the DefaultSpaceId
-	c.Assert(bindings["db"], gc.Equals, space.Id())
-	c.Assert(bindings[""], gc.Equals, network.DefaultSpaceId)
+	c.Assert(bindings.Map()["db"], gc.Equals, space.Id())
+	c.Assert(bindings.Map()[""], gc.Equals, network.DefaultSpaceId)
 }
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {

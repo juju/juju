@@ -139,9 +139,9 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (map[string]string, error) {
+func (m *mockApplication) EndpointBindings() (application.Bindings, error) {
 	m.MethodCall(m, "EndpointBindings")
-	return m.bindings, m.NextErr()
+	return &mockBindings{bMap: m.bindings}, m.NextErr()
 }
 
 func (a *mockApplication) AllUnits() ([]application.Unit, error) {
@@ -252,19 +252,12 @@ func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 	return a.agentTools, a.NextErr()
 }
 
-type mockNotifyWatcher struct {
-	state.NotifyWatcher
-	jtesting.Stub
-	ch chan struct{}
+type mockBindings struct {
+	bMap map[string]string
 }
 
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	m.MethodCall(m, "Changes")
-	return m.ch
-}
-
-func (m *mockNotifyWatcher) Err() error {
-	return m.NextErr()
+func (b *mockBindings) Map() map[string]string {
+	return b.bMap
 }
 
 type mockRemoteApplication struct {

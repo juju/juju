@@ -21,11 +21,12 @@ type bridgePolicySuite struct {
 	netBondReconfigureDelay   int
 	containerNetworkingMethod string
 
-	spaces *MockSpaces
-	host   *MockContainer
-	guest  *MockContainer
-	unit   *MockUnit
-	app    *MockApplication
+	spaces   *MockSpaces
+	host     *MockContainer
+	guest    *MockContainer
+	unit     *MockUnit
+	app      *MockApplication
+	bindings *MockBindings
 }
 
 var _ = gc.Suite(&bridgePolicySuite{})
@@ -57,7 +58,8 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesEndpoints(c *gc.C) {
 	exp.Units().Return([]Unit{s.unit}, nil)
 
 	s.unit.EXPECT().Application().Return(s.app, nil)
-	s.app.EXPECT().EndpointBindings().Return(map[string]string{"endpoint": "3"}, nil)
+	s.app.EXPECT().EndpointBindings().Return(s.bindings, nil)
+	s.bindings.EXPECT().Map().Return(map[string]string{"endpoint": "3"})
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
@@ -72,7 +74,8 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraintsAndEndpoints(
 	exp.Units().Return([]Unit{s.unit}, nil)
 
 	s.unit.EXPECT().Application().Return(s.app, nil)
-	s.app.EXPECT().EndpointBindings().Return(map[string]string{"endpoint": "3"}, nil)
+	s.app.EXPECT().EndpointBindings().Return(s.bindings, nil)
+	s.bindings.EXPECT().Map().Return(map[string]string{"endpoint": "3"})
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
@@ -87,6 +90,7 @@ func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.guest = NewMockContainer(ctrl)
 	s.unit = NewMockUnit(ctrl)
 	s.app = NewMockApplication(ctrl)
+	s.bindings = NewMockBindings(ctrl)
 
 	s.guest.EXPECT().Id().Return("guest-id").AnyTimes()
 

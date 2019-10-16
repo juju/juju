@@ -2538,7 +2538,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	boundSpace, known := bindings[bindingName]
+	boundSpace, known := bindings.Map()[bindingName]
 	if !known {
 		return nil, errors.Errorf("binding name %q not defined by the unit's charm", bindingName)
 	}

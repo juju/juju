@@ -367,7 +367,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		for _, space := range endpointBindings {
+		for _, space := range endpointBindings.Map() {
 			bindings.Add(space)
 		}
 	}
