@@ -34,6 +34,8 @@ type relationUnitsWorker struct {
 	remoteRelationToken string
 
 	unitSettingsFunc relationUnitsSettingsFunc
+
+	logger Logger
 }
 
 func newRelationUnitsWorker(
@@ -44,6 +46,7 @@ func newRelationUnitsWorker(
 	ruw watcher.RelationUnitsWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
 	unitSettingsFunc relationUnitsSettingsFunc,
+	logger Logger,
 ) (*relationUnitsWorker, error) {
 	w := &relationUnitsWorker{
 		relationTag:         relationTag,
@@ -53,6 +56,7 @@ func newRelationUnitsWorker(
 		ruw:                 ruw,
 		changes:             changes,
 		unitSettingsFunc:    unitSettingsFunc,
+		logger:              logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -71,7 +75,7 @@ func (w *relationUnitsWorker) Kill() {
 func (w *relationUnitsWorker) Wait() error {
 	err := w.catacomb.Wait()
 	if err != nil {
-		logger.Errorf("error in relation units worker for %v: %v", w.relationTag.Id(), err)
+		w.logger.Errorf("error in relation units worker for %v: %v", w.relationTag.Id(), err)
 	}
 	return err
 }
@@ -90,7 +94,7 @@ func (w *relationUnitsWorker) loop() error {
 				// We are dying.
 				return w.catacomb.ErrDying()
 			}
-			logger.Debugf("relation units changed for %v: %#v", w.relationTag, change)
+			w.logger.Debugf("relation units changed for %v: %#v", w.relationTag, change)
 			if evt, err := w.relationUnitsChangeEvent(change); err != nil {
 				return errors.Trace(err)
 			} else {
@@ -109,7 +113,7 @@ func (w *relationUnitsWorker) loop() error {
 func (w *relationUnitsWorker) relationUnitsChangeEvent(
 	change watcher.RelationUnitsChange,
 ) (*params.RemoteRelationChangeEvent, error) {
-	logger.Debugf("update relation units for %v", w.relationTag)
+	w.logger.Debugf("update relation units for %v", w.relationTag)
 	if len(change.Changed)+len(change.Departed) == 0 {
 		return nil, nil
 	}
