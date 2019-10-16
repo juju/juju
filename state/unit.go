@@ -1186,7 +1186,7 @@ func (u *Unit) scopedAddress(scope string) (corenetwork.SpaceAddress, error) {
 // plus the container address of the unit (if known).
 // Only relevant for CAAS models - will return an empty
 // slice for IAAS models.
-func (u *Unit) AllAddresses() (corenetwork.SpaceAddresses, error) {
+func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
 	if u.ShouldBeAssigned() {
 		return nil, nil
 	}
@@ -1201,19 +1201,20 @@ func (u *Unit) AllAddresses() (corenetwork.SpaceAddresses, error) {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
-		return serviceInfo.Addresses(), nil
+		addrs = append(addrs, serviceInfo.Addresses()...)
 	}
 
 	// If there's no service deployed then it's ok
 	// to fallback to the container address.
-	addr, err := u.containerAddress()
+	containerAddr, err := u.containerAddress()
 	if network.IsNoAddressError(err) {
-		return nil, nil
+		return addrs, nil
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return corenetwork.SpaceAddresses{addr}, nil
+	addrs = append(addrs, containerAddr)
+	return addrs, nil
 }
 
 // containerAddress returns the address of the pod's container.
