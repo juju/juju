@@ -48,7 +48,7 @@ func NewAddCloudCommandForTest(
 	}
 }
 
-func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (ListCloudsAPI, error)) *listCloudsCommand {
+func NewListCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (ListCloudsAPI, error)) *listCloudsCommand {
 	return &listCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		listCloudsAPIFunc:         cloudAPI,
