@@ -112,36 +112,6 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			return cleanups, errors.Trace(err)
 		}
 	}
-
-	for _, clusterRoleName := range caasSpec.ClusterRoleNames {
-		// check if ClusterRoles exist.
-		cR, err := k.getClusterRole(clusterRoleName)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-		_, cRBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      getBindingName(sa, cR),
-				Namespace: k.namespace,
-				Labels:    labels,
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: cR.GetName(),
-				Kind: "ClusterRole",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      sa.GetName(),
-					Namespace: sa.GetNamespace(),
-				},
-			},
-		})
-		cleanups = append(cleanups, cRBCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-	}
 	return cleanups, nil
 }
 
