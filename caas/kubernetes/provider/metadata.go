@@ -72,11 +72,14 @@ const (
 	workloadStorageClassAnnotationKey = "juju.io/workload-storage"
 )
 
-func caasStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner {
+func toCaaSStorageProvisioner(sc storage.StorageClass) *caas.StorageProvisioner {
 	caasSc := &caas.StorageProvisioner{
 		Name:        sc.Name,
 		Provisioner: sc.Provisioner,
 		Parameters:  sc.Parameters,
+	}
+	if sc.VolumeBindingMode != nil {
+		caasSc.VolumeBindingMode = string(*sc.VolumeBindingMode)
 	}
 	if sc.ReclaimPolicy != nil {
 		caasSc.ReclaimPolicy = string(*sc.ReclaimPolicy)
@@ -100,7 +103,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		}
 		if err == nil {
 			logger.Debugf("Use %q for nominated storage class", sc.Name)
-			result.NominatedStorageClass = caasStorageProvisioner(*sc)
+			result.NominatedStorageClass = toCaaSStorageProvisioner(*sc)
 		}
 	}
 
@@ -161,7 +164,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 		if result.OperatorStorageClass != nil && result.NominatedStorageClass != nil {
 			break
 		}
-		maybeStorage := caasStorageProvisioner(sc)
+		maybeStorage := toCaaSStorageProvisioner(sc)
 		pickOperatorSC(sc, maybeStorage)
 		pickWorkloadSC(sc, maybeStorage)
 	}

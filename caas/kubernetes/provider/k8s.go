@@ -572,11 +572,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return &caas.StorageProvisioner{
-			Name:        sc.Name,
-			Provisioner: sc.Provisioner,
-			Parameters:  sc.Parameters,
-		}, nil
+		return toCaaSStorageProvisioner(*sc), nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		return nil, errors.Annotatef(err, "getting storage class %q", cfg.Name)
@@ -590,32 +586,29 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	}
 
 	// Create the storage class with the specified provisioner.
-	var reclaimPolicy *core.PersistentVolumeReclaimPolicy
-	if cfg.ReclaimPolicy != "" {
-		policy := core.PersistentVolumeReclaimPolicy(cfg.ReclaimPolicy)
-		reclaimPolicy = &policy
-	}
-	storageClasses := k.client().StorageV1().StorageClasses()
 	sc = &k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: qualifiedStorageClassName(cfg.Namespace, cfg.Name),
 		},
-		Provisioner:   cfg.Provisioner,
-		ReclaimPolicy: reclaimPolicy,
-		Parameters:    cfg.Parameters,
+		Provisioner: cfg.Provisioner,
+		Parameters:  cfg.Parameters,
+	}
+	if cfg.ReclaimPolicy != "" {
+		policy := core.PersistentVolumeReclaimPolicy(cfg.ReclaimPolicy)
+		sc.ReclaimPolicy = &policy
+	}
+	if cfg.VolumeBindingMode != "" {
+		bindMode := k8sstorage.VolumeBindingMode(cfg.VolumeBindingMode)
+		sc.VolumeBindingMode = &bindMode
 	}
 	if cfg.Namespace != "" {
 		sc.Labels = map[string]string{labelModel: k.namespace}
 	}
-	_, err = storageClasses.Create(sc)
+	_, err = k.client().StorageV1().StorageClasses().Create(sc)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
-	return &caas.StorageProvisioner{
-		Name:        sc.Name,
-		Provisioner: sc.Provisioner,
-		Parameters:  sc.Parameters,
-	}, nil
+	return toCaaSStorageProvisioner(*sc), nil
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {
