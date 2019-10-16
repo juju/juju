@@ -358,13 +358,8 @@ func (s *UpgradeSuite) checkSuccess(c *gc.C, target string, mungeInfo func(*stat
 }
 
 func (s *UpgradeSuite) TestJobsToTargets(c *gc.C) {
-	check := func(isController, isMaster bool, expectedTargets ...upgrades.Target) {
-		c.Assert(upgradeTargets(isController, isMaster), jc.SameContents, expectedTargets)
-	}
-
-	check(false, false, upgrades.HostMachine)
-	check(true, false, upgrades.Controller, upgrades.HostMachine)
-	check(true, true, upgrades.Controller, upgrades.DatabaseMaster, upgrades.HostMachine)
+	c.Assert(upgradeTargets(false), jc.DeepEquals, []upgrades.Target{upgrades.HostMachine})
+	c.Assert(upgradeTargets(true), jc.SameContents, []upgrades.Target{upgrades.HostMachine, upgrades.Controller})
 }
 
 func (s *UpgradeSuite) TestPreUpgradeFail(c *gc.C) {

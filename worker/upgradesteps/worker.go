@@ -191,7 +191,7 @@ func (w *upgradesteps) run() error {
 		if w.pool, err = w.openState(); err != nil {
 			return err
 		}
-		defer w.pool.Close()
+		defer func() { _ = w.pool.Close() }()
 
 		if w.isMaster, err = IsMachineMaster(w.pool, w.tag.Id()); err != nil {
 			return errors.Trace(err)
@@ -222,7 +222,7 @@ func (w *upgradesteps) run() error {
 	} else {
 		// Upgrade succeeded - signal that the upgrade is complete.
 		logger.Infof("upgrade to %v completed successfully.", w.toVersion)
-		w.entity.SetStatus(status.Started, "", nil)
+		_ = w.entity.SetStatus(status.Started, "", nil)
 		w.upgradeComplete.Unlock()
 	}
 	return nil
@@ -300,7 +300,7 @@ func (w *upgradesteps) prepareControllerForUpgrade() (*state.UpgradeInfo, error)
 
 func (w *upgradesteps) waitForOtherControllers(info *state.UpgradeInfo) error {
 	watcher := info.Watch()
-	defer watcher.Stop()
+	defer func() { _ = watcher.Stop() }()
 
 	maxWait := w.getUpgradeStartTimeout()
 	timeout := time.After(maxWait)
@@ -354,7 +354,7 @@ func (w *upgradesteps) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 	context := upgrades.NewContext(agentConfig, w.apiConn, stBackend)
 	logger.Infof("starting upgrade from %v to %v for %q", w.fromVersion, w.toVersion, w.tag)
 
-	targets := upgradeTargets(w.isController, w.isMaster)
+	targets := upgradeTargets(w.isController)
 	attempts := getUpgradeRetryStrategy()
 	for attempt := attempts.Start(); attempt.Next(); {
 		upgradeErr = PerformUpgrade(w.fromVersion, targets, context)
@@ -383,7 +383,7 @@ func (w *upgradesteps) reportUpgradeFailure(err error, willRetry bool) {
 	}
 	logger.Errorf("upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
-	w.entity.SetStatus(status.Error,
+	_ = w.entity.SetStatus(status.Error,
 		fmt.Sprintf("upgrade to %v failed (%s): %v", w.toVersion, retryText, err), nil)
 }
 
@@ -457,13 +457,10 @@ var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
 // upgradeTargets determines the upgrade targets corresponding to the
 // role of an agent. This determines the upgrade steps
 // which will run during an upgrade.
-func upgradeTargets(isController, isMaster bool) []upgrades.Target {
+func upgradeTargets(isController bool) []upgrades.Target {
 	var targets []upgrades.Target
 	if isController {
-		targets = append(targets, upgrades.Controller)
-		if isMaster {
-			targets = append(targets, upgrades.DatabaseMaster)
-		}
+		targets = []upgrades.Target{upgrades.Controller}
 	}
 	return append(targets, upgrades.HostMachine)
 }
