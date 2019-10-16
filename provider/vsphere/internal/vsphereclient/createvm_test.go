@@ -114,7 +114,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
 		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
-		{"MarkAsTemplateBody", []interface{}{"FakeVm0"}},
+		{"MarkAsTemplate", []interface{}{"FakeVm0"}},
 		retrievePropertiesStubCall("network-0", "network-1"),
 		retrievePropertiesStubCall("onetwork-0"),
 		retrievePropertiesStubCall("dvportgroup-0"),

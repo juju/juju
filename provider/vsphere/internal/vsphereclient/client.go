@@ -648,3 +648,49 @@ func isManagedObjectNotFound(err error) bool {
 	}
 	return false
 }
+
+// UserHasRootLevelPrivilege returns whether the connected user has the
+// specified privilege on the root-level object.
+func (c *Client) UserHasRootLevelPrivilege(ctx context.Context, privilege string) (bool, error) {
+	session, err := c.client.SessionManager.UserSession(ctx)
+	if err != nil {
+		return false, errors.Annotate(err, "getting user session")
+	}
+	vimClient := c.client.Client
+	req := types.HasPrivilegeOnEntities{
+		This:      *vimClient.ServiceContent.AuthorizationManager,
+		Entity:    []types.ManagedObjectReference{vimClient.ServiceContent.RootFolder},
+		SessionId: session.Key,
+		PrivId:    []string{privilege},
+	}
+
+	resp, err := methods.HasPrivilegeOnEntities(ctx, vimClient, &req)
+	if privilege == "System.Read" && isPermissionError(err) {
+		// This is a special case - for System.Read you need the
+		// privilege to check whether you have the privilege.
+		return false, nil
+	} else if err != nil {
+		return false, errors.Annotatef(err, "checking for %q privilege", privilege)
+	}
+
+	if count := len(resp.Returnval); count != 1 {
+		return false, errors.Errorf("expected 1 privilege response, got %d", count)
+	}
+	entityPriv := resp.Returnval[0]
+	if count := len(entityPriv.PrivAvailability); count != 1 {
+		return false, errors.Errorf("expected 1 privilege availability, got %d", count)
+	}
+
+	return entityPriv.PrivAvailability[0].IsGranted, nil
+}
+
+func isPermissionError(err error) bool {
+	if err == nil || !soap.IsSoapFault(err) {
+		return false
+	}
+	switch soap.ToSoapFault(err).VimFault().(type) {
+	case types.NoPermission:
+		return true
+	}
+	return false
+}

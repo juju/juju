@@ -260,8 +260,21 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		}
 	case *methods.MarkAsTemplateBody:
 		req := req.(*methods.MarkAsTemplateBody).Req
-		r.MethodCall(r, "MarkAsTemplateBody", req.This.Value)
+		r.MethodCall(r, "MarkAsTemplate", req.This.Value)
 		res.Res = &types.MarkAsTemplateResponse{}
+
+	case *methods.HasPrivilegeOnEntitiesBody:
+		req := req.(*methods.HasPrivilegeOnEntitiesBody).Req
+		r.MethodCall(r, "HasPrivilegeOnEntities", req.This.Value, req.Entity, req.SessionId, req.PrivId)
+		res.Res = &types.HasPrivilegeOnEntitiesResponse{
+			Returnval: []types.EntityPrivilege{{
+				Entity: req.Entity[0],
+				PrivAvailability: []types.PrivilegeAvailability{{
+					PrivId:    req.PrivId[0],
+					IsGranted: true,
+				}},
+			}},
+		}
 
 	default:
 		logger.Debugf("mockRoundTripper: unknown res type %T", res)
