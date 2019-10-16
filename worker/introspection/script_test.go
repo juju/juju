@@ -19,14 +19,14 @@ type profileSuite struct {
 var _ = gc.Suite(&profileSuite{})
 
 func (*profileSuite) TestProfileFilename(c *gc.C) {
-	c.Assert(profileFilename(), gc.Equals, "/etc/profile.d/juju-introspection.sh")
+	c.Assert(profileFilename(ProfileDir), gc.Equals, "/etc/profile.d/juju-introspection.sh")
 }
 
 func (*profileSuite) TestNonLinux(c *gc.C) {
 	if runtime.GOOS == "linux" {
 		c.Skip("testing non-linux")
 	}
-	err := WriteProfileFunctions()
+	err := WriteProfileFunctions(ProfileDir)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -35,11 +35,10 @@ func (s *profileSuite) TestLinux(c *gc.C) {
 		c.Skip("testing linux")
 	}
 	dir := c.MkDir()
-	s.PatchValue(&profileDir, dir)
-	err := WriteProfileFunctions()
+	err := WriteProfileFunctions(dir)
 	c.Assert(err, jc.ErrorIsNil)
 
-	content, err := ioutil.ReadFile(profileFilename())
+	content, err := ioutil.ReadFile(profileFilename(dir))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(content), gc.Equals, bashFuncs)
 }

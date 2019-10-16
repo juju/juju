@@ -88,12 +88,13 @@ import (
 )
 
 var (
-	logger           = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun          = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs     = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect   = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujuUpdateSeries = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
-	jujudSymlinks    = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
+	logger            = loggo.GetLogger("juju.cmd.jujud")
+	jujuRun           = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs      = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect    = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujuUpdateSeries  = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
+	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
+	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -473,7 +474,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	setupAgentLogging(a.CurrentConfig())
 
-	if err := introspection.WriteProfileFunctions(); err != nil {
+	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
 		logger.Errorf("failed to write profile funcs: %v", err)
 	}
@@ -1282,7 +1283,17 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range jujudSymlinks {
+	symlinks := jujudSymlinks
+	if a.isCaasAgent {
+		// For IAAS, this is done in systemd for for caas we need to do it here.
+		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.Jujud)
+		logger.Criticalf("creating %v to %v", jujud, caasJujud)
+		if err := a.createSymlink(caasJujud, jujud); err != nil {
+			return errors.Annotatef(err, "failed to create %s symlink", jujud)
+		}
+		symlinks = caasJujudSymlinks
+	}
+	for _, link := range symlinks {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)

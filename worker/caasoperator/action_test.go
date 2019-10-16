@@ -146,7 +146,12 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 
 	calls = append(calls,
 		s.executor.EXPECT().Exec(s.symlinkJujudCommand(stdout, baseDir, "/usr/bin/juju-run"),
-			cancel).Times(1).Return(nil))
+			cancel).Times(1).Return(nil),
+		s.executor.EXPECT().Exec(s.symlinkJujudCommand(stdout, baseDir, "/usr/bin/juju-dumplogs"),
+			cancel).Times(1).Return(nil),
+		s.executor.EXPECT().Exec(s.symlinkJujudCommand(stdout, baseDir, "/usr/bin/juju-introspect"),
+			cancel).Times(1).Return(nil),
+	)
 	for _, cmdName := range jujuc.CommandNames() {
 		s.executor.EXPECT().Exec(s.symlinkJujudCommand(stdout, baseDir, baseDir+"/tools/unit-gitlab-k8s-0/"+cmdName),
 			cancel).Times(1).Return(nil)

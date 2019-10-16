@@ -34,6 +34,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/caasoperator/remotestate"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/uniter"
 	jujucharm "github.com/juju/juju/worker/uniter/charm"
 )
@@ -47,9 +48,8 @@ var (
 
 	jujudSymlinks = []string{
 		jujuRun,
-		// TODO(caas) - these are only for the controller operator
-		//jujuDumpLogs,
-		//jujuIntrospect,
+		jujuDumpLogs,
+		jujuIntrospect,
 	}
 )
 
@@ -94,6 +94,9 @@ type Config struct {
 	// i.e. "/var/lib/juju" (by default). The CAAS operator
 	// expects to find the jujud binary at <data-dir>/tools/jujud.
 	DataDir string
+
+	// ProfileDir is where the introspection scripts are written.
+	ProfileDir string
 
 	// Downloader is an interface used for downloading the
 	// application charm.
@@ -170,6 +173,9 @@ func (config Config) Validate() error {
 	}
 	if config.DataDir == "" {
 		return errors.NotValidf("missing DataDir")
+	}
+	if config.ProfileDir == "" {
+		return errors.NotValidf("missing ProfileDir")
 	}
 	if config.Downloader == nil {
 		return errors.NotValidf("missing Downloader")
@@ -308,6 +314,11 @@ func runListenerSocket(sc *uniter.SocketConfig) (*sockets.Socket, error) {
 }
 
 func (op *caasOperator) init() (*LocalState, error) {
+	if err := introspection.WriteProfileFunctions(op.config.ProfileDir); err != nil {
+		// This isn't fatal, just annoying.
+		logger.Errorf("failed to write profile funcs: %v", err)
+	}
+
 	// Set up a single remote juju run listener to be used by all units.
 	socket, err := op.config.RunListenerSocketFunc(op.config.UniterParams.SocketConfig)
 	if err != nil {
