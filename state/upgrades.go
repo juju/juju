@@ -2607,6 +2607,18 @@ func ConvertAddressSpaceIDs(pool *StatePool) error {
 			return errors.Annotate(err, "getting machine upgrade ops")
 		}
 
+		csOps, err := convertCloudAddressSpaceIDs(db, cloudServicesC)
+		if err != nil {
+			return errors.Annotate(err, "getting machine upgrade ops")
+		}
+		ops = append(ops, csOps...)
+
+		ccOps, err := convertCloudAddressSpaceIDs(db, cloudContainersC)
+		if err != nil {
+			return errors.Annotate(err, "getting machine upgrade ops")
+		}
+		ops = append(ops, ccOps...)
+
 		if len(ops) == 0 {
 			return nil
 		}
@@ -2619,7 +2631,6 @@ func convertMachineAddressSpaceIDs(db Database, lookup map[string]string) ([]txn
 	// for updating the address fields.
 	type machine struct {
 		DocID                   string `bson:"_id"`
-		Id                      string `bson:"machineid"`
 		Addresses               []upgrade.OldAddress27
 		MachineAddresses        []upgrade.OldAddress27
 		PreferredPublicAddress  upgrade.OldAddress27 `bson:",omitempty"`
@@ -2661,6 +2672,41 @@ func convertMachineAddressSpaceIDs(db Database, lookup map[string]string) ([]txn
 				{"$set", bson.D{{"machineaddresses", machine.MachineAddresses}}},
 				{"$set", bson.D{{"preferredpublicaddress", machine.PreferredPublicAddress}}},
 				{"$set", bson.D{{"preferredprivateaddress", machine.PreferredPrivateAddress}}},
+			},
+		})
+	}
+
+	return ops, nil
+}
+
+func convertCloudAddressSpaceIDs(db Database, colName string) ([]txn.Op, error) {
+	type cloudDoc struct {
+		DocID     string                 `bson:"_id"`
+		Addresses []upgrade.OldAddress27 `bson:"addresses"`
+	}
+
+	col, closer := db.GetCollection(colName)
+	defer closer()
+
+	var err error
+	var docs []cloudDoc
+	if err = col.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		for i := range doc.Addresses {
+			// CAAS addresses at this point in time are space-less.
+			// We just need to ensure that they all have the zero ID.
+			doc.Addresses[i].SpaceID = "0"
+		}
+
+		ops = append(ops, txn.Op{
+			C:  machinesC,
+			Id: doc.DocID,
+			Update: bson.D{
+				{"$set", bson.D{{"addresses", doc.Addresses}}},
 			},
 		})
 	}
