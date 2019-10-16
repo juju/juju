@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -58,8 +57,8 @@ A credential for 'controller' model is determined at bootstrap time and
 will be stored on the controller. It is considered to be controller default.
 
 Recall that when a controller is created a 'default' model is also 
-created. This model will use the controller default credential. To see all your
-credentials on the controller use "juju show-credentials" command.
+created. This model will use the controller default credential. 
+To see details of your credentials use "juju show-credentials" command.
 
 When adding a new model, Juju will reuse the controller default credential.
 To add a model that uses a different credential, specify a  credential
@@ -67,16 +66,27 @@ from this client using --credential option. See ` + "`juju help add-model`" + `
 for more information.
 
 Credentials denoted with an asterisk '*' are currently set as the user default
-for the given cloud.
+for a given cloud.
 
-When a controller is known, either there is a 'current' controller or it was 
-specified via -c option, credentials for the current user from that controller 
-are listed as well.
+If the current controller can be detected, a user will be prompted to 
+confirm if credentials known to the controller need to be 
+listed as well. If the prompt is not needed and the credentials from 
+current controller are always to be listed, use --no-prompt option.
+
+Use --controller option to list credentials from a different controller.
+
+Use --client-only option to only list credentials known locally on this client.
+
+Use --controller-only option to only list credentials known remotely on the controller.
 
 Examples:
     juju credentials
     juju credentials aws
+    juju credentials aws --client-only
     juju credentials --format yaml --show-secrets
+    juju credentials --no-prompt
+    juju credentials --controller mycontroller
+    juju credentials --controller mycontroller --controller-only
 
 See also: 
     add-credential
@@ -96,7 +106,7 @@ type listCredentialsCommand struct {
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error)
 	cloudByNameFunc    func(string) (*jujucloud.Cloud, error)
 
-	listCredentialsAPIFunc func(controllerName string) (ListCredentialsAPI, error)
+	listCredentialsAPIFunc func() (ListCredentialsAPI, error)
 }
 
 // CloudCredential contains attributes used to define credentials for a cloud.
@@ -128,9 +138,9 @@ type Credential struct {
 }
 
 type credentialsMap struct {
-	LocalOnly bool                       `yaml:"-" json:"-"`
-	Local     map[string]CloudCredential `yaml:"local-credentials,omitempty" json:"local-credentials,omitempty"`
-	Remote    map[string]CloudCredential `yaml:"remote-credentials,omitempty" json:"remote-credentials,omitempty"`
+	ClientOnly bool                       `yaml:"-" json:"-"`
+	Client     map[string]CloudCredential `yaml:"client-credentials,omitempty" json:"client-credentials,omitempty"`
+	Controller map[string]CloudCredential `yaml:"controller-credentials,omitempty" json:"controller-credentials,omitempty"`
 }
 
 type ListCredentialsAPI interface {
@@ -151,8 +161,8 @@ func NewListCredentialsCommand() cmd.Command {
 	return modelcmd.WrapBase(c)
 }
 
-func (c *listCredentialsCommand) cloudAPI(controllerName string) (ListCredentialsAPI, error) {
-	root, err := c.NewAPIRoot(c.Store, controllerName, "")
+func (c *listCredentialsCommand) cloudAPI() (ListCredentialsAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -204,7 +214,7 @@ func (c *listCredentialsCommand) cloudNames() ([]string, error) {
 	}
 	personalClouds, err := c.personalClouds()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	publicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
@@ -233,35 +243,48 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("secrets are not shown in tabular format")
 		c.showSecrets = false
 	}
-	local, err := c.localCredentials(ctxt)
-	if err != nil {
-		return err
+	credentials := credentialsMap{ClientOnly: c.ClientOnly}
+	var err error
+	if c.BothClientAndController || c.ClientOnly {
+		credentials.Client, err = c.localCredentials(ctxt)
+		if err != nil {
+			ctxt.Warningf("%v", err)
+		}
 	}
-	credentials := credentialsMap{Local: local, LocalOnly: c.ClientOnly}
-	if c.ClientOnly {
-		return c.out.Write(ctxt, credentials)
-	}
-
-	credentials.Remote, err = c.remoteCredentials(ctxt)
-	if err != nil {
-		ctxt.Warningf("%v", err)
+	if c.BothClientAndController || c.ControllerOnly {
+		credentials.Controller, err = c.remoteCredentials(ctxt)
+		if err != nil {
+			ctxt.Warningf("%v", err)
+		}
 	}
 	return c.out.Write(ctxt, credentials)
 }
 
 func (c *listCredentialsCommand) remoteCredentials(ctxt *cmd.Context) (map[string]CloudCredential, error) {
-	controllerName, err := c.ControllerNameFromArg()
-	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
-		return nil, errors.Trace(err)
+	if c.ControllerName == "" {
+		// The user may have specified the controller via a --controller option.
+		// If not, let's see if there is a current controller that can be detected.
+		var err error
+		cloudMsg := ""
+		if c.cloudName != "" {
+			cloudMsg = fmt.Sprintf("for cloud %q ", c.cloudName)
+		}
+		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("list credentials %vfrom", cloudMsg))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
-	client, err := c.listCredentialsAPIFunc(controllerName)
+	if c.ControllerName == "" {
+		return nil, errors.New("Not listing credentials from a controller: no controller specified.")
+	}
+	client, err := c.listCredentialsAPIFunc()
 	if err != nil {
 		return nil, err
 	}
 	defer client.Close()
 	remotes, err := client.CredentialContents("", "", c.showSecrets)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 
 	byCloud := map[string]CloudCredential{}
@@ -336,17 +359,17 @@ func (c *listCredentialsCommand) localCredentials(ctxt *cmd.Context) (map[string
 func removeSecrets(cloudName string, cloudCred *jujucloud.CloudCredential, cloudFinder func(string) (*jujucloud.Cloud, error)) error {
 	cloud, err := common.CloudOrProvider(cloudName, cloudFinder)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	provider, err := environs.Provider(cloud.Type)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	schemas := provider.CredentialSchemas()
 	for name, cred := range cloudCred.AuthCredentials {
 		sanitisedCred, err := jujucloud.RemoveSecrets(cred, schemas)
 		if err != nil {
-			return err
+			return errors.Trace(err)
 		}
 		cloudCred.AuthCredentials[name] = *sanitisedCred
 	}
@@ -360,22 +383,25 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", credentials, value)
 	}
 
-	if len(credentials.Local) == 0 {
+	if len(credentials.Client) == 0 {
 		fmt.Fprintln(writer, "No credentials from this client to display.")
 	}
-	if !credentials.LocalOnly && len(credentials.Remote) == 0 {
-		fmt.Fprintln(writer, "No credentials from any controller to display.")
+	if len(credentials.Controller) == 0 {
+		if !credentials.ClientOnly {
+			fmt.Fprintln(writer, "No credentials from any controller to display.")
+		}
 	}
-	if len(credentials.Remote) == 0 && len(credentials.Local) == 0 {
+	if len(credentials.Controller) == 0 && len(credentials.Client) == 0 {
 		return nil
 	}
 
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.Println("Cloud", "Credentials")
+	w.SetColumnAlignRight(1)
 
-	printGroup := func(group map[string]CloudCredential, color *ansiterm.Context) {
-		// For tabular we'll sort alphabetically by cloud, and then by credential name.
+	printGroup := func(group map[string]CloudCredential) {
+		w.Println("Cloud", "Credentials")
+		// Sort alphabetically by cloud, and then by credential name.
 		var cloudNames []string
 		for name := range group {
 			cloudNames = append(cloudNames, name)
@@ -403,13 +429,17 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 			} else {
 				sort.Strings(credentialNames)
 			}
-			w.PrintColor(color, cloudName)
-			w.PrintColor(color, strings.Join(credentialNames, ", "))
-			w.Println()
+			w.Println(cloudName, strings.Join(credentialNames, ", "))
 		}
 	}
-	printGroup(credentials.Remote, nil)
-	printGroup(credentials.Local, ansiterm.Foreground(ansiterm.BrightBlue))
+	if len(credentials.Controller) > 0 {
+		w.Println("\nController Credentials:")
+		printGroup(credentials.Controller)
+	}
+	if len(credentials.Client) > 0 {
+		w.Println("\nClient Credentials:")
+		printGroup(credentials.Client)
+	}
 
 	tw.Flush()
 	return nil
