@@ -93,6 +93,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
+	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -137,6 +138,11 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// UpgradeDBLock is passed to the upgrade database gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-database worker is done.
+	UpgradeDBLock gate.Lock
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
@@ -401,13 +407,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
-		modelCacheName: ifController(modelcache.Manifold(modelcache.ManifoldConfig{
+		modelCacheName: ifDatabaseUpgradeComplete(ifController(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
 			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            modelcache.NewWorker,
-		})),
+		}))),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -439,6 +445,25 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewConnection:        apicaller.ScaryConnect,
 			Filter:               connectFilter,
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
+		}),
+
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		upgradeDatabaseGateName: gate.ManifoldEx(config.UpgradeStepsLock),
+		upgradeDatabaseFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeDatabaseGateName,
+			NewWorker: gate.NewFlagWorker,
+		}),
+
+		// The upgrade-database worker runs soon after the machine agent starts
+		// and runs any steps required to upgrade to the database to the
+		// current version. Once upgrade steps have run, the upgrade-database
+		// gate is unlocked and the worker exits.
+		upgradeDatabaseName: upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+			AgentName:         agentName,
+			UpgradeDBGateName: upgradeDatabaseGateName,
+			OpenState:         config.OpenStateForUpgrade,
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which
@@ -616,7 +641,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// TODO Juju 3.0: the controller port worker is only needed while
 		// the controller port is a mutable controller config value.
 		// When we hit 3.0 we should make controller-port a required
-		// and unmutable value.
+		// and immutable value.
 		controllerPortName: controllerport.Manifold(controllerport.ManifoldConfig{
 			AgentName:               agentName,
 			HubName:                 centralHubName,
@@ -1045,6 +1070,12 @@ var ifModelCacheInitialized = engine.Housing{
 	},
 }.Decorate
 
+var ifDatabaseUpgradeComplete = engine.Housing{
+	Flags: []string{
+		upgradeDatabaseFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1058,6 +1089,10 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
+
+	upgradeDatabaseName     = "upgrade-database-runner"
+	upgradeDatabaseGateName = "upgrade-database-gate"
+	upgradeDatabaseFlagName = "upgrade-database-flag"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"
