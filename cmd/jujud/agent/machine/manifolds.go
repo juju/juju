@@ -464,6 +464,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			AgentName:         agentName,
 			UpgradeDBGateName: upgradeDatabaseGateName,
 			OpenState:         config.OpenStateForUpgrade,
+			Logger:            loggo.GetLogger("juju.worker.upgradedatabase"),
 		}),
 
 		// The upgrade steps gate is used to coordinate workers which
