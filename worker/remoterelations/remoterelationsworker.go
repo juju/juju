@@ -22,6 +22,7 @@ type remoteRelationsWorker struct {
 	applicationToken    string
 	relationsWatcher    watcher.RelationStatusWatcher
 	changes             chan<- params.RemoteRelationChangeEvent
+	logger              Logger
 }
 
 func newRemoteRelationsWorker(
@@ -30,6 +31,7 @@ func newRemoteRelationsWorker(
 	remoteRelationToken string,
 	relationsWatcher watcher.RelationStatusWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
+	logger Logger,
 ) (*remoteRelationsWorker, error) {
 	w := &remoteRelationsWorker{
 		relationsWatcher:    relationsWatcher,
@@ -37,6 +39,7 @@ func newRemoteRelationsWorker(
 		remoteRelationToken: remoteRelationToken,
 		applicationToken:    applicationToken,
 		changes:             changes,
+		logger:              logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -72,12 +75,12 @@ func (w *remoteRelationsWorker) loop() error {
 				return w.catacomb.ErrDying()
 			}
 			if len(relChanges) == 0 {
-				logger.Warningf("relation status watcher event with no changes")
+				w.logger.Warningf("relation status watcher event with no changes")
 				continue
 			}
 			// We only care about the most recent change.
 			change := relChanges[len(relChanges)-1]
-			logger.Debugf("relation status changed for %v: %v", w.relationTag, change)
+			w.logger.Debugf("relation status changed for %v: %v", w.relationTag, change)
 			suspended := change.Suspended
 			event = params.RemoteRelationChangeEvent{
 				RelationToken:    w.remoteRelationToken,

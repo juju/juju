@@ -21,7 +21,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-var logger = loggo.GetLogger("juju.worker.remoterelations")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // RemoteModelRelationsFacadeCloser implements RemoteModelRelationsFacade
 // and add a Close() method.
@@ -119,6 +121,7 @@ type Config struct {
 	RelationsFacade          RemoteRelationsFacade
 	NewRemoteModelFacadeFunc newRemoteRelationsFacadeFunc
 	Clock                    clock.Clock
+	Logger                   Logger
 }
 
 // Validate returns an error if config cannot drive a Worker.
@@ -135,6 +138,9 @@ func (config Config) Validate() error {
 	if config.Clock == nil {
 		return errors.NotValidf("nil Clock")
 	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
 	return nil
 }
 
@@ -146,7 +152,6 @@ func New(config Config) (*Worker, error) {
 
 	w := &Worker{
 		config: config,
-		logger: logger,
 		runner: worker.NewRunner(worker.RunnerParams{
 			Clock: config.Clock,
 
@@ -215,6 +220,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 	if len(applicationIds) == 0 {
 		return nil
 	}
+	logger := w.config.Logger
 	logger.Debugf("processing remote application changes for: %s", applicationIds)
 
 	// Fetch the current state of each of the remote applications that have changed.
@@ -254,6 +260,7 @@ func (w *Worker) handleApplicationChanges(applicationIds []string) error {
 				remoteRelationChanges:             make(chan params.RemoteRelationChangeEvent),
 				localModelFacade:                  w.config.RelationsFacade,
 				newRemoteModelRelationsFacadeFunc: w.config.NewRemoteModelFacadeFunc,
+				logger:                            logger,
 			}
 			if err := catacomb.Invoke(catacomb.Plan{
 				Site: &appWorker.catacomb,

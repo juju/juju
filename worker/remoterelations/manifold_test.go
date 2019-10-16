@@ -5,6 +5,7 @@ package remoterelations_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,6 +35,7 @@ func (s *ManifoldConfigSuite) validConfig() remoterelations.ManifoldConfig {
 		NewControllerConnection:  func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewRemoteRelationsFacade: func(base.APICaller) (remoterelations.RemoteRelationsFacade, error) { return nil, nil },
 		NewWorker:                func(remoterelations.Config) (worker.Worker, error) { return nil, nil },
+		Logger:                   loggo.GetLogger("test"),
 	}
 }
 
@@ -64,6 +66,11 @@ func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewControllerConnection(c *gc.C) {
 	s.config.NewControllerConnection = nil
 	s.checkNotValid(c, "nil NewControllerConnection not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

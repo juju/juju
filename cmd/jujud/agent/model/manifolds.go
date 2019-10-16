@@ -271,6 +271,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewControllerConnection:  apicaller.NewExternalControllerConnection,
 			NewRemoteRelationsFacade: remoterelations.NewRemoteRelationsFacade,
 			NewWorker:                remoterelations.NewWorker,
+			Logger:                   config.LoggingContext.GetLogger("juju.worker.remoterelations"),
 		})),
 		stateCleanerName: ifNotMigrating(cleaner.Manifold(cleaner.ManifoldConfig{
 			APICallerName: apiCallerName,
