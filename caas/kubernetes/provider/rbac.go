@@ -88,7 +88,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 				return cleanups, errors.Trace(err)
 			}
 
-			// ensure rolebindings for Role.
+			// ensure RoleBindings for Role.
 			_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      rbacStackName,
@@ -126,7 +126,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			if err != nil {
 				return cleanups, errors.Trace(err)
 			}
-			// ensure rolebindings for ClusterRole.
+			// ensure ClusterRoleBindings for ClusterRole.
 			_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
 				ObjectMeta: v1.ObjectMeta{
 					Name:      rbacStackName,

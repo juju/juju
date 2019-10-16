@@ -121,6 +121,7 @@ service:
     foo: bar
 serviceAccount:
   automountServiceAccountToken: true
+  global: true
   rules:
   - apiGroups: [""]
     resources: ["pods"]
@@ -129,6 +130,7 @@ kubernetesResources:
   serviceAccounts:
   - name: k8sServiceAccount1
     automountServiceAccountToken: true
+    global: true
     rules:
     - apiGroups: [""]
       resources: ["pods"]
@@ -195,6 +197,7 @@ foo: bar
 
 	sa1 := &specs.ServiceAccountSpec{}
 	sa1.AutomountServiceAccountToken = boolPtr(true)
+	sa1.Global = true
 	sa1.Rules = []specs.PolicyRule{
 		{
 			APIGroups: []string{""},
@@ -319,6 +322,7 @@ echo "do some stuff here for gitlab-init container"
 		sa2 := k8sspecs.K8sServiceAccountSpec{
 			Name: "k8sServiceAccount1",
 		}
+		sa2.Global = true
 		sa2.AutomountServiceAccountToken = boolPtr(true)
 		sa2.Rules = []specs.PolicyRule{
 			{
