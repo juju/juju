@@ -55,7 +55,7 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
                 log.info('timeout in %ss', remaining)
     log.error('HTTP health check failed -> %s, status_code -> %s !', url, status_code)
     fail_hook()
-    raise JujuAssertionError('gitlab is not healthy')
+    raise JujuAssertionError('%s is not healthy' % url)
 
 
 def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=120):

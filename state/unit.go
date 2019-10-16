@@ -1161,7 +1161,11 @@ func (u *Unit) PublicAddress() (corenetwork.SpaceAddress, error) {
 // PrivateAddress returns the private address of the unit.
 func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 	if !u.ShouldBeAssigned() {
-		return u.scopedAddress("private")
+		addr, err := u.scopedAddress("private")
+		if network.IsNoAddressError(err) {
+			return u.containerAddress()
+		}
+		return addr, errors.Trace(err)
 	}
 	m, err := u.machine()
 	if err != nil {
@@ -1171,41 +1175,25 @@ func (u *Unit) PrivateAddress() (corenetwork.SpaceAddress, error) {
 	return m.PrivateAddress()
 }
 
-func (u *Unit) scopedAddress(scope string) (corenetwork.SpaceAddress, error) {
-	addr, err := u.serviceAddress(scope)
-	if err == nil {
-		return addr, nil
-	}
-	if network.IsNoAddressError(err) {
-		return u.containerAddress()
-	}
-	return corenetwork.SpaceAddress{}, errors.Trace(err)
-}
-
 // AllAddresses returns the public and private addresses
 // plus the container address of the unit (if known).
 // Only relevant for CAAS models - will return an empty
 // slice for IAAS models.
 func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
 	if u.ShouldBeAssigned() {
-		return nil, nil
+		return addrs, nil
 	}
 
 	// First the addresses of the service.
-	app, err := u.Application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	serviceInfo, err := app.ServiceInfo()
+	serviceAddrs, err := u.serviceAddresses()
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	if err == nil {
-		addrs = append(addrs, serviceInfo.Addresses()...)
+		addrs = append(addrs, serviceAddrs...)
 	}
 
-	// If there's no service deployed then it's ok
-	// to fallback to the container address.
+	// Then the container address.
 	containerAddr, err := u.containerAddress()
 	if network.IsNoAddressError(err) {
 		return addrs, nil
@@ -1215,6 +1203,20 @@ func (u *Unit) AllAddresses() (addrs corenetwork.SpaceAddresses, _ error) {
 	}
 	addrs = append(addrs, containerAddr)
 	return addrs, nil
+}
+
+// serviceAddresses returns the addresses of the service
+// managing the pods in which the unit workload is running.
+func (u *Unit) serviceAddresses() (corenetwork.SpaceAddresses, error) {
+	app, err := u.Application()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	serviceInfo, err := app.ServiceInfo()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return serviceInfo.Addresses(), nil
 }
 
 // containerAddress returns the address of the pod's container.
@@ -1233,9 +1235,7 @@ func (u *Unit) containerAddress() (corenetwork.SpaceAddress, error) {
 	return addr.networkAddress(), nil
 }
 
-// serviceAddress returns the address of the service
-// managing the pods in which the unit workload is running.
-func (u *Unit) serviceAddress(scope string) (corenetwork.SpaceAddress, error) {
+func (u *Unit) scopedAddress(scope string) (corenetwork.SpaceAddress, error) {
 	addresses, err := u.AllAddresses()
 	if err != nil {
 		return corenetwork.SpaceAddress{}, errors.Trace(err)

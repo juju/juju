@@ -4664,7 +4664,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	expectedResult := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				Addresses: []params.InterfaceAddress{},
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.1"},
+				},
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},
@@ -4711,7 +4713,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	expectedResult := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				Addresses: []params.InterfaceAddress{},
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.1"},
+				},
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},
