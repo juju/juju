@@ -4,6 +4,8 @@ test_static_analysis() {
         return
     fi
 
+    set_verbosity
+
     test_copyright
     test_static_analysis_go
     test_static_analysis_shell

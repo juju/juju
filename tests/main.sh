@@ -3,6 +3,9 @@
 
 # Always ignore SC2230 ('which' is non-standard. Use builtin 'command -v' instead.)
 export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005"
+export BOOTSTRAP_REUSE_LOCAL=
+export BOOTSTRAP_REUSE="false"
+export BOOTSTRAP_PROVIDER=
 
 OPTIND=1
 VERBOSE=1
@@ -93,12 +96,13 @@ while getopts "h?:vVsaxrp" opt; do
         show_help
         ;;
     v)
-        VERBOSE=1
+        VERBOSE=2
         shift
         ;;
     V)
-        VERBOSE=2
+        VERBOSE=3
         shift
+        alias juju="juju --debug"
         ;;
     s)
         SKIP_LIST="${2}"
