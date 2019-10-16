@@ -300,6 +300,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Name:   "juju-log-forward",
 				OpenFn: sinks.OpenSyslog,
 			}},
+			Logger: config.LoggingContext.GetLogger("juju.worker.logforwarder"),
 		})),
 		// The environ upgrader runs on all controller agents, and
 		// unlocks the gate when the environ is up-to-date. The

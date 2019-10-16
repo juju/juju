@@ -96,6 +96,7 @@ func (s *LogForwarderSuite) newLogForwarderArgsWithAPI(
 			c.Assert(controllerUUID, gc.Equals, "feebdaed-2f18-4fd2-967d-db9663db7bea")
 			return stream, nil
 		},
+		Logger: loggo.GetLogger("test"),
 	}
 }
 
