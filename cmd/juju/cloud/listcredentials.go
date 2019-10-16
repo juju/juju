@@ -58,7 +58,7 @@ will be stored on the controller. It is considered to be controller default.
 
 Recall that when a controller is created a 'default' model is also 
 created. This model will use the controller default credential. 
-To see details of your credentials use "juju show-credentials" command.
+To see details of your credentials use "juju show-credential" command.
 
 When adding a new model, Juju will reuse the controller default credential.
 To add a model that uses a different credential, specify a  credential
