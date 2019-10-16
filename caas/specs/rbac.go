@@ -16,9 +16,9 @@ type PolicyRule struct {
 
 // RBACSpec defines RBAC related spec.
 type RBACSpec struct {
-	AutomountServiceAccountToken *bool `yaml:"automountServiceAccountToken,omitempty"`
-
-	Rules []PolicyRule `yaml:"rules,omitempty"`
+	AutomountServiceAccountToken *bool        `yaml:"automountServiceAccountToken,omitempty"`
+	Global                       bool         `yaml:"global,omitempty"`
+	Rules                        []PolicyRule `yaml:"rules,omitempty"`
 }
 
 // Validate returns an error if the spec is not valid.

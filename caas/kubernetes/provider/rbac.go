@@ -72,44 +72,83 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return cleanups, errors.Trace(err)
 	}
 
-	// ensure roles.
 	if len(caasSpec.Rules) > 0 {
-		// create or update Role.
-		r, rCleanups, err := k.ensureRole(&rbacv1.Role{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      rbacStackName,
-				Namespace: k.namespace,
-				Labels:    labels,
-			},
-			Rules: toK8sRules(caasSpec.Rules),
-		})
-		cleanups = append(cleanups, rCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
-		}
-
-		// ensure rolebindings for roles.
-		_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
-			ObjectMeta: v1.ObjectMeta{
-				Name:      rbacStackName,
-				Namespace: k.namespace,
-				Labels:    labels,
-			},
-			RoleRef: rbacv1.RoleRef{
-				Name: r.GetName(),
-				Kind: "Role",
-			},
-			Subjects: []rbacv1.Subject{
-				{
-					Kind:      rbacv1.ServiceAccountKind,
-					Name:      sa.GetName(),
-					Namespace: sa.GetNamespace(),
+		if !caasSpec.Global {
+			// ensure Role.
+			r, rCleanups, err := k.ensureRole(&rbacv1.Role{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      rbacStackName,
+					Namespace: k.namespace,
+					Labels:    labels,
 				},
-			},
-		})
-		cleanups = append(cleanups, rBCleanups...)
-		if err != nil {
-			return cleanups, errors.Trace(err)
+				Rules: toK8sRules(caasSpec.Rules),
+			})
+			cleanups = append(cleanups, rCleanups...)
+			if err != nil {
+				return cleanups, errors.Trace(err)
+			}
+
+			// ensure rolebindings for Role.
+			_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      rbacStackName,
+					Namespace: k.namespace,
+					Labels:    labels,
+				},
+				RoleRef: rbacv1.RoleRef{
+					Name: r.GetName(),
+					Kind: "Role",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      rbacv1.ServiceAccountKind,
+						Name:      sa.GetName(),
+						Namespace: sa.GetNamespace(),
+					},
+				},
+			})
+			cleanups = append(cleanups, rBCleanups...)
+			if err != nil {
+				return cleanups, errors.Trace(err)
+			}
+		} else {
+			// ensure ClusterRole.
+			rbacStackName = fmt.Sprintf("%s-%s", k.namespace, rbacStackName)
+			cR, cRCleanups, err := k.ensureClusterRole(&rbacv1.ClusterRole{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      rbacStackName,
+					Namespace: k.namespace,
+					Labels:    labels,
+				},
+				Rules: toK8sRules(caasSpec.Rules),
+			})
+			cleanups = append(cleanups, cRCleanups...)
+			if err != nil {
+				return cleanups, errors.Trace(err)
+			}
+			// ensure rolebindings for ClusterRole.
+			_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
+				ObjectMeta: v1.ObjectMeta{
+					Name:      rbacStackName,
+					Namespace: k.namespace,
+					Labels:    labels,
+				},
+				RoleRef: rbacv1.RoleRef{
+					Name: cR.GetName(),
+					Kind: "ClusterRole",
+				},
+				Subjects: []rbacv1.Subject{
+					{
+						Kind:      rbacv1.ServiceAccountKind,
+						Name:      sa.GetName(),
+						Namespace: sa.GetNamespace(),
+					},
+				},
+			})
+			cleanups = append(cleanups, cRBCleanups...)
+			if err != nil {
+				return cleanups, errors.Trace(err)
+			}
 		}
 	}
 	return cleanups, nil
@@ -547,10 +586,23 @@ func (k *kubernetesClient) ensureClusterRoleBinding(crb *rbacv1.ClusterRoleBindi
 	}
 
 	for _, v := range crbs {
-		if err := k.deleteClusterRoleBinding(v.GetName(), v.GetUID()); err != nil {
-			return nil, cleanups, errors.Trace(err)
+		if v.GetName() == crb.GetName() {
+			name := v.GetName()
+			UID := v.GetUID()
+			if err := k.deleteClusterRoleBinding(name, UID); err != nil {
+				return nil, cleanups, errors.Trace(err)
+			}
+			if err := ensureResourceDeleted(
+				k.clock,
+				func() error {
+					_, err := k.getClusterRoleBinding(name)
+					return errors.Trace(err)
+				},
+			); err != nil {
+				return nil, cleanups, errors.Trace(err)
+			}
+			break
 		}
-		logger.Debugf("cluster role binding %q deleted", v.GetName())
 	}
 	out, err = k.createClusterRoleBinding(crb)
 	if err != nil {
