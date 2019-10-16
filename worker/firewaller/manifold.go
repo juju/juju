@@ -18,11 +18,24 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
+
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
 	AgentName     string
 	APICallerName string
 	EnvironName   string
+	Logger        Logger
 
 	NewControllerConnection      apicaller.NewExternalControllerConnectionFunc
 	NewRemoteRelationsFacade     func(base.APICaller) (*remoterelations.Client, error)
@@ -53,6 +66,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.EnvironName == "" {
 		return errors.NotValidf("empty EnvironName")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if cfg.NewControllerConnection == nil {
 		return errors.NotValidf("nil NewControllerConnection")
@@ -99,11 +115,11 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 
 	mode := environ.Config().FirewallMode()
 	if mode == config.FwNone {
-		logger.Infof("stopping firewaller (not required)")
+		cfg.Logger.Infof("stopping firewaller (not required)")
 		return nil, dependency.ErrUninstall
 	} else if mode == config.FwGlobal {
 		if !fwEnvOK {
-			logger.Infof("Firewall global mode set on provider with no support. stopping firewaller")
+			cfg.Logger.Infof("Firewall global mode set on provider with no support. stopping firewaller")
 			return nil, dependency.ErrUninstall
 		}
 	}
@@ -131,6 +147,7 @@ func (cfg ManifoldConfig) start(context dependency.Context) (worker.Worker, erro
 		Mode:                    mode,
 		NewCrossModelFacadeFunc: crossmodelFirewallerFacadeFunc(cfg.NewControllerConnection),
 		CredentialAPI:           credentialAPI,
+		Logger:                  cfg.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
