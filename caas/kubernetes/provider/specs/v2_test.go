@@ -121,7 +121,7 @@ service:
     foo: bar
 serviceAccount:
   automountServiceAccountToken: true
-  clusterRoleNames: [someClusterRole1, someClusterRole2]
+  global: true
   rules:
   - apiGroups: [""]
     resources: ["pods"]
@@ -130,7 +130,7 @@ kubernetesResources:
   serviceAccounts:
   - name: k8sServiceAccount1
     automountServiceAccountToken: true
-    clusterRoleNames: [someClusterRole1, someClusterRole2]
+    global: true
     rules:
     - apiGroups: [""]
       resources: ["pods"]
@@ -197,9 +197,7 @@ foo: bar
 
 	sa1 := &specs.ServiceAccountSpec{}
 	sa1.AutomountServiceAccountToken = boolPtr(true)
-	sa1.ClusterRoleNames = []string{
-		"someClusterRole1", "someClusterRole2",
-	}
+	sa1.Global = true
 	sa1.Rules = []specs.PolicyRule{
 		{
 			APIGroups: []string{""},
@@ -324,10 +322,8 @@ echo "do some stuff here for gitlab-init container"
 		sa2 := k8sspecs.K8sServiceAccountSpec{
 			Name: "k8sServiceAccount1",
 		}
+		sa2.Global = true
 		sa2.AutomountServiceAccountToken = boolPtr(true)
-		sa2.ClusterRoleNames = []string{
-			"someClusterRole1", "someClusterRole2",
-		}
 		sa2.Rules = []specs.PolicyRule{
 			{
 				APIGroups: []string{""},
@@ -509,7 +505,7 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required`)
+	c.Assert(err, gc.ErrorMatches, `rules is required`)
 }
 
 func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
