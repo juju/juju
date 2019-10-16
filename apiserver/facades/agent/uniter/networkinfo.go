@@ -168,22 +168,23 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 		// For CAAS units, we build up a minimal result struct
 		// based on the default space and unit public/private addresses,
 		// ie the addresses of the CAAS service.
-		addr, err := n.unit.AllAddresses()
+		addrs, err := n.unit.AllAddresses()
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		corenetwork.SortAddresses(addr)
+		corenetwork.SortAddresses(addrs)
 
 		// We record the interface addresses as the machine local ones - these
 		// are used later as the binding addresses.
 		// For CAAS models, we need to default ingress addresses to all available
 		// addresses so record those in the default ingress address slice.
 		var interfaceAddr []network.InterfaceAddress
-		for _, a := range addr {
+		for _, a := range addrs {
 			if a.Scope == corenetwork.ScopeMachineLocal {
 				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
+			} else {
+				defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 			}
-			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 		}
 		networkInfos = make(map[string]state.MachineNetworkInfoResult)
 		networkInfos[corenetwork.DefaultSpaceName] = state.MachineNetworkInfoResult{
@@ -344,7 +345,11 @@ func (n *NetworkInfo) NetworksForRelation(
 			if err != nil {
 				logger.Warningf("no service address for unit %q in relation %q", n.unit.Name(), rel)
 			} else {
-				ingress = addrs
+				for _, addr := range addrs {
+					if addr.Scope != corenetwork.ScopeMachineLocal {
+						ingress = append(ingress, addr)
+					}
+				}
 			}
 		}
 	}
