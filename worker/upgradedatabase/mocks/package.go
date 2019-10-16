@@ -48,6 +48,36 @@ func (mr *MockLoggerMockRecorder) Debugf(arg0 interface{}, arg1 ...interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Debugf", reflect.TypeOf((*MockLogger)(nil).Debugf), varargs...)
 }
 
+// Errorf mocks base method
+func (m *MockLogger) Errorf(arg0 string, arg1 ...interface{}) {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Errorf", varargs...)
+}
+
+// Errorf indicates an expected call of Errorf
+func (mr *MockLoggerMockRecorder) Errorf(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Errorf", reflect.TypeOf((*MockLogger)(nil).Errorf), varargs...)
+}
+
+// Infof mocks base method
+func (m *MockLogger) Infof(arg0 string, arg1 ...interface{}) {
+	varargs := []interface{}{arg0}
+	for _, a := range arg1 {
+		varargs = append(varargs, a)
+	}
+	m.ctrl.Call(m, "Infof", varargs...)
+}
+
+// Infof indicates an expected call of Infof
+func (mr *MockLoggerMockRecorder) Infof(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0}, arg1...)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Infof", reflect.TypeOf((*MockLogger)(nil).Infof), varargs...)
+}
+
 // MockPool is a mock of Pool interface
 type MockPool struct {
 	ctrl     *gomock.Controller

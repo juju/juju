@@ -4,13 +4,18 @@
 package upgradedatabase
 
 import (
+	"time"
+
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/version"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/worker/gate"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
 )
 
 // ManifoldConfig defines the configuration on which this manifold depends.
@@ -19,7 +24,6 @@ type ManifoldConfig struct {
 	UpgradeDBGateName string
 	Logger            Logger
 	OpenState         func() (*state.StatePool, error)
-	//NewAgentStatusSetter func(apiConn api.Connection) (StatusSetter, error)
 }
 
 // Validate returns an error if the manifold config is not valid.
@@ -67,13 +71,19 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return &pool{p}, nil
 			}
 
+			// Wrap the upgrade steps execution so that we can generate a context lazily.
+			performUpgrade := func(v version.Number, t []upgrades.Target, c func() upgrades.Context) error {
+				return errors.Trace(upgrades.PerformStateUpgrade(v, t, c()))
+			}
+
 			workerCfg := Config{
 				UpgradeComplete: upgradeStepsLock,
 				Tag:             tag,
 				Agent:           machineAgent,
 				Logger:          cfg.Logger,
 				OpenState:       openState,
-				PerformUpgrade:  upgrades.PerformUpgrade,
+				PerformUpgrade:  performUpgrade,
+				RetryStrategy:   utils.AttemptStrategy{Delay: 2 * time.Minute, Min: 5},
 			}
 			w, err := NewWorker(workerCfg)
 			return w, errors.Annotate(err, "starting database upgrade worker")

@@ -14,11 +14,13 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/package.go github.com/juju/juju/worker/upgradedatabase Logger,Pool
 //go:generate mockgen -package mocks -destination mocks/lock.go github.com/juju/juju/worker/gate Lock
-//go:generate mockgen -package mocks -destination mocks/agent.go github.com/juju/juju/agent Agent,Config
+//go:generate mockgen -package mocks -destination mocks/agent.go github.com/juju/juju/agent Agent,Config,ConfigSetter
 
 // Logger represents the methods required to emit log messages.
 type Logger interface {
 	Debugf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
+	Errorf(message string, args ...interface{})
 }
 
 // State describes methods required by the upgradeDB worker

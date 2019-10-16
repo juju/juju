@@ -6,6 +6,8 @@ package upgrades
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"github.com/juju/loggo"
 	"github.com/juju/version"
 )
@@ -89,21 +91,26 @@ func (e *upgradeError) Error() string {
 	return fmt.Sprintf("%s: %v", e.description, e.err)
 }
 
-// PerformUpgrade runs the business logic needed to upgrade the current "from" version to this
-// version of Juju on the "target" type of machine.
+// PerformUpgrade runs the business logic needed to upgrade the current "from"
+// version to this version of Juju on the "target" type of machine.
 func PerformUpgrade(from version.Number, targets []Target, context Context) error {
 	if hasStateTarget(targets) {
-		ops := newStateUpgradeOpsIterator(from)
-		if err := runUpgradeSteps(ops, targets, context.StateContext()); err != nil {
-			return err
+		if err := PerformStateUpgrade(from, targets, context); err != nil {
+			return errors.Trace(err)
 		}
 	}
 	ops := newUpgradeOpsIterator(from)
 	if err := runUpgradeSteps(ops, targets, context.APIContext()); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	logger.Infof("All upgrade steps completed successfully")
 	return nil
+}
+
+// PerformStateUpgrade runs the upgrades steps
+// that target Controller or DatabaseMaster.
+func PerformStateUpgrade(from version.Number, targets []Target, context Context) error {
+	return errors.Trace(runUpgradeSteps(newStateUpgradeOpsIterator(from), targets, context.StateContext()))
 }
 
 func hasStateTarget(targets []Target) bool {

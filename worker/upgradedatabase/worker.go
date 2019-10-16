@@ -7,14 +7,14 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/core/status"
+	"github.com/juju/utils"
 	"github.com/juju/version"
-	"github.com/lxc/lxd/shared/logger"
 	"gopkg.in/juju/names.v2"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -39,7 +39,15 @@ type Config struct {
 	OpenState func() (Pool, error)
 
 	// PerformUpgrade is a function pointer for executing the DB upgrade steps.
-	PerformUpgrade func(version.Number, []upgrades.Target, upgrades.Context) error
+	// Context retrieval is lazy because because it requires a real
+	// state.StatePool that we cast our Pool indirection back to.
+	// We need the concrete type, because we are unable to indirect all the
+	// state methods that upgrade steps might require.
+	// This is OK for in-theatre operation, but is not suitable for testing.
+	PerformUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
+
+	// RetryStrategy is the strategy to use for re-attempting failed upgrades.
+	RetryStrategy utils.AttemptStrategy
 }
 
 // Validate returns an error if the worker config is not valid.
@@ -66,6 +74,10 @@ func (cfg Config) Validate() error {
 	if cfg.PerformUpgrade == nil {
 		return errors.NotValidf("nil PerformUpgrade function")
 	}
+	a := utils.AttemptStrategy{}
+	if cfg.RetryStrategy == a {
+		return errors.NotValidf("empty RetryStrategy")
+	}
 	return nil
 }
 
@@ -80,7 +92,8 @@ type upgradeDB struct {
 	agent          agent.Agent
 	logger         Logger
 	pool           Pool
-	performUpgrade func(version.Number, []upgrades.Target, upgrades.Context) error
+	performUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
+	retryStrategy  utils.AttemptStrategy
 
 	fromVersion version.Number
 	toVersion   version.Number
@@ -100,6 +113,8 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		tag:             cfg.Tag,
 		agent:           cfg.Agent,
 		logger:          cfg.Logger,
+		performUpgrade:  cfg.PerformUpgrade,
+		retryStrategy:   cfg.RetryStrategy,
 	}
 	if w.pool, err = cfg.OpenState(); err != nil {
 		return nil, err
@@ -117,7 +132,11 @@ func (w *upgradeDB) run() error {
 	}
 
 	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
-		return errors.Trace(err)
+		w.reportUpgradeFailure(err, false)
+	} else {
+		w.logger.Infof("database upgrade to %v completed successfully.", w.toVersion)
+		_ = w.pool.SetStatus(w.tag.Id(), status.Started, "")
+		w.upgradeComplete.Unlock()
 	}
 
 	return nil
@@ -147,7 +166,7 @@ func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
 	w.fromVersion = w.agent.CurrentConfig().UpgradedToVersion()
 	w.toVersion = jujuversion.Current
 	if w.fromVersion == w.toVersion {
-		logger.Debugf("database upgrade to %v already completed", w.toVersion)
+		w.logger.Debugf("database upgrade to %v already completed", w.toVersion)
 		w.upgradeComplete.Unlock()
 		return false, nil
 	}
@@ -158,11 +177,44 @@ func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
 // runUpgradeSteps runs the required database upgrade steps for the agent,
 // retrying on failure.
 func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	if err := w.pool.SetStatus(w.tag.Id(), status.Started, fmt.Sprintf("upgrading to %v", w.toVersion)); err != nil {
-		return errors.Trace(err)
+	_ = w.pool.SetStatus(w.tag.Id(), status.Started, fmt.Sprintf("upgrading database to %v", w.toVersion))
+
+	var upgradeErr error
+	contextGetter := w.contextGetter(agentConfig)
+
+	for attempt := w.retryStrategy.Start(); attempt.Next(); {
+		upgradeErr = w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
+		if upgradeErr == nil {
+			break
+		}
+		if attempt.HasNext() {
+			w.reportUpgradeFailure(upgradeErr, true)
+		}
 	}
 
-	return nil
+	return errors.Trace(upgradeErr)
+}
+
+// contextGetter returns a function that creates an upgrade context.
+// Note that the performUpgrade method passed by the manifold calls
+// upgrades.PerformStateUpgrade, which only uses the StateContext from this
+// context. We can set the API connection to nil - it should never be used.
+func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrades.Context {
+	return func() upgrades.Context {
+		return upgrades.NewContext(agentConfig, nil, upgrades.NewStateBackend(w.pool.(*pool).StatePool))
+	}
+}
+
+func (w *upgradeDB) reportUpgradeFailure(err error, willRetry bool) {
+	retryText := "will retry"
+	if !willRetry {
+		retryText = "giving up"
+	}
+
+	w.logger.Errorf("database upgrade from %v to %v for %q failed (%s): %v",
+		w.fromVersion, w.toVersion, w.tag, retryText, err)
+
+	_ = w.pool.SetStatus(w.tag.Id(), status.Error, fmt.Sprintf("upgrading database to %v", w.toVersion))
 }
 
 // Kill is part of the worker.Worker interface.
