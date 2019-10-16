@@ -96,7 +96,7 @@ func NewListCredentialsCommandForTest(
 	testStore jujuclient.ClientStore,
 	personalCloudsFunc func() (map[string]jujucloud.Cloud, error),
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error),
-	apiF func(controllerName string) (ListCredentialsAPI, error),
+	apiF func() (ListCredentialsAPI, error),
 ) *listCredentialsCommand {
 	return &listCredentialsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
