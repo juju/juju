@@ -45,6 +45,7 @@ type ManifoldConfig struct {
 	MachineLock           machinelock.Lock
 	LeadershipGuarantee   time.Duration
 	CharmDirName          string
+	ProfileDir            string
 	HookRetryStrategyName string
 	TranslateResolverErr  func(error) error
 
@@ -79,6 +80,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.CharmDirName == "" {
 		return errors.NotValidf("missing CharmDirName")
+	}
+	if config.ProfileDir == "" {
+		return errors.NotValidf("missing ProfileDir")
 	}
 	if config.MachineLock == nil {
 		return errors.NotValidf("missing MachineLock")
@@ -170,6 +174,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                 clock,
 				PodSpecSetter:         client,
 				DataDir:               agentConfig.DataDir(),
+				ProfileDir:            config.ProfileDir,
 				Downloader:            downloader,
 				StatusSetter:          client,
 				UnitGetter:            client,

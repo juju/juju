@@ -12,26 +12,27 @@ import (
 )
 
 var (
-	profileDir        = "/etc/profile.d"
+	// Profiledir is the directory where the profile script is written.
+	ProfileDir        = "/etc/profile.d"
 	bashFuncsFilename = "juju-introspection.sh"
 )
 
 // WriteProfileFunctions writes the bashFuncs below to a file in the
 // /etc/profile.d directory so all bash terminals can easily access the
 // introspection worker.
-func WriteProfileFunctions() error {
+func WriteProfileFunctions(profileDir string) error {
 	if runtime.GOOS != "linux" {
 		logger.Debugf("skipping profile funcs install")
 		return nil
 	}
-	filename := profileFilename()
+	filename := profileFilename(profileDir)
 	if err := ioutil.WriteFile(filename, []byte(bashFuncs), 0644); err != nil {
 		return errors.Annotate(err, "writing introspection bash funcs")
 	}
 	return nil
 }
 
-func profileFilename() string {
+func profileFilename(profileDir string) string {
 	return path.Join(profileDir, bashFuncsFilename)
 }
 
@@ -47,26 +48,43 @@ juju_agent_call () {
 }
 
 juju_machine_agent_name () {
-  local machine=$(ls -d /var/lib/juju/agents/machine*)
-  machine=$(basename $machine)
+  local machine=$(find /var/lib/juju/agents -type d -name 'machine*' -printf %f)
   echo $machine
 }
 
-juju_machine_or_unit () {
+juju_controller_agent_name () {
+  local controller=$(find /var/lib/juju/agents -type d -name 'controller*' -printf %f)
+  echo $controller
+}
+
+juju_application_agent_name () {
+  local application=$(find /var/lib/juju/agents -type d -name 'application*' -printf %f)
+  echo $application
+}
+
+juju_agent () {
   # First arg is the path, second is optional agent name.
   if [ "$#" -gt 2 ]; then
     echo "expected no args (for machine agent) or one (unit agent)"
     return 1
   fi
-  local agent=$(juju_machine_agent_name)
+  local agent
   if [ "$#" -eq 2 ]; then
     agent=$2
+  else
+    agent=$(juju_machine_agent_name)
+    if [ -z "$agent" ]; then
+      agent=$(juju_controller_agent_name)
+    fi
+    if [ -z "$agent" ]; then
+      agent=$(juju_application_agent_name)
+    fi
   fi
   juju_agent_call $agent $1
 }
 
 juju_goroutines () {
-  juju_machine_or_unit debug/pprof/goroutine?debug=1 $@
+  juju_agent debug/pprof/goroutine?debug=1 $@
 }
 
 juju_cpu_profile () {
@@ -76,40 +94,40 @@ juju_cpu_profile () {
     shift
   fi
   echo "Sampling CPU for $N seconds." >&2
-  juju_machine_or_unit "debug/pprof/profile?debug=1&seconds=$N" $@
+  juju_agent "debug/pprof/profile?debug=1&seconds=$N" $@
 }
 
 juju_heap_profile () {
-  juju_machine_or_unit debug/pprof/heap?debug=1 $@
+  juju_agent debug/pprof/heap?debug=1 $@
 }
 
 juju_engine_report () {
-  juju_machine_or_unit depengine $@
+  juju_agent depengine $@
 }
 
 juju_statepool_report () {
-  juju_machine_or_unit statepool $@
+  juju_agent statepool $@
 }
 
 juju_pubsub_report () {
-  juju_machine_or_unit pubsub $@
+  juju_agent pubsub $@
 }
 
 juju_metrics () {
-  juju_machine_or_unit metrics/ $@
+  juju_agent metrics/ $@
 }
 
 juju_presence_report () {
-  juju_machine_or_unit presence/ $@
+  juju_agent presence/ $@
 }
 
 juju_statetracker_report () {
-  juju_machine_or_unit debug/pprof/juju/state/tracker?debug=1 $@
+  juju_agent debug/pprof/juju/state/tracker?debug=1 $@
 }
 
 juju_machine_lock () {
   for agent in $(ls /var/lib/juju/agents); do
-    juju_machine_or_unit machinelock $agent 2> /dev/null
+    juju_agent machinelock $agent 2> /dev/null
   done
 }
 
@@ -119,7 +137,9 @@ shell=$(ps -p "$$" -o comm --no-headers)
 if [ "$shell" = "bash" ]; then
   export -f juju_agent_call
   export -f juju_machine_agent_name
-  export -f juju_machine_or_unit
+  export -f juju_controller_agent_name
+  export -f juju_application_agent_name
+  export -f juju_agent
   export -f juju_goroutines
   export -f juju_cpu_profile
   export -f juju_heap_profile
