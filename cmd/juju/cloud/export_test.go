@@ -176,7 +176,7 @@ func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api Cre
 
 func NewShowCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialContentAPI) cmd.Command {
 	command := &showCredentialCommand{
-		store: testStore,
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
 		newAPIFunc: func() (CredentialContentAPI, error) {
 			return api, nil
 		},
