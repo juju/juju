@@ -50,7 +50,7 @@ Use --controller option to show a cloud from a different controller.
 
 Use --client-only option to only show a cloud known locally on this client.
 
-Use --controller-only option to only show a cloud known remotely on the controller.
+Use --controller-only option to only show a cloud known on the controller.
 
 Examples:
 
@@ -172,7 +172,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 				ctxt.Warningf("%v", remoteErr)
 				displayErr = cmd.ErrSilent
 			} else {
-				ctxt.Infof("No cloud %q exists remotely on the controller.", c.CloudName)
+				ctxt.Infof("No cloud %q exists on the controller.", c.CloudName)
 			}
 		}
 	}
