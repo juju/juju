@@ -17,6 +17,8 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/jujuclient"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -145,6 +147,8 @@ type fakeAPIClient struct {
 	charmActions       map[string]params.ActionSpec
 	apiVersion         int
 	apiErr             error
+	logMessageCh       chan []string
+	waitForResults     chan bool
 }
 
 var _ action.APIClient = (*fakeAPIClient)(nil)
@@ -218,15 +222,24 @@ func (c *fakeAPIClient) Actions(args params.Entities) (params.ActionResults, err
 	// to prevent the test hanging.  If the given wait is up, then return
 	// the results; otherwise, return a pending status.
 
-	if c.delay == nil {
+	if c.delay == nil && c.waitForResults == nil {
 		// No delay requested, just return immediately.
 		return c.getActionResults(args.Entities), c.apiErr
 	}
+	var delayChan, timeoutChan <-chan time.Time
+	if c.delay != nil {
+		delayChan = c.delay.C
+	}
+	if c.timeout != nil {
+		timeoutChan = c.timeout.C
+	}
 	select {
-	case _ = <-c.delay.C:
+	case <-c.waitForResults:
+		return c.getActionResults(args.Entities), c.apiErr
+	case _ = <-delayChan:
 		// The API delay timer is up.
 		return c.getActionResults(args.Entities), c.apiErr
-	case _ = <-c.timeout.C:
+	case _ = <-timeoutChan:
 		// Timeout to prevent tests from hanging.
 		return params.ActionResults{}, errors.New("test timed out before wait time")
 	default:
@@ -247,4 +260,8 @@ func (c *fakeAPIClient) FindActionTagsByPrefix(arg params.FindTags) (params.Find
 
 func (c *fakeAPIClient) FindActionsByNames(args params.FindActionsByNames) (params.ActionsByNames, error) {
 	return c.actionsByNames, c.apiErr
+}
+
+func (c *fakeAPIClient) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
+	return watchertest.NewMockStringsWatcher(c.logMessageCh), nil
 }

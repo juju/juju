@@ -30,7 +30,7 @@ func NewMockStringsWatcher(ch <-chan []string) *MockStringsWatcher {
 }
 
 func (w *MockStringsWatcher) Changes() watcher.StringsChannel {
-	return watcher.StringsChannel(w.ch)
+	return w.ch
 }
 
 func (w *MockStringsWatcher) Stop() error {

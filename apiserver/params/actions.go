@@ -45,6 +45,12 @@ type ActionResults struct {
 	Results []ActionResult `json:"results,omitempty"`
 }
 
+// ActionMessage represents a logged message on an action.
+type ActionMessage struct {
+	Timestamp time.Time `json:"timestamp"`
+	Message   string    `json:"message"`
+}
+
 // ActionResult describes an Action that will be or has been completed.
 type ActionResult struct {
 	Action    *Action                `json:"action,omitempty"`
@@ -53,6 +59,7 @@ type ActionResult struct {
 	Completed time.Time              `json:"completed,omitempty"`
 	Status    string                 `json:"status,omitempty"`
 	Message   string                 `json:"message,omitempty"`
+	Log       []ActionMessage        `json:"log,omitempty"`
 	Output    map[string]interface{} `json:"output,omitempty"`
 	Error     *Error                 `json:"error,omitempty"`
 }

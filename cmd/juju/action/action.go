@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/action"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/watcher"
 )
 
 // type APIClient represents the action API functionality.
@@ -60,6 +61,9 @@ type APIClient interface {
 	// FindActionsByNames takes a list of names and finds a corresponding list of
 	// Actions for every name.
 	FindActionsByNames(params.FindActionsByNames) (params.ActionsByNames, error)
+
+	// WatchActionProgress reports on logged action progress messages.
+	WatchActionProgress(actionId string) (watcher.StringsWatcher, error)
 }
 
 // ActionCommandBase is the base type for action sub-commands.

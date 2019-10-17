@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/feature"
 )
 
@@ -30,6 +31,7 @@ type showOutputCommand struct {
 	requestedId string
 	fullSchema  bool
 	wait        string
+	utc         bool
 }
 
 const showOutputDoc = `
@@ -57,6 +59,7 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 
 	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
+	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
 func (c *showOutputCommand) Info() *cmd.Info {
@@ -131,7 +134,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	formatted := FormatActionResult(result)
+	formatted := FormatActionResult(result, c.utc)
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
@@ -232,7 +235,7 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 // FormatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func FormatActionResult(result params.ActionResult) map[string]interface{} {
+func FormatActionResult(result params.ActionResult, utc bool) map[string]interface{} {
 	response := map[string]interface{}{"status": result.Status}
 	if result.Message != "" {
 		response["message"] = result.Message
@@ -240,19 +243,44 @@ func FormatActionResult(result params.ActionResult) map[string]interface{} {
 	if len(result.Output) != 0 {
 		response["results"] = result.Output
 	}
+	if len(result.Log) > 0 {
+		var logs []string
+		for _, msg := range result.Log {
+			logs = append(logs, formatLogMessage(actions.ActionMessage{
+				Timestamp: msg.Timestamp,
+				Message:   msg.Message,
+			}, false, utc))
+		}
+		response["log"] = logs
+	}
 
 	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
 		return response
 	}
 
+	formatMetadataTimestamp := func(t time.Time) string {
+		if t.IsZero() {
+			return ""
+		}
+		if featureflag.Enabled(feature.JujuV3) {
+			if utc {
+				t = t.UTC()
+			} else {
+				t = t.Local()
+			}
+			return t.Format(resultTimestampFormat)
+		}
+		return t.String()
+	}
+
 	responseTiming := make(map[string]string)
-	for k, v := range map[string]time.Time{
-		"enqueued":  result.Enqueued,
-		"started":   result.Started,
-		"completed": result.Completed,
+	for k, v := range map[string]string{
+		"enqueued":  formatMetadataTimestamp(result.Enqueued),
+		"started":   formatMetadataTimestamp(result.Started),
+		"completed": formatMetadataTimestamp(result.Completed),
 	} {
-		if !v.IsZero() {
-			responseTiming[k] = v.String()
+		if v != "" {
+			responseTiming[k] = v
 		}
 	}
 	response["timing"] = responseTiming

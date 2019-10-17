@@ -1,7 +1,7 @@
 [
     {
         "Name": "Action",
-        "Version": 4,
+        "Version": 5,
         "Schema": {
             "type": "object",
             "properties": {
@@ -136,6 +136,17 @@
                             "$ref": "#/definitions/ActionResults"
                         }
                     }
+                },
+                "WatchActionsProgress": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
                 }
             },
             "definitions": {
@@ -168,6 +179,23 @@
                         "name"
                     ]
                 },
+                "ActionMessage": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "timestamp",
+                        "message"
+                    ]
+                },
                 "ActionResult": {
                     "type": "object",
                     "properties": {
@@ -184,6 +212,12 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "log": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionMessage"
+                            }
                         },
                         "message": {
                             "type": "string"
@@ -479,6 +513,42 @@
                     "required": [
                         "commands",
                         "timeout"
+                    ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 }
             }
@@ -18967,6 +19037,23 @@
                     },
                     "additionalProperties": false
                 },
+                "ActionMessage": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "timestamp",
+                        "message"
+                    ]
+                },
                 "ActionResult": {
                     "type": "object",
                     "properties": {
@@ -18983,6 +19070,12 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "log": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionMessage"
+                            }
                         },
                         "message": {
                             "type": "string"
@@ -34730,6 +34823,23 @@
                     },
                     "additionalProperties": false
                 },
+                "ActionMessage": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "timestamp",
+                        "message"
+                    ]
+                },
                 "ActionMessageParams": {
                     "type": "object",
                     "properties": {
@@ -34761,6 +34871,12 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "log": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionMessage"
+                            }
                         },
                         "message": {
                             "type": "string"

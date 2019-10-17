@@ -4,6 +4,7 @@
 package action_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -19,6 +20,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -55,8 +57,11 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
+	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+
 	var err error
-	s.action, err = action.NewActionAPI(s.State, nil, s.authorizer)
+	s.action, err = action.NewActionAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.charm = s.Factory.MakeCharm(c, &factory.CharmParams{
@@ -97,8 +102,6 @@ func (s *actionSuite) SetUpTest(c *gc.C) {
 		Application: s.mysql,
 		Machine:     s.machine1,
 	})
-	s.resources = common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 }
 
 func (s *actionSuite) TestActions(c *gc.C) {
@@ -351,6 +354,10 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 				exp.Output = map[string]interface{}{}
 
 				if act.Execute {
+					added, err = added.Begin()
+					c.Assert(err, jc.ErrorIsNil)
+					err = added.Log("hello")
+					c.Assert(err, jc.ErrorIsNil)
 					status := state.ActionCompleted
 					output := map[string]interface{}{"output": "blah, blah, blah"}
 					message := "success"
@@ -362,6 +369,7 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					exp.Status = string(status)
 					exp.Message = message
 					exp.Output = output
+					exp.Log = []params.ActionMessage{{Message: "hello"}}
 				}
 			}
 		}
@@ -747,6 +755,12 @@ func assertSame(c *gc.C, got, expected params.ActionsByReceivers) {
 		e1 := expected.Actions[i]
 		c.Assert(g1.Error, gc.DeepEquals, e1.Error)
 		c.Assert(g1.Receiver, gc.DeepEquals, e1.Receiver)
+		for _, a1 := range g1.Actions {
+			for _, m := range a1.Log {
+				c.Assert(m.Timestamp.IsZero(), jc.IsFalse)
+				m.Timestamp = time.Time{}
+			}
+		}
 		c.Assert(toStrings(g1.Actions), jc.SameContents, toStrings(e1.Actions))
 	}
 }
@@ -765,4 +779,45 @@ func stringify(r params.ActionResult) string {
 		a = &params.Action{}
 	}
 	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
+}
+
+func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
+	unit, err := s.State.Unit("mysql/0")
+	c.Assert(err, jc.ErrorIsNil)
+	assertReadyToTest(c, unit)
+
+	added, err := unit.AddAction("fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	w, err := s.action.WatchActionsProgress(
+		params.Entities{Entities: []params.Entity{{Tag: "action-1"}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(w.Results, gc.HasLen, 1)
+	c.Assert(w.Results[0].Error, gc.IsNil)
+	c.Assert(w.Results[0].Changes, gc.HasLen, 0)
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	// Log a message and check the watcher result.
+	added, err = added.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = added.Log("hello")
+	c.Assert(err, jc.ErrorIsNil)
+
+	a, err := s.Model.Action("1")
+	c.Assert(err, jc.ErrorIsNil)
+	logged := a.Messages()
+	expected, err := json.Marshal(logged[0])
+	c.Assert(err, jc.ErrorIsNil)
+
+	wc.AssertChange(string(expected))
+	wc.AssertNoChange()
 }

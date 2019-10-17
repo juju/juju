@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/action"
+	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 )
 
@@ -126,4 +127,88 @@ func patchApplicationCharmActions(c *gc.C, apiCli *action.Client, patchResults [
 			return nil
 		},
 	)
+}
+
+func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
+	var called bool
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				called = true
+				c.Assert(request, gc.Equals, "WatchActionsProgress")
+				c.Assert(a, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{{
+						Tag: "action-666",
+					}},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+				*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+					Results: []params.StringsWatchResult{{
+						Error: &params.Error{Message: "FAIL"},
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	}
+	client := action.NewClient(apiCaller)
+	w, err := client.WatchActionProgress("666")
+	c.Assert(w, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *actionSuite) TestWatchActionProgressArity(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "WatchActionsProgress")
+				c.Assert(a, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{{
+						Tag: "action-666",
+					}},
+				})
+				c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+				*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+					Results: []params.StringsWatchResult{{
+						Error: &params.Error{Message: "FAIL"},
+					}, {
+						Error: &params.Error{Message: "ANOTHER"},
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	}
+	client := action.NewClient(apiCaller)
+	_, err := client.WatchActionProgress("666")
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *actionSuite) TestWatchActionProgressNotSupported(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 4,
+	}
+	client := action.NewClient(apiCaller)
+	_, err := client.WatchActionProgress("666")
+	c.Assert(err, gc.ErrorMatches, "WatchActionProgress not supported by this version of Juju")
 }
