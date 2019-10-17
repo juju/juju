@@ -125,17 +125,21 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 }
 
 func (w *upgradeDB) run() error {
-	defer func() { _ = w.pool.Close() }()
+	defer func() {
+		if err := w.pool.Close(); err != nil {
+			w.logger.Errorf("failed closing state pool: %v", err)
+		}
+	}()
 
-	if mustRun, err := w.upgradeNeedsRunning(); !mustRun {
+	if mustRun, err := w.upgradeNeedsRunning(); err != nil {
 		return errors.Trace(err)
+	} else if !mustRun {
+		return nil
 	}
 
-	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err != nil {
-		w.reportUpgradeFailure(err, false)
-	} else {
+	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err == nil {
 		w.logger.Infof("database upgrade to %v completed successfully.", w.toVersion)
-		_ = w.pool.SetStatus(w.tag.Id(), status.Started, "")
+		_ = w.pool.SetStatus(w.tag.Id(), status.Started, fmt.Sprintf("database upgrade to %v completed", w.toVersion))
 		w.upgradeComplete.Unlock()
 	}
 
@@ -157,7 +161,7 @@ func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
 		return false, errors.Trace(err)
 	}
 	if !isPrimary {
-		w.logger.Debugf("not running the Mongo primary; exiting")
+		w.logger.Debugf("not running the Mongo primary; no work to do")
 		w.upgradeComplete.Unlock()
 		return false, nil
 	}
@@ -184,11 +188,8 @@ func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 
 	for attempt := w.retryStrategy.Start(); attempt.Next(); {
 		upgradeErr = w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
-		if upgradeErr == nil {
-			break
-		}
-		if attempt.HasNext() {
-			w.reportUpgradeFailure(upgradeErr, true)
+		if upgradeErr != nil {
+			w.reportUpgradeFailure(upgradeErr, attempt.HasNext())
 		}
 	}
 

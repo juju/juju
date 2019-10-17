@@ -185,7 +185,7 @@ check-deps:
 
 # CAAS related targets
 DOCKER_USERNAME          ?= jujusolutions
-JUJUD_STAGING_DIR        ?= /tmp/jujud-operator
+JUJUD_STAGING_DIR        ?= /home/joseph/tmp/jujud-operator
 JUJUD_BIN_DIR            ?= ${GOPATH}/bin
 OPERATOR_IMAGE_BUILD_SRC ?= true
 OPERATOR_IMAGE_TAG       ?= $(shell jujud version | rev | cut -d- -f3- | rev)

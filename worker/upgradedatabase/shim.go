@@ -41,7 +41,8 @@ type pool struct {
 	*state.StatePool
 }
 
-// IsPrimary implements Pool.
+// IsPrimary (Pool) returns true if the Mongo primary is
+// running on the machine with the input ID.
 func (p *pool) IsPrimary(machineID string) (bool, error) {
 	st := p.SystemState()
 
@@ -54,7 +55,7 @@ func (p *pool) IsPrimary(machineID string) (bool, error) {
 	return isPrimary, errors.Trace(err)
 }
 
-// SetStatus implements Pool.
+// SetStatus (Pool) updates the status of the machine with the input ID.
 func (p *pool) SetStatus(machineID string, sts status.Status, msg string) error {
 	machine, err := p.SystemState().Machine(machineID)
 	if err != nil {

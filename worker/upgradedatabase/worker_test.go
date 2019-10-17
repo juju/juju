@@ -4,6 +4,7 @@
 package upgradedatabase_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -157,7 +158,8 @@ func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 	s.expectExecution()
 	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
 	s.logger.EXPECT().Infof("database upgrade to %v completed successfully.", jujuversion.Current)
-	s.pool.EXPECT().SetStatus("0", status.Started, "")
+	s.pool.EXPECT().SetStatus(
+		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
 
 	s.lock.EXPECT().Unlock()
 
@@ -184,7 +186,8 @@ func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 
 	s.pool.EXPECT().SetStatus("0", status.Error, "upgrading database to "+jujuversion.Current.String())
 	s.logger.EXPECT().Infof("database upgrade to %v completed successfully.", jujuversion.Current)
-	s.pool.EXPECT().SetStatus("0", status.Started, "")
+	s.pool.EXPECT().SetStatus(
+		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
 
 	s.lock.EXPECT().Unlock()
 
