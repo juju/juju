@@ -69,7 +69,8 @@ bootstrap() {
     fi
     bootstrapped_name=$(grep "." "${TEST_DIR}/jujus" | tail -n 1)
     if [ -z "${bootstrapped_name}" ]; then
-        if [ -n "${BOOTSTRAP_REUSE_LOCAL}" ]; then
+        # shellcheck disable=SC2236
+        if [ ! -z "${BOOTSTRAP_REUSE_LOCAL}" ]; then
             bootstrapped_name="${BOOTSTRAP_REUSE_LOCAL}"
             export BOOTSTRAP_REUSE="true"
         else
