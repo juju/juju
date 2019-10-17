@@ -184,11 +184,11 @@ Changed cloud credential on model "controller" to "newcred".
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandAll(c *gc.C) {
-	ctx, err := s.run(c, "show-credential")
+	ctx, err := s.run(c, "show-credential", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-local-credentials: {}
+client-credentials: {}
 controller-credentials:
   dummy:
     cred:
@@ -202,11 +202,11 @@ controller-credentials:
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandWithName(c *gc.C) {
-	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets")
+	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "local credential content lookup failed: loading credentials: credentials for cloud dummy not found\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "client credential content lookup failed: loading credentials: credentials for cloud dummy not found\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-local-credentials: {}
+client-credentials: {}
 controller-credentials:
   dummy:
     cred:
