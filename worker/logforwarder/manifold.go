@@ -14,6 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Infof(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig defines the names of the manifolds on which a
 // Manifold will depend.
 type ManifoldConfig struct {
@@ -30,6 +36,8 @@ type ManifoldConfig struct {
 
 	// OpenLogForwarder opens each log forwarder that will be used.
 	OpenLogForwarder func(OpenLogForwarderArgs) (*LogForwarder, error)
+
+	Logger Logger
 }
 
 // Manifold returns a dependency manifold that runs a log forwarding
@@ -73,6 +81,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Sinks:            config.Sinks,
 				OpenLogStream:    openLogStream,
 				OpenLogForwarder: openForwarder,
+				Logger:           config.Logger,
 			})
 			return orchestrator, errors.Annotate(err, "creating log forwarding orchestrator")
 		},

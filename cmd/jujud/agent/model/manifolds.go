@@ -300,6 +300,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 				Name:   "juju-log-forward",
 				OpenFn: sinks.OpenSyslog,
 			}},
+			Logger: config.LoggingContext.GetLogger("juju.worker.logforwarder"),
 		})),
 		// The environ upgrader runs on all controller agents, and
 		// unlocks the gate when the environ is up-to-date. The
@@ -311,6 +312,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		modelUpgradedFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  modelUpgradeGateName,
 			NewWorker: gate.NewFlagWorker,
+			// No Logger defined in gate package.
 		}),
 	}
 	return result
@@ -383,11 +385,12 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:                    storageprovisioner.NewStorageProvisioner,
 		}))),
 		firewallerName: ifNotMigrating(ifCredentialValid(firewaller.Manifold(firewaller.ManifoldConfig{
-			AgentName:               agentName,
-			APICallerName:           apiCallerName,
-			EnvironName:             environTrackerName,
-			NewControllerConnection: apicaller.NewExternalControllerConnection,
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			EnvironName:   environTrackerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.firewaller"),
 
+			NewControllerConnection:      apicaller.NewExternalControllerConnection,
 			NewFirewallerWorker:          firewaller.NewWorker,
 			NewFirewallerFacade:          firewaller.NewFirewallerFacade,
 			NewRemoteRelationsFacade:     firewaller.NewRemoteRelationsFacade,

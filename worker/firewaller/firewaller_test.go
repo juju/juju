@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -223,6 +224,7 @@ func (s *InstanceModeSuite) newFirewallerWithClock(c *gc.C, clock clock.Clock) w
 			return s.crossmodelFirewaller, nil
 		},
 		Clock:         s.clock,
+		Logger:        loggo.GetLogger("test"),
 		CredentialAPI: s.credentialsFacade,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
@@ -1287,6 +1289,7 @@ func (s *GlobalModeSuite) newFirewaller(c *gc.C) worker.Worker {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
+		Logger:        loggo.GetLogger("test"),
 		CredentialAPI: s.credentialsFacade,
 	}
 	fw, err := firewaller.NewFirewaller(cfg)
@@ -1538,6 +1541,7 @@ func (s *NoneModeSuite) TestStopImmediately(c *gc.C) {
 		NewCrossModelFacadeFunc: func(*api.Info) (firewaller.CrossModelFirewallerFacadeCloser, error) {
 			return s.crossmodelFirewaller, nil
 		},
+		Logger:        loggo.GetLogger("test"),
 		CredentialAPI: s.credentialsFacade,
 	}
 	_, err := firewaller.NewFirewaller(cfg)

@@ -5,6 +5,7 @@ package firewaller_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -79,6 +80,7 @@ func validConfig() firewaller.ManifoldConfig {
 		AgentName:                    "agent",
 		APICallerName:                "api-caller",
 		EnvironName:                  "environ",
+		Logger:                       loggo.GetLogger("test"),
 		NewControllerConnection:      func(*api.Info) (api.Connection, error) { return nil, nil },
 		NewFirewallerFacade:          func(base.APICaller) (firewaller.FirewallerAPI, error) { return nil, nil },
 		NewFirewallerWorker:          func(firewaller.Config) (worker.Worker, error) { return nil, nil },
@@ -104,6 +106,11 @@ func (s *ManifoldConfigSuite) TestMissingAPICallerName(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingEnvironName(c *gc.C) {
 	s.config.EnvironName = ""
 	s.checkNotValid(c, "empty EnvironName not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
 }
 
 func (s *ManifoldConfigSuite) TestMissingNewFirewallerFacade(c *gc.C) {
