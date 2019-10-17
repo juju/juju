@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -44,13 +45,13 @@ func (s *showSuite) TestShowBadArgs(c *gc.C) {
 }
 
 func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
-	cmd := cloud.NewShowCloudCommandForTest(
+	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ShowCloudAPI, error) {
+		func() (cloud.ShowCloudAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
-	ctx, err := cmdtesting.RunCommand(c, cmd, "aws-china", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, command, "aws-china", "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, expectedOutput)
@@ -58,6 +59,9 @@ func (s *showSuite) assertShowLocal(c *gc.C, expectedOutput string) {
 
 func (s *showSuite) TestShowLocal(c *gc.C) {
 	s.assertShowLocal(c, `
+
+Client cloud "aws-china":
+
 defined: public
 type: ec2
 description: Amazon China
@@ -73,6 +77,9 @@ regions:
 func (s *showSuite) TestShowLocalWithDefaultCloud(c *gc.C) {
 	s.store.Credentials["aws-china"] = jujucloud.CloudCredential{DefaultRegion: "cn-north-1"}
 	s.assertShowLocal(c, `
+
+Client cloud "aws-china":
+
 defined: public
 type: ec2
 description: Amazon China
@@ -87,7 +94,6 @@ regions:
 }
 
 func (s *showSuite) TestShowKubernetes(c *gc.C) {
-	var controllerAPICalled string
 	s.api.cloud = jujucloud.Cloud{
 		Name:        "beehive",
 		Type:        "kubernetes",
@@ -101,18 +107,19 @@ func (s *showSuite) TestShowKubernetes(c *gc.C) {
 			},
 		},
 	}
-	cmd := cloud.NewShowCloudCommandForTest(
+	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ShowCloudAPI, error) {
-			controllerAPICalled = controllerName
+		func() (cloud.ShowCloudAPI, error) {
 			return s.api, nil
 		})
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "beehive")
-	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := cmdtesting.RunCommand(c, command, "--controller", "mycontroller", "beehive")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	s.api.CheckCallNames(c, "Cloud", "Close")
-	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
+Cloud "beehive" from controller "mycontroller":
+
 defined: public
 type: k8s
 description: Bumble Bees
@@ -124,10 +131,9 @@ regions:
 `[1:])
 }
 
-func (s *showSuite) TestShowControllerCloud(c *gc.C) {
-	var controllerAPICalled string
+func (s *showSuite) setupRemoteCloud(cloudName string) {
 	s.api.cloud = jujucloud.Cloud{
-		Name:        "beehive",
+		Name:        cloudName,
 		Type:        "openstack",
 		Description: "Bumble Bees",
 		AuthTypes:   []jujucloud.AuthType{"userpass", "access-key"},
@@ -139,18 +145,23 @@ func (s *showSuite) TestShowControllerCloud(c *gc.C) {
 			},
 		},
 	}
-	cmd := cloud.NewShowCloudCommandForTest(
+}
+
+func (s *showSuite) TestShowControllerCloudNoLocal(c *gc.C) {
+	s.setupRemoteCloud("beehive")
+	command := cloud.NewShowCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.ShowCloudAPI, error) {
-			controllerAPICalled = controllerName
+		func() (cloud.ShowCloudAPI, error) {
 			return s.api, nil
 		})
-	ctx, err := cmdtesting.RunCommand(c, cmd, "beehive")
-	c.Assert(err, jc.ErrorIsNil)
+	ctx, err := cmdtesting.RunCommand(c, command, "beehive", "--no-prompt")
+	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	s.api.CheckCallNames(c, "Cloud", "Close")
-	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
+Cloud "beehive" from controller "mycontroller":
+
 defined: public
 type: openstack
 description: Bumble Bees
@@ -159,6 +170,44 @@ endpoint: http://myopenstack
 regions:
   regionone:
     endpoint: http://boston/1.0
+`[1:])
+}
+
+func (s *showSuite) TestShowControllerAndLocalCloud(c *gc.C) {
+	s.setupRemoteCloud("aws-china")
+	command := cloud.NewShowCloudCommandForTest(
+		s.store,
+		func() (cloud.ShowCloudAPI, error) {
+			return s.api, nil
+		})
+	ctx, err := cmdtesting.RunCommand(c, command, "aws-china", "--no-prompt")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Cloud", "Close")
+	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	out := cmdtesting.Stdout(ctx)
+	c.Assert(out, gc.Equals, `
+Cloud "aws-china" from controller "mycontroller":
+
+defined: public
+type: openstack
+description: Bumble Bees
+auth-types: [userpass, access-key]
+endpoint: http://myopenstack
+regions:
+  regionone:
+    endpoint: http://boston/1.0
+
+Client cloud "aws-china":
+
+defined: public
+type: ec2
+description: Amazon China
+auth-types: [access-key]
+regions:
+  cn-north-1:
+    endpoint: https://ec2.cn-north-1.amazonaws.com.cn
+  cn-northwest-1:
+    endpoint: https://ec2.cn-northwest-1.amazonaws.com.cn
 `[1:])
 }
 
@@ -183,6 +232,9 @@ clouds:
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
+
+Client cloud "homestack":
+
 defined: local
 type: openstack
 description: Openstack Cloud
@@ -248,7 +300,11 @@ clouds:
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewShowCloudCommand(), "homestack", "--include-config", "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
-	c.Assert(out, gc.Equals, strings.Join([]string{`defined: local
+	c.Assert(out, gc.Equals, strings.Join([]string{`
+
+Client cloud "homestack":
+
+defined: local
 type: openstack
 description: Openstack Cloud
 auth-types: [userpass, access-key]
@@ -263,7 +319,7 @@ region-config:
   london:
     bootstrap-timeout: 1800
     use-floating-ip: true
-`, openstackProviderConfig}, ""))
+`[1:], openstackProviderConfig}, ""))
 }
 
 func (s *showSuite) TestShowWithRegionConfigAndFlagNoExtraOut(c *gc.C) {
@@ -271,6 +327,9 @@ func (s *showSuite) TestShowWithRegionConfigAndFlagNoExtraOut(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, gc.Equals, `
+
+Client cloud "joyent":
+
 defined: public
 type: joyent
 description: Joyent Cloud
@@ -323,6 +382,9 @@ clouds:
 `[1:]
 
 var resultWithCert = `
+
+Client cloud "homestack":
+
 defined: local
 type: openstack
 description: Openstack Cloud
