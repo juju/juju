@@ -404,12 +404,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName: apiCallerName,
 			NewFacade:     applicationscaler.NewFacade,
 			NewWorker:     applicationscaler.New,
+			// No Logger defined in applicationscaler package.
 		})),
 		instancePollerName: ifNotMigrating(ifCredentialValid(instancepoller.Manifold(instancepoller.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			ClockName:                    clockName,
 			Delay:                        config.InstPollerAggregationDelay,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{

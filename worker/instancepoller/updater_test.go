@@ -7,6 +7,7 @@ package instancepoller
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
@@ -60,7 +61,7 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	}
 	done := make(chan error)
 	go func() {
-		done <- watchMachinesLoop(context, watcher)
+		done <- watchMachinesLoop(context, watcher, loggo.GetLogger("test"))
 	}()
 	// Send two changes; the first one should start the machineLoop;
 	// the second should call Refresh.
@@ -133,7 +134,7 @@ func (s *updaterSuite) TestManualMachinesStatusChangedAndIgnored(c *gc.C) {
 	}
 	done := make(chan error)
 	go func() {
-		done <- watchMachinesLoop(context, watcher)
+		done <- watchMachinesLoop(context, watcher, loggo.GetLogger("test"))
 	}()
 	// Send a change to start the machineLoop;
 	watcher.changes <- []string{"99"}

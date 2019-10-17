@@ -22,6 +22,7 @@ type Config struct {
 	Delay   time.Duration
 	Facade  *instancepoller.API
 	Environ InstanceGetter
+	Logger  Logger
 
 	CredentialAPI common.CredentialAPI
 }
@@ -38,6 +39,9 @@ func (config Config) Validate() error {
 	}
 	if config.Environ == nil {
 		return errors.NotValidf("nil Environ")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if config.CredentialAPI == nil {
 		return errors.NotValidf("nil CredentialAPI")
@@ -103,7 +107,7 @@ func (u *updaterWorker) loop() (err error) {
 	if err := u.catacomb.Add(watcher); err != nil {
 		return errors.Trace(err)
 	}
-	return watchMachinesLoop(u, watcher)
+	return watchMachinesLoop(u, watcher, u.config.Logger)
 }
 
 // newMachineContext is part of the updaterContext interface.

@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
@@ -18,7 +17,9 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-var logger = loggo.GetLogger("juju.worker.instancepoller")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // ShortPoll and LongPoll hold the polling intervals for the instance
 // updater. When a machine has no address or is not started, it will be
@@ -77,17 +78,19 @@ type updater struct {
 	context     updaterContext
 	machines    map[names.MachineTag]chan struct{}
 	machineDead chan machine
+	logger      Logger
 }
 
 // watchMachinesLoop watches for changes provided by the given
 // machinesWatcher and starts machine goroutines to deal with them,
 // using the provided newMachineContext function to create the
 // appropriate context for each new machine tag.
-func watchMachinesLoop(context updaterContext, machinesWatcher watcher.StringsWatcher) (err error) {
+func watchMachinesLoop(context updaterContext, machinesWatcher watcher.StringsWatcher, logger Logger) (err error) {
 	p := &updater{
 		context:     context,
 		machines:    make(map[names.MachineTag]chan struct{}),
 		machineDead: make(chan machine),
+		logger:      logger,
 	}
 	defer func() {
 		// TODO(fwereade): is this a home-grown sync.WaitGroup or something?
@@ -141,7 +144,7 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 				machineStatus := status.Status(statusInfo.Status)
 				if machineStatus != status.Running {
 					if err = m.SetInstanceStatus(status.Running, "Manually provisioned machine", nil); err != nil {
-						logger.Errorf("cannot set instance status on %q: %v", m, err)
+						p.logger.Errorf("cannot set instance status on %q: %v", m, err)
 					}
 				}
 				continue
@@ -149,7 +152,7 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 			c = make(chan struct{})
 			p.machines[tag] = c
 			// TODO(fwereade): 2016-03-17 lp:1558657
-			go runMachine(p.context.newMachineContext(), m, c, p.machineDead, clock.WallClock)
+			go runMachine(p.context.newMachineContext(), m, c, p.machineDead, clock.WallClock, p.logger)
 		} else {
 			select {
 			case <-p.context.dying():
@@ -163,7 +166,7 @@ func (p *updater) startMachines(tags []names.MachineTag) error {
 
 // runMachine processes the address and status publishing for a given machine.
 // We assume that the machine is alive when this is first called.
-func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine, clock clock.Clock) {
+func runMachine(context machineContext, m machine, changed <-chan struct{}, died chan<- machine, clock clock.Clock, logger Logger) {
 	defer func() {
 		// We can't just send on the died channel because the
 		// central loop might be trying to write to us on the
@@ -176,18 +179,18 @@ func runMachine(context machineContext, m machine, changed <-chan struct{}, died
 			}
 		}
 	}()
-	if err := machineLoop(context, m, changed, clock); err != nil {
+	if err := machineLoop(context, m, changed, clock, logger); err != nil {
 		context.kill(err)
 	}
 }
 
-func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{}, clock clock.Clock) error {
+func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{}, clock clock.Clock, logger Logger) error {
 	// Use a short poll interval when initially waiting for
 	// a machine's address and machine agent to start, and a long one when it already
 	// has an address and the machine agent is started.
 	pollInterval := ShortPoll
 	pollInstance := func() error {
-		instInfo, err := pollInstanceInfo(context, m)
+		instInfo, err := pollInstanceInfo(context, m, logger)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -246,7 +249,7 @@ func machineLoop(context machineContext, m machine, lifeChanged <-chan struct{},
 
 // pollInstanceInfo checks the current provider addresses and status
 // for the given machine's instance, and sets them on the machine if they've changed.
-func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo, err error) {
+func pollInstanceInfo(context machineContext, m machine, logger Logger) (instInfo instanceInfo, err error) {
 	instInfo = instanceInfo{}
 	instId, err := m.InstanceId()
 	// We can't ask the machine for its addresses if it isn't provisioned yet.
@@ -292,7 +295,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 			return instanceInfo{}, errors.Trace(err)
 		}
 
-		if !addressesEqual(providerAddresses, instInfo.addresses) {
+		if !addressesEqual(providerAddresses, instInfo.addresses, logger) {
 			logger.Infof("machine %q has new addresses: %v", m.Id(), instInfo.addresses)
 			if err := m.SetProviderAddresses(instInfo.addresses...); err != nil {
 				logger.Errorf("cannot set addresses on %q: %v", m, err)
@@ -304,7 +307,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 }
 
 // addressesEqual compares the addresses of the machine and the instance information.
-func addressesEqual(addrs0, addrs1 network.ProviderAddresses) bool {
+func addressesEqual(addrs0, addrs1 network.ProviderAddresses, logger Logger) bool {
 	if len(addrs0) != len(addrs1) {
 		logger.Tracef("address lists have different lengths %d != %d, for %v != %v",
 			len(addrs0), len(addrs1), addrs0, addrs1)
