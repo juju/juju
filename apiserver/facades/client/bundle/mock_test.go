@@ -43,6 +43,18 @@ func (m *mockState) SpaceNamesByID() (map[string]string, error) {
 	return m.Spaces, nil
 }
 
+func (m *mockState) SpaceIDsByName() (map[string]string, error) {
+	idsByName := make(map[string]string, len(m.Spaces))
+	for k, v := range m.Spaces {
+		idsByName[v] = k
+	}
+	return idsByName, nil
+}
+
+func (m *mockState) SpaceByID(_ string) (*state.Space, error) {
+	return nil, nil
+}
+
 func newMockState() *mockState {
 	st := &mockState{
 		Stub: testing.Stub{},

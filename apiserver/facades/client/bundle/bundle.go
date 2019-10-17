@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -462,11 +463,7 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
-		endpointBindings, err := state.NewBindings(b.backend, application.EndpointBindings())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		endpointsWithSpaceNames, err := endpointBindings.MapWithSpaceNames()
+		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -614,6 +611,23 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	}
 
 	return data, nil
+}
+
+func (b *BundleAPI) endpointBindings(bindings map[string]string) (map[string]string, error) {
+	endpointBindings, err := state.NewBindings(b.backend, bindings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpointsWithSpaceNames, err := endpointBindings.MapWithSpaceNames()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for k, v := range endpointsWithSpaceNames {
+		if v == network.DefaultSpaceName {
+			delete(endpointsWithSpaceNames, k)
+		}
+	}
+	return endpointsWithSpaceNames, nil
 }
 
 // filterOfferACL prunes the input offer ACL to remove internal juju users that
