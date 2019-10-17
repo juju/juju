@@ -398,6 +398,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 		unitAssignerName: ifNotMigrating(unitassigner.Manifold(unitassigner.ManifoldConfig{
 			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.unitassigner"),
 		})),
 		applicationScalerName: ifNotMigrating(applicationscaler.Manifold(applicationscaler.ManifoldConfig{
 			APICallerName: apiCallerName,
