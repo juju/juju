@@ -106,8 +106,9 @@ func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 }
 
-func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
+func (s *ShowCredentialSuite) TestShowCredentialBothClientAndController(c *gc.C) {
 	_true := true
+	s.putCredentialsInStore(c)
 	s.api.contents = []params.CredentialContentResult{
 		{
 			Result: &params.ControllerCredentialInfo{
@@ -145,13 +146,31 @@ controller-credentials:
         abcmodel: admin
         no-access-model: no access
         xyzmodel: read
-client-credentials: {}
+client-credentials:
+  aws:
+    my-credential:
+      content:
+        auth-type: access-key
+        access-key: key
+        secret-key: secret
+  somecloud:
+    its-another-credential:
+      content:
+        auth-type: access-key
+        access-key: key
+        secret-key: secret
+    its-credential:
+      content:
+        auth-type: access-key
+        access-key: key
+        secret-key: secret
 `[1:])
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 	c.Assert(s.api.inclsecrets, jc.IsTrue)
 }
 
 func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
+	s.putCredentialsInStore(c)
 	_true := true
 	_false := false
 	s.api.contents = []params.CredentialContentResult{

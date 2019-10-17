@@ -209,8 +209,8 @@ type NamedCredentials map[string]CredentialDetails
 type CloudCredentials map[string]NamedCredentials
 
 type ControllerCredentials struct {
-	Controller CloudCredentials `yaml:"controller-credentials"`
-	Client     CloudCredentials `yaml:"client-credentials"`
+	Controller CloudCredentials `yaml:"controller-credentials,omitempty"`
+	Client     CloudCredentials `yaml:"client-credentials,omitempty"`
 }
 
 func (c *showCredentialCommand) parseContents(ctxt *cmd.Context, in []params.CredentialContentResult) CloudCredentials {

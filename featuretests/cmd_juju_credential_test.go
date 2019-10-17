@@ -197,14 +197,12 @@ controller-credentials:
         username: dummy
       models:
         controller: admin
-client-credentials: {}
 `[1:])
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandWithName(c *gc.C) {
 	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets", "--no-prompt", "--controller-only")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "client credential content lookup failed: loading credentials: credentials for cloud dummy not found\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 controller-credentials:
   dummy:
