@@ -29,7 +29,7 @@ type ManifoldConfig struct {
 // Validate returns an error if the manifold config is not valid.
 func (cfg ManifoldConfig) Validate() error {
 	if cfg.UpgradeDBGateName == "" {
-		return errors.NotValidf("emtpy UpgradeDBGateName")
+		return errors.NotValidf("empty UpgradeDBGateName")
 	}
 	if cfg.Logger == nil {
 		return errors.NotValidf("nil Logger")
