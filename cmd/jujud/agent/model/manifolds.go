@@ -87,10 +87,6 @@ type ManifoldsConfig struct {
 	// written into the model's logging collection rather than the controller's.
 	LoggingContext *loggo.Context
 
-	// InstPollerAggregationDelay is the delay before sending a batch of
-	// requests in the instancepoller.Worker's aggregate loop.
-	InstPollerAggregationDelay time.Duration
-
 	// RunFlagDuration defines for how long this controller will ask
 	// for model administration rights; most of the workers controlled
 	// by this agent will only be started when the run flag is known
@@ -410,7 +406,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			ClockName:                    clockName,
-			Delay:                        config.InstPollerAggregationDelay,
 			Logger:                       config.LoggingContext.GetLogger("juju.worker.instancepoller"),
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
 		}))),
