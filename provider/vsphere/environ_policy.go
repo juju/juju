@@ -30,7 +30,10 @@ func (env *sessionEnviron) PrecheckInstance(ctx context.ProviderCallContext, arg
 	if err := env.checkZones(ctx, args.Constraints.Zones); err != nil {
 		return errors.Trace(err)
 	}
-	err := env.checkDatastore(ctx, args.Constraints.RootDiskSource)
+	if err := env.checkDatastore(ctx, args.Constraints.RootDiskSource); err != nil {
+		return errors.Trace(err)
+	}
+	err := env.checkExtendPermissions(ctx, args.Constraints.RootDisk)
 	return errors.Trace(err)
 }
 
@@ -69,6 +72,25 @@ func (env *sessionEnviron) checkDatastore(ctx context.ProviderCallContext, datas
 		}
 	}
 	return errors.NotFoundf("datastore %q", name)
+}
+
+func (env *sessionEnviron) checkExtendPermissions(ctx context.ProviderCallContext, rootDisk *uint64) error {
+	if rootDisk == nil || *rootDisk == 0 {
+		return nil
+	}
+	// If we're going to need to resize the root disk we need to have
+	// the System.Read privilege on the root level folder - this seems
+	// to be because the extend disk task doesn't get created with a
+	// target, so the root-level permissions are applied.
+	ok, err := env.client.UserHasRootLevelPrivilege(env.ctx, "System.Read")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !ok {
+		user := env.cloud.Credential.Attributes()[credAttrUser]
+		return errors.Errorf("the System.Read privilege is required at the root level to extend disks - please grant the ReadOnly role to %q", user)
+	}
+	return nil
 }
 
 var unsupportedConstraints = []string{
