@@ -48,7 +48,7 @@ always to be shown, use --no-prompt option.
 
 Use --controller option to show a cloud from a different controller.
 
-Use --client-only option to only show a cloud known locally on this client.
+Use --client-only option to only show a cloud known on this client.
 
 Use --controller-only option to only show a cloud known on the controller.
 
@@ -187,7 +187,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 				ctxt.Warningf("%v", localErr)
 				displayErr = cmd.ErrSilent
 			} else {
-				ctxt.Infof("No cloud %q exists locally on this client.", c.CloudName)
+				ctxt.Infof("No cloud %q exists on this client.", c.CloudName)
 			}
 		}
 	}
