@@ -2537,11 +2537,12 @@ func (s *CAASUnitSuite) TestAllAddresses(c *gc.C) {
 	err = s.application.UpdateUnits(&updateUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	addr, err := existingUnit.AllAddresses()
+	addrs, err := existingUnit.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(addr, jc.DeepEquals, corenetwork.SpaceAddresses{
+	c.Assert(addrs, jc.DeepEquals, corenetwork.SpaceAddresses{
 		corenetwork.NewScopedSpaceAddress("192.168.1.2", corenetwork.ScopeCloudLocal),
 		corenetwork.NewScopedSpaceAddress("54.32.1.2", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.0.0.1", corenetwork.ScopeMachineLocal),
 	})
 }
 
