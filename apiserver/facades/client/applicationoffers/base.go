@@ -490,7 +490,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 			continue
 		}
 		// The offer application may have endpoints the local
-		// appliction does not.  Add and assume the default space.
+		// application does not.  Add and assume the default space.
 		if bindings == nil {
 			bindings = make(map[string]string)
 		}
