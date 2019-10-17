@@ -17,12 +17,21 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Infof(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by the instancepoller worker.
 type ManifoldConfig struct {
 	APICallerName string
 	ClockName     string
 	Delay         time.Duration
 	EnvironName   string
+	Logger        Logger
 
 	NewCredentialValidatorFacade func(base.APICaller) (common.CredentialAPI, error)
 }
@@ -53,6 +62,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Delay:         config.Delay,
 		Facade:        facade,
 		Environ:       environ,
+		Logger:        config.Logger,
 		CredentialAPI: credentialAPI,
 	})
 	if err != nil {

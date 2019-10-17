@@ -13,21 +13,31 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Tracef(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by a unitassigner worker.
-type ManifoldConfig engine.APIManifoldConfig
+type ManifoldConfig struct {
+	APICallerName string
+	Logger        Logger
+}
 
 // Manifold returns a Manifold that runs a unitassigner worker.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return engine.APIManifold(
-		engine.APIManifoldConfig(config),
-		manifoldStart,
+		engine.APIManifoldConfig{
+			APICallerName: config.APICallerName,
+		},
+		config.start,
 	)
 }
 
-// manifoldStart returns a unitassigner worker using the supplied APICaller.
-func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
+// start returns a unitassigner worker using the supplied APICaller.
+func (c *ManifoldConfig) start(apiCaller base.APICaller) (worker.Worker, error) {
 	facade := unitassigner.New(apiCaller)
-	worker, err := New(facade)
+	worker, err := New(facade, c.Logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

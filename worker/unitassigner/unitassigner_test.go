@@ -6,6 +6,7 @@ package unitassigner
 import (
 	"errors"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
@@ -19,9 +20,13 @@ var _ = gc.Suite(testsuite{})
 
 type testsuite struct{}
 
+func newHandler(api UnitAssigner) unitAssignerHandler {
+	return unitAssignerHandler{api: api, logger: loggo.GetLogger("test")}
+}
+
 func (testsuite) TestSetup(c *gc.C) {
 	f := &fakeAPI{}
-	ua := unitAssignerHandler{api: f}
+	ua := newHandler(f)
 	_, err := ua.SetUp()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(f.calledWatch, jc.IsTrue)
@@ -33,7 +38,7 @@ func (testsuite) TestSetup(c *gc.C) {
 
 func (testsuite) TestHandle(c *gc.C) {
 	f := &fakeAPI{}
-	ua := unitAssignerHandler{api: f}
+	ua := newHandler(f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
 	c.Assert(err, jc.ErrorIsNil)
@@ -50,7 +55,7 @@ func (testsuite) TestHandle(c *gc.C) {
 func (testsuite) TestHandleError(c *gc.C) {
 	e := errors.New("some error")
 	f := &fakeAPI{assignErrs: []error{e}}
-	ua := unitAssignerHandler{api: f}
+	ua := newHandler(f)
 	ids := []string{"foo/0", "bar/0"}
 	err := ua.Handle(nil, ids)
 	c.Assert(err, jc.ErrorIsNil)
