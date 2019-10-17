@@ -2607,15 +2607,15 @@ func ConvertAddressSpaceIDs(pool *StatePool) error {
 			return errors.Annotate(err, "getting machine upgrade ops")
 		}
 
-		csOps, err := convertCloudAddressSpaceIDs(db, cloudServicesC)
+		csOps, err := convertCloudServiceAddressSpaceIDs(db)
 		if err != nil {
-			return errors.Annotate(err, "getting machine upgrade ops")
+			return errors.Annotate(err, "getting cloud service upgrade ops")
 		}
 		ops = append(ops, csOps...)
 
-		ccOps, err := convertCloudAddressSpaceIDs(db, cloudContainersC)
+		ccOps, err := convertCloudContainerAddressSpaceIDs(db)
 		if err != nil {
-			return errors.Annotate(err, "getting machine upgrade ops")
+			return errors.Annotate(err, "getting cloud container upgrade ops")
 		}
 		ops = append(ops, ccOps...)
 
@@ -2679,13 +2679,13 @@ func convertMachineAddressSpaceIDs(db Database, lookup map[string]string) ([]txn
 	return ops, nil
 }
 
-func convertCloudAddressSpaceIDs(db Database, colName string) ([]txn.Op, error) {
+func convertCloudServiceAddressSpaceIDs(db Database) ([]txn.Op, error) {
 	type cloudDoc struct {
 		DocID     string                 `bson:"_id"`
 		Addresses []upgrade.OldAddress27 `bson:"addresses"`
 	}
 
-	col, closer := db.GetCollection(colName)
+	col, closer := db.GetCollection(cloudServicesC)
 	defer closer()
 
 	var err error
@@ -2703,10 +2703,47 @@ func convertCloudAddressSpaceIDs(db Database, colName string) ([]txn.Op, error) 
 		}
 
 		ops = append(ops, txn.Op{
-			C:  machinesC,
+			C:  cloudServicesC,
 			Id: doc.DocID,
 			Update: bson.D{
 				{"$set", bson.D{{"addresses", doc.Addresses}}},
+			},
+		})
+	}
+
+	return ops, nil
+}
+
+func convertCloudContainerAddressSpaceIDs(db Database) ([]txn.Op, error) {
+	type cloudDoc struct {
+		DocID   string                `bson:"_id"`
+		Address *upgrade.OldAddress27 `bson:"address"`
+	}
+
+	col, closer := db.GetCollection(cloudContainersC)
+	defer closer()
+
+	var err error
+	var docs []cloudDoc
+	if err = col.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		if doc.Address == nil {
+			continue
+		}
+
+		// CAAS addresses at this point in time are space-less.
+		// We just need to ensure that they all have the zero ID.
+		doc.Address.SpaceID = "0"
+
+		ops = append(ops, txn.Op{
+			C:  cloudContainersC,
+			Id: doc.DocID,
+			Update: bson.D{
+				{"$set", bson.D{{"address", doc.Address}}},
 			},
 		})
 	}
