@@ -133,7 +133,6 @@ func (s *ShowCredentialSuite) TestShowCredentialOne(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-client-credentials: {}
 controller-credentials:
   aws:
     credential-name:
@@ -146,6 +145,7 @@ controller-credentials:
         abcmodel: admin
         no-access-model: no access
         xyzmodel: read
+client-credentials: {}
 `[1:])
 	s.api.CheckCallNames(c, "BestAPIVersion", "CredentialContents", "Close")
 	c.Assert(s.api.inclsecrets, jc.IsTrue)
@@ -206,11 +206,10 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt", "--controller-only")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "boom\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-client-credentials: {}
 controller-credentials:
   cloud-name:
     one:
