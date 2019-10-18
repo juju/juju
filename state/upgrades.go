@@ -2699,7 +2699,7 @@ func convertCloudServiceAddressSpaceIDs(db Database) ([]txn.Op, error) {
 		for i := range doc.Addresses {
 			// CAAS addresses at this point in time are space-less.
 			// We just need to ensure that they all have the zero ID.
-			doc.Addresses[i].SpaceID = "0"
+			doc.Addresses[i].SpaceID = network.DefaultSpaceId
 		}
 
 		ops = append(ops, txn.Op{
@@ -2737,7 +2737,7 @@ func convertCloudContainerAddressSpaceIDs(db Database) ([]txn.Op, error) {
 
 		// CAAS addresses at this point in time are space-less.
 		// We just need to ensure that they all have the zero ID.
-		doc.Address.SpaceID = "0"
+		doc.Address.SpaceID = network.DefaultSpaceId
 
 		ops = append(ops, txn.Op{
 			C:  cloudContainersC,
