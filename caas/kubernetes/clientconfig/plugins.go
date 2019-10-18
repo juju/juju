@@ -85,6 +85,48 @@ func ensureJujuAdminServiceAccount(
 	return config, nil
 }
 
+func removeJujuAdminServiceAccount(clientset kubernetes.Interface, stackName string) error {
+	// TODO: can we delete the credential while using itself as credential to talk to the cluster???????
+	labels := getRBACLabels(stackName)
+	for _, api := range []rbacDeleter{
+		// Order matters.
+		clientset.RbacV1().ClusterRoleBindings(),
+		clientset.RbacV1().ClusterRoles(),
+		clientset.CoreV1().ServiceAccounts(adminNameSpace),
+	} {
+		if err := deleteRBACResource(api, labels); err != nil {
+			logger.Warningf("deleting rbac resources: %v", err)
+		}
+	}
+	return nil
+}
+
+type rbacDeleter interface {
+	DeleteCollection(*metav1.DeleteOptions, metav1.ListOptions) error
+}
+
+func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
+	labelsToSelector := func(labels map[string]string) string {
+		var selectors []string
+		for k, v := range labels {
+			selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
+		}
+		sort.Strings(selectors) // for tests.
+		return strings.Join(selectors, ",")
+	}
+	propagationPolicy := metav1.DeletePropagationForeground
+	err := api.DeleteCollection(&metav1.DeleteOptions{
+		PropagationPolicy: &propagationPolicy,
+	}, metav1.ListOptions{
+		LabelSelector:        labelsToSelector(labels),
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}
+
 func ensureClusterRole(clientset kubernetes.Interface, name, namespace string, labels map[string]string) (*rbacv1.ClusterRole, error) {
 	// Try get first because it's more usual to reuse cluster role.
 	clusterRole, err := clientset.RbacV1().ClusterRoles().Get(name, metav1.GetOptions{})
