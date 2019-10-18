@@ -484,6 +484,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 					return caasfirewallerapi.NewClient(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
 		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
