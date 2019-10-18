@@ -450,22 +450,22 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The upgrade database gate is used to coordinate workers that should
 		// not do anything until the upgrade-database worker has finished
 		// running any required database upgrade steps.
-		upgradeDatabaseGateName: gate.ManifoldEx(config.UpgradeStepsLock),
-		upgradeDatabaseFlagName: gate.FlagManifold(gate.FlagManifoldConfig{
+		upgradeDatabaseGateName: ifController(gate.ManifoldEx(config.UpgradeDBLock)),
+		upgradeDatabaseFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
 			GateName:  upgradeDatabaseGateName,
 			NewWorker: gate.NewFlagWorker,
-		}),
+		})),
 
 		// The upgrade-database worker runs soon after the machine agent starts
 		// and runs any steps required to upgrade to the database to the
 		// current version. Once upgrade steps have run, the upgrade-database
 		// gate is unlocked and the worker exits.
-		upgradeDatabaseName: upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
 			AgentName:         agentName,
 			UpgradeDBGateName: upgradeDatabaseGateName,
 			OpenState:         config.OpenStateForUpgrade,
 			Logger:            loggo.GetLogger("juju.worker.upgradedatabase"),
-		}),
+		})),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
