@@ -514,6 +514,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ModelTag:      modelTag,
 			NewFacade:     caasenvironupgrader.NewFacade,
 			NewWorker:     caasenvironupgrader.NewWorker,
+			// No Logger defined in caasenvironupgrader package.
 		}),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,
