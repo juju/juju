@@ -75,7 +75,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraintsAndEndpoints(
 
 	s.unit.EXPECT().Application().Return(s.app, nil)
 	s.app.EXPECT().EndpointBindings().Return(s.bindings, nil)
-	s.bindings.EXPECT().Map().Return(map[string]string{"endpoint": "3"})
+	s.bindings.EXPECT().Map().Return(map[string]string{"": "0", "endpoint": "3"})
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
