@@ -11,9 +11,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/juju/core/paths"
+
 	"github.com/coreos/go-systemd/unit"
 	"github.com/juju/errors"
-	"github.com/juju/os"
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/service/common"
@@ -43,18 +44,6 @@ type confRenderer interface {
 	shell.ScriptRenderer
 }
 
-// SyslogUserGroup returns the names of the user and group that own the log files.
-func SyslogUserGroup() (string, string) {
-	switch os.HostOS() {
-	case os.CentOS:
-		return "root", "adm"
-	case os.OpenSUSE:
-		return "root", "root"
-	default:
-		return "syslog", "adm"
-	}
-}
-
 // normalize adjusts the conf to more standardized content and
 // returns a new Conf with that updated content. It also returns the
 // content of any script file that should accompany the conf.
@@ -66,11 +55,9 @@ func normalize(name string, conf common.Conf, scriptPath string, renderer confRe
 		filename := conf.Logfile
 		cmds = append(cmds, "# Set up logging.")
 		cmds = append(cmds, renderer.Touch(filename, nil)...)
-		// TODO(ericsnow) We should drop the assumption that the logfile
-		// is syslog.
-		user, group := SyslogUserGroup()
+		user, group := paths.SyslogUserGroup()
 		cmds = append(cmds, renderer.Chown(filename, user, group)...)
-		cmds = append(cmds, renderer.Chmod(filename, 0640)...)
+		cmds = append(cmds, renderer.Chmod(filename, paths.LogfilePermission)...)
 		cmds = append(cmds, renderer.RedirectOutput(filename)...)
 		cmds = append(cmds, renderer.RedirectFD("out", "err")...)
 		cmds = append(cmds,

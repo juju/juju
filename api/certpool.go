@@ -13,7 +13,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils/cert"
 
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 )
 
 var certDir = filepath.FromSlash(paths.MustSucceed(paths.CertDir(series.MustHostSeries())))

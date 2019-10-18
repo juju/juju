@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/version"

@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	jworker "github.com/juju/juju/worker"

@@ -5,8 +5,11 @@ package machinelock_test
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/juju/juju/core/paths"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -60,6 +63,12 @@ func (s *lockSuite) SetUpTest(c *gc.C) {
 		// release all the pending goroutines
 		close(s.allowAcquire)
 	})
+}
+
+func (s *lockSuite) TestLogFilePermissions(c *gc.C) {
+	info, err := os.Stat(s.logfile)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(info.Mode(), gc.Equals, paths.LogfilePermission)
 }
 
 func (s *lockSuite) TestEmptyOutput(c *gc.C) {

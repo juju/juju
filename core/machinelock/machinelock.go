@@ -10,6 +10,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/juju/core/paths"
+
 	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
 	"github.com/juju/mutex"
@@ -72,6 +74,10 @@ func (c Config) Validate() error {
 func New(config Config) (*lock, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
+	}
+	if err := paths.PrimeLogFile(config.LogFilename); err != nil {
+		// This isn't a fatal error so  continue if priming fails.
+		_ = fmt.Sprintf("failed to create prime logfile in %s, because: %v", config.LogFilename, err)
 	}
 	lock := &lock{
 		agent:       config.AgentName,

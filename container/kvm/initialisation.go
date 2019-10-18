@@ -11,7 +11,7 @@ import (
 	"github.com/juju/os/series"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/packaging"
 	"github.com/juju/juju/packaging/dependency"
 )

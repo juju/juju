@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/juju/core/paths"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -71,7 +73,7 @@ func (s *AuditLogSuite) TestAuditLogFilePriming(c *gc.C) {
 
 	info, err := os.Stat(filepath.Join(dir, "audit.log"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(info.Mode(), gc.Equals, os.FileMode(0640))
+	c.Assert(info.Mode(), gc.Equals, paths.LogfilePermission)
 	// The chown will only work when run as root.
 }
 

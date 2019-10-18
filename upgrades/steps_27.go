@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/paths"
 
 	"github.com/juju/juju/agent"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
@@ -15,7 +15,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/service/systemd"
 	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v3"
 )
@@ -94,7 +93,7 @@ func stepsFor27() []Step {
 }
 
 func setJujuFolderPermissionsToAdm(dir string) error {
-	wantedOwner, wantedGroup := systemd.SyslogUserGroup()
+	wantedOwner, wantedGroup := paths.SyslogUserGroup()
 
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -104,7 +103,10 @@ func setJujuFolderPermissionsToAdm(dir string) error {
 			return nil
 		}
 		filePath := dir + string(os.PathSeparator) + info.Name()
-		if err := auditlog.SetOwnerGroupLogPermissions(filePath, wantedOwner, wantedGroup, 0640); err != nil {
+		if err := paths.SetOwnerGroupLog(filePath, wantedOwner, wantedGroup); err != nil {
+			return errors.Trace(err)
+		}
+		if err := os.Chmod(filePath, paths.LogfilePermission); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
@@ -133,7 +135,7 @@ func resetLogPermissions(context Context) error {
 		return errors.Trace(err)
 	}
 	if !isSystemd {
-		logger.Infof("upgrade to systemd possible only systems using systemd")
+		logger.Infof("skipping update of log file ownership as host not using systemd")
 		return nil
 	}
 	sysdManager := service.NewServiceManagerWithDefaults()
@@ -146,7 +148,6 @@ func resetLogPermissions(context Context) error {
 	}
 	logger.Infof("Successfully wrote service files in /lib/systemd/system path")
 	return nil
-	// TODO: either add here or under service/systemd a function to check whether the agent systemd services are correct or not
 }
 
 func getCurrentInit() (bool, error) {

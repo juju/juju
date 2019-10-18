@@ -17,8 +17,8 @@ import (
 	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/tools"
 )
 

@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"

@@ -5,10 +5,9 @@ package raftforwarder
 
 import (
 	"io"
-	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/auditlog"
+	"github.com/juju/juju/core/paths"
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
@@ -104,7 +103,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	st := statePool.SystemState()
 
 	logPath := filepath.Join(agent.CurrentConfig().LogDir(), "lease.log")
-	if err := primeLogFile(logPath); err != nil {
+	if err := paths.PrimeLogFile(logPath); err != nil {
 		// This isn't a fatal error, so log and continue if priming
 		// fails.
 		config.Logger.Warningf(
@@ -155,18 +154,4 @@ func makeLogger(path string) *lumberjack.Logger {
 		MaxBackups: maxLogs,
 		Compress:   true,
 	}
-}
-
-// primeLogFile ensures the lease log file is created with the
-// correct mode and ownership.
-func primeLogFile(path string) error {
-	permissions := os.FileMode(0640)
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, permissions)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := f.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	return auditlog.SetOwnerGroupLogPermissions(path, "syslog", "adm", permissions)
 }

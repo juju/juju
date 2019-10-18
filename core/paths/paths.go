@@ -5,6 +5,11 @@
 package paths
 
 import (
+	"os"
+	"os/user"
+	"strconv"
+
+	"github.com/juju/errors"
 	jujuos "github.com/juju/os"
 	"github.com/juju/os/series"
 )
@@ -27,6 +32,7 @@ const (
 	instanceCloudInitDir
 	cloudInitCfgDir
 	curtinInstallConfig
+	LogfilePermission = os.FileMode(0640)
 )
 
 const (
@@ -177,4 +183,50 @@ func MustSucceed(s string, e error) string {
 		panic(e)
 	}
 	return s
+}
+
+func SetOwnerGroupLog(filePath string, wantedOwner string, wantedGroup string) error {
+	group, err := user.LookupGroup(wantedGroup)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	gid, err := strconv.Atoi(group.Gid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	usr, err := user.Lookup(wantedOwner)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	uid, err := strconv.Atoi(usr.Uid)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return os.Chown(filePath, uid, gid)
+}
+
+// PrimeLogFile ensures that the given log file is created with the
+// correct mode and ownership.
+func PrimeLogFile(path string) error {
+	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, LogfilePermission)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := f.Close(); err != nil {
+		return errors.Trace(err)
+	}
+	wantedOwner, wantedGroup := SyslogUserGroup()
+	return SetOwnerGroupLog(path, wantedOwner, wantedGroup)
+}
+
+// SyslogUserGroup returns the names of the user and group that own the log files.
+func SyslogUserGroup() (string, string) {
+	switch jujuos.HostOS() {
+	case jujuos.CentOS:
+		return "root", "adm"
+	case jujuos.OpenSUSE:
+		return "root", "root"
+	default:
+		return "syslog", "adm"
+	}
 }
