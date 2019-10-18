@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -293,6 +294,92 @@ func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, err
 	}
 
 	return a.internalList(arg, combine(pendingActions, runningActions, completedActions))
+}
+
+// Tasks fetches the called functions (actions) for specified apps/units.
+func (a *ActionAPI) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	unitTags := set.NewStrings()
+	for _, name := range arg.Units {
+		unitTags.Add(names.NewUnitTag(name).String())
+	}
+	appNames := arg.Applications
+	if len(appNames) == 0 && unitTags.Size() == 0 {
+		apps, err := a.state.AllApplications()
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		for _, a := range apps {
+			appNames = append(appNames, a.Name())
+		}
+	}
+	for _, aName := range appNames {
+		app, err := a.state.Application(aName)
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		units, err := app.AllUnits()
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		for _, u := range units {
+			unitTags.Add(u.Tag().String())
+		}
+	}
+
+	var entities params.Entities
+	for _, unitTag := range unitTags.Values() {
+		entities.Entities = append(entities.Entities, params.Entity{Tag: unitTag})
+	}
+
+	statusSet := set.NewStrings(arg.Status...)
+	if statusSet.Size() == 0 {
+		statusSet = set.NewStrings(params.ActionPending, params.ActionRunning, params.ActionCompleted)
+	}
+	var extractorFuncs []extractorFn
+	for _, status := range statusSet.Values() {
+		switch status {
+		case params.ActionPending:
+			extractorFuncs = append(extractorFuncs, pendingActions)
+		case params.ActionRunning:
+			extractorFuncs = append(extractorFuncs, runningActions)
+		case params.ActionCompleted:
+			extractorFuncs = append(extractorFuncs, completedActions)
+		}
+	}
+
+	byReceivers, err := a.internalList(entities, combine(extractorFuncs...))
+	if err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	nameMatches := func(name string, filter []string) bool {
+		if len(filter) == 0 {
+			return true
+		}
+		for _, f := range filter {
+			if f == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	var result params.ActionResults
+	for _, actions := range byReceivers.Actions {
+		if actions.Error != nil {
+			return params.ActionResults{}, errors.Trace(actions.Error)
+		}
+		for _, ar := range actions.Actions {
+			if nameMatches(ar.Action.Name, arg.FunctionNames) {
+				result.Results = append(result.Results, ar)
+			}
+		}
+	}
+	return result, nil
 }
 
 // ListPending takes a list of Entities representing ActionReceivers
