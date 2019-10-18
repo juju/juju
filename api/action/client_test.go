@@ -210,5 +210,55 @@ func (s *actionSuite) TestWatchActionProgressNotSupported(c *gc.C) {
 	}
 	client := action.NewClient(apiCaller)
 	_, err := client.WatchActionProgress("666")
-	c.Assert(err, gc.ErrorMatches, "WatchActionProgress not supported by this version of Juju")
+	c.Assert(err, gc.ErrorMatches, "WatchActionProgress not supported by this version \\(4\\) of Juju")
+}
+
+func (s *actionSuite) TestTasks(c *gc.C) {
+	var args params.TaskQueryArgs
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "Tasks")
+				c.Assert(a, jc.DeepEquals, args)
+				c.Assert(result, gc.FitsTypeOf, &params.ActionResults{})
+				*(result.(*params.ActionResults)) = params.ActionResults{
+					Results: []params.ActionResult{{
+						Error: &params.Error{Message: "FAIL"},
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 5,
+	}
+	client := action.NewClient(apiCaller)
+	result, err := client.Tasks(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.ActionResults{
+		Results: []params.ActionResult{{
+			Error: &params.Error{Message: "FAIL"},
+		}},
+	})
+}
+
+func (s *actionSuite) TestTasksNotSupported(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 4,
+	}
+	client := action.NewClient(apiCaller)
+	_, err := client.Tasks(params.TaskQueryArgs{})
+	c.Assert(err, gc.ErrorMatches, "Tasks not supported by this version \\(4\\) of Juju")
 }
