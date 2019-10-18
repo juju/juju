@@ -234,23 +234,29 @@ func (s *Settings) Read() error {
 // readSettingsDoc reads the settings doc with the given key.
 func readSettingsDoc(db Database, collection, key string) (*settingsDoc, error) {
 	var doc settingsDoc
-	if err := readSettingsDocInto(db, collection, key, &doc); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &doc, nil
-}
-
-// readSettingsDocInto reads the settings doc with the given key
-// into the provided output structure.
-func readSettingsDocInto(db Database, collection, key string, out interface{}) error {
 	col, closer := db.GetCollection(collection)
 	defer closer()
 
-	err := col.FindId(key).One(out)
+	err := col.FindId(key).One(&doc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("settings")
 	}
-	return err
+	return &doc, err
+}
+
+// readSettingsDocVersion just reads the Version of the settings document, but none of the contents
+func readSettingsDocVersion(db Database, collection, key string) (int64, error) {
+	var doc struct {
+		Version int64 `bson:"version"`
+	}
+	col, closer := db.GetCollection(collection)
+	defer closer()
+
+	err := col.FindId(key).Select(bson.M{"version": 1}).One(&doc)
+	if err == mgo.ErrNotFound {
+		err = errors.NotFoundf("settings %s", key)
+	}
+	return doc.Version, err
 }
 
 // applyChanges modifies the live settings

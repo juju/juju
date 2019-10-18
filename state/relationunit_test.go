@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
@@ -73,6 +74,33 @@ func (s *RelationUnitSuite) TestReadSettingsErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/pressure" in relation "riak:ring": "riak/pressure" is not a valid unit name`)
 	_, err = ru0.ReadSettings("riak/1")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/1" in relation "riak:ring": unit "riak/1": settings not found`)
+}
+
+func (s *RelationUnitSuite) TestCounterpartApplications(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+
+	c.Check(prr.pru0.CounterpartApplications(), jc.DeepEquals, []string{"wordpress"})
+	c.Check(prr.pru1.CounterpartApplications(), jc.DeepEquals, []string{"wordpress"})
+	c.Check(prr.rru0.CounterpartApplications(), jc.DeepEquals, []string{"mysql"})
+	c.Check(prr.rru1.CounterpartApplications(), jc.DeepEquals, []string{"mysql"})
+}
+
+func (s *RelationUnitSuite) TestCounterpartApplicationsContainerScope(c *gc.C) {
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeContainer)
+
+	// The counterpart application for container scope is still the same
+	c.Check(prr.pru0.CounterpartApplications(), jc.DeepEquals, []string{"logging"})
+	c.Check(prr.pru1.CounterpartApplications(), jc.DeepEquals, []string{"logging"})
+	c.Check(prr.rru0.CounterpartApplications(), jc.DeepEquals, []string{"mysql"})
+	c.Check(prr.rru1.CounterpartApplications(), jc.DeepEquals, []string{"mysql"})
+}
+
+func (s *RelationUnitSuite) TestCounterpartApplicationsPeer(c *gc.C) {
+	pr := newPeerRelation(c, s.State)
+	c.Check(pr.ru0.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
+	c.Check(pr.ru1.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
+	c.Check(pr.ru2.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
+	c.Check(pr.ru3.CounterpartApplications(), jc.DeepEquals, []string{"riak"})
 }
 
 func (s *RelationUnitSuite) TestPeerSettings(c *gc.C) {
@@ -1099,13 +1127,13 @@ func addRemoteRU(c *gc.C, rel *state.Relation, unitName string) *state.RelationU
 	return ru
 }
 
-type WatchScopeSuite struct {
+type WatchRelationUnitsSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&WatchScopeSuite{})
+var _ = gc.Suite(&WatchRelationUnitsSuite{})
 
-func (s *WatchScopeSuite) TestPeer(c *gc.C) {
+func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	// Create an application and get a peer relation.
 	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
 	riakEP, err := riak.Endpoint("ring")
@@ -1150,7 +1178,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	w0 := ru0.Watch()
 	defer testing.AssertStop(c, w0)
 	w0c := testing.NewRelationUnitsWatcherC(c, s.State, w0)
-	w0c.AssertChange(nil, nil)
+	w0c.AssertChange(nil, nil, nil)
 	w0c.AssertNoChange()
 
 	// Join the first unit to the relation, and change the settings, and
@@ -1168,7 +1196,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 
 	// ...and check that the first relation unit sees the change.
 	expectChanged := []string{"riak/1"}
-	w0c.AssertChange(expectChanged, nil)
+	w0c.AssertChange(expectChanged, nil, nil)
 	w0c.AssertNoChange()
 
 	// Join again, check it's a no-op.
@@ -1182,7 +1210,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	defer testing.AssertStop(c, w1)
 	w1c := testing.NewRelationUnitsWatcherC(c, s.State, w1)
 	expectChanged = []string{"riak/0"}
-	w1c.AssertChange(expectChanged, nil)
+	w1c.AssertChange(expectChanged, nil, nil)
 	w1c.AssertNoChange()
 
 	// ---------- Three units ----------
@@ -1192,16 +1220,16 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	defer testing.AssertStop(c, w2)
 	w2c := testing.NewRelationUnitsWatcherC(c, s.State, w2)
 	expectChanged = []string{"riak/0", "riak/1"}
-	w2c.AssertChange(expectChanged, nil)
+	w2c.AssertChange(expectChanged, nil, nil)
 	w2c.AssertNoChange()
 
 	// Join the third unit, and check the first and second units see it.
 	err = ru2.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectChanged = []string{"riak/2"}
-	w0c.AssertChange(expectChanged, nil)
+	w0c.AssertChange(expectChanged, nil, nil)
 	w0c.AssertNoChange()
-	w1c.AssertChange(expectChanged, nil)
+	w1c.AssertChange(expectChanged, nil, nil)
 	w1c.AssertNoChange()
 
 	// Change the second unit's settings, and check that only
@@ -1209,9 +1237,9 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	changeSettings(c, ru1)
 	w1c.AssertNoChange()
 	expectChanged = []string{"riak/1"}
-	w0c.AssertChange(expectChanged, nil)
+	w0c.AssertChange(expectChanged, nil, nil)
 	w0c.AssertNoChange()
-	w2c.AssertChange(expectChanged, nil)
+	w2c.AssertChange(expectChanged, nil, nil)
 	w2c.AssertNoChange()
 
 	// ---------- Two units again ----------
@@ -1220,9 +1248,9 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	err = ru1.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	expectDeparted := []string{"riak/1"}
-	w0c.AssertChange(nil, expectDeparted)
+	w0c.AssertChange(nil, nil, expectDeparted)
 	w0c.AssertNoChange()
-	w2c.AssertChange(nil, expectDeparted)
+	w2c.AssertChange(nil, nil, expectDeparted)
 	w2c.AssertNoChange()
 
 	// Change its settings, and check the others don't observe anything.
@@ -1239,24 +1267,32 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// will be handled by the deferred kill/stop calls. Phew.
 }
 
-func (s *WatchScopeSuite) TestWatchAppSettings(c *gc.C) {
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
-	mysqlEP, err := mysql.Endpoint("server")
+func (s *WatchRelationUnitsSuite) TestWatchAppSettings(c *gc.C) {
+	loggo.GetLogger("juju.state.relationunits").SetLogLevel(loggo.TRACE)
+	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+	prr.allEnterScope(c)
+	claimer := s.State.LeadershipClaimer()
+	c.Assert(claimer.ClaimLeadership(prr.papp.Name(), prr.pu0.Name(), time.Minute), jc.ErrorIsNil)
+	// Watch from the perspective of the requiring unit
+	watcher := prr.rru0.Watch()
+	defer testing.AssertStop(c, watcher)
+	w0c := testing.NewRelationUnitsWatcherC(c, s.State, watcher)
+	w0c.AssertChange(nil, nil, nil)
+	w0c.AssertNoChange()
+	token := s.State.LeadershipChecker().LeadershipCheck(prr.papp.Name(), prr.pu0.Name())
+	settings := map[string]interface{}{
+		"foo": "bar",
+	}
+	c.Assert(prr.rel.UpdateApplicationSettings(prr.papp, token, settings), jc.ErrorIsNil)
+	node0, err := prr.pru0.Settings()
 	c.Assert(err, jc.ErrorIsNil)
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	wordpressEP, err := wordpress.Endpoint("db")
+	node0.Set("key", "value")
+	_, err = node0.Write()
 	c.Assert(err, jc.ErrorIsNil)
-	rel, err := s.State.AddRelation(mysqlEP, wordpressEP)
-	c.Assert(err, jc.ErrorIsNil)
-
-	wpUnit0, err := wordpress.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	wpRelUnit0, err := rel.Unit(wpUnit0)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(wpRelUnit0.EnterScope(nil), jc.ErrorIsNil)
+	w0c.AssertChange(nil, []string{prr.papp.Name()}, nil)
 }
 
-func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
+func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Create a pair of application and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
@@ -1288,7 +1324,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
 	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
-	msw0c.AssertChange(nil, nil)
+	msw0c.AssertChange(nil, nil, nil)
 	msw0c.AssertNoChange()
 
 	// Join the unit to the relation, change its settings, and check that
@@ -1305,7 +1341,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
 	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
-	msw1c.AssertChange(nil, nil)
+	msw1c.AssertChange(nil, nil, nil)
 	msw1c.AssertNoChange()
 
 	// Change the unit's settings, and check that neither provider unit
@@ -1322,21 +1358,21 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	wpw0 := wpru0.Watch()
 	defer testing.AssertStop(c, wpw0)
 	wpw0c := testing.NewRelationUnitsWatcherC(c, s.State, wpw0)
-	wpw0c.AssertChange(expectChanged, nil)
+	wpw0c.AssertChange(expectChanged, nil, nil)
 	wpw0c.AssertNoChange()
 	wpw1 := wpru1.Watch()
 	defer testing.AssertStop(c, wpw1)
 	wpw1c := testing.NewRelationUnitsWatcherC(c, s.State, wpw1)
-	wpw1c.AssertChange(expectChanged, nil)
+	wpw1c.AssertChange(expectChanged, nil, nil)
 	wpw1c.AssertNoChange()
 
 	// Join the first requirer unit, and check the provider units see it.
 	err = wpru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectChanged = []string{"wordpress/0"}
-	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertChange(expectChanged, nil, nil)
 	msw0c.AssertNoChange()
-	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertChange(expectChanged, nil, nil)
 	msw1c.AssertNoChange()
 
 	// Join again, check no-op.
@@ -1349,9 +1385,9 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	err = wpru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectChanged = []string{"wordpress/1"}
-	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertChange(expectChanged, nil, nil)
 	msw0c.AssertNoChange()
-	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertChange(expectChanged, nil, nil)
 	msw1c.AssertNoChange()
 
 	// Verify that neither requirer has observed any change to the relation.
@@ -1361,9 +1397,9 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Change settings for the first requirer, check providers see it...
 	changeSettings(c, wpru0)
 	expectChanged = []string{"wordpress/0"}
-	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertChange(expectChanged, nil, nil)
 	msw0c.AssertNoChange()
-	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertChange(expectChanged, nil, nil)
 	msw1c.AssertNoChange()
 
 	// ...and requirers don't.
@@ -1374,9 +1410,9 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	err = wpru1.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	expectDeparted := []string{"wordpress/1"}
-	msw0c.AssertChange(nil, expectDeparted)
+	msw0c.AssertChange(nil, nil, expectDeparted)
 	msw0c.AssertNoChange()
-	msw1c.AssertChange(nil, expectDeparted)
+	msw1c.AssertChange(nil, nil, expectDeparted)
 	msw1c.AssertNoChange()
 
 	// ...and the requirers don't.
@@ -1386,7 +1422,7 @@ func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Cleanup handled by defers as before.
 }
 
-func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
+func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Create a pair of application and a relation between them.
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("juju-info")
@@ -1428,7 +1464,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
 	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
-	msw0c.AssertChange(nil, nil)
+	msw0c.AssertChange(nil, nil, nil)
 	msw0c.AssertNoChange()
 
 	// Join the unit to the relation, change its settings, and check that
@@ -1443,7 +1479,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
 	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
-	msw1c.AssertChange(nil, nil)
+	msw1c.AssertChange(nil, nil, nil)
 	msw1c.AssertNoChange()
 
 	// Join the second provider unit to the relation, and check that neither
@@ -1466,7 +1502,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	defer testing.AssertStop(c, lgw0)
 	lgw0c := testing.NewRelationUnitsWatcherC(c, s.State, lgw0)
 	expectChanged := []string{"mysql/0"}
-	lgw0c.AssertChange(expectChanged, nil)
+	lgw0c.AssertChange(expectChanged, nil, nil)
 	lgw0c.AssertNoChange()
 
 	// Join the first requirer unit, and check that only the first provider
@@ -1474,7 +1510,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	err = lgru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectChanged = []string{"logging/0"}
-	msw0c.AssertChange(expectChanged, nil)
+	msw0c.AssertChange(expectChanged, nil, nil)
 	msw0c.AssertNoChange()
 	msw1c.AssertNoChange()
 	lgw0c.AssertNoChange()
@@ -1485,14 +1521,14 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	defer testing.AssertStop(c, lgw1)
 	lgw1c := testing.NewRelationUnitsWatcherC(c, s.State, lgw1)
 	expectChanged = []string{"mysql/1"}
-	lgw1c.AssertChange(expectChanged, nil)
+	lgw1c.AssertChange(expectChanged, nil, nil)
 	lgw1c.AssertNoChange()
 
 	// Join the second requirer, and check that the first provider observes it...
 	err = lgru1.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	expectChanged = []string{"logging/1"}
-	msw1c.AssertChange(expectChanged, nil)
+	msw1c.AssertChange(expectChanged, nil, nil)
 	msw1c.AssertNoChange()
 
 	// ...and that nothing else sees anything.
@@ -1504,7 +1540,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// requirer notices...
 	changeSettings(c, msru1)
 	expectChanged = []string{"mysql/1"}
-	lgw1c.AssertChange(expectChanged, nil)
+	lgw1c.AssertChange(expectChanged, nil, nil)
 	lgw1c.AssertNoChange()
 
 	// ...but that nothing else does.
@@ -1517,7 +1553,7 @@ func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	err = msru0.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	expectDeparted := []string{"mysql/0"}
-	lgw0c.AssertChange(nil, expectDeparted)
+	lgw0c.AssertChange(nil, nil, expectDeparted)
 	lgw0c.AssertNoChange()
 	lgw1c.AssertNoChange()
 	msw0c.AssertNoChange()
@@ -1559,7 +1595,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, wordpressWatcher)
 	wordpressWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, wordpressWatcher)
-	wordpressWatcherC.AssertChange(nil, nil)
+	wordpressWatcherC.AssertChange(nil, nil, nil)
 	wordpressWatcherC.AssertNoChange()
 
 	// Join the mysql unit to the relation, change settings, and check
@@ -1573,7 +1609,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, mysqlWatcher)
 	mysqlWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, mysqlWatcher)
-	mysqlWatcherC.AssertChange([]string{"mysql/0"}, nil)
+	mysqlWatcherC.AssertChange([]string{"mysql/0"}, nil, nil)
 	mysqlWatcherC.AssertNoChange()
 	wordpressWatcherC.AssertNoChange()
 
@@ -1581,7 +1617,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// the wordpress relation units watcher triggers.
 	err = wordpress0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	wordpressWatcherC.AssertChange([]string{"wordpress/0"}, nil)
+	wordpressWatcherC.AssertChange([]string{"wordpress/0"}, nil, nil)
 	wordpressWatcherC.AssertNoChange()
 	mysqlWatcherC.AssertNoChange()
 }

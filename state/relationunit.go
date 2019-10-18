@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/charm.v6"
@@ -202,6 +203,42 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// Apparently, all our assertions should have passed, but the txn was
 	// aborted: something is really seriously wrong.
 	return fmt.Errorf(prefix + "inconsistent state in EnterScope")
+}
+
+// CounterpartApplications returns the slice of application names that are the counterpart of this unit.
+// (So for Peer relations, app is returned, for a Provider the apps on Requirer side is returned
+func (ru *RelationUnit) CounterpartApplications() []string {
+	counterApps := set.NewStrings()
+	counterRole := counterpartRole(ru.endpoint.Role)
+	for _, ep := range ru.relation.Endpoints() {
+		if ep.Role == counterRole {
+			counterApps.Add(ep.ApplicationName)
+		}
+	}
+	return counterApps.SortedValues()
+}
+
+// counterpartApplicationSettingsDocIDs is the database keys of related applications.
+func (ru *RelationUnit) counterpartApplicationSettingsDocIDs() []string {
+	counterpartApps := ru.CounterpartApplications()
+	out := make([]string, len(counterpartApps))
+	for i, appName := range counterpartApps {
+		out[i] = relationApplicationSettingsKey(ru.relation.Id(), appName)
+	}
+	return out
+}
+
+// WatchCounterpartApplicationSettings starts a watcher for application settings
+// document for each counterpart application of this unit on this relation.
+func (ru *RelationUnit) WatchCounterpartApplications() []string {
+	counterApps := set.NewStrings()
+	counterRole := counterpartRole(ru.endpoint.Role)
+	for _, ep := range ru.relation.Endpoints() {
+		if ep.Role == counterRole {
+			counterApps.Add(ep.ApplicationName)
+		}
+	}
+	return counterApps.SortedValues()
 }
 
 // subordinateOps returns any txn operations necessary to ensure sane

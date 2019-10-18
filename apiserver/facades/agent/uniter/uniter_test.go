@@ -2962,7 +2962,7 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, false)
 
-	wc.AssertChange(nil, []string{"mysql/0"})
+	wc.AssertChange(nil, nil, []string{"mysql/0"})
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {

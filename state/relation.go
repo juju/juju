@@ -816,6 +816,7 @@ func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.
 		return errors.Trace(err)
 	}
 	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
+	logger.Criticalf("updating application settings: %q", key)
 	err = updateLeaderSettings(r.st.db(), token, key, updates)
 	if errors.IsNotFound(err) {
 		return errors.NotFoundf("relation %q application %q", r, app.Name())
