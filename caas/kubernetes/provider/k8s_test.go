@@ -2661,6 +2661,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Resources: []string{"pods"},
 			Verbs:     []string{"get", "watch", "list"},
 		},
+		{
+			NonResourceURLs: []string{"/healthz", "/healthz/*"},
+			Verbs:           []string{"get", "post"},
+		},
+		{
+			APIGroups:     []string{"rbac.authorization.k8s.io"},
+			Resources:     []string{"clusterroles"},
+			Verbs:         []string{"bind"},
+			ResourceNames: []string{"admin", "edit", "view"},
+		},
 	}
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
@@ -2782,6 +2792,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 				APIGroups: []string{""},
 				Resources: []string{"pods"},
 				Verbs:     []string{"get", "watch", "list"},
+			},
+			{
+				NonResourceURLs: []string{"/healthz", "/healthz/*"},
+				Verbs:           []string{"get", "post"},
+			},
+			{
+				APIGroups:     []string{"rbac.authorization.k8s.io"},
+				Resources:     []string{"clusterroles"},
+				Verbs:         []string{"bind"},
+				ResourceNames: []string{"admin", "edit", "view"},
 			},
 		},
 	}

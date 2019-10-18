@@ -29,9 +29,11 @@ func (k *kubernetesClient) getRBACLabels(appName string) map[string]string {
 func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
 	for _, r := range rules {
 		out = append(out, rbacv1.PolicyRule{
-			Verbs:     r.Verbs,
-			APIGroups: r.APIGroups,
-			Resources: r.Resources,
+			Verbs:           r.Verbs,
+			APIGroups:       r.APIGroups,
+			Resources:       r.Resources,
+			ResourceNames:   r.ResourceNames,
+			NonResourceURLs: r.NonResourceURLs,
 		})
 	}
 	return out
