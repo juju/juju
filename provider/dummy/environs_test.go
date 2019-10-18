@@ -285,16 +285,19 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.30.0.1"),
 	}}
-	info, err := e.NetworkInterfaces(s.callCtx, "i-42")
+	infoList, err := e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-42")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	info := infoList[0]
+
 	c.Assert(info, jc.DeepEquals, expectInfo)
 	assertInterfaces(c, e, opc, "i-42", expectInfo)
 
 	// Test we can induce errors.
 	s.breakMethods(c, e, "NetworkInterfaces")
-	info, err = e.NetworkInterfaces(s.callCtx, "i-any")
+	infoList, err = e.NetworkInterfaces(s.callCtx, []instance.Id{instance.Id("i-any")})
 	c.Assert(err, gc.ErrorMatches, `dummy\.NetworkInterfaces is broken`)
-	c.Assert(info, gc.HasLen, 0)
+	c.Assert(infoList, gc.HasLen, 0)
 }
 
 func (s *suite) TestSubnets(c *gc.C) {

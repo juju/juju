@@ -1411,7 +1411,7 @@ func (env *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.Space
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
-func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
 	if err := env.checkBroken("NetworkInterfaces"); err != nil {
 		return nil, err
 	}
@@ -1425,37 +1425,40 @@ func (env *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId in
 
 	// Simulate 3 NICs - primary and secondary enabled plus a disabled NIC.
 	// all configured using DHCP and having fake DNS servers and gateway.
-	info := make([]network.InterfaceInfo, 3)
-	for i, netName := range []string{"private", "public", "disabled"} {
-		info[i] = network.InterfaceInfo{
-			DeviceIndex:      i,
-			ProviderId:       corenetwork.Id(fmt.Sprintf("dummy-eth%d", i)),
-			ProviderSubnetId: corenetwork.Id("dummy-" + netName),
-			InterfaceType:    network.EthernetInterface,
-			CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
-			InterfaceName:    fmt.Sprintf("eth%d", i),
-			VLANTag:          i,
-			MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-			Disabled:         i == 2,
-			NoAutoStart:      i%2 != 0,
-			ConfigType:       network.ConfigDHCP,
-			Address: corenetwork.NewProviderAddress(
-				fmt.Sprintf("0.%d.0.%d", (i+1)*10, estate.maxAddr+2),
-			),
-			DNSServers: corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
-			GatewayAddress: corenetwork.NewProviderAddress(
-				fmt.Sprintf("0.%d.0.1", (i+1)*10),
-			),
+	infos := make([][]network.InterfaceInfo, len(ids))
+	for idIndex, instId := range ids {
+		infos[idIndex] = make([]network.InterfaceInfo, 3)
+		for i, netName := range []string{"private", "public", "disabled"} {
+			infos[idIndex][i] = network.InterfaceInfo{
+				DeviceIndex:      i,
+				ProviderId:       corenetwork.Id(fmt.Sprintf("dummy-eth%d", i)),
+				ProviderSubnetId: corenetwork.Id("dummy-" + netName),
+				InterfaceType:    network.EthernetInterface,
+				CIDR:             fmt.Sprintf("0.%d.0.0/24", (i+1)*10),
+				InterfaceName:    fmt.Sprintf("eth%d", i),
+				VLANTag:          i,
+				MACAddress:       fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
+				Disabled:         i == 2,
+				NoAutoStart:      i%2 != 0,
+				ConfigType:       network.ConfigDHCP,
+				Address: corenetwork.NewProviderAddress(
+					fmt.Sprintf("0.%d.0.%d", (i+1)*10+idIndex, estate.maxAddr+2),
+				),
+				DNSServers: corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
+				GatewayAddress: corenetwork.NewProviderAddress(
+					fmt.Sprintf("0.%d.0.1", (i+1)*10+idIndex),
+				),
+			}
+		}
+
+		estate.ops <- OpNetworkInterfaces{
+			Env:        env.name,
+			InstanceId: instId,
+			Info:       infos[idIndex],
 		}
 	}
 
-	estate.ops <- OpNetworkInterfaces{
-		Env:        env.name,
-		InstanceId: instId,
-		Info:       info,
-	}
-
-	return info, nil
+	return infos, nil
 }
 
 type azShim struct {

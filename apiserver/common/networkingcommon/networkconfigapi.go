@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -212,7 +213,8 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	interfaceInfos, err := netEnviron.NetworkInterfaces(state.CallContext(api.st), instId)
+
+	interfaceInfos, err := netEnviron.NetworkInterfaces(state.CallContext(api.st), []instance.Id{instId})
 	if errors.IsNotSupported(err) {
 		// It's possible to have a networking environ, but not support
 		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():
@@ -221,12 +223,12 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	} else if err != nil {
 		return nil, errors.Annotatef(err, "cannot get network interfaces of %q", instId)
 	}
-	if len(interfaceInfos) == 0 {
+	if len(interfaceInfos) == 0 || len(interfaceInfos[0]) == 0 {
 		logger.Infof("no provider network interfaces found")
 		return nil, nil
 	}
 
-	providerConfig := NetworkConfigFromInterfaceInfo(interfaceInfos)
+	providerConfig := NetworkConfigFromInterfaceInfo(interfaceInfos[0])
 	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
 
 	return providerConfig, nil
