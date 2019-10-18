@@ -424,6 +424,9 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	return bindings
 }
 
+// EndpointBinding are the methods necessary for exported methods of
+// Bindings to work.
+//
 //go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
 	SpaceByID(id string) (*Space, error)
@@ -431,6 +434,7 @@ type EndpointBinding interface {
 	SpaceNamesByID() (map[string]string, error)
 }
 
+// Bindings are EndpointBindings.
 type Bindings struct {
 	st  EndpointBinding
 	app *Application
@@ -543,7 +547,7 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	return retVal, nil
 }
 
-// Map returns the current bindingMap.
+// Map returns the current bindingMap with space ids.
 func (b *Bindings) Map() map[string]string {
 	return b.bindingsMap
 }
