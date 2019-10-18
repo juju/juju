@@ -228,9 +228,8 @@ func replaceAuthProviderWithServiceAccountAuthData(
 	secret *core.Secret,
 ) {
 	authName := config.Contexts[contextName].AuthInfo
-	currentAuth := config.AuthInfos[authName]
-	currentAuth.AuthProvider = nil
-	currentAuth.ClientCertificateData = secret.Data[core.ServiceAccountRootCAKey]
-	currentAuth.Token = string(secret.Data[core.ServiceAccountTokenKey])
-	config.AuthInfos[authName] = currentAuth
+	config.AuthInfos[authName] = &clientcmdapi.AuthInfo{
+		ClientCertificateData: secret.Data[core.ServiceAccountRootCAKey],
+		Token:                 string(secret.Data[core.ServiceAccountTokenKey]),
+	}
 }
