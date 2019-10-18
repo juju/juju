@@ -3834,7 +3834,7 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 		Value: "5.5.5.5",
 	}
 
-	// Update the various machine addresses.
+	// Update the various machine addresses and add some CAAS documents.
 	ops := []txn.Op{
 		{
 			C:  machinesC,
@@ -3852,6 +3852,33 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 				{"$set", bson.D{{"preferredpublicaddress", m2Public}}},
 			},
 		},
+		{
+			C:  cloudContainersC,
+			Id: ensureModelUUID(uuid, "0"),
+			Insert: bson.M{
+				"model-uuid":  uuid,
+				"address":     &m2Public,
+				"provider-id": "c0",
+			},
+		},
+		{
+			C:  cloudContainersC,
+			Id: ensureModelUUID(uuid, "1"),
+			Insert: bson.M{
+				"model-uuid":  uuid,
+				"address":     nil,
+				"provider-id": "c1",
+			},
+		},
+		{
+			C:  cloudServicesC,
+			Id: ensureModelUUID(uuid, "0"),
+			Insert: bson.M{
+				"model-uuid":  uuid,
+				"addresses":   []oldAddress{{Value: "6.6.6.6"}, {Value: "7.7.7.7"}},
+				"provider-id": "s0",
+			},
+		},
 	}
 	c.Assert(s.state.db().RunRawTransaction(ops), jc.ErrorIsNil)
 
@@ -3860,7 +3887,7 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 	s.makeSpace(c, uuid, "space2", "2")
 	s.makeSpace(c, uuid, "space3", "3")
 
-	expected := bsonMById{
+	expMachines := bsonMById{
 		{
 			"_id":                      ensureModelUUID(uuid, "0"),
 			"model-uuid":               uuid,
@@ -3931,9 +3958,55 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 		},
 	}
 
-	col, closer := s.state.db().GetRawCollection(machinesC)
-	defer closer()
-	s.assertUpgradedData(c, ConvertAddressSpaceIDs, upgradedData(col, expected))
+	expServices := bsonMById{{
+		"_id":         ensureModelUUID(uuid, "0"),
+		"model-uuid":  uuid,
+		"provider-id": "s0",
+		"addresses": []interface{}{
+			bson.M{
+				"value":       "6.6.6.6",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+			bson.M{
+				"value":       "7.7.7.7",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+		},
+	}}
+
+	expContainers := bsonMById{
+		{
+			"_id":         ensureModelUUID(uuid, "0"),
+			"model-uuid":  uuid,
+			"provider-id": "c0",
+			"address": bson.M{
+				"value":       "5.5.5.5",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+		},
+		{
+			"_id":         ensureModelUUID(uuid, "1"),
+			"provider-id": "c1",
+			"model-uuid":  uuid,
+			"address":     interface{}(nil),
+		},
+	}
+
+	machines, mCloser := s.state.db().GetRawCollection(machinesC)
+	defer mCloser()
+	services, sCloser := s.state.db().GetRawCollection(cloudServicesC)
+	defer sCloser()
+	containers, cCloser := s.state.db().GetRawCollection(cloudContainersC)
+	defer cCloser()
+
+	s.assertUpgradedData(c, ConvertAddressSpaceIDs,
+		upgradedData(machines, expMachines),
+		upgradedData(services, expServices),
+		upgradedData(containers, expContainers),
+	)
 }
 
 func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
