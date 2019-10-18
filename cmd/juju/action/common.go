@@ -6,12 +6,13 @@ package action
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v3"
+
 	"github.com/juju/juju/apiserver/params"
 	coreactions "github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
@@ -129,8 +130,7 @@ func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
 	return formatLogMessage(actionMessage, true, utc), nil
 }
 
-func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc bool) string {
-	timestamp := actionMessage.Timestamp
+func formatTimestamp(timestamp time.Time, progressFormat, utc bool) string {
 	if utc {
 		timestamp = timestamp.UTC()
 	} else {
@@ -140,7 +140,11 @@ func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, u
 	if progressFormat {
 		timestampFormat = watchTimestampFormat
 	}
-	return fmt.Sprintf("%v %v", timestamp.Format(timestampFormat), actionMessage.Message)
+	return timestamp.Format(timestampFormat)
+}
+
+func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc bool) string {
+	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc), actionMessage.Message)
 }
 
 // processLogMessages starts a go routine to decode and handle any incoming

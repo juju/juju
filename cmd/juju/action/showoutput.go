@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -237,6 +238,12 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 // write in an easy-to-read format.
 func FormatActionResult(result params.ActionResult, utc bool) map[string]interface{} {
 	response := map[string]interface{}{"status": result.Status}
+	if result.Action != nil {
+		ut, err := names.ParseUnitTag(result.Action.Receiver)
+		if err == nil {
+			response["unit"] = ut.Id()
+		}
+	}
 	if result.Message != "" {
 		response["message"] = result.Message
 	}

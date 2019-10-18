@@ -435,7 +435,8 @@ mysql/0:
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+    started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/0`[1:],
 	}, {
 		should:   "call a basic function with progress logs",
 		withArgs: []string{validUnitId, "some-function", "--utc"},
@@ -535,7 +536,8 @@ mysql/0:
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+    started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/0`[1:],
 	}, {
 		should:   "call action on multiple units with stdout for each action",
 		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "yaml"},
@@ -597,6 +599,7 @@ mysql/0:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
     started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/0
 mysql/1:
   id: f47ac10b-58cc-4372-a567-0e02b2c3d478
   results:
@@ -607,7 +610,8 @@ mysql/1:
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+    started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/1`[1:],
 	}, {
 		should:   "call function on multiple units with plain output selected",
 		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "plain"},

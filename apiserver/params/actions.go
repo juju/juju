@@ -108,6 +108,14 @@ type FindActionsByNames struct {
 	ActionNames []string `json:"names,omitempty"`
 }
 
+// TaskQueryArgs holds args for listing tasks.
+type TaskQueryArgs struct {
+	Applications  []string `json:"applications,omitempty"`
+	Units         []string `json:"units,omitempty"`
+	FunctionNames []string `json:"functions,omitempty"`
+	Status        []string `json:"status,omitempty"`
+}
+
 // ActionExecutionResults holds a slice of ActionExecutionResult for a
 // bulk action API call
 type ActionExecutionResults struct {

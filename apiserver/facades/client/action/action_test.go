@@ -821,3 +821,155 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	wc.AssertChange(string(expected))
 	wc.AssertNoChange()
 }
+
+func (s *actionSuite) setupTasks(c *gc.C) {
+	arg := params.Actions{
+		Actions: []params.Action{
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
+			{Receiver: s.mysqlUnit.Tag().String(), Name: "anotherfakeaction", Parameters: map[string]interface{}{}},
+		}}
+
+	r, err := s.action.Enqueue(arg)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+	a, err := s.Model.Action("1")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = a.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	a, err = s.Model.Action("2")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = a.Finish(state.ActionResults{})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *actionSuite) TestTasksStatusFilter(c *gc.C) {
+	s.setupTasks(c)
+	actions, err := s.action.Tasks(params.TaskQueryArgs{
+		Status: []string{"running"},
+	})
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(actions.Results, gc.HasLen, 1)
+	result := actions.Results[0]
+	c.Assert(result.Action, gc.NotNil)
+	if result.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	if result.Started.IsZero() {
+		c.Fatal("started time not set")
+	}
+	c.Assert(result.Status, gc.Equals, "running")
+	c.Assert(result.Action.Name, gc.Equals, "fakeaction")
+	c.Assert(result.Action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(result.Action.Tag, gc.Equals, "action-1")
+}
+
+func (s *actionSuite) TestTasksNameFilter(c *gc.C) {
+	s.setupTasks(c)
+	actions, err := s.action.Tasks(params.TaskQueryArgs{
+		FunctionNames: []string{"anotherfakeaction"},
+	})
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(actions.Results, gc.HasLen, 1)
+	result := actions.Results[0]
+	c.Assert(result.Action, gc.NotNil)
+	if result.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result.Status, gc.Equals, "pending")
+	c.Assert(result.Action.Name, gc.Equals, "anotherfakeaction")
+	c.Assert(result.Action.Receiver, gc.Equals, "unit-mysql-0")
+	c.Assert(result.Action.Tag, gc.Equals, "action-4")
+}
+
+func (s *actionSuite) TestTasksAppFilter(c *gc.C) {
+	s.setupTasks(c)
+	actions, err := s.action.Tasks(params.TaskQueryArgs{
+		Applications: []string{"wordpress"},
+	})
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(actions.Results, gc.HasLen, 2)
+	result0 := actions.Results[0]
+	result1 := actions.Results[1]
+	if result0.Status == "running" {
+		r := result0
+		result0 = result1
+		result1 = r
+	}
+	c.Assert(result0.Action, gc.NotNil)
+	if result0.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result0.Status, gc.Equals, "pending")
+	c.Assert(result0.Action.Name, gc.Equals, "fakeaction")
+	c.Assert(result0.Action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(result0.Action.Tag, gc.Equals, "action-3")
+
+	c.Assert(result1.Action, gc.NotNil)
+	if result1.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	if result1.Started.IsZero() {
+		c.Fatal("started time not set")
+	}
+	c.Assert(result1.Status, gc.Equals, "running")
+	c.Assert(result1.Action.Name, gc.Equals, "fakeaction")
+	c.Assert(result1.Action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(result1.Action.Tag, gc.Equals, "action-1")
+}
+
+func (s *actionSuite) TestTasksUnitFilter(c *gc.C) {
+	s.setupTasks(c)
+	actions, err := s.action.Tasks(params.TaskQueryArgs{
+		Units:  []string{"wordpress/0"},
+		Status: []string{"pending"},
+	})
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(actions.Results, gc.HasLen, 1)
+	result := actions.Results[0]
+
+	c.Assert(result.Action, gc.NotNil)
+	if result.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result.Status, gc.Equals, "pending")
+	c.Assert(result.Action.Name, gc.Equals, "fakeaction")
+	c.Assert(result.Action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(result.Action.Tag, gc.Equals, "action-3")
+}
+
+func (s *actionSuite) TestTasksAppAndUnitFilter(c *gc.C) {
+	s.setupTasks(c)
+	actions, err := s.action.Tasks(params.TaskQueryArgs{
+		Applications: []string{"mysql"},
+		Units:        []string{"wordpress/0"},
+		Status:       []string{"pending"},
+	})
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(actions.Results, gc.HasLen, 2)
+	result0 := actions.Results[0]
+	result1 := actions.Results[1]
+	if result0.Status == "running" {
+		r := result0
+		result0 = result1
+		result1 = r
+	}
+	c.Assert(result0.Action, gc.NotNil)
+	if result0.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result0.Status, gc.Equals, "pending")
+	c.Assert(result0.Action.Name, gc.Equals, "fakeaction")
+	c.Assert(result0.Action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(result0.Action.Tag, gc.Equals, "action-3")
+
+	c.Assert(result1.Action, gc.NotNil)
+	if result1.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(result1.Status, gc.Equals, "pending")
+	c.Assert(result1.Action.Name, gc.Equals, "anotherfakeaction")
+	c.Assert(result1.Action.Receiver, gc.Equals, "unit-mysql-0")
+	c.Assert(result1.Action.Tag, gc.Equals, "action-4")
+}

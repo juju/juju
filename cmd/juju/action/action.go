@@ -54,6 +54,9 @@ type APIClient interface {
 	// the ActionReceiver if necessary.
 	Actions(params.Entities) (params.ActionResults, error)
 
+	// Tasks fetches the called functions (actions) for specified apps/units.
+	Tasks(params.TaskQueryArgs) (params.ActionResults, error)
+
 	// FindActionTagsByPrefix takes a list of string prefixes and finds
 	// corresponding ActionTags that match that prefix.
 	FindActionTagsByPrefix(params.FindTags) (params.FindTagsResults, error)

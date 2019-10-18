@@ -107,6 +107,10 @@ func (c *ShowCommand) ActionName() string {
 	return c.functionName
 }
 
+type ListTasksCommand struct {
+	*listTasksCommand
+}
+
 func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
 	c := &showOutputCommand{}
 	c.SetClientStore(store)
@@ -153,4 +157,10 @@ func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Run
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
 	return resultsToMap(results)
+}
+
+func NewListTasksCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListTasksCommand) {
+	c := &listTasksCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ListTasksCommand{c}
 }

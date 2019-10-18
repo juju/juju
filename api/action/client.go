@@ -35,6 +35,16 @@ func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
 	return results, err
 }
 
+// Tasks fetches the called functions (actions) for specified apps/units.
+func (c *Client) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
+	results := params.ActionResults{}
+	if v := c.BestAPIVersion(); v < 5 {
+		return results, errors.Errorf("Tasks not supported by this version (%d) of Juju", v)
+	}
+	err := c.facade.FacadeCall("Tasks", arg, &results)
+	return results, err
+}
+
 // FindActionTagsByPrefix takes a list of string prefixes and finds
 // corresponding ActionTags that match that prefix.
 func (c *Client) FindActionTagsByPrefix(arg params.FindTags) (params.FindTagsResults, error) {
@@ -127,8 +137,8 @@ func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.A
 // WatchActionProgress returns a watcher that reports on action log messages.
 // The result strings are json formatted core.actions.ActionMessage objects.
 func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
-	if c.BestAPIVersion() < 5 {
-		return nil, errors.New("WatchActionProgress not supported by this version of Juju")
+	if v := c.BestAPIVersion(); v < 5 {
+		return nil, errors.Errorf("WatchActionProgress not supported by this version (%d) of Juju", v)
 	}
 	var results params.StringsWatchResults
 	args := params.Entities{
