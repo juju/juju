@@ -114,7 +114,7 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		{"CreateFilter", nil},
 		{"WaitForUpdatesEx", nil},
 		{"HttpNfcLeaseComplete", []interface{}{"FakeLease"}},
-		{"MarkAsTemplateBody", []interface{}{"FakeVm0"}},
+		{"MarkAsTemplate", []interface{}{"FakeVm0"}},
 		retrievePropertiesStubCall("network-0", "network-1"),
 		retrievePropertiesStubCall("onetwork-0"),
 		retrievePropertiesStubCall("dvportgroup-0"),
@@ -452,104 +452,14 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 	args.Constraints.RootDisk = &rootDisk
 
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	errCh := make(chan error)
-	go func() {
-		_, err := client.CreateVirtualMachine(context.Background(), args)
-		select {
-		case errCh <- err:
-		case <-time.After(coretesting.ShortWait):
-			c.Fatalf("timed out sending error back")
-		}
-	}()
-
-	select {
-	case <-errCh:
-		c.Fatalf("creating virtual machine finished too soon")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	err := s.clock.WaitAdvance(50*time.Millisecond, coretesting.LongWait, 1)
+	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Report that the disk is big now.
-	s.roundTripper.updateContents("FakeVm1", []types.ObjectContent{{
-		Obj: types.ManagedObjectReference{
-			Type:  "VirtualMachine",
-			Value: "FakeVm1",
-		},
-		PropSet: []types.DynamicProperty{
-			{Name: "name", Val: "vm-1"},
-			{Name: "runtime.powerState", Val: "poweredOn"},
-			{
-				Name: "config.hardware.device",
-				Val: []types.BaseVirtualDevice{
-					&types.VirtualDisk{
-						VirtualDevice: types.VirtualDevice{
-							Backing: &types.VirtualDiskFlatVer2BackingInfo{
-								VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
-									FileName: "disk.vmdk",
-								},
-							},
-						},
-						CapacityInKB: 1024 * 1024 * 20, // 20 GiB
-					},
-				},
-			},
-		},
-	}})
-
-	select {
-	case err := <-errCh:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for CreateVirtualMachine")
-	}
 
 	call := findStubCall(c, s.roundTripper.Calls(), "ExtendVirtualDisk")
 	c.Assert(call.Args, jc.DeepEquals, []interface{}{
 		"disk.vmdk",
 		int64(rootDisk) * 1024, // in KiB
 	})
-}
-
-func (s *clientSuite) TestCreateVirtualMachineTimesOut(c *gc.C) {
-	args := baseCreateVirtualMachineParams(c)
-	rootDisk := uint64(1024 * 20) // 20 GiB
-	args.Constraints.RootDisk = &rootDisk
-
-	client := s.newFakeClient(&s.roundTripper, "dc0")
-	errCh := make(chan error)
-	go func() {
-		_, err := client.CreateVirtualMachine(context.Background(), args)
-		select {
-		case errCh <- err:
-		case <-time.After(coretesting.ShortWait):
-			c.Fatalf("timed out sending error back")
-		}
-	}()
-
-	select {
-	case <-errCh:
-		c.Fatalf("creating virtual machine finished too soon")
-	case <-time.After(coretesting.ShortWait):
-	}
-
-	err := s.clock.WaitAdvance(601*time.Second, coretesting.LongWait, 1)
-	c.Assert(err, jc.ErrorIsNil)
-
-	select {
-	case err := <-errCh:
-		c.Assert(err, gc.ErrorMatches, "extending disk failed")
-		c.Assert(err, jc.Satisfies, IsExtendDiskError)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for CreateVirtualMachine")
-	}
-
-	// Check that we destroyed the VM if extending the disk timed out.
-	lastCall := len(s.roundTripper.Calls()) - 1
-	s.roundTripper.CheckCall(c, lastCall-3, "Destroy_Task")
-	// (The ones in between are CreatePropertyCollector and CreateFilter.)
-	s.roundTripper.CheckCall(c, lastCall, "WaitForUpdatesEx")
 }
 
 func (s *clientSuite) TestVerifyMAC(c *gc.C) {
