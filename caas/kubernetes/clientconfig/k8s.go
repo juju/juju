@@ -80,17 +80,13 @@ func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, crede
 		return nil, errors.Annotate(err, "failed to read clouds from kubernetes config")
 	}
 
-	credentials, err := credentialsFromConfig(config, context.CredentialName)
-	if errors.IsNotSupported(err) && credentialResolver != nil {
-		// try to generate supported credential using provided credential.
-		config, err = credentialResolver(config, contextName)
-		if err != nil {
-			return nil, errors.Annotatef(
-				err, "ensuring k8s credential because auth info %q is not valid", context.CredentialName)
-		}
-		logger.Debugf("try again to get credentials from kubeconfig using the generated auth info")
-		credentials, err = credentialsFromConfig(config, context.CredentialName)
+	// try to create service account, cluster role and cluster role binding for k8s credential using provided credential.
+	config, err = credentialResolver(config, contextName)
+	if err != nil {
+		return nil, errors.Annotatef(err, "ensuring k8s credential with RBAC setup", context.CredentialName)
 	}
+	logger.Debugf("get credentials from kubeconfig using the generated auth info")
+	credentials, err := credentialsFromConfig(config, context.CredentialName)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
 	}
