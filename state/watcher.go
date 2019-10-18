@@ -2534,7 +2534,7 @@ func (w *actionLogsWatcher) loop() error {
 				changes = messages[reportedCount:]
 			}
 		case out <- changes:
-			reportedCount = len(changes)
+			reportedCount += len(changes)
 			out = nil
 		}
 	}

@@ -111,10 +111,12 @@ type ListTasksCommand struct {
 	*listTasksCommand
 }
 
-func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
-	c := &showOutputCommand{}
+func NewShowOutputCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *ShowOutputCommand) {
+	c := &showOutputCommand{
+		logMessageHandler: logMessage,
+	}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &ShowOutputCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOutputCommand{c}
 }
 
 func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {

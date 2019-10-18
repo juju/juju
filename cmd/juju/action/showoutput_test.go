@@ -5,16 +5,22 @@ package action_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/testing"
 )
 
 type ShowOutputSuite struct {
@@ -40,13 +46,17 @@ func (s *ShowOutputSuite) TestInit(c *gc.C) {
 		should:      "fail with multiple args",
 		args:        []string{"12345", "54321"},
 		expectError: `unrecognized args: \["54321"\]`,
+	}, {
+		should:      "fail with both wait and watch",
+		args:        []string{"--wait", "0s", "--watch"},
+		expectError: `specify either --watch or --wait but not both`,
 	}}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			c.Logf("test %d: it should %s: juju show-task %s", i,
 				t.should, strings.Join(t.args, " "))
-			cmd, _ := action.NewShowOutputCommandForTest(s.store)
+			cmd, _ := action.NewShowOutputCommandForTest(s.store, nil)
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(cmd, args)
 			if t.expectError != "" {
@@ -69,15 +79,17 @@ func (s *ShowOutputSuite) TestRun(c *gc.C) {
 		withFormat        string
 		expectedErr       string
 		expectedOutput    string
+		expectedLogs      []string
+		watch             bool
 	}{{
 		should:         "handle wait-time formatting errors",
 		withClientWait: "not-a-duration-at-all",
 		expectedErr:    "time: invalid duration not-a-duration-at-all",
 	}, {
 		should:            "timeout if result never comes",
-		withClientWait:    "3s",
-		withAPIDelay:      6 * time.Second,
-		withAPITimeout:    10 * time.Second,
+		withClientWait:    "2s",
+		withAPIDelay:      3 * time.Second,
+		withAPITimeout:    5 * time.Second,
 		withClientQueryID: validActionId,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{{}},
@@ -91,34 +103,34 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with no tag matches",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId),
 		expectedErr:       `actions for identifier "` + validActionId + `" not found`,
 	}, {
 		should:            "fail with no results",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{},
 		expectedErr:       "no results for action " + validActionId,
 	}, {
 		should:            "error correctly with multiple results",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{{}, {}},
 		expectedErr:       "too many results for action " + validActionId,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Error: common.ServerError(errors.New("an apiserver error")),
@@ -127,7 +139,7 @@ timing:
 	}, {
 		should:            "only return once status is no longer running or pending",
 		withAPIDelay:      1 * time.Second,
-		withClientWait:    "30s",
+		withClientWait:    "10s",
 		withClientQueryID: validActionId,
 		withAPITimeout:    3 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
@@ -145,7 +157,7 @@ timing:
 	}, {
 		should:            "pretty-print action output",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status:  "complete",
@@ -173,7 +185,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "pending",
@@ -198,7 +210,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no enqueued time",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "pending",
@@ -223,7 +235,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no started time",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "pending",
@@ -248,7 +260,7 @@ timing:
 	}, {
 		should:            "plain format action output",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
+		withAPITimeout:    2 * time.Second,
 		withFormat:        "plain",
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
@@ -274,9 +286,9 @@ hello
 	}, {
 		should:            "set an appropriate timer and wait, get a result",
 		withClientQueryID: validActionId,
-		withAPITimeout:    10 * time.Second,
-		withClientWait:    "4s",
-		withAPIDelay:      2 * time.Second,
+		withAPITimeout:    5 * time.Second,
+		withClientWait:    "3s",
+		withAPIDelay:      1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status: "completed",
@@ -297,43 +309,130 @@ timing:
   completed: 2015-02-14 08:15:30 +0000 UTC
   enqueued: 2015-02-14 08:13:00 +0000 UTC
 `[1:],
+	}, {
+		should:            "watch, wait, get a result",
+		withClientQueryID: validActionId,
+		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
+		watch:             true,
+		withAPIResponse: []params.ActionResult{{
+			Status:    "completed",
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
+		}},
+		expectedOutput: `
+status: completed
+timing:
+  completed: 2015-02-14 08:15:30 +0000 UTC
+  enqueued: 2015-02-14 08:13:00 +0000 UTC
+`[1:],
+	}, {
+		should:            "print log messages when watching",
+		withClientQueryID: validActionId,
+		withAPITimeout:    5 * time.Second,
+		withAPIDelay:      1 * time.Second,
+		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
+		watch:             true,
+		expectedLogs:      []string{"log line 1", "log line 2"},
+		withAPIResponse: []params.ActionResult{{
+			Status:    "completed",
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
+		}},
+		expectedOutput: `
+status: completed
+timing:
+  completed: 2015-02-14 08:15:30 +0000 UTC
+  enqueued: 2015-02-14 08:13:00 +0000 UTC
+`[1:],
 	}}
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
 			c.Logf("test %d (model option %v): should %s", i, modelFlag, t.should)
+			fakeClient := makeFakeClient(
+				t.withAPIDelay,
+				t.withAPITimeout,
+				t.withTags,
+				t.withAPIResponse,
+				params.ActionsByNames{},
+				t.withAPIError,
+			)
+			fakeClient.logMessageCh = make(chan []string, len(t.expectedLogs))
+			if len(t.expectedLogs) > 0 {
+				fakeClient.waitForResults = make(chan bool)
+			}
 			testRunHelper(
 				c, s,
-				makeFakeClient(
-					t.withAPIDelay,
-					t.withAPITimeout,
-					t.withTags,
-					t.withAPIResponse,
-					params.ActionsByNames{},
-					t.withAPIError),
+				fakeClient,
 				t.expectedErr,
 				t.expectedOutput,
 				t.withFormat,
 				t.withClientWait,
 				t.withClientQueryID,
 				modelFlag,
+				t.watch,
+				t.expectedLogs,
 			)
 		}
 	}
 }
 
-func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient, expectedErr, expectedOutput, format, wait, query, modelFlag string) {
+func testRunHelper(c *gc.C, s *ShowOutputSuite, client *fakeAPIClient,
+	expectedErr, expectedOutput, format, wait, query, modelFlag string,
+	watch bool,
+	expectedLogs []string,
+) {
 	unpatch := s.BaseActionSuite.patchAPIClient(client)
 	defer unpatch()
-	args := append([]string{modelFlag, "admin"}, query)
+	args := append([]string{modelFlag, "admin"}, query, "--utc")
 	if wait != "" {
 		args = append(args, "--wait", wait)
 	}
 	if format != "" {
 		args = append(args, "--format", format)
 	}
-	cmd, _ := action.NewShowOutputCommandForTest(s.store)
+	if watch {
+		args = append(args, "--watch")
+	}
+
+	if len(expectedLogs) > 0 {
+		go func() {
+			encodedLogs := make([]string, len(expectedLogs))
+			for n, log := range expectedLogs {
+				msg := actions.ActionMessage{
+					Message:   log,
+					Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+				}
+				msgData, err := json.Marshal(msg)
+				c.Assert(err, jc.ErrorIsNil)
+				encodedLogs[n] = string(msgData)
+			}
+			client.logMessageCh <- encodedLogs
+		}()
+	}
+
+	var receivedMessages []string
+	var expectedLogMessages []string
+	for _, msg := range expectedLogs {
+		expectedLogMessages = append(expectedLogMessages, "06:06:06 "+msg)
+	}
+	cmd, _ := action.NewShowOutputCommandForTest(s.store, func(_ *cmd.Context, msg string) {
+		receivedMessages = append(receivedMessages, msg)
+		if reflect.DeepEqual(receivedMessages, expectedLogMessages) {
+			close(client.waitForResults)
+		}
+	})
+
 	ctx, err := cmdtesting.RunCommand(c, cmd, args...)
+
+	if len(expectedLogMessages) > 0 {
+		select {
+		case <-client.waitForResults:
+		case <-time.After(testing.LongWait):
+			c.Fatal("waiting for log messages to be consumed")
+		}
+	}
+
 	if expectedErr != "" {
 		c.Check(err, gc.ErrorMatches, expectedErr)
 	} else {
@@ -359,6 +458,7 @@ func makeFakeClient(
 		actionTagMatches: tags,
 		actionResults:    response,
 		actionsByNames:   actionsByNames,
+		apiVersion:       5,
 	}
 	if errStr != "" {
 		client.apiErr = errors.New(errStr)
