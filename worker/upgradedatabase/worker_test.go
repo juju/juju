@@ -105,6 +105,22 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
+func (s *workerSuite) TestNewLockSameVersionUnlocked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
+	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), jc.IsTrue)
+}
+
+func (s *workerSuite) TestNewLockOldVersionLocked(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
+	c.Assert(upgradedatabase.NewLock(s.agentCfg).IsUnlocked(), jc.IsFalse)
+}
+
 func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
@@ -117,26 +133,11 @@ func (s *workerSuite) TestAlreadyCompleteNoWork(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryNoWork(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.ignoreLogging(c)
-
-	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
-	s.lock.EXPECT().Unlock()
-
-	w, err := upgradedatabase.NewWorker(s.getConfig())
-	c.Assert(err, jc.ErrorIsNil)
-
-	workertest.CleanKill(c, w)
-}
-
 func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
 	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
 	s.agentCfg.EXPECT().UpgradedToVersion().Return(jujuversion.Current)
 	s.lock.EXPECT().Unlock()
@@ -147,8 +148,32 @@ func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
+func (s *workerSuite) TestNotPrimaryWatchForCompletion(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
+	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
+	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
+
+	ver := jujuversion.Current.String()
+	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+
+	// TODO: Expectations for wired up wait.
+
+	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
+	s.lock.EXPECT().Unlock()
+
+	w, err := upgradedatabase.NewWorker(s.getConfig())
+	c.Assert(err, jc.ErrorIsNil)
+
+	workertest.CleanKill(c, w)
+}
+
 func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 	defer s.setupMocks(c).Finish()
+	s.ignoreLogging(c)
 
 	s.lock.EXPECT().IsUnlocked().Return(false)
 	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
@@ -157,7 +182,6 @@ func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
 	s.expectExecution()
 	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
-	s.logger.EXPECT().Infof("database upgrade to %v completed successfully.", jujuversion.Current)
 	s.pool.EXPECT().SetStatus(
 		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
 

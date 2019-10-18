@@ -20,6 +20,28 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
+// NewLock creates a gate.Lock to be used to synchronise workers
+// that need to start after database upgrades have completed.
+// The returned Lock should be passed to NewWorker.
+// If the agent has already upgraded to the current version,
+// then the lock will be returned in the released state.
+func NewLock(agentConfig agent.Config) gate.Lock {
+	lock := gate.NewLock()
+
+	// Build numbers are irrelevant to upgrade steps.
+	upgradedToVersion := agentConfig.UpgradedToVersion()
+	upgradedToVersion.Build = 0
+
+	currentVersion := jujuversion.Current
+	currentVersion.Build = 0
+
+	if upgradedToVersion == currentVersion {
+		lock.Unlock()
+	}
+
+	return lock
+}
+
 // Config is the configuration needed to construct an upgradeDB worker.
 type Config struct {
 	// UpgradeComplete is a lock used to synchronise workers that must start
@@ -131,39 +153,32 @@ func (w *upgradeDB) run() error {
 		}
 	}()
 
-	if mustRun, err := w.upgradeNeedsRunning(); err != nil {
-		return errors.Trace(err)
-	} else if !mustRun {
+	if w.upgradeDone() {
 		return nil
 	}
 
-	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err == nil {
-		w.logger.Infof("database upgrade to %v completed successfully.", w.toVersion)
-		_ = w.pool.SetStatus(w.tag.Id(), status.Started, fmt.Sprintf("database upgrade to %v completed", w.toVersion))
-		w.upgradeComplete.Unlock()
+	isPrimary, err := w.pool.IsPrimary(w.tag.Id())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If we are the primary we need to run the upgrade steps.
+	// Otherwise we watch state and unlock once the primary has run the steps.
+	if isPrimary {
+		w.runUpgrade()
+	} else {
+		w.watchUpgrade()
 	}
 
 	return nil
 }
 
-// upgradeNeedsRunning returns true if this worker
-// should run the database upgrade steps.
-func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
+// upgradeDone returns true if this worker
+// does not need to run any upgrade logic.
+func (w *upgradeDB) upgradeDone() bool {
 	// If we are already unlocked, there is nothing to do.
 	if w.upgradeComplete.IsUnlocked() {
-		return false, nil
-	}
-
-	// If this controller is not running the Mongo primary,
-	// we have no work to do and can just exit cleanly.
-	isPrimary, err := w.pool.IsPrimary(w.tag.Id())
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if !isPrimary {
-		w.logger.Debugf("not running the Mongo primary; no work to do")
-		w.upgradeComplete.Unlock()
-		return false, nil
+		return true
 	}
 
 	// If we are already on the current version, there is nothing to do.
@@ -172,17 +187,25 @@ func (w *upgradeDB) upgradeNeedsRunning() (bool, error) {
 	if w.fromVersion == w.toVersion {
 		w.logger.Debugf("database upgrade to %v already completed", w.toVersion)
 		w.upgradeComplete.Unlock()
-		return false, nil
+		return true
 	}
 
-	return true, nil
+	return false
+}
+
+func (w *upgradeDB) runUpgrade() {
+	w.setStatus(status.Started, fmt.Sprintf("upgrading database to %v", w.toVersion))
+
+	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err == nil {
+		w.logger.Infof("database upgrade to %v completed successfully.", w.toVersion)
+		w.setStatus(status.Started, fmt.Sprintf("database upgrade to %v completed", w.toVersion))
+		w.upgradeComplete.Unlock()
+	}
 }
 
 // runUpgradeSteps runs the required database upgrade steps for the agent,
 // retrying on failure.
 func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
-	_ = w.pool.SetStatus(w.tag.Id(), status.Started, fmt.Sprintf("upgrading database to %v", w.toVersion))
-
 	var upgradeErr error
 	contextGetter := w.contextGetter(agentConfig)
 
@@ -206,6 +229,15 @@ func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrade
 	}
 }
 
+func (w *upgradeDB) watchUpgrade() {
+	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade to %v", w.toVersion))
+
+	// TODO: Wire this up.
+
+	w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
+	w.upgradeComplete.Unlock()
+}
+
 func (w *upgradeDB) reportUpgradeFailure(err error, willRetry bool) {
 	retryText := "will retry"
 	if !willRetry {
@@ -215,7 +247,13 @@ func (w *upgradeDB) reportUpgradeFailure(err error, willRetry bool) {
 	w.logger.Errorf("database upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
 
-	_ = w.pool.SetStatus(w.tag.Id(), status.Error, fmt.Sprintf("upgrading database to %v", w.toVersion))
+	w.setStatus(status.Error, fmt.Sprintf("upgrading database to %v", w.toVersion))
+}
+
+func (w *upgradeDB) setStatus(sts status.Status, msg string) {
+	if err := w.pool.SetStatus(w.tag.Id(), sts, msg); err != nil {
+		w.logger.Errorf("setting agent status: %v", err)
+	}
 }
 
 // Kill is part of the worker.Worker interface.
