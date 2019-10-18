@@ -505,6 +505,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 					return caasunitprovisionerapi.NewClient(caller)
 				},
 				NewWorker: caasunitprovisioner.NewWorker,
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasunitprovisioner"),
 			},
 		)),
 		modelUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{

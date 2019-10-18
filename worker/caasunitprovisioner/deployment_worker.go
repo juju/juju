@@ -26,6 +26,7 @@ type deploymentWorker struct {
 	applicationGetter        ApplicationGetter
 	applicationUpdater       ApplicationUpdater
 	provisioningInfoGetter   ProvisioningInfoGetter
+	logger                   Logger
 }
 
 func newDeploymentWorker(
@@ -35,6 +36,7 @@ func newDeploymentWorker(
 	provisioningInfoGetter ProvisioningInfoGetter,
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
+	logger Logger,
 ) (worker.Worker, error) {
 	w := &deploymentWorker{
 		application:              application,
@@ -43,6 +45,7 @@ func newDeploymentWorker(
 		provisioningInfoGetter:   provisioningInfoGetter,
 		applicationGetter:        applicationGetter,
 		applicationUpdater:       applicationUpdater,
+		logger:                   logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -81,6 +84,7 @@ func (w *deploymentWorker) loop() error {
 	gotSpecNotify := false
 	serviceUpdated := false
 	desiredScale := 0
+	logger := w.logger
 	for {
 		select {
 		case <-w.catacomb.Dying():
