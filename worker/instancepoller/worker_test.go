@@ -14,6 +14,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/juju/apiserver/common"
@@ -127,7 +128,7 @@ func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	// Instance poller will look up machine with id "0" and get back a
@@ -149,7 +150,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	defer ctrl.Finish()
 
 	w, _ := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	machineTag := names.NewMachineTag("0")
@@ -177,7 +178,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, _ := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	// Start with an entry for machine "0"
@@ -218,7 +219,7 @@ func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *
 	defer ctrl.Finish()
 
 	w, _ := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	// Start with machine "0" in the short poll group.
@@ -244,7 +245,7 @@ func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, _ := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	machine := mocks.NewMockMachine(ctrl)
@@ -266,7 +267,7 @@ func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc
 	defer ctrl.Finish()
 
 	w, _ := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	// The machine is assigned a network address.
@@ -294,7 +295,7 @@ func (s *workerSuite) TestSkipMachineIfShortPollTargetTimeNotElapsed(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	machineTag := names.NewMachineTag("0")
@@ -320,7 +321,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	machineTag := names.NewMachineTag("0")
@@ -348,7 +349,7 @@ func (s *workerSuite) TestQueuingOfManualMachines(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	// Add two manual machines, one with "provisioning" status and one with
@@ -382,7 +383,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	// Add two machines, one that is not yet provisioned and one that is
@@ -418,7 +419,7 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	defer ctrl.Finish()
 
 	w, mocked := s.startWorker(c, ctrl)
-	defer s.assertWorkerExitsCleanly(c, w)
+	defer workertest.CleanKill(c, w)
 	updWorker := w.(*updaterWorker)
 
 	machineTag := names.NewMachineTag("0")
@@ -443,21 +444,6 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	s.assertWorkerCompletesLoops(c, updWorker, 2, func() {
 		mocked.clock.Advance(LongPoll)
 	})
-}
-
-func (s *workerSuite) assertWorkerExitsCleanly(c *gc.C, w worker.Worker) {
-	var errCh = make(chan error, 1)
-	go func() {
-		w.Kill()
-		errCh <- w.Wait()
-	}()
-
-	select {
-	case err := <-errCh:
-		c.Assert(err, jc.ErrorIsNil)
-	case <-time.After(coretesting.LongWait):
-		c.Fatal("timed out waiting for worker to exit")
-	}
 }
 
 func (s *workerSuite) assertWorkerCompletesLoop(c *gc.C, w *updaterWorker, triggerFn func()) {

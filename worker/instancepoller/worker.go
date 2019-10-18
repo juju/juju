@@ -231,7 +231,7 @@ func (u *updaterWorker) loop() error {
 
 func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
-	// and remove it from its poll group
+	// and remove it from its poll group if it now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
 		if err := entry.m.Refresh(); err != nil {
 			return errors.Trace(err)
@@ -463,7 +463,6 @@ func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *poll
 	// the long poll group
 	if len(machAddrs) > 0 && curMachineStatus == status.Started {
 		if curGroup == longPollGroup {
-			u.config.Logger.Debugf("machine machine %q (instance ID %q) is already in long poll group", entry.m, entry.instanceID)
 			return // already in long poll group
 		}
 		delete(u.pollGroup[shortPollGroup], entry.tag)
