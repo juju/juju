@@ -890,7 +890,7 @@ func (s *clientSuite) TestUserHasRootLevelPrivilege(c *gc.C) {
 	c.Assert(result, gc.Equals, false)
 
 	s.roundTripper.SetErrors(nil, permissionError)
-	result, err = client.UserHasRootLevelPrivilege(context.Background(), "Other.Privilege")
+	_, err = client.UserHasRootLevelPrivilege(context.Background(), "Other.Privilege")
 	c.Assert(err, gc.ErrorMatches, `checking for "Other.Privilege" privilege: ServerFaultCode: Permission to perform this operation was denied.`)
 }
 
