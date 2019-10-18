@@ -28,7 +28,7 @@ func EnsureK8sCredential(credentailName string, config *clientcmdapi.Config, con
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return ensureJujuAdminServiceAccount(clientset, credentailName, config, contextName)
+	return createJujuAdminServiceAccount(clientset, credentailName, config, contextName)
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
