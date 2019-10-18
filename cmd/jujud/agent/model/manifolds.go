@@ -494,6 +494,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				BrokerName:    caasBrokerTrackerName,
 				ClockName:     clockName,
 				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
+				Logger:        config.LoggingContext.GetLogger("juju.worker.caasprovisioner"),
 			},
 		)),
 		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
