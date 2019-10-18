@@ -1058,6 +1058,66 @@ func (s *upgradesSuite) TestAddActionPruneSettings(c *gc.C) {
 	s.checkAddPruneSettings(c, "max-action-results-age", "max-action-results-size", config.DefaultActionResultsAge, config.DefaultActionResultsSize, AddActionPruneSettings)
 }
 
+func (s *upgradesSuite) TestAddDefaultSpaceSetting(c *gc.C) {
+	defaultSpaceValue := config.ConfigDefaults()[config.DefaultSpace]
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// should not be changed, because we already have a value
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
+		config.DefaultSpace: "something",
+	})
+	defer m1.Close()
+
+	// should be changed to default, because we do not have a value yet
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{})
+	defer m2.Close()
+
+	err = settingsColl.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model1, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected1 := cfg1.AllAttrs()
+	expected1["resource-tags"] = ""
+
+	model2, err := m2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := model2.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected2 := cfg2.AllAttrs()
+	expected2[config.DefaultSpace] = defaultSpaceValue
+	expected2["resource-tags"] = ""
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	s.assertUpgradedData(c, AddDefaultSpaceSetting,
+		upgradedData(settingsColl, expectedSettings),
+	)
+}
+
 func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
