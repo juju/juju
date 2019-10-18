@@ -7,12 +7,12 @@ import (
 	"strconv"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 )
 
 type bridgePolicySuite struct {
@@ -21,7 +21,7 @@ type bridgePolicySuite struct {
 	netBondReconfigureDelay   int
 	containerNetworkingMethod string
 
-	spaces   *MockSpaces
+	spaces   map[string]string
 	host     *MockContainer
 	guest    *MockContainer
 	unit     *MockUnit
@@ -36,6 +36,7 @@ func (s *bridgePolicySuite) SetUpTest(c *gc.C) {
 
 	s.netBondReconfigureDelay = 13
 	s.containerNetworkingMethod = "local"
+	s.spaces = make(map[string]string)
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
@@ -47,7 +48,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.Names(), jc.SameContents, []string{"bar", "foo"})
+	c.Check(spaces, jc.SameContents, []string{"2", "1"})
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesEndpoints(c *gc.C) {
@@ -63,7 +64,7 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesEndpoints(c *gc.C) {
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.Names(), jc.SameContents, []string{"fizz"})
+	c.Check(spaces, jc.SameContents, []string{"3"})
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraintsAndEndpoints(c *gc.C) {
@@ -79,13 +80,12 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraintsAndEndpoints(
 
 	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.Names(), jc.SameContents, []string{"bar", "fizz", "foo"})
+	c.Check(spaces, jc.SameContents, []string{"2", "3", "1"})
 }
 
 func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.spaces = NewMockSpaces(ctrl)
 	s.host = NewMockContainer(ctrl)
 	s.guest = NewMockContainer(ctrl)
 	s.unit = NewMockUnit(ctrl)
@@ -94,12 +94,10 @@ func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.guest.EXPECT().Id().Return("guest-id").AnyTimes()
 
-	for i, space := range []string{"foo", "bar", "fizz"} {
+	for i, space := range []string{network.DefaultSpaceName, "foo", "bar", "fizz"} {
 		// 0 is the DefaultSpaceId
-		id := strconv.Itoa(i + 1)
-		info := network.SpaceInfo{Name: network.SpaceName(space), ID: id}
-		s.spaces.EXPECT().GetByName(space).Return(info, nil).AnyTimes()
-		s.spaces.EXPECT().GetByID(id).Return(info, nil).AnyTimes()
+		id := strconv.Itoa(i)
+		s.spaces[space] = id
 	}
 
 	return ctrl
