@@ -4012,7 +4012,7 @@ func (u *Unit) WatchMachineAndEndpointAddressesHash() (StringsWatcher, error) {
 	return w, nil
 }
 
-func hashMachineAddressesForEndpointBindings(m *Machine, bindings map[string]string) (string, error) {
+func hashMachineAddressesForEndpointBindings(m *Machine, bindingsToSpaceIDs map[string]string) (string, error) {
 	if err := m.Refresh(); err != nil {
 		return "", errors.Trace(err)
 	}
@@ -4024,14 +4024,12 @@ func hashMachineAddressesForEndpointBindings(m *Machine, bindings map[string]str
 		hashAddr(hash, address)
 	}
 
-	// Also include endpoint to machine address assignments to the hash
-	addrsBySpaceID, err := m.AddressesBySpaceID()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
-	sortedEndpoints := make([]string, 0, len(bindings))
-	for epName := range bindings {
+	// Also include binding assignments to the hash. We don't care about
+	// address assignments at this point; if the machine addresses change
+	// (e.g. due to a reboot), the above code block would yield a different
+	// hash.
+	sortedEndpoints := make([]string, 0, len(bindingsToSpaceIDs))
+	for epName := range bindingsToSpaceIDs {
 		sortedEndpoints = append(sortedEndpoints, epName)
 	}
 	sort.Strings(sortedEndpoints)
@@ -4040,21 +4038,16 @@ func hashMachineAddressesForEndpointBindings(m *Machine, bindings map[string]str
 		if epName == "" {
 			continue
 		}
-		spID := bindings[epName]
-		addresses := addrsBySpaceID[spID]
-		sort.Slice(addresses, func(i, j int) bool { return addresses[i].Value < addresses[j].Value })
-		for _, address := range addresses {
-			hashAddr(hash, address)
-		}
+		_, _ = hash.Write([]byte(fmt.Sprintf("%s:%s", epName, bindingsToSpaceIDs[epName])))
 	}
 	return fmt.Sprintf("%x", hash.Sum(nil)), nil
 }
 
 func hashAddr(h hash.Hash, addr corenetwork.SpaceAddress) {
-	h.Write([]byte(addr.Value))
-	h.Write([]byte(addr.Type))
-	h.Write([]byte(addr.Scope))
-	h.Write([]byte(addr.SpaceID))
+	_, _ = h.Write([]byte(addr.Value))
+	_, _ = h.Write([]byte(addr.Type))
+	_, _ = h.Write([]byte(addr.Scope))
+	_, _ = h.Write([]byte(addr.SpaceID))
 }
 
 // hashMultiWatcher watches a set of documents for changes, invokes a
