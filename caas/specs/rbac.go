@@ -9,9 +9,11 @@ import (
 
 // PolicyRule defines rule spec for creating a role or cluster role.
 type PolicyRule struct {
-	Verbs     []string `yaml:"verbs"`
-	APIGroups []string `yaml:"apiGroups,omitempty"`
-	Resources []string `yaml:"resources,omitempty"`
+	Verbs           []string `yaml:"verbs"`
+	APIGroups       []string `yaml:"apiGroups,omitempty"`
+	Resources       []string `yaml:"resources,omitempty"`
+	ResourceNames   []string `yaml:"resourceNames,omitempty"`
+	NonResourceURLs []string `yaml:"nonResourceURLs,omitempty"`
 }
 
 // RBACSpec defines RBAC related spec.

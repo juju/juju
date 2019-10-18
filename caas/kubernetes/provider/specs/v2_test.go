@@ -135,6 +135,12 @@ kubernetesResources:
     - apiGroups: [""]
       resources: ["pods"]
       verbs: ["get", "watch", "list"]
+    - nonResourceURLs: ["/healthz", "/healthz/*"] # '*' in a nonResourceURL is a suffix glob match
+      verbs: ["get", "post"]
+    - apiGroups: ["rbac.authorization.k8s.io"]
+      resources: ["clusterroles"]
+      verbs: ["bind"]
+      resourceNames: ["admin","edit","view"]
   pod:
     restartPolicy: OnFailure
     activeDeadlineSeconds: 10
@@ -329,6 +335,16 @@ echo "do some stuff here for gitlab-init container"
 				APIGroups: []string{""},
 				Resources: []string{"pods"},
 				Verbs:     []string{"get", "watch", "list"},
+			},
+			{
+				NonResourceURLs: []string{"/healthz", "/healthz/*"},
+				Verbs:           []string{"get", "post"},
+			},
+			{
+				APIGroups:     []string{"rbac.authorization.k8s.io"},
+				Resources:     []string{"clusterroles"},
+				Verbs:         []string{"bind"},
+				ResourceNames: []string{"admin", "edit", "view"},
 			},
 		}
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
