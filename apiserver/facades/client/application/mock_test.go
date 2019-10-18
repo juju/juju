@@ -408,6 +408,18 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 	return nil, errors.NotFoundf("machine %q", id)
 }
 
+func (m *mockBackend) SpaceIDsByName() (map[string]string, error) {
+	return nil, nil
+}
+
+func (m *mockBackend) SpaceNamesByID() (map[string]string, error) {
+	return nil, nil
+}
+
+func (m *mockBackend) SpaceByID(_ string) (*state.Space, error) {
+	return nil, nil
+}
+
 func newMockModel() mockModel {
 	return mockModel{
 		uuid:      utils.MustNewUUID().String(),

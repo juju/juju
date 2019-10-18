@@ -49,6 +49,7 @@ type Backend interface {
 	OfferConnectionForRelation(string) (OfferConnection, error)
 	SaveEgressNetworks(relationKey string, cidrs []string) (state.RelationNetworks, error)
 	Branch(string) (Generation, error)
+	state.EndpointBinding
 }
 
 // BlockChecker defines the block-checking functionality required by

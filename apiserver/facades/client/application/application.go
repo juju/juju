@@ -676,6 +676,10 @@ func deployApplication(
 		attachStorage[i] = tag
 	}
 
+	bindings, err := state.NewBindings(backend, args.EndpointBindings)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Series:            args.Series,
@@ -689,7 +693,7 @@ func deployApplication(
 		Storage:           args.Storage,
 		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
-		EndpointBindings:  args.EndpointBindings,
+		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 	})
 	return errors.Trace(err)
