@@ -2437,7 +2437,7 @@ func labelsToSelector(labels map[string]string) string {
 	for k, v := range labels {
 		selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
 	}
-	sort.Strings(selectors) // for testing.
+	sort.Strings(selectors) // for tests.
 	return strings.Join(selectors, ",")
 }
 

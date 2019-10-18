@@ -20,19 +20,23 @@ import (
 var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 
 // K8sCredentialResolver defines the function for resolving non supported k8s credential.
-type K8sCredentialResolver func(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error)
+type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
 
 // EnsureK8sCredential ensures juju admin service account created with admin cluster role binding setup.
-func EnsureK8sCredential(config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
+func EnsureK8sCredential(credentailName string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
 	clientset, err := newK8sClientSet(config, contextName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return ensureJujuAdminServiceAccount(clientset, config, contextName)
+	return ensureJujuAdminServiceAccount(clientset, credentailName, config, contextName)
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
-func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, credentialResolver K8sCredentialResolver) (*ClientConfig, error) {
+func NewK8sClientConfig(
+	cloudName string, reader io.Reader,
+	contextName, clusterName string,
+	credentialResolver K8sCredentialResolver,
+) (*ClientConfig, error) {
 	if reader == nil {
 		var err error
 		reader, err = readKubeConfigFile()
@@ -68,9 +72,14 @@ func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, crede
 		context = contexts[contextName]
 		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
 	}
-	// exclude not related contexts.
+
+	if context.isEmpty() {
+		return nil, errors.NewNotFound(nil,
+			fmt.Sprintf("no context found for context name: %q, cluster name: %q", contextName, clusterName))
+	}
+	// Exclude not related contexts.
 	contexts = map[string]Context{}
-	if contextName != "" && !context.isEmpty() {
+	if contextName != "" {
 		contexts[contextName] = context
 	}
 
@@ -80,12 +89,15 @@ func NewK8sClientConfig(reader io.Reader, contextName, clusterName string, crede
 		return nil, errors.Annotate(err, "failed to read clouds from kubernetes config")
 	}
 
-	// try to create service account, cluster role and cluster role binding for k8s credential using provided credential.
-	config, err = credentialResolver(config, contextName)
-	if err != nil {
-		return nil, errors.Annotatef(err, "ensuring k8s credential with RBAC setup", context.CredentialName)
+	if credentialResolver != nil {
+		// Try to create service account, cluster role and cluster role binding for k8s credential using provided credential.
+		// Name credential resources using cloud name.
+		config, err = credentialResolver(cloudName, config, contextName)
+		if err != nil {
+			return nil, errors.Annotatef(err, "ensuring k8s credential with RBAC setup", context.CredentialName)
+		}
 	}
-	logger.Debugf("get credentials from kubeconfig using the generated auth info")
+	logger.Debugf("get credentials from kubeconfig")
 	credentials, err := credentialsFromConfig(config, context.CredentialName)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")

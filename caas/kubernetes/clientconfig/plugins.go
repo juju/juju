@@ -4,6 +4,10 @@
 package clientconfig
 
 import (
+	"fmt"
+	"sort"
+	"strings"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -15,12 +19,13 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-const (
-	adminNameSpace             = "kube-system"
-	clusterRoleName            = "cluster-admin"
-	jujuServiceAccountName     = "juju-service-account"
-	jujuClusterRoleBindingName = "juju-cluster-role-binding"
-)
+const adminNameSpace = "kube-system"
+
+func getRBACLabels(stackName string) map[string]string {
+	return map[string]string{
+		"juju-cloud": stackName,
+	}
+}
 
 // To regenerate the mocks for the kubernetes Client used by this package,
 //go:generate mockgen -package mocks -destination ../provider/mocks/restclient_mock.go -mock_names=Interface=MockRestClientInterface k8s.io/client-go/rest  Interface
@@ -37,38 +42,40 @@ func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernet
 
 func ensureJujuAdminServiceAccount(
 	clientset kubernetes.Interface,
+	stackName string,
 	config *clientcmdapi.Config,
 	contextName string,
 ) (*clientcmdapi.Config, error) {
+	labels := getRBACLabels(stackName)
 
-	// ensure admin cluster role.
-	clusterRole, err := ensureClusterRole(clientset, clusterRoleName, adminNameSpace)
+	// Ensure admin cluster role.
+	clusterRole, err := ensureClusterRole(clientset, stackName, adminNameSpace, labels)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "ensuring cluster role %q in namespace %q", clusterRoleName, adminNameSpace)
+			err, "ensuring cluster role %q in namespace %q", stackName, adminNameSpace)
 	}
 
-	// create juju admin service account.
-	sa, err := ensureServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	// Create juju admin service account.
+	sa, err := ensureServiceAccount(clientset, stackName, adminNameSpace, labels)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "ensuring service account %q in namespace %q", jujuServiceAccountName, adminNameSpace)
+			err, "ensuring service account %q in namespace %q", stackName, adminNameSpace)
 	}
 
-	// ensure role binding for juju admin service account with admin cluster role.
-	_, err = ensureClusterRoleBinding(clientset, jujuClusterRoleBindingName, sa, clusterRole)
+	// Ensure role binding for juju admin service account with admin cluster role.
+	_, err = ensureClusterRoleBinding(clientset, stackName, sa, clusterRole, labels)
 	if err != nil {
-		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", jujuClusterRoleBindingName)
+		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", stackName)
 	}
 
-	// refresh service account to get the secret/token after cluster role binding created.
-	sa, err = getServiceAccount(clientset, jujuServiceAccountName, adminNameSpace)
+	// Refresh service account to get the secret/token after cluster role binding created.
+	sa, err = getServiceAccount(clientset, stackName, adminNameSpace)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "refetching service account %q after cluster role binding created", jujuServiceAccountName)
+			err, "refetching service account %q after cluster role binding created", stackName)
 	}
 
-	// get bearer token of juju admin service account.
+	// Get bearer token of the service account.
 	secret, err := getServiceAccountSecret(clientset, sa)
 	if err != nil {
 		return nil, errors.Annotatef(err, "fetching bearer token for service account %q", sa.Name)
@@ -78,8 +85,8 @@ func ensureJujuAdminServiceAccount(
 	return config, nil
 }
 
-func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (*rbacv1.ClusterRole, error) {
-	// try get first because it's more usual to reuse cluster role.
+func ensureClusterRole(clientset kubernetes.Interface, name, namespace string, labels map[string]string) (*rbacv1.ClusterRole, error) {
+	// Try get first because it's more usual to reuse cluster role.
 	clusterRole, err := clientset.RbacV1().ClusterRoles().Get(name, metav1.GetOptions{})
 	if err == nil {
 		return clusterRole, nil
@@ -95,6 +102,7 @@ func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -114,11 +122,15 @@ func ensureClusterRole(clientset kubernetes.Interface, name, namespace string) (
 	return cr, nil
 }
 
-func ensureServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
+func ensureServiceAccount(
+	clientset kubernetes.Interface,
+	name, namespace string, labels map[string]string,
+) (*core.ServiceAccount, error) {
 	_, err := clientset.CoreV1().ServiceAccounts(namespace).Create(&core.ServiceAccount{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 	})
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
@@ -136,10 +148,12 @@ func ensureClusterRoleBinding(
 	name string,
 	sa *core.ServiceAccount,
 	cr *rbacv1.ClusterRole,
+	labels map[string]string,
 ) (*rbacv1.ClusterRoleBinding, error) {
 	rb, err := clientset.RbacV1().ClusterRoleBindings().Create(&rbacv1.ClusterRoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: labels,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Kind: "ClusterRole",
