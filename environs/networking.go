@@ -35,9 +35,13 @@ type Networking interface {
 	// for EC2 VPC.
 	SuperSubnets(ctx context.ProviderCallContext) ([]string, error)
 
-	// NetworkInterfaces requests information about the network
-	// interfaces on the given instance.
-	NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error)
+	// NetworkInterfaces returns a slice with the network interfaces that
+	// correpsond to the given instance IDs. If no instances where found,
+	// but there was no other error, it will return ErrNoInstances. If some
+	// but not all of the instances were found, the returned slice will
+	// have some nil slots, and an ErrPartialInstances error will be
+	// returned.
+	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error)
 
 	// SupportsSpaces returns whether the current environment supports
 	// spaces. The returned error satisfies errors.IsNotSupported(),
