@@ -1320,11 +1320,13 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	app := newApplication(st, appDoc)
 
-	b, err := app.bindingsForOps(args.EndpointBindings)
+	// The app has no existing bindings yet.
+	b, err := app.bindingsForOps(nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	endpointBindingsOp, err := b.createOp(
+		args.EndpointBindings,
 		args.Charm.Meta(),
 	)
 	if err != nil {

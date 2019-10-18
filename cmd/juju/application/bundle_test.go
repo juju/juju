@@ -295,7 +295,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches, ""+
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
-		"cannot add application \"mysql\": endpoint \"server\" value \"db\", space name or ID not found")
+		"space not found")
 	c.Assert(stdErr, gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`+"\n"+
 		"Resolving charm: mysql\n"+
@@ -839,8 +839,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
+	_, err := s.State.AddSpace("public", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
-	err := s.DeployBundleYAML(c, `
+	err = s.DeployBundleYAML(c, `
         applications:
             wp:
                 charm: xenial/wordpress-42
@@ -863,7 +865,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
     `)
 	// TODO(jam): 2017-02-05 double repeating "cannot deploy application" and "cannot add application" is a bit ugly
 	// https://pad.lv/1661937
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": cannot add application "wp": endpoint "url" value "public", space name or ID not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": space not found`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {

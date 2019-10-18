@@ -2780,14 +2780,21 @@ func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
 
 		var ops []txn.Op
 		for _, doc := range docs {
-			updatedMap, err := NewBindings(st, doc.Bindings)
+			bindings, err := NewBindings(st, doc.Bindings)
 			if err != nil {
 				return errors.Trace(err)
+			}
+			updatedMap := make(map[string]string, len(bindings.Map()))
+			for k, v := range bindings.Map() {
+				if v == "" {
+					v = network.DefaultSpaceId
+				}
+				updatedMap[k] = v
 			}
 			ops = append(ops, txn.Op{
 				C:      endpointBindingsC,
 				Id:     doc.DocID,
-				Update: bson.M{"$set": bson.M{"bindings": updatedMap.Map()}},
+				Update: bson.M{"$set": bson.M{"bindings": updatedMap}},
 			})
 		}
 

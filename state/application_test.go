@@ -3536,15 +3536,15 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 
 func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
-	application := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
-	state.RemoveEndpointBindingsForApplication(c, application)
+	app := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
+	state.RemoveEndpointBindingsForApplication(c, app)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
 
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err := application.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	setBindings, err := application.EndpointBindings()
+	setBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// The following two exist for both oldCharm and newCharm.
@@ -3559,7 +3559,7 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 	}
 	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 
-	s.assertApplicationRemovedWithItsBindings(c, application)
+	s.assertApplicationRemovedWithItsBindings(c, app)
 }
 
 func (s *ApplicationSuite) setupApplicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {

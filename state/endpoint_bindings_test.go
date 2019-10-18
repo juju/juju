@@ -24,8 +24,10 @@ type bindingsSuite struct {
 	newMeta     *charm.Meta
 	newDefaults map[string]string
 
-	clientSpaceID string
-	appsSpaceID   string
+	clientSpace *state.Space
+	appsSpace   *state.Space
+	barbSpace   *state.Space
+	dbSpace     *state.Space
 }
 
 var _ = gc.Suite(&bindingsSuite{})
@@ -91,8 +93,15 @@ peers:
 	// Add some spaces to use in bindings, but notably NOT the default space, as
 	// it should be always allowed.
 
-	s.clientSpaceID = "1"
-	s.appsSpaceID = "2"
+	var err error
+	s.clientSpace, err = s.State.AddSpace("client", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.appsSpace, err = s.State.AddSpace("apps", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.dbSpace, err = s.State.AddSpace("db", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	s.barbSpace, err = s.State.AddSpace("barb3", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
@@ -101,175 +110,176 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 	// in various ways.
 
 	for i, test := range []struct {
-		about          string
-		newMap, oldMap map[string]string
-		meta           *charm.Meta
-		updated        map[string]string
-		modified       bool
+		about                    string
+		mergeWithMap, currentMap map[string]string
+		meta                     *charm.Meta
+		updated                  map[string]string
+		modified                 bool
 	}{{
-		about:    "defaults used when both newMap and oldMap are nil",
-		newMap:   nil,
-		oldMap:   nil,
-		meta:     s.oldMeta,
-		updated:  s.copyMap(s.oldDefaults),
-		modified: true,
+		about:        "defaults used when both mergeWithMap and currentMap are nil",
+		mergeWithMap: nil,
+		currentMap:   nil,
+		meta:         s.oldMeta,
+		updated:      s.copyMap(s.oldDefaults),
+		modified:     true,
 	}, {
-		about:  "oldMap overrides defaults, newMap is nil",
-		newMap: nil,
-		oldMap: map[string]string{
-			"foo1": s.clientSpaceID,
-			"self": "db",
+		about:        "currentMap overrides defaults, mergeWithMap is nil",
+		mergeWithMap: nil,
+		currentMap: map[string]string{
+			"foo1": s.clientSpace.Id(),
+			"self": s.dbSpace.Id(),
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
 			"":          network.DefaultSpaceId,
-			"foo1":      s.clientSpaceID,
+			"foo1":      s.clientSpace.Id(),
 			"bar1":      network.DefaultSpaceId,
-			"self":      "db",
+			"self":      s.dbSpace.Id(),
 			"one-extra": network.DefaultSpaceId,
 		},
 		modified: true,
 	}, {
-		about: "oldMap overrides defaults, newMap overrides oldMap",
-		newMap: map[string]string{
+		about: "currentMap overrides defaults, mergeWithMap overrides currentMap",
+		mergeWithMap: map[string]string{
 			"":          network.DefaultSpaceId,
 			"foo1":      network.DefaultSpaceId,
-			"self":      "db",
-			"bar1":      s.clientSpaceID,
-			"one-extra": s.appsSpaceID,
+			"self":      s.dbSpace.Id(),
+			"bar1":      s.clientSpace.Id(),
+			"one-extra": s.appsSpace.Id(),
 		},
-		oldMap: map[string]string{
-			"foo1": s.clientSpaceID,
-			"bar1": "db",
+		currentMap: map[string]string{
+			"foo1": s.clientSpace.Id(),
+			"bar1": s.dbSpace.Id(),
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
 			"":          network.DefaultSpaceId,
 			"foo1":      network.DefaultSpaceId,
-			"bar1":      s.clientSpaceID,
-			"self":      "db",
-			"one-extra": s.appsSpaceID,
+			"bar1":      s.clientSpace.Id(),
+			"self":      s.dbSpace.Id(),
+			"one-extra": s.appsSpace.Id(),
 		},
 		modified: true,
 	}, {
-		about: "newMap overrides defaults, oldMap is nil",
-		newMap: map[string]string{
-			"self": "db",
+		about: "mergeWithMap overrides defaults, currentMap is nil",
+		mergeWithMap: map[string]string{
+			"self": s.dbSpace.Id(),
 		},
-		oldMap: nil,
-		meta:   s.oldMeta,
+		currentMap: nil,
+		meta:       s.oldMeta,
 		updated: map[string]string{
 			"":          network.DefaultSpaceId,
 			"foo1":      network.DefaultSpaceId,
 			"bar1":      network.DefaultSpaceId,
-			"self":      "db",
+			"self":      s.dbSpace.Id(),
 			"one-extra": network.DefaultSpaceId,
 		},
 		modified: true,
 	}, {
-		about:  "obsolete entries in oldMap missing in defaults are removed",
-		newMap: nil,
-		oldMap: map[string]string{
-			"any-old-thing": "boo",
-			"self":          "db",
-			"one-extra":     s.appsSpaceID,
+		about:        "obsolete entries in currentMap missing in defaults are removed",
+		mergeWithMap: nil,
+		currentMap: map[string]string{
+			"any-old-thing": s.dbSpace.Id(),
+			"self":          s.dbSpace.Id(),
+			"one-extra":     s.appsSpace.Id(),
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
 			"":          network.DefaultSpaceId,
 			"foo1":      network.DefaultSpaceId,
 			"bar1":      network.DefaultSpaceId,
-			"self":      "db",
-			"one-extra": s.appsSpaceID,
+			"self":      s.dbSpace.Id(),
+			"one-extra": s.appsSpace.Id(),
 		},
 		modified: true,
 	}, {
-		about: "new endpoints use defaults unless specified in newMap, existing ones are kept",
-		newMap: map[string]string{
-			"foo2": "db",
-			"me":   s.clientSpaceID,
-			"bar3": "db",
+		about: "new endpoints use defaults unless specified in mergeWithMap, existing ones are kept",
+		mergeWithMap: map[string]string{
+			"foo2": s.dbSpace.Id(),
+			"me":   s.clientSpace.Id(),
+			"bar3": s.dbSpace.Id(),
 		},
-		oldMap: s.copyMap(s.oldDefaults),
-		meta:   s.newMeta,
+		currentMap: s.copyMap(s.oldDefaults),
+		meta:       s.newMeta,
 		updated: map[string]string{
 			"":     network.DefaultSpaceId,
 			"foo1": network.DefaultSpaceId,
-			"foo2": "db",
+			"foo2": s.dbSpace.Id(),
 			"bar2": network.DefaultSpaceId,
-			"bar3": "db",
+			"bar3": s.dbSpace.Id(),
 			"self": network.DefaultSpaceId,
-			"me":   s.clientSpaceID,
+			"me":   s.clientSpace.Id(),
 		},
 		modified: true,
 	}, {
 		about: "new default supersedes old default",
-		newMap: map[string]string{
-			"":     "newb",
-			"bar3": "barb3",
+		mergeWithMap: map[string]string{
+			"":     s.clientSpace.Name(),
+			"bar3": s.barbSpace.Name(),
 		},
-		oldMap: map[string]string{
-			"":          "default",
-			"foo1":      "default",
-			"bar1":      "db",
+		currentMap: map[string]string{
+			"":          s.appsSpace.Id(),
+			"foo1":      s.appsSpace.Id(),
+			"bar1":      s.dbSpace.Id(),
 			"self":      "",
-			"one-extra": "old",
+			"one-extra": s.barbSpace.Id(),
 		},
 		meta: s.newMeta,
 		updated: map[string]string{
-			"":     "newb",
-			"foo1": "default",
-			"foo2": "newb",
-			"bar2": "newb",
-			"bar3": "barb3",
+			"":     s.clientSpace.Id(),
+			"foo1": s.appsSpace.Id(),
+			"foo2": s.clientSpace.Id(),
+			"bar2": s.clientSpace.Id(),
+			"bar3": s.barbSpace.Id(),
 			"self": "",
-			"me":   "newb",
+			"me":   s.clientSpace.Id(),
 		},
 		modified: true,
 	}, {
 		about: "new map one change",
-		newMap: map[string]string{
-			"self": "bar",
+		mergeWithMap: map[string]string{
+			"self": s.barbSpace.Name(),
 		},
-		oldMap: map[string]string{
-			"":          "default",
-			"foo1":      "default",
-			"bar1":      "db",
+		currentMap: map[string]string{
+			"":          s.appsSpace.Id(),
+			"foo1":      s.appsSpace.Id(),
+			"bar1":      s.dbSpace.Id(),
 			"self":      "",
-			"one-extra": "old",
+			"one-extra": s.clientSpace.Id(),
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"":          "default",
-			"foo1":      "default",
-			"bar1":      "db",
-			"self":      "bar",
-			"one-extra": "old",
+			"":          s.appsSpace.Id(),
+			"foo1":      s.appsSpace.Id(),
+			"bar1":      s.dbSpace.Id(),
+			"self":      s.barbSpace.Id(),
+			"one-extra": s.clientSpace.Id(),
 		},
 		modified: true,
 	}, {
-		about:  "old unchanged but different key",
-		newMap: nil,
-		oldMap: map[string]string{
-			"":          "default",
-			"bar1":      "db",
+		about:        "old unchanged but different key",
+		mergeWithMap: nil,
+		currentMap: map[string]string{
+			"":          s.appsSpace.Id(),
+			"bar1":      s.dbSpace.Id(),
 			"self":      "",
-			"lost":      "old",
-			"one-extra": "old",
+			"lost":      s.clientSpace.Id(),
+			"one-extra": s.clientSpace.Id(),
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"":          "default",
-			"foo1":      "default",
-			"bar1":      "db",
+			"":          s.appsSpace.Id(),
+			"foo1":      s.appsSpace.Id(),
+			"bar1":      s.dbSpace.Id(),
 			"self":      "",
-			"one-extra": "old",
+			"one-extra": s.clientSpace.Id(),
 		},
 		modified: true,
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
-		b := state.NewBindingsForMergeTest(test.newMap)
-		isModified, err := b.Merge(test.oldMap, test.meta)
+		b, err := state.NewBindings(s.State, test.currentMap)
+		c.Assert(err, jc.ErrorIsNil)
+		isModified, err := b.Merge(test.mergeWithMap, test.meta)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(b.Map(), jc.DeepEquals, test.updated)
 		c.Check(isModified, gc.Equals, test.modified)
@@ -343,7 +353,7 @@ func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 	c.Assert(binding.Map(), jc.DeepEquals, expected)
 }
 
-func (s *bindingsMockSuite) TestNewBindingsInvalid(c *gc.C) {
+func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
 	s.expectIDsByName()
 	s.expectNamesByID()
@@ -354,8 +364,32 @@ func (s *bindingsMockSuite) TestNewBindingsInvalid(c *gc.C) {
 	}
 
 	binding, err := state.NewBindings(s.endpointBinding, initial)
-	c.Assert(err, jc.Satisfies, errors.IsNotValid)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(binding, gc.IsNil)
+}
+
+func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectIDsByName()
+	s.expectNamesByID()
+	initial := map[string]string{
+		"db":      "2",
+		"testing": "3",
+		"empty":   "",
+	}
+
+	binding, err := state.NewBindings(s.endpointBinding, initial)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(binding, gc.NotNil)
+	withSpaceNames, err := binding.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := map[string]string{
+		"db":      "two",
+		"testing": "three",
+		"empty":   network.DefaultSpaceName,
+	}
+	c.Assert(withSpaceNames, jc.DeepEquals, expected)
 }
 
 func (s *bindingsMockSuite) expectNamesByID() {

@@ -4115,7 +4115,7 @@ func (s *upgradesSuite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
 		{
 			"_id":        uuid1 + ":a#ubuntu",
 			"model-uuid": uuid1,
-			"bindings":   bson.M{"one": space1.Id(), "two": "0"},
+			"bindings":   bson.M{"one": space1.Id(), "two": network.DefaultSpaceId},
 		}, {
 			"_id":        uuid1 + ":a#ghost",
 			"model-uuid": uuid1,

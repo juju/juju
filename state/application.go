@@ -1011,11 +1011,16 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, relOps...)
 
 	// Update any existing endpoint bindings, using defaults for new endpoints.
-	b, err := a.bindingsForOps(operatorEndpointBindings)
+	// Fetch existing bindings.
+	currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil && !errors.IsNotFound(err) {
+		return ops, errors.Trace(err)
+	}
+	b, err := a.bindingsForOps(currentMap)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	endpointBindingsOps, err := b.updateOps(ch.Meta())
+	endpointBindingsOps, err := b.updateOps(txnRevno, operatorEndpointBindings, ch.Meta())
 	if err == nil {
 		ops = append(ops, endpointBindingsOps...)
 	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {

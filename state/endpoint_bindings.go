@@ -76,18 +76,27 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 	return rawMap, nil
 }
 
-// Merge the default bindings based on the given charm metadata, overriding
-// them first with matching current values, and then with mergeWith values
-// (for the same keys). Current values and mergeWith are both optional and
-// will ignored when empty. The current object contains the combined finalized
-// bindings. Returns true/false if there are any actual differences.
+// Merge the default bindings based on the given charm metadata with the
+// current bindings, overriding with mergeWith values (for the same keys).
+// Current values and mergeWith are both optional and will ignored when
+// empty. The current object contains the combined finalized bindings.
+// Returns true/false if there are any actual differences.
 func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, error) {
+	// Verify the bindings to be merged, and ensure we're merging with
+	// space ids.
+	merge, err := NewBindings(b.st, mergeWith)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	mergeMap := merge.Map()
+
 	defaultsMap := DefaultEndpointBindingsForCharm(meta)
-	defaultBinding, oldOk := mergeWith[defaultEndpointName]
-	if !oldOk {
+
+	defaultBinding, mergeOK := b.bindingsMap[defaultEndpointName]
+	if !mergeOK {
 		defaultBinding = network.DefaultSpaceId
 	}
-	if newDefaultBinding, newOk := b.bindingsMap[defaultEndpointName]; newOk {
+	if newDefaultBinding, newOk := mergeMap[defaultEndpointName]; newOk {
 		// new default binding supersedes the old default binding
 		defaultBinding = newDefaultBinding
 	}
@@ -99,47 +108,47 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 	for key, defaultValue := range defaultsMap {
 		effectiveValue := defaultValue
 
-		oldValue, hasOld := mergeWith[key]
-		if hasOld {
-			if oldValue != effectiveValue {
-				effectiveValue = oldValue
+		currentValue, hasCurrent := b.bindingsMap[key]
+		if hasCurrent {
+			if currentValue != effectiveValue {
+				effectiveValue = currentValue
 			}
 		} else {
-			// Old didn't talk about this value, but maybe we have a default
+			// current didn't talk about this value, but maybe we have a default
 			effectiveValue = defaultBinding
 		}
 
-		newValue, hasNew := b.bindingsMap[key]
-		if hasNew && newValue != effectiveValue {
-			effectiveValue = newValue
+		mergeValue, hasMerge := mergeMap[key]
+		if hasMerge && mergeValue != effectiveValue && mergeValue != "" {
+			effectiveValue = mergeValue
 		}
 
 		updated[key] = effectiveValue
 	}
 
-	// Any other bindings in newMap are most likely extraneous, but add them
+	// Any other bindings in mergeWith Map are most likely extraneous, but add them
 	// anyway and let the validation handle them.
-	for key, newValue := range b.bindingsMap {
+	for key, newValue := range mergeMap {
 		if _, defaultExists := defaultsMap[key]; !defaultExists {
 			updated[key] = newValue
 		}
 	}
 	isModified := false
-	if len(updated) != len(mergeWith) {
+	if len(updated) != len(b.bindingsMap) {
 		isModified = true
 	} else {
 		// If the len() is identical, then we know as long as we iterate all entries, then there is no way to
 		// miss an entry. Either they have identical keys and we check all the values, or there is an identical
 		// number of new keys and missing keys and we'll notice a missing key.
 		for key, val := range updated {
-			if oldVal, existed := mergeWith[key]; !existed || oldVal != val {
+			if oldVal, existed := mergeMap[key]; !existed || oldVal != val {
 				isModified = true
 				break
 			}
 		}
 	}
-	logger.Debugf("merged endpoint bindings modified: %t, default: %v, old: %v, new: %v, result: %v",
-		isModified, defaultsMap, mergeWith, b.bindingsMap, updated)
+	logger.Debugf("merged endpoint bindings modified: %t, default: %v, current: %v, mergeWith: %v, after: %v",
+		isModified, defaultsMap, b.bindingsMap, mergeMap, updated)
 	if isModified {
 		b.bindingsMap = updated
 	}
@@ -149,12 +158,12 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 // createOp returns the op needed to create new endpoint bindings using the
 // optional current bindings and the specified charm metadata to for
 // determining defaults and to validate the effective bindings.
-func (b *Bindings) createOp(meta *charm.Meta) (txn.Op, error) {
+func (b *Bindings) createOp(bindings map[string]string, meta *charm.Meta) (txn.Op, error) {
 	if b.app == nil {
 		return txn.Op{}, errors.Trace(errors.New("programming error: app is a nil pointer"))
 	}
 	// No existing map to Merge, just use the defaults.
-	_, err := b.Merge(nil, meta)
+	_, err := b.Merge(bindings, meta)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
@@ -180,21 +189,17 @@ func (b *Bindings) createOp(meta *charm.Meta) (txn.Op, error) {
 // - ids of spaces assigned to endpoints.
 // - application unit count.
 // - endpoint bindings that we are currently trying to update.
-func (b *Bindings) updateOps(newMeta *charm.Meta) ([]txn.Op, error) {
+func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *charm.Meta) ([]txn.Op, error) {
 	var ops []txn.Op
 
 	if b.app == nil {
 		return ops, errors.Trace(errors.New("programming error: app is a nil pointer"))
 	}
 
-	// Fetch existing bindings.
-	oldMap, txnRevno, err := readEndpointBindings(b.app.st, b.app.globalKey())
-	if err != nil && !errors.IsNotFound(err) {
-		return ops, errors.Trace(err)
-	}
+	useTxnRevno := len(b.bindingsMap) > 0
 
-	// Merge existing with given as needed.
-	isModified, err := b.Merge(oldMap, newMeta)
+	// Merge existing with new as needed.
+	isModified, err := b.Merge(newMap, newMeta)
 	if err != nil {
 		return ops, errors.Trace(err)
 	}
@@ -248,7 +253,7 @@ func (b *Bindings) updateOps(newMeta *charm.Meta) ([]txn.Op, error) {
 		Id:     b.app.globalKey(),
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
-	if oldMap != nil {
+	if useTxnRevno {
 		// Only assert existing haven't changed when they actually exist.
 		updateOp.Assert = bson.D{{"txn-revno", txnRevno}}
 	}
@@ -434,47 +439,51 @@ type Bindings struct {
 
 // NewBindings returns a bindings guaranteed to be in space id format.
 func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, error) {
+	// namesErr and idError are only problems if both are not nil.
 	spacesNamesToIDs, err := st.SpaceIDsByName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	haveAllNames := allOfOne(spacesNamesToIDs, givenMap)
+	namesErr := allOfOne(spacesNamesToIDs, givenMap)
 
 	spacesIDsToNames, err := st.SpaceNamesByID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	haveAllIDs := allOfOne(spacesIDsToNames, givenMap)
+	idErr := allOfOne(spacesIDsToNames, givenMap)
 
 	// Ensure the spaces values are all names OR ids in the
 	// given map.
 	var newMap map[string]string
 	switch {
-	case !haveAllIDs && !haveAllNames:
-		return nil, errors.NotValidf("%v contains both space names and ids", givenMap)
-	case haveAllNames && haveAllIDs:
-		// The givenMap is empty, just continue, the loop will be skipped.
+	case namesErr == nil && idErr == nil:
+		// The givenMap is empty or has empty endpoints
+		if len(givenMap) > 0 {
+			newMap = givenMap
+			break
+		}
 		newMap = make(map[string]string, len(givenMap))
-	case haveAllNames:
-		logger.Criticalf("allNames %+v", givenMap)
-		logger.Criticalf("%+v", spacesNamesToIDs)
+
+	case namesErr == nil && idErr != nil:
 		newMap, err = newBindingsFromNames(spacesNamesToIDs, givenMap)
-	case haveAllIDs:
-		logger.Criticalf("allIDs %+v", givenMap)
-		logger.Criticalf("%+v", spacesIDsToNames)
+	case idErr == nil && namesErr != nil:
 		newMap, err = newBindingsFromIDs(spacesIDsToNames, givenMap)
+	default:
+		logger.Errorf("%s", namesErr)
+		logger.Errorf("%s", idErr)
+		return nil, errors.NotFoundf("space")
 	}
 
 	return &Bindings{st: st, bindingsMap: newMap}, err
 }
 
-func allOfOne(currentSpaces, givenMap map[string]string) bool {
-	for _, id := range givenMap {
-		if _, ok := currentSpaces[id]; !ok && id != "" {
-			return false
+func allOfOne(currentSpaces, givenMap map[string]string) error {
+	for k, v := range givenMap {
+		if _, ok := currentSpaces[v]; !ok && v != "" {
+			return errors.NotFoundf("endpoint %q, value %q, space name or id", k, v)
 		}
 	}
-	return true
+	return nil
 }
 
 func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[string]string, error) {
@@ -487,7 +496,7 @@ func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[stri
 		// check that the name is valid and get id.
 		value, ok := verificationMap[name]
 		if !ok {
-			return nil, errors.NotFoundf("epName %q space name value %q", epName, name)
+			return nil, errors.NotFoundf("programming error: epName %q space name value %q", epName, name)
 		}
 		newMap[epName] = value
 	}
@@ -506,7 +515,7 @@ func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string
 			newMap[epName] = id
 			continue
 		}
-		return nil, errors.NotFoundf("epName %q space id value %q", epName, id)
+		return nil, errors.NotFoundf("programming error: epName %q space id value %q", epName, id)
 	}
 	return newMap, nil
 }
@@ -514,18 +523,16 @@ func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string
 // MapWithSpaceNames returns the current bindingMap with space names rather than ids.
 func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	retVal := make(map[string]string, len(b.bindingsMap))
-	namesToIDs, err := b.st.SpaceIDsByName()
+	namesToIDs, err := b.st.SpaceNamesByID()
 	if err != nil {
 		return nil, err
 	}
+	// Assume that b.bindings is always in space id format due to
+	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		if v == network.DefaultSpaceName || v == network.DefaultSpaceId {
-			retVal[k] = network.DefaultSpaceId
+		if v == network.DefaultSpaceId || v == network.DefaultSpaceName {
+			retVal[k] = network.DefaultSpaceName
 			continue
-		}
-		if _, err := b.st.SpaceByID(v); err == nil {
-			// If one binding endpoint is a SpaceID, so are the rest.
-			return b.bindingsMap, nil
 		}
 		spaceID, found := namesToIDs[v]
 		if !found {
