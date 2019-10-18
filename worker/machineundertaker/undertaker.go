@@ -5,7 +5,6 @@ package machineundertaker
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
@@ -16,7 +15,9 @@ import (
 	"github.com/juju/juju/worker/common"
 )
 
-var logger = loggo.GetLogger("juju.worker.machineundertaker")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // Facade defines the interface we require from the machine undertaker
 // facade.
@@ -39,18 +40,20 @@ type Undertaker struct {
 	API         Facade
 	Releaser    AddressReleaser
 	CallContext context.ProviderCallContext
+	Logger      Logger
 }
 
 // NewWorker returns a machine undertaker worker that will watch for
 // machines that need to be removed and remove them, cleaning up any
 // necessary provider-level resources first.
-func NewWorker(api Facade, env environs.Environ, credentialAPI common.CredentialAPI) (worker.Worker, error) {
+func NewWorker(api Facade, env environs.Environ, credentialAPI common.CredentialAPI, logger Logger) (worker.Worker, error) {
 	envNetworking, _ := environs.SupportsNetworking(env)
 	w, err := watcher.NewNotifyWorker(watcher.NotifyConfig{
 		Handler: &Undertaker{
 			API:         api,
 			Releaser:    envNetworking,
 			CallContext: common.NewCloudCallContext(credentialAPI, nil),
+			Logger:      logger,
 		},
 	})
 	if err != nil {
@@ -59,10 +62,10 @@ func NewWorker(api Facade, env environs.Environ, credentialAPI common.Credential
 	return w, nil
 }
 
-// Setup (part of watcher.NotifyHandler) starts watching for machine
+// SetUp (part of watcher.NotifyHandler) starts watching for machine
 // removals.
 func (u *Undertaker) SetUp() (watcher.NotifyWatcher, error) {
-	logger.Infof("setting up machine undertaker")
+	u.Logger.Infof("setting up machine undertaker")
 	return u.API.WatchMachineRemovals()
 }
 
@@ -73,20 +76,20 @@ func (u *Undertaker) Handle(<-chan struct{}) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Debugf("handling removals: %v", removals)
+	u.Logger.Debugf("handling removals: %v", removals)
 	// TODO(babbageclunk): shuffle the removals so if there's a
 	// problem with one others can still get past?
 	for _, machine := range removals {
 		err := u.MaybeReleaseAddresses(machine)
 		if err != nil {
-			logger.Errorf("couldn't release addresses for %s: %s", machine, err)
+			u.Logger.Errorf("couldn't release addresses for %s: %s", machine, err)
 			continue
 		}
 		err = u.API.CompleteRemoval(machine)
 		if err != nil {
-			logger.Errorf("couldn't complete removal for %s: %s", machine, err)
+			u.Logger.Errorf("couldn't complete removal for %s: %s", machine, err)
 		} else {
-			logger.Debugf("completed removal: %s", machine)
+			u.Logger.Debugf("completed removal: %s", machine)
 		}
 	}
 	return nil
@@ -109,7 +112,7 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 		return errors.Trace(err)
 	}
 	if len(interfaceInfos) == 0 {
-		logger.Debugf("%s has no addresses to release", machine)
+		u.Logger.Debugf("%s has no addresses to release", machine)
 		return nil
 	}
 	err = u.Releaser.ReleaseContainerAddresses(u.CallContext, interfaceInfos)
@@ -117,17 +120,17 @@ func (u *Undertaker) MaybeReleaseAddresses(machine names.MachineTag) error {
 	// actually support container addressing; don't freak out
 	// about those.
 	if errors.IsNotSupported(err) {
-		logger.Debugf("%s has addresses but provider doesn't support releasing them", machine)
+		u.Logger.Debugf("%s has addresses but provider doesn't support releasing them", machine)
 	} else if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-// Teardown (part of watcher.NotifyHandler) is an opportunity to stop
+// TearDown (part of watcher.NotifyHandler) is an opportunity to stop
 // or release any resources created in SetUp other than the watcher,
 // which watcher.NotifyWorker takes care of for us.
 func (u *Undertaker) TearDown() error {
-	logger.Infof("tearing down machine undertaker")
+	u.Logger.Infof("tearing down machine undertaker")
 	return nil
 }

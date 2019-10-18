@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/loggo"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -22,7 +23,7 @@ var _ = gc.Suite(&SenderSuite{})
 func (s *SenderSuite) TestSender(c *gc.C) {
 	notify := make(chan string, 1)
 	var client mockClient
-	worker := metricworker.NewSender(&client, notify)
+	worker := metricworker.NewSender(&client, notify, loggo.GetLogger("test"))
 	select {
 	case <-notify:
 	case <-time.After(coretesting.LongWait):

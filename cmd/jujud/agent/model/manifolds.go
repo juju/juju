@@ -416,12 +416,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.metricworker"),
 		})),
 		machineUndertakerName: ifNotMigrating(ifCredentialValid(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		}))),
 		modelUpgraderName: ifNotDead(ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
