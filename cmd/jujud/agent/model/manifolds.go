@@ -472,6 +472,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
