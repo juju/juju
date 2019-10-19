@@ -84,6 +84,7 @@ import (
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -362,17 +363,18 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 type MachineAgent struct {
 	AgentConfigWriter
 
-	ctx              *cmd.Context
-	dead             chan struct{}
-	errReason        error
-	agentTag         names.Tag
-	runner           *worker.Runner
-	rootDir          string
-	bufferedLogger   *logsender.BufferedLogWriter
-	configChangedVal *voyeur.Value
-	upgradeComplete  gate.Lock
-	workersStarted   chan struct{}
-	machineLock      machinelock.Lock
+	ctx               *cmd.Context
+	dead              chan struct{}
+	errReason         error
+	agentTag          names.Tag
+	runner            *worker.Runner
+	rootDir           string
+	bufferedLogger    *logsender.BufferedLogWriter
+	configChangedVal  *voyeur.Value
+	dbUpgradeComplete gate.Lock
+	upgradeComplete   gate.Lock
+	workersStarted    chan struct{}
+	machineLock       machinelock.Lock
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -510,6 +512,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	a.machineLock = machineLock
+	a.dbUpgradeComplete = upgradedatabase.NewLock(agentConfig)
 	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
@@ -573,6 +576,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			Agent:                   agent.APIHostPortsSetter{Agent: a},
 			RootDir:                 a.rootDir,
 			AgentConfigChanged:      a.configChangedVal,
+			UpgradeDBLock:           a.dbUpgradeComplete,
 			UpgradeStepsLock:        a.upgradeComplete,
 			UpgradeCheckLock:        a.initialUpgradeCheckComplete,
 			OpenController:          a.initController,
