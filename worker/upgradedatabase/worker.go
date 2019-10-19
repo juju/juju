@@ -211,7 +211,9 @@ func (w *upgradeDB) runUpgradeSteps(agentConfig agent.ConfigSetter) error {
 
 	for attempt := w.retryStrategy.Start(); attempt.Next(); {
 		upgradeErr = w.performUpgrade(w.fromVersion, []upgrades.Target{upgrades.DatabaseMaster}, contextGetter)
-		if upgradeErr != nil {
+		if upgradeErr == nil {
+			break
+		} else {
 			w.reportUpgradeFailure(upgradeErr, attempt.HasNext())
 		}
 	}
