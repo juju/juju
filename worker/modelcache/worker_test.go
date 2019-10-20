@@ -6,6 +6,7 @@ package modelcache_test
 import (
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -49,8 +50,11 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		WatcherFactory: func() modelcache.BackingWatcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
-		PrometheusRegisterer: noopRegisterer{},
-		Cleanup:              func() {},
+		PrometheusRegisterer:   noopRegisterer{},
+		Cleanup:                func() {},
+		WatcherRestartDelayMin: time.Microsecond,
+		WatcherRestartDelayMax: time.Millisecond,
+		Clock: clock.WallClock,
 	}
 }
 
@@ -80,6 +84,27 @@ func (s *WorkerSuite) TestConfigMissingCleanup(c *gc.C) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing cleanup func not valid")
+}
+
+func (s *WorkerSuite) TestConfigNegativeMinRestartDelay(c *gc.C) {
+	s.config.WatcherRestartDelayMin = -10 * time.Second
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "negative watcher min restart delay not valid")
+}
+
+func (s *WorkerSuite) TestConfigNegativeMaxRestartDelay(c *gc.C) {
+	s.config.WatcherRestartDelayMax = -10 * time.Second
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "negative watcher max restart delay not valid")
+}
+
+func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing clock not valid")
 }
 
 func (s *WorkerSuite) getController(c *gc.C, w worker.Worker) *cache.Controller {

@@ -4,6 +4,9 @@
 package modelcache
 
 import (
+	"time"
+
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
@@ -87,11 +90,14 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w, err := config.NewWorker(Config{
-		InitializedGate:      unlocker,
-		Logger:               config.Logger,
-		WatcherFactory:       func() BackingWatcher { return pool.SystemState().WatchAllModels(pool) },
-		PrometheusRegisterer: config.PrometheusRegisterer,
-		Cleanup:              func() { _ = stTracker.Done() },
+		InitializedGate:        unlocker,
+		Logger:                 config.Logger,
+		WatcherFactory:         func() BackingWatcher { return pool.SystemState().WatchAllModels(pool) },
+		PrometheusRegisterer:   config.PrometheusRegisterer,
+		Cleanup:                func() { _ = stTracker.Done() },
+		WatcherRestartDelayMin: 10 * time.Millisecond,
+		WatcherRestartDelayMax: time.Second,
+		Clock:                  clock.WallClock,
 	})
 	if err != nil {
 		_ = stTracker.Done()
