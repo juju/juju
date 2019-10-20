@@ -4,9 +4,11 @@
 package modelcache_test
 
 import (
+	"math"
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -54,7 +56,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Cleanup:                func() {},
 		WatcherRestartDelayMin: time.Microsecond,
 		WatcherRestartDelayMax: time.Millisecond,
-		Clock: clock.WallClock,
+		Clock:                  clock.WallClock,
 	}
 }
 
@@ -611,6 +613,60 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	cachedApp, err := mod.Application(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedApp, gc.NotNil)
+}
+
+func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
+	clk := testclock.NewClock(time.Now())
+
+	s.config.WatcherRestartDelayMin = 2 * time.Second
+	s.config.WatcherRestartDelayMax = time.Minute
+	s.config.Clock = clk
+
+	// 7 times through the loop will double the timeout (starting at 2s) until
+	// we get two times though with the max delay (1m).
+	maxErrors := 7
+
+	var errCount int
+	s.config.WatcherFactory = func() modelcache.BackingWatcher {
+		return testingMultiwatcher{
+			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
+			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
+				if errCount < maxErrors {
+					errCount++
+					return nil, errors.New("boom")
+				}
+				return deltas, nil
+			},
+		}
+	}
+
+	changes := s.captureEvents(c, cachetest.ModelEvents, cachetest.ApplicationEvents)
+	_ = s.start(c)
+	s.State.StartSync()
+
+	// Until the watcher returns without error, advance the clock by the exact
+	// duration we expect the restart delay to be based on our initial config.
+	for i := 1; i <= maxErrors; i++ {
+		delay := time.Duration(math.Pow(2, float64(i))) * time.Second
+		if delay > s.config.WatcherRestartDelayMax {
+			delay = s.config.WatcherRestartDelayMax
+		}
+		c.Assert(clk.WaitAdvance(delay, time.Second, 1), jc.ErrorIsNil)
+	}
+
+	// After the last error, the single change (our model) will appear.
+	_ = s.nextChange(c, changes)
+
+	// Now check that the duration gets reset.
+	maxErrors = 1
+	errCount = 0
+	_ = s.Factory.MakeApplication(c, &factory.ApplicationParams{})
+	s.State.StartSync()
+	c.Assert(clk.WaitAdvance(s.config.WatcherRestartDelayMin, time.Second, 1), jc.ErrorIsNil)
+
+	// After one error, the model and application will appear.
+	_ = s.nextChange(c, changes)
+	_ = s.nextChange(c, changes)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
