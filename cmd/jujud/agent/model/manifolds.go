@@ -416,12 +416,14 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}))),
 		metricWorkerName: ifNotMigrating(metricworker.Manifold(metricworker.ManifoldConfig{
 			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.metricworker"),
 		})),
 		machineUndertakerName: ifNotMigrating(ifCredentialValid(machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 			APICallerName:                apiCallerName,
 			EnvironName:                  environTrackerName,
 			NewWorker:                    machineundertaker.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.machineundertaker"),
 		}))),
 		modelUpgraderName: ifNotDead(ifCredentialValid(modelupgrader.Manifold(modelupgrader.ManifoldConfig{
 			APICallerName:                apiCallerName,
@@ -432,6 +434,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewFacade:                    modelupgrader.NewFacade,
 			NewWorker:                    modelupgrader.NewWorker,
 			NewCredentialValidatorFacade: common.NewCredentialInvalidatorFacade,
+			Logger:                       config.LoggingContext.GetLogger("juju.worker.modelupgrader"),
 		}))),
 		instanceMutaterName: ifNotMigrating(instancemutater.ModelManifold(instancemutater.ModelManifoldConfig{
 			AgentName:     agentName,
@@ -469,6 +472,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		caasBrokerTrackerName: ifResponsible(caasbroker.Manifold(caasbroker.ManifoldConfig{
 			APICallerName:          apiCallerName,
 			NewContainerBrokerFunc: config.NewContainerBrokerFunc,
+			Logger:                 config.LoggingContext.GetLogger("juju.worker.caas"),
 		})),
 		caasFirewallerName: ifNotMigrating(caasfirewaller.Manifold(
 			caasfirewaller.ManifoldConfig{
@@ -480,6 +484,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 					return caasfirewallerapi.NewClient(caller)
 				},
 				NewWorker: caasfirewaller.NewWorker,
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasfirewaller"),
 			},
 		)),
 		caasOperatorProvisionerName: ifNotMigrating(caasoperatorprovisioner.Manifold(
@@ -489,6 +494,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 				BrokerName:    caasBrokerTrackerName,
 				ClockName:     clockName,
 				NewWorker:     caasoperatorprovisioner.NewProvisionerWorker,
+				Logger:        config.LoggingContext.GetLogger("juju.worker.caasprovisioner"),
 			},
 		)),
 		caasUnitProvisionerName: ifNotMigrating(caasunitprovisioner.Manifold(
@@ -499,6 +505,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 					return caasunitprovisionerapi.NewClient(caller)
 				},
 				NewWorker: caasunitprovisioner.NewWorker,
+				Logger:    config.LoggingContext.GetLogger("juju.worker.caasunitprovisioner"),
 			},
 		)),
 		modelUpgraderName: caasenvironupgrader.Manifold(caasenvironupgrader.ManifoldConfig{
@@ -507,6 +514,7 @@ func CAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ModelTag:      modelTag,
 			NewFacade:     caasenvironupgrader.NewFacade,
 			NewWorker:     caasenvironupgrader.NewWorker,
+			// No Logger defined in caasenvironupgrader package.
 		}),
 		caasStorageProvisionerName: ifNotMigrating(ifCredentialValid(storageprovisioner.ModelManifold(storageprovisioner.ModelManifoldConfig{
 			APICallerName:                apiCallerName,

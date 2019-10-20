@@ -13,24 +13,34 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Warningf(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by metrics workers.
-type ManifoldConfig engine.APIManifoldConfig
+type ManifoldConfig struct {
+	APICallerName string
+	Logger        Logger
+}
 
 // Manifold returns a Manifold that encapsulates various metrics workers.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return engine.APIManifold(
-		engine.APIManifoldConfig(config),
-		manifoldStart,
+		engine.APIManifoldConfig{
+			APICallerName: config.APICallerName,
+		},
+		config.start,
 	)
 }
 
-// manifoldStart creates a runner for the metrics workers, given a base.APICaller.
-func manifoldStart(apiCaller base.APICaller) (worker.Worker, error) {
+// start creates a runner for the metrics workers, given a base.APICaller.
+func (c *ManifoldConfig) start(apiCaller base.APICaller) (worker.Worker, error) {
 	client, err := metricsmanager.NewClient(apiCaller)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	w, err := newMetricsManager(client, nil)
+	w, err := newMetricsManager(client, nil, c.Logger)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

@@ -15,10 +15,17 @@ import (
 	"github.com/juju/juju/storage"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by a Tracker.
 type ManifoldConfig struct {
 	APICallerName          string
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
+	Logger                 Logger
 }
 
 // Manifold returns a Manifold that encapsulates a *Tracker and exposes it as
@@ -41,6 +48,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			w, err := NewTracker(Config{
 				ConfigAPI:              api,
 				NewContainerBrokerFunc: config.NewContainerBrokerFunc,
+				Logger:                 config.Logger,
 			})
 			if err != nil {
 				return nil, errors.Trace(err)

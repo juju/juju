@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
@@ -23,7 +22,9 @@ import (
 	"github.com/juju/juju/wrench"
 )
 
-var logger = loggo.GetLogger("juju.worker.modelupgrader")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // ErrModelRemoved indicates that this worker was operating on the model that is no longer found.
 var ErrModelRemoved = errors.New("model has been removed")
@@ -64,6 +65,8 @@ type Config struct {
 	// whenever the worker makes cloud calls if credential for this model
 	// becomes invalid.
 	CredentialAPI common.CredentialAPI
+
+	Logger Logger
 }
 
 // Validate returns an error if the config cannot be expected
@@ -83,6 +86,9 @@ func (config Config) Validate() error {
 	}
 	if config.CredentialAPI == nil {
 		return errors.NotValidf("nil CredentialAPI")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -210,10 +216,11 @@ func newUpgradeWorker(config Config, targetVersion int) (worker.Worker, error) {
 			targetVersion,
 			setVersion,
 			common.NewCloudCallContext(config.CredentialAPI, nil),
+			config.Logger,
 		); err != nil {
 			info := fmt.Sprintf("failed to upgrade environ: %s", err)
 			if err := setStatus(status.Error, info); err != nil {
-				logger.Warningf("failed to update model status: %v", err)
+				config.Logger.Warningf("failed to update model status: %v", err)
 			}
 			return errors.Annotate(err, "upgrading environ")
 		}
@@ -233,6 +240,7 @@ func runEnvironUpgradeSteps(
 	targetVersion int,
 	setVersion func(int) error,
 	callCtx context.ProviderCallContext,
+	logger Logger,
 ) error {
 	if wrench.IsActive("modelupgrader", "fail-all") ||
 		wrench.IsActive("modelupgrader", "fail-model-"+modelTag.Id()) {

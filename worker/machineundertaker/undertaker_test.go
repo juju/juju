@@ -5,6 +5,7 @@ package machineundertaker_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,7 +33,8 @@ var _ = gc.Suite(&undertakerSuite{})
 func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(errors.New("blam"))
-	w, err := machineundertaker.NewWorker(api, &fakeEnviron{}, &fakeCredentialAPI{})
+	w, err := machineundertaker.NewWorker(
+		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "blam")
@@ -42,7 +44,8 @@ func (s *undertakerSuite) TestErrorWatching(c *gc.C) {
 func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 	api := s.makeAPIWithWatcher()
 	api.SetErrors(nil, errors.New("explodo"))
-	w, err := machineundertaker.NewWorker(api, &fakeEnviron{}, &fakeCredentialAPI{})
+	w, err := machineundertaker.NewWorker(
+		api, &fakeEnviron{}, &fakeCredentialAPI{}, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "explodo")
@@ -58,7 +61,7 @@ func (s *undertakerSuite) TestErrorGettingRemovals(c *gc.C) {
 
 func (*undertakerSuite) TestMaybeReleaseAddresses_NoNetworking(c *gc.C) {
 	api := fakeAPI{Stub: &testing.Stub{}}
-	u := machineundertaker.Undertaker{API: &api}
+	u := machineundertaker.Undertaker{API: &api, Logger: loggo.GetLogger("test")}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("3"))
 	c.Assert(err, jc.ErrorIsNil)
 	api.CheckCallNames(c)
@@ -70,6 +73,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotContainer(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -83,6 +87,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorGettingInfo(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/2"))
 	c.Assert(err, gc.ErrorMatches, "a funny thing happened on the way")
@@ -94,6 +99,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NoAddresses(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -114,6 +120,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_NotSupported(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,6 +143,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_ErrorReleasing(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, gc.ErrorMatches, "something unexpected")
@@ -157,6 +165,7 @@ func (*undertakerSuite) TestMaybeReleaseAddresses_Success(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.MaybeReleaseAddresses(names.NewMachineTag("4/lxd/4"))
 	c.Assert(err, jc.ErrorIsNil)
@@ -179,6 +188,7 @@ func (*undertakerSuite) TestHandle_CompletesRemoval(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.Handle(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -206,6 +216,7 @@ func (*undertakerSuite) TestHandle_NoRemovalOnErrorReleasing(c *gc.C) {
 	u := machineundertaker.Undertaker{
 		API:      &api,
 		Releaser: &releaser,
+		Logger:   loggo.GetLogger("test"),
 	}
 	err := u.Handle(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -224,7 +235,7 @@ func (*undertakerSuite) TestHandle_ErrorOnRemoval(c *gc.C) {
 		removals: []string{"3", "4/lxd/4"},
 	}
 	api.SetErrors(nil, errors.New("couldn't remove machine 3"))
-	u := machineundertaker.Undertaker{API: &api}
+	u := machineundertaker.Undertaker{API: &api, Logger: loggo.GetLogger("test")}
 	err := u.Handle(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	checkRemovalsMatch(c, api.Stub, "3", "4/lxd/4")

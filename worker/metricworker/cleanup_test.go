@@ -6,6 +6,7 @@ package metricworker_test
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	gc "gopkg.in/check.v1"
 
 	coretesting "github.com/juju/juju/testing"
@@ -22,7 +23,7 @@ var _ = gc.Suite(&CleanupSuite{})
 func (s *CleanupSuite) TestCleaner(c *gc.C) {
 	notify := make(chan string, 1)
 	var client mockClient
-	worker := metricworker.NewCleanup(&client, notify)
+	worker := metricworker.NewCleanup(&client, notify, loggo.GetLogger("test"))
 	defer worker.Kill()
 	select {
 	case <-notify:

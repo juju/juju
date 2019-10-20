@@ -6,6 +6,8 @@ package caasunitprovisioner_test
 import (
 	"time"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -172,6 +174,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		LifeGetter:               &s.lifeGetter,
 		UnitUpdater:              &s.unitUpdater,
 		ProvisioningStatusSetter: &s.statusSetter,
+		Logger:                   loggo.GetLogger("test"),
 	}
 }
 
@@ -207,9 +210,14 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
+
 	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
 		config.ProvisioningStatusSetter = nil
 	}, `missing ProvisioningStatusSetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasunitprovisioner.Config) {
+		config.Logger = nil
+	}, `missing Logger not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasunitprovisioner.Config), expect string) {

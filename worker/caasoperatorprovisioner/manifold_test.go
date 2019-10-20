@@ -5,6 +5,7 @@ package caasoperatorprovisioner_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -34,6 +35,7 @@ func (s *ManifoldConfigSuite) validConfig() caasoperatorprovisioner.ManifoldConf
 		NewWorker: func(config caasoperatorprovisioner.Config) (worker.Worker, error) {
 			return nil, nil
 		},
+		Logger: loggo.GetLogger("test"),
 	}
 }
 
@@ -64,6 +66,11 @@ func (s *ManifoldConfigSuite) TestMissingClockName(c *gc.C) {
 func (s *ManifoldConfigSuite) TestMissingNewWorker(c *gc.C) {
 	s.config.NewWorker = nil
 	s.checkNotValid(c, "nil NewWorker not valid")
+}
+
+func (s *ManifoldConfigSuite) TestMissingLogger(c *gc.C) {
+	s.config.Logger = nil
+	s.checkNotValid(c, "nil Logger not valid")
 }
 
 func (s *ManifoldConfigSuite) checkNotValid(c *gc.C, expect string) {

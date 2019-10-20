@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/caas"
@@ -17,7 +16,9 @@ import (
 	"github.com/juju/juju/environs/config"
 )
 
-var logger = loggo.GetLogger("juju.worker.caas")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // ConfigAPI exposes a model configuration and a watch constructor
 // that allows clients to be informed of changes to the configuration.
@@ -36,6 +37,7 @@ type ConfigAPI interface {
 type Config struct {
 	ConfigAPI              ConfigAPI
 	NewContainerBrokerFunc caas.NewContainerBrokerFunc
+	Logger                 Logger
 }
 
 // Validate returns an error if the config cannot be used to start a Tracker.
@@ -45,6 +47,9 @@ func (config Config) Validate() error {
 	}
 	if config.NewContainerBrokerFunc == nil {
 		return errors.NotValidf("nil NewContainerBrokerFunc")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	return nil
 }
@@ -110,6 +115,7 @@ func (t *Tracker) Broker() caas.Broker {
 }
 
 func (t *Tracker) loop() error {
+	logger := t.config.Logger
 	modelWatcher, err := t.config.ConfigAPI.WatchForModelConfigChanges()
 	if err != nil {
 		return errors.Annotate(err, "cannot watch model config")

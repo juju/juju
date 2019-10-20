@@ -5,14 +5,15 @@ package caasfirewaller
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/life"
 )
 
-var logger = loggo.GetLogger("juju.workers.caasfirewaller")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // Config holds configuration for the CAAS unit firewaller worker.
 type Config struct {
@@ -21,6 +22,7 @@ type Config struct {
 	ApplicationGetter ApplicationGetter
 	LifeGetter        LifeGetter
 	ServiceExposer    ServiceExposer
+	Logger            Logger
 }
 
 // Validate validates the worker configuration.
@@ -39,6 +41,9 @@ func (config Config) Validate() error {
 	}
 	if config.LifeGetter == nil {
 		return errors.NotValidf("missing LifeGetter")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
 	}
 	return nil
 }
@@ -72,6 +77,7 @@ func (p *firewaller) Wait() error {
 }
 
 func (p *firewaller) loop() error {
+	logger := p.config.Logger
 	w, err := p.config.ApplicationGetter.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
@@ -116,6 +122,7 @@ func (p *firewaller) loop() error {
 					p.config.ApplicationGetter,
 					p.config.ServiceExposer,
 					p.config.LifeGetter,
+					logger,
 				)
 				if err != nil {
 					return errors.Trace(err)

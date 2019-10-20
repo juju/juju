@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -74,6 +76,7 @@ func (s *CAASProvisionerSuite) assertWorker(c *gc.C) worker.Worker {
 		ModelTag:    s.modelTag,
 		AgentConfig: s.agentConfig,
 		Clock:       s.clock,
+		Logger:      loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{

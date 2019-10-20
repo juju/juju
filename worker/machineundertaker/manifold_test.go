@@ -5,6 +5,7 @@ package machineundertaker_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -81,7 +82,8 @@ func makeManifold(workerResult worker.Worker, workerError error) dependency.Mani
 	return machineundertaker.Manifold(machineundertaker.ManifoldConfig{
 		APICallerName: "the-caller",
 		EnvironName:   "the-environ",
-		NewWorker: func(machineundertaker.Facade, environs.Environ, common.CredentialAPI) (worker.Worker, error) {
+		Logger:        loggo.GetLogger("test"),
+		NewWorker: func(machineundertaker.Facade, environs.Environ, common.CredentialAPI, machineundertaker.Logger) (worker.Worker, error) {
 			return workerResult, workerError
 		},
 		NewCredentialValidatorFacade: func(base.APICaller) (common.CredentialAPI, error) {

@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 	"gopkg.in/juju/names.v3"
@@ -27,7 +26,9 @@ import (
 	"github.com/juju/juju/storage"
 )
 
-var logger = loggo.GetLogger("juju.workers.caasprovisioner")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // CAASProvisionerFacade exposes CAAS provisioning functionality to a worker.
 type CAASProvisionerFacade interface {
@@ -45,6 +46,7 @@ type Config struct {
 	ModelTag    names.ModelTag
 	AgentConfig agent.Config
 	Clock       clock.Clock
+	Logger      Logger
 }
 
 // NewProvisionerWorker starts and returns a new CAAS provisioner worker.
@@ -55,6 +57,7 @@ func NewProvisionerWorker(config Config) (worker.Worker, error) {
 		modelTag:          config.ModelTag,
 		agentConfig:       config.AgentConfig,
 		clock:             config.Clock,
+		logger:            config.Logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &p.catacomb,
@@ -68,6 +71,7 @@ type provisioner struct {
 	provisionerFacade CAASProvisionerFacade
 	broker            caas.Broker
 	clock             clock.Clock
+	logger            Logger
 
 	modelTag    names.ModelTag
 	agentConfig agent.Config
@@ -111,7 +115,7 @@ func (p *provisioner) loop() error {
 			for _, app := range apps {
 				appLife, err := p.provisionerFacade.Life(app)
 				if errors.IsNotFound(err) || appLife == life.Dead {
-					logger.Debugf("deleting operator for %q", app)
+					p.logger.Debugf("deleting operator for %q", app)
 					if err := p.broker.DeleteOperator(app); err != nil {
 						return errors.Annotatef(err, "failed to stop operator for %q", app)
 					}
@@ -236,7 +240,7 @@ func (p *provisioner) ensureOperator(app string, config *caas.OperatorConfig) er
 	if err := p.broker.EnsureOperator(app, p.agentConfig.DataDir(), config); err != nil {
 		return errors.Annotatef(err, "failed to start operator for %q", app)
 	}
-	logger.Infof("started operator for application %q", app)
+	p.logger.Infof("started operator for application %q", app)
 	return nil
 }
 
@@ -255,7 +259,7 @@ func (p *provisioner) updateOperatorConfig(appName, password string, prevCfg caa
 			return nil, errors.NotSupportedf("operator storage provider %q", spType)
 		}
 	}
-	logger.Debugf("using caas operator info %+v", info)
+	p.logger.Debugf("using caas operator info %+v", info)
 
 	cfg := &caas.OperatorConfig{
 		OperatorImagePath: info.ImagePath,

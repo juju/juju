@@ -6,6 +6,7 @@ package metricworker_test
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -20,7 +21,7 @@ var _ = gc.Suite(&MetricManagerSuite{})
 func (s *MetricManagerSuite) TestRunner(c *gc.C) {
 	notify := make(chan string, 2)
 	var client mockClient
-	_, err := metricworker.NewMetricsManager(&client, notify)
+	_, err := metricworker.NewMetricsManager(&client, notify, loggo.GetLogger("test"))
 	c.Assert(err, jc.ErrorIsNil)
 	expectedCalls := map[string]bool{}
 	for i := 0; i < 2; i++ {
