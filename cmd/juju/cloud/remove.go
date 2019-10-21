@@ -43,7 +43,7 @@ Examples:
 
 See also:
     add-cloud
-	update-cloud
+    update-cloud
     list-clouds`
 
 type removeCloudCommand struct {
