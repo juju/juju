@@ -153,7 +153,7 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 
 	c.checkCloud(ctxt, client)
 	if !c.remoteCloudFound && !c.localCloudFound {
-		ctxt.Infof("To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.")
+		ctxt.Infof("No cloud %q is found.\nTo view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.", c.cloud)
 		return cmd.ErrSilent
 	}
 	var returnErr error
@@ -183,7 +183,6 @@ func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCre
 				if !errors.IsNotFound(err) {
 					logger.Errorf("%v", err)
 				}
-				ctxt.Infof("Cloud %q is not found on controller %q.", c.cloud, c.ControllerName)
 			}
 		}
 	}
@@ -192,7 +191,6 @@ func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCre
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
 			}
-			ctxt.Infof("Cloud %q is not found on this client.", c.cloud)
 		}
 	}
 }

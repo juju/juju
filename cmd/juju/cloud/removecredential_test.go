@@ -72,7 +72,7 @@ func (s *removeCredentialSuite) TestBadLocalCloudName(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "--client-only")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-Cloud "somecloud" is not found on this client.
+No cloud "somecloud" is found.
 To view all available clouds, use 'juju clouds'.
 To add new cloud, use 'juju add-cloud'.
 `[1:])
@@ -162,7 +162,7 @@ func (s *removeCredentialSuite) TestBadRemoteCloudName(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "other", "foo", "--controller-only", "--no-prompt")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-Cloud "other" is not found on controller "controller".
+No cloud "other" is found.
 To view all available clouds, use 'juju clouds'.
 To add new cloud, use 'juju add-cloud'.
 `[1:])
@@ -180,7 +180,6 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredential(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Found remote cloud "somecloud" from the controller.
-Cloud "somecloud" is not found on this client.
 No credentials exist on this client since cloud "somecloud" is not found.
 Credential "foo" for cloud "somecloud" removed from the controller "controller".
 `[1:])
@@ -199,7 +198,6 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialFail(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
 		"Found remote cloud \"somecloud\" from the controller.\n"+
-			"Cloud \"somecloud\" is not found on this client.\n"+
 			"No credentials exist on this client since cloud \"somecloud\" is not found.\n")
 }
 
