@@ -1060,7 +1060,8 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if agentModelUUID == cfg.ModelUUID {
 		writer = a.ctx.Stderr
 	} else {
-		logFilename := filepath.Join(currentConfig.LogDir(), "models", cfg.ModelUUID+".log")
+		filename := cfg.ModelName + "-" + cfg.ModelUUID[:6] + ".log"
+		logFilename := filepath.Join(currentConfig.LogDir(), "models", filename)
 		writer = &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
