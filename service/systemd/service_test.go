@@ -17,7 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
@@ -183,7 +183,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 	s.conf.Logfile = "/var/log/juju/machine-0.log"
 	svc := s.newService(c)
 
-	user, group := systemd.SyslogUserGroup()
+	user, group := paths.SyslogUserGroup()
 	dirName := fmt.Sprintf("%s/%s", "/lib/systemd/system", s.name)
 	script := `
 #!/usr/bin/env bash
@@ -191,7 +191,7 @@ func (s *initSystemSuite) TestNewServiceLogfile(c *gc.C) {
 # Set up logging.
 touch '/var/log/juju/machine-0.log'
 chown `[1:] + user + `:` + group + ` '/var/log/juju/machine-0.log'
-chmod 0600 '/var/log/juju/machine-0.log'
+chmod 0640 '/var/log/juju/machine-0.log'
 exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 
@@ -707,7 +707,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 	commands, err := svc.InstallCommands()
 	c.Assert(err, jc.ErrorIsNil)
 
-	user, group := systemd.SyslogUserGroup()
+	user, group := paths.SyslogUserGroup()
 	test := systemdtesting.WriteConfTest{
 		Service: name,
 		DataDir: "/lib/systemd/system",
@@ -720,7 +720,7 @@ func (s *initSystemSuite) TestInstallCommandsLogfile(c *gc.C) {
 # Set up logging.
 touch '/var/log/juju/machine-0.log'
 chown `[1:] + user + `:` + group + ` '/var/log/juju/machine-0.log'
-chmod 0600 '/var/log/juju/machine-0.log'
+chmod 0640 '/var/log/juju/machine-0.log'
 exec >> '/var/log/juju/machine-0.log'
 exec 2>&1
 

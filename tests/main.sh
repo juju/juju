@@ -29,6 +29,7 @@ TEST_NAMES="test_static_analysis \
             test_controller \
             test_smoke \
             test_cmr_bundles \
+            test_machine \
             test_cli"
 
 show_help() {

@@ -173,7 +173,7 @@ func (s *logsinkSuite) TestLogging(c *gc.C) {
 	if runtime.GOOS != "windows" {
 		info, err := os.Stat(logPath)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(info.Mode(), gc.Equals, os.FileMode(0600))
+		c.Assert(info.Mode(), gc.Equals, os.FileMode(0640))
 	}
 }
 

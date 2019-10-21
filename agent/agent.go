@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 )

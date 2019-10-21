@@ -31,7 +31,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/container/kvm/libvirt"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 )
 
 const (

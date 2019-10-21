@@ -18,9 +18,9 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/multiwatcher"
 )

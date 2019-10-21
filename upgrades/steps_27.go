@@ -3,6 +3,20 @@
 
 package upgrades
 
+import (
+	"os"
+	"path/filepath"
+
+	"github.com/juju/errors"
+	"github.com/juju/utils/series"
+	"gopkg.in/juju/names.v3"
+
+	"github.com/juju/juju/agent"
+	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/service"
+)
+
 // stateStepsFor27 returns upgrade steps for Juju 2.7.0.
 func stateStepsFor27() []Step {
 	return []Step{
@@ -69,5 +83,92 @@ func stateStepsFor27() []Step {
 				return context.State().AddDefaultSpaceSetting()
 			},
 		},
+	}
+}
+
+// stepsFor27 returns upgrade steps for Juju 2.7.
+func stepsFor27() []Step {
+	return []Step{
+		&upgradeStep{
+			description: "change owner of unit and machine logs to adm",
+			targets:     []Target{AllMachines},
+			run:         resetLogPermissions,
+		},
+	}
+}
+
+func setJujuFolderPermissionsToAdm(dir string) error {
+	wantedOwner, wantedGroup := paths.SyslogUserGroup()
+
+	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if info.IsDir() {
+			return nil
+		}
+		fullPath := dir + string(os.PathSeparator) + info.Name()
+		if err := paths.SetOwnerShip(fullPath, wantedOwner, wantedGroup); err != nil {
+			return errors.Trace(err)
+		}
+		if err := os.Chmod(fullPath, paths.LogfilePermission); err != nil {
+			return errors.Trace(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("Successfully changed permissions of dir %q", dir)
+	return nil
+}
+
+// We rewrite/reset the systemd files and change the existing log file permissions
+func resetLogPermissions(context Context) error {
+	tag := context.AgentConfig().Tag()
+	if tag.Kind() != names.MachineTagKind {
+		logger.Infof("skipping agent %q, not a machine", tag.String())
+		return nil
+	}
+
+	// For now a CAAS cannot be machineTagKind so it will not come as far as here for k8.
+	// But to make sure for future refactoring, which are planned, we check here as well.
+	if context.AgentConfig().Value(agent.ProviderType) == k8sprovider.CAASProviderType {
+		logger.Infof("skipping agent %q, is CAAS", k8sprovider.CAASProviderType)
+		return nil
+	}
+	isSystemd, err := getCurrentInit()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if !isSystemd {
+		logger.Infof("skipping update of log file ownership as host not using systemd")
+		return nil
+	}
+	sysdManager := service.NewServiceManagerWithDefaults()
+	if err = sysdManager.WriteServiceFiles(); err != nil {
+		return errors.Trace(err)
+	}
+	logDir := context.AgentConfig().LogDir()
+	if err = setJujuFolderPermissionsToAdm(logDir); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Infof("Successfully wrote service files in /lib/systemd/system path")
+	return nil
+}
+
+func getCurrentInit() (bool, error) {
+	hostSeries, err := series.HostSeries()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	initName, err := service.VersionInitSystem(hostSeries)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if initName == service.InitSystemSystemd {
+		return true, nil
+	} else {
+		return false, nil
 	}
 }

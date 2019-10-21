@@ -8,15 +8,15 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/juju/juju/core/paths"
 )
 
 var logger = loggo.GetLogger("core.auditlog")
@@ -189,7 +189,7 @@ type auditLogFile struct {
 // keep all of them).
 func NewLogFile(logDir string, maxSize, maxBackups int) AuditLog {
 	logPath := filepath.Join(logDir, "audit.log")
-	if err := primeLogFile(logPath); err != nil {
+	if err := paths.PrimeLogFile(logPath); err != nil {
 		// This isn't a fatal error so log and continue if priming
 		// fails.
 		logger.Errorf("Unable to prime %s (proceeding anyway): %v", logPath, err)
@@ -240,18 +240,4 @@ func (a *auditLogFile) addRecord(r Record) error {
 
 func idString(id uint64) string {
 	return fmt.Sprintf("%X", id)
-}
-
-// primeLogFile ensures the logsink log file is created with the
-// correct mode and ownership.
-func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := f.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
 }

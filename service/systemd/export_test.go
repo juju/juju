@@ -17,8 +17,7 @@ import (
 // See the DBusAPI factory method passed to NewService as an example.
 
 var (
-	Serialize       = serialize
-	SyslogUserGroup = syslogUserGroup
+	Serialize = serialize
 )
 
 type patcher interface {

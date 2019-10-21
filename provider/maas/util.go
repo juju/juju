@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.

@@ -17,8 +17,8 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/storage"
 )
 

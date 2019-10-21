@@ -32,7 +32,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/systemd"
 )

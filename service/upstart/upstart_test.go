@@ -287,7 +287,7 @@ end script
 `)
 }
 
-func (s *UpstartSuite) TestInstallLogfile(c *gc.C) {
+func (s *UpstartSuite) TestInstallLogfileWithCorrectPermissions(c *gc.C) {
 	conf := s.dummyConf(c)
 	conf.Logfile = "/some/output/path"
 	s.assertInstall(c, conf, `
@@ -297,8 +297,8 @@ script
 
   # Ensure log files are properly protected
   touch /some/output/path
-  chown syslog:syslog /some/output/path
-  chmod 0600 /some/output/path
+  chown syslog:adm /some/output/path
+  chmod 0640 /some/output/path
 
   exec /path/to/some-command x y z >> /some/output/path 2>&1
 end script
