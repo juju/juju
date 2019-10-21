@@ -43,14 +43,25 @@ type pool struct {
 
 // IsPrimary (Pool) returns true if the Mongo primary is
 // running on the machine with the input ID.
-func (p *pool) IsPrimary(machineID string) (bool, error) {
+func (p *pool) IsPrimary(nodeID string) (bool, error) {
 	st := p.SystemState()
 
-	machine, err := st.Machine(machineID)
+	// For IAAS models, controllers are machines.
+	// For CAAS models, until we support HA, there's
+	// only one mongo and it's the primary.
+	model, err := st.Model()
 	if err != nil {
 		return false, errors.Trace(err)
 	}
+	// TODO(CAAS) - bug 1849030 support HA
+	if model.Type() == state.ModelTypeCAAS {
+		return true, nil
+	}
 
+	machine, err := st.Machine(nodeID)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 	isPrimary, err := mongo.IsMaster(st.MongoSession(), machine)
 	return isPrimary, errors.Trace(err)
 }
