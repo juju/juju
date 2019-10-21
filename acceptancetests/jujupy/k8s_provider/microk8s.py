@@ -98,7 +98,7 @@ class MicroK8s(Base):
                     break
         
         def check_addons():
-            addons_status = self._microk8s_status()['addons']
+            addons_status = self._microk8s_status(True)['addons']
             is_ok = all([addons_status.get(addon) == 'enabled' for addon in addons])
             if is_ok:
                 logger.info('required addons are all ready now -> \n%s', pformat(addons_status))
