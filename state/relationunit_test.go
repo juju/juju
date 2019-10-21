@@ -1178,7 +1178,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	w0 := ru0.Watch()
 	defer testing.AssertStop(c, w0)
 	w0c := testing.NewRelationUnitsWatcherC(c, s.State, w0)
-	w0c.AssertChange(nil, nil, nil)
+	w0c.AssertChange(nil, []string{"riak"}, nil)
 	w0c.AssertNoChange()
 
 	// Join the first unit to the relation, and change the settings, and
@@ -1319,7 +1319,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
 	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
-	msw0c.AssertChange(nil, nil, nil)
+	msw0c.AssertChange(nil, []string{"wordpress"}, nil)
 	msw0c.AssertNoChange()
 
 	// Join the unit to the relation, change its settings, and check that
@@ -1459,7 +1459,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	msw0 := msru0.Watch()
 	defer testing.AssertStop(c, msw0)
 	msw0c := testing.NewRelationUnitsWatcherC(c, s.State, msw0)
-	msw0c.AssertChange(nil, nil, nil)
+	msw0c.AssertChange(nil, []string{"logging"}, nil)
 	msw0c.AssertNoChange()
 
 	// Join the unit to the relation, change its settings, and check that
