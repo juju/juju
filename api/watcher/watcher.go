@@ -273,11 +273,12 @@ func copyRelationUnitsChanged(src params.RelationUnitsChange) watcher.RelationUn
 				Version: unitSettings.Version,
 			}
 		}
-		// TODO(jam): 2019-10-17
-		// dst.AppChanged = make(map[string]int64, len(src.AppChanged))
-		// for name, appVersion := range src.AppChanged {
-		// 	dst.AppChanged[name] = appVersion
-		// }
+	}
+	if src.AppChanged != nil {
+		dst.AppChanged = make(map[string]int64, len(src.AppChanged))
+		for name, appVersion := range src.AppChanged {
+			dst.AppChanged[name] = appVersion
+		}
 	}
 	return dst
 }

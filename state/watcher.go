@@ -1074,7 +1074,7 @@ func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 }
 
 func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
-	return len(changes.Changed)+len(changes.Departed) == 0
+	return len(changes.Changed)+len(changes.AppChanged)+len(changes.Departed) == 0
 }
 
 func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key string, version int64) {
@@ -1086,14 +1086,21 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 	changes.Changed[name] = settings
 }
 
-func (w *relationUnitsWatcher) watchRelatedAppSettings() error {
+func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationUnitsChange) error {
 	idsAsInterface := make([]interface{}, len(w.appDocIDs))
 	for i, id := range w.appDocIDs {
 		idsAsInterface[i] = w.backend.docID(id)
 	}
-	w.logger.Tracef("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appDocIDs)
+	w.logger.Criticalf("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appDocIDs)
 	if err := w.watcher.WatchMulti(settingsC, idsAsInterface, w.appUpdates); err != nil {
 		return errors.Trace(err)
+	}
+	// WatchMulti does *not* fire an initial event, it just starts the watch, which
+	// you then use to know you can read the database without missing updates.
+	for _, key := range w.appDocIDs {
+		if err := w.mergeAppSettings(changes, key); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -1193,7 +1200,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 		changes     params.RelationUnitsChange
 		out         chan<- params.RelationUnitsChange
 	)
-	if err := w.watchRelatedAppSettings(); err != nil {
+	if err := w.watchRelatedAppSettings(&changes); err != nil {
 		return errors.Trace(err)
 	}
 	for {
@@ -1226,6 +1233,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			}
 			out = w.out
 		case c := <-w.appUpdates:
+			w.logger.Criticalf("appUpdates: %v", c)
 			id, ok := c.Id.(string)
 			if !ok {
 				w.logger.Warningf("ignoring bad application settings id: %#v", c.Id)

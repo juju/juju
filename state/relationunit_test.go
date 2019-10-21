@@ -1210,7 +1210,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	defer testing.AssertStop(c, w1)
 	w1c := testing.NewRelationUnitsWatcherC(c, s.State, w1)
 	expectChanged = []string{"riak/0"}
-	w1c.AssertChange(expectChanged, nil, nil)
+	w1c.AssertChange(expectChanged, []string{"riak"}, nil)
 	w1c.AssertNoChange()
 
 	// ---------- Three units ----------
@@ -1220,7 +1220,7 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	defer testing.AssertStop(c, w2)
 	w2c := testing.NewRelationUnitsWatcherC(c, s.State, w2)
 	expectChanged = []string{"riak/0", "riak/1"}
-	w2c.AssertChange(expectChanged, nil, nil)
+	w2c.AssertChange(expectChanged, []string{"riak"}, nil)
 	w2c.AssertNoChange()
 
 	// Join the third unit, and check the first and second units see it.
@@ -1336,7 +1336,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
 	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
-	msw1c.AssertChange(nil, nil, nil)
+	msw1c.AssertChange(nil, []string{"wordpress"}, nil)
 	msw1c.AssertNoChange()
 
 	// Change the unit's settings, and check that neither provider unit
@@ -1353,12 +1353,12 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	wpw0 := wpru0.Watch()
 	defer testing.AssertStop(c, wpw0)
 	wpw0c := testing.NewRelationUnitsWatcherC(c, s.State, wpw0)
-	wpw0c.AssertChange(expectChanged, nil, nil)
+	wpw0c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	wpw0c.AssertNoChange()
 	wpw1 := wpru1.Watch()
 	defer testing.AssertStop(c, wpw1)
 	wpw1c := testing.NewRelationUnitsWatcherC(c, s.State, wpw1)
-	wpw1c.AssertChange(expectChanged, nil, nil)
+	wpw1c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	wpw1c.AssertNoChange()
 
 	// Join the first requirer unit, and check the provider units see it.
@@ -1474,7 +1474,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	msw1 := msru1.Watch()
 	defer testing.AssertStop(c, msw1)
 	msw1c := testing.NewRelationUnitsWatcherC(c, s.State, msw1)
-	msw1c.AssertChange(nil, nil, nil)
+	msw1c.AssertChange(nil, []string{"logging"}, nil)
 	msw1c.AssertNoChange()
 
 	// Join the second provider unit to the relation, and check that neither
@@ -1497,7 +1497,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	defer testing.AssertStop(c, lgw0)
 	lgw0c := testing.NewRelationUnitsWatcherC(c, s.State, lgw0)
 	expectChanged := []string{"mysql/0"}
-	lgw0c.AssertChange(expectChanged, nil, nil)
+	lgw0c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	lgw0c.AssertNoChange()
 
 	// Join the first requirer unit, and check that only the first provider
@@ -1516,7 +1516,7 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	defer testing.AssertStop(c, lgw1)
 	lgw1c := testing.NewRelationUnitsWatcherC(c, s.State, lgw1)
 	expectChanged = []string{"mysql/1"}
-	lgw1c.AssertChange(expectChanged, nil, nil)
+	lgw1c.AssertChange(expectChanged, []string{"mysql"}, nil)
 	lgw1c.AssertNoChange()
 
 	// Join the second requirer, and check that the first provider observes it...

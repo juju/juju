@@ -333,7 +333,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertChange([]string{"mysql/0"}, nil, nil)
+	wc.AssertChange([]string{"mysql/0"}, []string{"mysql"}, nil)
 
 	// Leave scope with mysqlUnit, check it's detected.
 	err = mysqlRelUnit.LeaveScope()
@@ -345,6 +345,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	err = mysqlRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+	// TODO(jam): make an application settings change and see that it is detected
 }
 
 func (s *relationUnitSuite) TestWatchRelationApplicationSettings(c *gc.C) {

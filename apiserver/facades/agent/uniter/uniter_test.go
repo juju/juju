@@ -2927,6 +2927,9 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 		Changed: map[string]params.UnitSettings{
 			"mysql/0": {changed.Version},
 		},
+		AppChanged: map[string]int64{
+			"mysql": 0,
+		},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{
@@ -2963,6 +2966,8 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	s.assertInScope(c, myRelUnit, false)
 
 	wc.AssertChange(nil, nil, []string{"mysql/0"})
+	// TODO(jam): 2019-10-21 this test is getting a bit unweildy, but maybe we
+	//  should test that changing application data triggers a change here
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {

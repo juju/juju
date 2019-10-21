@@ -21,10 +21,11 @@ func NewRelationUnitsWatcherC(c *gc.C, w watcher.RelationUnitsWatcher, preAssert
 		preAssert = func() {}
 	}
 	return RelationUnitsWatcherC{
-		C:                c,
-		PreAssert:        preAssert,
-		Watcher:          w,
-		settingsVersions: make(map[string]int64),
+		C:                   c,
+		PreAssert:           preAssert,
+		Watcher:             w,
+		settingsVersions:    make(map[string]int64),
+		appSettingsVersions: make(map[string]int64),
 	}
 }
 
@@ -78,7 +79,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 		for k, version := range actual.AppChanged {
 			c.Assert(appChangedNames.Contains(k), jc.IsTrue)
 			oldVer, ok := c.appSettingsVersions[k]
-			if !ok {
+			if ok {
 				// Make sure if we've seen this setting before, it has been updated
 				c.Assert(version, jc.GreaterThan, oldVer,
 					gc.Commentf("expected app settings to increase got %d had %d",
