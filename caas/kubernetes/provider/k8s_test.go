@@ -1086,7 +1086,7 @@ func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockDiscovery.EXPECT().ServerVersion().Times(1).Return(&k8sversion.Info{
-			Major: "1", Minor: "15",
+			Major: "1", Minor: "15+",
 		}, nil),
 	)
 
