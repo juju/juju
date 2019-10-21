@@ -141,7 +141,7 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 		// miss an entry. Either they have identical keys and we check all the values, or there is an identical
 		// number of new keys and missing keys and we'll notice a missing key.
 		for key, val := range updated {
-			if oldVal, existed := mergeMap[key]; !existed || oldVal != val {
+			if oldVal, existed := b.bindingsMap[key]; !existed || oldVal != val {
 				isModified = true
 				break
 			}
