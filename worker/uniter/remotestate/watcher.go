@@ -789,6 +789,8 @@ func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
 
 // ensureRelationApplicationSettings makes sure we are watching the application
 // settings for the application of every unit we are related to on this relation
+// TODO(jam): 2019-10-21 Remove this. We don't need it as it is replaced
+//  by the update to WatchRelationUnits. Move the logic over there
 func (w *RemoteStateWatcher) ensureRelatedApplications(rel Relation) error {
 	snapshot := w.current.Relations[rel.Id()]
 	relatedApps := set.NewStrings()

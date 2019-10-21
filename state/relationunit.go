@@ -228,19 +228,6 @@ func (ru *RelationUnit) counterpartApplicationSettingsDocIDs() []string {
 	return out
 }
 
-// WatchCounterpartApplicationSettings starts a watcher for application settings
-// document for each counterpart application of this unit on this relation.
-func (ru *RelationUnit) WatchCounterpartApplications() []string {
-	counterApps := set.NewStrings()
-	counterRole := counterpartRole(ru.endpoint.Role)
-	for _, ep := range ru.relation.Endpoints() {
-		if ep.Role == counterRole {
-			counterApps.Add(ep.ApplicationName)
-		}
-	}
-	return counterApps.SortedValues()
-}
-
 // subordinateOps returns any txn operations necessary to ensure sane
 // subordinate state when entering scope. If a required subordinate unit
 // exists and is Alive, its name will be returned as well; if one exists

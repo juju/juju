@@ -2764,6 +2764,8 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 	})
 }
 
+// TODO(jam): 2019-10-21 Remove this. We don't need it as it is replaced
+//  by the update to WatchRelationUnits
 func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
 	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
 	rel := s.addRelation(c, "wordpress", "mysql")

@@ -1624,6 +1624,8 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Se
 // relation's application settings. Only accessible for agents that
 // are members of the relation and counterparts of the requested
 // application.
+// TODO(jam): 2019-10-21 Remove this. We don't need it as it is replaced
+//  by the update to WatchRelationUnits
 func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplications) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.RelationApplications)),
@@ -1638,8 +1640,6 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 			return false, errors.Trace(err)
 		}
 
-		logger.Tracef("checking if unit %v can access app %q in relation %v",
-			u.auth.GetAuthTag(), app.Name(), rel)
 		var authApplication string
 		switch tag := u.auth.GetAuthTag().(type) {
 		case names.ApplicationTag:
@@ -1647,12 +1647,10 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 		case names.UnitTag:
 			unit, err := u.st.Unit(tag.Id())
 			if err != nil {
-				logger.Tracef("could not find auth unit: %v", tag)
 				return false, errors.Trace(err)
 			}
 			relUnit, err := rel.Unit(unit)
 			if errors.IsNotFound(err) {
-				logger.Tracef("could not find auth unit: %v in relation: %v", tag, rel)
 				return false, nil
 			}
 			if err != nil {
@@ -1660,11 +1658,9 @@ func (u *UniterAPI) WatchRelationApplicationSettings(args params.RelationApplica
 			}
 			inScope, err := relUnit.InScope()
 			if err != nil {
-				logger.Tracef("unit: %v error checking in scope of relation: %v  %v", tag, rel, err)
 				return false, errors.Trace(err)
 			}
 			if !inScope {
-				logger.Tracef("unit: %v not in scope of relation: %v", tag, rel)
 				return false, nil
 			}
 			authApplication = unit.ApplicationName()
