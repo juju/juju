@@ -971,7 +971,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	}}
 	checkExpected(wc, expected)
 
-	// Add 2 more messages; we should only see those on this watcher.
+	// Add 3 more messages; we should only see those on this watcher.
 	err = fa1.Log("another")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -984,6 +984,16 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	}, {
 		Timestamp: makeTimestamp(1 * time.Second),
 		Message:   "yet another",
+	}}
+	checkExpected(wc, expected)
+
+	// Add the 3rd message separately to ensure the
+	// tracking of already reported messages works.
+	err = fa1.Log("and yet another")
+	c.Assert(err, jc.ErrorIsNil)
+	expected = []state.ActionMessage{{
+		Timestamp: makeTimestamp(0 * time.Second),
+		Message:   "and yet another",
 	}}
 	checkExpected(wc, expected)
 
@@ -1001,6 +1011,9 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	}, {
 		Timestamp: makeTimestamp(2 * time.Second),
 		Message:   "yet another",
+	}, {
+		Timestamp: makeTimestamp(3 * time.Second),
+		Message:   "and yet another",
 	}}
 	checkExpected(wc2, expected)
 }

@@ -42,6 +42,9 @@ func (c *Client) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
 		return results, errors.Errorf("Tasks not supported by this version (%d) of Juju", v)
 	}
 	err := c.facade.FacadeCall("Tasks", arg, &results)
+	if params.ErrCode(err) == params.CodeNotFound {
+		err = nil
+	}
 	return results, err
 }
 

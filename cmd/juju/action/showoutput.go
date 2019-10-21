@@ -4,6 +4,7 @@
 package action
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -18,11 +19,16 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/feature"
 )
 
 func NewShowOutputCommand() cmd.Command {
-	return modelcmd.Wrap(&showOutputCommand{})
+	return modelcmd.Wrap(&showOutputCommand{
+		logMessageHandler: func(ctx *cmd.Context, msg string) {
+			fmt.Fprintln(ctx.Stderr, msg)
+		},
+	})
 }
 
 // showOutputCommand fetches the results of an action by ID.
@@ -32,18 +38,32 @@ type showOutputCommand struct {
 	requestedId string
 	fullSchema  bool
 	wait        string
+	watch       bool
 	utc         bool
+
+	logMessageHandler func(*cmd.Context, string)
 }
 
 const showOutputDoc = `
 Show the results returned by an action with the given ID.  
 To block until the result is known completed or failed, use
 the --wait option with a duration, as in --wait 5s or --wait 1h.
-Use --wait 0 to wait indefinitely.  If units are left off, seconds are assumed.
+If units are left off, seconds are assumed.
+Use --watch to wait indefinitely.  
 
-The default behavior without --wait is to immediately check and return; if
-the results are "pending" then only the available information will be
+The default behavior without --wait or --watch is to immediately check and return;
+if the results are "pending" then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
+
+Examples:
+
+    juju show-action-output 1
+    juju show-action-output 1 --wait=2m
+    juju show-action-output 1 --watch
+
+See also:
+    run-action
+    list-tasks
 `
 
 // Set up the output.
@@ -60,6 +80,7 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 
 	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
+	f.BoolVar(&c.watch, "watch", false, "Wait indefinitely for results")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
@@ -75,12 +96,21 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		info.Args = "<task ID>"
 		info.Purpose = "Show results of a task by ID."
 		info.Doc = strings.Replace(info.Doc, "an action", "a function call", -1)
+		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-task", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
 	}
 	return info
 }
 
 // Init validates the action ID and any other options.
 func (c *showOutputCommand) Init(args []string) error {
+	if c.watch {
+		if c.wait != "-1s" {
+			return errors.New("specify either --watch or --wait but not both")
+		}
+		// If we are watching the wait is 0 (indefinite).
+		c.wait = "0s"
+	}
 	switch len(args) {
 	case 0:
 		if featureflag.Enabled(feature.JujuV3) {
@@ -130,7 +160,40 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(waitDur)
 	}
 
+	actionDone := make(chan struct{})
+	var logsWatcher watcher.StringsWatcher
+	haveLogs := false
+
+	shouldWatch := waitDur.Nanoseconds() >= 0
+	if shouldWatch {
+		result, err := fetchResult(api, c.requestedId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		shouldWatch = result.Status == params.ActionPending ||
+			result.Status == params.ActionRunning
+	}
+
+	if shouldWatch && api.BestAPIVersion() >= 5 {
+		logsWatcher, err = api.WatchActionProgress(c.requestedId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
+			haveLogs = true
+			c.logMessageHandler(ctx, msg)
+		})
+	}
+
 	result, err := GetActionResult(api, c.requestedId, wait)
+	close(actionDone)
+	if logsWatcher != nil {
+		logsWatcher.Wait()
+	}
+	if haveLogs {
+		// Make the logs a bit separate in the output.
+		fmt.Fprintln(ctx.Stderr, "")
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}

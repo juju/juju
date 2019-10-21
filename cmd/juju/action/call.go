@@ -106,6 +106,10 @@ Examples:
     juju call mysql/3 backup --params p.yml file.kind=xz file.quality=high
     juju call sleeper/0 pause time=1000
     juju call sleeper/0 pause --string-args time=1000
+
+See also:
+    list-tasks
+    show-task
 `
 
 // SetFlags offers an option for YAML output.
@@ -205,7 +209,6 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 
 		if !c.background {
 			ctx.Infof("Running Task %s", actionTag.Id())
-			continue
 		}
 		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 		if err != nil {
@@ -250,24 +253,30 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
+	waitForWatcher := func() {
+		close(actionDone)
+		if logsWatcher != nil {
+			logsWatcher.Wait()
+		}
+	}
+
 	for i, result := range results.Results {
 		tag, err := names.ParseActionTag(result.Action.Tag)
 		if err != nil {
-			return err
-		}
-		result, err = GetActionResult(c.api, tag.Id(), wait)
-		if err != nil {
+			waitForWatcher()
 			return errors.Trace(err)
 		}
+		fmt.Fprintf(ctx.Stderr, "Waiting for task %v...\n", tag.Id())
+		result, err = GetActionResult(c.api, tag.Id(), wait)
 		if i == 0 {
-			close(actionDone)
-			if logsWatcher != nil {
-				logsWatcher.Wait()
-			}
+			waitForWatcher()
 			if haveLogs {
 				// Make the logs a bit separate in the output.
 				fmt.Fprintln(ctx.Stderr, "")
 			}
+		}
+		if err != nil {
+			return errors.Trace(err)
 		}
 		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 		if err != nil {
