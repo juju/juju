@@ -62,10 +62,9 @@ func NewShowCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (s
 	}
 }
 
-func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func(string) (removeCloudAPI, error)) *removeCloudCommand {
+func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() (removeCloudAPI, error)) *removeCloudCommand {
 	return &removeCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
-		store:                     store,
 		removeCloudAPIFunc:        cloudAPI,
 	}
 }
