@@ -127,41 +127,57 @@ test_static_analysis_go() {
     ## Check dependency is correct
     if which dep >/dev/null 2>&1; then
       run "run_dep_check"
+    else
+      echo "dep not found, dep static analysis disabled"
     fi
 
     ## go vet, if it exists
     if go help vet >/dev/null 2>&1; then
       run "run_go_vet" "${FOLDERS}"
+    else
+      echo "vet not found, vet static analysis disabled"
     fi
 
     ## golint
     if which golint >/dev/null 2>&1; then
       run "run_go_lint"
+    else
+      echo "golint not found, golint static analysis disabled"
     fi
 
     ## goimports
     if which goimports >/dev/null 2>&1; then
       run "run_go_imports" "${FOLDERS}"
+    else
+      echo "goimports not found, goimports static analysis disabled"
     fi
 
     ## deadcode
     if which deadcode >/dev/null 2>&1; then
       run "run_deadcode"
+    else
+      echo "deadcode not found, deadcode static analysis disabled"
     fi
 
     ## misspell
     if which misspell >/dev/null 2>&1; then
       run "run_misspell" "${FILES}"
+    else
+      echo "misspell not found, misspell static analysis disabled"
     fi
 
     ## unconvert
     if which unconvert >/dev/null 2>&1; then
       run "run_unconvert"
+    else
+      echo "unconvert not found, unconvert static analysis disabled"
     fi
 
     ## ineffassign
     if which ineffassign >/dev/null 2>&1; then
       run "run_ineffassign"
+    else
+      echo "ineffassign not found, ineffassign static analysis disabled"
     fi
 
     ## go fmt
