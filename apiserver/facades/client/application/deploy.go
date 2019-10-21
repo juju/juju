@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -142,19 +143,19 @@ func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[s
 	}
 
 	// Get the application-level default binding for all unspecified endpoints, if
-	// set. Otherwise use the empty default.
-	applicationDefaultSpace, defaultSupplied := givenBindings[""]
-	if defaultSupplied {
-		// Record that a default binding was requested
-		defaultBindings[""] = applicationDefaultSpace
+	// set. Otherwise use the DefaultSpaceId.
+	applicationDefaultSpaceID, defaultSupplied := givenBindings[""]
+	if !defaultSupplied {
+		applicationDefaultSpaceID = network.DefaultSpaceId
 	}
+	defaultBindings[""] = applicationDefaultSpaceID
 
 	effectiveBindings := make(map[string]string, len(defaultBindings))
 	for endpoint := range defaultBindings {
 		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
 			effectiveBindings[endpoint] = givenSpace
 		} else {
-			effectiveBindings[endpoint] = applicationDefaultSpace
+			effectiveBindings[endpoint] = applicationDefaultSpaceID
 		}
 	}
 	return effectiveBindings, nil

@@ -2992,8 +2992,11 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				// This is an empty sha256 hash.
-				Changes: []string{"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+				// The unit's machine has no network addresses
+				// so the expected hash only contains the
+				// sorted endpoint to space ID bindings for the
+				// wordpress application.
+				Changes: []string{"6048d9d417c851eddf006fa5b5435549313ee3046cf45a8223f47244d8c73e03"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

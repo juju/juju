@@ -174,7 +174,7 @@ func (v *Value) extractItems(field []string, included bool) []string {
 	return items
 }
 
-// IncludeSpaces returns a list of spaces to include when starting a
+// IncludeSpaces returns a list of space IDs to include when starting a
 // machine, if specified.
 func (v *Value) IncludeSpaces() []string {
 	if v.Spaces == nil {
@@ -183,9 +183,9 @@ func (v *Value) IncludeSpaces() []string {
 	return v.extractItems(*v.Spaces, true)
 }
 
-// ExcludeSpaces returns a list of spaces to exclude when starting a
+// ExcludeSpaces returns a list of space IDs to exclude when starting a
 // machine, if specified. They are given in the spaces constraint with
-// a "^" prefix to the name, which is stripped before returning.
+// a "^" prefix to the id, which is stripped before returning.
 func (v *Value) ExcludeSpaces() []string {
 	if v.Spaces == nil {
 		return nil

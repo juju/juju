@@ -4069,6 +4069,68 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 	)
 }
 
+func (s *upgradesSuite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(endpointBindingsC)
+	defer closer()
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	space1, err := model1.AddSpace("testspace", "testspace-43253", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	space2, err := model2.AddSpace("testspace2", "testspace-43253567", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = col.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "a#ubuntu"),
+		"model-uuid": uuid1,
+		"bindings": bson.M{
+			"one": space1.Name(),
+			"two": network.DefaultSpaceName,
+		},
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid1, "a#ghost"),
+		"model-uuid": uuid1,
+		"bindings": bindingsMap{
+			"one": space1.Name(),
+		},
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "a#ubuntu"),
+		"model-uuid": uuid2,
+		"bindings": bindingsMap{
+			"one": space2.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered endpointBindings:
+		{
+			"_id":        uuid1 + ":a#ubuntu",
+			"model-uuid": uuid1,
+			"bindings":   bson.M{"one": space1.Id(), "two": network.DefaultSpaceId},
+		}, {
+			"_id":        uuid1 + ":a#ghost",
+			"model-uuid": uuid1,
+			"bindings":   bson.M{"one": space1.Id()},
+		}, {
+			"_id":        uuid2 + ":a#ubuntu",
+			"model-uuid": uuid2,
+			"bindings":   bson.M{"one": space2.Id()},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ReplaceSpaceNameWithIDEndpointBindings, upgradedData(col, expected))
+}
+
 func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
 	col, closer := s.state.db().GetRawCollection(machinesC)
 	defer closer()

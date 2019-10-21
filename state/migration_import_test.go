@@ -1106,11 +1106,11 @@ func (s *MigrationImportSuite) TestRelationsMissingStatusNoUnits(c *gc.C) {
 
 func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 	// Endpoint bindings need both valid charms, applications, and spaces.
-	s.Factory.MakeSpace(c, &factory.SpaceParams{
+	space := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
 	state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
-		map[string]string{"db": "one"})
+		map[string]string{"db": space.Id()})
 
 	_, newSt := s.importModel(c, s.State)
 
@@ -1119,9 +1119,10 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 
 	bindings, err := newWordpress.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	// There are empty values for every charm endpoint, but we only care about the
-	// db endpoint.
-	c.Assert(bindings["db"], gc.Equals, "one")
+	// Check the "db" endpoint has the correct space ID, the others
+	// should have the DefaultSpaceId
+	c.Assert(bindings.Map()["db"], gc.Equals, space.Id())
+	c.Assert(bindings.Map()[""], gc.Equals, network.DefaultSpaceId)
 }
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {

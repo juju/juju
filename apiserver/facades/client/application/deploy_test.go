@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -91,17 +92,18 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
+		"": network.DefaultSpaceId,
 		// relation names
-		"url":             "",
-		"logging-dir":     "",
-		"monitoring-port": "",
-		"db":              "",
-		"cache":           "",
-		"cluster":         "",
+		"url":             network.DefaultSpaceId,
+		"logging-dir":     network.DefaultSpaceId,
+		"monitoring-port": network.DefaultSpaceId,
+		"db":              network.DefaultSpaceId,
+		"cache":           network.DefaultSpaceId,
+		"cluster":         network.DefaultSpaceId,
 		// extra-bindings names
-		"db-client": "",
-		"admin-api": "",
-		"foo-bar":   "",
+		"db-client": network.DefaultSpaceId,
+		"admin-api": network.DefaultSpaceId,
+		"foo-bar":   network.DefaultSpaceId,
 	})
 }
 
@@ -123,18 +125,18 @@ func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL
 
 func (s *DeployLocalSuite) assertBindings(c *gc.C, app application.Application, expected map[string]string) {
 	type withEndpointBindings interface {
-		EndpointBindings() (map[string]string, error)
+		EndpointBindings() (application.Bindings, error)
 	}
 	bindings, err := app.(withEndpointBindings).EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(bindings, jc.DeepEquals, expected)
+	c.Assert(bindings.Map(), jc.DeepEquals, expected)
 }
 
 func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
-	_, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public", "", nil, false)
+	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
@@ -142,35 +144,35 @@ func (s *DeployLocalSuite) TestDeployWithSomeSpecifiedBindings(c *gc.C) {
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":   "public",
-				"db": "db",
+				"":   publicSpace.Id(),
+				"db": dbSpace.Id(),
 			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
 		// default binding
-		"": "public",
+		"": publicSpace.Id(),
 		// relation names
-		"url":             "public",
-		"logging-dir":     "public",
-		"monitoring-port": "public",
-		"db":              "db",
-		"cache":           "public",
+		"url":             publicSpace.Id(),
+		"logging-dir":     publicSpace.Id(),
+		"monitoring-port": publicSpace.Id(),
+		"db":              dbSpace.Id(),
+		"cache":           publicSpace.Id(),
 		// extra-bindings names
-		"db-client": "public",
-		"admin-api": "public",
-		"foo-bar":   "public",
+		"db-client": publicSpace.Id(),
+		"admin-api": publicSpace.Id(),
+		"foo-bar":   publicSpace.Id(),
 	})
 }
 
 func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames(c *gc.C) {
 	wordpressCharm := s.addWordpressCharmWithExtraBindings(c)
-	_, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public", "", nil, false)
+	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("internal", "", nil, false)
+	internalSpace, err := s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
@@ -178,25 +180,25 @@ func (s *DeployLocalSuite) TestDeployWithBoundRelationNamesAndExtraBindingsNames
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":          "public",
-				"db":        "db",
-				"db-client": "db",
-				"admin-api": "internal",
+				"":          publicSpace.Id(),
+				"db":        dbSpace.Id(),
+				"db-client": dbSpace.Id(),
+				"admin-api": internalSpace.Id(),
 			},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
-		"":                "public",
-		"url":             "public",
-		"logging-dir":     "public",
-		"monitoring-port": "public",
-		"db":              "db",
-		"cache":           "public",
-		"db-client":       "db",
-		"admin-api":       "internal",
-		"cluster":         "public",
-		"foo-bar":         "public", // like for relations, uses the application-default.
+		"":                publicSpace.Id(),
+		"url":             publicSpace.Id(),
+		"logging-dir":     publicSpace.Id(),
+		"monitoring-port": publicSpace.Id(),
+		"db":              dbSpace.Id(),
+		"cache":           publicSpace.Id(),
+		"db-client":       dbSpace.Id(),
+		"admin-api":       internalSpace.Id(),
+		"cluster":         publicSpace.Id(),
+		"foo-bar":         publicSpace.Id(), // like for relations, uses the application-default.
 	})
 
 }
@@ -205,9 +207,7 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
 	_, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("internal", "", nil, false)
+	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
@@ -215,25 +215,22 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":   "public",
-				"db": "intranel", //typo 'intranel'
+				"":   publicSpace.Id(),
+				"db": "42", //unknown space id
 			},
 		})
-	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": unknown space "intranel" not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot add application "bob": space not found`)
 	c.Check(app, gc.IsNil)
 	// The application should not have been added
 	_, err = s.State.Application("bob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
 }
 
 func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 	wordpressCharm := s.addWordpressCharm(c)
-	_, err := s.State.AddSpace("db", "", nil, false)
+	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("internal", "", nil, false)
+	internalSpace, err := s.State.AddSpace("internal", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	app, err := application.DeployApplication(stateDeployer{s.State},
@@ -241,9 +238,9 @@ func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
 			ApplicationName: "bob",
 			Charm:           wordpressCharm,
 			EndpointBindings: map[string]string{
-				"":      "public",
-				"bd":    "internal", // typo 'bd'
-				"pubic": "public",   // typo 'pubic'
+				"":      publicSpace.Id(),
+				"bd":    internalSpace.Id(), // typo 'bd'
+				"pubic": publicSpace.Id(),   // typo 'pubic'
 			},
 		})
 	c.Assert(err, gc.ErrorMatches,

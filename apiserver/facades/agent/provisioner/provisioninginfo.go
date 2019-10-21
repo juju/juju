@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -352,79 +353,81 @@ func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string
 		return nil, errors.Trace(err)
 	}
 
-	spacesNamesToProviderIds, err := api.allSpaceNamesToProviderIds()
+	spacesIdsToProviderIds, err := api.spaceIdsToProviderIds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	var combinedBindings map[string]string
-	processedServicesSet := set.NewStrings()
+	processedApplicationsSet := set.NewStrings()
 	for _, unit := range units {
 		if !unit.IsPrincipal() {
 			continue
 		}
-		service, err := unit.Application()
+		application, err := unit.Application()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		if processedServicesSet.Contains(service.Name()) {
+		if processedApplicationsSet.Contains(application.Name()) {
 			// Already processed, skip it.
 			continue
 		}
-		bindings, err := service.EndpointBindings()
+		bindings, err := application.EndpointBindings()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		processedServicesSet.Add(service.Name())
+		processedApplicationsSet.Add(application.Name())
 
-		if len(bindings) == 0 {
+		if len(bindings.Map()) == 0 {
 			continue
 		}
 		if combinedBindings == nil {
 			combinedBindings = make(map[string]string)
 		}
 
-		for endpoint, spaceName := range bindings {
-			if spaceName == "" {
+		for endpoint, spaceID := range bindings.Map() {
+			// All endpoint bindings having a value is a side effect of
+			// changing the endpoint bindings from a space name to id.
+			// For the provisioning code, assuming that the default space
+			// should be handled as unspecified was previously.
+			if spaceID == network.DefaultSpaceId {
 				// Skip unspecified bindings, as they won't affect the instance
 				// selected for provisioning.
 				continue
 			}
 
-			spaceProviderId, nameKnown := spacesNamesToProviderIds[spaceName]
+			spaceProviderId, nameKnown := spacesIdsToProviderIds[spaceID]
 			if nameKnown {
 				combinedBindings[endpoint] = spaceProviderId
 			} else {
 				// Technically, this can't happen in practice, as we're
-				// validating the bindings during service deployment.
-				return nil, errors.Errorf("unknown space %q with no provider ID specified for endpoint %q", spaceName, endpoint)
+				// validating the bindings during application deployment.
+				return nil, errors.Errorf("unknown space %q with no provider ID specified for endpoint %q", spaceID, endpoint)
 			}
 		}
 	}
 	return combinedBindings, nil
 }
 
-func (api *ProvisionerAPI) allSpaceNamesToProviderIds() (map[string]string, error) {
+func (api *ProvisionerAPI) spaceIdsToProviderIds() (map[string]string, error) {
 	allSpaces, err := api.st.AllSpaces()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting all spaces")
 	}
 
-	namesToProviderIds := make(map[string]string, len(allSpaces))
+	idsToProviderIds := make(map[string]string, len(allSpaces))
 	for _, space := range allSpaces {
-		name := space.Name()
-
 		// For providers without native support for spaces, use the name instead
 		// as provider ID.
 		providerId := string(space.ProviderId())
 		if len(providerId) == 0 {
-			providerId = name
+			providerId = space.Name()
 		}
 
-		namesToProviderIds[name] = providerId
+		idsToProviderIds[space.Id()] = providerId
 	}
 
-	return namesToProviderIds, nil
+	return idsToProviderIds, nil
 }
 
 // availableImageMetadata returns all image metadata available to this machine

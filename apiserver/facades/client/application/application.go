@@ -676,6 +676,10 @@ func deployApplication(
 		attachStorage[i] = tag
 	}
 
+	bindings, err := state.NewBindings(backend, args.EndpointBindings)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Series:            args.Series,
@@ -689,7 +693,7 @@ func deployApplication(
 		Storage:           args.Storage,
 		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
-		EndpointBindings:  args.EndpointBindings,
+		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 	})
 	return errors.Trace(err)
@@ -2393,6 +2397,9 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
+		// TODO (hml) 2019-10-16
+		// bindings.MapWithSpaceNames() might be of
+		// use here.
 		out[i].Result = &params.ApplicationInfo{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
@@ -2402,7 +2409,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
-			EndpointBindings: bindings,
+			EndpointBindings: bindings.Map(),
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil

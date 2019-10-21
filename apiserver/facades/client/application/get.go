@@ -95,6 +95,12 @@ func (api *APIBase) getConfig(
 	if err != nil {
 		return params.ApplicationGetResults{}, err
 	}
+
+	bindingMap, err := endpoints.MapWithSpaceNames()
+	if err != nil {
+		return params.ApplicationGetResults{}, err
+	}
+
 	return params.ApplicationGetResults{
 		Application:       args.ApplicationName,
 		Charm:             ch.Meta().Name,
@@ -103,7 +109,7 @@ func (api *APIBase) getConfig(
 		Constraints:       cons,
 		Series:            app.Series(),
 		Channel:           string(app.Channel()),
-		EndpointBindings:  endpoints,
+		EndpointBindings:  bindingMap,
 	}, nil
 }
 

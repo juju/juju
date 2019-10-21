@@ -2306,14 +2306,14 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 
 	// The watcher will emit the original hash.
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange("790fa771fa9e3a6795fb2b879b0a9530a423256d24ef6ee73b11783878c10ae2")
+	wc.AssertChange("b1b30f7f8b818a0ef59e858ab0e409a33ebe9eefead686f7a0f1d1ef7a11cf0e")
 
 	// Adding a new machine address should trigger a change
 	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{DeviceName: "enp5s0", CIDRAddress: "10.0.0.100/24", ConfigMethod: state.StaticAddress})
 	c.Assert(err, gc.IsNil)
 	err = m1.SetProviderAddresses(corenetwork.NewSpaceAddress("10.0.0.100"))
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("5508ff98b2f6c8e945154ef7ae2149dc18bf0ab0eea50bade3a1d875432406f1")
+	wc.AssertChange("46ed851765a963e100161210a7b4fbb28d59b24edb580a60f86dbbaebea14d37")
 
 	// Changing the application bindings after an upgrade should trigger a change
 	sch := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 2)
@@ -2326,7 +2326,7 @@ func (s *UnitSuite) TestWatchMachineAndEndpointAddressesHash(c *gc.C) {
 	}
 	err = app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("1bf261e50e986904497a3712b6b07bf0e3ccb3c12231aa642097485921498e63")
+	wc.AssertChange("c895e8b57123efd2194d48b74db431e4db4c3ae4fa75f55aa6f32c7f39f29abd")
 }
 
 func unitMachine(c *gc.C, st *state.State, u *state.Unit) *state.Machine {

@@ -63,7 +63,7 @@ func (s *networkInfoSuite) TestNetworksForRelation(c *gc.C) {
 	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.pu0.UnitTag()).NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(boundSpace, gc.Equals, network.DefaultSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
@@ -107,7 +107,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 
 	subnet3, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "3.2.0.0/16"})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("space-3", "pid-3", []string{subnet3.ID()}, false)
+	space3, err := s.State.AddSpace("space-3", "pid-3", []string{subnet3.ID()}, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	subnet4, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "4.3.0.0/16"})
@@ -145,7 +145,7 @@ func (s *networkInfoSuite) TestNetworksForRelationWithSpaces(c *gc.C) {
 	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.pu0.UnitTag()).NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, "space-3")
+	c.Assert(boundSpace, gc.Equals, space3.Id())
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("3.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"3.2.3.4/32"})
@@ -169,7 +169,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelation(c *gc.C) {
 	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.ru0.UnitTag()).NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(boundSpace, gc.Equals, network.DefaultSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
@@ -192,7 +192,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.ru0.UnitTag()).NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(boundSpace, gc.Equals, network.DefaultSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})
@@ -262,7 +262,7 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	wg.Wait()
 	c.Assert(funcErr, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(boundSpace, gc.Equals, network.DefaultSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic)})
 	c.Assert(egress, gc.DeepEquals, []string{"4.3.2.1/32"})
@@ -287,7 +287,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	// First no address.
 	boundSpace, ingress, egress, err := netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(boundSpace, gc.Equals, network.DefaultSpaceId)
 	c.Assert(ingress, gc.HasLen, 0)
 	c.Assert(egress, gc.HasLen, 0)
 
@@ -301,7 +301,7 @@ func (s *networkInfoSuite) TestNetworksForRelationCAASModel(c *gc.C) {
 	boundSpace, ingress, egress, err = netInfo.NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(boundSpace, gc.Equals, "")
+	c.Assert(boundSpace, gc.Equals, network.DefaultSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
 		network.SpaceAddresses{network.NewScopedSpaceAddress("1.2.3.4", network.ScopeCloudLocal)})
 	c.Assert(egress, gc.DeepEquals, []string{"1.2.3.4/32"})

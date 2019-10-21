@@ -87,6 +87,10 @@ func (a applicationShim) Charm() (ch Charm, force bool, err error) {
 	return a.Application.Charm()
 }
 
+func (a applicationShim) EndpointBindings() (Bindings, error) {
+	return a.Application.EndpointBindings()
+}
+
 func (st stateShim) Application(name string) (Application, error) {
 	a, err := st.State.Application(name)
 	if err != nil {

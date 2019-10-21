@@ -139,9 +139,9 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (map[string]string, error) {
+func (m *mockApplication) EndpointBindings() (application.Bindings, error) {
 	m.MethodCall(m, "EndpointBindings")
-	return m.bindings, m.NextErr()
+	return &mockBindings{bMap: m.bindings}, m.NextErr()
 }
 
 func (a *mockApplication) AllUnits() ([]application.Unit, error) {
@@ -252,19 +252,17 @@ func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 	return a.agentTools, a.NextErr()
 }
 
-type mockNotifyWatcher struct {
-	state.NotifyWatcher
-	jtesting.Stub
-	ch chan struct{}
+type mockBindings struct {
+	// A map of endpoint names to space names.
+	bMap map[string]string
 }
 
-func (m *mockNotifyWatcher) Changes() <-chan struct{} {
-	m.MethodCall(m, "Changes")
-	return m.ch
+func (b *mockBindings) Map() map[string]string {
+	return b.bMap
 }
 
-func (m *mockNotifyWatcher) Err() error {
-	return m.NextErr()
+func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
+	return b.bMap, nil
 }
 
 type mockRemoteApplication struct {
@@ -413,6 +411,18 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 		}
 	}
 	return nil, errors.NotFoundf("machine %q", id)
+}
+
+func (m *mockBackend) SpaceIDsByName() (map[string]string, error) {
+	return nil, nil
+}
+
+func (m *mockBackend) SpaceNamesByID() (map[string]string, error) {
+	return nil, nil
+}
+
+func (m *mockBackend) SpaceByID(_ string) (*state.Space, error) {
+	return nil, nil
 }
 
 func newMockModel() mockModel {

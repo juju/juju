@@ -4,6 +4,8 @@
 package state
 
 import (
+	"fmt"
+
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jujutxn "github.com/juju/txn"
@@ -28,7 +30,7 @@ type endpointBindingsDoc struct {
 	// DocID is always the same as a application's global key.
 	DocID string `bson:"_id"`
 
-	// Bindings maps an application endpoint name to the space name it is bound to.
+	// Bindings maps an application endpoint name to the space ID it is bound to.
 	Bindings bindingsMap `bson:"bindings"`
 
 	// TxnRevno is used to assert the collection have not changed since this
@@ -74,16 +76,27 @@ func (b bindingsMap) GetBSON() (interface{}, error) {
 	return rawMap, nil
 }
 
-// mergeBindings returns the effective bindings, by combining the default
-// bindings based on the given charm metadata, overriding them first with
-// matching oldMap values, and then with newMap values (for the same keys).
-// newMap and oldMap are both optional and will ignored when empty. Returns a
-// map containing the combined finalized bindings.
+// Merge the default bindings based on the given charm metadata with the
+// current bindings, overriding with mergeWith values (for the same keys).
+// Current values and mergeWith are both optional and will ignored when
+// empty. The current object contains the combined finalized bindings.
 // Returns true/false if there are any actual differences.
-func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[string]string, bool, error) {
+func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, error) {
+	// Verify the bindings to be merged, and ensure we're merging with
+	// space ids.
+	merge, err := NewBindings(b.st, mergeWith)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	mergeMap := merge.Map()
+
 	defaultsMap := DefaultEndpointBindingsForCharm(meta)
-	defaultBinding := oldMap[defaultEndpointName]
-	if newDefaultBinding, ok := newMap[defaultEndpointName]; ok {
+
+	defaultBinding, mergeOK := b.bindingsMap[defaultEndpointName]
+	if !mergeOK {
+		defaultBinding = network.DefaultSpaceId
+	}
+	if newDefaultBinding, newOk := mergeMap[defaultEndpointName]; newOk {
 		// new default binding supersedes the old default binding
 		defaultBinding = newDefaultBinding
 	}
@@ -91,106 +104,103 @@ func mergeBindings(newMap, oldMap map[string]string, meta *charm.Meta) (map[stri
 	// defaultsMap contains all endpoints that must be bound for the given charm
 	// metadata, but we need to figure out which value to use for each key.
 	updated := make(map[string]string)
+	updated[defaultEndpointName] = defaultBinding
 	for key, defaultValue := range defaultsMap {
 		effectiveValue := defaultValue
 
-		oldValue, hasOld := oldMap[key]
-		if hasOld {
-			if oldValue != effectiveValue {
-				effectiveValue = oldValue
+		currentValue, hasCurrent := b.bindingsMap[key]
+		if hasCurrent {
+			if currentValue != effectiveValue {
+				effectiveValue = currentValue
 			}
 		} else {
-			// Old didn't talk about this value, but maybe we have a default
+			// current didn't talk about this value, but maybe we have a default
 			effectiveValue = defaultBinding
 		}
 
-		newValue, hasNew := newMap[key]
-		if hasNew && newValue != effectiveValue {
-			effectiveValue = newValue
+		mergeValue, hasMerge := mergeMap[key]
+		if hasMerge && mergeValue != effectiveValue && mergeValue != "" {
+			effectiveValue = mergeValue
 		}
 
 		updated[key] = effectiveValue
 	}
-	if defaultBinding != network.DefaultSpaceName {
-		updated[defaultEndpointName] = defaultBinding
-	}
 
-	// Any other bindings in newMap are most likely extraneous, but add them
+	// Any other bindings in mergeWith Map are most likely extraneous, but add them
 	// anyway and let the validation handle them.
-	for key, newValue := range newMap {
+	for key, newValue := range mergeMap {
 		if _, defaultExists := defaultsMap[key]; !defaultExists {
 			updated[key] = newValue
 		}
 	}
 	isModified := false
-	if len(updated) != len(oldMap) {
+	if len(updated) != len(b.bindingsMap) {
 		isModified = true
 	} else {
 		// If the len() is identical, then we know as long as we iterate all entries, then there is no way to
 		// miss an entry. Either they have identical keys and we check all the values, or there is an identical
 		// number of new keys and missing keys and we'll notice a missing key.
 		for key, val := range updated {
-			if oldVal, existed := oldMap[key]; !existed || oldVal != val {
+			if oldVal, existed := mergeMap[key]; !existed || oldVal != val {
 				isModified = true
 				break
 			}
 		}
 	}
-	logger.Debugf("merged endpoint bindings modified: %t, default: %v, old: %v, new: %v, result: %v",
-		isModified, defaultsMap, oldMap, newMap, updated)
-	return updated, isModified, nil
+	logger.Debugf("merged endpoint bindings modified: %t, default: %v, current: %v, mergeWith: %v, after: %v",
+		isModified, defaultsMap, b.bindingsMap, mergeMap, updated)
+	if isModified {
+		b.bindingsMap = updated
+	}
+	return isModified, nil
 }
 
-// createEndpointBindingsOp returns the op needed to create new endpoint
-// bindings using the optional givenMap and the specified charm metadata to for
+// createOp returns the op needed to create new endpoint bindings using the
+// optional current bindings and the specified charm metadata to for
 // determining defaults and to validate the effective bindings.
-func createEndpointBindingsOp(st *State, key string, givenMap map[string]string, meta *charm.Meta) (txn.Op, error) {
-
-	// No existing map to merge, just use the defaults.
-	initialMap, _, err := mergeBindings(givenMap, nil, meta)
+func (b *Bindings) createOp(bindings map[string]string, meta *charm.Meta) (txn.Op, error) {
+	if b.app == nil {
+		return txn.Op{}, errors.Trace(errors.New("programming error: app is a nil pointer"))
+	}
+	// No existing map to Merge, just use the defaults.
+	_, err := b.Merge(bindings, meta)
 	if err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
 
 	// Validate the bindings before inserting.
-	if err := validateEndpointBindingsForCharm(st, initialMap, meta); err != nil {
+	if err := b.validateForCharm(meta); err != nil {
 		return txn.Op{}, errors.Trace(err)
 	}
 
 	return txn.Op{
 		C:      endpointBindingsC,
-		Id:     key,
+		Id:     b.app.globalKey(),
 		Assert: txn.DocMissing,
 		Insert: endpointBindingsDoc{
-			Bindings: initialMap,
+			Bindings: b.Map(),
 		},
 	}, nil
 }
 
-// updateEndpointBindingsOps returns an op list that merges the existing
-// bindings with givenMap, using newMeta to validate the merged bindings, and
-// asserting that the following items have not changed since we last fetched
-// them:
-// - names of spaces assigned to endpoints.
+// updateOps returns an op list that merges the current bindings and the old
+// bindings, using newMeta to validate the merged bindings, and asserting that
+// the following items have not changed since we last fetched them:
+// - ids of spaces assigned to endpoints.
 // - application unit count.
 // - endpoint bindings that we are currently trying to update.
-func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]string, newMeta *charm.Meta) ([]txn.Op, error) {
+func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *charm.Meta) ([]txn.Op, error) {
 	var ops []txn.Op
 
-	// Fetch existing bindings.
-	existingMap, txnRevno, err := readEndpointBindings(st, a.globalKey())
-	if err != nil && !errors.IsNotFound(err) {
-		return ops, errors.Trace(err)
+	if b.app == nil {
+		return ops, errors.Trace(errors.New("programming error: app is a nil pointer"))
 	}
 
-	// Merge existing with given as needed.
-	updatedMap, isModified, err := mergeBindings(givenMap, existingMap, newMeta)
+	useTxnRevno := len(b.bindingsMap) > 0
+
+	// Merge existing with new as needed.
+	isModified, err := b.Merge(newMap, newMeta)
 	if err != nil {
-		return ops, errors.Trace(err)
-	}
-
-	// Validate the bindings before updating.
-	if err := validateEndpointBindingsForCharm(st, updatedMap, newMeta); err != nil {
 		return ops, errors.Trace(err)
 	}
 
@@ -198,28 +208,27 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 		return ops, jujutxn.ErrNoOperations
 	}
 
-	// Make sure that all machines which run units of this application
-	// contain addresses in the spaces we are trying to bind to.
-	if err := validateEndpointBindingsForMachines(a, existingMap, updatedMap); err != nil {
+	// Validate the bindings before updating.
+	if err := b.validateForCharm(newMeta); err != nil {
 		return ops, errors.Trace(err)
 	}
 
-	// Ensure that the space names needed for the bindings do not change.
-	// TODO(achilleasa) this block will be removed once we switch from
-	// space names to spaceIDs for endpoint bindings.
-	assignedSpaces := set.NewStrings()
-	for _, spName := range updatedMap {
-		assignedSpaces.Add(spName)
+	// Make sure that all machines which run units of this application
+	// contain addresses in the spaces we are trying to bind to.
+	if err := b.validateForMachines(); err != nil {
+		return ops, errors.Trace(err)
 	}
-	for spName := range assignedSpaces {
-		sp, err := st.Space(spName)
+
+	// Ensure that the spaceIDs needed for the bindings exist.
+	for _, spID := range b.Map() {
+		sp, err := b.st.SpaceByID(spID)
 		if err != nil {
 			return ops, errors.Trace(err)
 		}
 		ops = append(ops, txn.Op{
 			C:      spacesC,
 			Id:     sp.doc.DocId,
-			Assert: bson.D{{"name", spName}},
+			Assert: txn.DocExists,
 		})
 	}
 
@@ -229,22 +238,22 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 	// count for the current application.
 	ops = append(ops, txn.Op{
 		C:      applicationsC,
-		Id:     a.doc.DocID,
-		Assert: bson.D{{"unitcount", a.UnitCount()}},
+		Id:     b.app.doc.DocID,
+		Assert: bson.D{{"unitcount", b.app.UnitCount()}},
 	})
 
 	// Prepare the update operations.
-	escaped := make(bson.M, len(updatedMap))
-	for endpoint, space := range updatedMap {
+	escaped := make(bson.M, len(b.Map()))
+	for endpoint, space := range b.Map() {
 		escaped[utils.EscapeKey(endpoint)] = space
 	}
 
 	updateOp := txn.Op{
 		C:      endpointBindingsC,
-		Id:     a.globalKey(),
+		Id:     b.app.globalKey(),
 		Update: bson.M{"$set": bson.M{"bindings": escaped}},
 	}
-	if existingMap != nil {
+	if useTxnRevno {
 		// Only assert existing haven't changed when they actually exist.
 		updateOp.Assert = bson.D{{"txn-revno", txnRevno}}
 	}
@@ -252,14 +261,17 @@ func updateEndpointBindingsOps(st *State, a *Application, givenMap map[string]st
 	return append(ops, updateOp), nil
 }
 
-// validateEndpointBindingsForMachines checks whether the required space
+// validateForMachines checks whether the required space
 // assignments are actually feasible given the network configuration settings
 // of the machines where application units are already running.
-func validateEndpointBindingsForMachines(a *Application, oldBindings, newBindings map[string]string) error {
+func (b *Bindings) validateForMachines() error {
+	if b.app == nil {
+		return errors.Trace(errors.New("programming error: app is a nil pointer"))
+	}
 	// Get a list of deployed machines and create a map where we track the
 	// count of deployed machines for each space.
 	machineCountInSpace := make(map[string]int)
-	deployedMachines, err := a.DeployedMachines()
+	deployedMachines, err := b.app.DeployedMachines()
 	if err != nil {
 		return err
 	}
@@ -269,18 +281,19 @@ func validateEndpointBindingsForMachines(a *Application, oldBindings, newBinding
 		if err != nil {
 			return errors.Annotatef(err, "unable to get space assignments for machine %q", m.Id())
 		}
-		for spName := range machineSpaces {
-			machineCountInSpace[spName]++
+		for spID := range machineSpaces {
+			machineCountInSpace[spID]++
 		}
 	}
 
-	if newDefaultSpace, defined := newBindings[""]; defined && newDefaultSpace != network.DefaultSpaceName {
+	if newDefaultSpace, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpace != network.DefaultSpaceId {
 		if machineCountInSpace[newDefaultSpace] != len(deployedMachines) {
-			return errors.Errorf("changing default space to %q is not feasible: one or more deployed machines lack an address in this space", newDefaultSpace)
+			msg := "changing default space to %q is not feasible: one or more deployed machines lack an address in this space"
+			return b.spaceNotFeasibleError(msg, newDefaultSpace)
 		}
 	}
 
-	for epName, spName := range newBindings {
+	for epName, spID := range b.bindingsMap {
 		if epName == "" {
 			continue
 		}
@@ -294,18 +307,28 @@ func validateEndpointBindingsForMachines(a *Application, oldBindings, newBinding
 		// it will not have a provider address in the default
 		// space so the machine-count check below would
 		// otherwise fail.
-		if spName == network.DefaultSpaceName {
+		if spID == network.DefaultSpaceId {
 			continue
 		}
 
 		// Ensure that all currently deployed machines have an address
 		// in the requested space for this binding
-		if machineCountInSpace[spName] != len(deployedMachines) {
-			return errors.Errorf("binding endpoint %q to space %q is not feasible: one or more deployed machines lack an address in this space", epName, spName)
+		if machineCountInSpace[spID] != len(deployedMachines) {
+			msg := fmt.Sprintf("binding endpoint %q to ", epName)
+			return b.spaceNotFeasibleError(msg+"space %q is not feasible: one or more deployed machines lack an address in this space", spID)
 		}
 	}
 
 	return nil
+}
+
+func (b *Bindings) spaceNotFeasibleError(msg, id string) error {
+	space, err := b.st.SpaceByID(id)
+	if err != nil {
+		logger.Errorf(msg, id)
+		return errors.Annotatef(err, "cannot get space name for id %q", id)
+	}
+	return errors.Errorf(msg, space.Name())
 }
 
 // removeEndpointBindingsOp returns an op removing the bindings for the given
@@ -346,27 +369,22 @@ func readEndpointBindingsDoc(st *State, key string) (*endpointBindingsDoc, error
 	return &doc, nil
 }
 
-// validateEndpointBindingsForCharm verifies that all endpoint names in bindings
+// validateForCharm verifies that all endpoint names in bindings
 // are valid for the given charm metadata, and each endpoint is bound to a known
 // space - otherwise an error satisfying errors.IsNotValid() will be returned.
-func validateEndpointBindingsForCharm(st *State, bindings map[string]string, charmMeta *charm.Meta) error {
-	if st == nil {
-		return errors.NotValidf("nil state")
-	}
-	if bindings == nil {
+func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
+	if b.bindingsMap == nil {
 		return errors.NotValidf("nil bindings")
 	}
 	if charmMeta == nil {
 		return errors.NotValidf("nil charm metadata")
 	}
-	spaces, err := st.AllSpaces()
+
+	// We do not need the space names, but a handy way to
+	// determine valid space IDs.
+	spaceIDs, err := b.st.SpaceNamesByID()
 	if err != nil {
 		return errors.Trace(err)
-	}
-
-	spacesNamesSet := set.NewStrings()
-	for _, space := range spaces {
-		spacesNamesSet.Add(space.Name())
 	}
 
 	allBindings := DefaultEndpointBindingsForCharm(charmMeta)
@@ -380,11 +398,11 @@ func validateEndpointBindingsForCharm(st *State, bindings map[string]string, cha
 	// TODO(dimitern): This assumes spaces cannot be deleted when they are used
 	// in bindings. In follow-up, this will be enforced by using refcounts on
 	// spaces.
-	for endpoint, space := range bindings {
+	for endpoint, space := range b.bindingsMap {
 		if endpoint != defaultEndpointName && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if space != network.DefaultSpaceName && !spacesNamesSet.Contains(space) {
+		if _, ok := spaceIDs[space]; !ok {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -398,10 +416,138 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = network.DefaultSpaceName
+		bindings[name] = network.DefaultSpaceId
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = network.DefaultSpaceName
+		bindings[name] = network.DefaultSpaceId
 	}
 	return bindings
+}
+
+// EndpointBinding are the methods necessary for exported methods of
+// Bindings to work.
+//
+//go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
+type EndpointBinding interface {
+	SpaceByID(id string) (*Space, error)
+	SpaceIDsByName() (map[string]string, error)
+	SpaceNamesByID() (map[string]string, error)
+}
+
+// Bindings are EndpointBindings.
+type Bindings struct {
+	st  EndpointBinding
+	app *Application
+	bindingsMap
+}
+
+// NewBindings returns a bindings guaranteed to be in space id format.
+func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, error) {
+	// namesErr and idError are only problems if both are not nil.
+	spacesNamesToIDs, err := st.SpaceIDsByName()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	namesErr := allOfOne(spacesNamesToIDs, givenMap)
+
+	spacesIDsToNames, err := st.SpaceNamesByID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	idErr := allOfOne(spacesIDsToNames, givenMap)
+
+	// Ensure the spaces values are all names OR ids in the
+	// given map.
+	var newMap map[string]string
+	switch {
+	case namesErr == nil && idErr == nil:
+		// The givenMap is empty or has empty endpoints
+		if len(givenMap) > 0 {
+			newMap = givenMap
+			break
+		}
+		newMap = make(map[string]string, len(givenMap))
+
+	case namesErr == nil && idErr != nil:
+		newMap, err = newBindingsFromNames(spacesNamesToIDs, givenMap)
+	case idErr == nil && namesErr != nil:
+		newMap, err = newBindingsFromIDs(spacesIDsToNames, givenMap)
+	default:
+		logger.Errorf("%s", namesErr)
+		logger.Errorf("%s", idErr)
+		return nil, errors.NotFoundf("space")
+	}
+
+	return &Bindings{st: st, bindingsMap: newMap}, err
+}
+
+func allOfOne(currentSpaces, givenMap map[string]string) error {
+	for k, v := range givenMap {
+		if _, ok := currentSpaces[v]; !ok && v != "" {
+			return errors.NotFoundf("endpoint %q, value %q, space name or id", k, v)
+		}
+	}
+	return nil
+}
+
+func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[string]string, error) {
+	newMap := make(map[string]string, len(givenMap))
+	for epName, name := range givenMap {
+		if name == "" {
+			newMap[epName] = ""
+			continue
+		}
+		// check that the name is valid and get id.
+		value, ok := verificationMap[name]
+		if !ok {
+			return nil, errors.NotFoundf("programming error: epName %q space name value %q", epName, name)
+		}
+		newMap[epName] = value
+	}
+	return newMap, nil
+}
+
+func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string]string, error) {
+	newMap := make(map[string]string, len(givenMap))
+	for epName, id := range givenMap {
+		if id == "" {
+			newMap[epName] = ""
+			continue
+		}
+		// check that the id is valid.
+		if _, ok := verificationMap[id]; ok || id == "" {
+			newMap[epName] = id
+			continue
+		}
+		return nil, errors.NotFoundf("programming error: epName %q space id value %q", epName, id)
+	}
+	return newMap, nil
+}
+
+// MapWithSpaceNames returns the current bindingMap with space names rather than ids.
+func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
+	retVal := make(map[string]string, len(b.bindingsMap))
+	namesToIDs, err := b.st.SpaceNamesByID()
+	if err != nil {
+		return nil, err
+	}
+	// Assume that b.bindings is always in space id format due to
+	// Bindings constructor.
+	for k, v := range b.bindingsMap {
+		if v == network.DefaultSpaceId || v == network.DefaultSpaceName {
+			retVal[k] = network.DefaultSpaceName
+			continue
+		}
+		spaceID, found := namesToIDs[v]
+		if !found {
+			return nil, errors.NotFoundf("space id for space %q", v)
+		}
+		retVal[k] = spaceID
+	}
+	return retVal, nil
+}
+
+// Map returns the current bindingMap with space ids.
+func (b *Bindings) Map() map[string]string {
+	return b.bindingsMap
 }

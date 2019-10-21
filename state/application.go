@@ -1011,7 +1011,16 @@ func (a *Application) changeCharmOps(
 	ops = append(ops, relOps...)
 
 	// Update any existing endpoint bindings, using defaults for new endpoints.
-	endpointBindingsOps, err := updateEndpointBindingsOps(a.st, a, operatorEndpointBindings, ch.Meta())
+	// Fetch existing bindings.
+	currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
+	if err != nil && !errors.IsNotFound(err) {
+		return ops, errors.Trace(err)
+	}
+	b, err := a.bindingsForOps(currentMap)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpointBindingsOps, err := b.updateOps(txnRevno, operatorEndpointBindings, ch.Meta())
 	if err == nil {
 		ops = append(ops, endpointBindingsOps...)
 	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
@@ -1023,6 +1032,18 @@ func (a *Application) changeCharmOps(
 
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
+}
+
+// bindingsForOps returns a Bindings object intended for createOps and updateOps
+// only.
+func (a *Application) bindingsForOps(bindings map[string]string) (*Bindings, error) {
+	// Call NewBindings first to ensure this map contains space ids
+	b, err := NewBindings(a.st, bindings)
+	if err != nil {
+		return nil, err
+	}
+	b.app = a
+	return b, nil
 }
 
 // Deployed machines returns the collection of machines
@@ -2491,9 +2512,9 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
-// name it is bound to (or empty if unspecified). When no bindings are stored
+// ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
-func (a *Application) EndpointBindings() (map[string]string, error) {
+func (a *Application) EndpointBindings() (*Bindings, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
@@ -2505,7 +2526,7 @@ func (a *Application) EndpointBindings() (map[string]string, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return bindings, nil
+	return &Bindings{st: a.st, bindingsMap: bindings}, nil
 }
 
 // defaultEndpointBindings returns a map with each endpoint from the current

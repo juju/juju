@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -431,10 +432,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	appBindings, err := app.EndpointBindings()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
+
 	result := params.ApplicationOfferDetails{
 		SourceModelTag:         backend.ModelTag().String(),
 		OfferName:              offer.OfferName,
@@ -442,64 +440,91 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 		ApplicationDescription: offer.ApplicationDescription,
 	}
 
-	// CAAS models don't have spaces.
-	model, err := backend.Model()
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-
-	spaceNames := set.NewStrings()
+	// Create result.Endpoints both IAAS and CAAS can use.
 	for alias, ep := range offer.Endpoints {
 		result.Endpoints = append(result.Endpoints, params.RemoteEndpoint{
 			Name:      alias,
 			Interface: ep.Interface,
 			Role:      ep.Role,
 		})
-		if model.Type() == state.ModelTypeCAAS {
-			continue
-		}
 
-		spaceName, ok := appBindings[ep.Name]
-		if !ok {
-			// There should always be some binding (even if it's to the default space).
-			// This isn't currently the case so add the default binding here.
-			logger.Warningf("no binding for %q endpoint on application %q", ep.Name, offer.ApplicationName)
-			if result.Bindings == nil {
-				result.Bindings = make(map[string]string)
-			}
-			result.Bindings[ep.Name] = network.DefaultSpaceName
-		}
-		spaceNames.Add(spaceName)
 	}
 
+	// CAAS models don't have spaces.
+	model, err := backend.Model()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 	if model.Type() == state.ModelTypeCAAS {
 		return &result, app, nil
 	}
 
-	spaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())
+	// Get spaces and bindings for IAAS models.
+	result.Spaces, result.Bindings, err = api.spacesAndBindingParams(backend, app, offer.Endpoints)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return &result, app, nil
+}
+
+func (api *BaseAPI) spacesAndBindingParams(
+	backend Backend,
+	app crossmodel.Application,
+	offerEndpoints map[string]charm.Relation,
+) ([]params.RemoteSpace, map[string]string, error) {
+
+	appBindings, err := app.EndpointBindings()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	appBindingsMap := appBindings.Map()
+
+	var bindings map[string]string
+
+	spaceIDs := set.NewStrings()
+	for _, ep := range offerEndpoints {
+		spaceID, haveID := appBindingsMap[ep.Name]
+		if haveID {
+			spaceIDs.Add(spaceID)
+			continue
+		}
+		// The offer application may have endpoints the local
+		// application does not.  Add and assume the default space.
+		if bindings == nil {
+			bindings = make(map[string]string)
+		}
+		bindings[ep.Name] = network.DefaultSpaceName
+		logger.Warningf("no local binding for %q endpoint on application %q, assume default space", ep.Name, app.Name())
+	}
+
+	// Get provider space info based on space ids.
+	remoteSpaces, err := api.collectRemoteSpaces(backend, spaceIDs.SortedValues())
 	if errors.IsNotSupported(err) {
 		// Provider doesn't support ProviderSpaceInfo; continue
 		// without any space information, we shouldn't short-circuit
 		// cross-model connections.
-		return &result, app, nil
+		return nil, nil, nil
 	}
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
 
-	// Ensure bindings only contains entries for which we have spaces.
-	for epName, spaceName := range appBindings {
-		space, ok := spaces[spaceName]
-		if !ok {
+	// Ensure bindings only contain entries for which we have remoteSpaces.
+	spaces := make([]params.RemoteSpace, 0)
+
+	for epName, spaceID := range appBindingsMap {
+		space, haveSpace := remoteSpaces[spaceID]
+		if !haveSpace {
 			continue
 		}
-		if result.Bindings == nil {
-			result.Bindings = make(map[string]string)
+		if bindings == nil {
+			bindings = make(map[string]string)
 		}
-		result.Bindings[epName] = spaceName
-		result.Spaces = append(result.Spaces, space)
+		bindings[epName] = space.Name
+		spaces = append(spaces, space)
 	}
-	return &result, app, nil
+	return spaces, bindings, nil
 }
 
 // collectRemoteSpaces gets provider information about the spaces from
@@ -509,7 +534,7 @@ func (api *BaseAPI) makeOfferParams(backend Backend, offer *jujucrossmodel.Appli
 // connection can be made via cloud-local addresses. If the provider
 // doesn't support getting ProviderSpaceInfo the NotSupported error
 // will be returned.
-func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
+func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map[string]params.RemoteSpace, error) {
 	env, err := api.getEnviron(backend.ModelUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -522,10 +547,10 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 	}
 
 	results := make(map[string]params.RemoteSpace)
-	for _, name := range spaceNames {
+	for _, id := range spaceIDs {
 		space := environs.DefaultSpaceInfo
-		if name != network.DefaultSpaceName {
-			dbSpace, err := backend.Space(name)
+		if id != network.DefaultSpaceId {
+			dbSpace, err := backend.SpaceByID(id)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -539,13 +564,13 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (m
 			return nil, errors.Trace(err)
 		}
 		if providerSpace == nil {
-			logger.Warningf("no provider space info for %q", name)
+			logger.Warningf("no provider space info for %q", id)
 			continue
 		}
 		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
 		// Use the name from state in case provider and state disagree.
-		remoteSpace.Name = name
-		results[name] = remoteSpace
+		remoteSpace.Name = string(space.Name)
+		results[id] = remoteSpace
 	}
 	return results, nil
 }

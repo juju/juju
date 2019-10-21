@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
@@ -210,9 +211,10 @@ var scenarioStatus = &params.FullStatus{
 				Info:   "waiting for machine",
 			},
 			EndpointBindings: map[string]string{
-				"info":              "",
-				"logging-client":    "",
-				"logging-directory": "",
+				"":                  network.DefaultSpaceId,
+				"info":              network.DefaultSpaceId,
+				"logging-client":    network.DefaultSpaceId,
+				"logging-directory": network.DefaultSpaceId,
 			},
 		},
 		"mysql": {
@@ -226,9 +228,10 @@ var scenarioStatus = &params.FullStatus{
 				Info:   "waiting for machine",
 			},
 			EndpointBindings: map[string]string{
-				"server":         "",
-				"server-admin":   "",
-				"metrics-client": "",
+				"":               network.DefaultSpaceId,
+				"server":         network.DefaultSpaceId,
+				"server-admin":   network.DefaultSpaceId,
+				"metrics-client": network.DefaultSpaceId,
 			},
 		},
 		"wordpress": {
@@ -292,14 +295,15 @@ var scenarioStatus = &params.FullStatus{
 				},
 			},
 			EndpointBindings: map[string]string{
-				"foo-bar":         "",
-				"logging-dir":     "",
-				"monitoring-port": "",
-				"url":             "",
-				"admin-api":       "",
-				"cache":           "",
-				"db":              "",
-				"db-client":       "",
+				"":                network.DefaultSpaceId,
+				"foo-bar":         network.DefaultSpaceId,
+				"logging-dir":     network.DefaultSpaceId,
+				"monitoring-port": network.DefaultSpaceId,
+				"url":             network.DefaultSpaceId,
+				"admin-api":       network.DefaultSpaceId,
+				"cache":           network.DefaultSpaceId,
+				"db":              network.DefaultSpaceId,
+				"db-client":       network.DefaultSpaceId,
 			},
 		},
 	},

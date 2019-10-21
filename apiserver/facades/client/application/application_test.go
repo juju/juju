@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -735,25 +736,46 @@ func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, end
 
 	retrievedBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(retrievedBindings, jc.DeepEquals, expected)
+
+	c.Assert(retrievedBindings.Map(), jc.DeepEquals, expected)
 }
 
-func (s *applicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
-	s.State.AddSpace("a-space", "", nil, true)
+func (s *applicationSuite) TestClientApplicationsDeployWithOldBindings(c *gc.C) {
+	space, err := s.State.AddSpace("a-space", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]string{
-		"endpoint": "a-space",
+		"":         network.DefaultSpaceId,
+		"endpoint": space.Id(),
+		"ring":     network.DefaultSpaceId,
+		"admin":    network.DefaultSpaceId,
+	}
+	endpointBindings := map[string]string{
+		"endpoint": space.Name(),
 		"ring":     "",
 		"admin":    "",
 	}
-	endpointBindings := map[string]string{"endpoint": "a-space"}
+	s.testClientApplicationsDeployWithBindings(c, endpointBindings, expected)
+}
+
+func (s *applicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
+	space, err := s.State.AddSpace("a-space", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	expected := map[string]string{
+		"":         network.DefaultSpaceId,
+		"endpoint": space.Id(),
+		"ring":     network.DefaultSpaceId,
+		"admin":    network.DefaultSpaceId,
+	}
+	endpointBindings := map[string]string{"endpoint": space.Id()}
 	s.testClientApplicationsDeployWithBindings(c, endpointBindings, expected)
 }
 
 func (s *applicationSuite) TestClientApplicationsDeployWithDefaultBindings(c *gc.C) {
 	expected := map[string]string{
-		"endpoint": "",
-		"ring":     "",
-		"admin":    "",
+		"":         network.DefaultSpaceId,
+		"endpoint": network.DefaultSpaceId,
+		"ring":     network.DefaultSpaceId,
+		"admin":    network.DefaultSpaceId,
 	}
 	s.testClientApplicationsDeployWithBindings(c, nil, expected)
 }
