@@ -63,6 +63,8 @@ the current controller if that controller is detected, use --no-prompt option.
 
 Use --controller option to remove credentials from a different controller. 
 
+Use --controller-only option to remove credentials from a controller only. 
+
 Use --client-only option to remove credentials from the current client only.
 
 Examples:
