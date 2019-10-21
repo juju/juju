@@ -733,7 +733,7 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential ju
 
 func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, credentialName string) error {
 	if c.ControllerName == "" {
-		return errors.New("Not adding k8s to the controller: no controller was specified.")
+		return errors.New("Not adding k8s cloud to the controller: no controller was specified.")
 	}
 	_, err := c.Store.ControllerByName(c.ControllerName)
 	if err != nil {
