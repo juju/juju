@@ -21,11 +21,12 @@ Removes a k8s cloud from Juju.`[1:]
 
 var usageRemoveCAASDetails = `
 Removes the specified k8s cloud from this client.
+
 If --controller is used, also removes the cloud 
 from the specified controller (if it is not in use).
 
 If --controller option was not used and the current controller can be detected, 
-a user will be prompted to confirm if the new k8s cloud need to be removed from it. 
+a user will be prompted to confirm if the k8s cloud needs to be removed from it. 
 If the prompt is not needed and the k8s cloud is always to be removed from
 the current controller if that controller is detected, use --no-prompt option.
 

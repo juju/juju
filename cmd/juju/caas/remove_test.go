@@ -102,7 +102,7 @@ func (s *removeCAASSuite) TestExtraArg(c *gc.C) {
 func (s *removeCAASSuite) TestMissingName(c *gc.C) {
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command)
-	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
+	c.Assert(err, gc.ErrorMatches, `missing k8s cloud name.`)
 }
 
 func (s *removeCAASSuite) TestRemove(c *gc.C) {
