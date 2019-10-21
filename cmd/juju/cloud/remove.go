@@ -161,6 +161,6 @@ func (c *removeCloudCommand) removeControllerCloud(ctxt *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ctxt.Infof("Cloud %q on controller %q removed", c.Cloud, c.ControllerName)
+	ctxt.Infof("Removed details of cloud %q from controller %q", c.Cloud, c.ControllerName)
 	return nil
 }

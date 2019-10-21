@@ -122,7 +122,7 @@ func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
 	assertPersonalClouds(c, "homestack", "homestack2")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	s.api.CheckCallNames(c, "RemoveCloud", "Close")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"homestack\" on controller \"mycontroller\" removed\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
 func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
@@ -139,7 +139,7 @@ func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
 	s.api.CheckCallNames(c, "RemoveCloud", "Close")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
 		"Removed details of cloud \"homestack\" from the client\n"+
-			"Cloud \"homestack\" on controller \"mycontroller\" removed\n")
+			"Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
