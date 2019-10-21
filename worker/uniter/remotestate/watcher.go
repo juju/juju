@@ -7,7 +7,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
@@ -32,7 +31,6 @@ type RemoteStateWatcher struct {
 	application               Application
 	modelType                 model.ModelType
 	relations                 map[names.RelationTag]*relationUnitsWatcher
-	appWatchers               map[string]*watcher.NotifyWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
@@ -697,8 +695,6 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 			return errors.Trace(err)
 		} else {
 			w.ensureRelationUnits(rel)
-			// should this be done elsewhere?
-			w.ensureRelatedApplications(rel)
 		}
 	}
 	return nil
@@ -772,6 +768,9 @@ func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
 		for unit, settings := range change.Changed {
 			relationSnapshot.Members[unit] = settings.Version
 		}
+		for app, settingsVersion := range change.AppChanged {
+			relationSnapshot.ApplicationMembers[app] = settingsVersion
+		}
 	}
 	// Wrap the Changes() with the relationId so we can process all changes
 	// via the same channel.
@@ -787,49 +786,6 @@ func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
 	return nil
 }
 
-// ensureRelationApplicationSettings makes sure we are watching the application
-// settings for the application of every unit we are related to on this relation
-// TODO(jam): 2019-10-21 Remove this. We don't need it as it is replaced
-//  by the update to WatchRelationUnits. Move the logic over there
-func (w *RemoteStateWatcher) ensureRelatedApplications(rel Relation) error {
-	snapshot := w.current.Relations[rel.Id()]
-	relatedApps := set.NewStrings()
-	for unit := range snapshot.Members {
-		appName, err := names.UnitApplication(unit)
-		if err != nil {
-			logger.Warningf("related unit %q doesn't look like valid unit name: %v", unit, err)
-			continue
-		}
-		relatedApps.Add(appName)
-	}
-	for _, appName := range relatedApps.SortedValues() {
-		if _, ok := w.appWatchers[appName]; ok {
-			// We're already watching this one
-			continue
-		}
-
-		if err := w.watchRelationApplicationSettings(rel, appName); err != nil {
-			return errors.Trace(err)
-		}
-	}
-	return nil
-}
-
-func (w *RemoteStateWatcher) watchRelationApplicationSettings(rel Relation, appName string) error {
-	appTag := names.NewApplicationTag(appName)
-	rasw, err := w.st.WatchRelationApplicationSettings(rel.Tag(), appTag)
-	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-		logger.Debugf("wanted to watch relation application %v:%v but got unauthorized, assuming dead", rel.Tag(), appName)
-		return nil
-	} else if err != nil {
-		return errors.Trace(err)
-	}
-	if err := w.catacomb.Add(rasw); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 // relationUnitsChanged responds to relation units changes.
 func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) error {
 	w.mu.Lock()
@@ -841,6 +797,10 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 	for unit, settings := range change.Changed {
 		snapshot.Members[unit] = settings.Version
 	}
+	// TODO(jam): 2019-10-21 Handle change.AppChanged
+	// for app, settingsVersion := range change.AppChanged {
+	// 	snapshot.ApplicationMembers[app] = settingsVersion
+	// }
 	for _, unit := range change.Departed {
 		delete(snapshot.Members, unit)
 	}

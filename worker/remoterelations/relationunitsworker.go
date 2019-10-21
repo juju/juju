@@ -110,7 +110,7 @@ func (w *relationUnitsWorker) relationUnitsChangeEvent(
 	change watcher.RelationUnitsChange,
 ) (*params.RemoteRelationChangeEvent, error) {
 	logger.Debugf("update relation units for %v", w.relationTag)
-	if len(change.Changed)+len(change.Departed) == 0 {
+	if len(change.Changed)+len(change.AppChanged)+len(change.Departed) == 0 {
 		return nil, nil
 	}
 	// Ensure all the changed units have been exported.
@@ -118,6 +118,7 @@ func (w *relationUnitsWorker) relationUnitsChangeEvent(
 	for name := range change.Changed {
 		changedUnitNames = append(changedUnitNames, name)
 	}
+	// TODO(jam): 2019-10-21 Handle change.AppChanged
 
 	// unitNum parses a unit name and extracts the unit number.
 	unitNum := func(unitName string) (int, error) {

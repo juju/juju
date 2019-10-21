@@ -187,21 +187,6 @@ func (st *mockState) WatchStorageAttachment(
 	return watcher, nil
 }
 
-// TODO(jam): 2019-10-21 Remove this. We don't need it as it is replaced
-//  by the update to WatchRelationUnits
-func (st *mockState) WatchRelationApplicationSettings(
-	relationTag names.RelationTag, appTag names.ApplicationTag,
-) (watcher.NotifyWatcher, error) {
-	apps, ok := st.relationAppWatchers[relationTag]
-	if !ok {
-		return nil, &params.Error{Code: params.CodeNotFound}
-	}
-	watcher, ok := apps[appTag.Id()]
-	if !ok {
-		return nil, &params.Error{Code: params.CodeNotFound}
-	}
-	return watcher, nil
-}
 func (st *mockState) UpdateStatusHookInterval() (time.Duration, error) {
 	return st.updateStatusInterval, nil
 }
