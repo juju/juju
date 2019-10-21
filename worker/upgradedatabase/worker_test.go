@@ -76,6 +76,8 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 	cfg := s.getConfig()
 	c.Check(cfg.Validate(), jc.ErrorIsNil)
+	cfg.Tag = names.NewControllerAgentTag("0")
+	c.Check(cfg.Validate(), jc.ErrorIsNil)
 
 	cfg.UpgradeComplete = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)

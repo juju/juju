@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	// Profiledir is the directory where the profile script is written.
+	// ProfileDir is the directory where the profile script is written.
 	ProfileDir        = "/etc/profile.d"
 	bashFuncsFilename = "juju-introspection.sh"
 )

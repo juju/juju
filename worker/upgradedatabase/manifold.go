@@ -55,12 +55,12 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				return nil, errors.Trace(err)
 			}
 
-			// Determine this machine's agent and tag.
-			var machineAgent agent.Agent
-			if err := context.Get(cfg.AgentName, &machineAgent); err != nil {
+			// Determine this controller's agent and tag.
+			var controllerAgent agent.Agent
+			if err := context.Get(cfg.AgentName, &controllerAgent); err != nil {
 				return nil, errors.Trace(err)
 			}
-			tag := machineAgent.CurrentConfig().Tag()
+			tag := controllerAgent.CurrentConfig().Tag()
 
 			// Wrap the state pool factory to return our implementation.
 			openState := func() (Pool, error) {
@@ -79,7 +79,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 			workerCfg := Config{
 				UpgradeComplete: upgradeStepsLock,
 				Tag:             tag,
-				Agent:           machineAgent,
+				Agent:           controllerAgent,
 				Logger:          cfg.Logger,
 				OpenState:       openState,
 				PerformUpgrade:  performUpgrade,

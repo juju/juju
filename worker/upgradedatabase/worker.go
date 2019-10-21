@@ -81,7 +81,7 @@ func (cfg Config) Validate() error {
 		return errors.NotValidf("nil machine tag")
 	}
 	k := cfg.Tag.Kind()
-	if k != names.MachineTagKind {
+	if k != names.MachineTagKind && k != names.ControllerAgentTagKind {
 		return errors.NotValidf("%q tag kind", k)
 	}
 	if cfg.Agent == nil {
