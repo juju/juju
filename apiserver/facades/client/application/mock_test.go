@@ -253,11 +253,16 @@ func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 }
 
 type mockBindings struct {
+	// A map of endpoint names to space names.
 	bMap map[string]string
 }
 
 func (b *mockBindings) Map() map[string]string {
 	return b.bMap
+}
+
+func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
+	return b.bMap, nil
 }
 
 type mockRemoteApplication struct {

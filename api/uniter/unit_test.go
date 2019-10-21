@@ -846,12 +846,12 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertChange("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	wc.AssertChange("8065d3e3d860b8ffc61338320c32a1534f38cf98c8c10c9d327ce6fd3c5fe507")
 
 	// Update config get an event.
 	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
+	wc.AssertChange("0f381d7742fd2eb5e439bf4e8f5c922d047351a36700a935990021be0b2a32fd")
 
 	// Non-change is not reported.
 	err = s.wordpressMachine.SetProviderAddresses(corenetwork.NewSpaceAddress("0.1.2.4"))
@@ -861,12 +861,12 @@ func (s *unitSuite) TestWatchAddressesHash(c *gc.C) {
 	// Change is reported for machine addresses.
 	err = s.wordpressMachine.SetMachineAddresses(corenetwork.NewSpaceAddress("0.1.2.5"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("ad269642567ef00c2c9c6ff84e9c04ecf3aa3342c1b4d98d76142471781c4495")
+	wc.AssertChange("e80796733d5885a9bcaa00062d1043aea6e3cea38bd41811db8c5df4c50d5cce")
 
 	// Set machine addresses to empty is reported.
 	err = s.wordpressMachine.SetMachineAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertChange("e8686213014563c18d8b3838ac3ac247dc2c7ceb0000cb01c19aa401ffc76e80")
+	wc.AssertChange("0f381d7742fd2eb5e439bf4e8f5c922d047351a36700a935990021be0b2a32fd")
 }
 
 func (s *unitSuite) TestWatchAddressesHashErrors(c *gc.C) {

@@ -736,6 +736,7 @@ func (s *applicationSuite) testClientApplicationsDeployWithBindings(c *gc.C, end
 
 	retrievedBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
+
 	c.Assert(retrievedBindings.Map(), jc.DeepEquals, expected)
 }
 
