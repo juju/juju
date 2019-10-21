@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/juju/core/paths"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
@@ -19,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/paths"
 	jujutesting "github.com/juju/juju/testing"
 )
 

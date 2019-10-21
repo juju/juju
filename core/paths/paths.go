@@ -32,6 +32,7 @@ const (
 	instanceCloudInitDir
 	cloudInitCfgDir
 	curtinInstallConfig
+
 	LogfilePermission = os.FileMode(0640)
 )
 
@@ -185,7 +186,9 @@ func MustSucceed(s string, e error) string {
 	return s
 }
 
-func SetOwnerGroupLog(filePath string, wantedOwner string, wantedGroup string) error {
+// Sets the ownership of a given file from a path.
+// Searches for the corresponding id's from user, group and uses them to chown
+func SetOwnerShip(filePath string, wantedUser string, wantedGroup string) error {
 	group, err := user.LookupGroup(wantedGroup)
 	if err != nil {
 		return errors.Trace(err)
@@ -194,7 +197,7 @@ func SetOwnerGroupLog(filePath string, wantedOwner string, wantedGroup string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	usr, err := user.Lookup(wantedOwner)
+	usr, err := user.Lookup(wantedUser)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -216,7 +219,7 @@ func PrimeLogFile(path string) error {
 		return errors.Trace(err)
 	}
 	wantedOwner, wantedGroup := SyslogUserGroup()
-	return SetOwnerGroupLog(path, wantedOwner, wantedGroup)
+	return SetOwnerShip(path, wantedOwner, wantedGroup)
 }
 
 // SyslogUserGroup returns the names of the user and group that own the log files.

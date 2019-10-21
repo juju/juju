@@ -7,8 +7,6 @@ import (
 	"io"
 	"path/filepath"
 
-	"github.com/juju/juju/core/paths"
-
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
@@ -17,6 +15,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"

@@ -7,16 +7,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/core/paths"
+	"github.com/juju/errors"
+	"github.com/juju/utils/series"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-
-	"github.com/juju/errors"
-
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/service"
-	"github.com/juju/utils/series"
-	"gopkg.in/juju/names.v3"
 )
 
 // stateStepsFor27 returns upgrade steps for Juju 2.7.0.
@@ -102,11 +100,11 @@ func setJujuFolderPermissionsToAdm(dir string) error {
 		if info.IsDir() {
 			return nil
 		}
-		filePath := dir + string(os.PathSeparator) + info.Name()
-		if err := paths.SetOwnerGroupLog(filePath, wantedOwner, wantedGroup); err != nil {
+		fullPath := dir + string(os.PathSeparator) + info.Name()
+		if err := paths.SetOwnerShip(fullPath, wantedOwner, wantedGroup); err != nil {
 			return errors.Trace(err)
 		}
-		if err := os.Chmod(filePath, paths.LogfilePermission); err != nil {
+		if err := os.Chmod(fullPath, paths.LogfilePermission); err != nil {
 			return errors.Trace(err)
 		}
 		return nil
@@ -118,16 +116,18 @@ func setJujuFolderPermissionsToAdm(dir string) error {
 	return nil
 }
 
-// This adds upgrade steps, we just rewrite the default values which are set before.
-// With this we can make sure that things are changed in one default place
+// We rewrite/reset the systemd files and change the existing log file permissions
 func resetLogPermissions(context Context) error {
 	tag := context.AgentConfig().Tag()
 	if tag.Kind() != names.MachineTagKind {
 		logger.Infof("skipping agent %q, not a machine", tag.String())
 		return nil
 	}
+
+	// For now a CAAS cannot be machineTagKind so it will not come as far as here for k8.
+	// But to make sure for future refactoring, which are planned, we check here as well.
 	if context.AgentConfig().Value(agent.ProviderType) == k8sprovider.CAASProviderType {
-		logger.Infof("skipping agent %q, is CAAS controller", k8sprovider.CAASProviderType)
+		logger.Infof("skipping agent %q, is CAAS", k8sprovider.CAASProviderType)
 		return nil
 	}
 	isSystemd, err := getCurrentInit()
