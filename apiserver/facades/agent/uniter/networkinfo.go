@@ -384,12 +384,7 @@ func (n *NetworkInfo) machineNetworkInfos(spaces ...string) (map[string]state.Ma
 		return nil, err
 	}
 
-	spInfos, err := n.lookupSpaces(spaces...)
-	if err != nil {
-		return nil, err
-	}
-
-	return machine.GetNetworkInfoForSpaces(spInfos), nil
+	return machine.GetNetworkInfoForSpaces(set.NewStrings(spaces...)), nil
 }
 
 // spaceForBinding returns the space id
@@ -405,22 +400,6 @@ func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding id %q not defined by the unit's charm", endpoint))
 	}
 	return boundSpace, nil
-}
-
-func (n *NetworkInfo) lookupSpaces(ids ...string) (corenetwork.SpaceInfos, error) {
-	allInfos, err := n.st.SpaceInfosByID()
-	if err != nil {
-		return nil, err
-	}
-	spaceInfos := make(corenetwork.SpaceInfos, len(ids))
-	for i, id := range ids {
-		info, found := allInfos[id]
-		if !found {
-			return nil, errors.NotFoundf("space with id %q", id)
-		}
-		spaceInfos[i] = info
-	}
-	return spaceInfos, nil
 }
 
 // spaceAddressesFromNetworkInfo returns a SpaceAddresses collection

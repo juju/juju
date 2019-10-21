@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	jujutxn "github.com/juju/txn"
@@ -766,12 +767,8 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := s.machine.GetNetworkInfoForSpaces(corenetwork.SpaceInfos{
-		s.spaces["default"],
-		s.spaces["dmz"],
-		corenetwork.SpaceInfo{ID: "666", Name: "doesnotexist"},
-		s.spaces[corenetwork.DefaultSpaceName],
-	})
+	hml := set.NewStrings(s.spaces["default"].ID, s.spaces["dmz"].ID, "666", corenetwork.DefaultSpaceId)
+	res := s.machine.GetNetworkInfoForSpaces(hml)
 	c.Check(res, gc.HasLen, 4)
 
 	resDefault, ok := res[s.spaces["default"].ID]
@@ -803,7 +800,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 
 	resDoesNotExists, ok := res["666"]
 	c.Assert(ok, jc.IsTrue)
-	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "doesnotexist".*`)
+	c.Check(resDoesNotExists.Error, gc.ErrorMatches, `.*machine "0" has no devices in space "666".*`)
 	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)
 }
 
@@ -1193,10 +1190,9 @@ func (s *linkLayerDevicesStateSuite) TestSetDeviceAddressesWithSubnetID(c *gc.C)
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	res := s.machine.GetNetworkInfoForSpaces(corenetwork.SpaceInfos{
-		s.spaces["default"],
-		s.spaces["dmz"],
-	})
+	res := s.machine.GetNetworkInfoForSpaces(
+		set.NewStrings(s.spaces["default"].ID, s.spaces["dmz"].ID),
+	)
 	c.Check(res, gc.HasLen, 2)
 
 	allAddr, err := s.machine.AllAddresses()
