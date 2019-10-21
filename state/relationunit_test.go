@@ -1277,18 +1277,13 @@ func (s *WatchRelationUnitsSuite) TestWatchAppSettings(c *gc.C) {
 	watcher := prr.rru0.Watch()
 	defer testing.AssertStop(c, watcher)
 	w0c := testing.NewRelationUnitsWatcherC(c, s.State, watcher)
-	w0c.AssertChange(nil, nil, nil)
+	w0c.AssertChange([]string{"mysql/0", "mysql/1"}, []string{"mysql"}, nil)
 	w0c.AssertNoChange()
 	token := s.State.LeadershipChecker().LeadershipCheck(prr.papp.Name(), prr.pu0.Name())
 	settings := map[string]interface{}{
 		"foo": "bar",
 	}
 	c.Assert(prr.rel.UpdateApplicationSettings(prr.papp, token, settings), jc.ErrorIsNil)
-	node0, err := prr.pru0.Settings()
-	c.Assert(err, jc.ErrorIsNil)
-	node0.Set("key", "value")
-	_, err = node0.Write()
-	c.Assert(err, jc.ErrorIsNil)
 	w0c.AssertChange(nil, []string{prr.papp.Name()}, nil)
 }
 

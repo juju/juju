@@ -1019,6 +1019,15 @@ type relationUnitsWatcher struct {
 // Watch returns a watcher that notifies of changes to counterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() RelationUnitsWatcher {
+	// TODO(jam): 2019-10-21 passing in ru.counterpartApplicationSettingsDocIDs() feels wrong here.
+	//  we need *some* way to give the relation units watcher an idea of what actual
+	//  relation it is watching, not just the Scope of what units have/haven't entered.
+	//  However, we need the relation ID (which isn't currently passed), and
+	//  the application names to be passed. We could
+	//  a) pass in 'RelationUnit'
+	//  b) pass just the relation id and app names separately
+	//  c) filter on what enters scope to determine what 'apps' are connected,
+	//     but I was hoping to decouple app settings from scope.
 	return newRelationUnitsWatcher(ru.st, ru.WatchScope(), ru.counterpartApplicationSettingsDocIDs())
 }
 
@@ -1080,7 +1089,7 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 func (w *relationUnitsWatcher) watchRelatedAppSettings() error {
 	idsAsInterface := make([]interface{}, len(w.appDocIDs))
 	for i, id := range w.appDocIDs {
-		idsAsInterface[i] = id
+		idsAsInterface[i] = w.backend.docID(id)
 	}
 	w.logger.Tracef("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appDocIDs)
 	if err := w.watcher.WatchMulti(settingsC, idsAsInterface, w.appUpdates); err != nil {

@@ -321,7 +321,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 		for k, version := range actual.AppChanged {
 			c.Assert(appChangedNames.Contains(k), jc.IsTrue)
 			oldVer, ok := c.appSettingsVersions[k]
-			if !ok {
+			if ok {
 				// Make sure if we've seen this setting before, it has been updated
 				c.Assert(version, jc.GreaterThan, oldVer,
 					gc.Commentf("expected app settings to increase got %d had %d",
