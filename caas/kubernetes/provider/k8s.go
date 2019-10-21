@@ -189,6 +189,8 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 	return k.annotations
 }
 
+var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
+
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 	k8sver, err := k.client().Discovery().ServerVersion()
@@ -196,11 +198,15 @@ func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 		return nil, errors.Trace(err)
 	}
 
+	clean := func(s string) string {
+		return k8sversionNumberExtractor.FindString(s)
+	}
+
 	ver = &version.Number{}
-	if ver.Major, err = strconv.Atoi(k8sver.Major); err != nil {
+	if ver.Major, err = strconv.Atoi(clean(k8sver.Major)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if ver.Minor, err = strconv.Atoi(k8sver.Minor); err != nil {
+	if ver.Minor, err = strconv.Atoi(clean(k8sver.Minor)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ver, nil
