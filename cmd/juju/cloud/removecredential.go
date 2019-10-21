@@ -49,16 +49,16 @@ var usageRemoveCredentialSummary = `
 Removes Juju credentials for a cloud.`[1:]
 
 var usageRemoveCredentialDetails = `
-The credentials to be removed are specified by a "credential name".
+The credential to be removed is specified by a "credential name".
 Credential names, and optionally the corresponding authentication
 material, can be listed with `[1:] + "`juju credentials`" + `.
 
-By default, after validating the contents, credentials are removed
+By default, after validating the contents, a credential is removed
 from both the current controller and the current client device. 
 
 If a current controller can be detected, a user will be prompted to confirm 
-if specified cloud needs to be removed from it. 
-If the prompt is not needed and the cloud is always to be removed from
+if specified credential needs to be removed from it. 
+If the prompt is not needed and the credential is always to be removed from
 the current controller if that controller is detected, use --no-prompt option.
 
 Use --controller option to remove credentials from a different controller. 
