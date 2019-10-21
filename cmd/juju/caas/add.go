@@ -60,7 +60,7 @@ The new k8s cloud can then be used to bootstrap into, or it
 can be added to an existing controller.
 
 If the current controller can be detected, a user will be prompted to 
-confirm if the new k8s cloud need to be added to it. 
+confirm if the new k8s cloud needs to be added to it. 
 If the prompt is not needed and the k8s cloud is always to be added to
 the current controller if that controller is detected, use --no-prompt option.
 
@@ -376,7 +376,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 			// The user may have specified the controller via a --controller option.
 			// If not, let's see if there is a current controller that can be detected.
 			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctx, fmt.Sprintf("add k8s cloud %v to the ", c.caasName))
+			c.ControllerName, err = c.MaybePromptCurrentController(ctx, fmt.Sprintf("add k8s cloud %v to", c.caasName))
 			if err != nil {
 				return errors.Trace(err)
 			}
