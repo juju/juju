@@ -936,7 +936,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				},
 				PrometheusRegisterer: noopRegisterer{},
 				Cleanup:              func() {},
-			})
+			}.WithDefaultRestartStrategy())
 			if err != nil {
 				return errors.Trace(err)
 			}

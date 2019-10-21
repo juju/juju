@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
@@ -76,6 +77,15 @@ type Config struct {
 	Clock Clock
 }
 
+// WithDefaultRestartStrategy returns a new config with production-use settings
+// for the all-watcher restart strategy.
+func (c Config) WithDefaultRestartStrategy() Config {
+	c.WatcherRestartDelayMin = 10 * time.Millisecond
+	c.WatcherRestartDelayMax = time.Second
+	c.Clock = clock.WallClock
+	return c
+}
+
 // Validate ensures all the necessary values are specified
 func (c *Config) Validate() error {
 	if c.InitializedGate == nil {
@@ -93,11 +103,11 @@ func (c *Config) Validate() error {
 	if c.Cleanup == nil {
 		return errors.NotValidf("missing cleanup func")
 	}
-	if c.WatcherRestartDelayMin < 0 {
-		return errors.NotValidf("negative watcher min restart delay")
+	if c.WatcherRestartDelayMin <= 0 {
+		return errors.NotValidf("non-positive watcher min restart delay")
 	}
-	if c.WatcherRestartDelayMax < 0 {
-		return errors.NotValidf("negative watcher max restart delay")
+	if c.WatcherRestartDelayMax <= 0 {
+		return errors.NotValidf("non-positive watcher max restart delay")
 	}
 	if c.Clock == nil {
 		return errors.NotValidf("missing clock")

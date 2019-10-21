@@ -88,18 +88,18 @@ func (s *WorkerSuite) TestConfigMissingCleanup(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "missing cleanup func not valid")
 }
 
-func (s *WorkerSuite) TestConfigNegativeMinRestartDelay(c *gc.C) {
+func (s *WorkerSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
 	s.config.WatcherRestartDelayMin = -10 * time.Second
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "negative watcher min restart delay not valid")
+	c.Check(err, gc.ErrorMatches, "non-positive watcher min restart delay not valid")
 }
 
-func (s *WorkerSuite) TestConfigNegativeMaxRestartDelay(c *gc.C) {
-	s.config.WatcherRestartDelayMax = -10 * time.Second
+func (s *WorkerSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
+	s.config.WatcherRestartDelayMax = 0
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "negative watcher max restart delay not valid")
+	c.Check(err, gc.ErrorMatches, "non-positive watcher max restart delay not valid")
 }
 
 func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
@@ -623,7 +623,7 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	s.config.Clock = clk
 
 	// 7 times through the loop will double the timeout (starting at 2s) until
-	// we get two times though with the max delay (1m).
+	// we get two times through with the max delay (1m).
 	maxErrors := 7
 
 	var errCount int

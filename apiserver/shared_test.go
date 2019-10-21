@@ -48,7 +48,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
-	})
+	}.WithDefaultRestartStrategy())
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
 	c.Assert(err, jc.ErrorIsNil)
 	var controller *cache.Controller
