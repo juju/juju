@@ -5,7 +5,9 @@ package modelcache
 
 import (
 	"sync"
+	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 	"github.com/prometheus/client_golang/prometheus"
@@ -34,6 +36,13 @@ type Unlocker interface {
 	Unlock()
 }
 
+// Clock provides an interface for dealing with clocks.
+type Clock interface {
+	// After waits for the duration to elapse and then sends the
+	// current time on the returned channel.
+	After(time.Duration) <-chan time.Time
+}
+
 // Config describes the necessary fields for NewWorker.
 type Config struct {
 	InitializedGate      Unlocker
@@ -51,6 +60,30 @@ type Config struct {
 	// by a watcher that stops in an error state.
 	// Watcher acquisition my occur multiple times during a worker life-cycle.
 	WatcherFactory func() BackingWatcher
+
+	// WatcherRestartDelayMin is the minimum duration of the worker pause
+	// before instantiating a new all-watcher when the previous one returns an
+	// error.
+	// This is intended to prevent log flooding in the case of unrecoverable
+	// watcher errors.
+	WatcherRestartDelayMin time.Duration
+
+	// WatcherRestartDelayMax is the maximum duration of the worker pause
+	// before instantiating a new all-watcher when the previous one returns an
+	// error.
+	WatcherRestartDelayMax time.Duration
+
+	// Clock is used to enforce watcher restart delays.
+	Clock Clock
+}
+
+// WithDefaultRestartStrategy returns a new config with production-use settings
+// for the all-watcher restart strategy.
+func (c Config) WithDefaultRestartStrategy() Config {
+	c.WatcherRestartDelayMin = 10 * time.Millisecond
+	c.WatcherRestartDelayMax = time.Second
+	c.Clock = clock.WallClock
+	return c
 }
 
 // Validate ensures all the necessary values are specified
@@ -70,16 +103,26 @@ func (c *Config) Validate() error {
 	if c.Cleanup == nil {
 		return errors.NotValidf("missing cleanup func")
 	}
+	if c.WatcherRestartDelayMin <= 0 {
+		return errors.NotValidf("non-positive watcher min restart delay")
+	}
+	if c.WatcherRestartDelayMax <= 0 {
+		return errors.NotValidf("non-positive watcher max restart delay")
+	}
+	if c.Clock == nil {
+		return errors.NotValidf("missing clock")
+	}
 	return nil
 }
 
 type cacheWorker struct {
-	config     Config
-	catacomb   catacomb.Catacomb
-	controller *cache.Controller
-	changes    chan interface{}
-	watcher    BackingWatcher
-	mu         sync.Mutex
+	config              Config
+	catacomb            catacomb.Catacomb
+	controller          *cache.Controller
+	changes             chan interface{}
+	watcher             BackingWatcher
+	watcherRestartDelay time.Duration
+	mu                  sync.Mutex
 }
 
 // NewWorker creates a new cacheWorker, and starts an
@@ -89,8 +132,9 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &cacheWorker{
-		config:  config,
-		changes: make(chan interface{}),
+		config:              config,
+		changes:             make(chan interface{}),
+		watcherRestartDelay: config.WatcherRestartDelayMin,
 	}
 	controller, err := cache.NewController(
 		cache.ControllerConfig{
@@ -175,24 +219,7 @@ func (c *cacheWorker) loop() error {
 			// processWatcher only returns nil if we are dying.
 			// That condition will be handled at the top of the loop.
 			if err := c.processWatcher(watcherChanges); err != nil {
-				// If the backing watcher has stopped and the watcher's tomb
-				// error is nil, this means a legitimate clean stop. If we have
-				// been told to die, then we exit cleanly. Otherwise die with an
-				// error and let the dependency engine handle starting us up
-				// again.
-				if state.IsErrStopped(err) {
-					select {
-					case <-c.catacomb.Dying():
-						return
-					default:
-						c.catacomb.Kill(err)
-						return
-					}
-				}
-
-				// For any other errors, get a new watcher.
-				c.config.Logger.Errorf("watcher error: %v, getting new watcher", err)
-				_ = c.watcher.Stop()
+				c.handleWatcherErr(err)
 			}
 		}
 	}()
@@ -222,6 +249,11 @@ func (c *cacheWorker) loop() error {
 			// Evict any stale residents.
 			c.controller.Sweep()
 
+			// If we successfully processed a batch of deltas, then the last
+			// watcher restart is considered a success and we can reset our
+			// restart delay duration.
+			c.watcherRestartDelay = c.config.WatcherRestartDelayMin
+
 			if first {
 				// Indicate that the cache is now ready to be used.
 				c.config.InitializedGate.Unlock()
@@ -243,6 +275,39 @@ func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta)
 			return nil
 		case watcherChanges <- deltas:
 		}
+	}
+}
+
+func (c *cacheWorker) handleWatcherErr(err error) {
+	// If the backing watcher has stopped and the watcher's tomb
+	// error is nil, this means a legitimate clean stop. If we have
+	// been told to die, then we exit cleanly. Otherwise die with an
+	// error and let the dependency engine handle starting us up
+	// again.
+	if state.IsErrStopped(err) {
+		select {
+		case <-c.catacomb.Dying():
+			return
+		default:
+			c.catacomb.Kill(err)
+			return
+		}
+	}
+
+	// For any other errors close the watcher, which will cause us
+	// to create a new one after the restart delay.
+	select {
+	case <-c.catacomb.Dying():
+		return
+	case <-c.config.Clock.After(c.watcherRestartDelay):
+		// The restart delay increases exponentially until we hit the max.
+		c.watcherRestartDelay = c.watcherRestartDelay * 2
+		if c.watcherRestartDelay > c.config.WatcherRestartDelayMax {
+			c.watcherRestartDelay = c.config.WatcherRestartDelayMax
+		}
+
+		c.config.Logger.Errorf("watcher error: %v, getting new watcher", err)
+		_ = c.watcher.Stop()
 	}
 }
 

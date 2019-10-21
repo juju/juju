@@ -524,7 +524,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	}
 	s.CreateUserHome(c, &userHomeParams)
 
-	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
+	cfg, err := config.New(config.UseDefaults, s.sampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)

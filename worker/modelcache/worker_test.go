@@ -4,8 +4,11 @@
 package modelcache_test
 
 import (
+	"math"
 	"time"
 
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -49,8 +52,11 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		WatcherFactory: func() modelcache.BackingWatcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
-		PrometheusRegisterer: noopRegisterer{},
-		Cleanup:              func() {},
+		PrometheusRegisterer:   noopRegisterer{},
+		Cleanup:                func() {},
+		WatcherRestartDelayMin: time.Microsecond,
+		WatcherRestartDelayMax: time.Millisecond,
+		Clock:                  clock.WallClock,
 	}
 }
 
@@ -80,6 +86,27 @@ func (s *WorkerSuite) TestConfigMissingCleanup(c *gc.C) {
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing cleanup func not valid")
+}
+
+func (s *WorkerSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
+	s.config.WatcherRestartDelayMin = -10 * time.Second
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "non-positive watcher min restart delay not valid")
+}
+
+func (s *WorkerSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
+	s.config.WatcherRestartDelayMax = 0
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "non-positive watcher max restart delay not valid")
+}
+
+func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
+	s.config.Clock = nil
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing clock not valid")
 }
 
 func (s *WorkerSuite) getController(c *gc.C, w worker.Worker) *cache.Controller {
@@ -586,6 +613,60 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	cachedApp, err := mod.Application(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(cachedApp, gc.NotNil)
+}
+
+func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
+	clk := testclock.NewClock(time.Now())
+
+	s.config.WatcherRestartDelayMin = 2 * time.Second
+	s.config.WatcherRestartDelayMax = time.Minute
+	s.config.Clock = clk
+
+	// 7 times through the loop will double the timeout (starting at 2s) until
+	// we get two times through with the max delay (1m).
+	maxErrors := 7
+
+	var errCount int
+	s.config.WatcherFactory = func() modelcache.BackingWatcher {
+		return testingMultiwatcher{
+			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
+			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
+				if errCount < maxErrors {
+					errCount++
+					return nil, errors.New("boom")
+				}
+				return deltas, nil
+			},
+		}
+	}
+
+	changes := s.captureEvents(c, cachetest.ModelEvents, cachetest.ApplicationEvents)
+	_ = s.start(c)
+	s.State.StartSync()
+
+	// Until the watcher returns without error, advance the clock by the exact
+	// duration we expect the restart delay to be based on our initial config.
+	for i := 1; i <= maxErrors; i++ {
+		delay := time.Duration(math.Pow(2, float64(i))) * time.Second
+		if delay > s.config.WatcherRestartDelayMax {
+			delay = s.config.WatcherRestartDelayMax
+		}
+		c.Assert(clk.WaitAdvance(delay, time.Second, 1), jc.ErrorIsNil)
+	}
+
+	// After the last error, the single change (our model) will appear.
+	_ = s.nextChange(c, changes)
+
+	// Now check that the duration gets reset.
+	maxErrors = 1
+	errCount = 0
+	_ = s.Factory.MakeApplication(c, &factory.ApplicationParams{})
+	s.State.StartSync()
+	c.Assert(clk.WaitAdvance(s.config.WatcherRestartDelayMin, time.Second, 1), jc.ErrorIsNil)
+
+	// After one error, the model and application will appear.
+	_ = s.nextChange(c, changes)
+	_ = s.nextChange(c, changes)
 }
 
 func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
