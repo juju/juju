@@ -394,16 +394,29 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		defer closer.Close()
 	}
 
+	cloudName := c.caasName
+	credentialName := c.caasName
+
+	credentialUID, err := decideCredentialUID(c.Store, cloudName, credentialName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	config := provider.KubeCloudParams{
 		ClusterName:        clusterName,
-		CaasName:           c.caasName,
+		CloudName:          cloudName,
+		CredentialUID:      credentialUID,
 		ContextName:        c.contextName,
 		HostCloudRegion:    c.hostCloudRegion,
 		CaasType:           c.caasType,
 		ClientConfigGetter: c.newClientConfigReader,
 	}
 
-	newCloud, credential, credentialName, err := provider.CloudFromKubeConfig(rdr, config)
+	newCloud, credential, err := provider.CloudFromKubeConfig(rdr, config)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	credential, err = ensureCredentialUID(credentialName, credentialUID, credential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -449,7 +462,8 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 			return errors.Trace(err)
 		}
-		if err := c.addCredentialToLocal(c.caasName, credential, credentialName); err != nil {
+
+		if err := c.addCredentialToLocal(cloudName, credential, credentialName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -474,7 +488,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err := addCloudToController(cloudClient, newCloud); err != nil {
 			return errors.Trace(err)
 		}
-		if err := c.addCredentialToController(cloudClient, credential, credentialName); err != nil {
+		if err := c.addCredentialToController(cloudClient, credential, cloudName, credentialName); err != nil {
 			return errors.Trace(err)
 		}
 		if !msgDisplayed {
@@ -731,10 +745,7 @@ func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential ju
 	return nil
 }
 
-func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, credentialName string) error {
-	if c.ControllerName == "" {
-		return errors.New("Not adding k8s cloud to the controller: no controller was specified.")
-	}
+func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCredential jujucloud.Credential, cloudName, credentialName string) error {
 	_, err := c.Store.ControllerByName(c.ControllerName)
 	if err != nil {
 		return errors.Trace(err)
@@ -745,7 +756,7 @@ func (c *AddCAASCommand) addCredentialToController(apiClient AddCloudAPI, newCre
 		return errors.Trace(err)
 	}
 
-	id := fmt.Sprintf("%s/%s/%s", c.caasName, currentAccountDetails.User, credentialName)
+	id := fmt.Sprintf("%s/%s/%s", cloudName, currentAccountDetails.User, credentialName)
 	if !names.IsValidCloudCredential(id) {
 		return errors.NotValidf("cloud credential ID %q", id)
 	}
