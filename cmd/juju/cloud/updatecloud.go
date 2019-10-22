@@ -178,7 +178,7 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 				runAction()
 			}
 		} else {
-			return errors.BadRequestf("To update cloud definiton on a controller, a controller name is required.")
+			return errors.BadRequestf("To update cloud definition on a controller, a controller name is required.")
 		}
 	}
 	return returnErr
