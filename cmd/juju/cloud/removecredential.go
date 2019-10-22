@@ -28,7 +28,6 @@ type removeCredentialCommand struct {
 	cloudByNameFunc func(string) (*jujucloud.Cloud, error)
 
 	// These attributes are used when removing a controller credential.
-	controllerName    string
 	remoteCloudFound  bool
 	localCloudFound   bool
 	credentialAPIFunc func() (RemoveCredentialAPI, error)
@@ -50,23 +49,34 @@ var usageRemoveCredentialSummary = `
 Removes Juju credentials for a cloud.`[1:]
 
 var usageRemoveCredentialDetails = `
-The credentials to be removed are specified by a "credential name".
+The credential to be removed is specified by a "credential name".
 Credential names, and optionally the corresponding authentication
 material, can be listed with `[1:] + "`juju credentials`" + `.
 
-By default, after validating the contents, credentials are removed
+By default, after validating the contents, a credential is removed
 from both the current controller and the current client device. 
+
+If a current controller can be detected, a user will be prompted to confirm 
+if specified credential needs to be removed from it. 
+If the prompt is not needed and the credential is always to be removed from
+the current controller if that controller is detected, use --no-prompt option.
+
 Use --controller option to remove credentials from a different controller. 
+
+Use --controller-only option to remove credentials from a controller only. 
+
 Use --client-only option to remove credentials from the current client only.
 
 Examples:
     juju remove-credential rackspace credential_name
+    juju remove-credential rackspace credential_name --no-prompt --controller-only
     juju remove-credential rackspace credential_name --client-only
     juju remove-credential rackspace credential_name -c another_controller
 
 See also: 
     credentials
     add-credential
+    update-credential
     default-credential
     autoload-credentials`
 
@@ -109,15 +119,6 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 	}
 	c.cloud = args[0]
 	c.credential = args[1]
-	c.ControllerName, err = c.ControllerNameFromArg()
-	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
-		return errors.Trace(err)
-	}
-	if c.ControllerName == "" {
-		// No controller was specified explicitly and we did not detect a current controller,
-		// this operation should be local only.
-		c.ClientOnly = true
-	}
 	return cmd.CheckEmpty(args[2:])
 }
 
@@ -126,6 +127,20 @@ func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
+	if c.BothClientAndController || c.ControllerOnly {
+		if c.ControllerName == "" {
+			// The user may have specified the controller via a --controller option.
+			// If not, let's see if there is a current controller that can be detected.
+			var err error
+			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("remove credential %q for cloud %q from", c.credential, c.cloud))
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	if c.ControllerName == "" && !c.ClientOnly {
+		ctxt.Infof("To remove credential %q for cloud %q from this client, use the --client-only option.", c.credential, c.cloud)
+	}
 	var client RemoveCredentialAPI
 	if !c.ClientOnly {
 		var err error
@@ -138,32 +153,45 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 
 	c.checkCloud(ctxt, client)
 	if !c.remoteCloudFound && !c.localCloudFound {
-		ctxt.Infof("To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.")
+		ctxt.Infof("No cloud %q is found.\nTo view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.", c.cloud)
 		return cmd.ErrSilent
 	}
-	if err := c.removeFromLocal(ctxt); err != nil {
-		return err
+	var returnErr error
+	if c.BothClientAndController || c.ClientOnly {
+		if err := c.removeFromLocal(ctxt); err != nil {
+			ctxt.Warningf("%v", err)
+			returnErr = cmd.ErrSilent
+		}
 	}
-	if !c.ClientOnly {
-		return c.removeFromController(ctxt, client)
+	if c.BothClientAndController || c.ControllerOnly {
+		if c.ControllerName != "" {
+			if err := c.removeFromController(ctxt, client); err != nil {
+				ctxt.Warningf("%v", err)
+				returnErr = cmd.ErrSilent
+			}
+		} else {
+			ctxt.Infof("Could not remove credential %q for cloud %q from any controllers: no controller specified.", c.credential, c.cloud)
+		}
 	}
-	return nil
+	return returnErr
 }
 
 func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCredentialAPI) {
-	if !c.ClientOnly {
-		if err := c.maybeRemoteCloud(ctxt, client); err != nil {
+	if c.BothClientAndController || c.ControllerOnly {
+		if c.ControllerName != "" {
+			if err := c.maybeRemoteCloud(ctxt, client); err != nil {
+				if !errors.IsNotFound(err) {
+					logger.Errorf("%v", err)
+				}
+			}
+		}
+	}
+	if c.BothClientAndController || c.ClientOnly {
+		if err := c.maybeLocalCloud(ctxt); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
 			}
-			ctxt.Infof("Cloud %q is not found on the controller, looking for it locally on this client.", c.cloud)
 		}
-	}
-	if err := c.maybeLocalCloud(ctxt); err != nil {
-		if !errors.IsNotFound(err) {
-			logger.Errorf("%v", err)
-		}
-		ctxt.Infof("Cloud %q is not found locally on this client.", c.cloud)
 	}
 }
 
@@ -171,7 +199,7 @@ func (c *removeCredentialCommand) maybeLocalCloud(ctxt *cmd.Context) error {
 	if _, err := common.CloudOrProvider(c.cloud, c.cloudByNameFunc); err != nil {
 		return err
 	}
-	ctxt.Infof("Found  local cloud %q on this client.", c.cloud)
+	ctxt.Infof("Found local cloud %q on this client.", c.cloud)
 	c.localCloudFound = true
 	return nil
 }
@@ -183,7 +211,7 @@ func (c *removeCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context, client Rem
 		return err
 	}
 	if _, ok := remoteUserClouds[names.NewCloudTag(c.cloud)]; ok {
-		ctxt.Infof("Found  remote cloud %q from the controller.", c.cloud)
+		ctxt.Infof("Found remote cloud %q from the controller.", c.cloud)
 		c.remoteCloudFound = true
 		return nil
 	}
@@ -192,7 +220,7 @@ func (c *removeCredentialCommand) maybeRemoteCloud(ctxt *cmd.Context, client Rem
 
 func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client RemoveCredentialAPI) error {
 	if !c.remoteCloudFound {
-		ctxt.Infof("No stored credentials exist remotely since cloud %q is not found on the controller %q.", c.cloud, c.ControllerName)
+		ctxt.Infof("No stored credentials exist since cloud %q is not found on the controller %q.", c.cloud, c.ControllerName)
 		return cmd.ErrSilent
 	}
 	accountDetails, err := c.Store.AccountDetails(c.ControllerName)
@@ -207,18 +235,18 @@ func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client
 	if err := client.RevokeCredential(names.NewCloudCredentialTag(id)); err != nil {
 		return errors.Annotate(err, "could not remove remote credential")
 	}
-	ctxt.Infof("Credential %q removed from the controller %q.", c.credential, c.ControllerName)
+	ctxt.Infof("Credential %q for cloud %q removed from the controller %q.", c.credential, c.cloud, c.ControllerName)
 	return nil
 }
 
 func (c *removeCredentialCommand) removeFromLocal(ctxt *cmd.Context) error {
 	if !c.localCloudFound {
-		ctxt.Infof("No credentials exist on this client since cloud %q is not found locally.", c.cloud)
+		ctxt.Infof("No credentials exist on this client since cloud %q is not found.", c.cloud)
 		return nil
 	}
 	cred, err := c.Store.CredentialForCloud(c.cloud)
 	if errors.IsNotFound(err) {
-		ctxt.Infof("No locally stored credentials exist for cloud %q.", c.cloud)
+		ctxt.Infof("No stored credentials exist for cloud %q on this client.", c.cloud)
 		return nil
 	} else if err != nil {
 		return err
@@ -231,6 +259,6 @@ func (c *removeCredentialCommand) removeFromLocal(ctxt *cmd.Context) error {
 	if err := c.Store.UpdateCredential(c.cloud, *cred); err != nil {
 		return errors.Annotate(err, "could not remove credential from this client")
 	}
-	ctxt.Infof("Credential %q for cloud %q has been deleted from this client.", c.credential, c.cloud)
+	ctxt.Infof("Credential %q for cloud %q removed from this client.", c.credential, c.cloud)
 	return nil
 }
