@@ -265,6 +265,26 @@ func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
 	return b.bMap, nil
 }
 
+func (m *mockApplication) MergeBindings(bindings *state.Bindings, force bool) error {
+	m.MethodCall(m, "MergeBindings", bindings, force)
+	return m.NextErr()
+}
+
+type mockNotifyWatcher struct {
+	state.NotifyWatcher
+	jtesting.Stub
+	ch chan struct{}
+}
+
+func (m *mockNotifyWatcher) Changes() <-chan struct{} {
+	m.MethodCall(m, "Changes")
+	return m.ch
+}
+
+func (m *mockNotifyWatcher) Err() error {
+	return m.NextErr()
+}
+
 type mockRemoteApplication struct {
 	jtesting.Stub
 	name           string

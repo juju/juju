@@ -291,6 +291,79 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
 }
 
+func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
+	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+
+	expBindings := map[string]string{
+		"":               network.DefaultSpaceName,
+		"metrics-client": network.DefaultSpaceName,
+		"server":         network.DefaultSpaceName,
+		"server-admin":   network.DefaultSpaceName,
+	}
+	b, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	curBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curBindings, gc.DeepEquals, expBindings)
+
+	// Use MergeBindings to bind "server" -> "isolated"
+	b, err = state.NewBindings(s.State, map[string]string{
+		"server": "isolated",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.MergeBindings(b, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the bindings have been updated
+	expBindings["server"] = "isolated"
+	b, err = s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	updatedBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+}
+
+func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
+	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+
+	sn, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.99.99.0/24"})
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddSpace("far", "", []string{sn.ID()}, false)
+	c.Assert(err, gc.IsNil)
+
+	expBindings := map[string]string{
+		"":               network.DefaultSpaceName,
+		"metrics-client": network.DefaultSpaceName,
+		"server":         network.DefaultSpaceName,
+		"server-admin":   network.DefaultSpaceName,
+	}
+	b, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	curBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curBindings, gc.DeepEquals, expBindings)
+
+	// Use MergeBindings to force-bind "server" -> "far"
+	b, err = state.NewBindings(s.State, map[string]string{
+		"server": "far",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.MergeBindings(b, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the bindings have been updated
+	expBindings["server"] = "far"
+	b, err = s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	updatedBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+}
+
 func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *gc.C) {
 	_ = s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)

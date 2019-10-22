@@ -1005,3 +1005,18 @@ func (c *Client) ApplicationsInfo(applications []names.ApplicationTag) ([]params
 	}
 	return out.Results, nil
 }
+
+// MergeBindings merges an operator-defined bindings list with the existing
+// application bindings.
+func (c *Client) MergeBindings(req params.ApplicationMergeBindingsArgs) error {
+	if apiVersion := c.BestAPIVersion(); apiVersion < 11 {
+		return errors.NotSupportedf("MergeBindings for Application facade v%v", apiVersion)
+	}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("MergeBindings", req, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return results.OneError()
+}

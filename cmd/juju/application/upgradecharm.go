@@ -444,7 +444,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 func (c *upgradeCharmCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string) error {
 	for epName := range userBindings {
-		if _, exists := oldEndpointsMap[epName]; exists {
+		if _, exists := oldEndpointsMap[epName]; exists || epName == "" {
 			continue
 		}
 

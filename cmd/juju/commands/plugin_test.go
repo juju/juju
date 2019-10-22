@@ -162,7 +162,7 @@ func (suite *PluginSuite) TestHelpPluginNameAsPathIsNotAPlugin(c *gc.C) {
 	expectedHelp := `ERROR juju: "/foo" is not a juju command. See "juju --help".
 
 Did you mean:
-	exec
+	bind
 `
 	c.Assert(output, gc.Matches, expectedHelp)
 }
@@ -172,7 +172,7 @@ func (suite *PluginSuite) TestHelpPluginNameWithSpecialPrefixWhichIsNotAPathAndP
 	expectedHelp := `ERROR juju: ".foo" is not a juju command. See "juju --help".
 
 Did you mean:
-	exec
+	bind
 `
 	c.Assert(output, gc.Matches, expectedHelp)
 }
