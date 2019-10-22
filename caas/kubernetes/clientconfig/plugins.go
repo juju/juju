@@ -19,12 +19,19 @@ import (
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
-const adminNameSpace = "kube-system"
+const (
+	adminNameSpace  = "kube-system"
+	rbacStackPrefix = "juju-credential"
+)
 
-func getRBACLabels(stackName string) map[string]string {
+func getRBACLabels(UID string) map[string]string {
 	return map[string]string{
-		"juju-cloud": stackName,
+		rbacStackPrefix: UID,
 	}
+}
+
+func getRBACResourceName(UID string) string {
+	return fmt.Sprintf("%s-%s", rbacStackPrefix, UID)
 }
 
 type cleanUpFuncs []func()
@@ -44,11 +51,12 @@ func newK8sClientSet(config *clientcmdapi.Config, contextName string) (*kubernet
 
 func createJujuAdminServiceAccount(
 	clientset kubernetes.Interface,
-	stackName string,
+	UID string,
 	config *clientcmdapi.Config,
 	contextName string,
 ) (_ *clientcmdapi.Config, err error) {
-	labels := getRBACLabels(stackName)
+	labels := getRBACLabels(UID)
+	name := getRBACResourceName(UID)
 
 	var cleanUps cleanUpFuncs
 	defer func() {
@@ -61,33 +69,33 @@ func createJujuAdminServiceAccount(
 	}()
 
 	// Create admin cluster role.
-	clusterRole, crCleanUps, err := createClusterRole(clientset, stackName, adminNameSpace, labels)
+	clusterRole, crCleanUps, err := createClusterRole(clientset, name, adminNameSpace, labels)
 	cleanUps = append(cleanUps, crCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "ensuring cluster role %q in namespace %q", stackName, adminNameSpace)
+			err, "ensuring cluster role %q in namespace %q", name, adminNameSpace)
 	}
 
 	// Create juju admin service account.
-	sa, saCleanUps, err := createServiceAccount(clientset, stackName, adminNameSpace, labels)
+	sa, saCleanUps, err := createServiceAccount(clientset, name, adminNameSpace, labels)
 	cleanUps = append(cleanUps, saCleanUps...)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "ensuring service account %q in namespace %q", stackName, adminNameSpace)
+			err, "ensuring service account %q in namespace %q", name, adminNameSpace)
 	}
 
 	// Create role binding for juju admin service account with admin cluster role.
-	_, rbCleanUps, err := createClusterRoleBinding(clientset, stackName, sa, clusterRole, labels)
+	_, rbCleanUps, err := createClusterRoleBinding(clientset, name, sa, clusterRole, labels)
 	cleanUps = append(cleanUps, rbCleanUps...)
 	if err != nil {
-		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", stackName)
+		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", name)
 	}
 
 	// Refresh service account to get the secret/token after cluster role binding created.
-	sa, err = getServiceAccount(clientset, stackName, adminNameSpace)
+	sa, err = getServiceAccount(clientset, name, adminNameSpace)
 	if err != nil {
 		return nil, errors.Annotatef(
-			err, "refetching service account %q after cluster role binding created", stackName)
+			err, "refetching service account %q after cluster role binding created", name)
 	}
 
 	// Get bearer token of the service account.
@@ -100,9 +108,9 @@ func createJujuAdminServiceAccount(
 	return config, nil
 }
 
-func removeJujuAdminServiceAccount(clientset kubernetes.Interface, stackName string) error {
+func removeJujuAdminServiceAccount(clientset kubernetes.Interface, UID string) error {
 	// TODO: can we delete the credential while using itself as credential to talk to the cluster???????
-	labels := getRBACLabels(stackName)
+	labels := getRBACLabels(UID)
 	for _, api := range []rbacDeleter{
 		// Order matters.
 		clientset.RbacV1().ClusterRoleBindings(),
