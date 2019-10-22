@@ -5,7 +5,6 @@ package application
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -18,7 +17,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -70,11 +68,6 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 	// TODO(fwereade): transactional State.AddApplication including settings, constraints
 	// (minimumUnitCount, initialMachineIds?).
 
-	effectiveBindings, err := getEffectiveBindingsForCharmMeta(args.Charm.Meta(), args.EndpointBindings)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	asa := state.AddApplicationArgs{
 		Name:              args.ApplicationName,
 		Series:            args.Series,
@@ -88,7 +81,7 @@ func DeployApplication(st ApplicationDeployer, args DeployApplicationParams) (Ap
 		NumUnits:          args.NumUnits,
 		Placement:         args.Placement,
 		Resources:         args.Resources,
-		EndpointBindings:  effectiveBindings,
+		EndpointBindings:  args.EndpointBindings,
 	}
 
 	if !args.Charm.Meta().Subordinate {
@@ -103,62 +96,6 @@ func quoteStrings(vals []string) string {
 		out[i] = strconv.Quote(val)
 	}
 	return strings.Join(out, ", ")
-}
-
-func validateGivenBindings(givenBindings map[string]string, defaultBindings map[string]string) error {
-	invalidBindings := make([]string, 0)
-	for name := range givenBindings {
-		if name == "" {
-			continue
-		}
-		if _, ok := defaultBindings[name]; !ok {
-			invalidBindings = append(invalidBindings, name)
-		}
-	}
-	if len(invalidBindings) == 0 {
-		return nil
-	}
-	possibleBindings := make([]string, 0)
-	for name := range defaultBindings {
-		if name == "" {
-			continue
-		}
-		possibleBindings = append(possibleBindings, name)
-	}
-	sort.Strings(invalidBindings)
-	sort.Strings(possibleBindings)
-	return errors.Errorf("invalid binding(s) supplied %s, valid binding names are %s",
-		quoteStrings(invalidBindings), quoteStrings(possibleBindings))
-}
-
-func getEffectiveBindingsForCharmMeta(charmMeta *charm.Meta, givenBindings map[string]string) (map[string]string, error) {
-	// defaultBindings contains all bindable endpoints for charmMeta as keys and
-	// empty space names as values, so we use defaultBindings as fallback.
-	defaultBindings := state.DefaultEndpointBindingsForCharm(charmMeta)
-	if givenBindings == nil {
-		givenBindings = make(map[string]string, len(defaultBindings))
-	}
-	if err := validateGivenBindings(givenBindings, defaultBindings); err != nil {
-		return nil, err
-	}
-
-	// Get the application-level default binding for all unspecified endpoints, if
-	// set. Otherwise use the DefaultSpaceId.
-	applicationDefaultSpaceID, defaultSupplied := givenBindings[""]
-	if !defaultSupplied {
-		applicationDefaultSpaceID = network.DefaultSpaceId
-	}
-	defaultBindings[""] = applicationDefaultSpaceID
-
-	effectiveBindings := make(map[string]string, len(defaultBindings))
-	for endpoint := range defaultBindings {
-		if givenSpace, isGiven := givenBindings[endpoint]; isGiven {
-			effectiveBindings[endpoint] = givenSpace
-		} else {
-			effectiveBindings[endpoint] = applicationDefaultSpaceID
-		}
-	}
-	return effectiveBindings, nil
 }
 
 // addUnits starts n units of the given application using the specified placement
