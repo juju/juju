@@ -80,13 +80,12 @@ func NewUpdatePublicCloudsCommandForTest(publicCloudURL string) *updatePublicClo
 func NewUpdateCloudCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
-	cloudAPI func(string) (UpdateCloudAPI, error),
+	cloudAPI func() (UpdateCloudAPI, error),
 ) *updateCloudCommand {
 	return &updateCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
 		updateCloudAPIFunc:        cloudAPI,
-		store:                     store,
 	}
 }
 

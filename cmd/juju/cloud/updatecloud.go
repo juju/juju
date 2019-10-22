@@ -4,6 +4,8 @@
 package cloud
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -13,7 +15,6 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -32,35 +33,41 @@ type updateCloudCommand struct {
 	CloudFile string
 
 	// Used when updating controllers' cloud details
-	controllerName     string
-	store              jujuclient.ClientStore
-	updateCloudAPIFunc func(controllerName string) (updateCloudAPI, error)
+	updateCloudAPIFunc func() (updateCloudAPI, error)
 }
 
 var updateCloudDoc = `
-Update cloud information either on this client or on the controller.
+Update cloud information on this client and/or on a controller.
 
-Updating this client requires a <cloud name> and a yaml file containing the
-cloud details.
+A cloud can be updated from a file. This requires a <cloud name> and a yaml file
+containing the cloud details. 
+This method can be used for cloud updates on the client side and on a controller. 
 
-To update a cloud on the controller you can provide just the <cloud name> which
-will use the cloud defined on this client or you can provide a cloud
-definition yaml file from which to retrieve the cloud details; the current
-controller is used unless the --controller option is specified.
+A cloud on the controller can also be updated just by using a name of a cloud
+from this client.
 
-When <cloud definition file> is provided with <cloud name> and --client-only is
-specified, Juju stores that definition in its internal cache directly after
-validating the contents.
+If a current controller can be detected, a user will be prompted to confirm 
+if specified cloud needs to be updated on it. 
+If the prompt is not needed and the cloud is always to be updated on
+the current controller if that controller is detected, use --no-prompt option.
+
+Use --controller option to update a cloud on a different controller. 
+
+Use --controller-only option to only update controller copy of the cloud.
+
+Use --client-only to update cloud definition on this client.
 
 Examples:
 
     juju update-cloud mymaas -f path/to/maas.yaml
     juju update-cloud mymaas -f path/to/maas.yaml --controller mycontroller
     juju update-cloud mymaas --controller mycontroller
+    juju update-cloud mymaas --no-prompt --controller-only
     juju update-cloud mymaas --client-only -f path/to/maas.yaml
 
 See also:
     add-cloud
+    remove-cloud
     list-clouds
 `
 
@@ -78,19 +85,17 @@ func newUpdateCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &updateCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store:       store,
-			EnabledFlag: feature.MultiCloud,
+			Store: store,
 		},
 		cloudMetadataStore: cloudMetadataStore,
-		store:              store,
 	}
 	c.updateCloudAPIFunc = c.updateCloudAPI
 
 	return modelcmd.WrapBase(c)
 }
 
-func (c *updateCloudCommand) updateCloudAPI(controllerName string) (updateCloudAPI, error) {
-	root, err := c.NewAPIRoot(c.store, controllerName, "")
+func (c *updateCloudCommand) updateCloudAPI() (updateCloudAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -113,26 +118,6 @@ func (c *updateCloudCommand) Init(args []string) error {
 	if err := cmd.CheckEmpty(args[1:]); err != nil {
 		return err
 	}
-
-	var err error
-	c.ControllerName, err = c.ControllerNameFromArg()
-	if err != nil && errors.Cause(err) != modelcmd.ErrNoControllersDefined {
-		return errors.Trace(err)
-	}
-
-	// Condense arguments into an action,
-	c.commandAction = c.updateLocalCacheFromFile
-	if c.ControllerName != "" {
-		if c.CloudFile != "" && c.Cloud != "" {
-			c.commandAction = c.updateControllerFromFile
-		} else if c.Cloud != "" {
-			c.commandAction = c.updateControllerCacheFromLocalCache
-		} else {
-			return errors.BadRequestf("cloud name and/or cloud definition file required")
-		}
-	} else if c.CloudFile == "" {
-		return errors.BadRequestf("cloud definition file or controller name required")
-	}
 	return nil
 }
 
@@ -151,24 +136,69 @@ func (c *updateCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
-	return c.commandAction(ctxt)
+	if c.BothClientAndController || c.ControllerOnly {
+		if c.ControllerName == "" {
+			// The user may have specified the controller via a --controller option.
+			// If not, let's see if there is a current controller that can be detected.
+			var err error
+			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("update cloud %q on", c.Cloud))
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+	}
+	if c.ControllerName == "" && !c.ClientOnly {
+		ctxt.Infof("To update cloud %q on this client, use the --client-only option.", c.Cloud)
+	}
+	var returnErr error
+	runAction := func() {
+		if err := c.commandAction(ctxt); err != nil {
+			ctxt.Infof("%v", err)
+			returnErr = cmd.ErrSilent
+		}
+	}
+	if c.BothClientAndController || c.ClientOnly {
+		if c.CloudFile == "" {
+			ctxt.Infof("To update cloud %q on this client, a cloud definition file is required.", c.Cloud)
+			returnErr = cmd.ErrSilent
+		} else {
+			c.commandAction = c.updateLocalCacheFromFile
+			runAction()
+		}
+	}
+	if c.BothClientAndController || c.ControllerOnly {
+		if c.ControllerName != "" {
+			if c.CloudFile != "" {
+				logger.Infof("Updating cloud %q on controller %q from a file.", c.Cloud, c.ControllerName)
+				c.commandAction = c.updateControllerFromFile
+				runAction()
+			} else {
+				logger.Infof("Updating cloud %q on controller %q from a cloud %q on this client.", c.Cloud, c.ControllerName, c.Cloud)
+				c.commandAction = c.updateControllerCacheFromLocalCache
+				runAction()
+			}
+		} else {
+			return errors.BadRequestf("To update cloud definiton on a controller, a controller name is required.")
+		}
+	}
+	return returnErr
 }
 
 func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
-	if !c.ClientOnly {
-		ctxt.Infof(
-			"There are no controllers running.\nUpdating cloud on this client so you can use it to bootstrap a controller.\n")
-	}
 	r := &cloudFileReader{
 		cloudMetadataStore: c.cloudMetadataStore,
 		cloudName:          c.Cloud,
 	}
 	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "could not read cloud definition from file for an update on this client")
 	}
 	c.Cloud = r.cloudName
-	return addLocalCloud(c.cloudMetadataStore, *newCloud)
+	if err := addLocalCloud(c.cloudMetadataStore, *newCloud); err != nil {
+		return err
+	}
+	ctxt.Infof("Cloud %q updated on this client.", c.Cloud)
+	return nil
 }
 
 func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
@@ -178,7 +208,7 @@ func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
 	}
 	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "could not read cloud definition from file for an update on a controller")
 	}
 	c.Cloud = r.cloudName
 	return c.updateController(ctxt, newCloud)
@@ -193,7 +223,7 @@ func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Conte
 }
 
 func (c updateCloudCommand) updateController(ctxt *cmd.Context, cloud *jujucloud.Cloud) error {
-	api, err := c.updateCloudAPIFunc(c.ControllerName)
+	api, err := c.updateCloudAPIFunc()
 	if err != nil {
 		return errors.Trace(err)
 	}
