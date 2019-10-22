@@ -28,9 +28,11 @@ type GetClusterMetadataFunc func(KubeCloudStorageParams) (*caas.ClusterMetadata,
 
 // KubeCloudParams defines the parameters used to extract a k8s cluster definition from kubeconfig data.
 type KubeCloudParams struct {
-	ClusterName        string
-	ContextName        string
-	CaasName           string
+	ClusterName string
+	ContextName string
+	CloudName   string
+	// CredentialUID ensures RBAC resources are unique.
+	CredentialUID      string
 	HostCloudRegion    string
 	CaasType           string
 	ClientConfigGetter ClientConfigFuncGetter
@@ -45,19 +47,19 @@ type KubeCloudStorageParams struct {
 }
 
 // CloudFromKubeConfig attempts to extract a cloud and credential details from the provided Kubeconfig.
-func CloudFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, string, error) {
+func CloudFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, error) {
 	return newCloudCredentialFromKubeConfig(reader, cloudParams)
 }
 
-func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, string, error) {
+func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudParams) (cloud.Cloud, cloud.Credential, error) {
 	// Get Cloud (incl. endpoint) and credential details from the kubeconfig details.
 	var credential cloud.Credential
 	var context clientconfig.Context
-	fail := func(e error) (cloud.Cloud, cloud.Credential, string, error) {
-		return cloud.Cloud{}, credential, "", e
+	fail := func(e error) (cloud.Cloud, cloud.Credential, error) {
+		return cloud.Cloud{}, credential, e
 	}
 	newCloud := cloud.Cloud{
-		Name:            cloudParams.CaasName,
+		Name:            cloudParams.CloudName,
 		Type:            cloudParams.CaasType,
 		HostCloudRegion: cloudParams.HostCloudRegion,
 	}
@@ -66,7 +68,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 		return fail(errors.Trace(err))
 	}
 	caasConfig, err := clientConfigFunc(
-		newCloud.Name, reader,
+		newCloud.Name, cloudParams.CredentialUID, reader,
 		cloudParams.ContextName, cloudParams.ClusterName,
 		clientconfig.EnsureK8sCredential,
 	)
@@ -91,7 +93,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 		return fail(errors.Errorf("CAData attribute should be a string"))
 	}
 	newCloud.CACertificates = []string{cloudCAData}
-	return newCloud, credential, context.CredentialName, nil
+	return newCloud, credential, nil
 }
 
 func updateK8sCloud(k8sCloud *cloud.Cloud, clusterMetadata *caas.ClusterMetadata, storageMsg string) string {

@@ -23,17 +23,17 @@ var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
 
 // EnsureK8sCredential ensures juju admin service account created with admin cluster role binding setup.
-func EnsureK8sCredential(credentailName string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
+func EnsureK8sCredential(credentialUID string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
 	clientset, err := newK8sClientSet(config, contextName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return createJujuAdminServiceAccount(clientset, credentailName, config, contextName)
+	return createJujuAdminServiceAccount(clientset, credentialUID, config, contextName)
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
 func NewK8sClientConfig(
-	cloudName string, reader io.Reader,
+	cloudName, credentialUID string, reader io.Reader,
 	contextName, clusterName string,
 	credentialResolver K8sCredentialResolver,
 ) (*ClientConfig, error) {
@@ -92,7 +92,7 @@ func NewK8sClientConfig(
 	if credentialResolver != nil {
 		// Try to create service account, cluster role and cluster role binding for k8s credential using provided credential.
 		// Name credential resources using cloud name.
-		config, err = credentialResolver(cloudName, config, contextName)
+		config, err = credentialResolver(credentialUID, config, contextName)
 		if err != nil {
 			return nil, errors.Annotatef(err, "ensuring k8s credential with RBAC setup", context.CredentialName)
 		}
@@ -177,11 +177,10 @@ func cloudsFromConfig(config *clientcmdapi.Config, cloudName string) (map[string
 
 func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (map[string]cloud.Credential, error) {
 
-	authInfoToCredential := func(name string, user *clientcmdapi.AuthInfo) (cloud.Credential, error) {
+	authInfoToCredential := func(name string, user *clientcmdapi.AuthInfo) (cred cloud.Credential, err error) {
 		logger.Debugf("name %q, user %#v", name, user)
 
 		var hasCert bool
-		var cred cloud.Credential
 		attrs := map[string]string{}
 
 		// TODO(axw) if the certificate/key are specified by path,
@@ -251,9 +250,7 @@ func credentialsFromConfig(config *clientcmdapi.Config, credentialName string) (
 			return cred, errors.NotSupportedf("configuration for %q", name)
 		}
 
-		cred = cloud.NewCredential(authType, attrs)
-		cred.Label = fmt.Sprintf("kubernetes credential %q", name)
-		return cred, nil
+		return cloud.NewNamedCredential(name, authType, attrs, false), nil
 	}
 
 	authInfos := config.AuthInfos
