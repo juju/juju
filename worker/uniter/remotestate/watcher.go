@@ -30,7 +30,7 @@ type RemoteStateWatcher struct {
 	unit                      Unit
 	application               Application
 	modelType                 model.ModelType
-	relations                 map[names.RelationTag]*relationUnitsWatcher
+	relations                 map[names.RelationTag]*wrappedRelationUnitsWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
@@ -75,7 +75,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 	}
 	w := &RemoteStateWatcher{
 		st:                        config.State,
-		relations:                 make(map[names.RelationTag]*relationUnitsWatcher),
+		relations:                 make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
 		relationUnitsChanges:      make(chan relationUnitsChange),
 		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
 		storageAttachmentChanges:  make(chan storageAttachmentChange),
@@ -746,7 +746,7 @@ func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
 		return errors.Trace(err)
 	}
 	// Because of the delay before handing off responsibility to
-	// newRelationUnitsWatcher below, add to our own catacomb to
+	// wrapRelationUnitsWatcher below, add to our own catacomb to
 	// ensure errors get picked up if they happen.
 	if err := w.catacomb.Add(ruw); err != nil {
 		return errors.Trace(err)
@@ -774,7 +774,7 @@ func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
 	}
 	// Wrap the Changes() with the relationId so we can process all changes
 	// via the same channel.
-	innerRUW, err := newRelationUnitsWatcher(rel.Id(), ruw, w.relationUnitsChanges)
+	innerRUW, err := wrapRelationUnitsWatcher(rel.Id(), ruw, w.relationUnitsChanges)
 	if err != nil {
 		return errors.Trace(err)
 	}

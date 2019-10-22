@@ -1007,19 +1007,19 @@ func (w *RelationScopeWatcher) loop() error {
 // to have entered.
 type relationUnitsWatcher struct {
 	commonWatcher
-	sw         *RelationScopeWatcher
-	watching   set.Strings
-	updates    chan watcher.Change
-	appDocIDs  []string
-	appUpdates chan watcher.Change
-	out        chan params.RelationUnitsChange
-	logger     loggo.Logger
+	sw              *RelationScopeWatcher
+	watching        set.Strings
+	updates         chan watcher.Change
+	appSettingsKeys []string
+	appUpdates      chan watcher.Change
+	out             chan params.RelationUnitsChange
+	logger          loggo.Logger
 }
 
 // Watch returns a watcher that notifies of changes to counterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() RelationUnitsWatcher {
-	// TODO(jam): 2019-10-21 passing in ru.counterpartApplicationSettingsDocIDs() feels wrong here.
+	// TODO(jam): 2019-10-21 passing in ru.counterpartApplicationSettingsKeys() feels wrong here.
 	//  we need *some* way to give the relation units watcher an idea of what actual
 	//  relation it is watching, not just the Scope of what units have/haven't entered.
 	//  However, we need the relation ID (which isn't currently passed), and
@@ -1028,7 +1028,7 @@ func (ru *RelationUnit) Watch() RelationUnitsWatcher {
 	//  b) pass just the relation id and app names separately
 	//  c) filter on what enters scope to determine what 'apps' are connected,
 	//     but I was hoping to decouple app settings from scope.
-	return newRelationUnitsWatcher(ru.st, ru.WatchScope(), ru.counterpartApplicationSettingsDocIDs())
+	return newRelationUnitsWatcher(ru.st, ru.WatchScope(), ru.counterpartApplicationSettingsKeys())
 }
 
 // WatchUnits returns a watcher that notifies of changes to the units of the
@@ -1047,16 +1047,16 @@ func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
 	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsDocID}), nil
 }
 
-func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher, appSettingsDocIDs []string) RelationUnitsWatcher {
+func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher, appSettingsKeys []string) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		sw:            sw,
-		appDocIDs:     appSettingsDocIDs,
-		watching:      make(set.Strings),
-		updates:       make(chan watcher.Change),
-		appUpdates:    make(chan watcher.Change),
-		out:           make(chan params.RelationUnitsChange),
-		logger:        logger.Child("relationunits"),
+		commonWatcher:   newCommonWatcher(backend),
+		sw:              sw,
+		appSettingsKeys: appSettingsKeys,
+		watching:        make(set.Strings),
+		updates:         make(chan watcher.Change),
+		appUpdates:      make(chan watcher.Change),
+		out:             make(chan params.RelationUnitsChange),
+		logger:          logger.Child("relationunits"),
 	}
 	w.tomb.Go(func() error {
 		defer w.finish()
@@ -1087,17 +1087,17 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 }
 
 func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationUnitsChange) error {
-	idsAsInterface := make([]interface{}, len(w.appDocIDs))
-	for i, id := range w.appDocIDs {
-		idsAsInterface[i] = w.backend.docID(id)
+	idsAsInterface := make([]interface{}, len(w.appSettingsKeys))
+	for i, key := range w.appSettingsKeys {
+		idsAsInterface[i] = w.backend.docID(key)
 	}
-	w.logger.Criticalf("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appDocIDs)
+	w.logger.Tracef("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appSettingsKeys)
 	if err := w.watcher.WatchMulti(settingsC, idsAsInterface, w.appUpdates); err != nil {
 		return errors.Trace(err)
 	}
 	// WatchMulti does *not* fire an initial event, it just starts the watch, which
 	// you then use to know you can read the database without missing updates.
-	for _, key := range w.appDocIDs {
+	for _, key := range w.appSettingsKeys {
 		if err := w.mergeAppSettings(changes, key); err != nil {
 			return errors.Trace(err)
 		}
@@ -1233,7 +1233,6 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			}
 			out = w.out
 		case c := <-w.appUpdates:
-			w.logger.Criticalf("appUpdates: %v", c)
 			id, ok := c.Id.(string)
 			if !ok {
 				w.logger.Warningf("ignoring bad application settings id: %#v", c.Id)

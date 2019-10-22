@@ -218,8 +218,8 @@ func (ru *RelationUnit) CounterpartApplications() []string {
 	return counterApps.SortedValues()
 }
 
-// counterpartApplicationSettingsDocIDs is the database keys of related applications.
-func (ru *RelationUnit) counterpartApplicationSettingsDocIDs() []string {
+// counterpartApplicationSettingsKeys is the database keys of related applications.
+func (ru *RelationUnit) counterpartApplicationSettingsKeys() []string {
 	counterpartApps := ru.CounterpartApplications()
 	out := make([]string, len(counterpartApps))
 	for i, appName := range counterpartApps {
