@@ -549,7 +549,7 @@ func (s *ModelSuite) TestAllUnits(c *gc.C) {
 func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	oneSpace := s.Factory.MakeSpace(c, &factory.SpaceParams{
 		Name: "one", ProviderID: network.Id("provider"), IsPublic: true})
-	state.AddTestingApplicationWithBindings(
+	app := state.AddTestingApplicationWithBindings(
 		c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"),
 		map[string]string{"db": oneSpace.Id()})
 
@@ -560,20 +560,19 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(listBindings, gc.HasLen, 1)
 
-	c.Assert(listBindings[0], jc.DeepEquals, state.ApplicationEndpointBindings{
-		AppName: "wordpress",
-		Bindings: map[string]string{
-			"":                network.DefaultSpaceId,
-			"cache":           network.DefaultSpaceId,
-			"foo-bar":         network.DefaultSpaceId,
-			"db-client":       network.DefaultSpaceId,
-			"admin-api":       network.DefaultSpaceId,
-			"url":             network.DefaultSpaceId,
-			"logging-dir":     network.DefaultSpaceId,
-			"monitoring-port": network.DefaultSpaceId,
-			"db":              oneSpace.Id(),
-		},
-	})
+	expected := map[string]string{
+		"":                network.DefaultSpaceId,
+		"cache":           network.DefaultSpaceId,
+		"foo-bar":         network.DefaultSpaceId,
+		"db-client":       network.DefaultSpaceId,
+		"admin-api":       network.DefaultSpaceId,
+		"url":             network.DefaultSpaceId,
+		"logging-dir":     network.DefaultSpaceId,
+		"monitoring-port": network.DefaultSpaceId,
+		"db":              oneSpace.Id(),
+	}
+	c.Assert(listBindings[0].AppName, gc.Equals, app.Name())
+	c.Assert(listBindings[0].Bindings.Map(), gc.DeepEquals, expected)
 }
 
 // createTestModelConfig returns a new model config and its UUID for testing.
