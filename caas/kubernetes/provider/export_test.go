@@ -20,28 +20,28 @@ import (
 )
 
 var (
-	PrepareWorkloadSpec      = prepareWorkloadSpec
-	OperatorPod              = operatorPod
-	ExtractRegistryURL       = extractRegistryURL
-	CreateDockerConfigJSON   = createDockerConfigJSON
-	NewStorageConfig         = newStorageConfig
-	NewKubernetesWatcher     = newKubernetesWatcher
-	CompileK8sCloudCheckers  = compileK8sCloudCheckers
-	CloudSpecToK8sRestConfig = cloudSpecToK8sRestConfig
-	ControllerCorelation     = controllerCorelation
-	GetLocalMicroK8sConfig   = getLocalMicroK8sConfig
-	AttemptMicroK8sCloud     = attemptMicroK8sCloud
-	EnsureMicroK8sSuitable   = ensureMicroK8sSuitable
-	NewK8sBroker             = newK8sBroker
-	ToYaml                   = toYaml
-	Indent                   = indent
-	ProcessSecretData        = processSecretData
+	PrepareWorkloadSpec        = prepareWorkloadSpec
+	OperatorPod                = operatorPod
+	ExtractRegistryURL         = extractRegistryURL
+	CreateDockerConfigJSON     = createDockerConfigJSON
+	NewStorageConfig           = newStorageConfig
+	NewKubernetesNotifyWatcher = newKubernetesNotifyWatcher
+	CompileK8sCloudCheckers    = compileK8sCloudCheckers
+	CloudSpecToK8sRestConfig   = cloudSpecToK8sRestConfig
+	ControllerCorelation       = controllerCorelation
+	GetLocalMicroK8sConfig     = getLocalMicroK8sConfig
+	AttemptMicroK8sCloud       = attemptMicroK8sCloud
+	EnsureMicroK8sSuitable     = ensureMicroK8sSuitable
+	NewK8sBroker               = newK8sBroker
+	ToYaml                     = toYaml
+	Indent                     = indent
+	ProcessSecretData          = processSecretData
 )
 
 type (
-	KubernetesClient      = kubernetesClient
-	KubernetesWatcher     = kubernetesWatcher
-	ControllerServiceSpec = controllerServiceSpec
+	KubernetesClient        = kubernetesClient
+	KubernetesNotifyWatcher = kubernetesNotifyWatcher
+	ControllerServiceSpec   = controllerServiceSpec
 )
 
 type ControllerStackerForTest interface {

@@ -150,6 +150,32 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	)
 	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container "non-existing-container-name" not found`)
 
+	// all good - container name specified for init container
+	params = exec.ExecParams{
+		Commands:      []string{"echo", "'hello world'"},
+		PodName:       "gitlab-k8s-uid",
+		ContainerName: "gitlab-container",
+	}
+	pod = core.Pod{
+		Spec: core.PodSpec{
+			InitContainers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodPending,
+		},
+	}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
+
 	// all good - container name specified.
 	params = exec.ExecParams{
 		Commands:      []string{"echo", "'hello world'"},

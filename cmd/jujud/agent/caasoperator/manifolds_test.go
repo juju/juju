@@ -52,6 +52,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
 		"upgrader",
+		"unit-init-worker",
 		// TODO(caas)
 		//"metric-spool",
 		//"meter-status",
@@ -62,7 +63,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 	for k := range manifolds {
 		keys = append(keys, k)
 	}
-	c.Assert(expectedKeys, jc.SameContents, keys)
+	c.Assert(keys, jc.SameContents, expectedKeys)
 }
 
 func (*ManifoldsSuite) TestMigrationGuards(c *gc.C) {
@@ -209,5 +210,17 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 		"migration-fortress",
 		"migration-inactive-flag",
 		"upgrade-steps-flag",
-		"upgrade-steps-gate"},
+		"upgrade-steps-gate",
+	},
+
+	"unit-init-worker": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"clock",
+		"migration-fortress",
+		"migration-inactive-flag",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate",
+	},
 }

@@ -157,11 +157,12 @@ func (w *deploymentWorker) loop() error {
 		}
 
 		serviceParams := &caas.ServiceParams{
-			PodSpec:      spec,
-			Constraints:  info.Constraints,
-			ResourceTags: info.Tags,
-			Filesystems:  info.Filesystems,
-			Devices:      info.Devices,
+			PodSpec:           spec,
+			Constraints:       info.Constraints,
+			ResourceTags:      info.Tags,
+			Filesystems:       info.Filesystems,
+			Devices:           info.Devices,
+			OperatorImagePath: info.OperatorImagePath,
 			Deployment: caas.DeploymentParams{
 				DeploymentType: caas.DeploymentType(info.DeploymentInfo.DeploymentType),
 				ServiceType:    caas.ServiceType(info.DeploymentInfo.ServiceType),

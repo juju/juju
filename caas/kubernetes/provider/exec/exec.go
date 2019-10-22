@@ -234,13 +234,21 @@ func getValidatedPodContainer(
 		return "", "", errors.NotFoundf("pod %q", podName)
 	}
 
-	if pod.Status.Phase != core.PodRunning {
+	switch pod.Status.Phase {
+	case core.PodPending:
+	case core.PodRunning:
+	default:
 		return "", "", errors.New(fmt.Sprintf(
 			"cannot exec into a container within a %s pod", pod.Status.Phase,
 		))
 	}
 
 	checkContainerExists := func(name string) error {
+		for _, c := range pod.Spec.InitContainers {
+			if c.Name == name {
+				return nil
+			}
+		}
 		for _, c := range pod.Spec.Containers {
 			if c.Name == name {
 				return nil

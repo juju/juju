@@ -46,9 +46,10 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 		*(result.(*params.KubernetesProvisioningInfoResults)) = params.KubernetesProvisioningInfoResults{
 			Results: []params.KubernetesProvisioningInfoResult{{
 				Result: &params.KubernetesProvisioningInfo{
-					PodSpec:     "foo",
-					Tags:        map[string]string{"foo": "bar"},
-					Constraints: constraints.MustParse("mem=4G"),
+					PodSpec:           "foo",
+					Tags:              map[string]string{"foo": "bar"},
+					Constraints:       constraints.MustParse("mem=4G"),
+					OperatorImagePath: "operator/image-path",
 					DeploymentInfo: &params.KubernetesDeploymentInfo{
 						DeploymentType: "stateful",
 						ServiceType:    "loadbalancer",
@@ -82,9 +83,10 @@ func (s *unitprovisionerSuite) TestProvisioningInfo(c *gc.C) {
 	info, err := client.ProvisioningInfo("gitlab")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info, jc.DeepEquals, &caasunitprovisioner.ProvisioningInfo{
-		PodSpec:     "foo",
-		Tags:        map[string]string{"foo": "bar"},
-		Constraints: constraints.MustParse("mem=4G"),
+		PodSpec:           "foo",
+		Tags:              map[string]string{"foo": "bar"},
+		Constraints:       constraints.MustParse("mem=4G"),
+		OperatorImagePath: "operator/image-path",
 		DeploymentInfo: caasunitprovisioner.DeploymentInfo{
 			DeploymentType: "stateful",
 			ServiceType:    "loadbalancer",
