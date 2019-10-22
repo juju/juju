@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
@@ -97,6 +98,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"controller":                false,
 			"development":               false,
 			"test-mode":                 true,
+			"default-space":             network.DefaultSpaceName,
 		},
 		ControllerModelUUID:   cfg.UUID(),
 		Cloud:                 "dummy",

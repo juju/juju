@@ -55,8 +55,8 @@ func (s *machineTrackerSuite) TestSelectMongoAddressFromSpaceErrorForEmptySpace(
 		id: "3",
 	}
 
-	_, err := m.SelectMongoAddressFromSpace(666, network.SpaceInfo{})
-	c.Check(err, gc.ErrorMatches, `empty space supplied as an argument for selecting Mongo address for controller node "3"`)
+	_, err := m.SelectMongoAddressFromSpace(666, network.SpaceInfo{ID: network.DefaultSpaceId})
+	c.Check(err, gc.ErrorMatches, `space ID 0 supplied as an argument for selecting Mongo address for controller node "3"`)
 }
 
 func (s *machineTrackerSuite) TestGetPotentialMongoHostPortsReturnsAllAddresses(c *gc.C) {

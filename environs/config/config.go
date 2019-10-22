@@ -24,6 +24,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/controller"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/logfwd/syslog"
@@ -241,7 +242,7 @@ const (
 	// list will be comma separated.
 	ContainerInheritPropertiesKey = "container-inherit-properties"
 
-	// Networking spaces
+	// DefaultSpace is the key to specify the name of the default space.
 	DefaultSpace = "default-space"
 
 	//
@@ -423,7 +424,7 @@ var defaultConfigValues = map[string]interface{}{
 	IgnoreMachineAddresses:       false,
 	"ssl-hostname-verification":  true,
 	"proxy-ssh":                  false,
-	DefaultSpace:                 "_default",
+	DefaultSpace:                 corenetwork.DefaultSpaceName,
 	// Why is net-bond-reconfigure-delay set to 17 seconds?
 	//
 	// The value represents the amount of time in seconds to sleep

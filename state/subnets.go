@@ -149,10 +149,11 @@ func (s *Subnet) AvailabilityZones() []string {
 	return s.doc.AvailabilityZones
 }
 
-// SpaceName returns the space the subnet is associated with. If the subnet is
-// not associated with a space it will be the empty string.
+// SpaceName returns the space the subnet is associated with.  If no
+// space is associated, return the default space and log an error.
 func (s *Subnet) SpaceName() string {
 	if s.spaceID == "" {
+		logger.Errorf("subnet %q has no spaceID", s.spaceID)
 		return network.DefaultSpaceName
 	}
 	sp, err := s.st.Space(s.spaceID)
@@ -361,7 +362,7 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 	if !unique {
 		return subnetDoc{}, nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 	}
-	if args.SpaceID == "" && args.SpaceName == network.DefaultSpaceName {
+	if args.SpaceID == "" && args.SpaceName == "" {
 		// Ensure the subnet is added to the default space
 		// if none is defined for the subnet.
 		args.SpaceID = network.DefaultSpaceId

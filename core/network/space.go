@@ -12,7 +12,7 @@ const (
 	DefaultSpaceId = "0"
 
 	// DefaultSpaceName is the name of the default network space.
-	DefaultSpaceName = ""
+	DefaultSpaceName = "_default"
 )
 
 // SpaceLookup describes methods for acquiring lookups that

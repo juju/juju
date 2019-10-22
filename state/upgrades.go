@@ -2425,7 +2425,7 @@ func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
 			}
 
 			var id string
-			if sDoc.SpaceName == network.DefaultSpaceName {
+			if sDoc.SpaceName == network.DefaultSpaceName || sDoc.SpaceName == "" {
 				id = network.DefaultSpaceId
 			} else {
 				space, err := st.SpaceByName(sDoc.SpaceName)
