@@ -194,6 +194,10 @@ func SetSyslogOwner(filename string) error {
 	return SetOwnership(filename, user, group)
 }
 
+// Chown is a variable here so it can be mocked out in tests to a no-op.
+// Agents run as root, but users don't.
+var Chown = os.Chown
+
 // SetOwnership sets the ownership of a given file from a path.
 // Searches for the corresponding id's from user, group and uses them to chown.
 func SetOwnership(filePath string, wantedUser string, wantedGroup string) error {
@@ -213,7 +217,7 @@ func SetOwnership(filePath string, wantedUser string, wantedGroup string) error 
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return os.Chown(filePath, uid, gid)
+	return Chown(filePath, uid, gid)
 }
 
 // PrimeLogFile ensures that the given log file is created with the
