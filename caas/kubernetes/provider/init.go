@@ -10,6 +10,8 @@ import (
 	"github.com/juju/juju/caas"
 )
 
+const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
+
 var k8sCloudCheckers map[string][]k8slabels.Selector
 var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
 var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
@@ -30,27 +32,27 @@ func init() {
 		caas.K8sCloudMicrok8s: {
 			Name:              "hostpath",
 			Provisioner:       "microk8s.io/hostpath",
-			VolumeBindingMode: "WaitForFirstConsumer",
+			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudGCE: {
 			Name:              "GCE Persistent Disk",
 			Provisioner:       "kubernetes.io/gce-pd",
-			VolumeBindingMode: "WaitForFirstConsumer",
+			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudAzure: {
 			Name:              "Azure Disk",
 			Provisioner:       "kubernetes.io/azure-disk",
-			VolumeBindingMode: "WaitForFirstConsumer",
+			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudEC2: {
 			Name:              "EBS Volume",
 			Provisioner:       "kubernetes.io/aws-ebs",
-			VolumeBindingMode: "WaitForFirstConsumer",
+			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 		caas.K8sCloudOpenStack: {
 			Name:              "Cinder Disk",
 			Provisioner:       "csi-cinderplugin",
-			VolumeBindingMode: "WaitForFirstConsumer",
+			VolumeBindingMode: volBindModeWaitFirstConsumer,
 		},
 	}
 
