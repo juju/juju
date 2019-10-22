@@ -24,6 +24,7 @@ type ManifoldConfig struct {
 	UpgradeDBGateName string
 	Logger            Logger
 	OpenState         func() (*state.StatePool, error)
+	Clock             Clock
 }
 
 // Validate returns an error if the manifold config is not valid.
@@ -36,6 +37,9 @@ func (cfg ManifoldConfig) Validate() error {
 	}
 	if cfg.OpenState == nil {
 		return errors.NotValidf("nil OpenState function")
+	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
 	}
 	return nil
 }
@@ -84,6 +88,7 @@ func Manifold(cfg ManifoldConfig) dependency.Manifold {
 				OpenState:       openState,
 				PerformUpgrade:  performUpgrade,
 				RetryStrategy:   utils.AttemptStrategy{Delay: 2 * time.Minute, Min: 5},
+				Clock:           cfg.Clock,
 			}
 			w, err := NewWorker(workerCfg)
 			return w, errors.Annotate(err, "starting database upgrade worker")
