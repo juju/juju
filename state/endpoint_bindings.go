@@ -550,7 +550,7 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		if v == network.DefaultSpaceId || v == network.DefaultSpaceName {
+		if v == network.DefaultSpaceId || v == network.DefaultSpaceName || v == "" {
 			retVal[k] = network.DefaultSpaceName
 			continue
 		}

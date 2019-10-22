@@ -122,9 +122,9 @@ func SampleConfig() testing.Attrs {
 		"ssl-hostname-verification": true,
 		"development":               false,
 		"default-series":            series.DefaultSupportedLTS(),
-
-		"secret":     "pork",
-		"controller": true,
+		"default-space":             corenetwork.DefaultSpaceName,
+		"secret":                    "pork",
+		"controller":                true,
 	}
 }
 

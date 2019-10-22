@@ -2391,13 +2391,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
-		bindings, err := app.EndpointBindings()
-		if err != nil {
-			out[i].Error = common.ServerError(err)
-			continue
-		}
-
-		bindingsMap, err := bindings.MapWithSpaceNames()
+		bindingsMap, err := endpointBindingsForInfo(app)
 		if err != nil {
 			out[i].Error = common.ServerError(err)
 			continue
@@ -2416,6 +2410,32 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil
+}
+
+func endpointBindingsForInfo(app Application) (map[string]string, error) {
+	bindings, err := app.EndpointBindings()
+	if err != nil {
+		return nil, err
+	}
+
+	bindingsMap, err := bindings.MapWithSpaceNames()
+	if err != nil {
+		return nil, err
+	}
+
+	var newMap map[string]string
+	for k, v := range bindingsMap {
+		if newMap == nil {
+			newMap = make(map[string]string, len(bindingsMap))
+		}
+		if v == network.DefaultSpaceName {
+			newMap[k] = ""
+			continue
+		}
+		newMap[k] = v
+	}
+
+	return newMap, nil
 }
 
 // MergeBindings merges operator-defined bindings with the current bindings for

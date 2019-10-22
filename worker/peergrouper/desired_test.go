@@ -353,7 +353,8 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 			trackerMap[m.Id()] = m
 		}
 
-		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, network.SpaceInfo{})
+		netInfo := network.SpaceInfo{ID: network.DefaultSpaceId, Name: network.DefaultSpaceName}
+		info, err := newPeerGroupInfo(trackerMap, test.statuses, test.members, mongoPort, netInfo)
 		c.Assert(err, jc.ErrorIsNil)
 
 		desired, err := desiredPeerGroup(info)
@@ -387,7 +388,7 @@ func (s *desiredPeerGroupSuite) doTestDesiredPeerGroup(c *gc.C, ipVersion TestIP
 
 		// Make sure that when the members are set as required, that there
 		// is no further change if desiredPeerGroup is called again.
-		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, network.SpaceInfo{})
+		info, err = newPeerGroupInfo(trackerMap, test.statuses, members, mongoPort, netInfo)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(info, gc.NotNil)
 

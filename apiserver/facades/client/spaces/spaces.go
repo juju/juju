@@ -272,7 +272,9 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 	for i, space := range spaces {
 		result := params.Space{}
 		result.Id = space.Id()
-		result.Name = space.Name()
+		if space.Name() != network.DefaultSpaceName {
+			result.Name = space.Name()
+		}
 
 		subnets, err := space.Subnets()
 		if err != nil {

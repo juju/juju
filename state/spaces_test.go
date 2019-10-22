@@ -466,7 +466,7 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
-	defaultSpace, err := s.State.SpaceByName("")
+	defaultSpace, err := s.State.SpaceByName(network.DefaultSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
