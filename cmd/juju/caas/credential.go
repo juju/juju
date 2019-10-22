@@ -12,7 +12,8 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 )
 
-const caasCrendentialLabelKeyName = "juju-credential-uuid"
+// TODO: a better id name?????
+const caasCrendentialLabelKeyName = "rbac-id"
 
 func ensureCredentialUID(
 	credentialName, credentialUID string,
@@ -27,10 +28,6 @@ func ensureCredentialUID(
 	return jujucloud.NewNamedCredential(
 		credentialName, credential.AuthType(), newAttr, credential.Revoked,
 	), nil
-}
-
-func ensureRBACForCredential() {
-	// TODO
 }
 
 type credentialGetter interface {

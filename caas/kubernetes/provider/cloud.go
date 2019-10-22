@@ -8,6 +8,7 @@ import (
 	"io"
 	"reflect"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/exec"
@@ -36,6 +37,7 @@ type KubeCloudParams struct {
 	HostCloudRegion    string
 	CaasType           string
 	ClientConfigGetter ClientConfigFuncGetter
+	Clock              jujuclock.Clock
 }
 
 // KubeCloudStorageParams defines the parameters used to determine storage details for a k8s cluster.
@@ -70,7 +72,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	caasConfig, err := clientConfigFunc(
 		newCloud.Name, cloudParams.CredentialUID, reader,
 		cloudParams.ContextName, cloudParams.ClusterName,
-		clientconfig.EnsureK8sCredential,
+		clientconfig.EnsureK8sCredential, cloudParams.Clock,
 	)
 	if err != nil {
 		return fail(errors.Trace(err))

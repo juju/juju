@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/retry"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -54,6 +57,7 @@ func createJujuAdminServiceAccount(
 	UID string,
 	config *clientcmdapi.Config,
 	contextName string,
+	clock jujuclock.Clock,
 ) (_ *clientcmdapi.Config, err error) {
 	labels := getRBACLabels(UID)
 	name := getRBACResourceName(UID)
@@ -91,17 +95,28 @@ func createJujuAdminServiceAccount(
 		return nil, errors.Annotatef(err, "ensuring cluster role binding %q", name)
 	}
 
-	// Refresh service account to get the secret/token after cluster role binding created.
-	sa, err = getServiceAccount(clientset, name, adminNameSpace)
-	if err != nil {
-		return nil, errors.Annotatef(
-			err, "refetching service account %q after cluster role binding created", name)
+	var secret *core.Secret
+	retryCallArgs := retry.CallArgs{
+		Delay:       time.Second,
+		MaxDuration: 3 * time.Second,
+		Clock:       clock,
+		Func: func() error {
+			secret, err = getServiceAccountSecret(clientset, name)
+			return err
+		},
+		IsFatalError: func(err error) bool {
+			return !errors.IsNotFound(err)
+		},
+		NotifyFunc: func(err error, attempt int) {
+			logger.Debugf("polling caas credential rbac secret, in %d attempt, %v", attempt, err)
+		},
+	}
+	if err = retry.Call(retryCallArgs); err != nil {
+		return nil, errors.Trace(err)
 	}
 
-	// Get bearer token of the service account.
-	secret, err := getServiceAccountSecret(clientset, sa)
-	if err != nil {
-		return nil, errors.Annotatef(err, "fetching bearer token for service account %q", sa.Name)
+	if secret == nil {
+		return nil, errors.Annotatef(nil, "polling caas credential rbac secret %q", name)
 	}
 
 	replaceAuthProviderWithServiceAccountAuthData(contextName, config, secret)
@@ -150,7 +165,10 @@ func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
 	return errors.Trace(err)
 }
 
-func createClusterRole(clientset kubernetes.Interface, name, namespace string, labels map[string]string) (cr *rbacv1.ClusterRole, cleanUps cleanUpFuncs, err error) {
+func createClusterRole(
+	clientset kubernetes.Interface,
+	name, namespace string, labels map[string]string,
+) (cr *rbacv1.ClusterRole, cleanUps cleanUpFuncs, err error) {
 	// This cluster role will be granted extra privileges which requires proper
 	// permissions setup for the credential in kubeconfig file.
 	api := clientset.RbacV1().ClusterRoles()
@@ -210,7 +228,11 @@ func createServiceAccount(
 }
 
 func getServiceAccount(clientset kubernetes.Interface, name, namespace string) (*core.ServiceAccount, error) {
-	return clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+	sa, err := clientset.CoreV1().ServiceAccounts(namespace).Get(name, metav1.GetOptions{})
+	if k8serrors.IsNotFound(err) {
+		return nil, errors.NotFoundf("service account %q", name)
+	}
+	return sa, errors.Trace(err)
 }
 
 func createClusterRoleBinding(
@@ -248,7 +270,12 @@ func createClusterRoleBinding(
 	return rb, cleanUps, nil
 }
 
-func getServiceAccountSecret(clientset kubernetes.Interface, sa *core.ServiceAccount) (*core.Secret, error) {
+func getServiceAccountSecret(clientset kubernetes.Interface, saName string) (*core.Secret, error) {
+	sa, err := getServiceAccount(clientset, saName, adminNameSpace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	if len(sa.Secrets) == 0 {
 		return nil, errors.NotFoundf("secret for service account %q", sa.Name)
 	}

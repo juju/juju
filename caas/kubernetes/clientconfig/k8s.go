@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"k8s.io/client-go/tools/clientcmd"
@@ -20,15 +21,15 @@ import (
 var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 
 // K8sCredentialResolver defines the function for resolving non supported k8s credential.
-type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
+type K8sCredentialResolver func(string, *clientcmdapi.Config, string, jujuclock.Clock) (*clientcmdapi.Config, error)
 
 // EnsureK8sCredential ensures juju admin service account created with admin cluster role binding setup.
-func EnsureK8sCredential(credentialUID string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
+func EnsureK8sCredential(credentialUID string, config *clientcmdapi.Config, contextName string, clock jujuclock.Clock) (*clientcmdapi.Config, error) {
 	clientset, err := newK8sClientSet(config, contextName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return createJujuAdminServiceAccount(clientset, credentialUID, config, contextName)
+	return createJujuAdminServiceAccount(clientset, credentialUID, config, contextName, clock)
 }
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
@@ -36,6 +37,7 @@ func NewK8sClientConfig(
 	cloudName, credentialUID string, reader io.Reader,
 	contextName, clusterName string,
 	credentialResolver K8sCredentialResolver,
+	clock jujuclock.Clock,
 ) (*ClientConfig, error) {
 	if reader == nil {
 		var err error
@@ -92,9 +94,9 @@ func NewK8sClientConfig(
 	if credentialResolver != nil {
 		// Try to create service account, cluster role and cluster role binding for k8s credential using provided credential.
 		// Name credential resources using cloud name.
-		config, err = credentialResolver(credentialUID, config, contextName)
+		config, err = credentialResolver(credentialUID, config, contextName, clock)
 		if err != nil {
-			return nil, errors.Annotatef(err, "ensuring k8s credential with RBAC setup", context.CredentialName)
+			return nil, errors.Annotatef(err, "ensuring k8s credential %q with RBAC setup", credentialUID)
 		}
 	}
 	logger.Debugf("get credentials from kubeconfig")

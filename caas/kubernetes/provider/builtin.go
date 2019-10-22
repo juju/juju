@@ -6,6 +6,7 @@ package provider
 import (
 	"bytes"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 
@@ -24,6 +25,8 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 
 	rdr := bytes.NewReader(configContent)
 
+	// TODO: ?????????!!!!!!!
+	clock := jujuclock.WallClock
 	cloudParams := KubeCloudParams{
 		ClusterName: caas.MicroK8sClusterName,
 		CloudName:   caas.K8sCloudMicrok8s,
@@ -31,6 +34,7 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
+		Clock: clock,
 	}
 	newCloud, credential, err := CloudFromKubeConfig(rdr, cloudParams)
 	if err != nil {

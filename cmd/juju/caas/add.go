@@ -11,6 +11,7 @@ import (
 	"os"
 	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -116,6 +117,8 @@ See also:
 type AddCAASCommand struct {
 	modelcmd.OptionalControllerCommand
 
+	clock jujuclock.Clock
+
 	// These attributes are used when adding a cluster to a controller.
 	credentialName  string
 	addCloudAPIFunc func() (AddCloudAPI, error)
@@ -168,8 +171,13 @@ type AddCAASCommand struct {
 
 // NewAddCAASCommand returns a command to add CAAS information.
 func NewAddCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
+	return newAddCAASCommand(cloudMetadataStore, jujuclock.WallClock)
+}
+
+func newAddCAASCommand(cloudMetadataStore CloudMetadataStore, clock jujuclock.Clock) cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	command := &AddCAASCommand{
+		clock: clock,
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store: store,
 		},
@@ -410,6 +418,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		HostCloudRegion:    c.hostCloudRegion,
 		CaasType:           c.caasType,
 		ClientConfigGetter: c.newClientConfigReader,
+		Clock:              c.clock,
 	}
 
 	newCloud, credential, err := provider.CloudFromKubeConfig(rdr, config)
