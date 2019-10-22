@@ -208,12 +208,6 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 
 	useTxnRevno := len(b.bindingsMap) > 0
 
-	// Keep track of the current default space for the application so
-	// we can use it in the validation code later on. We need to grab
-	// it here as the merge call below might overwrite the default space
-	// entry by the value from newMap.
-	defaultSpaceIDForApp := b.bindingsMap[defaultEndpointName]
-
 	// Merge existing with new as needed.
 	isModified, err := b.Merge(newMap, newMeta)
 	if err != nil {
@@ -232,7 +226,7 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 	// Make sure that all machines which run units of this application
 	// contain addresses in the spaces we are trying to bind to.
 	if !force {
-		if err := b.validateForMachines(defaultSpaceIDForApp); err != nil {
+		if err := b.validateForMachines(); err != nil {
 			return ops, errors.Trace(err)
 		}
 	}
@@ -280,10 +274,10 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 }
 
 // validateForMachines ensures that the current set of endpoint to space ID
-// bindings (including the default space ID for the app, if modified) are
-// feasible given the the network configuration settings of the machines where
-// application units are already running.
-func (b *Bindings) validateForMachines(oldDefaultSpaceIDForApp string) error {
+// bindings (including the default space ID for the app) are feasible given the
+// the network configuration settings of the machines where application units
+// are already running.
+func (b *Bindings) validateForMachines() error {
 	if b.app == nil {
 		return errors.Trace(errors.New("programming error: app is a nil pointer"))
 	}
@@ -308,7 +302,7 @@ func (b *Bindings) validateForMachines(oldDefaultSpaceIDForApp string) error {
 	// We only need to validate changes to the default space ID for the
 	// application if the operator is trying to change it to something
 	// other than network.DefaultSpaceID
-	if newDefaultSpaceIDForApp, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpaceIDForApp != oldDefaultSpaceIDForApp && newDefaultSpaceIDForApp != network.DefaultSpaceId {
+	if newDefaultSpaceIDForApp, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpaceIDForApp != network.DefaultSpaceId {
 		if machineCountInSpace[newDefaultSpaceIDForApp] != len(deployedMachines) {
 			msg := "changing default space to %q is not feasible: one or more deployed machines lack an address in this space"
 			return b.spaceNotFeasibleError(msg, newDefaultSpaceIDForApp)
