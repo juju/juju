@@ -1060,8 +1060,18 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if agentModelUUID == cfg.ModelUUID {
 		writer = a.ctx.Stderr
 	} else {
+		modelsDir := filepath.Join(currentConfig.LogDir(), "models")
+		if err := os.MkdirAll(modelsDir, 0755); err != nil {
+			return nil, errors.Annotate(err, "unable to create models log directory")
+		}
+		if err := paths.SetSyslogOwner(modelsDir); err != nil {
+			return nil, errors.Annotate(err, "unable to set owner for log directory")
+		}
 		filename := cfg.ModelName + "-" + cfg.ModelUUID[:6] + ".log"
-		logFilename := filepath.Join(currentConfig.LogDir(), "models", filename)
+		logFilename := filepath.Join(modelsDir, filename)
+		if err := paths.PrimeLogFile(logFilename); err != nil {
+			return nil, errors.Annotate(err, "unable to prime log file")
+		}
 		writer = &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),

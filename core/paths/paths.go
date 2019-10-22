@@ -33,6 +33,7 @@ const (
 	cloudInitCfgDir
 	curtinInstallConfig
 
+	// LogfilePermission is the file mode to use for log files.
 	LogfilePermission = os.FileMode(0640)
 )
 
@@ -40,7 +41,7 @@ const (
 	// NixDataDir is location for agent binaries on *nix operating systems.
 	NixDataDir = "/var/lib/juju"
 
-	// NixDataDir is location for Juju logs on *nix operating systems.
+	// NixLogDir is location for Juju logs on *nix operating systems.
 	NixLogDir = "/var/log"
 )
 
@@ -186,9 +187,16 @@ func MustSucceed(s string, e error) string {
 	return s
 }
 
-// Sets the ownership of a given file from a path.
-// Searches for the corresponding id's from user, group and uses them to chown
-func SetOwnerShip(filePath string, wantedUser string, wantedGroup string) error {
+// SetSyslogOwner sets the owner and group of the file to be the appropriate
+// syslog users as defined by the SyslogUserGroup method.
+func SetSyslogOwner(filename string) error {
+	user, group := SyslogUserGroup()
+	return SetOwnership(filename, user, group)
+}
+
+// SetOwnership sets the ownership of a given file from a path.
+// Searches for the corresponding id's from user, group and uses them to chown.
+func SetOwnership(filePath string, wantedUser string, wantedGroup string) error {
 	group, err := user.LookupGroup(wantedGroup)
 	if err != nil {
 		return errors.Trace(err)
@@ -218,8 +226,7 @@ func PrimeLogFile(path string) error {
 	if err := f.Close(); err != nil {
 		return errors.Trace(err)
 	}
-	wantedOwner, wantedGroup := SyslogUserGroup()
-	return SetOwnerShip(path, wantedOwner, wantedGroup)
+	return SetSyslogOwner(path)
 }
 
 // SyslogUserGroup returns the names of the user and group that own the log files.

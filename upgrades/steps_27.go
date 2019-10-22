@@ -115,7 +115,7 @@ func setJujuFolderPermissionsToAdm(dir string) error {
 			return nil
 		}
 		fullPath := dir + string(os.PathSeparator) + info.Name()
-		if err := paths.SetOwnerShip(fullPath, wantedOwner, wantedGroup); err != nil {
+		if err := paths.SetOwnership(fullPath, wantedOwner, wantedGroup); err != nil {
 			return errors.Trace(err)
 		}
 		if err := os.Chmod(fullPath, paths.LogfilePermission); err != nil {
