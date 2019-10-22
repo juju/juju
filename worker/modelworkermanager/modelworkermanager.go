@@ -4,12 +4,14 @@
 package modelworkermanager
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/loggo"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -37,6 +39,8 @@ type Controller interface {
 type Model interface {
 	MigrationMode() state.MigrationMode
 	Type() state.ModelType
+	Name() string
+	Owner() names.UserTag
 }
 
 // DBLogger writes into the log collections.
@@ -55,6 +59,7 @@ type ModelLogger interface {
 // NewModelConfig holds the information required by the NewModelWorkerFunc
 // to start the workers for the specified model
 type NewModelConfig struct {
+	ModelName        string // Use a fully qualified name "<namespace>-<name>"
 	ModelUUID        string
 	ModelType        state.ModelType
 	ModelLogger      ModelLogger
@@ -183,6 +188,7 @@ func (m *modelWorkerManager) loop() error {
 			return nil
 		}
 		cfg := NewModelConfig{
+			ModelName:        fmt.Sprintf("%s-%s", model.Owner().Id(), model.Name()),
 			ModelUUID:        modelUUID,
 			ModelType:        model.Type(),
 			ControllerConfig: controllerConfig,
@@ -218,10 +224,11 @@ func (m *modelWorkerManager) ensure(cfg NewModelConfig) error {
 func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, error) {
 	return func() (worker.Worker, error) {
 		modelUUID := cfg.ModelUUID
-		m.config.Logger.Debugf("starting workers for model %q", modelUUID)
+		modelName := fmt.Sprintf("%q (%s)", cfg.ModelName, cfg.ModelUUID)
+		m.config.Logger.Debugf("starting workers for model %s", modelName)
 		dbLogger, err := m.config.Controller.DBLogger(modelUUID)
 		if err != nil {
-			return nil, errors.Annotatef(err, "unable to create db logger for %q", modelUUID)
+			return nil, errors.Annotatef(err, "unable to create db logger for %s", modelName)
 		}
 		cfg.ModelLogger = newModelLogger(
 			"controller-"+m.config.MachineID,
@@ -233,7 +240,7 @@ func (m *modelWorkerManager) starter(cfg NewModelConfig) func() (worker.Worker, 
 		worker, err := m.config.NewModelWorker(cfg)
 		if err != nil {
 			cfg.ModelLogger.Close()
-			return nil, errors.Annotatef(err, "cannot manage model %q", modelUUID)
+			return nil, errors.Annotatef(err, "cannot manage model %s", modelName)
 		}
 		return worker, nil
 	}

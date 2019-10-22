@@ -12,6 +12,7 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/tomb.v2"
@@ -332,6 +333,14 @@ func (m *mockModel) MigrationMode() state.MigrationMode {
 
 func (m *mockModel) Type() state.ModelType {
 	return m.modelType
+}
+
+func (m *mockModel) Name() string {
+	return "doesn't matter for this test"
+}
+
+func (m *mockModel) Owner() names.UserTag {
+	return names.NewUserTag("anyone-is-fine")
 }
 
 type mockEnvWatcher struct {

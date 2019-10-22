@@ -331,7 +331,7 @@ func (a *ActionAPI) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error
 	}
 
 	var entities params.Entities
-	for _, unitTag := range unitTags.Values() {
+	for _, unitTag := range unitTags.SortedValues() {
 		entities.Entities = append(entities.Entities, params.Entity{Tag: unitTag})
 	}
 
@@ -340,7 +340,7 @@ func (a *ActionAPI) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error
 		statusSet = set.NewStrings(params.ActionPending, params.ActionRunning, params.ActionCompleted)
 	}
 	var extractorFuncs []extractorFn
-	for _, status := range statusSet.Values() {
+	for _, status := range statusSet.SortedValues() {
 		switch status {
 		case params.ActionPending:
 			extractorFuncs = append(extractorFuncs, pendingActions)

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -892,11 +893,7 @@ func (s *actionSuite) TestTasksAppFilter(c *gc.C) {
 	c.Assert(actions.Results, gc.HasLen, 2)
 	result0 := actions.Results[0]
 	result1 := actions.Results[1]
-	if result0.Status == "running" {
-		r := result0
-		result0 = result1
-		result1 = r
-	}
+
 	c.Assert(result0.Action, gc.NotNil)
 	if result0.Enqueued.IsZero() {
 		c.Fatal("enqueued time not set")
@@ -948,28 +945,26 @@ func (s *actionSuite) TestTasksAppAndUnitFilter(c *gc.C) {
 	})
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(actions.Results, gc.HasLen, 2)
-	result0 := actions.Results[0]
-	result1 := actions.Results[1]
-	if result0.Status == "running" {
-		r := result0
-		result0 = result1
-		result1 = r
-	}
-	c.Assert(result0.Action, gc.NotNil)
-	if result0.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	c.Assert(result0.Status, gc.Equals, "pending")
-	c.Assert(result0.Action.Name, gc.Equals, "fakeaction")
-	c.Assert(result0.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result0.Action.Tag, gc.Equals, "action-3")
+	mysqlAction := actions.Results[0]
+	wordpressAction := actions.Results[1]
+	c.Log(pretty.Sprint(actions.Results))
 
-	c.Assert(result1.Action, gc.NotNil)
-	if result1.Enqueued.IsZero() {
+	c.Assert(mysqlAction.Action, gc.NotNil)
+	if mysqlAction.Enqueued.IsZero() {
 		c.Fatal("enqueued time not set")
 	}
-	c.Assert(result1.Status, gc.Equals, "pending")
-	c.Assert(result1.Action.Name, gc.Equals, "anotherfakeaction")
-	c.Assert(result1.Action.Receiver, gc.Equals, "unit-mysql-0")
-	c.Assert(result1.Action.Tag, gc.Equals, "action-4")
+	c.Assert(mysqlAction.Status, gc.Equals, "pending")
+	c.Assert(mysqlAction.Action.Name, gc.Equals, "anotherfakeaction")
+	c.Assert(mysqlAction.Action.Receiver, gc.Equals, "unit-mysql-0")
+	c.Assert(mysqlAction.Action.Tag, gc.Equals, "action-4")
+
+	c.Assert(wordpressAction.Action, gc.NotNil)
+	if wordpressAction.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	c.Assert(wordpressAction.Status, gc.Equals, "pending")
+	c.Assert(wordpressAction.Action.Name, gc.Equals, "fakeaction")
+	c.Assert(wordpressAction.Action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(wordpressAction.Action.Tag, gc.Equals, "action-3")
+
 }
