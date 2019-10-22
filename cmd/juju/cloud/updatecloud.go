@@ -23,9 +23,6 @@ type updateCloudCommand struct {
 
 	cloudMetadataStore CloudMetadataStore
 
-	// Update action to actually perform
-	commandAction func(*cmd.Context) error
-
 	// Cloud is the name of the cloud to update
 	Cloud string
 
@@ -136,6 +133,19 @@ func (c *updateCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
+	var newCloud *jujucloud.Cloud
+	if c.CloudFile != "" {
+		r := &cloudFileReader{
+			cloudMetadataStore: c.cloudMetadataStore,
+			cloudName:          c.Cloud,
+		}
+		var err error
+		if newCloud, err = r.readCloudFromFile(c.CloudFile, ctxt); err != nil {
+			return errors.Annotatef(err, "could not read cloud definition from provided file")
+		}
+		c.Cloud = r.cloudName
+	}
+
 	if c.BothClientAndController || c.ControllerOnly {
 		if c.ControllerName == "" {
 			// The user may have specified the controller via a --controller option.
@@ -151,31 +161,31 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("To update cloud %q on this client, use the --client-only option.", c.Cloud)
 	}
 	var returnErr error
-	runAction := func() {
-		if err := c.commandAction(ctxt); err != nil {
+	processErr := func(err error, successMsg string) {
+		if err != nil {
 			ctxt.Infof("%v", err)
 			returnErr = cmd.ErrSilent
+			return
 		}
+		ctxt.Infof(successMsg)
 	}
 	if c.BothClientAndController || c.ClientOnly {
 		if c.CloudFile == "" {
 			ctxt.Infof("To update cloud %q on this client, a cloud definition file is required.", c.Cloud)
 			returnErr = cmd.ErrSilent
 		} else {
-			c.commandAction = c.updateLocalCacheFromFile
-			runAction()
+			err := addLocalCloud(c.cloudMetadataStore, *newCloud)
+			processErr(err, fmt.Sprintf("Cloud %q updated on this client using provided file.", c.Cloud))
 		}
 	}
 	if c.BothClientAndController || c.ControllerOnly {
 		if c.ControllerName != "" {
 			if c.CloudFile != "" {
-				logger.Infof("Updating cloud %q on controller %q from a file.", c.Cloud, c.ControllerName)
-				c.commandAction = c.updateControllerFromFile
-				runAction()
+				err := c.updateController(newCloud)
+				processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using provided file.", c.Cloud, c.ControllerName))
 			} else {
-				logger.Infof("Updating cloud %q on controller %q from a cloud %q on this client.", c.Cloud, c.ControllerName, c.Cloud)
-				c.commandAction = c.updateControllerCacheFromLocalCache
-				runAction()
+				err := c.updateControllerCacheFromLocalCache()
+				processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using client cloud definition.", c.Cloud, c.ControllerName))
 			}
 		} else {
 			return errors.BadRequestf("To update cloud definition on a controller, a controller name is required.")
@@ -184,45 +194,22 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 	return returnErr
 }
 
-func (c *updateCloudCommand) updateLocalCacheFromFile(ctxt *cmd.Context) error {
-	r := &cloudFileReader{
-		cloudMetadataStore: c.cloudMetadataStore,
-		cloudName:          c.Cloud,
-	}
-	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
-	if err != nil {
-		return errors.Annotatef(err, "could not read cloud definition from file for an update on this client")
-	}
-	c.Cloud = r.cloudName
+func (c *updateCloudCommand) updateLocalCache(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
 	if err := addLocalCloud(c.cloudMetadataStore, *newCloud); err != nil {
 		return err
 	}
-	ctxt.Infof("Cloud %q updated on this client.", c.Cloud)
 	return nil
 }
 
-func (c *updateCloudCommand) updateControllerFromFile(ctxt *cmd.Context) error {
-	r := &cloudFileReader{
-		cloudMetadataStore: c.cloudMetadataStore,
-		cloudName:          c.Cloud,
-	}
-	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
-	if err != nil {
-		return errors.Annotatef(err, "could not read cloud definition from file for an update on a controller")
-	}
-	c.Cloud = r.cloudName
-	return c.updateController(ctxt, newCloud)
-}
-
-func (c *updateCloudCommand) updateControllerCacheFromLocalCache(ctxt *cmd.Context) error {
+func (c *updateCloudCommand) updateControllerCacheFromLocalCache() error {
 	newCloud, err := cloudFromLocal(c.Store, c.Cloud)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return c.updateController(ctxt, newCloud)
+	return c.updateController(newCloud)
 }
 
-func (c updateCloudCommand) updateController(ctxt *cmd.Context, cloud *jujucloud.Cloud) error {
+func (c updateCloudCommand) updateController(cloud *jujucloud.Cloud) error {
 	api, err := c.updateCloudAPIFunc()
 	if err != nil {
 		return errors.Trace(err)
@@ -232,6 +219,5 @@ func (c updateCloudCommand) updateController(ctxt *cmd.Context, cloud *jujucloud
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ctxt.Infof("Cloud %q updated on controller %q.", c.Cloud, c.ControllerName)
 	return nil
 }

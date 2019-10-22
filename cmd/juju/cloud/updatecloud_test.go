@@ -102,7 +102,7 @@ func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on this client.`)
+	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on this client using provided file.`)
 }
 
 func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
@@ -122,7 +122,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 	})
 	out := cmdtesting.Stderr(ctx)
 	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller".`)
+	c.Assert(out, gc.Matches, `Cloud "garage-maas" updated on controller "mycontroller" using provided file.`)
 }
 
 func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {
@@ -130,13 +130,8 @@ func (s *updateCloudSuite) TestUpdateControllerLocalCacheBadFile(c *gc.C) {
 	fake.Call("ParseCloudMetadataFile", "somefile.yaml").Returns(map[string]jujucloud.Cloud{}, errors.New("kaboom"))
 
 	addCmd := cloud.NewUpdateCloudCommandForTest(fake, s.store, nil)
-	ctx, err := cmdtesting.RunCommand(c, addCmd, "cloud", "-f", "somefile.yaml", "--controller", "mycontroller")
-	c.Check(err, gc.Equals, cmd.ErrSilent)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-could not read cloud definition from file for an update on this client: kaboom
-could not read cloud definition from file for an update on a controller: kaboom
-`[1:])
+	_, err := cmdtesting.RunCommand(c, addCmd, "cloud", "-f", "somefile.yaml", "--controller", "mycontroller")
+	c.Check(err, gc.ErrorMatches, "could not read cloud definition from provided file: kaboom")
 }
 
 func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
@@ -158,7 +153,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 To update cloud "garage-maas" on this client, a cloud definition file is required.
-Cloud "garage-maas" updated on controller "mycontroller".
+Cloud "garage-maas" updated on controller "mycontroller" using client cloud definition.
 `[1:])
 }
 
