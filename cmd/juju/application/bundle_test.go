@@ -850,7 +850,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
                 bindings:
                   noturl: public
     `)
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": invalid binding\(s\) supplied "noturl", valid binding names are "admin-api",.* "url"`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": cannot add application "wp": unknown endpoint "noturl" not valid`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
