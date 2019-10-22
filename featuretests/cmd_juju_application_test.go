@@ -73,15 +73,15 @@ wordpress:
   exposed: false
   remote: false
   endpoint-bindings:
-    "": "0"
-    admin-api: "0"
-    cache: "0"
-    db: "0"
-    db-client: "0"
-    foo-bar: "0"
-    logging-dir: "0"
-    monitoring-port: "0"
-    url: "0"
+    "": ""
+    admin-api: ""
+    cache: ""
+    db: ""
+    db-client: ""
+    foo-bar: ""
+    logging-dir: ""
+    monitoring-port: ""
+    url: ""
 `[1:])
 }
 
@@ -99,10 +99,10 @@ logging:
   exposed: false
   remote: false
   endpoint-bindings:
-    "": "0"
-    info: "1"
-    logging-client: "0"
-    logging-directory: "0"
+    "": ""
+    info: vlan2
+    logging-client: ""
+    logging-directory: ""
 wordpress:
   charm: wordpress
   series: quantal
@@ -110,15 +110,15 @@ wordpress:
   exposed: false
   remote: false
   endpoint-bindings:
-    "": "0"
-    admin-api: "0"
-    cache: "0"
-    db: "0"
-    db-client: "0"
-    foo-bar: "0"
-    logging-dir: "0"
-    monitoring-port: "0"
-    url: "0"
+    "": ""
+    admin-api: ""
+    cache: ""
+    db: ""
+    db-client: ""
+    foo-bar: ""
+    logging-dir: ""
+    monitoring-port: ""
+    url: ""
 `[1:])
 }
 

@@ -2397,9 +2397,12 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
-		// TODO (hml) 2019-10-16
-		// bindings.MapWithSpaceNames() might be of
-		// use here.
+		bindingsMap, err := bindings.MapWithSpaceNames()
+		if err != nil {
+			out[i].Error = common.ServerError(err)
+			continue
+		}
+
 		out[i].Result = &params.ApplicationInfo{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
@@ -2409,7 +2412,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
-			EndpointBindings: bindings.Map(),
+			EndpointBindings: bindingsMap,
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil
