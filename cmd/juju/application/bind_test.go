@@ -97,15 +97,7 @@ func (s *BindSuite) runBind(c *gc.C, args ...string) (*cmd.Context, error) {
 }
 
 func (s *BindSuite) TestBind(c *gc.C) {
-	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
-		serverVersion: &version.Number{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		},
-	}
-
+	s.setupAPIConnection(11)
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
 			"ep1": network.DefaultSpaceName,
@@ -131,15 +123,7 @@ func (s *BindSuite) TestBind(c *gc.C) {
 }
 
 func (s *BindSuite) TestBindWithNoBindings(c *gc.C) {
-	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
-		serverVersion: &version.Number{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		},
-	}
-
+	s.setupAPIConnection(11)
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
 			"ep1": network.DefaultSpaceName,
@@ -167,15 +151,7 @@ func (s *BindSuite) TestBindWithNoBindings(c *gc.C) {
 }
 
 func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
-	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 11,
-		serverVersion: &version.Number{
-			Major: 1,
-			Minor: 2,
-			Patch: 3,
-		},
-	}
-
+	s.setupAPIConnection(11)
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
 			"ep1": network.DefaultSpaceName,
@@ -188,17 +164,21 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
 }
 
 func (s *BindSuite) TestBindWithOlderController(c *gc.C) {
+	s.setupAPIConnection(10)
+
+	_, err := s.runBind(c, "foo", "unknown=sp1")
+	c.Assert(err, gc.ErrorMatches, `changing application bindings is not supported by server version.*`)
+}
+
+func (s *BindSuite) setupAPIConnection(bestFacadeVersion int) {
 	s.apiConnection = mockAPIConnection{
-		bestFacadeVersion: 10,
+		bestFacadeVersion: bestFacadeVersion,
 		serverVersion: &version.Number{
 			Major: 1,
 			Minor: 2,
 			Patch: 3,
 		},
 	}
-
-	_, err := s.runBind(c, "foo", "unknown=sp1")
-	c.Assert(err, gc.ErrorMatches, `changing application bindings is not supported by server version.*`)
 }
 
 type mockApplicationBindClient struct {
