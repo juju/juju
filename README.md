@@ -49,13 +49,13 @@ Juju increases your productivity and decreases your costs.
 
 Read the [project’s documentation](https://jaas.ai/docs).
 
-Explore questions and conversations on our [Discourse forum](https://jaas.ai/docs).
+Explore questions and conversations on our [Discourse forum](https://discourse.jujucharms.com/).
 
 Developers are welcome to read through our [contributing guidelines](CONTRIBUTING.md) to learn how to make code changes.
 
 File bugs at our project [Launchpad](https://bugs.launchpad.net/juju/+filebug) site
 
-Find out more, get help or ask questions on our [Freenode IRC channel](https://discourse.jujucharms.com/).
+Find out more, get help or ask questions on our [Freenode IRC channel](https://webchat.freenode.net/#juju).
 
   [Install Juju]: https://jaas.ai/docs/install
   [get started]: https://jaas.ai/docs/getting-started
