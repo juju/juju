@@ -308,6 +308,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 			c.Check(changedNames.Contains(k), jc.IsTrue)
 			oldVer, ok := c.settingsVersions[k]
 			if !ok {
+				// TODO(jam): 2019-10-22 shouldn't we update this *every* time we see it?
 				// This is the first time we see this unit, so
 				// save the settings version for later.
 				c.settingsVersions[k] = settings.Version

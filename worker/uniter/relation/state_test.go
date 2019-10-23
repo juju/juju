@@ -33,6 +33,7 @@ func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {
 	state := dir.State()
 	c.Assert(state.RelationId, gc.Equals, 123)
 	c.Assert(msi(state.Members), gc.DeepEquals, msi{})
+	c.Assert(msi(state.ApplicationMembers), gc.DeepEquals, msi{})
 	c.Assert(state.ChangedPending, gc.Equals, "")
 
 	_, err = os.Stat(reldir)
@@ -106,110 +107,213 @@ func (s *StateDirSuite) TestBadRelations(c *gc.C) {
 }
 
 var defaultMembers = msi{"foo/1": 0, "foo/2": 0}
+var defaultAppMembers = msi{"foo": 0}
 
 // writeTests verify the behaviour of sequences of HookInfos on a relation
 // state that starts off containing defaultMembers.
 var writeTests = []struct {
-	hooks   []hook.Info
-	members msi
-	pending string
-	err     string
-	deleted bool
+	description string
+	hooks       []hook.Info
+	members     msi
+	appMembers  msi
+	pending     string
+	err         string
+	deleted     bool
 }{
 	// Verify that valid changes work.
 	{
-		hooks: []hook.Info{
-			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/1", ChangeVersion: 1},
-		},
+		description: "relation-changed foo/1 to version 1",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationChanged,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+			ChangeVersion:     1,
+		}},
 		members: msi{"foo/1": 1, "foo/2": 0},
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-		},
+		description: "relation-joined foo/3 at 0",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/3"},
-		},
+		description: "relation-joined foo/3 and relation-changed foo/3",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationChanged,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-		},
+		description: "relation-departed foo/1",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/2": 0},
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
-		},
+		description: "relation-departed foo/1 and relation-joined foo/1",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/1": 0, "foo/2": 0},
 		pending: "foo/1",
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/1"},
-		},
+		description: "relation-departed foo/1 and relation-joined foo/1 and relation-changed foo/1",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}, {
+			Kind:       hooks.RelationJoined,
+			RelationId: 123,
+			RemoteUnit: "foo/1",
+		}, {
+			Kind:              hooks.RelationChanged,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/1": 0, "foo/2": 0},
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/2"},
-			{Kind: hooks.RelationBroken, RelationId: 123},
-		},
+		description: "relation-departed foo/1 and relation-departed foo/2 and relation-broken",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/2",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationBroken,
+			RelationId:        123,
+			RemoteApplication: "foo",
+		}},
 		deleted: true,
 	},
 	// Verify detection of various error conditions.
 	{
-		hooks: []hook.Info{
-			{Kind: hooks.RelationJoined, RelationId: 456, RemoteUnit: "foo/1"},
-		},
+		description: "wrong relation id",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationJoined,
+			RelationId:        456,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		err: "expected relation 123, got relation 456",
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/4"},
-		},
+		description: "relation-changed foo/3 must follow relation-joined foo/3 (before relation-joined of another unit)",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/4",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 		err:     `expected "relation-changed" for "foo/3"`,
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/3"},
-			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/1"},
-		},
+		description: "relation-changed foo/3 must follow relation-joined foo/3 (not relation-changed for another unit)",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationChanged,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		members: msi{"foo/1": 0, "foo/2": 0, "foo/3": 0},
 		pending: "foo/3",
 		err:     `expected "relation-changed" for "foo/3"`,
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
-		},
+		description: "relation-joined of a joined unit",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		err: "unit already joined",
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationChanged, RelationId: 123, RemoteUnit: "foo/3"},
-		},
+		description: "relation-changed of an unjoined unit",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationChanged,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}},
 		err: "unit has not joined",
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/3"},
-		},
+		description: "relation-departed of a non-existent unit",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/3",
+			RemoteApplication: "foo",
+		}},
 		err: "unit has not joined",
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationBroken, RelationId: 123},
-		},
+		description: "relation-broken with existing units",
+		hooks: []hook.Info{{
+			Kind:       hooks.RelationBroken,
+			RelationId: 123,
+		}},
 		err: `cannot run "relation-broken" while units still present`,
 	}, {
-		hooks: []hook.Info{
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/1"},
-			{Kind: hooks.RelationDeparted, RelationId: 123, RemoteUnit: "foo/2"},
-			{Kind: hooks.RelationBroken, RelationId: 123},
-			{Kind: hooks.RelationJoined, RelationId: 123, RemoteUnit: "foo/1"},
-		},
+		description: "relation-joined after relation has been broken",
+		hooks: []hook.Info{{
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationDeparted,
+			RelationId:        123,
+			RemoteUnit:        "foo/2",
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationBroken,
+			RelationId:        123,
+			RemoteApplication: "foo",
+		}, {
+			Kind:              hooks.RelationJoined,
+			RelationId:        123,
+			RemoteUnit:        "foo/1",
+			RemoteApplication: "foo",
+		}},
 		err:     `relation is broken and cannot be changed further`,
 		deleted: true,
 	},
@@ -217,16 +321,17 @@ var writeTests = []struct {
 
 func (s *StateDirSuite) TestWrite(c *gc.C) {
 	for i, t := range writeTests {
-		c.Logf("test %d", i)
+		c.Logf("test %d: %v", i, t.description)
 		basedir := c.MkDir()
 		setUpDir(c, basedir, "123", map[string]string{
-			"foo-1": "change-version: 0\n",
-			"foo-2": "change-version: 0\n",
+			"foo-1":   "change-version: 0\n",
+			"foo-2":   "change-version: 0\n",
+			"foo-app": "change-version: 0\n",
 		})
 		dir, err := relation.ReadStateDir(basedir, 123)
 		c.Assert(err, jc.ErrorIsNil)
 		for i, hi := range t.hooks {
-			c.Logf("  hook %d", i)
+			c.Logf("  hook %d %v %v %v", i, hi.Kind, hi.RemoteUnit, hi.RemoteApplication)
 			if i == len(t.hooks)-1 && t.err != "" {
 				err = dir.State().Validate(hi)
 				expect := fmt.Sprintf(`inappropriate %q for %q: %s`, hi.Kind, hi.RemoteUnit, t.err)
@@ -245,7 +350,11 @@ func (s *StateDirSuite) TestWrite(c *gc.C) {
 		if members == nil && !t.deleted {
 			members = defaultMembers
 		}
-		assertState(c, dir, basedir, 123, members, t.pending, t.deleted)
+		appMembers := t.appMembers
+		if appMembers == nil && !t.deleted {
+			appMembers = defaultAppMembers
+		}
+		assertState(c, dir, basedir, 123, members, appMembers, t.pending, t.deleted)
 	}
 }
 
@@ -313,6 +422,9 @@ func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *gc.C) {
 		"bar-1": "change-version: 4\n",
 	})
 	setUpDir(c, relsdir, "789", nil)
+	setUpDir(c, relsdir, "10", map[string]string{
+		"baz-app": "change-version: 2\n",
+	})
 	setUpDir(c, relsdir, "onethousand", map[string]string{
 		"baz-0": "change-version: 3\n",
 		"baz-1": "change-version: 4\n",
@@ -323,10 +435,11 @@ func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *gc.C) {
 	for id, dir := range dirs {
 		c.Logf("%d: %#v", id, dir)
 	}
-	assertState(c, dirs[123], relsdir, 123, msi{"foo/0": 1, "foo/1": 2}, "foo/1", false)
-	assertState(c, dirs[456], relsdir, 456, msi{"bar/0": 3, "bar/1": 4}, "", false)
-	assertState(c, dirs[789], relsdir, 789, msi{}, "", false)
-	c.Assert(dirs, gc.HasLen, 3)
+	assertState(c, dirs[123], relsdir, 123, msi{"foo/0": 1, "foo/1": 2}, msi{}, "foo/1", false)
+	assertState(c, dirs[456], relsdir, 456, msi{"bar/0": 3, "bar/1": 4}, msi{}, "", false)
+	assertState(c, dirs[789], relsdir, 789, msi{}, msi{}, "", false)
+	assertState(c, dirs[10], relsdir, 10, msi{}, msi{"baz": 2}, "", false)
+	c.Assert(dirs, gc.HasLen, 4)
 }
 
 func setUpDir(c *gc.C, basedir, name string, contents map[string]string) string {
@@ -341,11 +454,12 @@ func setUpDir(c *gc.C, basedir, name string, contents map[string]string) string 
 	return reldir
 }
 
-func assertState(c *gc.C, dir *relation.StateDir, relsdir string, relationId int, members msi, pending string, deleted bool) {
+func assertState(c *gc.C, dir *relation.StateDir, relsdir string, relationId int, members msi, appmembers msi, pending string, deleted bool) {
 	expect := &relation.State{
-		RelationId:     relationId,
-		Members:        map[string]int64(members),
-		ChangedPending: pending,
+		RelationId:         relationId,
+		Members:            map[string]int64(members),
+		ApplicationMembers: map[string]int64(appmembers),
+		ChangedPending:     pending,
 	}
 	c.Assert(dir.State(), gc.DeepEquals, expect)
 	if deleted {

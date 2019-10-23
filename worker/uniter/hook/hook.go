@@ -31,8 +31,9 @@ type Info struct {
 	// set when Kind indicates a relation hook other than relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
 
-	// TODO(jam): 2019-10-03 implement RemoteApplication
-	// RemoteApplication string `yaml:"remote-application,omitempty"`
+	// RemoteApplication is always set if either an app or a unit triggers the hook.
+	// If the app triggers the hook, then RemoteUnit will be empty
+	RemoteApplication string `yaml:"remote-application,omitempty"`
 
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.

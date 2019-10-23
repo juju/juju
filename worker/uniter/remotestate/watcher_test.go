@@ -531,7 +531,8 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 	// returned its initial event also.
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
+		Changed:    map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
+		AppChanged: map[string]int64{"mysql": 1},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(
@@ -542,7 +543,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 				Life:               params.Alive,
 				Suspended:          false,
 				Members:            map[string]int64{"mysql/1": 1, "mysql/2": 2},
-				ApplicationMembers: map[string]int64{},
+				ApplicationMembers: map[string]int64{"mysql": 1},
 			},
 		},
 	)
@@ -575,7 +576,8 @@ func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNoNotifyEvent(c, s.watcher.RemoteStateChanged(), "remote state change")
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
+		Changed:    map[string]watcher.UnitSettings{"mysql/1": {1}, "mysql/2": {2}},
+		AppChanged: map[string]int64{"mysql": 1},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -598,7 +600,8 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{"mysql/1": {1}},
+		Changed:    map[string]watcher.UnitSettings{"mysql/1": {1}},
+		AppChanged: map[string]int64{"mysql": 1},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
@@ -611,6 +614,11 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 		jc.DeepEquals,
 		map[string]int64{"mysql/1": 2, "mysql/2": 1},
 	)
+
+	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
+		AppChanged: map[string]int64{"mysql": 2},
+	}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Departed: []string{"mysql/1", "mysql/42"},

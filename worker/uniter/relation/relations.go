@@ -269,14 +269,31 @@ func nextRelationHook(
 	// If there's a guaranteed next hook, return that.
 	relationId := local.RelationId
 	if local.ChangedPending != "" {
+		// ChangedPending should only happen for a unit (not an app). It is a side effect that if we call 'relation-joined'
+		// for a unit, we immediately queue up relation-changed for that unit, before we run any other hooks
+		// Applications never see "relation-joined".
 		unitName := local.ChangedPending
+		appName, err := names.UnitApplication(unitName)
+		if err != nil {
+			return hook.Info{}, errors.Annotate(err, "changed pending held an invalid unit name")
+		}
 		return hook.Info{
-			Kind:          hooks.RelationChanged,
-			RelationId:    relationId,
-			RemoteUnit:    unitName,
-			ChangeVersion: remote.Members[unitName],
+			Kind:              hooks.RelationChanged,
+			RelationId:        relationId,
+			RemoteUnit:        unitName,
+			RemoteApplication: appName,
+			ChangeVersion:     remote.Members[unitName],
 		}, nil
 	}
+	// Get related app names, trigger all app hooks first
+	allAppNames := set.NewStrings()
+	for appName := range local.ApplicationMembers {
+		allAppNames.Add(appName)
+	}
+	for app := range remote.ApplicationMembers {
+		allAppNames.Add(app)
+	}
+	sortedAppNames := allAppNames.SortedValues()
 
 	// Get the union of all relevant units, and sort them, so we produce events
 	// in a consistent order (largely for the convenience of the tests).
@@ -288,6 +305,9 @@ func nextRelationHook(
 		allUnitNames.Add(unitName)
 	}
 	sortedUnitNames := allUnitNames.SortedValues()
+	if allUnitNames.Contains("") {
+		return hook.Info{}, errors.Errorf("somehow we got the empty unit. local: %v, remote: %v", local.Members, remote.Members)
+	}
 
 	// If there are any locally known units that are no longer reflected in
 	// remote state, depart them.
@@ -297,11 +317,16 @@ func nextRelationHook(
 			continue
 		}
 		if _, found := remote.Members[unitName]; !found {
+			appName, err := names.UnitApplication(unitName)
+			if err != nil {
+				return hook.Info{}, errors.Trace(err)
+			}
 			return hook.Info{
-				Kind:          hooks.RelationDeparted,
-				RelationId:    relationId,
-				RemoteUnit:    unitName,
-				ChangeVersion: changeVersion,
+				Kind:              hooks.RelationDeparted,
+				RelationId:        relationId,
+				RemoteUnit:        unitName,
+				RemoteApplication: appName,
+				ChangeVersion:     changeVersion,
 			}, nil
 		}
 	}
@@ -319,6 +344,23 @@ func nextRelationHook(
 		}, nil
 	}
 
+	for _, appName := range sortedAppNames {
+		changeVersion, found := remote.ApplicationMembers[appName]
+		if !found {
+			// ?
+			continue
+		}
+		if oldVersion, found := local.ApplicationMembers[appName]; !found || oldVersion != changeVersion {
+			return hook.Info{
+				Kind:              hooks.RelationChanged,
+				RelationId:        relationId,
+				RemoteUnit:        "",
+				RemoteApplication: appName,
+				ChangeVersion:     changeVersion,
+			}, nil
+		}
+	}
+
 	// If there are any remote units not locally known, join them.
 	for _, unitName := range sortedUnitNames {
 		changeVersion, found := remote.Members[unitName]
@@ -326,11 +368,16 @@ func nextRelationHook(
 			continue
 		}
 		if _, found := local.Members[unitName]; !found {
+			appName, err := names.UnitApplication(unitName)
+			if err != nil {
+				return hook.Info{}, errors.Trace(err)
+			}
 			return hook.Info{
-				Kind:          hooks.RelationJoined,
-				RelationId:    relationId,
-				RemoteUnit:    unitName,
-				ChangeVersion: changeVersion,
+				Kind:              hooks.RelationJoined,
+				RelationId:        relationId,
+				RemoteUnit:        unitName,
+				RemoteApplication: appName,
+				ChangeVersion:     changeVersion,
 			}, nil
 		}
 	}
@@ -346,16 +393,21 @@ func nextRelationHook(
 		if !found {
 			continue
 		}
+		appName, err := names.UnitApplication(unitName)
+		if err != nil {
+			return hook.Info{}, errors.Trace(err)
+		}
 		// NOTE(axw) we use != and not > to cater due to the
 		// use of the relation settings document's txn-revno
 		// as the version. When model-uuid migration occurs, the
 		// document is recreated, resetting txn-revno.
 		if remoteChangeVersion != localChangeVersion {
 			return hook.Info{
-				Kind:          hooks.RelationChanged,
-				RelationId:    relationId,
-				RemoteUnit:    unitName,
-				ChangeVersion: remoteChangeVersion,
+				Kind:              hooks.RelationChanged,
+				RelationId:        relationId,
+				RemoteUnit:        unitName,
+				RemoteApplication: appName,
+				ChangeVersion:     remoteChangeVersion,
 			}, nil
 		}
 	}

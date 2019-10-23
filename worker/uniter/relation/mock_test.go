@@ -5,6 +5,7 @@ package relation_test
 
 import (
 	"fmt"
+	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -23,8 +24,17 @@ type mockOperation struct {
 }
 
 func (m *mockOperation) String() string {
-	return fmt.Sprintf("run hook %v on unit with relation %d",
-		m.hookInfo.Kind, m.hookInfo.RelationId)
+	if m.hookInfo.Kind == hooks.RelationBroken {
+		// There is no app or unit for RelationBroken
+		return fmt.Sprintf("run hook %v with relation %d",
+			m.hookInfo.Kind, m.hookInfo.RelationId)
+	}
+	onStr := fmt.Sprintf("app %v", m.hookInfo.RemoteApplication)
+	if m.hookInfo.RemoteUnit != "" {
+		onStr = fmt.Sprintf("unit %v", m.hookInfo.RemoteUnit)
+	}
+	return fmt.Sprintf("run hook %v on %v with relation %d",
+		m.hookInfo.Kind, onStr, m.hookInfo.RelationId)
 }
 
 func (m *mockOperation) NeedsGlobalMachineLock() bool {
