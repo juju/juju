@@ -36,7 +36,7 @@ func GetK8sCredentialResolver(clock jujuclock.Clock) K8sCredentialResolver {
 
 // NewK8sClientConfig returns a new Kubernetes client, reading the config from the specified reader.
 func NewK8sClientConfig(
-	cloudName, credentialUID string, reader io.Reader,
+	credentialUID string, reader io.Reader,
 	contextName, clusterName string,
 	credentialResolver K8sCredentialResolver,
 ) (*ClientConfig, error) {
@@ -105,7 +105,10 @@ func NewK8sClientConfig(
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to read credentials from kubernetes config")
 	}
-
+	logger.Criticalf("contexts -> %+v", contexts)
+	logger.Criticalf("config.CurrentContext -> %+v", config.CurrentContext)
+	logger.Criticalf("clouds -> %+v", clouds)
+	logger.Criticalf("credentials -> %+v", credentials)
 	return &ClientConfig{
 		Type:           "kubernetes",
 		Contexts:       contexts,

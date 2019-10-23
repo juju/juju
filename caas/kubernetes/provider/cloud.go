@@ -70,7 +70,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 		return fail(errors.Trace(err))
 	}
 	caasConfig, err := clientConfigFunc(
-		newCloud.Name, cloudParams.CredentialUID, reader,
+		cloudParams.CredentialUID, reader,
 		cloudParams.ContextName, cloudParams.ClusterName,
 		clientconfig.GetK8sCredentialResolver(cloudParams.Clock),
 	)

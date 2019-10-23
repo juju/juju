@@ -41,6 +41,11 @@ type CloudMetadataStore interface {
 	WritePersonalCloudMetadata(cloudsMap map[string]jujucloud.Cloud) error
 }
 
+//go:generate mockgen -package mocks -destination mocks/storeapi_mock.go github.com/juju/juju/cmd/juju/caas CredentialStoreAPI
+type CredentialStoreAPI interface {
+	UpdateCredential(cloudName string, details jujucloud.CloudCredential) error
+}
+
 // AddCloudAPI - Implemented by cloudapi.Client.
 type AddCloudAPI interface {
 	AddCloud(jujucloud.Cloud, bool) error
@@ -120,7 +125,6 @@ type AddCAASCommand struct {
 	clock jujuclock.Clock
 
 	// These attributes are used when adding a cluster to a controller.
-	credentialName  string
 	addCloudAPIFunc func() (AddCloudAPI, error)
 
 	// caasName is the name of the CAAS to add.
@@ -164,7 +168,9 @@ type AddCAASCommand struct {
 	k8sCluster k8sCluster
 
 	cloudMetadataStore    CloudMetadataStore
+	credentialStoreAPI    CredentialStoreAPI
 	newClientConfigReader func(string) (clientconfig.ClientConfigFunc, error)
+	credentialUIDGetter   func(credentialGetter, string, string) (string, error)
 
 	getAllCloudDetails func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error)
 }
@@ -182,9 +188,11 @@ func newAddCAASCommand(cloudMetadataStore CloudMetadataStore, clock jujuclock.Cl
 			Store: store,
 		},
 		cloudMetadataStore: cloudMetadataStore,
+		credentialStoreAPI: store,
 		newClientConfigReader: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
+		credentialUIDGetter: decideCredentialUID,
 	}
 	command.addCloudAPIFunc = func() (AddCloudAPI, error) {
 		root, err := command.NewAPIRoot(command.Store, command.ControllerName, "")
@@ -405,7 +413,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	cloudName := c.caasName
 	credentialName := c.caasName
 
-	credentialUID, err := decideCredentialUID(c.Store, cloudName, credentialName)
+	credentialUID, err := c.credentialUIDGetter(c.Store, cloudName, credentialName)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -422,16 +430,16 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		Clock:              c.clock,
 	}
 
-	newCloud, credential, err := provider.CloudFromKubeConfig(rdr, config)
+	newCloud, newcredential, err := provider.CloudFromKubeConfig(rdr, config)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	credential, err = ensureCredentialUID(credentialName, credentialUID, credential)
+	newcredential, err = ensureCredentialUID(credentialName, credentialUID, newcredential)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	broker, err := c.brokerGetter(newCloud, credential)
+	broker, err := c.brokerGetter(newCloud, newcredential)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -472,8 +480,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 			return errors.Trace(err)
 		}
-
-		if err := c.addCredentialToLocal(cloudName, credential, credentialName); err != nil {
+		if err := c.addCredentialToLocal(c.credentialStoreAPI, cloudName, newcredential, credentialName); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -498,7 +505,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		if err := addCloudToController(cloudClient, newCloud); err != nil {
 			return errors.Trace(err)
 		}
-		if err := c.addCredentialToController(cloudClient, credential, cloudName, credentialName); err != nil {
+		if err := c.addCredentialToController(cloudClient, newcredential, cloudName, credentialName); err != nil {
 			return errors.Trace(err)
 		}
 		if !msgDisplayed {
@@ -743,12 +750,13 @@ func addCloudToController(apiClient AddCloudAPI, newCloud jujucloud.Cloud) error
 	return nil
 }
 
-func (c *AddCAASCommand) addCredentialToLocal(cloudName string, newCredential jujucloud.Credential, credentialName string) error {
+func (c *AddCAASCommand) addCredentialToLocal(store CredentialStoreAPI, cloudName string, newCredential jujucloud.Credential, credentialName string) error {
 	newCredentials := &jujucloud.CloudCredential{
 		AuthCredentials: make(map[string]jujucloud.Credential),
 	}
 	newCredentials.AuthCredentials[credentialName] = newCredential
-	err := c.Store.UpdateCredential(cloudName, *newCredentials)
+	logger.Criticalf("newCredentials --> \n%#v", newCredentials)
+	err := store.UpdateCredential(cloudName, *newCredentials)
 	if err != nil {
 		return errors.Trace(err)
 	}
