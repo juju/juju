@@ -724,8 +724,7 @@ func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error)
 			"JUJU_RELATION="+r.Name(),
 			"JUJU_RELATION_ID="+r.FakeId(),
 			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
-			// TODO(jam): 2019-10-03 implement JUJU_REMOTE_APP
-			// "JUJU_REMOTE_APP="+context.remoteApplicationName,
+			"JUJU_REMOTE_APP="+context.remoteApplicationName,
 		)
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)

@@ -350,7 +350,13 @@ func nextRelationHook(
 			// ?
 			continue
 		}
-		if oldVersion, found := local.ApplicationMembers[appName]; !found || oldVersion != changeVersion {
+		// Note(jam): 2019-10-23 For compatibility purposes, we don't trigger a hook if
+		//  local.ApplicationMembers doesn't contain the app and the changeVersion == 0.
+		//  This is because otherwise all charms always get a hook with the app
+		//  as the context, and that is likely to expose them to something they
+		//  may not be ready for. Also, since no app content has been set, there
+		//  is nothing for them to respond to.
+		if oldVersion := local.ApplicationMembers[appName]; oldVersion != changeVersion {
 			return hook.Info{
 				Kind:              hooks.RelationChanged,
 				RelationId:        relationId,

@@ -242,6 +242,11 @@ func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
 	defer ctx.mu.Unlock()
 	c.Logf("actual hooks: %#v", ctx.hooksCompleted)
 	c.Logf("expected hooks: %#v", ctx.hooks)
+	// TODO(jam): Shortcircuit when we know that we *cannot* match. Specifically,
+	//  we match every hook exactly and exactly in order. If the 3rd hook is
+	//  "relation-changed" but we were expecting "config-changed", then there is
+	//  no reason to continue further, instead we can just fail with "unexpected hook".
+	//  The matching logic doesn't allow reordering
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false
 	}

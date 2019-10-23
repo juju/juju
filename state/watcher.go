@@ -1101,6 +1101,11 @@ func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationU
 	// you then use to know you can read the database without missing updates.
 	for _, key := range w.appSettingsKeys {
 		if err := w.mergeAppSettings(changes, key); err != nil {
+			panic(err)
+			/// // There may not be an application settings document yet.
+			/// if errors.IsNotFound(err) {
+			/// 	continue
+			/// }
 			return errors.Trace(err)
 		}
 	}

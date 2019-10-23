@@ -343,7 +343,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 					"wordpress/0": 1,
 				},
 				ApplicationMembers: map[string]int64{
-					"wordpress": 1,
+					"wordpress": 0,
 				},
 			},
 		},
@@ -352,16 +352,6 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 9)
-	c.Assert(op.String(), gc.Equals, "run hook relation-changed on app wordpress with relation 1")
-
-	// Commit the operation so we save local state for any next operation.
-	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
-	err = r.CommitHook(op.(*mockOperation).hookInfo)
-	c.Assert(err, jc.ErrorIsNil)
-
-	op, err = relationsResolver.NextOp(localState, remoteState, &mockOperations{})
-	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit wordpress/0 with relation 1")
 
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
@@ -455,7 +445,7 @@ func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
 		Suspended: false,
 	}, &numCalls)
 
-	// wordpress app starts at 1, changing to 2 should trigger a
+	// wordpress app starts at 0, changing to 1 should trigger a
 	// relation-changed hook for the app. We also leave wordpress/0 at 1 so that
 	// it doesn't trigger relation-departed or relation-changed.
 	numCallsBefore := numCalls
@@ -473,7 +463,7 @@ func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
 					"wordpress/0": 1,
 				},
 				ApplicationMembers: map[string]int64{
-					"wordpress": 2,
+					"wordpress": 1,
 				},
 			},
 		},
