@@ -409,6 +409,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	logger.Criticalf("credentialUID -> %q", credentialUID)
 
 	config := provider.KubeCloudParams{
 		ClusterName:        clusterName,

@@ -28,9 +28,10 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 	// TODO: ?????????!!!!!!!
 	clock := jujuclock.WallClock
 	cloudParams := KubeCloudParams{
-		ClusterName: caas.MicroK8sClusterName,
-		CloudName:   caas.K8sCloudMicrok8s,
-		CaasType:    CAASProviderType,
+		ClusterName:   caas.MicroK8sClusterName,
+		CloudName:     caas.K8sCloudMicrok8s,
+		CredentialUID: caas.K8sCloudMicrok8s,
+		CaasType:      CAASProviderType,
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},

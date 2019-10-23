@@ -6,7 +6,6 @@ package clientconfig
 import (
 	"io"
 
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/cloud"
@@ -49,7 +48,7 @@ type CloudConfig struct {
 
 // ClientConfigFunc is a function that returns a ClientConfig. Functions of this type should be available for each supported CAAS framework, e.g. Kubernetes.
 type ClientConfigFunc func(
-	string, string, io.Reader, string, string, K8sCredentialResolver, jujuclock.Clock,
+	string, string, io.Reader, string, string, K8sCredentialResolver,
 ) (*ClientConfig, error)
 
 // NewClientConfigReader returns a function of type ClientConfigFunc to read the client config for a given cloud type.

@@ -4,7 +4,6 @@
 package provider
 
 import (
-	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas"
@@ -97,9 +96,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// TODO::::::::::??????
-	clock := jujuclock.WallClock
-	caasConfig, err := clientConfigFunc("", "", nil, "", "", nil, clock)
+	caasConfig, err := clientConfigFunc("", "", nil, "", "", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
