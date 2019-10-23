@@ -331,9 +331,11 @@ func (s *HookContextSuite) AssertStorageContext(c *gc.C, ctx *context.HookContex
 	c.Assert(fromCache.Location(), gc.Equals, attachment.Location)
 }
 
-func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int, remoteUnit string) *context.ContextRelation {
+func (s *HookContextSuite) AssertRelationContext(c *gc.C, ctx *context.HookContext, relId int, remoteUnit string, remoteApp string) *context.ContextRelation {
 	actualRemoteUnit, _ := ctx.RemoteUnitName()
 	c.Assert(actualRemoteUnit, gc.Equals, remoteUnit)
+	actualRemoteApp, _ := ctx.RemoteApplicationName()
+	c.Assert(actualRemoteApp, gc.Equals, remoteApp)
 	rel, err := ctx.HookRelation()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(rel.Id(), gc.Equals, relId)

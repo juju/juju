@@ -79,8 +79,16 @@ func (s *ContextFactorySuite) updateCache(relId int, unitName string, settings p
 	context.UpdateCachedSettings(s.factory, relId, unitName, settings)
 }
 
+func (s *ContextFactorySuite) updateAppCache(relId int, unitName string, settings params.Settings) {
+	context.UpdateCachedAppSettings(s.factory, relId, unitName, settings)
+}
+
 func (s *ContextFactorySuite) getCache(relId int, unitName string) (params.Settings, bool) {
 	return context.CachedSettings(s.factory, relId, unitName)
+}
+
+func (s *ContextFactorySuite) getAppCache(relId int, appName string) (params.Settings, bool) {
+	return context.CachedAppSettings(s.factory, relId, appName)
 }
 
 func (s *ContextFactorySuite) SetCharm(c *gc.C, name string) {
@@ -179,7 +187,7 @@ func (s *ContextFactorySuite) TestRelationHookContext(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	s.AssertRelationContext(c, ctx, 1, "")
+	s.AssertRelationContext(c, ctx, 1, "", "")
 	s.AssertNotStorageContext(c, ctx)
 }
 
@@ -421,28 +429,30 @@ func (s *ContextFactorySuite) TestNewCommandContextForceNoRemoteUnit(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	s.AssertRelationContext(c, ctx, 0, "")
+	s.AssertRelationContext(c, ctx, 0, "", "")
 	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewCommandContextForceRemoteUnitMissing(c *gc.C) {
 	ctx, err := s.factory.CommandContext(context.CommandInfo{
+		// TODO(jam): 2019-10-23 Add RemoteApplicationName
 		RelationId: 0, RemoteUnitName: "blah/123", ForceRemoteUnit: true,
 	})
 	c.Assert(err, gc.IsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	s.AssertRelationContext(c, ctx, 0, "blah/123")
+	s.AssertRelationContext(c, ctx, 0, "blah/123", "")
 	s.AssertNotStorageContext(c, ctx)
 }
 
 func (s *ContextFactorySuite) TestNewCommandContextInferRemoteUnit(c *gc.C) {
+	// TODO(jam): 2019-10-23 Add RemoteApplicationName
 	s.membership[0] = []string{"foo/2"}
 	ctx, err := s.factory.CommandContext(context.CommandInfo{RelationId: 0})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
-	s.AssertRelationContext(c, ctx, 0, "foo/2")
+	s.AssertRelationContext(c, ctx, 0, "foo/2", "")
 	s.AssertNotStorageContext(c, ctx)
 }
 
@@ -489,15 +499,16 @@ func (s *ContextFactorySuite) TestNewHookContextRelationJoinedUpdatesRelationCon
 	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
 
 	ctx, err := s.factory.HookContext(hook.Info{
-		Kind:       hooks.RelationJoined,
-		RelationId: 1,
-		RemoteUnit: "r/0",
+		Kind:              hooks.RelationJoined,
+		RelationId:        1,
+		RemoteUnit:        "r/0",
+		RemoteApplication: "r",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
-	rel := s.AssertRelationContext(c, ctx, 1, "r/0")
+	rel := s.AssertRelationContext(c, ctx, 1, "r/0", "r")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, gc.IsNil)
@@ -511,17 +522,19 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	s.membership[1] = []string{"r/0", "r/4"}
 	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
 	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
+	s.updateAppCache(1, "r", params.Settings{"frob": "nizzle"})
 
 	ctx, err := s.factory.HookContext(hook.Info{
-		Kind:       hooks.RelationChanged,
-		RelationId: 1,
-		RemoteUnit: "r/4",
+		Kind:              hooks.RelationChanged,
+		RelationId:        1,
+		RemoteUnit:        "r/4",
+		RemoteApplication: "r",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
-	rel := s.AssertRelationContext(c, ctx, 1, "r/4")
+	rel := s.AssertRelationContext(c, ctx, 1, "r/4", "r")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, jc.DeepEquals, params.Settings{"foo": "bar"})
@@ -529,6 +542,49 @@ func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationCo
 	cached4, member := s.getCache(1, "r/4")
 	c.Assert(cached4, gc.IsNil)
 	c.Assert(member, jc.IsTrue)
+	wrongCache, member := s.getCache(1, "r")
+	c.Assert(wrongCache, gc.IsNil)
+	c.Assert(member, jc.IsFalse)
+	cachedApp, found := s.getAppCache(1, "r")
+	// TODO(jam): 2019-10-23 This is currently wrong. We are currently pruning
+	//  all application settings on every hook invocation. We should only
+	//  invalidate it when we run a relation-changed hook for the app
+	c.ExpectFailure("application settings should be properly cached")
+	c.Assert(cachedApp, jc.DeepEquals, params.Settings{"frob": "bar"})
+	c.Assert(found, jc.IsTrue)
+}
+
+func (s *ContextFactorySuite) TestNewHookContextRelationChangedUpdatesRelationContextAndCachesApplication(c *gc.C) {
+	// Set values for r/0 and r make sure we don't see r/0 change but we *do* see r wiped.
+	s.setUpCacheMethods(c)
+	s.membership[1] = []string{"r/0"}
+	s.updateCache(1, "r/0", params.Settings{"foo": "bar"})
+	s.updateAppCache(1, "r", params.Settings{"baz": "quux"})
+	cachedApp, found := s.getAppCache(1, "r")
+	c.Assert(cachedApp, jc.DeepEquals, params.Settings{"baz": "quux"})
+	c.Assert(found, jc.IsTrue)
+
+	ctx, err := s.factory.HookContext(hook.Info{
+		Kind:              hooks.RelationChanged,
+		RelationId:        1,
+		RemoteApplication: "r",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCoreContext(c, ctx)
+	s.AssertNotActionContext(c, ctx)
+	s.AssertNotStorageContext(c, ctx)
+	rel := s.AssertRelationContext(c, ctx, 1, "", "r")
+	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0"})
+	cached0, member := s.getCache(1, "r/0")
+	c.Assert(cached0, jc.DeepEquals, params.Settings{"foo": "bar"})
+	c.Assert(member, jc.IsTrue)
+	// It should not be found in the normal cache
+	wrongCache, member := s.getCache(1, "r")
+	c.Assert(wrongCache, gc.IsNil)
+	c.Assert(member, jc.IsFalse)
+	cachedApp, found = s.getAppCache(1, "r")
+	c.Assert(cachedApp, gc.IsNil)
+	c.Assert(found, jc.IsFalse)
 }
 
 func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationContextAndCaches(c *gc.C) {
@@ -548,7 +604,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationC
 	s.AssertCoreContext(c, ctx)
 	s.AssertNotActionContext(c, ctx)
 	s.AssertNotStorageContext(c, ctx)
-	rel := s.AssertRelationContext(c, ctx, 1, "r/0")
+	rel := s.AssertRelationContext(c, ctx, 1, "r/0", "")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/4"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, gc.IsNil)
@@ -575,7 +631,7 @@ func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *g
 		RelationId: 1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	rel := s.AssertRelationContext(c, ctx, 1, "")
+	rel := s.AssertRelationContext(c, ctx, 1, "", "")
 	c.Assert(rel.UnitNames(), jc.DeepEquals, []string{"r/0", "r/4"})
 	cached0, member := s.getCache(1, "r/0")
 	c.Assert(cached0, jc.DeepEquals, params.Settings{"foo": "bar"})
@@ -587,12 +643,23 @@ func (s *ContextFactorySuite) TestNewHookContextRelationBrokenRetainsCaches(c *g
 
 func (s *ContextFactorySuite) TestReadApplicationSettings(c *gc.C) {
 	s.setUpCacheMethods(c)
+	// First, try to read the ApplicationSettings but not as the leader, ensure we get an error
+	// Make sure this unit is the leader
 	ctx, err := s.factory.HookContext(hook.Info{Kind: hooks.Install})
 	c.Assert(err, jc.ErrorIsNil)
 	s.membership[0] = []string{"r/0"}
 	rel, err := ctx.Relation(0)
 	c.Assert(err, jc.ErrorIsNil)
-	rel.ApplicationSettings()
+	_, err = rel.ApplicationSettings()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	// Now claim leadership and try again
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim(s.unit.ApplicationName(), s.unit.Name(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+	settings, err := rel.ApplicationSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(settings.Map(), jc.DeepEquals, params.Settings{})
 }
 
 type StubLeadershipContext struct {

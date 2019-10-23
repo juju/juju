@@ -202,6 +202,12 @@ func CachedSettings(cf0 ContextFactory, relId int, unitName string) (params.Sett
 	return settings, found
 }
 
+func CachedAppSettings(cf0 ContextFactory, relId int, appName string) (params.Settings, bool) {
+	cf := cf0.(*contextFactory)
+	settings, found := cf.relationCaches[relId].applications[appName]
+	return settings, found
+}
+
 func (ctx *HookContext) SLALevel() string {
 	return ctx.slaLevel
 }

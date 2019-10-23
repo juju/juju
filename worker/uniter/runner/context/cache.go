@@ -117,9 +117,8 @@ func (cache *RelationCache) InvalidateMember(memberName string) {
 	cache.members[memberName] = nil
 }
 
-// InvalidateMember ensures that the named remote unit will be considered a
-// member of the relation, and that the next attempt to read its settings will
-// use fresh data.
+// InvalidateApplication ensures that contents cached for remote app will be wiped clean
+// and that the next attempt to read its settings will use fresh data.
 func (cache *RelationCache) InvalidateApplication(appName string) {
 	delete(cache.applications, appName)
 }
