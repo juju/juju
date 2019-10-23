@@ -435,18 +435,20 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 		}
 		existing.AuthCredentials[cred.credentialName] = cred.credential
 		addLoadedCredential(loaded, cloudName, cred)
-		if err := c.Store.UpdateCredential(cloudName, *existing); err != nil {
-			ctxt.Warningf("error saving credential locally: %v\n", err)
-			localErr = err
-		} else {
-			// Update so we display correctly next time list is printed.
-			cred.isNew = false
-			discovered[num-1] = cred
-			fmt.Fprintf(ctxt.Stderr, "Saved %s to cloud %s locally\n", cred.credential.Label, cloudName)
+		if c.BothClientAndController || c.ClientOnly {
+			if err := c.Store.UpdateCredential(cloudName, *existing); err != nil {
+				ctxt.Warningf("error saving credential locally: %v\n", err)
+				localErr = err
+			} else {
+				// Update so we display correctly next time list is printed.
+				cred.isNew = false
+				discovered[num-1] = cred
+				fmt.Fprintf(ctxt.Stderr, "Saved %s to cloud %s locally\n", cred.credential.Label, cloudName)
+			}
 		}
 	}
 upload:
-	if !c.ClientOnly && c.ControllerName != "" {
+	if (c.BothClientAndController || c.ControllerOnly) && c.ControllerName != "" {
 		fmt.Fprintln(ctxt.Stderr)
 		return c.addRemoteCredentials(ctxt, clouds, loaded, localErr)
 	}

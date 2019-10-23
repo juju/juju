@@ -190,7 +190,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var err error
-	if !c.ClientOnly && c.ControllerName == "" {
+	if (c.BothClientAndController || c.ControllerOnly) && c.ControllerName == "" {
 		// The user may have specified the controller via a --controller option.
 		// If not, let's see if there is a current controller that can be detected.
 		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "add a credential to")
@@ -314,31 +314,35 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 
 func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb string, existingCredentials jujucloud.CloudCredential, added map[string]jujucloud.Credential, allNames []string) error {
 	var err error
-	// Local processing.
-	if len(allNames) == 0 {
-		fmt.Fprintf(ctxt.Stdout, "No local credentials for cloud %q changed.\n", c.CloudName)
-	} else {
-		var msg string
-		if len(allNames) == 1 {
-			msg = fmt.Sprintf(" %q", allNames[0])
+	if c.BothClientAndController || c.ClientOnly {
+		// Local processing.
+		if len(allNames) == 0 {
+			fmt.Fprintf(ctxt.Stdout, "No local credentials for cloud %q changed.\n", c.CloudName)
 		} else {
-			msg = fmt.Sprintf("s %q", strings.Join(allNames, ", "))
-		}
-		err = c.Store.UpdateCredential(c.CloudName, existingCredentials)
-		if err == nil {
-			fmt.Fprintf(ctxt.Stdout, "Credential%s %s locally for cloud %q.\n\n", msg, verb, c.CloudName)
-		} else {
-			fmt.Fprintf(ctxt.Stdout, "Credential%s not %v locally for cloud %q: %v\n\n", msg, verb, c.CloudName, err)
-			err = cmd.ErrSilent
+			var msg string
+			if len(allNames) == 1 {
+				msg = fmt.Sprintf(" %q", allNames[0])
+			} else {
+				msg = fmt.Sprintf("s %q", strings.Join(allNames, ", "))
+			}
+			err = c.Store.UpdateCredential(c.CloudName, existingCredentials)
+			if err == nil {
+				fmt.Fprintf(ctxt.Stdout, "Credential%s %s locally for cloud %q.\n\n", msg, verb, c.CloudName)
+			} else {
+				fmt.Fprintf(ctxt.Stdout, "Credential%s not %v locally for cloud %q: %v\n\n", msg, verb, c.CloudName, err)
+				err = cmd.ErrSilent
+			}
 		}
 	}
-	// Remote processing.
-	if !c.ClientOnly {
-		if c.ControllerName != "" {
-			return c.addRemoteCredentials(ctxt, added, err)
-		} else {
-			ctxt.Infof("There are no controllers specified - not adding a credential to any controller.")
-			return err
+	if c.BothClientAndController || c.ControllerOnly {
+		// Remote processing.
+		if !c.ClientOnly {
+			if c.ControllerName != "" {
+				return c.addRemoteCredentials(ctxt, added, err)
+			} else {
+				ctxt.Infof("There are no controllers specified - not adding a credential to any controller.")
+				return err
+			}
 		}
 	}
 	return err
