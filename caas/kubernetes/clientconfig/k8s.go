@@ -76,15 +76,12 @@ func NewK8sClientConfig(
 		logger.Debugf("no cluster name specified, so use current context %q", config.CurrentContext)
 	}
 
-	if context.isEmpty() {
+	if contextName == "" || context.isEmpty() {
 		return nil, errors.NewNotFound(nil,
 			fmt.Sprintf("no context found for context name: %q, cluster name: %q", contextName, clusterName))
 	}
 	// Exclude not related contexts.
-	contexts = map[string]Context{}
-	if contextName != "" {
-		contexts[contextName] = context
-	}
+	contexts = map[string]Context{contextName: context}
 
 	// try find everything below based on context.
 	clouds, err := cloudsFromConfig(config, context.CloudName)

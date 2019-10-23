@@ -18,6 +18,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // load gcp auth plugin.
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
@@ -98,10 +99,10 @@ func ensureJujuAdminServiceAccount(
 	var secret *core.Secret
 	retryCallArgs := retry.CallArgs{
 		Delay:       time.Second,
-		MaxDuration: 3 * time.Second,
+		MaxDuration: 5 * time.Second,
 		Clock:       clock,
 		Func: func() error {
-			secret, err = getServiceAccountSecret(clientset, name)
+			secret, err = getServiceAccountSecret(clientset, name, adminNameSpace)
 			return err
 		},
 		IsFatalError: func(err error) bool {
@@ -124,6 +125,15 @@ func ensureJujuAdminServiceAccount(
 }
 
 // TODO: call this in remove-k8s and destroy/kill-controller!!!!!!!
+// RemoveCaaSCredentialRBACResources removes all RBAC resources for specific caas credential UID.
+func RemoveCaaSCredentialRBACResources(config *rest.Config, UID string) error {
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return removeJujuAdminServiceAccount(clientset, UID)
+}
+
 func removeJujuAdminServiceAccount(clientset kubernetes.Interface, UID string) error {
 	// TODO: can we delete the credential while using itself as credential to talk to the cluster???????
 	labels := getRBACLabels(UID)
@@ -291,8 +301,8 @@ func getOrCreateClusterRoleBinding(
 	return rb, cleanUps, nil
 }
 
-func getServiceAccountSecret(clientset kubernetes.Interface, saName string) (*core.Secret, error) {
-	sa, err := getServiceAccount(clientset, saName, adminNameSpace)
+func getServiceAccountSecret(clientset kubernetes.Interface, saName, namespace string) (*core.Secret, error) {
+	sa, err := getServiceAccount(clientset, saName, namespace)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

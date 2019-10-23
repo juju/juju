@@ -6,9 +6,10 @@ package clientconfig
 var (
 	NewK8sClientSet                               = newK8sClientSet
 	EnsureJujuAdminServiceAccount                 = ensureJujuAdminServiceAccount
-	EnsureClusterRole                             = ensureClusterRole
-	EnsureServiceAccount                          = ensureServiceAccount
-	EnsureClusterRoleBinding                      = ensureClusterRoleBinding
+	GetOrCreateClusterRole                        = getOrCreateClusterRole
+	GetOrCreateServiceAccount                     = getOrCreateServiceAccount
+	GetOrCreateClusterRoleBinding                 = getOrCreateClusterRoleBinding
 	GetServiceAccountSecret                       = getServiceAccountSecret
 	ReplaceAuthProviderWithServiceAccountAuthData = replaceAuthProviderWithServiceAccountAuthData
+	RemoveJujuAdminServiceAccount                 = removeJujuAdminServiceAccount
 )

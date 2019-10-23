@@ -9,10 +9,12 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/caas/kubernetes/provider"
 	jujucloud "github.com/juju/juju/cloud"
+	"github.com/juju/juju/environs"
 )
 
-// TODO: a better id name?????
 const caasCrendentialLabelKeyName = "rbac-id"
 
 func ensureCredentialUID(
@@ -65,4 +67,26 @@ func decideCredentialUID(store credentialGetter, cloudName, credentialName strin
 		credUID = hex.EncodeToString(b)
 	}
 	return credUID, nil
+}
+
+func cleanUpCredentialRBAC(cloud jujucloud.Cloud, credential jujucloud.Credential) error {
+	attr := credential.Attributes()
+	if attr == nil {
+		return nil
+	}
+	credUID := attr[caasCrendentialLabelKeyName]
+	if credUID == "" {
+		return nil
+	}
+
+	cloudSpec, err := environs.MakeCloudSpec(cloud, "", &credential)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	restConfig, err := provider.CloudSpecToK8sRestConfig(cloudSpec)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	err = clientconfig.RemoveCaaSCredentialRBACResources(restConfig, credUID)
+	return errors.Trace(err)
 }

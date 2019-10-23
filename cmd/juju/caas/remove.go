@@ -60,7 +60,9 @@ type RemoveCAASCommand struct {
 	cloudName string
 
 	cloudMetadataStore CloudMetadataStore
-	apiFunc            func() (RemoveCloudAPI, error)
+	credentialStoreAPI credentialGetter
+
+	apiFunc func() (RemoveCloudAPI, error)
 }
 
 // NewRemoveCAASCommand returns a command to add caas information.
@@ -72,6 +74,7 @@ func NewRemoveCAASCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		},
 
 		cloudMetadataStore: cloudMetadataStore,
+		credentialStoreAPI: store,
 	}
 	command.apiFunc = func() (RemoveCloudAPI, error) {
 		root, err := command.NewAPIRoot(command.Store, command.ControllerName, "")
@@ -122,7 +125,7 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client-only option.", c.cloudName)
 	}
 	if c.BothClientAndController || c.ClientOnly {
-		if err := removeCloudFromLocal(c.cloudMetadataStore, c.cloudName); err != nil {
+		if err := removeCloudFromLocal(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
 			return errors.Annotatef(err, "cannot remove cloud from current client")
 		}
 
@@ -150,7 +153,10 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-func removeCloudFromLocal(cloudMetadataStore CloudMetadataStore, cloudName string) error {
+func removeCloudFromLocal(
+	cloudName string,
+	cloudMetadataStore CloudMetadataStore, credentialStoreAPI credentialGetter,
+) error {
 	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return errors.Trace(err)
@@ -158,9 +164,18 @@ func removeCloudFromLocal(cloudMetadataStore CloudMetadataStore, cloudName strin
 	if personalClouds == nil {
 		return nil
 	}
-	_, ok := personalClouds[cloudName]
+	cloud, ok := personalClouds[cloudName]
 	if !ok {
 		return nil
+	}
+	cloudCredentials, err := credentialStoreAPI.CredentialForCloud(cloudName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, credential := range cloudCredentials.AuthCredentials {
+		if err := cleanUpCredentialRBAC(cloud, credential); err != nil {
+			logger.Warningf("unable to remove RBAC resources for credential %q", credential.Label)
+		}
 	}
 	delete(personalClouds, cloudName)
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)

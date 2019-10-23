@@ -4,7 +4,10 @@
 package clientconfig_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
+	testclock "github.com/juju/clock/testclock"
 	gc "gopkg.in/check.v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,13 +21,14 @@ type BaseSuite struct {
 	testing.BaseSuite
 
 	namespace string
+	clock     *testclock.Clock
 
-	k8sClient              *mocks.MockInterface
-	mockRbacV1             *mocks.MockRbacV1Interface
-	mockClusterRoles       *mocks.MockClusterRoleInterface
-	mockClusterRoleBinding *mocks.MockClusterRoleBindingInterface
-	mockServiceAccounts    *mocks.MockServiceAccountInterface
-	mockSecrets            *mocks.MockSecretInterface
+	k8sClient               *mocks.MockInterface
+	mockRbacV1              *mocks.MockRbacV1Interface
+	mockClusterRoles        *mocks.MockClusterRoleInterface
+	mockClusterRoleBindings *mocks.MockClusterRoleBindingInterface
+	mockServiceAccounts     *mocks.MockServiceAccountInterface
+	mockSecrets             *mocks.MockSecretInterface
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
@@ -35,6 +39,8 @@ func (s *BaseSuite) SetUpSuite(c *gc.C) {
 func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.k8sClient = mocks.NewMockInterface(ctrl)
+
+	s.clock = testclock.NewClock(time.Time{})
 
 	mockCoreV1 := mocks.NewMockCoreV1Interface(ctrl)
 	s.k8sClient.EXPECT().CoreV1().AnyTimes().Return(mockCoreV1)
@@ -51,8 +57,8 @@ func (s *BaseSuite) setupBroker(c *gc.C) *gomock.Controller {
 	s.mockClusterRoles = mocks.NewMockClusterRoleInterface(ctrl)
 	s.mockRbacV1.EXPECT().ClusterRoles().AnyTimes().Return(s.mockClusterRoles)
 
-	s.mockClusterRoleBinding = mocks.NewMockClusterRoleBindingInterface(ctrl)
-	s.mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBinding)
+	s.mockClusterRoleBindings = mocks.NewMockClusterRoleBindingInterface(ctrl)
+	s.mockRbacV1.EXPECT().ClusterRoleBindings().AnyTimes().Return(s.mockClusterRoleBindings)
 
 	return ctrl
 }

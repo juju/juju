@@ -267,7 +267,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
-	k8sRestConfig, err := cloudSpecToK8sRestConfig(spec)
+	k8sRestConfig, err := CloudSpecToK8sRestConfig(spec)
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
