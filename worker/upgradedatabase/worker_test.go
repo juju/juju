@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/utils/clock"
-
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
