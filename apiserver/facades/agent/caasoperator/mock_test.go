@@ -16,6 +16,7 @@ import (
 	_ "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -97,6 +98,7 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 
 type mockModel struct {
 	testing.Stub
+	containers []state.CloudContainer
 }
 
 func (m *mockModel) SetPodSpec(tag names.ApplicationTag, spec string) error {
@@ -120,6 +122,11 @@ func (st *mockModel) ModelConfig() (*config.Config, error) {
 	cfg := coretesting.FakeConfig()
 	attr := cfg.Merge(coretesting.Attrs{"type": "kubernetes"})
 	return config.New(config.NoDefaults, attr)
+}
+
+func (st *mockModel) Containers(providerIds ...string) ([]state.CloudContainer, error) {
+	st.MethodCall(st, "Containers", providerIds)
+	return st.containers, st.NextErr()
 }
 
 type mockApplication struct {
@@ -222,4 +229,35 @@ func (ch *mockCharm) URL() *charm.URL {
 
 func (ch *mockCharm) BundleSha256() string {
 	return ch.sha256
+}
+
+type mockBroker struct {
+	testing.Stub
+	watcher corewatcher.StringsWatcher
+}
+
+func (b *mockBroker) WatchUnitStart(appName string) (corewatcher.StringsWatcher, error) {
+	b.MethodCall(b, "WatchUnitStart", appName)
+	return b.watcher, b.NextErr()
+}
+
+type mockCloudContainer struct {
+	unit       string
+	providerID string
+}
+
+func (cc *mockCloudContainer) Unit() string {
+	return cc.unit
+}
+
+func (cc *mockCloudContainer) ProviderId() string {
+	return cc.providerID
+}
+
+func (cc *mockCloudContainer) Address() *network.SpaceAddress {
+	return nil
+}
+
+func (cc *mockCloudContainer) Ports() []string {
+	return nil
 }

@@ -16,6 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher/watchertest"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -28,6 +30,7 @@ type CAASOperatorSuite struct {
 	authorizer *apiservertesting.FakeAuthorizer
 	facade     *caasoperator.Facade
 	st         *mockState
+	broker     *mockBroker
 }
 
 func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
@@ -45,7 +48,9 @@ func (s *CAASOperatorSuite) SetUpTest(c *gc.C) {
 		workertest.CleanKill(c, s.st.app.unitsWatcher)
 	})
 
-	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st)
+	s.broker = &mockBroker{}
+
+	facade, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.broker)
 	c.Assert(err, jc.ErrorIsNil)
 	s.facade = facade
 }
@@ -54,7 +59,7 @@ func (s *CAASOperatorSuite) TestPermission(c *gc.C) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: names.NewMachineTag("0"),
 	}
-	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st)
+	_, err := caasoperator.NewFacade(s.resources, s.authorizer, s.st, s.broker)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
@@ -331,4 +336,39 @@ func (s *CAASOperatorSuite) TestWatchAPIHostPorts(c *gc.C) {
 	_, err := s.facade.WatchAPIHostPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	s.st.CheckCallNames(c, "Model", "WatchAPIHostPortsForAgents")
+}
+
+func (s *CAASOperatorSuite) TestWatchUnitStart(c *gc.C) {
+	s.st.app.unitsChanges <- []string{"gitlab/0", "gitlab/1"}
+
+	wc := make(chan []string, 1)
+	wc <- []string{"gitlab-fffff"}
+	s.broker.watcher = watchertest.NewMockStringsWatcher(wc)
+
+	s.st.model.containers = []state.CloudContainer{
+		&mockCloudContainer{
+			unit:       "gitlab/1",
+			providerID: "gitlab-fffff",
+		},
+	}
+
+	results, err := s.facade.WatchUnitStart(params.Entities{
+		Entities: []params.Entity{
+			{Tag: "application-gitlab"},
+			{Tag: "unit-gitlab-0"},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[1].Error, jc.DeepEquals, &params.Error{
+		Message: `"unit-gitlab-0" is not a valid application tag`,
+	})
+
+	s.broker.CheckCall(c, 0, "WatchUnitStart", "gitlab")
+
+	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
+	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/1"})
+	resource := s.resources.Get("1")
+	c.Assert(resource, gc.NotNil)
 }

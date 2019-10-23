@@ -5899,6 +5899,17 @@
                         }
                     }
                 },
+                "WatchUnitStart": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
+                },
                 "WatchUnits": {
                     "type": "object",
                     "properties": {
@@ -7653,6 +7664,9 @@
                             "items": {
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
+                        },
+                        "operator-image-path": {
+                            "type": "string"
                         },
                         "pod-spec": {
                             "type": "string"

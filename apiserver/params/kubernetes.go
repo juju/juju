@@ -17,13 +17,14 @@ type KubernetesDeploymentInfo struct {
 
 // KubernetesProvisioningInfo holds unit provisioning info.
 type KubernetesProvisioningInfo struct {
-	DeploymentInfo *KubernetesDeploymentInfo    `json:"deployment-info,omitempty"`
-	PodSpec        string                       `json:"pod-spec"`
-	Constraints    constraints.Value            `json:"constraints"`
-	Tags           map[string]string            `json:"tags,omitempty"`
-	Filesystems    []KubernetesFilesystemParams `json:"filesystems,omitempty"`
-	Volumes        []KubernetesVolumeParams     `json:"volumes,omitempty"`
-	Devices        []KubernetesDeviceParams     `json:"devices,omitempty"`
+	DeploymentInfo    *KubernetesDeploymentInfo    `json:"deployment-info,omitempty"`
+	PodSpec           string                       `json:"pod-spec"`
+	Constraints       constraints.Value            `json:"constraints"`
+	Tags              map[string]string            `json:"tags,omitempty"`
+	Filesystems       []KubernetesFilesystemParams `json:"filesystems,omitempty"`
+	Volumes           []KubernetesVolumeParams     `json:"volumes,omitempty"`
+	Devices           []KubernetesDeviceParams     `json:"devices,omitempty"`
+	OperatorImagePath string                       `json:"operator-image-path,omitempty"`
 }
 
 // KubernetesProvisioningInfoResult holds unit provisioning info or an error.

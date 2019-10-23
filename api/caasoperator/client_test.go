@@ -331,3 +331,29 @@ func (s *operatorSuite) TestSetVersionInvalidApplicationName(c *gc.C) {
 	err := client.SetVersion("", version.Binary{})
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
+
+func (s *operatorSuite) TestWatchUnitStart(c *gc.C) {
+	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		c.Check(objType, gc.Equals, "CAASOperator")
+		c.Check(version, gc.Equals, 0)
+		c.Check(id, gc.Equals, "")
+		c.Check(request, gc.Equals, "WatchUnitStart")
+		c.Assert(arg, jc.DeepEquals, params.Entities{
+			Entities: []params.Entity{{
+				Tag: "application-gitlab",
+			}},
+		})
+		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
+		*(result.(*params.StringsWatchResults)) = params.StringsWatchResults{
+			Results: []params.StringsWatchResult{{
+				Error: &params.Error{Message: "FAIL"},
+			}},
+		}
+		return nil
+	})
+
+	client := caasoperator.NewClient(apiCaller)
+	watcher, err := client.WatchUnitStart("gitlab")
+	c.Assert(watcher, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "FAIL")
+}

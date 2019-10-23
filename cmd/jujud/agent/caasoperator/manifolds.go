@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasunitinit"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
@@ -267,6 +268,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewExecClient:     config.NewExecClient,
 			RunListenerSocket: config.RunListenerSocket,
 		})),
+
+		unitInitWorkerName: ifNotMigrating(caasunitinit.Manifold(caasunitinit.ManifoldConfig{
+			Logger:        loggo.GetLogger("juju.worker.caasunitinit"),
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			ClockName:     clockName,
+			NewWorker:     caasunitinit.NewWorker,
+			NewClient: func(caller base.APICaller) caasunitinit.Client {
+				return caasoperatorapi.NewClient(caller)
+			},
+			NewExecClient:    config.NewExecClient,
+			LoadOperatorInfo: caasoperator.LoadOperatorInfo,
+		})),
 	}
 }
 
@@ -299,6 +313,7 @@ const (
 	clockName            = "clock"
 	operatorName         = "operator"
 	logSenderName        = "log-sender"
+	unitInitWorkerName   = "unit-init-worker"
 
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"

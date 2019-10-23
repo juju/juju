@@ -35,6 +35,7 @@ type Model interface {
 	UUID() string
 	Type() state.ModelType
 	ModelConfig() (*config.Config, error)
+	Containers(providerIds ...string) ([]state.CloudContainer, error)
 }
 
 // Application provides the subset of application state

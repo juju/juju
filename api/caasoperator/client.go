@@ -263,3 +263,24 @@ func (c *Client) SetVersion(appName string, v version.Binary) error {
 	}
 	return results.OneError()
 }
+
+// WatchUnitStart watchs for Unit starts via the CAAS provider.
+func (c *Client) WatchUnitStart(application string) (watcher.StringsWatcher, error) {
+	applicationTag, err := applicationTag(application)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	args := entities(applicationTag)
+	var results params.StringsWatchResults
+	if err := c.facade.FacadeCall("WatchUnitStart", args, &results); err != nil {
+		return nil, err
+	}
+	if n := len(results.Results); n != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", n)
+	}
+	if err := results.Results[0].Error; err != nil {
+		return nil, errors.Trace(err)
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), results.Results[0])
+	return w, nil
+}

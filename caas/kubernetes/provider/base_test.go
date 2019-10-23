@@ -72,7 +72,7 @@ type BaseSuite struct {
 
 	mockDiscovery *mocks.MockDiscoveryInterface
 
-	watchers []*provider.KubernetesWatcher
+	watchers []*provider.KubernetesNotifyWatcher
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -126,8 +126,8 @@ func (s *BaseSuite) getNamespace() string {
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
-		w, err := provider.NewKubernetesWatcher(wi, name, clock)
+	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesNotifyWatcher, error) {
+		w, err := provider.NewKubernetesNotifyWatcher(wi, name, clock)
 		c.Assert(err, jc.ErrorIsNil)
 		s.watchers = append(s.watchers, w)
 		return w, err

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 type mockState struct {
@@ -104,6 +105,7 @@ func (m *mockModel) ModelConfig() (*config.Config, error) {
 	m.MethodCall(m, "ModelConfig")
 	attrs := coretesting.FakeConfig()
 	attrs["workload-storage"] = "k8s-storage"
+	attrs["agent-version"] = jujuversion.Current.String()
 	return config.New(config.UseDefaults, attrs)
 }
 

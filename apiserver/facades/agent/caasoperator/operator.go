@@ -10,8 +10,11 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/caas"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/status"
+	corewatcher "github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -19,6 +22,7 @@ type Facade struct {
 	auth      facade.Authorizer
 	resources facade.Resources
 	state     CAASOperatorState
+	broker    CAASBrokerInterface
 	*common.LifeGetter
 	*common.AgentEntityWatcher
 	*common.Remover
@@ -28,11 +32,19 @@ type Facade struct {
 	model Model
 }
 
+type CAASBrokerInterface interface {
+	WatchUnitStart(appName string) (corewatcher.StringsWatcher, error)
+}
+
 // NewStateFacade provides the signature required for facade registration.
 func NewStateFacade(ctx facade.Context) (*Facade, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
-	return NewFacade(resources, authorizer, stateShim{ctx.State()})
+	caasBroker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+	if err != nil {
+		return nil, errors.Annotate(err, "getting caas client")
+	}
+	return NewFacade(resources, authorizer, stateShim{ctx.State()}, caasBroker)
 }
 
 // NewFacade returns a new CAASOperator facade.
@@ -40,6 +52,7 @@ func NewFacade(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 	st CAASOperatorState,
+	broker CAASBrokerInterface,
 ) (*Facade, error) {
 	if !authorizer.AuthApplicationAgent() {
 		return nil, common.ErrPerm
@@ -87,6 +100,7 @@ func NewFacade(
 		resources:          resources,
 		state:              st,
 		model:              model,
+		broker:             broker,
 	}, nil
 }
 
@@ -229,4 +243,41 @@ func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 		return f.resources.Register(w), changes, nil
 	}
 	return "", nil, watcher.EnsureErr(w)
+}
+
+// WatchUnitStart starts a StringWatcher to watch for Unit start events
+// on the CAAS api.
+func (f *Facade) WatchUnitStart(args params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		id, changes, err := f.watchUnitStart(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].StringsWatcherId = id
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}
+
+func (f *Facade) watchUnitStart(tagString string) (string, []string, error) {
+	tag, err := names.ParseApplicationTag(tagString)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	w, err := f.broker.WatchUnitStart(tag.Name)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	uw, err := newUnitIDWatcher(f.model, w)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	if changes, ok := <-uw.Changes(); ok {
+		return f.resources.Register(uw), changes, nil
+	}
+	return "", nil, watcher.EnsureErr(uw)
 }
