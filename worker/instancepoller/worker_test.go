@@ -113,12 +113,12 @@ func (s *pollGroupEntrySuite) TestShortPollIntervalLogic(c *gc.C) {
 	for i := 0; entry.shortPollInterval < LongPoll && i < 100; i++ {
 		entry.bumpShortPollInterval(clock)
 	}
-	c.Assert(entry.shortPollInterval, gc.Equals, LongPoll, gc.Commentf("short poll interval did not reach long poll interval after 100 interval bumps"))
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf("short poll interval did not reach short poll cap interval after 100 interval bumps"))
 
-	// Check that once we reach the long poll interval we stay capped at it.
+	// Check that once we reach the short poll cap interval we stay capped at it.
 	entry.bumpShortPollInterval(clock)
-	c.Assert(entry.shortPollInterval, gc.Equals, LongPoll, gc.Commentf("short poll should have been capped at the long poll interval"))
-	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(LongPoll))
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf("short poll should have been capped at the short poll cap interval"))
+	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPollCap))
 }
 
 type workerSuite struct{}

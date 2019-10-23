@@ -31,13 +31,15 @@ import (
 // ShortPoll and LongPoll hold the polling intervals for the instance
 // updater. When a machine has no address or is not started, it will be
 // polled at ShortPoll intervals until it does, exponentially backing off
-// with an exponent of ShortPollBackoff until a maximum(ish) of LongPoll.
+// with an exponent of ShortPollBackoff until a maximum of ShortPollCap is
+// reached.
 //
 // When a machine has an address and is started LongPoll will be used to
 // check that the instance address or status has not changed.
 var (
-	ShortPoll        = 1 * time.Second
+	ShortPoll        = 3 * time.Second
 	ShortPollBackoff = 2.0
+	ShortPollCap     = 1 * time.Minute
 	LongPoll         = 15 * time.Minute
 )
 
@@ -125,8 +127,8 @@ func (e *pollGroupEntry) resetShortPollInterval(clk clock.Clock) {
 
 func (e *pollGroupEntry) bumpShortPollInterval(clk clock.Clock) {
 	e.shortPollInterval = time.Duration(float64(e.shortPollInterval) * ShortPollBackoff)
-	if e.shortPollInterval > LongPoll {
-		e.shortPollInterval = LongPoll
+	if e.shortPollInterval > ShortPollCap {
+		e.shortPollInterval = ShortPollCap
 	}
 	e.shortPollAt = clk.Now().Add(e.shortPollInterval)
 }
