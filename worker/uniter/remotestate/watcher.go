@@ -797,10 +797,9 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 	for unit, settings := range change.Changed {
 		snapshot.Members[unit] = settings.Version
 	}
-	// TODO(jam): 2019-10-21 Handle change.AppChanged
-	// for app, settingsVersion := range change.AppChanged {
-	// 	snapshot.ApplicationMembers[app] = settingsVersion
-	// }
+	for app, settingsVersion := range change.AppChanged {
+		snapshot.ApplicationMembers[app] = settingsVersion
+	}
 	for _, unit := range change.Departed {
 		delete(snapshot.Members, unit)
 	}

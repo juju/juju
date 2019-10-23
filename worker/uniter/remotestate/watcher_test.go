@@ -609,16 +609,31 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 		Changed: map[string]watcher.UnitSettings{"mysql/1": {2}, "mysql/2": {1}},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(
+	c.Assert( // Members is updated
 		s.watcher.Snapshot().Relations[123].Members,
 		jc.DeepEquals,
 		map[string]int64{"mysql/1": 2, "mysql/2": 1},
+	)
+	c.Assert( // ApplicationMembers doesn't change
+		s.watcher.Snapshot().Relations[123].ApplicationMembers,
+		jc.DeepEquals,
+		map[string]int64{"mysql": 1},
 	)
 
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		AppChanged: map[string]int64{"mysql": 2},
 	}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	c.Assert( // Members doesn't change
+		s.watcher.Snapshot().Relations[123].Members,
+		jc.DeepEquals,
+		map[string]int64{"mysql/1": 2, "mysql/2": 1},
+	)
+	c.Assert( // But ApplicationMembers is updated
+		s.watcher.Snapshot().Relations[123].ApplicationMembers,
+		jc.DeepEquals,
+		map[string]int64{"mysql": 2},
+	)
 
 	s.st.relationUnitsWatchers[relationTag].changes <- watcher.RelationUnitsChange{
 		Departed: []string{"mysql/1", "mysql/42"},
