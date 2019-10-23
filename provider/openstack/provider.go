@@ -2047,7 +2047,22 @@ func (e *Environ) Subnets(
 }
 
 // NetworkInterfaces is specified on environs.Networking.
-func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	var (
+		infos = make([][]network.InterfaceInfo, len(ids))
+		err   error
+	)
+
+	for idx, id := range ids {
+		if infos[idx], err = e.networkInterfacesForInstance(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+
+	return infos, nil
+}
+
+func (e *Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	infos, err := e.networking.NetworkInterfaces(instId)
 	if err != nil {
 		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)

@@ -1609,8 +1609,10 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Networ
 
 func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
+	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaceList, gc.HasLen, 1)
+	interfaces := interfaceList[0]
 
 	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
 	// The subnet ID is in the form "subnet-x", where x matches the same
@@ -1658,16 +1660,20 @@ func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "")
 
-	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
+	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaceList, gc.HasLen, 1)
+	interfaces := interfaceList[0]
 	c.Assert(interfaces, gc.HasLen, 1)
 	c.Assert(interfaces[0].ProviderSubnetId, gc.Equals, subnets[0].ProviderId)
 }
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
+	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaceList, gc.HasLen, 1)
+	interfaces := interfaceList[0]
 	c.Assert(interfaces, gc.HasLen, 1)
 
 	subnets, err := env.Subnets(t.callCtx, instId, []corenetwork.Id{interfaces[0].ProviderSubnetId})

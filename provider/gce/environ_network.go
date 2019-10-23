@@ -117,7 +117,7 @@ func (e *environ) getMatchingSubnets(
 func (e *environ) getInstanceSubnets(
 	ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
-	ifaces, err := e.NetworkInterfaces(ctx, inst)
+	ifaces, err := e.networkInterfacesForInstance(ctx, inst)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -136,7 +136,22 @@ func (e *environ) getInstanceSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	var (
+		infos = make([][]network.InterfaceInfo, len(ids))
+		err   error
+	)
+
+	for idx, id := range ids {
+		if infos[idx], err = e.networkInterfacesForInstance(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+
+	return infos, nil
+}
+
+func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	insts, err := e.Instances(ctx, []instance.Id{instId})
 	if err != nil {
 		return nil, errors.Trace(err)

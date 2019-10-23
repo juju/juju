@@ -63,7 +63,7 @@ func (e Environ) Subnets(
 	ret := []corenetwork.SubnetInfo{}
 	found := make(map[string]bool)
 	if id != instance.UnknownId {
-		instanceNets, err := e.NetworkInterfaces(ctx, id)
+		instanceNets, err := e.networkInterfacesForInstance(ctx, id)
 		if err != nil {
 			return ret, errors.Trace(err)
 		}
@@ -158,7 +158,22 @@ func (e Environ) getSubnetInfo() ([]corenetwork.SubnetInfo, error) {
 }
 
 // NetworkInterfaces is defined on the environs.Networking interface.
-func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	var (
+		infos = make([][]network.InterfaceInfo, len(ids))
+		err   error
+	)
+
+	for idx, id := range ids {
+		if infos[idx], err = e.networkInterfacesForInstance(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+
+	return infos, nil
+}
+
+func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err

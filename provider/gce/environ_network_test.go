@@ -198,8 +198,10 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -238,7 +240,7 @@ func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
 }
@@ -262,8 +264,10 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -312,8 +316,10 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	}}
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -350,8 +356,10 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,

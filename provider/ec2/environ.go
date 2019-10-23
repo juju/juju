@@ -978,7 +978,22 @@ func (e *environ) gatherInstances(
 }
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	var (
+		infos = make([][]network.InterfaceInfo, len(ids))
+		err   error
+	)
+
+	for idx, id := range ids {
+		if infos[idx], err = e.networkInterfacesForInstance(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+
+	return infos, nil
+}
+
+func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -1081,7 +1096,7 @@ func (e *environ) Subnets(
 	}
 
 	if instId != instance.UnknownId {
-		interfaces, err := e.NetworkInterfaces(ctx, instId)
+		interfaces, err := e.networkInterfacesForInstance(ctx, instId)
 		if err != nil {
 			return results, errors.Trace(err)
 		}
