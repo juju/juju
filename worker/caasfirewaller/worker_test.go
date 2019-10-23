@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -63,6 +64,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		ApplicationGetter: &s.applicationGetter,
 		ServiceExposer:    &s.serviceExposer,
 		LifeGetter:        &s.lifeGetter,
+		Logger:            loggo.GetLogger("test"),
 	}
 }
 
@@ -94,6 +96,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
 		config.LifeGetter = nil
 	}, `missing LifeGetter not valid`)
+
+	s.testValidateConfig(c, func(config *caasfirewaller.Config) {
+		config.Logger = nil
+	}, `missing Logger not valid`)
 }
 
 func (s *WorkerSuite) testValidateConfig(c *gc.C, f func(*caasfirewaller.Config), expect string) {

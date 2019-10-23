@@ -159,8 +159,16 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (map[string]string, error) {
-	return m.bindings, nil
+func (m *mockApplication) EndpointBindings() (crossmodel.Bindings, error) {
+	return &mockBindings{bMap: m.bindings}, nil
+}
+
+type mockBindings struct {
+	bMap map[string]string
+}
+
+func (b *mockBindings) Map() map[string]string {
+	return b.bMap
 }
 
 type mockSpace struct {
@@ -325,10 +333,10 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 	return &offer, nil
 }
 
-func (m *mockState) Space(name string) (applicationoffers.Space, error) {
-	space, ok := m.spaces[name]
+func (m *mockState) SpaceByID(id string) (applicationoffers.Space, error) {
+	space, ok := m.spaces[id]
 	if !ok {
-		return nil, errors.NotFoundf("space %q", name)
+		return nil, errors.NotFoundf("space %q", id)
 	}
 	return space, nil
 }

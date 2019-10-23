@@ -8,7 +8,6 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/tomb.v2"
 
@@ -17,7 +16,9 @@ import (
 	"github.com/juju/juju/logfwd"
 )
 
-var logger = loggo.GetLogger("juju.worker.logforwarder")
+// logger is here to stop the desire of creating a package level logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // LogStream streams log entries from a log source (e.g. the Juju controller).
 type LogStream interface {
@@ -74,6 +75,8 @@ type OpenLogForwarderArgs struct {
 	// OpenLogStream is the function that will be used to for the
 	// log stream.
 	OpenLogStream LogStreamFn
+
+	Logger Logger
 }
 
 // processNewConfig acts on a new syslog forward config change.
@@ -97,7 +100,7 @@ func (lf *LogForwarder) processNewConfig(currentSender SendCloser) (SendCloser, 
 		return nil, errors.Trace(err)
 	}
 	if !ok || !cfg.Enabled {
-		logger.Infof("config change - log forwarding not enabled")
+		lf.args.Logger.Infof("config change - log forwarding not enabled")
 		return nil, closeExisting()
 	}
 	// If the config is not valid, we don't want to exit with an error
@@ -105,7 +108,7 @@ func (lf *LogForwarder) processNewConfig(currentSender SendCloser) (SendCloser, 
 	// config change to come through.
 	// We'll continue sending using the current sink.
 	if err := cfg.Validate(); err != nil {
-		logger.Errorf("invalid log forward config change: %v", err)
+		lf.args.Logger.Errorf("invalid log forward config change: %v", err)
 		return currentSender, nil
 	}
 
@@ -145,7 +148,7 @@ func (lf *LogForwarder) waitForEnabled() (bool, error) {
 	defer lf.mu.Unlock()
 
 	if !lf.enabled && enabled {
-		logger.Infof("log forward enabled, starting to stream logs to syslog sink")
+		lf.args.Logger.Infof("log forward enabled, starting to stream logs to syslog sink")
 	}
 	lf.enabled = enabled
 	return enabled, nil

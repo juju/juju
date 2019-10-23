@@ -39,6 +39,7 @@ type mockClient struct {
 	virtualMachines       []*mo.VirtualMachine
 	datastores            []*mo.Datastore
 	vmFolder              *object.Folder
+	hasPrivilege          bool
 }
 
 func (c *mockClient) Close(ctx context.Context) error {
@@ -123,6 +124,13 @@ func (c *mockClient) UpdateVirtualMachineExtraConfig(ctx context.Context, vm *mo
 	defer c.mu.Unlock()
 	c.MethodCall(c, "UpdateVirtualMachineExtraConfig", ctx, vm, attrs)
 	return c.NextErr()
+}
+
+func (c *mockClient) UserHasRootLevelPrivilege(ctx context.Context, privilege string) (bool, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.MethodCall(c, "UserHasRootLevelPrivilege", ctx, privilege)
+	return c.hasPrivilege, c.NextErr()
 }
 
 func (c *mockClient) VirtualMachines(ctx context.Context, path string) ([]*mo.VirtualMachine, error) {

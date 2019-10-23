@@ -29,6 +29,8 @@ type applicationWorker struct {
 	applicationGetter        ApplicationGetter
 	applicationUpdater       ApplicationUpdater
 	unitUpdater              UnitUpdater
+
+	logger Logger
 }
 
 func newApplicationWorker(
@@ -40,6 +42,7 @@ func newApplicationWorker(
 	applicationGetter ApplicationGetter,
 	applicationUpdater ApplicationUpdater,
 	unitUpdater UnitUpdater,
+	logger Logger,
 ) (*applicationWorker, error) {
 	w := &applicationWorker{
 		application:              application,
@@ -50,6 +53,7 @@ func newApplicationWorker(
 		applicationGetter:        applicationGetter,
 		applicationUpdater:       applicationUpdater,
 		unitUpdater:              unitUpdater,
+		logger:                   logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -78,6 +82,7 @@ func (aw *applicationWorker) loop() error {
 		aw.provisioningInfoGetter,
 		aw.applicationGetter,
 		aw.applicationUpdater,
+		aw.logger,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -108,7 +113,7 @@ func (aw *applicationWorker) loop() error {
 	// so we only report true changes.
 	lastReportedStatus := make(map[string]status.StatusInfo)
 	lastReportedScale := -1
-
+	logger := aw.logger
 	for {
 		// The caas watcher can just die from underneath so recreate if needed.
 		if brokerUnitsWatcher == nil {
@@ -317,14 +322,14 @@ func (aw *applicationWorker) clusterChanged(
 	if err := aw.unitUpdater.UpdateUnits(args); err != nil {
 		if errors.IsForbidden(err) {
 			// ignore errors raised from SetScale because disordered events could happen often.
-			logger.Warningf("%v", err)
+			aw.logger.Warningf("%v", err)
 			return nil
 		}
 		// We can ignore not found errors as the worker will get stopped anyway.
 		if !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
-		logger.Warningf("update units %v", err)
+		aw.logger.Warningf("update units %v", err)
 	}
 	return nil
 }

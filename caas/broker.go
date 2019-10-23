@@ -120,6 +120,9 @@ type ServiceParams struct {
 
 	// Devices is a set of parameters for Devices that is required.
 	Devices []devices.KubernetesDeviceParams
+
+	// OperatorImagePath is the path to the OCI image shared by the operator and pod init.
+	OperatorImagePath string
 }
 
 // OperatorState is returned by the OperatorExists call.
@@ -158,6 +161,11 @@ type Broker interface {
 	// of the specified application. Filesystems are mounted
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
+
+	// WatchUnitStart returns a watcher which notifies when units
+	// in an application is starting/restarting. Each string represents
+	// the provider id for the unit.
+	WatchUnitStart(appName string) (watcher.StringsWatcher, error)
 
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.

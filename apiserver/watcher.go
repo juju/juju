@@ -162,7 +162,7 @@ func newStringsWatcher(context facade.Context) (facade.Facade, error) {
 
 	// TODO(wallyworld) - enhance this watcher to support
 	// anonymous api calls with macaroons.
-	if auth.GetAuthTag() != nil && !isAgent(auth) {
+	if auth.GetAuthTag() != nil && !isAgentOrUser(auth) {
 		return nil, common.ErrPerm
 	}
 	watcher, ok := resources.Get(id).(cache.StringsWatcher)

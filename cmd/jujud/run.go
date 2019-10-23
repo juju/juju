@@ -28,7 +28,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter"
 )

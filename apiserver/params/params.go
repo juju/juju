@@ -419,6 +419,20 @@ type ApplicationUnitParams struct {
 	Data           map[string]interface{}     `json:"data,omitempty"`
 }
 
+// ApplicationMergeBindingsArgs holds the parameters for updating application
+// bindings.
+type ApplicationMergeBindingsArgs struct {
+	Args []ApplicationMergeBindings `json:"args"`
+}
+
+// ApplicationMergeBindings holds a list of operator-defined bindings to be
+// merged with the current application bindings.
+type ApplicationMergeBindings struct {
+	ApplicationTag string            `json:"application-tag"`
+	Bindings       map[string]string `json:"bindings"`
+	Force          bool              `json:"force"`
+}
+
 // DestroyApplicationUnits holds parameters for the deprecated
 // Application.DestroyUnits call.
 type DestroyApplicationUnits struct {

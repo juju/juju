@@ -191,13 +191,15 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	// --storage provided or nominated storage found but Juju does not have preferred storage config to
 	// compare with for the cloudType(like maas for example);
 	var (
-		provisioner string
-		params      map[string]string
+		provisioner       string
+		volumeBindingMode string
+		params            map[string]string
 	)
 	scName := storageParams.WorkloadStorage
 	nonPreferredStorageErr, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
 	if ok {
 		provisioner = nonPreferredStorageErr.Provisioner
+		volumeBindingMode = nonPreferredStorageErr.VolumeBindingMode
 		params = nonPreferredStorageErr.Parameters
 	} else if clusterMetadata.NominatedStorageClass != nil {
 		// no preferred storage class config but nominated storage found.
@@ -205,9 +207,10 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}
 	var sp *caas.StorageProvisioner
 	sp, err = storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
-		Name:        scName,
-		Provisioner: provisioner,
-		Parameters:  params,
+		Name:              scName,
+		Provisioner:       provisioner,
+		Parameters:        params,
+		VolumeBindingMode: volumeBindingMode,
 	})
 	if errors.IsNotFound(err) {
 		return "", errors.Wrap(err, errors.NotFoundf("storage class %q", scName))

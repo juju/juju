@@ -2878,8 +2878,11 @@ func (s *uniterSuite) TestWatchUnitAddressesHash(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				StringsWatcherId: "1",
-				// This is an empty sha256 hash.
-				Changes: []string{"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"},
+				// The unit's machine has no network addresses
+				// so the expected hash only contains the
+				// sorted endpoint to space ID bindings for the
+				// wordpress application.
+				Changes: []string{"6048d9d417c851eddf006fa5b5435549313ee3046cf45a8223f47244d8c73e03"},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -4463,6 +4466,52 @@ func (s *uniterNetworkInfoSuite) TestNetworkInfoV6Results(c *gc.C) {
 	c.Check(result, jc.DeepEquals, expectedResult)
 }
 
+func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	// Clear network settings from all relation units
+	relList, err := s.wordpressUnit.RelationsJoined()
+	c.Assert(err, gc.IsNil)
+	for _, rel := range relList {
+		relUnit, err := rel.Unit(s.wordpressUnit)
+		c.Assert(err, gc.IsNil)
+		relSettings, err := relUnit.Settings()
+		c.Assert(err, gc.IsNil)
+		relSettings.Delete("private-address")
+		relSettings.Delete("ingress-address")
+		relSettings.Delete("egress-subnets")
+		_, err = relSettings.Write()
+		c.Assert(err, gc.IsNil)
+	}
+
+	// Making an UpdateNetworkInfo call should re-generate them for us.
+	args := params.Entities{
+		Entities: []params.Entity{
+			{
+				Tag: s.wordpressUnit.Tag().String(),
+			},
+		},
+	}
+
+	apiV12, err := uniter.NewUniterAPIV12(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+	res, err := apiV12.UpdateNetworkInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.OneError(), gc.IsNil)
+
+	// Validate settings
+	for _, rel := range relList {
+		relUnit, err := rel.Unit(s.wordpressUnit)
+		c.Assert(err, gc.IsNil)
+		relSettings, err := relUnit.Settings()
+		c.Assert(err, gc.IsNil)
+		relMap := relSettings.Map()
+		c.Assert(relMap["private-address"], gc.Equals, "10.0.0.10")
+		c.Assert(relMap["ingress-address"], gc.Equals, "10.0.0.10")
+		c.Assert(relMap["egress-subnets"], gc.Equals, "10.0.0.10/32")
+	}
+}
+
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
@@ -4504,7 +4553,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	expectedResult := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				Addresses: []params.InterfaceAddress{},
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.1"},
+				},
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},
@@ -4551,7 +4602,9 @@ func (s *uniterSuite) TestNetworkInfoCAASModelNoRelation(c *gc.C) {
 	expectedResult := params.NetworkInfoResult{
 		Info: []params.NetworkInfo{
 			{
-				Addresses: []params.InterfaceAddress{},
+				Addresses: []params.InterfaceAddress{
+					{Address: "10.0.0.1"},
+				},
 			},
 		},
 		EgressSubnets:    []string{"54.32.1.2/32"},

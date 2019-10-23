@@ -71,10 +71,10 @@ clouds:
 		},
 	})
 
-	_, err := s.run(c, "show-credential", "dummy", "cred")
+	_, err := s.run(c, "show-credential", "dummy", "cred", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, "update-credential", "dummy", "cred")
+	_, err = s.run(c, "update-credential", "dummy", "cred", "--no-prompt")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
 	store.UpdateCredential("dummy", cloud.CloudCredential{
@@ -85,10 +85,11 @@ clouds:
 			}),
 		},
 	})
-	ctx, err := s.run(c, "update-credential", "dummy", "cred")
+	ctx, err := s.run(c, "update-credential", "dummy", "cred", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Local client was updated successfully with provided credential information.
 Credential valid for:
   controller
 Controller credential "cred" for user "admin" for cloud "dummy" on controller "kontroll" updated.
@@ -184,11 +185,10 @@ Changed cloud credential on model "controller" to "newcred".
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandAll(c *gc.C) {
-	ctx, err := s.run(c, "show-credential")
+	ctx, err := s.run(c, "show-credential", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-local-credentials: {}
 controller-credentials:
   dummy:
     cred:
@@ -202,11 +202,9 @@ controller-credentials:
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandWithName(c *gc.C) {
-	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets")
+	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets", "--no-prompt", "--controller-only")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "local credential content lookup failed: loading credentials: credentials for cloud dummy not found\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-local-credentials: {}
 controller-credentials:
   dummy:
     cred:

@@ -116,6 +116,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Clock:                 s.clock,
 		PodSpecSetter:         &s.client,
 		DataDir:               c.MkDir(),
+		ProfileDir:            c.MkDir(),
 		Downloader:            &s.charmDownloader,
 		StatusSetter:          &s.client,
 		ApplicationWatcher:    &s.client,
@@ -140,6 +141,10 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.Application = ""
 	}, `application name "" not valid`)
+
+	s.testValidateConfig(c, func(config *caasoperator.Config) {
+		config.ProfileDir = ""
+	}, `missing ProfileDir not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.ApplicationWatcher = nil
@@ -213,6 +218,21 @@ func (s *WorkerSuite) TestStartStop(c *gc.C) {
 	w, err := caasoperator.NewWorker(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckAlive(c, w)
+	attempts := utils.AttemptStrategy{
+		Total: 500 * time.Millisecond,
+		Delay: 100 * time.Millisecond,
+	}
+	done := false
+	for attempt := attempts.Start(); attempt.Next(); {
+		_, err = os.Stat(filepath.Join(s.config.ProfileDir, "juju-introspection.sh"))
+		done = err == nil
+		if done {
+			break
+		}
+	}
+	if !done {
+		c.Fatal("missing introspection script")
+	}
 	workertest.CleanKill(c, w)
 }
 

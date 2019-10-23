@@ -676,6 +676,10 @@ func deployApplication(
 		attachStorage[i] = tag
 	}
 
+	bindings, err := state.NewBindings(backend, args.EndpointBindings)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	_, err = deployApplicationFunc(backend, DeployApplicationParams{
 		ApplicationName:   args.ApplicationName,
 		Series:            args.Series,
@@ -689,7 +693,7 @@ func deployApplication(
 		Storage:           args.Storage,
 		Devices:           args.Devices,
 		AttachStorage:     attachStorage,
-		EndpointBindings:  args.EndpointBindings,
+		EndpointBindings:  bindings.Map(),
 		Resources:         args.Resources,
 	})
 	return errors.Trace(err)
@@ -2393,6 +2397,9 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
+		// TODO (hml) 2019-10-16
+		// bindings.MapWithSpaceNames() might be of
+		// use here.
 		out[i].Result = &params.ApplicationInfo{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
@@ -2402,10 +2409,47 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			Principal:        app.IsPrincipal(),
 			Exposed:          app.IsExposed(),
 			Remote:           app.IsRemote(),
-			EndpointBindings: bindings,
+			EndpointBindings: bindings.Map(),
 		}
 	}
 	return params.ApplicationInfoResults{out}, nil
+}
+
+// MergeBindings merges operator-defined bindings with the current bindings for
+// one or more applications.
+func (api *APIBase) MergeBindings(in params.ApplicationMergeBindingsArgs) (params.ErrorResults, error) {
+	if err := api.checkCanWrite(); err != nil {
+		return params.ErrorResults{}, err
+	}
+
+	if err := api.check.ChangeAllowed(); err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(in.Args))
+	for i, arg := range in.Args {
+		tag, err := names.ParseApplicationTag(arg.ApplicationTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+		app, err := api.backend.Application(tag.Name)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		bindings, err := state.NewBindings(api.backend, arg.Bindings)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err := app.MergeBindings(bindings, arg.Force); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+	return params.ErrorResults{Results: res}, nil
 }
 
 // lxdCharmProfiler massages a *state.Charm into a LXDProfiler

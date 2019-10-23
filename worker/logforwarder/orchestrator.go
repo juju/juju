@@ -35,6 +35,8 @@ type OrchestratorArgs struct {
 
 	// OpenLogForwarder opens each log forwarder that will be used.
 	OpenLogForwarder func(OpenLogForwarderArgs) (*LogForwarder, error)
+
+	Logger Logger
 }
 
 func newOrchestratorForController(args OrchestratorArgs) (*orchestrator, error) {
@@ -53,6 +55,7 @@ func newOrchestratorForController(args OrchestratorArgs) (*orchestrator, error) 
 		Name:             args.Sinks[0].Name,
 		OpenSink:         args.Sinks[0].OpenFn,
 		OpenLogStream:    args.OpenLogStream,
+		Logger:           args.Logger,
 	})
 	return &orchestrator{lf}, errors.Annotate(err, "opening log forwarder")
 }

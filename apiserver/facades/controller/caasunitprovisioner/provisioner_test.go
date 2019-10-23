@@ -4,6 +4,7 @@
 package caasunitprovisioner_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/clock"
@@ -26,6 +27,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	storageprovider "github.com/juju/juju/storage/provider"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})
@@ -198,6 +200,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			DeploymentType: "stateful",
 			ServiceType:    "loadbalancer",
 		},
+		OperatorImagePath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()),
 		Devices: []params.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
@@ -243,9 +246,12 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 				MountPoint: "/var/lib/juju/storage/logs/0",
 			},
 		}}
+	c.Assert(results.Results[0].Error, gc.IsNil)
 	obtained := results.Results[0].Result
+	c.Assert(obtained, gc.NotNil)
 	c.Assert(obtained.PodSpec, jc.DeepEquals, expectedResult.PodSpec)
 	c.Assert(obtained.DeploymentInfo, jc.DeepEquals, expectedResult.DeploymentInfo)
+	c.Assert(obtained.OperatorImagePath, gc.Equals, expectedResult.OperatorImagePath)
 	c.Assert(len(obtained.Filesystems), gc.Equals, len(expectedFileSystems))
 	for _, fs := range obtained.Filesystems {
 		c.Assert(fs, gc.DeepEquals, expectedFileSystems[fs.StorageName])

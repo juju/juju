@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -14,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/watcher"
 )
 
 // ActionAPI implements the client API for interacting with Actions
@@ -37,6 +39,11 @@ type APIv3 struct {
 
 // APIv4 provides the Action API facade for version 4.
 type APIv4 struct {
+	*APIv5
+}
+
+// APIv5 provides the Action API facade for version 5.
+type APIv5 struct {
 	*ActionAPI
 }
 
@@ -60,11 +67,20 @@ func NewActionAPIV3(ctx facade.Context) (*APIv3, error) {
 
 // NewActionAPIV4 returns an initialized ActionAPI for version 4.
 func NewActionAPIV4(ctx facade.Context) (*APIv4, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	api, err := NewActionAPIV5(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv4{api}, nil
+}
+
+// NewActionAPIV5 returns an initialized ActionAPI for version 4.
+func NewActionAPIV5(ctx facade.Context) (*APIv5, error) {
+	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv5{api}, nil
 }
 
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
@@ -280,6 +296,92 @@ func (a *ActionAPI) ListAll(arg params.Entities) (params.ActionsByReceivers, err
 	return a.internalList(arg, combine(pendingActions, runningActions, completedActions))
 }
 
+// Tasks fetches the called functions (actions) for specified apps/units.
+func (a *ActionAPI) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	unitTags := set.NewStrings()
+	for _, name := range arg.Units {
+		unitTags.Add(names.NewUnitTag(name).String())
+	}
+	appNames := arg.Applications
+	if len(appNames) == 0 && unitTags.Size() == 0 {
+		apps, err := a.state.AllApplications()
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		for _, a := range apps {
+			appNames = append(appNames, a.Name())
+		}
+	}
+	for _, aName := range appNames {
+		app, err := a.state.Application(aName)
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		units, err := app.AllUnits()
+		if err != nil {
+			return params.ActionResults{}, errors.Trace(err)
+		}
+		for _, u := range units {
+			unitTags.Add(u.Tag().String())
+		}
+	}
+
+	var entities params.Entities
+	for _, unitTag := range unitTags.SortedValues() {
+		entities.Entities = append(entities.Entities, params.Entity{Tag: unitTag})
+	}
+
+	statusSet := set.NewStrings(arg.Status...)
+	if statusSet.Size() == 0 {
+		statusSet = set.NewStrings(params.ActionPending, params.ActionRunning, params.ActionCompleted)
+	}
+	var extractorFuncs []extractorFn
+	for _, status := range statusSet.SortedValues() {
+		switch status {
+		case params.ActionPending:
+			extractorFuncs = append(extractorFuncs, pendingActions)
+		case params.ActionRunning:
+			extractorFuncs = append(extractorFuncs, runningActions)
+		case params.ActionCompleted:
+			extractorFuncs = append(extractorFuncs, completedActions)
+		}
+	}
+
+	byReceivers, err := a.internalList(entities, combine(extractorFuncs...))
+	if err != nil {
+		return params.ActionResults{}, errors.Trace(err)
+	}
+
+	nameMatches := func(name string, filter []string) bool {
+		if len(filter) == 0 {
+			return true
+		}
+		for _, f := range filter {
+			if f == name {
+				return true
+			}
+		}
+		return false
+	}
+
+	var result params.ActionResults
+	for _, actions := range byReceivers.Actions {
+		if actions.Error != nil {
+			return params.ActionResults{}, errors.Trace(actions.Error)
+		}
+		for _, ar := range actions.Actions {
+			if nameMatches(ar.Action.Name, arg.FunctionNames) {
+				result.Results = append(result.Results, ar)
+			}
+		}
+	}
+	return result, nil
+}
+
 // ListPending takes a list of Entities representing ActionReceivers
 // and returns all of the Actions that are enqueued for each of those
 // Entities.
@@ -464,4 +566,30 @@ func runningActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
 // params.ActionResult.
 func completedActions(ar state.ActionReceiver) ([]params.ActionResult, error) {
 	return common.ConvertActions(ar, ar.CompletedActions)
+}
+
+// WatchActionsProgress creates a watcher that reports on action log messages.
+func (api *ActionAPI) WatchActionsProgress(actions params.Entities) (params.StringsWatchResults, error) {
+	results := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(actions.Entities)),
+	}
+	for i, arg := range actions.Entities {
+		actionTag, err := names.ParseActionTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		w := api.state.WatchActionLogs(actionTag.Id())
+		// Consume the initial event.
+		changes, ok := <-w.Changes()
+		if !ok {
+			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
+			continue
+		}
+
+		results.Results[i].Changes = changes
+		results.Results[i].StringsWatcherId = api.resources.Register(w)
+	}
+	return results, nil
 }

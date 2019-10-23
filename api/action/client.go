@@ -4,10 +4,15 @@
 package action
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 )
 
 // Client provides access to the action facade.
@@ -27,6 +32,19 @@ func NewClient(st base.APICallCloser) *Client {
 func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
 	results := params.ActionResults{}
 	err := c.facade.FacadeCall("Actions", arg, &results)
+	return results, err
+}
+
+// Tasks fetches the called functions (actions) for specified apps/units.
+func (c *Client) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
+	results := params.ActionResults{}
+	if v := c.BestAPIVersion(); v < 5 {
+		return results, errors.Errorf("Tasks not supported by this version (%d) of Juju", v)
+	}
+	err := c.facade.FacadeCall("Tasks", arg, &results)
+	if params.ErrCode(err) == params.CodeNotFound {
+		err = nil
+	}
 	return results, err
 }
 
@@ -117,4 +135,31 @@ func (c *Client) ApplicationCharmActions(arg params.Entity) (map[string]params.A
 		return nil, errors.Errorf("action results received for wrong application %q", result.ApplicationTag)
 	}
 	return result.Actions, nil
+}
+
+// WatchActionProgress returns a watcher that reports on action log messages.
+// The result strings are json formatted core.actions.ActionMessage objects.
+func (c *Client) WatchActionProgress(actionId string) (watcher.StringsWatcher, error) {
+	if v := c.BestAPIVersion(); v < 5 {
+		return nil, errors.Errorf("WatchActionProgress not supported by this version (%d) of Juju", v)
+	}
+	var results params.StringsWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: names.NewActionTag(actionId).String()},
+		},
+	}
+	err := c.facade.FacadeCall("WatchActionsProgress", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
 }

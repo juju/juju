@@ -5,8 +5,8 @@ package cloud_test
 
 import (
 	"io/ioutil"
-	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -37,18 +37,18 @@ func (s *removeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *removeSuite) TestRemoveBadArgs(c *gc.C) {
-	cmd := cloud.NewRemoveCloudCommand()
-	_, err := cmdtesting.RunCommand(c, cmd, "--client")
+	command := cloud.NewRemoveCloudCommand()
+	_, err := cmdtesting.RunCommand(c, command, "--client-only")
 	c.Assert(err, gc.ErrorMatches, "Usage: juju remove-cloud <cloud name>")
-	_, err = cmdtesting.RunCommand(c, cmd, "cloud", "extra", "--client")
+	_, err = cmdtesting.RunCommand(c, command, "cloud", "extra", "--client-only")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *removeSuite) TestRemoveNotFound(c *gc.C) {
-	cmd := cloud.NewRemoveCloudCommandForTest(s.store, nil)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "fnord", "--client")
+	command := cloud.NewRemoveCloudCommandForTest(s.store, nil)
+	ctx, err := cmdtesting.RunCommand(c, command, "fnord", "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"fnord\" exists\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No cloud called \"fnord\" exists on this client\n")
 }
 
 func (s *removeSuite) createTestCloudData(c *gc.C) {
@@ -76,57 +76,77 @@ clouds:
 }
 
 func (s *removeSuite) TestRemoveCloudLocal(c *gc.C) {
-	cmd := cloud.NewRemoveCloudCommandForTest(
+	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.RemoveCloudAPI, error) {
+		func() (cloud.RemoveCloudAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack", "--client")
+	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of personal cloud \"homestack\"\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from the client\n")
 	assertPersonalClouds(c, "homestack2")
 }
 
 func (s *removeSuite) TestRemoveCloudNoControllers(c *gc.C) {
 	s.store.Controllers = nil
-	cmd := cloud.NewRemoveCloudCommandForTest(
+	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.RemoveCloudAPI, error) {
+		func() (cloud.RemoveCloudAPI, error) {
 			c.Fail()
 			return s.api, nil
 		})
 	s.createTestCloudData(c)
 	assertPersonalClouds(c, "homestack", "homestack2")
-	_, err := cmdtesting.RunCommand(c, cmd, "homestack")
-	c.Assert(err, gc.NotNil)
-	msg := err.Error()
-	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from this client, use the --client option.*`)
+	ctx, err := cmdtesting.RunCommand(c, command, "homestack")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	assertPersonalClouds(c, "homestack2")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Matches,
+		"To remove cloud \"homestack\" from this client, use the --client-only option.\n"+
+			"Removed details of cloud \"homestack\" from the client\n"+
+			"Could not remote a cloud from a controller: no controller was specified.\n")
+}
+
+func (s *removeSuite) TestRemoveCloudControllerControllerOnly(c *gc.C) {
+	command := cloud.NewRemoveCloudCommandForTest(
+		s.store,
+		func() (cloud.RemoveCloudAPI, error) {
+			return s.api, nil
+		})
+	s.createTestCloudData(c)
+	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "--no-prompt", "--controller-only")
+	c.Assert(err, jc.ErrorIsNil)
+	assertPersonalClouds(c, "homestack", "homestack2")
+	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
+	s.api.CheckCallNames(c, "RemoveCloud", "Close")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
 func (s *removeSuite) TestRemoveCloudController(c *gc.C) {
-	var controllerAPICalled string
-	cmd := cloud.NewRemoveCloudCommandForTest(
+	command := cloud.NewRemoveCloudCommandForTest(
 		s.store,
-		func(controllerName string) (cloud.RemoveCloudAPI, error) {
-			controllerAPICalled = controllerName
+		func() (cloud.RemoveCloudAPI, error) {
 			return s.api, nil
 		})
-	ctx, err := cmdtesting.RunCommand(c, cmd, "homestack")
+	s.createTestCloudData(c)
+	ctx, err := cmdtesting.RunCommand(c, command, "homestack", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerAPICalled, gc.Equals, "mycontroller")
+	assertPersonalClouds(c, "homestack2")
+	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	s.api.CheckCallNames(c, "RemoveCloud", "Close")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"homestack\" on controller \"mycontroller\" removed\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
+		"Removed details of cloud \"homestack\" from the client\n"+
+			"Removed details of cloud \"homestack\" from controller \"mycontroller\"\n")
 }
 
 func (s *removeSuite) TestCannotRemovePublicCloud(c *gc.C) {
 	s.createTestCloudData(c)
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--client")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewRemoveCloudCommand(), "prodstack", "--client-only")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No personal cloud called \"prodstack\" exists\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No cloud called \"prodstack\" exists on this client\n")
 }
 
 func assertPersonalClouds(c *gc.C, names ...string) {

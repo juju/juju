@@ -1,7 +1,7 @@
 [
     {
         "Name": "Action",
-        "Version": 4,
+        "Version": 5,
         "Schema": {
             "type": "object",
             "properties": {
@@ -136,6 +136,28 @@
                             "$ref": "#/definitions/ActionResults"
                         }
                     }
+                },
+                "Tasks": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/TaskQueryArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ActionResults"
+                        }
+                    }
+                },
+                "WatchActionsProgress": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
                 }
             },
             "definitions": {
@@ -168,6 +190,23 @@
                         "name"
                     ]
                 },
+                "ActionMessage": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "timestamp",
+                        "message"
+                    ]
+                },
                 "ActionResult": {
                     "type": "object",
                     "properties": {
@@ -184,6 +223,12 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "log": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionMessage"
+                            }
                         },
                         "message": {
                             "type": "string"
@@ -480,6 +525,72 @@
                         "commands",
                         "timeout"
                     ]
+                },
+                "StringsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
+                    ]
+                },
+                "StringsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "TaskQueryArgs": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "functions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "status": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
                 }
             }
         }
@@ -1621,6 +1732,17 @@
                         }
                     }
                 },
+                "MergeBindings": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ApplicationMergeBindingsArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "ResolveUnitErrors": {
                     "type": "object",
                     "properties": {
@@ -2230,6 +2352,46 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ApplicationMergeBindings": {
+                    "type": "object",
+                    "properties": {
+                        "application-tag": {
+                            "type": "string"
+                        },
+                        "bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "force": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "application-tag",
+                        "bindings",
+                        "force"
+                    ]
+                },
+                "ApplicationMergeBindingsArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ApplicationMergeBindings"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
                     ]
                 },
                 "ApplicationMetricCredential": {
@@ -5737,6 +5899,17 @@
                         }
                     }
                 },
+                "WatchUnitStart": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResults"
+                        }
+                    }
+                },
                 "WatchUnits": {
                     "type": "object",
                     "properties": {
@@ -7491,6 +7664,9 @@
                             "items": {
                                 "$ref": "#/definitions/KubernetesFilesystemParams"
                             }
+                        },
+                        "operator-image-path": {
+                            "type": "string"
                         },
                         "pod-spec": {
                             "type": "string"
@@ -18967,6 +19143,23 @@
                     },
                     "additionalProperties": false
                 },
+                "ActionMessage": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "timestamp",
+                        "message"
+                    ]
+                },
                 "ActionResult": {
                     "type": "object",
                     "properties": {
@@ -18983,6 +19176,12 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "log": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionMessage"
+                            }
                         },
                         "message": {
                             "type": "string"
@@ -33757,7 +33956,7 @@
     },
     {
         "Name": "Uniter",
-        "Version": 12,
+        "Version": 13,
         "Schema": {
             "type": "object",
             "properties": {
@@ -34438,6 +34637,17 @@
                         }
                     }
                 },
+                "UpdateNetworkInfo": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "UpdateSettings": {
                     "type": "object",
                     "properties": {
@@ -34719,6 +34929,23 @@
                     },
                     "additionalProperties": false
                 },
+                "ActionMessage": {
+                    "type": "object",
+                    "properties": {
+                        "message": {
+                            "type": "string"
+                        },
+                        "timestamp": {
+                            "type": "string",
+                            "format": "date-time"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "timestamp",
+                        "message"
+                    ]
+                },
                 "ActionMessageParams": {
                     "type": "object",
                     "properties": {
@@ -34750,6 +34977,12 @@
                         },
                         "error": {
                             "$ref": "#/definitions/Error"
+                        },
+                        "log": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionMessage"
+                            }
                         },
                         "message": {
                             "type": "string"

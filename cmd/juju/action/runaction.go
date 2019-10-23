@@ -278,13 +278,8 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
-		if err != nil {
-			return err
-		}
-		d := FormatActionResult(result)
-		d["id"] = tag.Id()       // Action ID is required in case we timed out.
-		d["unit"] = unitTag.Id() // Formatted unit is nice to have.
+		d := FormatActionResult(result, false)
+		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		out[result.Action.Receiver] = d
 	}
 	return c.out.Write(ctx, out)

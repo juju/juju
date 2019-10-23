@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/multiwatcher"
@@ -294,7 +295,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 	stdOut, stdErr, err := runDeployWithOutput(c, "bundle/wordpress-with-endpoint-bindings")
 	c.Assert(err, gc.ErrorMatches, ""+
 		"cannot deploy bundle: cannot deploy application \"mysql\": "+
-		"cannot add application \"mysql\": unknown space \"db\" not valid")
+		"space not found")
 	c.Assert(stdErr, gc.Equals, ""+
 		`Located bundle "cs:bundle/wordpress-with-endpoint-bindings-1"`+"\n"+
 		"Resolving charm: mysql\n"+
@@ -309,9 +310,9 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSpaceMissi
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public", "", nil, false)
+	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, mysqlch := testcharms.UploadCharmWithSeries(c, s.client, "xenial/mysql-42", "mysql", "bionic")
@@ -327,19 +328,24 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	})
 	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
 		"mysql": {
-			endpointBindings: map[string]string{"server": "db", "server-admin": "", "metrics-client": ""},
+			endpointBindings: map[string]string{
+				"":               network.DefaultSpaceId,
+				"server":         dbSpace.Id(),
+				"server-admin":   network.DefaultSpaceId,
+				"metrics-client": network.DefaultSpaceId},
 		},
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
-				"cache":           "",
-				"url":             "public",
-				"logging-dir":     "",
-				"monitoring-port": "",
-				"db":              "db",
-				"cluster":         "",
-				"db-client":       "db",
-				"admin-api":       "public",
-				"foo-bar":         "",
+				"":                network.DefaultSpaceId,
+				"cache":           network.DefaultSpaceId,
+				"url":             publicSpace.Id(),
+				"logging-dir":     network.DefaultSpaceId,
+				"monitoring-port": network.DefaultSpaceId,
+				"db":              dbSpace.Id(),
+				"cluster":         network.DefaultSpaceId,
+				"db-client":       dbSpace.Id(),
+				"admin-api":       publicSpace.Id(),
+				"foo-bar":         network.DefaultSpaceId,
 			},
 		},
 	})
@@ -833,8 +839,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSeries(c *gc.C) {
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidBinding(c *gc.C) {
+	_, err := s.State.AddSpace("public", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
 	testcharms.UploadCharmWithSeries(c, s.client, "xenial/wordpress-42", "wordpress", "bionic")
-	err := s.DeployBundleYAML(c, `
+	err = s.DeployBundleYAML(c, `
         applications:
             wp:
                 charm: xenial/wordpress-42
@@ -857,7 +865,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleInvalidSpace(c *gc.C) {
     `)
 	// TODO(jam): 2017-02-05 double repeating "cannot deploy application" and "cannot add application" is a bit ugly
 	// https://pad.lv/1661937
-	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": cannot add application "wp": unknown space "public" not valid`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy bundle: cannot deploy application "wp": space not found`)
 }
 
 func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {

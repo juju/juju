@@ -22,9 +22,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/caas"
 	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/juju/paths"
 )
 
 func operatorLabels(appName string) map[string]string {

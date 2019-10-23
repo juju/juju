@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -269,6 +270,14 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	vers, ok := modelConfig.AgentVersion()
+	if !ok {
+		return nil, errors.NewNotValid(nil,
+			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
+		)
+	}
+	vers.Build = 0
+	operatorImagePath := podcfg.GetJujuOCIImagePath(controllerCfg, vers)
 
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {
@@ -299,11 +308,12 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 	}
 
 	info := &params.KubernetesProvisioningInfo{
-		PodSpec:     podSpec,
-		Filesystems: filesystemParams,
-		Devices:     devices,
-		Constraints: mergedCons,
-		Tags:        resourceTags,
+		PodSpec:           podSpec,
+		Filesystems:       filesystemParams,
+		Devices:           devices,
+		Constraints:       mergedCons,
+		Tags:              resourceTags,
+		OperatorImagePath: operatorImagePath,
 	}
 	deployInfo := ch.Meta().Deployment
 	if deployInfo != nil {

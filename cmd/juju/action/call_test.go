@@ -5,11 +5,14 @@ package action_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +23,8 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/testing"
 )
 
 var (
@@ -213,8 +218,8 @@ func (s *CallSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			wrappedCommand, command := action.NewCallCommandForTest(s.store)
-			c.Logf("test %d: should %s:\n$ juju run (function) %s\n", i,
+			wrappedCommand, command := action.NewCallCommandForTest(s.store, nil)
+			c.Logf("test %d: should %s:\n$ juju call (function) %s\n", i,
 				t.should, strings.Join(t.args, " "))
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(wrappedCommand, args)
@@ -236,7 +241,7 @@ func (s *CallSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *CallSuite) TestRun(c *gc.C) {
+func (s *CallSuite) TestCall(c *gc.C) {
 	tests := []struct {
 		should                   string
 		clientSetup              func(client *fakeAPIClient)
@@ -247,6 +252,7 @@ func (s *CallSuite) TestRun(c *gc.C) {
 		expectedFunctionEnqueued []params.Action
 		expectedOutput           string
 		expectedErr              string
+		expectedLogs             []string
 	}{{
 		should:   "fail with multiple results",
 		withArgs: []string{validUnitId, "some-function"},
@@ -315,7 +321,7 @@ func (s *CallSuite) TestRun(c *gc.C) {
 			Receiver:   names.NewUnitTag(validUnitId).String(),
 		}},
 	}, {
-		should:   "run a basic function with no params with output set to function-set data",
+		should:   "call a basic function with no params with output set to action-set data",
 		withArgs: []string{validUnitId, "some-function"},
 		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withFunctionResults: []params.ActionResult{{
@@ -345,7 +351,7 @@ outcome: success
 result-map:
   message: hello`[1:],
 	}, {
-		should:   "run a basic function with no params with plain output including stdout, stderr",
+		should:   "call a basic function with no params with plain output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-function"},
 		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withFunctionResults: []params.ActionResult{{
@@ -383,7 +389,7 @@ result-map:
 hello
 world`[1:],
 	}, {
-		should:   "run a basic function with no params with yaml output including stdout, stderr",
+		should:   "call a basic function with no params with yaml output including stdout, stderr",
 		withArgs: []string{validUnitId, "some-function", "--format", "yaml"},
 		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withFunctionResults: []params.ActionResult{{
@@ -429,9 +435,111 @@ mysql/0:
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+    started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/0`[1:],
 	}, {
-		should:   "run function on multiple units with stdout for each function",
+		should:   "call a basic function with progress logs",
+		withArgs: []string{validUnitId, "some-function", "--utc"},
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+
+		withFunctionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-function",
+			},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"Code":           "0",
+				"Stdout":         "hello",
+				"Stderr":         "world",
+				"StdoutEncoding": "utf-8",
+				"StderrEncoding": "utf-8",
+				"outcome":        "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}},
+		expectedFunctionEnqueued: []params.Action{{
+			Name:       "some-function",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedLogs: []string{"log line 1", "log line 2"},
+		expectedOutput: `
+outcome: success
+result-map:
+  message: hello
+
+hello
+world`[1:],
+	}, {
+		should:   "call a basic action with progress logs with yaml output",
+		withArgs: []string{validUnitId, "some-function", "--format", "yaml", "--utc"},
+		withTags: tagsForIdPrefix(validActionId, validActionTagString),
+
+		withFunctionResults: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      validActionTagString,
+				Receiver: names.NewUnitTag(validUnitId).String(),
+				Name:     "some-function",
+			},
+			Log: []params.ActionMessage{{
+				Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+				Message:   "log line 1",
+			}, {
+				Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+				Message:   "log line 2",
+			}},
+			Status: "completed",
+			Output: map[string]interface{}{
+				"Code":           "0",
+				"Stdout":         "hello",
+				"Stderr":         "world",
+				"StdoutEncoding": "utf-8",
+				"StderrEncoding": "utf-8",
+				"outcome":        "success",
+				"result-map": map[string]interface{}{
+					"message": "hello",
+				},
+			},
+			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Completed: time.Date(2015, time.February, 14, 8, 17, 0, 0, time.UTC),
+		}},
+		expectedFunctionEnqueued: []params.Action{{
+			Name:       "some-function",
+			Parameters: map[string]interface{}{},
+			Receiver:   names.NewUnitTag(validUnitId).String(),
+		}},
+		expectedLogs: []string{"log line 1", "log line 2"},
+		expectedOutput: `
+mysql/0:
+  id: f47ac10b-58cc-4372-a567-0e02b2c3d479
+  log:
+  - 2015-02-14 06:06:06 log line 1
+  - 2015-02-14 06:06:06 log line 2
+  results:
+    Code: "0"
+    Stderr: world
+    StderrEncoding: utf-8
+    Stdout: hello
+    StdoutEncoding: utf-8
+    outcome: success
+    result-map:
+      message: hello
+  status: completed
+  timing:
+    completed: 2015-02-14 08:17:00 +0000 UTC
+    enqueued: 2015-02-14 08:13:00 +0000 UTC
+    started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/0`[1:],
+	}, {
+		should:   "call action on multiple units with stdout for each action",
 		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "yaml"},
 		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
 			validActionId:  {{Tag: validActionTagString}},
@@ -491,6 +599,7 @@ mysql/0:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
     started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/0
 mysql/1:
   id: f47ac10b-58cc-4372-a567-0e02b2c3d478
   results:
@@ -501,9 +610,10 @@ mysql/1:
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
     enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC`[1:],
+    started: 2015-02-14 08:15:00 +0000 UTC
+  unit: mysql/1`[1:],
 	}, {
-		should:   "run function on multiple units with plain output selected",
+		should:   "call function on multiple units with plain output selected",
 		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "plain"},
 		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
 			validActionId:  {{Tag: validActionTagString}},
@@ -668,8 +778,9 @@ mysql/1:
 			},
 		}},
 	}, {
-		should:   "fail with not implemented Leaders method",
-		withArgs: []string{"mysql/leader", "some-function", "--background"},
+		should:      "fail with not implemented Leaders method",
+		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 2 },
+		withArgs:    []string{"mysql/leader", "some-function", "--background"},
 		withFunctionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -705,7 +816,11 @@ mysql/1:
 				fakeClient := &fakeAPIClient{
 					actionResults:    t.withFunctionResults,
 					actionTagMatches: t.withTags,
-					apiVersion:       2,
+					apiVersion:       5,
+					logMessageCh:     make(chan []string, len(t.expectedLogs)),
+				}
+				if len(t.expectedLogs) > 0 {
+					fakeClient.waitForResults = make(chan bool)
 				}
 				if t.clientSetup != nil {
 					t.clientSetup(fakeClient)
@@ -715,9 +830,43 @@ mysql/1:
 				restore := s.patchAPIClient(fakeClient)
 				defer restore()
 
-				wrappedCommand, _ := action.NewCallCommandForTest(s.store)
+				if len(t.expectedLogs) > 0 {
+					go func() {
+						encodedLogs := make([]string, len(t.expectedLogs))
+						for n, log := range t.expectedLogs {
+							msg := actions.ActionMessage{
+								Message:   log,
+								Timestamp: time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+							}
+							msgData, err := json.Marshal(msg)
+							c.Assert(err, jc.ErrorIsNil)
+							encodedLogs[n] = string(msgData)
+						}
+						fakeClient.logMessageCh <- encodedLogs
+					}()
+				}
+
+				var receivedMessages []string
+				var expectedLogs []string
+				for _, msg := range t.expectedLogs {
+					expectedLogs = append(expectedLogs, "06:06:06 "+msg)
+				}
+				wrappedCommand, _ := action.NewCallCommandForTest(s.store, func(_ *cmd.Context, msg string) {
+					receivedMessages = append(receivedMessages, msg)
+					if reflect.DeepEqual(receivedMessages, expectedLogs) {
+						close(fakeClient.waitForResults)
+					}
+				})
 				args := append([]string{modelFlag, "admin"}, t.withArgs...)
 				ctx, err := cmdtesting.RunCommand(c, wrappedCommand, args...)
+
+				if len(t.expectedLogs) > 0 {
+					select {
+					case <-fakeClient.waitForResults:
+					case <-time.After(testing.LongWait):
+						c.Fatal("waiting for log messages to be consumed")
+					}
+				}
 
 				if t.expectedErr != "" || t.withAPIErr != nil {
 					c.Check(err, gc.ErrorMatches, t.expectedErr)

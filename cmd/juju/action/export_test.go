@@ -107,10 +107,16 @@ func (c *ShowCommand) ActionName() string {
 	return c.functionName
 }
 
-func NewShowOutputCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOutputCommand) {
-	c := &showOutputCommand{}
+type ListTasksCommand struct {
+	*listTasksCommand
+}
+
+func NewShowOutputCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *ShowOutputCommand) {
+	c := &showOutputCommand{
+		logMessageHandler: logMessage,
+	}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c), &ShowOutputCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOutputCommand{c}
 }
 
 func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {
@@ -137,8 +143,10 @@ func NewShowCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowComm
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowCommand{c}
 }
 
-func NewCallCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CallCommand) {
-	c := &callCommand{}
+func NewCallCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *CallCommand) {
+	c := &callCommand{
+		logMessageHandler: logMessage,
+	}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &CallCommand{c}
 }
@@ -151,4 +159,10 @@ func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *Run
 
 func ActionResultsToMap(results []params.ActionResult) map[string]interface{} {
 	return resultsToMap(results)
+}
+
+func NewListTasksCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ListTasksCommand) {
+	c := &listTasksCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ListTasksCommand{c}
 }

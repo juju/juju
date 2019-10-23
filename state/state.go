@@ -1320,9 +1320,14 @@ func (st *State) AddApplication(args AddApplicationArgs) (_ *Application, err er
 
 	app := newApplication(st, appDoc)
 
-	endpointBindingsOp, err := createEndpointBindingsOp(
-		st, app.globalKey(),
-		args.EndpointBindings, args.Charm.Meta(),
+	// The app has no existing bindings yet.
+	b, err := app.bindingsForOps(nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpointBindingsOp, err := b.createOp(
+		args.EndpointBindings,
+		args.Charm.Meta(),
 	)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -1800,13 +1805,20 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+
+	// Space constraints must be space name format as they are
+	// used by the providers directly.
+	bindingsNameMap, err := bindings.MapWithSpaceNames()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	spaces := set.NewStrings()
-	for _, space := range bindings {
+	for _, name := range bindingsNameMap {
 		// TODO (manadart 2019-10-08): "" is not a valid space name and so
 		// can not be used as a constraint. This condition will be removed with
 		// the institution of universal mutable spaces.
-		if space != network.DefaultSpaceName {
-			spaces.Add(space)
+		if name != network.DefaultSpaceName {
+			spaces.Add(name)
 		}
 	}
 	spaceCons := constraints.MustParse("spaces=" + strings.Join(spaces.Values(), ","))

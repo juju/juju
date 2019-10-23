@@ -7,14 +7,15 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/core/life"
 )
 
-var logger = loggo.GetLogger("juju.workers.caasunitprovisioner")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // Config holds configuration for the CAAS unit provisioner worker.
 type Config struct {
@@ -27,6 +28,8 @@ type Config struct {
 	ProvisioningStatusSetter ProvisioningStatusSetter
 	LifeGetter               LifeGetter
 	UnitUpdater              UnitUpdater
+
+	Logger Logger
 }
 
 // Validate validates the worker configuration.
@@ -54,6 +57,9 @@ func (config Config) Validate() error {
 	}
 	if config.ProvisioningStatusSetter == nil {
 		return errors.NotValidf("missing ProvisioningStatusSetter")
+	}
+	if config.Logger == nil {
+		return errors.NotValidf("missing Logger")
 	}
 	return nil
 }
@@ -122,6 +128,7 @@ func (p *provisioner) getApplicationWorker(appName string) (*applicationWorker, 
 }
 
 func (p *provisioner) loop() error {
+	logger := p.config.Logger
 	w, err := p.config.ApplicationGetter.WatchApplications()
 	if err != nil {
 		return errors.Trace(err)
@@ -178,6 +185,7 @@ func (p *provisioner) loop() error {
 					p.config.ApplicationGetter,
 					p.config.ApplicationUpdater,
 					p.config.UnitUpdater,
+					logger,
 				)
 				if err != nil {
 					return errors.Trace(err)

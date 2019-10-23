@@ -571,6 +571,12 @@ var configTests = []configTest{
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"backup-dir": "/foo/bar",
 		}),
+	}, {
+		about:       "Default-space takes a string as valid value",
+		useDefaults: config.UseDefaults,
+		attrs: minimalConfigAttrs.Merge(testing.Attrs{
+			"default-space": "_bar",
+		}),
 	},
 }
 
@@ -641,6 +647,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
 		c.Assert(cfg.FirewallMode(), gc.Equals, m)
+	}
+
+	if m, _ := test.attrs["default-space"].(string); m != "" {
+		c.Assert(cfg.DefaultSpace(), gc.Equals, m)
 	}
 
 	keys, _ := test.attrs["authorized-keys"].(string)

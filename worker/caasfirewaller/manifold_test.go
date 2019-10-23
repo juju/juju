@@ -5,6 +5,7 @@ package caasfirewaller_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -47,6 +48,7 @@ func (s *ManifoldSuite) validConfig() caasfirewaller.ManifoldConfig {
 		ModelUUID:      coretesting.ModelTag.Id(),
 		NewClient:      s.newClient,
 		NewWorker:      s.newWorker,
+		Logger:         loggo.GetLogger("test"),
 	}
 }
 
@@ -106,6 +108,12 @@ func (s *ManifoldSuite) TestMissingNewWorker(c *gc.C) {
 	s.checkConfigInvalid(c, config, "nil NewWorker not valid")
 }
 
+func (s *ManifoldSuite) TestMissingLogger(c *gc.C) {
+	config := s.validConfig()
+	config.Logger = nil
+	s.checkConfigInvalid(c, config, "nil Logger not valid")
+}
+
 func (s *ManifoldSuite) checkConfigInvalid(c *gc.C, config caasfirewaller.ManifoldConfig, expect string) {
 	err := config.Validate()
 	c.Check(err, gc.ErrorMatches, expect)
@@ -147,5 +155,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		ApplicationGetter: &s.client,
 		ServiceExposer:    &s.broker,
 		LifeGetter:        &s.client,
+		Logger:            loggo.GetLogger("test"),
 	})
 }

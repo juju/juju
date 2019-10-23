@@ -53,6 +53,15 @@ import (
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
+var (
+	// (achilleasa) 2019-10-11:
+	// These addresses must always be IPs. If not, the facade code
+	// (NetworksForRelation in particular) will attempt to resolve them and
+	// cause the uniter tests to fail with an "unknown host" error.
+	dummyPrivateAddress = network.NewScopedSpaceAddress("172.0.30.1", network.ScopeCloudLocal)
+	dummyPublicAddress  = network.NewScopedSpaceAddress("1.1.1.1", network.ScopePublic)
+)
+
 // worstCase is used for timeouts when timing out
 // will fail the test. Raising this value should
 // not affect the overall running time of the tests
@@ -69,10 +78,7 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = machine.SetProvisioned("i-exist", "", "fake_nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	err = machine.SetProviderAddresses(
-		network.NewScopedSpaceAddress("private.address.example.com", network.ScopeCloudLocal),
-		network.NewScopedSpaceAddress("public.address.example.com", network.ScopePublic),
-	)
+	err = machine.SetProviderAddresses(dummyPrivateAddress, dummyPublicAddress)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -438,11 +444,11 @@ func (waitAddresses) step(c *gc.C, ctx *context) {
 			// GZ 2013-07-10: Hardcoded values from dummy environ
 			//                special cased here, questionable.
 			private, _ := ctx.unit.PrivateAddress()
-			if private.Value != "private.address.example.com" {
+			if private.Value != dummyPrivateAddress.Value {
 				continue
 			}
 			public, _ := ctx.unit.PublicAddress()
-			if public.Value != "public.address.example.com" {
+			if public.Value != dummyPublicAddress.Value {
 				continue
 			}
 			return

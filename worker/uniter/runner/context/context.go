@@ -16,6 +16,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/proxy"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
@@ -794,6 +795,15 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	} else {
 		// TODO(gsamfira): Just for now, reboot will not be supported in actions.
 		defer ctx.handleReboot(&err)
+	}
+
+	// When processing config changed hooks we need to ensure that the
+	// relation settings for the unit endpoints are up to date after
+	// potential changes to already bound endpoints.
+	if process == string(hooks.ConfigChanged) {
+		if e := ctx.unit.UpdateNetworkInfo(); e != nil {
+			return errors.Trace(e)
+		}
 	}
 
 	for id, rctx := range ctx.relations {

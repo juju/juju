@@ -88,7 +88,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
-	})
+	}.WithDefaultRestartStrategy())
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
 

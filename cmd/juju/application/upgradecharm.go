@@ -403,7 +403,11 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 		curBindings := applicationInfo.EndpointBindings
 		appDefaultSpace := detectDefaultSpace(modelConfig, curBindings)
-		c.Bindings, bindingsChangelog = mergeBindings(allEndpoints(charmInfo), curBindings, c.Bindings, appDefaultSpace)
+		newCharmEndpoints := allEndpoints(charmInfo)
+		if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
+			return errors.Trace(err)
+		}
+		c.Bindings, bindingsChangelog = mergeBindings(newCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
 	}
 
 	// Finally, upgrade the application.
@@ -435,6 +439,19 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof(change)
 	}
 
+	return nil
+}
+
+func (c *upgradeCharmCommand) validateEndpointNames(newCharmEndpoints set.Strings, oldEndpointsMap, userBindings map[string]string) error {
+	for epName := range userBindings {
+		if _, exists := oldEndpointsMap[epName]; exists || epName == "" {
+			continue
+		}
+
+		if !newCharmEndpoints.Contains(epName) {
+			return errors.NotFoundf("endpoint %q", epName)
+		}
+	}
 	return nil
 }
 

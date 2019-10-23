@@ -131,6 +131,7 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 			}},
 		Series: "quantal",
 		EndpointBindings: map[string]string{
+			"":                network.DefaultSpaceName,
 			"admin-api":       network.DefaultSpaceName,
 			"cache":           network.DefaultSpaceName,
 			"db":              network.DefaultSpaceName,
@@ -231,6 +232,7 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		ApplicationConfig: expectedAppConfig,
 		Series:            "kubernetes",
 		EndpointBindings: map[string]string{
+			"":      network.DefaultSpaceName,
 			"miner": network.DefaultSpaceName,
 		},
 	})
@@ -297,6 +299,9 @@ var getTests = []struct {
 			},
 		},
 		Series: "quantal",
+		EndpointBindings: map[string]string{
+			"": network.DefaultSpaceName,
+		},
 	},
 }, {
 	about: "deployed application  #2",
@@ -355,6 +360,9 @@ var getTests = []struct {
 			},
 		},
 		Series: "quantal",
+		EndpointBindings: map[string]string{
+			"": network.DefaultSpaceName,
+		},
 	},
 }, {
 	about: "subordinate application",
@@ -372,6 +380,7 @@ var getTests = []struct {
 			},
 		},
 		EndpointBindings: map[string]string{
+			"":                  network.DefaultSpaceName,
 			"info":              network.DefaultSpaceName,
 			"logging-client":    network.DefaultSpaceName,
 			"logging-directory": network.DefaultSpaceName,

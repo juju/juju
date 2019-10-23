@@ -133,6 +133,7 @@ func AllFacades() *facade.Registry {
 	reg("Action", 2, action.NewActionAPIV2)
 	reg("Action", 3, action.NewActionAPIV3)
 	reg("Action", 4, action.NewActionAPIV4)
+	reg("Action", 5, action.NewActionAPIV5)
 	reg("ActionPruner", 1, actionpruner.NewAPI)
 	reg("Agent", 2, agent.NewAgentAPIV2)
 	reg("AgentTools", 1, agenttools.NewFacade)
@@ -317,7 +318,8 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 9, uniter.NewUniterAPIV9)
 	reg("Uniter", 10, uniter.NewUniterAPIV10)
 	reg("Uniter", 11, uniter.NewUniterAPIV11)
-	reg("Uniter", 12, uniter.NewUniterAPI)
+	reg("Uniter", 12, uniter.NewUniterAPIV12)
+	reg("Uniter", 13, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UpgradeSeries", 1, upgradeseries.NewAPI)

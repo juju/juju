@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	"flag"
 	"runtime"
 	"testing"
 
@@ -19,22 +18,15 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")
-
 func init() {
 	// Required for anything requiring components (e.g. resources).
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
 	}
 
-	flag.Parse()
-
-	if *runFeatureTests == false {
-		return
-	}
 	// Initialize all suites here.
 	gc.Suite(&annotationsSuite{})
-	gc.Suite(&CmdApplicationSuite{})
+	gc.Suite(&cmdApplicationSuite{})
 	gc.Suite(&CloudAPISuite{})
 	gc.Suite(&apiEnvironmentSuite{})
 	gc.Suite(&apiLoggerSuite{})
@@ -73,7 +65,7 @@ func init() {
 	gc.Suite(&CAASOperatorSuite{})
 	gc.Suite(&StatusSuite{})
 	gc.Suite(&cmdSetSeriesSuite{})
-	gc.Suite(&CmdExportBundleSuite{})
+	gc.Suite(&cmdExportBundleSuite{})
 	gc.Suite(&cmdDeploySuite{})
 	gc.Suite(&CredentialManagerSuite{})
 	gc.Suite(&cmdCurrentControllerSuite{})

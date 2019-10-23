@@ -9,23 +9,24 @@ import (
 
 // PolicyRule defines rule spec for creating a role or cluster role.
 type PolicyRule struct {
-	Verbs     []string `yaml:"verbs"`
-	APIGroups []string `yaml:"apiGroups,omitempty"`
-	Resources []string `yaml:"resources,omitempty"`
+	Verbs           []string `yaml:"verbs"`
+	APIGroups       []string `yaml:"apiGroups,omitempty"`
+	Resources       []string `yaml:"resources,omitempty"`
+	ResourceNames   []string `yaml:"resourceNames,omitempty"`
+	NonResourceURLs []string `yaml:"nonResourceURLs,omitempty"`
 }
 
 // RBACSpec defines RBAC related spec.
 type RBACSpec struct {
-	AutomountServiceAccountToken *bool    `yaml:"automountServiceAccountToken,omitempty"`
-	ClusterRoleNames             []string `yaml:"ClusterRoleNames,omitempty"`
-
-	Rules []PolicyRule `yaml:"rules,omitempty"`
+	AutomountServiceAccountToken *bool        `yaml:"automountServiceAccountToken,omitempty"`
+	Global                       bool         `yaml:"global,omitempty"`
+	Rules                        []PolicyRule `yaml:"rules,omitempty"`
 }
 
 // Validate returns an error if the spec is not valid.
 func (rs RBACSpec) Validate() error {
-	if len(rs.ClusterRoleNames) == 0 && len(rs.Rules) == 0 {
-		return errors.NewNotValid(nil, "rules or clusterRoleNames are required")
+	if len(rs.Rules) == 0 {
+		return errors.NewNotValid(nil, "rules is required")
 	}
 	return nil
 }

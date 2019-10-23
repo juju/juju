@@ -24,7 +24,6 @@ from utility import (
     JujuAssertionError,
 )
 
-from jujupy.client import temp_bootstrap_env
 from jujupy.utility import until_timeout
 from jujupy.k8s_provider import (
     providers,
@@ -56,7 +55,7 @@ def check_app_healthy(url, timeout=300, success_hook=lambda: None, fail_hook=lam
                 log.info('timeout in %ss', remaining)
     log.error('HTTP health check failed -> %s, status_code -> %s !', url, status_code)
     fail_hook()
-    raise JujuAssertionError('gitlab is not healthy')
+    raise JujuAssertionError('%s is not healthy' % url)
 
 
 def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=120):
@@ -72,9 +71,9 @@ def get_app_endpoint(caas_client, model_name, app_name, svc_type, timeout=120):
                     log.info('load balancer addr for %s is %s' % (app_name, lb_addr))
                     return lb_addr
             except:  # noqa: E722
-                ...
+                continue
         raise JujuAssertionError('No load balancer addr available for %s' % app_name)
-        
+
     return caas_client.get_external_hostname()
 
 
@@ -99,8 +98,8 @@ def deploy_test_workloads(caas_client, k8s_model, caas_provider):
     k8s_model.juju('relate', ('mediawiki-k8s:db', 'mariadb-k8s:server'))
     k8s_model.wait_for_workloads(timeout=600)
     return 'http://' + get_app_endpoint(caas_client, k8s_model.model_name, 'mediawiki-k8s', svc_type)
-    
-    
+
+
 def assess_caas_charm_deployment(caas_client, caas_provider):
     if not caas_client.check_cluster_healthy(timeout=60):
         raise JujuAssertionError('k8s cluster is not healthy because kubectl is not accessible')
@@ -115,7 +114,7 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
         success_hook()
         log.info(caas_client.kubectl('get', 'pv,pvc', '-n', model_name))
         caas_client.ensure_cleanup()
-        
+
     try:
         endpoint = deploy_test_workloads(caas_client, k8s_model, caas_provider)
         check_app_healthy(
@@ -125,8 +124,8 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
         )
         k8s_model.juju(k8s_model._show_status, ('--format', 'tabular'))
     except:  # noqa: E722
-        # run cleanup steps then raise.	
-        fail_hook()	
+        # run cleanup steps then raise.
+        fail_hook()
         raise
 
 

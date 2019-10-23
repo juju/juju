@@ -12,6 +12,13 @@ import (
 	"github.com/juju/juju/caas"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+	Errorf(string, ...interface{})
+}
+
 // ManifoldConfig describes the resources used by the firewaller worker.
 type ManifoldConfig struct {
 	APICallerName string
@@ -22,6 +29,7 @@ type ManifoldConfig struct {
 
 	NewClient func(base.APICaller) Client
 	NewWorker func(Config) (worker.Worker, error)
+	Logger    Logger
 }
 
 // Manifold returns a Manifold that encapsulates the firewaller worker.
@@ -55,6 +63,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}
+	if config.Logger == nil {
+		return errors.NotValidf("nil Logger")
+	}
 	return nil
 }
 
@@ -81,6 +92,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ApplicationGetter: client,
 		LifeGetter:        client,
 		ServiceExposer:    broker,
+		Logger:            config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

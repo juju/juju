@@ -1058,6 +1058,66 @@ func (s *upgradesSuite) TestAddActionPruneSettings(c *gc.C) {
 	s.checkAddPruneSettings(c, "max-action-results-age", "max-action-results-size", config.DefaultActionResultsAge, config.DefaultActionResultsSize, AddActionPruneSettings)
 }
 
+func (s *upgradesSuite) TestAddDefaultSpaceSetting(c *gc.C) {
+	defaultSpaceValue := config.ConfigDefaults()[config.DefaultSpace]
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// should not be changed, because we already have a value
+	m1 := s.makeModel(c, "m1", coretesting.Attrs{
+		config.DefaultSpace: "something",
+	})
+	defer m1.Close()
+
+	// should be changed to default, because we do not have a value yet
+	m2 := s.makeModel(c, "m2", coretesting.Attrs{})
+	defer m2.Close()
+
+	err = settingsColl.Insert(bson.M{
+		"_id": "someothersettingshouldnotbetouched",
+		// non-model setting: should not be touched
+		"settings": bson.M{"key": "value"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	model1, err := m1.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg1, err := model1.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected1 := cfg1.AllAttrs()
+	expected1["resource-tags"] = ""
+
+	model2, err := m2.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cfg2, err := model2.ModelConfig()
+	c.Assert(err, jc.ErrorIsNil)
+	expected2 := cfg2.AllAttrs()
+	expected2[config.DefaultSpace] = defaultSpaceValue
+	expected2["resource-tags"] = ""
+
+	expectedSettings := bsonMById{
+		{
+			"_id":        m1.ModelUUID() + ":e",
+			"settings":   bson.M(expected1),
+			"model-uuid": m1.ModelUUID(),
+		}, {
+			"_id":        m2.ModelUUID() + ":e",
+			"settings":   bson.M(expected2),
+			"model-uuid": m2.ModelUUID(),
+		}, {
+			"_id":      "someothersettingshouldnotbetouched",
+			"settings": bson.M{"key": "value"},
+		},
+	}
+	sort.Sort(expectedSettings)
+
+	s.assertUpgradedData(c, AddDefaultSpaceSetting,
+		upgradedData(settingsColl, expectedSettings),
+	)
+}
+
 func (s *upgradesSuite) TestAddUpdateStatusHookSettings(c *gc.C) {
 	settingsColl, settingsCloser := s.state.db().GetRawCollection(settingsC)
 	defer settingsCloser()
@@ -3834,7 +3894,7 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 		Value: "5.5.5.5",
 	}
 
-	// Update the various machine addresses.
+	// Update the various machine addresses and add some CAAS documents.
 	ops := []txn.Op{
 		{
 			C:  machinesC,
@@ -3852,6 +3912,33 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 				{"$set", bson.D{{"preferredpublicaddress", m2Public}}},
 			},
 		},
+		{
+			C:  cloudContainersC,
+			Id: ensureModelUUID(uuid, "0"),
+			Insert: bson.M{
+				"model-uuid":  uuid,
+				"address":     &m2Public,
+				"provider-id": "c0",
+			},
+		},
+		{
+			C:  cloudContainersC,
+			Id: ensureModelUUID(uuid, "1"),
+			Insert: bson.M{
+				"model-uuid":  uuid,
+				"address":     nil,
+				"provider-id": "c1",
+			},
+		},
+		{
+			C:  cloudServicesC,
+			Id: ensureModelUUID(uuid, "0"),
+			Insert: bson.M{
+				"model-uuid":  uuid,
+				"addresses":   []oldAddress{{Value: "6.6.6.6"}, {Value: "7.7.7.7"}},
+				"provider-id": "s0",
+			},
+		},
 	}
 	c.Assert(s.state.db().RunRawTransaction(ops), jc.ErrorIsNil)
 
@@ -3860,7 +3947,7 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 	s.makeSpace(c, uuid, "space2", "2")
 	s.makeSpace(c, uuid, "space3", "3")
 
-	expected := bsonMById{
+	expMachines := bsonMById{
 		{
 			"_id":                      ensureModelUUID(uuid, "0"),
 			"model-uuid":               uuid,
@@ -3931,9 +4018,117 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 		},
 	}
 
-	col, closer := s.state.db().GetRawCollection(machinesC)
+	expServices := bsonMById{{
+		"_id":         ensureModelUUID(uuid, "0"),
+		"model-uuid":  uuid,
+		"provider-id": "s0",
+		"addresses": []interface{}{
+			bson.M{
+				"value":       "6.6.6.6",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+			bson.M{
+				"value":       "7.7.7.7",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+		},
+	}}
+
+	expContainers := bsonMById{
+		{
+			"_id":         ensureModelUUID(uuid, "0"),
+			"model-uuid":  uuid,
+			"provider-id": "c0",
+			"address": bson.M{
+				"value":       "5.5.5.5",
+				"spaceid":     "0",
+				"addresstype": "",
+			},
+		},
+		{
+			"_id":         ensureModelUUID(uuid, "1"),
+			"provider-id": "c1",
+			"model-uuid":  uuid,
+			"address":     interface{}(nil),
+		},
+	}
+
+	machines, mCloser := s.state.db().GetRawCollection(machinesC)
+	defer mCloser()
+	services, sCloser := s.state.db().GetRawCollection(cloudServicesC)
+	defer sCloser()
+	containers, cCloser := s.state.db().GetRawCollection(cloudContainersC)
+	defer cCloser()
+
+	s.assertUpgradedData(c, ConvertAddressSpaceIDs,
+		upgradedData(machines, expMachines),
+		upgradedData(services, expServices),
+		upgradedData(containers, expContainers),
+	)
+}
+
+func (s *upgradesSuite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(endpointBindingsC)
 	defer closer()
-	s.assertUpgradedData(c, ConvertAddressSpaceIDs, upgradedData(col, expected))
+
+	model1 := s.makeModel(c, "model-1", coretesting.Attrs{})
+	model2 := s.makeModel(c, "model-2", coretesting.Attrs{})
+	defer func() {
+		_ = model1.Close()
+		_ = model2.Close()
+	}()
+
+	uuid1 := model1.ModelUUID()
+	uuid2 := model2.ModelUUID()
+
+	space1, err := model1.AddSpace("testspace", "testspace-43253", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+	space2, err := model2.AddSpace("testspace2", "testspace-43253567", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = col.Insert(bson.M{
+		"_id":        ensureModelUUID(uuid1, "a#ubuntu"),
+		"model-uuid": uuid1,
+		"bindings": bson.M{
+			"one": space1.Name(),
+			"two": network.DefaultSpaceName,
+		},
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid1, "a#ghost"),
+		"model-uuid": uuid1,
+		"bindings": bindingsMap{
+			"one": space1.Name(),
+		},
+	}, bson.M{
+		"_id":        ensureModelUUID(uuid2, "a#ubuntu"),
+		"model-uuid": uuid2,
+		"bindings": bindingsMap{
+			"one": space2.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		// The altered endpointBindings:
+		{
+			"_id":        uuid1 + ":a#ubuntu",
+			"model-uuid": uuid1,
+			"bindings":   bson.M{"one": space1.Id(), "two": network.DefaultSpaceId},
+		}, {
+			"_id":        uuid1 + ":a#ghost",
+			"model-uuid": uuid1,
+			"bindings":   bson.M{"one": space1.Id()},
+		}, {
+			"_id":        uuid2 + ":a#ubuntu",
+			"model-uuid": uuid2,
+			"bindings":   bson.M{"one": space2.Id()},
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, ReplaceSpaceNameWithIDEndpointBindings, upgradedData(col, expected))
 }
 
 func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {

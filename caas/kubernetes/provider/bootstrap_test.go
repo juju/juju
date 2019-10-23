@@ -187,8 +187,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	// Eventually the namespace wil be set to controllerName.
 	// So we have to specify the final namespace(controllerName) for later use.
 	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.pcfg.ControllerName)
-	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesWatcher, error) {
-		w, err := provider.NewKubernetesWatcher(wi, name, clock)
+	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesNotifyWatcher, error) {
+		w, err := provider.NewKubernetesNotifyWatcher(wi, name, clock)
 		c.Assert(err, jc.ErrorIsNil)
 		<-w.Changes() // Consume initial event for testing.
 		s.watchers = append(s.watchers, w)

@@ -12,6 +12,7 @@ import (
 type Backend interface {
 	ExportPartial(cfg state.ExportConfig) (description.Model, error)
 	GetExportConfig() state.ExportConfig
+	state.EndpointBinding
 }
 
 type stateShim struct {

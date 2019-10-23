@@ -45,13 +45,13 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
 )
@@ -71,6 +71,8 @@ const (
 	annotationPrefix = "juju.io"
 
 	operatorContainerName = "juju-operator"
+
+	dataDirVolumeName = "juju-data-dir"
 
 	// OperatorPodIPEnvName is the environment name for operator pod IP.
 	OperatorPodIPEnvName = "JUJU_OPERATOR_POD_IP"
@@ -135,7 +137,7 @@ type kubernetesClient struct {
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
 
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
-type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesWatcher, error)
+type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesNotifyWatcher, error)
 
 // RandomPrefixFunc defines a function used to generate a random hex string.
 type RandomPrefixFunc func() (string, error)
@@ -189,6 +191,8 @@ func (k *kubernetesClient) GetAnnotations() k8sannotations.Annotation {
 	return k.annotations
 }
 
+var k8sversionNumberExtractor = regexp.MustCompile("[0-9]+")
+
 // Version returns cluster version information.
 func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 	k8sver, err := k.client().Discovery().ServerVersion()
@@ -196,11 +200,15 @@ func (k *kubernetesClient) Version() (ver *version.Number, err error) {
 		return nil, errors.Trace(err)
 	}
 
+	clean := func(s string) string {
+		return k8sversionNumberExtractor.FindString(s)
+	}
+
 	ver = &version.Number{}
-	if ver.Major, err = strconv.Atoi(k8sver.Major); err != nil {
+	if ver.Major, err = strconv.Atoi(clean(k8sver.Major)); err != nil {
 		return nil, errors.Trace(err)
 	}
-	if ver.Minor, err = strconv.Atoi(k8sver.Minor); err != nil {
+	if ver.Minor, err = strconv.Atoi(clean(k8sver.Minor)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ver, nil
@@ -572,11 +580,7 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return &caas.StorageProvisioner{
-			Name:        sc.Name,
-			Provisioner: sc.Provisioner,
-			Parameters:  sc.Parameters,
-		}, nil
+		return toCaaSStorageProvisioner(*sc), nil
 	}
 	if !k8serrors.IsNotFound(err) {
 		return nil, errors.Annotatef(err, "getting storage class %q", cfg.Name)
@@ -590,32 +594,29 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	}
 
 	// Create the storage class with the specified provisioner.
-	var reclaimPolicy *core.PersistentVolumeReclaimPolicy
-	if cfg.ReclaimPolicy != "" {
-		policy := core.PersistentVolumeReclaimPolicy(cfg.ReclaimPolicy)
-		reclaimPolicy = &policy
-	}
-	storageClasses := k.client().StorageV1().StorageClasses()
 	sc = &k8sstorage.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: qualifiedStorageClassName(cfg.Namespace, cfg.Name),
 		},
-		Provisioner:   cfg.Provisioner,
-		ReclaimPolicy: reclaimPolicy,
-		Parameters:    cfg.Parameters,
+		Provisioner: cfg.Provisioner,
+		Parameters:  cfg.Parameters,
+	}
+	if cfg.ReclaimPolicy != "" {
+		policy := core.PersistentVolumeReclaimPolicy(cfg.ReclaimPolicy)
+		sc.ReclaimPolicy = &policy
+	}
+	if cfg.VolumeBindingMode != "" {
+		bindMode := k8sstorage.VolumeBindingMode(cfg.VolumeBindingMode)
+		sc.VolumeBindingMode = &bindMode
 	}
 	if cfg.Namespace != "" {
 		sc.Labels = map[string]string{labelModel: k.namespace}
 	}
-	_, err = storageClasses.Create(sc)
+	_, err = k.client().StorageV1().StorageClasses().Create(sc)
 	if err != nil {
 		return nil, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
-	return &caas.StorageProvisioner{
-		Name:        sc.Name,
-		Provisioner: sc.Provisioner,
-		Parameters:  sc.Parameters,
-	}, nil
+	return toCaaSStorageProvisioner(*sc), nil
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {
@@ -922,7 +923,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
-	workloadSpec, err := prepareWorkloadSpec(appName, deploymentName, params.PodSpec)
+	workloadSpec, err := prepareWorkloadSpec(appName, deploymentName, params.PodSpec,
+		params.OperatorImagePath)
 	if err != nil {
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
@@ -1304,6 +1306,67 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 				MountPath: fileSet.MountPath,
 			})
 		}
+	}
+	return nil
+}
+
+func configureInitContainer(podSpec *core.PodSpec, operatorImagePath string) error {
+	dataDir, err := paths.DataDir(CAASProviderType)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait")
+	container := core.Container{
+		Name:            caas.InitContainerName,
+		Image:           operatorImagePath,
+		ImagePullPolicy: core.PullIfNotPresent,
+		VolumeMounts: []core.VolumeMount{{
+			Name:      dataDirVolumeName,
+			MountPath: dataDir,
+		}},
+		WorkingDir: dataDir,
+		Command: []string{
+			"/bin/sh",
+		},
+		Args: []string{
+			"-c",
+			fmt.Sprintf(
+				caas.JujudStartUpSh,
+				dataDir,
+				"tools",
+				jujudCmd,
+			),
+		},
+	}
+	podSpec.InitContainers = append(podSpec.InitContainers, container)
+	return configureDataDir(podSpec)
+}
+
+func configureDataDir(podSpec *core.PodSpec) error {
+	podSpec.Volumes = append(podSpec.Volumes, core.Volume{
+		Name: dataDirVolumeName,
+		VolumeSource: core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{},
+		},
+	})
+	dataDir, err := paths.DataDir(CAASProviderType)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	jujuRun, err := paths.JujuRun(CAASProviderType)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for i := range podSpec.Containers {
+		container := &podSpec.Containers[i]
+		container.VolumeMounts = append(container.VolumeMounts, core.VolumeMount{
+			Name:      dataDirVolumeName,
+			MountPath: dataDir,
+		}, core.VolumeMount{
+			Name:      dataDirVolumeName,
+			MountPath: jujuRun,
+			SubPath:   "tools/jujud",
+		})
 	}
 	return nil
 }
@@ -1741,6 +1804,74 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	return k.newWatcher(w, appName, k.clock)
 }
 
+// WatchUnitStart returns a watcher which notifies when units
+// in an application is starting/restarting. Each string represents
+// the provider id for the unit.
+func (k *kubernetesClient) WatchUnitStart(appName string) (watcher.StringsWatcher, error) {
+	pods := k.client().CoreV1().Pods(k.namespace)
+	selector := applicationSelector(appName)
+	logger.Debugf("selecting units %q to watch", selector)
+	w, err := pods.Watch(v1.ListOptions{
+		LabelSelector:        selector,
+		Watch:                true,
+		IncludeUninitialized: true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	podsList, err := pods.List(v1.ListOptions{
+		LabelSelector:        applicationSelector(appName),
+		IncludeUninitialized: true,
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	podInInit := func(pod *core.Pod) bool {
+		for _, cs := range pod.Status.InitContainerStatuses {
+			if cs.Name == caas.InitContainerName {
+				if cs.State.Running != nil {
+					return true
+				}
+			}
+		}
+		return false
+	}
+
+	podInitState := map[string]struct{}{}
+	var initialEvents []string
+	for _, pod := range podsList.Items {
+		if podInInit(&pod) {
+			podInitState[string(pod.GetUID())] = struct{}{}
+			initialEvents = append(initialEvents, providerID(&pod))
+		}
+	}
+
+	filterEvent := func(evt watch.Event) (string, bool) {
+		pod, ok := evt.Object.(*core.Pod)
+		if !ok {
+			return "", false
+		}
+		key := string(pod.GetUID())
+		if evt.Type == watch.Deleted {
+			delete(podInitState, key)
+			return "", false
+		}
+		if podInInit(pod) {
+			if _, ok := podInitState[key]; !ok {
+				podInitState[key] = struct{}{}
+				return providerID(pod), true
+			}
+		} else {
+			delete(podInitState, key)
+		}
+		return "", false
+	}
+
+	return newKubernetesStringsWatcher(w, appName, k.clock, initialEvents, filterEvent)
+}
+
 // WatchService returns a watcher which notifies when there
 // are changes to the deployment of the specified application.
 func (k *kubernetesClient) WatchService(appName string) (watcher.NotifyWatcher, error) {
@@ -1809,19 +1940,9 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		providerId := string(p.GetUID())
 		stateful := false
-
-		// Pods managed by a stateful set use the pod name
-		// as the provider id as this is stable across pod restarts.
-		for _, ref := range p.OwnerReferences {
-			if stateful = ref.Kind == "StatefulSet"; stateful {
-				providerId = p.Name
-				break
-			}
-		}
 		unitInfo := caas.Unit{
-			Id:       providerId,
+			Id:       providerID(&p),
 			Address:  p.Status.PodIP,
 			Ports:    ports,
 			Dying:    terminated,
@@ -1891,7 +2012,10 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 }
 
 func (k *kubernetesClient) volumeInfoForEmptyDir(vol core.Volume, volMount core.VolumeMount, now time.Time) (*caas.FilesystemInfo, error) {
-	size := uint64(vol.EmptyDir.SizeLimit.Size())
+	size := uint64(0)
+	if vol.EmptyDir.SizeLimit != nil {
+		size = uint64(vol.EmptyDir.SizeLimit.Size())
+	}
 	return &caas.FilesystemInfo{
 		Size:         size,
 		FilesystemId: vol.Name,
@@ -2187,11 +2311,15 @@ func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core
 	return nil
 }
 
-func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec) (*workloadSpec, error) {
+func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
+	operatorImagePath string) (*workloadSpec, error) {
 	var spec workloadSpec
 	if err := processContainers(deploymentName, podSpec, &spec.Pod); err != nil {
 		logger.Errorf("unable to parse %q pod spec: \n%+v", appName, *podSpec)
 		return nil, errors.Annotatef(err, "processing container specs for app %q", appName)
+	}
+	if err := configureInitContainer(&spec.Pod, operatorImagePath); err != nil {
+		return nil, errors.Annotatef(err, "adding init container for app %q", appName)
 	}
 
 	spec.Service = podSpec.Service
@@ -2246,21 +2374,22 @@ func defaultSecurityContext() *core.SecurityContext {
 
 func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []specs.ContainerSpec) error {
 	for i, c := range containers {
+		pc := &podContainers[i]
 		if c.Image != "" {
 			logger.Warningf("Image parameter deprecated, use ImageDetails")
-			podContainers[i].Image = c.Image
+			pc.Image = c.Image
 		} else {
-			podContainers[i].Image = c.ImageDetails.ImagePath
+			pc.Image = c.ImageDetails.ImagePath
 		}
 		if c.ImageDetails.Password != "" {
 			pod.ImagePullSecrets = append(pod.ImagePullSecrets, core.LocalObjectReference{Name: appSecretName(deploymentName, c.Name)})
 		}
 		if c.ImagePullPolicy != "" {
-			podContainers[i].ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
+			pc.ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
 		}
 
+		pc.SecurityContext = defaultSecurityContext()
 		if c.ProviderContainer == nil {
-			podContainers[i].SecurityContext = defaultSecurityContext()
 			continue
 		}
 		spec, ok := c.ProviderContainer.(*k8sspecs.K8sContainerSpec)
@@ -2268,15 +2397,13 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 			return errors.Errorf("unexpected kubernetes container spec type %T", c.ProviderContainer)
 		}
 		if spec.LivenessProbe != nil {
-			podContainers[i].LivenessProbe = spec.LivenessProbe
+			pc.LivenessProbe = spec.LivenessProbe
 		}
 		if spec.ReadinessProbe != nil {
-			podContainers[i].ReadinessProbe = spec.ReadinessProbe
+			pc.ReadinessProbe = spec.ReadinessProbe
 		}
 		if spec.SecurityContext != nil {
-			podContainers[i].SecurityContext = spec.SecurityContext
-		} else {
-			podContainers[i].SecurityContext = defaultSecurityContext()
+			pc.SecurityContext = spec.SecurityContext
 		}
 	}
 	return nil
@@ -2414,4 +2541,15 @@ func getNodeSelectorFromDeviceConstraints(devices []devices.KubernetesDevicePara
 
 func headlessServiceName(deploymentName string) string {
 	return fmt.Sprintf("%s-endpoints", deploymentName)
+}
+
+func providerID(pod *core.Pod) string {
+	// Pods managed by a stateful set use the pod name
+	// as the provider id as this is stable across pod restarts.
+	for _, ref := range pod.OwnerReferences {
+		if ref.Kind == "StatefulSet" {
+			return pod.Name
+		}
+	}
+	return string(pod.GetUID())
 }

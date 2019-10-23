@@ -64,7 +64,6 @@ var (
 	CloudGlobalKey                = cloudGlobalKey
 	RegionSettingsGlobalKey       = regionSettingsGlobalKey
 	ModelGlobalKey                = modelGlobalKey
-	MergeBindings                 = mergeBindings
 	UpgradeInProgressError        = errUpgradeInProgress
 	DBCollectionSizeToInt         = dbCollectionSizeToInt
 	NewEntityWatcher              = newEntityWatcher
@@ -881,6 +880,10 @@ func ApplicationBranches(m *Model, appName string) ([]*Generation, error) {
 func MachinePortOps(st *State, m description.Machine) ([]txn.Op, error) {
 	resolver := &importer{st: st}
 	return resolver.machinePortsOps(m)
+}
+
+func NewBindingsForMergeTest(b map[string]string) *Bindings {
+	return &Bindings{bindingsMap: b}
 }
 
 // ModelBackendShim is required to live here in the export_test.go file because

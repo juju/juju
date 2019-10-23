@@ -121,7 +121,7 @@ service:
     foo: bar
 serviceAccount:
   automountServiceAccountToken: true
-  clusterRoleNames: [someClusterRole1, someClusterRole2]
+  global: true
   rules:
   - apiGroups: [""]
     resources: ["pods"]
@@ -130,11 +130,17 @@ kubernetesResources:
   serviceAccounts:
   - name: k8sServiceAccount1
     automountServiceAccountToken: true
-    clusterRoleNames: [someClusterRole1, someClusterRole2]
+    global: true
     rules:
     - apiGroups: [""]
       resources: ["pods"]
       verbs: ["get", "watch", "list"]
+    - nonResourceURLs: ["/healthz", "/healthz/*"] # '*' in a nonResourceURL is a suffix glob match
+      verbs: ["get", "post"]
+    - apiGroups: ["rbac.authorization.k8s.io"]
+      resources: ["clusterroles"]
+      verbs: ["bind"]
+      resourceNames: ["admin","edit","view"]
   pod:
     restartPolicy: OnFailure
     activeDeadlineSeconds: 10
@@ -197,9 +203,7 @@ foo: bar
 
 	sa1 := &specs.ServiceAccountSpec{}
 	sa1.AutomountServiceAccountToken = boolPtr(true)
-	sa1.ClusterRoleNames = []string{
-		"someClusterRole1", "someClusterRole2",
-	}
+	sa1.Global = true
 	sa1.Rules = []specs.PolicyRule{
 		{
 			APIGroups: []string{""},
@@ -324,15 +328,23 @@ echo "do some stuff here for gitlab-init container"
 		sa2 := k8sspecs.K8sServiceAccountSpec{
 			Name: "k8sServiceAccount1",
 		}
+		sa2.Global = true
 		sa2.AutomountServiceAccountToken = boolPtr(true)
-		sa2.ClusterRoleNames = []string{
-			"someClusterRole1", "someClusterRole2",
-		}
 		sa2.Rules = []specs.PolicyRule{
 			{
 				APIGroups: []string{""},
 				Resources: []string{"pods"},
 				Verbs:     []string{"get", "watch", "list"},
+			},
+			{
+				NonResourceURLs: []string{"/healthz", "/healthz/*"},
+				Verbs:           []string{"get", "post"},
+			},
+			{
+				APIGroups:     []string{"rbac.authorization.k8s.io"},
+				Resources:     []string{"clusterroles"},
+				Verbs:         []string{"bind"},
+				ResourceNames: []string{"admin", "edit", "view"},
 			},
 		}
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -509,7 +521,7 @@ serviceAccount:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `rules or clusterRoleNames are required`)
+	c.Assert(err, gc.ErrorMatches, `rules is required`)
 }
 
 func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {

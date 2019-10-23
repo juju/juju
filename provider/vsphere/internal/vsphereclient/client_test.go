@@ -73,6 +73,10 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			Type:  "SearchIndex",
 			Value: "FakeSearchIndex",
 		},
+		AuthorizationManager: &types.ManagedObjectReference{
+			Type:  "AuthorizationManager",
+			Value: "FakeAuthorizationManager",
+		},
 	}
 	s.roundTripper = mockRoundTripper{
 		collectors: make(map[string]*collector),
@@ -87,6 +91,21 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 			},
 			PropSet: []types.DynamicProperty{
 				{Name: "name", Val: "dc0"},
+			},
+		}},
+		"FakeSessionManager": {{
+			Obj: types.ManagedObjectReference{
+				Type:  "SessionManager",
+				Value: "FakeSessionManager",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "sm"},
+				{
+					Name: "currentSession",
+					Val: types.UserSession{
+						Key: "session-key",
+					},
+				},
 			},
 		}},
 		"FakeDatacenter": {{
@@ -848,6 +867,47 @@ func (s *clientSuite) TestResourcePools(c *gc.C) {
 	c.Check(result[2].InventoryPath, gc.Equals, "/z0/Resources/parent/child")
 	c.Check(result[3].InventoryPath, gc.Equals, "/z0/Resources/other")
 }
+
+func (s *clientSuite) TestUserHasRootLevelPrivilege(c *gc.C) {
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	result, err := client.UserHasRootLevelPrivilege(context.Background(), "Some.Privilege")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, true)
+
+	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeSessionManager"),
+		{"HasPrivilegeOnEntities", []interface{}{
+			"FakeAuthorizationManager",
+			[]types.ManagedObjectReference{s.serviceContent.RootFolder},
+			"session-key",
+			[]string{"Some.Privilege"},
+		}},
+	})
+
+	s.roundTripper.SetErrors(nil, permissionError)
+	result, err = client.UserHasRootLevelPrivilege(context.Background(), "System.Read")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.Equals, false)
+
+	s.roundTripper.SetErrors(nil, permissionError)
+	_, err = client.UserHasRootLevelPrivilege(context.Background(), "Other.Privilege")
+	c.Assert(err, gc.ErrorMatches, `checking for "Other.Privilege" privilege: ServerFaultCode: Permission to perform this operation was denied.`)
+}
+
+var permissionError = soap.WrapSoapFault(&soap.Fault{
+	XMLName: xml.Name{Space: "http://schemas.xmlsoap.org/soap/envelope/", Local: "Fault"},
+	Code:    "ServerFaultCode",
+	String:  "Permission to perform this operation was denied.",
+	Detail: struct {
+		Fault types.AnyType "xml:\",any,typeattr\""
+	}{
+		Fault: types.NoPermission{
+			SecurityError: types.SecurityError{},
+			Object:        types.ManagedObjectReference{Type: "Folder", Value: "group-d1"},
+			PrivilegeId:   "System.Read",
+		},
+	},
+})
 
 func fakeAcquire(spec mutex.Spec) (func(), error) {
 	return func() {}, nil

@@ -88,7 +88,8 @@ type Config struct {
 
 	NewCrossModelFacadeFunc newCrossModelFacadeFunc
 
-	Clock clock.Clock
+	Clock  clock.Clock
+	Logger Logger
 
 	CredentialAPI common.CredentialAPI
 }
@@ -112,6 +113,9 @@ func (cfg Config) Validate() error {
 	}
 	if cfg.NewCrossModelFacadeFunc == nil {
 		return errors.NotValidf("nil Cross Model Facade func")
+	}
+	if cfg.Logger == nil {
+		return errors.NotValidf("nil Logger")
 	}
 	if cfg.CredentialAPI == nil {
 		return errors.NotValidf("nil Credential Facade")
@@ -148,6 +152,7 @@ type Firewaller struct {
 	relationIngress            map[names.RelationTag]*remoteRelationData
 	relationWorkerRunner       *worker.Runner
 	pollClock                  clock.Clock
+	logger                     Logger
 
 	cloudCallContext context.ProviderCallContext
 }
@@ -177,6 +182,7 @@ func NewFirewaller(cfg Config) (worker.Worker, error) {
 		relationIngress:            make(map[names.RelationTag]*remoteRelationData),
 		localRelationsChange:       make(chan *remoteRelationNetworkChange),
 		pollClock:                  clk,
+		logger:                     cfg.Logger,
 		relationWorkerRunner: worker.NewRunner(worker.RunnerParams{
 			Clock: clk,
 
@@ -236,7 +242,7 @@ func (fw *Firewaller) setUp() error {
 		return errors.Trace(err)
 	}
 
-	logger.Debugf("started watching opened port ranges for the model")
+	fw.logger.Debugf("started watching opened port ranges for the model")
 	return nil
 }
 
@@ -318,7 +324,7 @@ func (fw *Firewaller) loop() error {
 }
 
 func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange) error {
-	logger.Debugf("process remote relation ingress change for %v", change.relationTag)
+	fw.logger.Debugf("process remote relation ingress change for %v", change.relationTag)
 	relData, ok := fw.relationIngress[change.relationTag]
 	if ok {
 		relData.networks = change.networks
@@ -326,7 +332,7 @@ func (fw *Firewaller) relationIngressChanged(change *remoteRelationNetworkChange
 	}
 	appData, ok := fw.applicationids[change.localApplicationTag]
 	if !ok {
-		logger.Debugf("ignoring unknown application: %v", change.localApplicationTag)
+		fw.logger.Debugf("ignoring unknown application: %v", change.localApplicationTag)
 		return nil
 	}
 	unitds := []*unitData{}
@@ -351,7 +357,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	}
 	m, err := machined.machine()
 	if params.IsCodeNotFound(err) {
-		logger.Debugf("not watching %q", tag)
+		fw.logger.Debugf("not watching %q", tag)
 		return nil
 	} else if err != nil {
 		return errors.Annotate(err, "cannot watch machine units")
@@ -362,7 +368,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	}
 	if manual {
 		// Don't track manual machines, we can't change their ports.
-		logger.Debugf("not watching manual %q", tag)
+		fw.logger.Debugf("not watching manual %q", tag)
 		return nil
 	}
 	unitw, err := m.WatchUnits()
@@ -409,7 +415,7 @@ func (fw *Firewaller) startMachine(tag names.MachineTag) error {
 	// register the machined with the firewaller's catacomb.
 	err = fw.catacomb.Add(machined)
 	if err == nil {
-		logger.Debugf("started watching %q", tag)
+		fw.logger.Debugf("started watching %q", tag)
 	}
 	return err
 }
@@ -517,13 +523,13 @@ func (fw *Firewaller) reconcileGlobal() error {
 	// Check which ports to open or to close.
 	toOpen, toClose := diffRanges(initialPortRanges, want)
 	if len(toOpen) > 0 {
-		logger.Infof("opening global ports %v", toOpen)
+		fw.logger.Infof("opening global ports %v", toOpen)
 		if err := fw.environFirewaller.OpenPorts(fw.cloudCallContext, toOpen); err != nil {
 			return err
 		}
 	}
 	if len(toClose) > 0 {
-		logger.Infof("closing global ports %v", toClose)
+		fw.logger.Infof("closing global ports %v", toClose)
 		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
 			return err
 		}
@@ -548,7 +554,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		}
 		instanceId, err := m.InstanceId()
 		if errors.IsNotProvisioned(err) {
-			logger.Errorf("Machine not yet provisioned: %v", err)
+			fw.logger.Errorf("Machine not yet provisioned: %v", err)
 			continue
 		}
 		if err != nil {
@@ -576,7 +582,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		// Check which ports to open or to close.
 		toOpen, toClose := diffRanges(initialRules, machined.ingressRules)
 		if len(toOpen) > 0 {
-			logger.Infof("opening instance port ranges %v for %q",
+			fw.logger.Infof("opening instance port ranges %v for %q",
 				toOpen, machined.tag)
 			if err := fwInstance.OpenPorts(fw.cloudCallContext, machineId, toOpen); err != nil {
 				// TODO(mue) Add local retry logic.
@@ -584,7 +590,7 @@ func (fw *Firewaller) reconcileInstances() error {
 			}
 		}
 		if len(toClose) > 0 {
-			logger.Infof("closing instance port ranges %v for %q",
+			fw.logger.Infof("closing instance port ranges %v for %q",
 				toClose, machined.tag)
 			if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
 				// TODO(mue) Add local retry logic.
@@ -618,7 +624,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 			if unit == nil || unit.Life() == params.Dead || machineTag != knownMachineTag {
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
-				logger.Debugf("stopped watching unit %s", name)
+				fw.logger.Debugf("stopped watching unit %s", name)
 			}
 			// TODO(dfc) fw.machineds should be map[names.Tag]
 		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
@@ -630,7 +636,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				return err
 			}
 			changed = append(changed, fw.unitds[unitTag])
-			logger.Debugf("started watching %q", unitTag)
+			fw.logger.Debugf("started watching %q", unitTag)
 		}
 	}
 	if err := fw.flushUnits(changed); err != nil {
@@ -652,7 +658,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag 
 		// registering the machine, so if a machine is not found in
 		// firewaller's list, just skip the change.  Look up will also
 		// fail if it's a manual machine.
-		logger.Debugf("failed to lookup %q, skipping port change", machineTag)
+		fw.logger.Debugf("failed to lookup %q, skipping port change", machineTag)
 		return nil
 	}
 
@@ -673,7 +679,7 @@ func (fw *Firewaller) openedPortsChanged(machineTag names.MachineTag, subnetTag 
 			// It is common to receive port change notification before
 			// registering a unit. Skip handling the port change - it will
 			// be handled when the unit is registered.
-			logger.Debugf("failed to lookup %q, skipping port change", unitTag)
+			fw.logger.Debugf("failed to lookup %q, skipping port change", unitTag)
 			return nil
 		}
 		ranges, ok := newPortRanges[unitd.tag]
@@ -759,7 +765,7 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 		for unitTag, portRanges := range machined.definedPorts {
 			unitd, known := machined.unitds[unitTag]
 			if !known {
-				logger.Debugf("no ingress rules for unknown %v on %v", unitTag, machined.tag)
+				fw.logger.Debugf("no ingress rules for unknown %v on %v", unitTag, machined.tag)
 				continue
 			}
 
@@ -772,7 +778,7 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 				if err := fw.updateForRemoteRelationIngress(unitd.applicationd.application.Tag(), cidrs); err != nil {
 					return nil, errors.Trace(err)
 				}
-				logger.Debugf("CIDRS for %v: %v", unitTag, cidrs.Values())
+				fw.logger.Debugf("CIDRS for %v: %v", unitTag, cidrs.Values())
 			}
 			if cidrs.Size() > 0 {
 				for portRange := range portRanges {
@@ -793,7 +799,7 @@ func (fw *Firewaller) gatherIngressRules(machines ...*machineData) ([]network.In
 const maxAllowedCIDRS = 20
 
 func (fw *Firewaller) updateForRemoteRelationIngress(appTag names.ApplicationTag, cidrs set.Strings) error {
-	logger.Debugf("finding egress rules for %v", appTag)
+	fw.logger.Debugf("finding egress rules for %v", appTag)
 	// Now create the rules for any remote relations of which the
 	// unit's application is a part.
 	newCidrs := make(set.Strings)
@@ -874,7 +880,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 			return err
 		}
 		network.SortIngressRules(toOpen)
-		logger.Infof("opened port ranges %v in environment", toOpen)
+		fw.logger.Infof("opened port ranges %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
 		if err := fw.environFirewaller.ClosePorts(fw.cloudCallContext, toClose); err != nil {
@@ -882,7 +888,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.IngressRule) 
 			return err
 		}
 		network.SortIngressRules(toClose)
-		logger.Infof("closed port ranges %v in environment", toClose)
+		fw.logger.Infof("closed port ranges %v in environment", toClose)
 	}
 	return nil
 }
@@ -899,7 +905,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
 	// InstanceId will fail but we don't care.
-	logger.Debugf("flush instance ports: to open %v, to close %v", toOpen, toClose)
+	fw.logger.Debugf("flush instance ports: to open %v, to close %v", toOpen, toClose)
 	if len(toOpen) == 0 && len(toClose) == 0 {
 		return nil
 	}
@@ -922,7 +928,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	fwInstance, ok := envInstances[0].(instances.InstanceFirewaller)
 	if !ok {
-		logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.", envInstances[0])
+		fw.logger.Infof("flushInstancePorts called on an instance of type %T which doesn't support firewall.", envInstances[0])
 		return nil
 	}
 
@@ -933,7 +939,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			return err
 		}
 		network.SortIngressRules(toOpen)
-		logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
+		fw.logger.Infof("opened port ranges %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
 		if err := fwInstance.ClosePorts(fw.cloudCallContext, machineId, toClose); err != nil {
@@ -941,7 +947,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 			return err
 		}
 		network.SortIngressRules(toClose)
-		logger.Infof("closed port ranges %v on %q", toClose, machined.tag)
+		fw.logger.Infof("closed port ranges %v on %q", toClose, machined.tag)
 	}
 	return nil
 }
@@ -983,7 +989,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	// watch loop has stopped before we nuke the last data and return.
 	_ = worker.Stop(machined)
 	delete(fw.machineds, machined.tag)
-	logger.Debugf("stopped watching %q", machined.tag)
+	fw.logger.Debugf("stopped watching %q", machined.tag)
 	return nil
 }
 
@@ -1009,11 +1015,11 @@ func (fw *Firewaller) forgetUnit(unitd *unitData) {
 	delete(fw.unitds, unitd.tag)
 	delete(machined.unitds, unitd.tag)
 	delete(applicationd.unitds, unitd.tag)
-	logger.Debugf("stopped watching %q", unitd.tag)
+	fw.logger.Debugf("stopped watching %q", unitd.tag)
 	if stoppedApplication {
 		applicationTag := applicationd.application.Tag()
 		delete(fw.applicationids, applicationTag)
-		logger.Debugf("stopped watching %q", applicationTag)
+		fw.logger.Debugf("stopped watching %q", applicationTag)
 	}
 }
 
@@ -1127,16 +1133,16 @@ func (ad *applicationData) watchLoop(exposed bool) error {
 			change, err := ad.application.IsExposed()
 			if err != nil {
 				if errors.IsNotFound(err) {
-					logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
+					ad.fw.logger.Debugf("application(%q).IsExposed() returned NotFound: %v", ad.application.Name(), err)
 					return nil
 				}
 				return errors.Trace(err)
 			}
 			if change == exposed {
-				logger.Tracef("application(%q).IsExposed() == %v (unchanged)", ad.application.Name(), exposed)
+				ad.fw.logger.Tracef("application(%q).IsExposed() == %v (unchanged)", ad.application.Name(), exposed)
 				continue
 			}
-			logger.Tracef("application(%q).IsExposed() changed %v => %v", ad.application.Name(), exposed, change)
+			ad.fw.logger.Tracef("application(%q).IsExposed() changed %v => %v", ad.application.Name(), exposed, change)
 
 			exposed = change
 			select {
@@ -1251,7 +1257,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 	gone := notfound || rel.Life == params.Dead || rel.Suspended
 	data, known := fw.relationIngress[tag]
 	if known && gone {
-		logger.Debugf("relation %v was known but has died or been suspended", tag.Id())
+		fw.logger.Debugf("relation %v was known but has died or been suspended", tag.Id())
 		// If relation is suspended, shut off ingress immediately.
 		// Units will also eventually leave scope which would cause
 		// ingress to be shut off, but best to do it up front.
@@ -1358,7 +1364,7 @@ func (rd *remoteRelationData) watchLoop() error {
 		case remoteRelationInfo := <-rd.relationReady:
 			rd.relationToken = remoteRelationInfo.relationToken
 			rd.applicationToken = remoteRelationInfo.applicationToken
-			logger.Debugf(
+			rd.fw.logger.Debugf(
 				"relation %v for remote app %v in model %v is ready",
 				rd.relationToken, rd.applicationToken, rd.remoteModelUUID)
 		}
@@ -1379,7 +1385,7 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 		return nil
 	}
 
-	logger.Debugf("starting requirer endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
+	rd.fw.logger.Debugf("starting requirer endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
 	// Now watch for updates to egress addresses so we can inform the offering
 	// model what firewall ingress to allow.
 	egressAddressWatcher, err := rd.fw.firewallerApi.WatchEgressAddressesForRelation(rd.tag)
@@ -1387,7 +1393,7 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
 		}
-		logger.Infof("no egress required for %v", rd.localApplicationTag)
+		rd.fw.logger.Infof("no egress required for %v", rd.localApplicationTag)
 		rd.ingressRequired = false
 		return nil
 	}
@@ -1399,7 +1405,7 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-egressAddressWatcher.Changes():
-			logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			rd.fw.logger.Debugf("relation egress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
 			if err := rd.updateProviderModel(cidrs); err != nil {
 				return errors.Trace(err)
 			}
@@ -1408,14 +1414,14 @@ func (rd *remoteRelationData) requirerEndpointLoop() error {
 }
 
 func (rd *remoteRelationData) providerEndpointLoop() error {
-	logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
+	rd.fw.logger.Debugf("starting provider endpoint loop for %v on %v ", rd.tag.Id(), rd.localApplicationTag.Id())
 	// Watch for ingress changes requested by the consuming model.
 	ingressAddressWatcher, err := rd.ingressAddressWatcher()
 	if err != nil {
 		if !params.IsCodeNotFound(err) && !params.IsCodeNotSupported(err) {
 			return errors.Trace(err)
 		}
-		logger.Infof("no ingress required for %v", rd.localApplicationTag)
+		rd.fw.logger.Infof("no ingress required for %v", rd.localApplicationTag)
 		rd.ingressRequired = false
 		return nil
 	}
@@ -1427,7 +1433,7 @@ func (rd *remoteRelationData) providerEndpointLoop() error {
 		case <-rd.catacomb.Dying():
 			return rd.catacomb.ErrDying()
 		case cidrs := <-ingressAddressWatcher.Changes():
-			logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
+			rd.fw.logger.Debugf("relation ingress addresses for %v changed in model %v: %v", rd.tag, rd.fw.modelUUID, cidrs)
 			if err := rd.updateIngressNetworks(cidrs); err != nil {
 				return errors.Trace(err)
 			}
@@ -1474,7 +1480,7 @@ type remoteRelationNetworkChange struct {
 // updateProviderModel gathers the ingress CIDRs for the relation and notifies
 // that a change has occurred.
 func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
-	logger.Debugf("ingress cidrs for %v: %+v", rd.tag, cidrs)
+	rd.fw.logger.Debugf("ingress cidrs for %v: %+v", rd.tag, cidrs)
 	change := &remoteRelationNetworkChange{
 		relationTag:         rd.tag,
 		localApplicationTag: rd.localApplicationTag,
@@ -1508,7 +1514,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
 	if errors.IsNotFound(err) {
-		logger.Debugf("relation id not found publishing %+v", event)
+		rd.fw.logger.Debugf("relation id not found publishing %+v", event)
 		return nil
 	}
 
@@ -1523,7 +1529,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 
 // updateIngressNetworks processes the changed ingress networks on the relation.
 func (rd *remoteRelationData) updateIngressNetworks(cidrs []string) error {
-	logger.Debugf("ingress cidrs for %v: %+v", rd.tag, cidrs)
+	rd.fw.logger.Debugf("ingress cidrs for %v: %+v", rd.tag, cidrs)
 	change := &remoteRelationNetworkChange{
 		relationTag:         rd.tag,
 		localApplicationTag: rd.localApplicationTag,
@@ -1550,14 +1556,14 @@ func (rd *remoteRelationData) Wait() error {
 
 // forgetRelation cleans the relation data after the relation is removed.
 func (fw *Firewaller) forgetRelation(data *remoteRelationData) error {
-	logger.Debugf("forget relation %v", data.tag.Id())
+	fw.logger.Debugf("forget relation %v", data.tag.Id())
 	delete(fw.relationIngress, data.tag)
 	// There's not much we can do if there's an error stopping the remote
 	// relation worker, so just log it.
 	if err := fw.relationWorkerRunner.StopWorker(data.tag.Id()); err != nil {
-		logger.Errorf("error stopping remote relation worker for %s: %v", data.tag, err)
+		fw.logger.Errorf("error stopping remote relation worker for %s: %v", data.tag, err)
 	}
-	logger.Debugf("stopped watching %q", data.tag)
+	fw.logger.Debugf("stopped watching %q", data.tag)
 	return nil
 }
 
@@ -1594,7 +1600,7 @@ func (fw *Firewaller) startRelationPoller(relationKey, remoteAppName string, rel
 // pollLoop waits for a remote relation to be registered.
 // It does this by waiting for the relation and app tokens to be created.
 func (p *remoteRelationPoller) pollLoop() error {
-	logger.Debugf("polling for relation %v on %v to be ready", p.relationTag, p.applicationTag)
+	p.fw.logger.Debugf("polling for relation %v on %v to be ready", p.relationTag, p.applicationTag)
 	for {
 		select {
 		case <-p.catacomb.Dying():
@@ -1605,14 +1611,14 @@ func (p *remoteRelationPoller) pollLoop() error {
 			if err != nil {
 				continue
 			}
-			logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.fw.modelUUID)
+			p.fw.logger.Debugf("token %v for relation id: %v in model %v", relToken, p.relationTag.Id(), p.fw.modelUUID)
 
 			// Application is exported with the offering model UUID.
 			appToken, err := p.fw.remoteRelationsApi.GetToken(p.applicationTag)
 			if err != nil {
 				continue
 			}
-			logger.Debugf("token %v for application id: %v", appToken, p.applicationTag.Id())
+			p.fw.logger.Debugf("token %v for application id: %v", appToken, p.applicationTag.Id())
 
 			// relation and application are ready.
 			relationInfo := remoteRelationInfo{

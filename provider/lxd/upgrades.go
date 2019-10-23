@@ -11,7 +11,7 @@ import (
 	"github.com/juju/os/series"
 
 	"github.com/juju/juju/cloud"
-	jujupaths "github.com/juju/juju/juju/paths"
+	jujupaths "github.com/juju/juju/core/paths"
 )
 
 // ReadLegacyCloudCredentials reads cloud credentials off disk for an old

@@ -4,6 +4,7 @@
 package action
 
 import (
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -12,15 +13,22 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils/featureflag"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/feature"
 )
 
 func NewShowOutputCommand() cmd.Command {
-	return modelcmd.Wrap(&showOutputCommand{})
+	return modelcmd.Wrap(&showOutputCommand{
+		logMessageHandler: func(ctx *cmd.Context, msg string) {
+			fmt.Fprintln(ctx.Stderr, msg)
+		},
+	})
 }
 
 // showOutputCommand fetches the results of an action by ID.
@@ -30,17 +38,32 @@ type showOutputCommand struct {
 	requestedId string
 	fullSchema  bool
 	wait        string
+	watch       bool
+	utc         bool
+
+	logMessageHandler func(*cmd.Context, string)
 }
 
 const showOutputDoc = `
 Show the results returned by an action with the given ID.  
 To block until the result is known completed or failed, use
 the --wait option with a duration, as in --wait 5s or --wait 1h.
-Use --wait 0 to wait indefinitely.  If units are left off, seconds are assumed.
+If units are left off, seconds are assumed.
+Use --watch to wait indefinitely.  
 
-The default behavior without --wait is to immediately check and return; if
-the results are "pending" then only the available information will be
+The default behavior without --wait or --watch is to immediately check and return;
+if the results are "pending" then only the available information will be
 displayed.  This is also the behavior when any negative time is given.
+
+Examples:
+
+    juju show-action-output 1
+    juju show-action-output 1 --wait=2m
+    juju show-action-output 1 --watch
+
+See also:
+    run-action
+    list-tasks
 `
 
 // Set up the output.
@@ -57,6 +80,8 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 
 	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
+	f.BoolVar(&c.watch, "watch", false, "Wait indefinitely for results")
+	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
 func (c *showOutputCommand) Info() *cmd.Info {
@@ -71,12 +96,21 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		info.Args = "<task ID>"
 		info.Purpose = "Show results of a task by ID."
 		info.Doc = strings.Replace(info.Doc, "an action", "a function call", -1)
+		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-task", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
 	}
 	return info
 }
 
 // Init validates the action ID and any other options.
 func (c *showOutputCommand) Init(args []string) error {
+	if c.watch {
+		if c.wait != "-1s" {
+			return errors.New("specify either --watch or --wait but not both")
+		}
+		// If we are watching the wait is 0 (indefinite).
+		c.wait = "0s"
+	}
 	switch len(args) {
 	case 0:
 		if featureflag.Enabled(feature.JujuV3) {
@@ -126,12 +160,45 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		wait = time.NewTimer(waitDur)
 	}
 
+	actionDone := make(chan struct{})
+	var logsWatcher watcher.StringsWatcher
+	haveLogs := false
+
+	shouldWatch := waitDur.Nanoseconds() >= 0
+	if shouldWatch {
+		result, err := fetchResult(api, c.requestedId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		shouldWatch = result.Status == params.ActionPending ||
+			result.Status == params.ActionRunning
+	}
+
+	if shouldWatch && api.BestAPIVersion() >= 5 {
+		logsWatcher, err = api.WatchActionProgress(c.requestedId)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		processLogMessages(logsWatcher, actionDone, ctx, c.utc, func(ctx *cmd.Context, msg string) {
+			haveLogs = true
+			c.logMessageHandler(ctx, msg)
+		})
+	}
+
 	result, err := GetActionResult(api, c.requestedId, wait)
+	close(actionDone)
+	if logsWatcher != nil {
+		logsWatcher.Wait()
+	}
+	if haveLogs {
+		// Make the logs a bit separate in the output.
+		fmt.Fprintln(ctx.Stderr, "")
+	}
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	formatted := FormatActionResult(result)
+	formatted := FormatActionResult(result, c.utc)
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
@@ -232,27 +299,58 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 // FormatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func FormatActionResult(result params.ActionResult) map[string]interface{} {
+func FormatActionResult(result params.ActionResult, utc bool) map[string]interface{} {
 	response := map[string]interface{}{"status": result.Status}
+	if result.Action != nil {
+		ut, err := names.ParseUnitTag(result.Action.Receiver)
+		if err == nil {
+			response["unit"] = ut.Id()
+		}
+	}
 	if result.Message != "" {
 		response["message"] = result.Message
 	}
 	if len(result.Output) != 0 {
 		response["results"] = result.Output
 	}
+	if len(result.Log) > 0 {
+		var logs []string
+		for _, msg := range result.Log {
+			logs = append(logs, formatLogMessage(actions.ActionMessage{
+				Timestamp: msg.Timestamp,
+				Message:   msg.Message,
+			}, false, utc))
+		}
+		response["log"] = logs
+	}
 
 	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
 		return response
 	}
 
+	formatMetadataTimestamp := func(t time.Time) string {
+		if t.IsZero() {
+			return ""
+		}
+		if featureflag.Enabled(feature.JujuV3) {
+			if utc {
+				t = t.UTC()
+			} else {
+				t = t.Local()
+			}
+			return t.Format(resultTimestampFormat)
+		}
+		return t.String()
+	}
+
 	responseTiming := make(map[string]string)
-	for k, v := range map[string]time.Time{
-		"enqueued":  result.Enqueued,
-		"started":   result.Started,
-		"completed": result.Completed,
+	for k, v := range map[string]string{
+		"enqueued":  formatMetadataTimestamp(result.Enqueued),
+		"started":   formatMetadataTimestamp(result.Started),
+		"completed": formatMetadataTimestamp(result.Completed),
 	} {
-		if !v.IsZero() {
-			responseTiming[k] = v.String()
+		if v != "" {
+			responseTiming[k] = v
 		}
 	}
 	response["timing"] = responseTiming

@@ -1777,3 +1777,23 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	app := s.backend.applications["postgresql"]
 	app.CheckCallNames(c, "CharmConfig", "Charm", "ApplicationConfig", "IsPrincipal", "Constraints", "EndpointBindings", "Series", "Channel", "EndpointBindings", "IsPrincipal", "IsExposed", "IsRemote")
 }
+
+func (s *ApplicationSuite) TestApplicationMergeBindingsErr(c *gc.C) {
+	req := params.ApplicationMergeBindingsArgs{
+		Args: []params.ApplicationMergeBindings{
+			{
+				ApplicationTag: "application-postgresql",
+			},
+		},
+	}
+	app := s.backend.applications["postgresql"]
+	app.SetErrors(
+		errors.Errorf("boom"), // a.MergeBindings() call
+	)
+
+	result, err := s.api.MergeBindings(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, len(req.Args))
+	app.CheckCallNames(c, "MergeBindings")
+	c.Assert(*result.Results[0].Error, gc.ErrorMatches, "boom")
+}

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -58,7 +59,7 @@ func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	died := make(chan machine)
 
 	clk := newTestClock()
-	go runMachine(context, m, nil, died, clk)
+	go runMachine(context, m, nil, died, clk, loggo.GetLogger("test"))
 	c.Assert(clk.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	c.Assert(clk.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 
@@ -83,7 +84,7 @@ func (s *machineSuite) TestSetsInstanceInfoDeadMachineInitially(c *gc.C) {
 	died := make(chan machine)
 
 	clk := newTestClock()
-	go runMachine(context, m, nil, died, clk)
+	go runMachine(context, m, nil, died, clk, loggo.GetLogger("test"))
 	c.Assert(clk.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	c.Assert(clk.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 
@@ -146,7 +147,7 @@ func (s *machineSuite) TestNoPollWhenNotProvisioned(c *gc.C) {
 
 	clk := testclock.NewClock(time.Time{})
 	changed := make(chan struct{})
-	go runMachine(context, m, changed, died, clk)
+	go runMachine(context, m, changed, died, clk, loggo.GetLogger("test"))
 
 	expectPoll := func() {
 		c.Assert(clk.WaitAdvance(ShortPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
@@ -234,7 +235,7 @@ func testRunMachine(
 	}
 	died := make(chan machine)
 
-	go runMachine(context, m, nil, died, clock)
+	go runMachine(context, m, nil, died, clock, loggo.GetLogger("test"))
 	test()
 
 	killMachineLoop(c, m, context.dyingc, died)
@@ -260,7 +261,7 @@ func (*machineSuite) TestChangedRefreshes(c *gc.C) {
 	died := make(chan machine)
 	changed := make(chan struct{})
 	clk := newTestClock()
-	go runMachine(context, m, changed, died, clk)
+	go runMachine(context, m, changed, died, clk, loggo.GetLogger("test"))
 
 	c.Assert(clk.WaitAdvance(LongPoll, coretesting.ShortWait, 1), jc.ErrorIsNil)
 	select {
@@ -339,7 +340,7 @@ func testTerminatingErrors(c *gc.C, mutate func(m *testMachine, err error)) {
 	mutate(m, expectErr)
 	died := make(chan machine)
 	changed := make(chan struct{}, 1)
-	go runMachine(context, m, changed, died, newTestClock())
+	go runMachine(context, m, changed, died, newTestClock(), loggo.GetLogger("test"))
 	changed <- struct{}{}
 	select {
 	case <-died:

@@ -885,7 +885,7 @@ func (m *Machine) AllAddresses() ([]*Address, error) {
 	return allAddresses, nil
 }
 
-// AllSpaces returns the set of spaces that this machine is actively
+// AllSpaces returns the set of spaceIDs that this machine is actively
 // connected to.
 func (m *Machine) AllSpaces() (set.Strings, error) {
 	// TODO(jam): 2016-12-18 This should evolve to look at the
@@ -906,10 +906,7 @@ func (m *Machine) AllSpaces() (set.Strings, error) {
 			}
 			return nil, errors.Trace(err)
 		}
-		spaceName := subnet.SpaceName()
-		if spaceName != "" {
-			spaces.Add(spaceName)
-		}
+		spaces.Add(subnet.SpaceID())
 	}
 	logger.Tracef("machine %q found AllSpaces() = %s",
 		m.Id(), network.QuoteSpaceSet(spaces))
@@ -931,118 +928,6 @@ func (m *Machine) AllNetworkAddresses() (corenetwork.SpaceAddresses, error) {
 	// TODO(jam): 20161130 NetworkAddress object has a SpaceName attribute.
 	// However, we are not filling in that information here.
 	return networkAddresses, nil
-}
-
-// deviceMapToSortedList takes a map from device name to LinkLayerDevice
-// object, and returns the list of LinkLayerDevice object using
-// NaturallySortDeviceNames
-func deviceMapToSortedList(deviceMap map[string]*LinkLayerDevice) []*LinkLayerDevice {
-	names := make([]string, 0, len(deviceMap))
-	for name := range deviceMap {
-		// name must == device.Name()
-		names = append(names, name)
-	}
-	sortedNames := network.NaturallySortDeviceNames(names...)
-	result := make([]*LinkLayerDevice, len(sortedNames))
-	for i, name := range sortedNames {
-		result[i] = deviceMap[name]
-	}
-	return result
-}
-
-// LinkLayerDevicesForSpaces takes a list of spaces, and returns the devices on
-// this machine that are in that space that we feel would be useful for
-// containers to know about.  (eg, if there is a host device that has been
-// bridged, we return the bridge, rather than the underlying device, but if we
-// have only the host device, we return that.)
-// Note that devices like 'lxdbr0' that are bridges that might might not be
-// externally accessible may be returned if "" is listed as one of the desired
-// spaces.
-//
-// TODO (manadart 2019-10-04): This method is only used in BridgePolicy logic
-// and has nothing that requires it to be in the state package.
-// It should be relocated to network/containerizer.
-func (m *Machine) LinkLayerDevicesForSpaces(spaces corenetwork.SpaceInfos) (map[string][]*LinkLayerDevice, error) {
-	addresses, err := m.AllAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	devices, err := m.AllLinkLayerDevices()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	deviceByName := make(map[string]*LinkLayerDevice, len(devices))
-	for _, dev := range devices {
-		deviceByName[dev.Name()] = dev
-	}
-
-	// TODO (manadart 2019-09-27): Once subnet space designation is by ID,
-	// subnet space determination here will need to change.
-	// The return should also index by space ID instead of name.
-	// It is worth breaking this method into smaller pieces at that time.
-	requestedSpaces := set.NewStrings(spaces.Names()...)
-	spaceToDevices := make(map[string]map[string]*LinkLayerDevice, 0)
-	processedDeviceNames := set.NewStrings()
-	includeDevice := func(spaceName string, device *LinkLayerDevice) {
-		spaceInfo, ok := spaceToDevices[spaceName]
-		if !ok {
-			spaceInfo = make(map[string]*LinkLayerDevice)
-			spaceToDevices[spaceName] = spaceInfo
-		}
-		spaceInfo[device.Name()] = device
-	}
-	// First pass, iterate the addresses, lookup the associated spaces, and
-	// gather the devices.
-	for _, addr := range addresses {
-		var spaceName string
-
-		subnet, err := addr.Subnet()
-		if err != nil {
-			if errors.IsNotFound(err) {
-				// unknown subnets are considered part of the "unknown" space
-				spaceName = corenetwork.DefaultSpaceName
-			} else {
-				// We don't understand the error, so error out for now
-				return nil, errors.Trace(err)
-			}
-		} else {
-			spaceName = subnet.SpaceName()
-		}
-
-		device, ok := deviceByName[addr.DeviceName()]
-		if !ok {
-			return nil, errors.Errorf("address %v for machine %q refers to a missing device %q",
-				addr, m.Id(), addr.DeviceName())
-		}
-		processedDeviceNames.Add(device.Name())
-
-		// We do not core about loopback devices.
-		if device.Type() != corenetwork.LoopbackDevice {
-			includeDevice(spaceName, device)
-		}
-	}
-	// Now grab any devices we may have missed. For now, any device without an
-	// address must be in the "unknown" space.
-	for devName, device := range deviceByName {
-		if processedDeviceNames.Contains(devName) {
-			continue
-		}
-		// Loopback devices are not considered part of the empty space.
-		// Also, devices that are attached to another device also aren't
-		// considered to be in the unknown space.
-		if device.Type() == corenetwork.LoopbackDevice || device.ParentName() != "" {
-			continue
-		}
-		includeDevice(corenetwork.DefaultSpaceName, device)
-	}
-	result := make(map[string][]*LinkLayerDevice, len(spaceToDevices))
-	for spaceName, deviceMap := range spaceToDevices {
-		if !requestedSpaces.Contains(spaceName) {
-			continue
-		}
-		result[spaceName] = deviceMapToSortedList(deviceMap)
-	}
-	return result, nil
 }
 
 // SetParentLinkLayerDevicesBeforeTheirChildren splits the given devicesArgs
@@ -1146,26 +1031,21 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([
 // GetNetworkInfoForSpaces returns MachineNetworkInfoResult with a list of devices for each space in spaces
 // TODO(wpk): 2017-05-04 This does not work for L2-only devices as it iterates over addresses, needs to be fixed.
 // When changing the method we have to keep the ordering.
-func (m *Machine) GetNetworkInfoForSpaces(spaces corenetwork.SpaceInfos) map[string]MachineNetworkInfoResult {
+// Returns a map based on space ID.
+func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]MachineNetworkInfoResult {
 	results := make(map[string]MachineNetworkInfoResult)
 
 	var privateAddress corenetwork.SpaceAddress
 
-	if spaces.GetByName(corenetwork.DefaultSpaceName) != nil {
+	if spaces.Contains(corenetwork.DefaultSpaceId) {
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
-			results[corenetwork.DefaultSpaceName] = MachineNetworkInfoResult{Error: errors.Annotatef(
+			results[corenetwork.DefaultSpaceId] = MachineNetworkInfoResult{Error: errors.Annotatef(
 				err, "getting machine %q preferred private address", m.MachineTag())}
 
-			// Remove this space to prevent further processing.
-			var newSpaces corenetwork.SpaceInfos
-			for _, sp := range spaces {
-				if sp.Name != corenetwork.DefaultSpaceName {
-					newSpaces = append(newSpaces, sp)
-				}
-			}
-			spaces = newSpaces
+			// Remove this id to prevent further processing.
+			spaces.Remove(corenetwork.DefaultSpaceId)
 		}
 	}
 
@@ -1173,9 +1053,9 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces corenetwork.SpaceInfos) map[str
 	logger.Debugf("Looking for something from spaces %v in %v", spaces, addresses)
 	if err != nil {
 		result := MachineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
-		for _, space := range spaces {
-			if _, ok := results[string(space.Name)]; !ok {
-				results[string(space.Name)] = result
+		for _, id := range spaces.Values() {
+			if _, ok := results[id]; !ok {
+				results[id] = result
 			}
 		}
 		return results
@@ -1189,23 +1069,22 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces corenetwork.SpaceInfos) map[str
 		case err != nil:
 			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
 		default:
-			space := spaces.GetByID(subnet.spaceID)
-			if space != nil {
-				r := results[string(space.Name)]
+			if spaces.Contains(subnet.spaceID) {
+				r := results[subnet.spaceID]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[string(space.Name)] = r
+					results[subnet.spaceID] = r
 				}
 			}
-			if spaces.GetByName(corenetwork.DefaultSpaceName) != nil && privateAddress.Value == addr.Value() {
-				r := results[corenetwork.DefaultSpaceName]
+			if spaces.Contains(corenetwork.DefaultSpaceId) && privateAddress.Value == addr.Value() {
+				r := results[corenetwork.DefaultSpaceId]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[corenetwork.DefaultSpaceName] = r
+					results[corenetwork.DefaultSpaceId] = r
 				}
 			}
 		}
@@ -1213,19 +1092,19 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces corenetwork.SpaceInfos) map[str
 
 	// For a spaceless model we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information.
-	if r, ok := results[corenetwork.DefaultSpaceName]; !ok && spaces.GetByName(corenetwork.DefaultSpaceName) != nil {
+	if r, ok := results[corenetwork.DefaultSpaceId]; !ok && spaces.Contains(corenetwork.DefaultSpaceId) {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{
 				Address: privateAddress.Value,
 			}},
 		}}
-		results[corenetwork.DefaultSpaceName] = r
+		results[corenetwork.DefaultSpaceId] = r
 	}
 
-	for _, space := range spaces {
-		if _, ok := results[string(space.Name)]; !ok {
-			results[string(space.Name)] = MachineNetworkInfoResult{
-				Error: errors.Errorf("machine %q has no devices in space %q", m.doc.Id, space.Name),
+	for _, id := range spaces.Values() {
+		if _, ok := results[id]; !ok {
+			results[id] = MachineNetworkInfoResult{
+				Error: errors.Errorf("machine %q has no devices in space %q", m.doc.Id, id),
 			}
 		}
 	}

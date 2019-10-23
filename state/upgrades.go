@@ -804,6 +804,20 @@ func AddStatusHistoryPruneSettings(pool *StatePool) error {
 	return nil
 }
 
+// AddDefaultSpaceSetting adds the default space setting
+func AddDefaultSpaceSetting(pool *StatePool) error {
+	st := pool.SystemState()
+	err := applyToAllModelSettings(st, func(doc *settingsDoc) (bool, error) {
+		defaultSettingDefaultSpace := config.ConfigDefaults()[config.DefaultSpace]
+		settingsChanged := maybeUpdateSettings(doc.Settings, config.DefaultSpace, defaultSettingDefaultSpace)
+		return settingsChanged, nil
+	})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // AddActionPruneSettings adds the model settings
 // to control log pruning if they are missing.
 func AddActionPruneSettings(pool *StatePool) error {
@@ -2595,64 +2609,198 @@ func EnsureRelationApplicationSettings(pool *StatePool) error {
 // Where such addresses include a space name or provider ID,
 // The space is retrieved and these fields are removed in favour of space's ID.
 func ConvertAddressSpaceIDs(pool *StatePool) error {
-	// machine is a subset of machine document fields that we care about
-	// for updating the address fields.
-	type machine struct {
-		DocID                   string `bson:"_id"`
-		Id                      string `bson:"machineid"`
-		Addresses               []upgrade.OldAddress27
-		MachineAddresses        []upgrade.OldAddress27
-		PreferredPublicAddress  upgrade.OldAddress27 `bson:",omitempty"`
-		PreferredPrivateAddress upgrade.OldAddress27 `bson:",omitempty"`
-	}
-
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
 		lookup, err := st.SpaceIDsByName()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
-		col, closer := st.db().GetCollection(machinesC)
-		defer closer()
-
-		var machines []machine
-		if err := col.Find(nil).All(&machines); err != nil {
-			return errors.Trace(err)
+		db := st.db()
+		ops, err := convertMachineAddressSpaceIDs(db, lookup)
+		if err != nil {
+			return errors.Annotate(err, "getting machine upgrade ops")
 		}
 
-		var ops []txn.Op
-		for _, machine := range machines {
-			allAddrs := [][]upgrade.OldAddress27{machine.Addresses, machine.MachineAddresses}
-			for i, addrs := range allAddrs {
-				for j, addr := range addrs {
-					if allAddrs[i][j], err = addr.Upgrade(lookup); err != nil {
-						return errors.Trace(err)
-					}
-				}
-			}
-
-			if machine.PreferredPublicAddress, err = machine.PreferredPublicAddress.Upgrade(lookup); err != nil {
-				return errors.Trace(err)
-			}
-			if machine.PreferredPrivateAddress, err = machine.PreferredPrivateAddress.Upgrade(lookup); err != nil {
-				return errors.Trace(err)
-			}
-
-			ops = append(ops, txn.Op{
-				C:  machinesC,
-				Id: machine.DocID,
-				Update: bson.D{
-					{"$set", bson.D{{"addresses", machine.Addresses}}},
-					{"$set", bson.D{{"machineaddresses", machine.MachineAddresses}}},
-					{"$set", bson.D{{"preferredpublicaddress", machine.PreferredPublicAddress}}},
-					{"$set", bson.D{{"preferredprivateaddress", machine.PreferredPrivateAddress}}},
-				},
-			})
+		csOps, err := convertCloudServiceAddressSpaceIDs(db)
+		if err != nil {
+			return errors.Annotate(err, "getting cloud service upgrade ops")
 		}
+		ops = append(ops, csOps...)
+
+		ccOps, err := convertCloudContainerAddressSpaceIDs(db)
+		if err != nil {
+			return errors.Annotate(err, "getting cloud container upgrade ops")
+		}
+		ops = append(ops, ccOps...)
 
 		if len(ops) == 0 {
 			return nil
 		}
 		return errors.Trace(st.db().RunTransaction(ops))
+	}))
+}
+
+func convertMachineAddressSpaceIDs(db Database, lookup map[string]string) ([]txn.Op, error) {
+	// machine is a subset of machine document fields that we care about
+	// for updating the address fields.
+	type machine struct {
+		DocID                   string `bson:"_id"`
+		Addresses               []upgrade.OldAddress27
+		MachineAddresses        []upgrade.OldAddress27
+		PreferredPublicAddress  upgrade.OldAddress27 `bson:",omitempty"`
+		PreferredPrivateAddress upgrade.OldAddress27 `bson:",omitempty"`
+	}
+
+	col, closer := db.GetCollection(machinesC)
+	defer closer()
+
+	var err error
+	var machines []machine
+	if err = col.Find(nil).All(&machines); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, machine := range machines {
+		allAddrs := [][]upgrade.OldAddress27{machine.Addresses, machine.MachineAddresses}
+		for i, addrs := range allAddrs {
+			for j, addr := range addrs {
+				if allAddrs[i][j], err = addr.Upgrade(lookup); err != nil {
+					return nil, errors.Trace(err)
+				}
+			}
+		}
+
+		if machine.PreferredPublicAddress, err = machine.PreferredPublicAddress.Upgrade(lookup); err != nil {
+			return nil, errors.Trace(err)
+		}
+		if machine.PreferredPrivateAddress, err = machine.PreferredPrivateAddress.Upgrade(lookup); err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops = append(ops, txn.Op{
+			C:  machinesC,
+			Id: machine.DocID,
+			Update: bson.D{
+				{"$set", bson.D{{"addresses", machine.Addresses}}},
+				{"$set", bson.D{{"machineaddresses", machine.MachineAddresses}}},
+				{"$set", bson.D{{"preferredpublicaddress", machine.PreferredPublicAddress}}},
+				{"$set", bson.D{{"preferredprivateaddress", machine.PreferredPrivateAddress}}},
+			},
+		})
+	}
+
+	return ops, nil
+}
+
+func convertCloudServiceAddressSpaceIDs(db Database) ([]txn.Op, error) {
+	type cloudDoc struct {
+		DocID     string                 `bson:"_id"`
+		Addresses []upgrade.OldAddress27 `bson:"addresses"`
+	}
+
+	col, closer := db.GetCollection(cloudServicesC)
+	defer closer()
+
+	var err error
+	var docs []cloudDoc
+	if err = col.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		for i := range doc.Addresses {
+			// CAAS addresses at this point in time are space-less.
+			// We just need to ensure that they all have the zero ID.
+			doc.Addresses[i].SpaceID = network.DefaultSpaceId
+		}
+
+		ops = append(ops, txn.Op{
+			C:  cloudServicesC,
+			Id: doc.DocID,
+			Update: bson.D{
+				{"$set", bson.D{{"addresses", doc.Addresses}}},
+			},
+		})
+	}
+
+	return ops, nil
+}
+
+func convertCloudContainerAddressSpaceIDs(db Database) ([]txn.Op, error) {
+	type cloudDoc struct {
+		DocID   string                `bson:"_id"`
+		Address *upgrade.OldAddress27 `bson:"address"`
+	}
+
+	col, closer := db.GetCollection(cloudContainersC)
+	defer closer()
+
+	var err error
+	var docs []cloudDoc
+	if err = col.Find(nil).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var ops []txn.Op
+	for _, doc := range docs {
+		if doc.Address == nil {
+			continue
+		}
+
+		// CAAS addresses at this point in time are space-less.
+		// We just need to ensure that they all have the zero ID.
+		doc.Address.SpaceID = network.DefaultSpaceId
+
+		ops = append(ops, txn.Op{
+			C:  cloudContainersC,
+			Id: doc.DocID,
+			Update: bson.D{
+				{"$set", bson.D{{"address", doc.Address}}},
+			},
+		})
+	}
+
+	return ops, nil
+}
+
+// ReplaceSpaceNameWithIDEndpointBindings replaces space names with
+// space ids for endpoint bindings.
+func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
+	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
+		col, closer := st.db().GetCollection(endpointBindingsC)
+		defer closer()
+
+		var docs []endpointBindingsDoc
+		err := col.Find(nil).All(&docs)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		var ops []txn.Op
+		for _, doc := range docs {
+			bindings, err := NewBindings(st, doc.Bindings)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			updatedMap := make(map[string]string, len(bindings.Map()))
+			for k, v := range bindings.Map() {
+				if v == "" {
+					v = network.DefaultSpaceId
+				}
+				updatedMap[k] = v
+			}
+			ops = append(ops, txn.Op{
+				C:      endpointBindingsC,
+				Id:     doc.DocID,
+				Update: bson.M{"$set": bson.M{"bindings": updatedMap}},
+			})
+		}
+
+		if len(ops) > 0 {
+			return errors.Trace(st.db().RunTransaction(ops))
+		}
+		return nil
 	}))
 }

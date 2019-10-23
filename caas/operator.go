@@ -22,6 +22,9 @@ const (
 
 	// CACertFile is the file containing the cluster CA.
 	CACertFile = "ca.crt"
+
+	// InitContainerName is the name of the init container on workloads pods.
+	InitContainerName = "juju-pod-init"
 )
 
 // OperatorInfo contains information needed by CAAS operators

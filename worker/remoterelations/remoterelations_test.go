@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -54,7 +55,8 @@ func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 		NewRemoteModelFacadeFunc: func(*api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
 			return s.remoteRelationsFacade, nil
 		},
-		Clock: testclock.NewClock(time.Time{}),
+		Clock:  testclock.NewClock(time.Time{}),
+		Logger: loggo.GetLogger("test"),
 	}
 }
 

@@ -859,7 +859,6 @@ func (a *Application) changeCharmOps(
 	forceUnits bool,
 	resourceIDs map[string]string,
 	updatedStorageConstraints map[string]StorageConstraints,
-	operatorEndpointBindings map[string]string,
 ) ([]txn.Op, error) {
 	// Build the new application config from what can be used of the old one.
 	var newSettings charm.Settings
@@ -1010,19 +1009,20 @@ func (a *Application) changeCharmOps(
 	}
 	ops = append(ops, relOps...)
 
-	// Update any existing endpoint bindings, using defaults for new endpoints.
-	endpointBindingsOps, err := updateEndpointBindingsOps(a.st, a, operatorEndpointBindings, ch.Meta())
-	if err == nil {
-		ops = append(ops, endpointBindingsOps...)
-	} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
-		// If endpoint bindings do not exist this most likely means the application
-		// itself no longer exists, which will be caught soon enough anyway.
-		// ErrNoOperations on the other hand means there's nothing to update.
-		return nil, errors.Trace(err)
-	}
-
 	// And finally, decrement the old charm and settings.
 	return append(ops, decOps...), nil
+}
+
+// bindingsForOps returns a Bindings object intended for createOps and updateOps
+// only.
+func (a *Application) bindingsForOps(bindings map[string]string) (*Bindings, error) {
+	// Call NewBindings first to ensure this map contains space ids
+	b, err := NewBindings(a.st, bindings)
+	if err != nil {
+		return nil, err
+	}
+	b.app = a
+	return b, nil
 }
 
 // Deployed machines returns the collection of machines
@@ -1366,7 +1366,6 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 				cfg.ForceUnits,
 				cfg.ResourceIDs,
 				cfg.StorageConstraints,
-				cfg.EndpointBindings,
 			)
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -1375,8 +1374,29 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 			newCharmModifiedVersion++
 		}
 
+		// Always update bindings regardless of whether we upgrade to a
+		// new version or stay at the previous version.
+		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
+		if err != nil && !errors.IsNotFound(err) {
+			return ops, errors.Trace(err)
+		}
+		b, err := a.bindingsForOps(currentMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointBindingsOps, err := b.updateOps(txnRevno, cfg.EndpointBindings, cfg.Charm.Meta(), cfg.Force)
+		if err == nil {
+			ops = append(ops, endpointBindingsOps...)
+		} else if !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+			// If endpoint bindings do not exist this most likely means the application
+			// itself no longer exists, which will be caught soon enough anyway.
+			// ErrNoOperations on the other hand means there's nothing to update.
+			return nil, errors.Trace(err)
+		}
+
 		return ops, nil
 	}
+
 	if err := a.st.db().Run(buildTxn); err != nil {
 		return err
 	}
@@ -1385,6 +1405,41 @@ func (a *Application) SetCharm(cfg SetCharmConfig) (err error) {
 	a.doc.ForceCharm = cfg.ForceUnits
 	a.doc.CharmModifiedVersion = newCharmModifiedVersion
 	return nil
+}
+
+// MergeBindings merges the provided bindings map with the existing application
+// bindings.
+func (a *Application) MergeBindings(operatorBindings *Bindings, force bool) error {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := a.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		ch, _, err := a.Charm()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		currentMap, txnRevno, err := readEndpointBindings(a.st, a.globalKey())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		b, err := a.bindingsForOps(currentMap)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		endpointBindingsOps, err := b.updateOps(txnRevno, operatorBindings.Map(), ch.Meta(), force)
+		if err != nil && !errors.IsNotFound(err) && err != jujutxn.ErrNoOperations {
+			return nil, errors.Trace(err)
+		}
+
+		return endpointBindingsOps, err
+	}
+
+	err := a.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "merging application bindings")
 }
 
 // UpdateApplicationSeries updates the series for the Application.
@@ -2491,9 +2546,9 @@ func (a *Application) SetConstraints(cons constraints.Value) (err error) {
 }
 
 // EndpointBindings returns the mapping for each endpoint name and the space
-// name it is bound to (or empty if unspecified). When no bindings are stored
+// ID it is bound to (or empty if unspecified). When no bindings are stored
 // for the application, defaults are returned.
-func (a *Application) EndpointBindings() (map[string]string, error) {
+func (a *Application) EndpointBindings() (*Bindings, error) {
 	// We don't need the TxnRevno below.
 	bindings, _, err := readEndpointBindings(a.st, a.globalKey())
 	if err != nil && !errors.IsNotFound(err) {
@@ -2505,7 +2560,7 @@ func (a *Application) EndpointBindings() (map[string]string, error) {
 			return nil, errors.Trace(err)
 		}
 	}
-	return bindings, nil
+	return &Bindings{st: a.st, bindingsMap: bindings}, nil
 }
 
 // defaultEndpointBindings returns a map with each endpoint from the current

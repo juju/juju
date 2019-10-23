@@ -92,7 +92,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		WatcherFactory:       func() BackingWatcher { return pool.SystemState().WatchAllModels(pool) },
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		Cleanup:              func() { _ = stTracker.Done() },
-	})
+	}.WithDefaultRestartStrategy())
 	if err != nil {
 		_ = stTracker.Done()
 		return nil, errors.Trace(err)

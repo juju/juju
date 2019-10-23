@@ -6,7 +6,6 @@ package caasoperator
 import (
 	"time"
 
-	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/loggo"
 
 	"github.com/juju/clock"
@@ -25,15 +24,18 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
 	"github.com/juju/juju/worker/apiconfigwatcher"
 	"github.com/juju/juju/worker/caasoperator"
+	"github.com/juju/juju/worker/caasunitinit"
 	"github.com/juju/juju/worker/caasupgrader"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logger"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationflag"
@@ -252,6 +254,7 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			MachineLock:           config.MachineLock,
 			LeadershipGuarantee:   config.LeadershipGuarantee,
 			CharmDirName:          charmDirName,
+			ProfileDir:            introspection.ProfileDir,
 			HookRetryStrategyName: hookRetryStrategyName,
 			TranslateResolverErr:  uniter.TranslateFortressErrors,
 
@@ -264,6 +267,19 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			},
 			NewExecClient:     config.NewExecClient,
 			RunListenerSocket: config.RunListenerSocket,
+		})),
+
+		unitInitWorkerName: ifNotMigrating(caasunitinit.Manifold(caasunitinit.ManifoldConfig{
+			Logger:        loggo.GetLogger("juju.worker.caasunitinit"),
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			ClockName:     clockName,
+			NewWorker:     caasunitinit.NewWorker,
+			NewClient: func(caller base.APICaller) caasunitinit.Client {
+				return caasoperatorapi.NewClient(caller)
+			},
+			NewExecClient:    config.NewExecClient,
+			LoadOperatorInfo: caasoperator.LoadOperatorInfo,
 		})),
 	}
 }
@@ -297,6 +313,7 @@ const (
 	clockName            = "clock"
 	operatorName         = "operator"
 	logSenderName        = "log-sender"
+	unitInitWorkerName   = "unit-init-worker"
 
 	charmDirName          = "charm-dir"
 	hookRetryStrategyName = "hook-retry-strategy"

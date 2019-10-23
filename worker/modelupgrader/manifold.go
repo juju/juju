@@ -15,6 +15,13 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
+// Logger represents the methods used by the worker to log details.
+type Logger interface {
+	Tracef(string, ...interface{})
+	Debugf(string, ...interface{})
+	Warningf(string, ...interface{})
+}
+
 // ManifoldConfig describes how to configure and construct a Worker,
 // and what registered resources it may depend upon.
 type ManifoldConfig struct {
@@ -23,6 +30,7 @@ type ManifoldConfig struct {
 	GateName      string
 	ControllerTag names.ControllerTag
 	ModelTag      names.ModelTag
+	Logger        Logger
 
 	NewFacade                    func(base.APICaller) (Facade, error)
 	NewWorker                    func(Config) (worker.Worker, error)
@@ -69,6 +77,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		ControllerTag: config.ControllerTag,
 		ModelTag:      config.ModelTag,
 		CredentialAPI: credentialAPI,
+		Logger:        config.Logger,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

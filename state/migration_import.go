@@ -841,12 +841,17 @@ func (i *importer) application(a description.Application) error {
 		return errors.Trace(err)
 	}
 
+	bindings, err := NewBindings(i.st, a.EndpointBindings())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	ops = append(ops, txn.Op{
 		C:      endpointBindingsC,
 		Id:     app.globalKey(),
 		Assert: txn.DocMissing,
 		Insert: endpointBindingsDoc{
-			Bindings: bindingsMap(a.EndpointBindings()),
+			Bindings: bindings.Map(),
 		},
 	})
 

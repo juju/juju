@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/bundle"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -678,6 +679,8 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 }
 
 func (s *bundleSuite) minimalApplicationArgs(modelType string) description.ApplicationArgs {
+	s.st.Spaces["1"] = "vlan2"
+	s.st.Spaces[network.DefaultSpaceId] = network.DefaultSpaceName
 	result := description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("ubuntu"),
 		Series:               "trusty",
@@ -693,7 +696,7 @@ func (s *bundleSuite) minimalApplicationArgs(modelType string) description.Appli
 			"leader": true,
 		},
 		MetricsCredentials: []byte("sekrit"),
-		EndpointBindings:   map[string]string{"juju-info": "vlan2", "another": ""},
+		EndpointBindings:   map[string]string{"juju-info": "1", "another": "0"},
 	}
 	if modelType == description.CAAS {
 		result.PasswordHash = "some-hash"
@@ -1119,6 +1122,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		},
 		CloudRegion: "some-region"})
 
+	s.st.Spaces["2"] = "some-space"
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
 		Series:               "zesty",
@@ -1129,7 +1133,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		ForceCharm:           true,
 		Exposed:              true,
 		EndpointBindings: map[string]string{
-			"rel-name": "some-space",
+			"rel-name": "2",
 		},
 		ApplicationConfig: map[string]interface{}{
 			"config key": "config value",

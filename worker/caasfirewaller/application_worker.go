@@ -26,6 +26,8 @@ type applicationWorker struct {
 
 	initial           bool
 	previouslyExposed bool
+
+	logger Logger
 }
 
 func newApplicationWorker(
@@ -35,6 +37,7 @@ func newApplicationWorker(
 	applicationGetter ApplicationGetter,
 	applicationExposer ServiceExposer,
 	lifeGetter LifeGetter,
+	logger Logger,
 ) (worker.Worker, error) {
 	w := &applicationWorker{
 		controllerUUID:    controllerUUID,
@@ -44,6 +47,7 @@ func newApplicationWorker(
 		serviceExposer:    applicationExposer,
 		lifeGetter:        lifeGetter,
 		initial:           true,
+		logger:            logger,
 	}
 	if err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -68,7 +72,7 @@ func (w *applicationWorker) loop() (err error) {
 	defer func() {
 		// If the application has been deleted, we can return nil.
 		if errors.IsNotFound(err) {
-			logger.Debugf("caas firewaller application %v has been removed", w.application)
+			w.logger.Debugf("caas firewaller application %v has been removed", w.application)
 			err = nil
 		}
 	}()
@@ -99,7 +103,7 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 	defer func() {
 		if errors.IsNotFound(err) {
 			// ignore not found error because the ip could be not ready yet at this stage.
-			logger.Warningf("processing change for application %q, %v", w.application, err)
+			w.logger.Warningf("processing change for application %q, %v", w.application, err)
 			err = nil
 		}
 	}()

@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -152,6 +153,7 @@ func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	s.PatchValue(&cert.NewCA, testing.NewCA)
 	s.PatchValue(&cert.NewLeafKeyBits, 512)
+	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
@@ -524,7 +526,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	}
 	s.CreateUserHome(c, &userHomeParams)
 
-	cfg, err := config.New(config.UseDefaults, (map[string]interface{})(s.sampleConfig()))
+	cfg, err := config.New(config.UseDefaults, s.sampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
 	ctx := cmdtesting.Context(c)

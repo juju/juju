@@ -66,16 +66,16 @@ func (s *ParseBindSuite) TestParseWithEmptyQuotedDefaultSpace(c *gc.C) {
 }
 
 func (s *ParseBindSuite) TestParseFailsWithSpaceNameButNoEndpoint(c *gc.C) {
-	s.checkParseFailsForExpr(c, "=bad", nil, "Found = without endpoint name. Use a lone space name to set the default.")
+	s.checkParseFailsForExpr(c, "=bad", nil, parseBindErrorPrefix+"Found = without endpoint name. Use a lone space name to set the default.")
 }
 
 func (s *ParseBindSuite) TestParseFailsWithTooManyEqualsSignsInArgs(c *gc.C) {
-	s.checkParseFailsForExpr(c, "foo=bar=baz", nil, "Found multiple = in binding. Did you forget to space-separate the binding list?")
+	s.checkParseFailsForExpr(c, "foo=bar=baz", nil, parseBindErrorPrefix+"Found multiple = in binding. Did you forget to space-separate the binding list?")
 }
 
 func (s *ParseBindSuite) TestParseFailsWithUnknownSpaceName(c *gc.C) {
 	_, err := parseBindExpr("rel1=bogus", nil)
-	c.Check(err.Error(), gc.Equals, `Space with name "bogus" not found`)
+	c.Check(err.Error(), gc.Equals, `space "bogus" not found`)
 }
 
 func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C) {
@@ -108,6 +108,6 @@ func (s *ParseBindSuite) checkParseOKForExpr(c *gc.C, expr string, knownSpaces [
 
 func (s *ParseBindSuite) checkParseFailsForExpr(c *gc.C, expr string, knownSpaces []string, expectedErrorSuffix string) {
 	parsedBindings, err := parseBindExpr(expr, knownSpaces)
-	c.Check(err.Error(), gc.Equals, parseBindErrorPrefix+expectedErrorSuffix)
+	c.Check(err.Error(), gc.Equals, expectedErrorSuffix)
 	c.Check(parsedBindings, gc.IsNil)
 }

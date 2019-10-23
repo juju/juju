@@ -139,9 +139,9 @@ func (m *mockApplication) Endpoints() ([]state.Endpoint, error) {
 	return m.endpoints, nil
 }
 
-func (m *mockApplication) EndpointBindings() (map[string]string, error) {
+func (m *mockApplication) EndpointBindings() (application.Bindings, error) {
 	m.MethodCall(m, "EndpointBindings")
-	return m.bindings, m.NextErr()
+	return &mockBindings{bMap: m.bindings}, m.NextErr()
 }
 
 func (a *mockApplication) AllUnits() ([]application.Unit, error) {
@@ -250,6 +250,24 @@ func (a *mockApplication) IsRemote() bool {
 func (a *mockApplication) AgentTools() (*tools.Tools, error) {
 	a.MethodCall(a, "AgentTools")
 	return a.agentTools, a.NextErr()
+}
+
+type mockBindings struct {
+	// A map of endpoint names to space names.
+	bMap map[string]string
+}
+
+func (b *mockBindings) Map() map[string]string {
+	return b.bMap
+}
+
+func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
+	return b.bMap, nil
+}
+
+func (m *mockApplication) MergeBindings(bindings *state.Bindings, force bool) error {
+	m.MethodCall(m, "MergeBindings", bindings, force)
+	return m.NextErr()
 }
 
 type mockNotifyWatcher struct {
@@ -413,6 +431,18 @@ func (m *mockBackend) Machine(id string) (application.Machine, error) {
 		}
 	}
 	return nil, errors.NotFoundf("machine %q", id)
+}
+
+func (m *mockBackend) SpaceIDsByName() (map[string]string, error) {
+	return nil, nil
+}
+
+func (m *mockBackend) SpaceNamesByID() (map[string]string, error) {
+	return nil, nil
+}
+
+func (m *mockBackend) SpaceByID(_ string) (*state.Space, error) {
+	return nil, nil
 }
 
 func newMockModel() mockModel {

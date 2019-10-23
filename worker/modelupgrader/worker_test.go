@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -45,6 +46,7 @@ func (*WorkerSuite) TestNewWorker(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -70,6 +72,7 @@ func (*WorkerSuite) TestNewWorkerModelRemovedUninstalls(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(errors.Cause(err), gc.ErrorMatches, modelupgrader.ErrModelRemoved.Error())
 	workertest.CheckNilOrKill(c, w)
@@ -91,6 +94,7 @@ func (*WorkerSuite) TestNonUpgradeable(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -143,6 +147,7 @@ func (*WorkerSuite) TestRunUpgradeOperations(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	workertest.CheckKill(c, w)
@@ -190,6 +195,7 @@ func (*WorkerSuite) TestRunUpgradeOperationsStepError(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -220,6 +226,7 @@ func (*WorkerSuite) TestWaitForUpgrade(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -271,6 +278,7 @@ func (*WorkerSuite) TestModelNotFoundWhenRunning(c *gc.C) {
 		ControllerTag: coretesting.ControllerTag,
 		ModelTag:      coretesting.ModelTag,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 

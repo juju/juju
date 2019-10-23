@@ -14,7 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	corelease "github.com/juju/juju/core/lease"
-	"github.com/juju/juju/juju/paths"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	jworker "github.com/juju/juju/worker"

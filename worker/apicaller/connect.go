@@ -285,7 +285,7 @@ func changePassword(oldPassword string, a agent.Agent, facade apiagent.ConnFacad
 		c.SetOldPassword(oldPassword)
 		return nil
 	}); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	// This has to happen *after* we record the old/new passwords
 	// locally, lest we change it remotely, crash suddenly, and

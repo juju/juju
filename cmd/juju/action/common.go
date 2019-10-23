@@ -4,11 +4,18 @@
 package action
 
 import (
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	coreactions "github.com/juju/juju/core/actions"
+	"github.com/juju/juju/core/watcher"
 )
 
 var logger = loggo.GetLogger("juju.cmd.juju.action")
@@ -107,4 +114,63 @@ func addValueToMap(keys []string, value interface{}, target map[string]interface
 		next[keys[i]] = m
 		next = m
 	}
+}
+
+const (
+	watchTimestampFormat  = "15:04:05"
+	resultTimestampFormat = "2006-01-02 15:04:05"
+)
+
+func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
+	var actionMessage coreactions.ActionMessage
+	err := json.Unmarshal([]byte(encodedMessage), &actionMessage)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return formatLogMessage(actionMessage, true, utc), nil
+}
+
+func formatTimestamp(timestamp time.Time, progressFormat, utc bool) string {
+	if utc {
+		timestamp = timestamp.UTC()
+	} else {
+		timestamp = timestamp.Local()
+	}
+	timestampFormat := resultTimestampFormat
+	if progressFormat {
+		timestampFormat = watchTimestampFormat
+	}
+	return timestamp.Format(timestampFormat)
+}
+
+func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc bool) string {
+	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc), actionMessage.Message)
+}
+
+// processLogMessages starts a go routine to decode and handle any incoming
+// action log messages received via the string watcher.
+func processLogMessages(
+	w watcher.StringsWatcher, done chan struct{}, ctx *cmd.Context, utc bool, handler func(*cmd.Context, string),
+) {
+	go func() {
+		defer w.Kill()
+		for {
+			select {
+			case <-done:
+				return
+			case messages, ok := <-w.Changes():
+				if !ok {
+					return
+				}
+				for _, msg := range messages {
+					logMsg, err := decodeLogMessage(msg, utc)
+					if err != nil {
+						logger.Warningf("badly formatted action log message: %v\n%v", err, msg)
+						continue
+					}
+					handler(ctx, logMsg)
+				}
+			}
+		}
+	}()
 }

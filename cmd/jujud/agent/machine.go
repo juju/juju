@@ -57,12 +57,12 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	jujunames "github.com/juju/juju/juju/names"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongometrics"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -84,16 +84,18 @@ import (
 	"github.com/juju/juju/worker/modelworkermanager"
 	"github.com/juju/juju/worker/provisioner"
 	psworker "github.com/juju/juju/worker/pubsub"
+	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
 var (
-	logger           = loggo.GetLogger("juju.cmd.jujud")
-	jujuRun          = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
-	jujuDumpLogs     = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
-	jujuIntrospect   = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
-	jujuUpdateSeries = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
-	jujudSymlinks    = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
+	logger            = loggo.GetLogger("juju.cmd.jujud")
+	jujuRun           = paths.MustSucceed(paths.JujuRun(series.MustHostSeries()))
+	jujuDumpLogs      = paths.MustSucceed(paths.JujuDumpLogs(series.MustHostSeries()))
+	jujuIntrospect    = paths.MustSucceed(paths.JujuIntrospect(series.MustHostSeries()))
+	jujuUpdateSeries  = paths.MustSucceed(paths.JujuUpdateSeries(series.MustHostSeries()))
+	jujudSymlinks     = []string{jujuRun, jujuDumpLogs, jujuIntrospect, jujuUpdateSeries}
+	caasJujudSymlinks = []string{jujuRun, jujuDumpLogs, jujuIntrospect}
 
 	// The following are defined as variables to allow the tests to
 	// intercept calls to the functions. In every case, they should
@@ -361,17 +363,18 @@ func (a *MachineAgent) registerPrometheusCollectors() error {
 type MachineAgent struct {
 	AgentConfigWriter
 
-	ctx              *cmd.Context
-	dead             chan struct{}
-	errReason        error
-	agentTag         names.Tag
-	runner           *worker.Runner
-	rootDir          string
-	bufferedLogger   *logsender.BufferedLogWriter
-	configChangedVal *voyeur.Value
-	upgradeComplete  gate.Lock
-	workersStarted   chan struct{}
-	machineLock      machinelock.Lock
+	ctx               *cmd.Context
+	dead              chan struct{}
+	errReason         error
+	agentTag          names.Tag
+	runner            *worker.Runner
+	rootDir           string
+	bufferedLogger    *logsender.BufferedLogWriter
+	configChangedVal  *voyeur.Value
+	dbUpgradeComplete gate.Lock
+	upgradeComplete   gate.Lock
+	workersStarted    chan struct{}
+	machineLock       machinelock.Lock
 
 	// Used to signal that the upgrade worker will not
 	// reboot the agent on startup because there are no
@@ -473,7 +476,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 
 	setupAgentLogging(a.CurrentConfig())
 
-	if err := introspection.WriteProfileFunctions(); err != nil {
+	if err := introspection.WriteProfileFunctions(introspection.ProfileDir); err != nil {
 		// This isn't fatal, just annoying.
 		logger.Errorf("failed to write profile funcs: %v", err)
 	}
@@ -509,6 +512,7 @@ func (a *MachineAgent) Run(ctx *cmd.Context) (err error) {
 		return errors.Trace(err)
 	}
 	a.machineLock = machineLock
+	a.dbUpgradeComplete = upgradedatabase.NewLock(agentConfig)
 	a.upgradeComplete = upgradesteps.NewLock(agentConfig)
 
 	createEngine := a.makeEngineCreator(agentName, agentConfig.UpgradedToVersion())
@@ -572,6 +576,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			Agent:                   agent.APIHostPortsSetter{Agent: a},
 			RootDir:                 a.rootDir,
 			AgentConfigChanged:      a.configChangedVal,
+			UpgradeDBLock:           a.dbUpgradeComplete,
 			UpgradeStepsLock:        a.upgradeComplete,
 			UpgradeCheckLock:        a.initialUpgradeCheckComplete,
 			OpenController:          a.initController,
@@ -602,6 +607,7 @@ func (a *MachineAgent) makeEngineCreator(agentName string, previousAgentVersion 
 			MuxShutdownWait:                   1 * time.Minute,
 			NewContainerBrokerFunc:            newCAASBroker,
 			NewBrokerFunc:                     newBroker,
+			IsCaasConfig:                      a.isCaasAgent,
 		}
 		manifolds := iaasMachineManifolds(manifoldsCfg)
 		if a.isCaasAgent {
@@ -1054,7 +1060,18 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	if agentModelUUID == cfg.ModelUUID {
 		writer = a.ctx.Stderr
 	} else {
-		logFilename := filepath.Join(currentConfig.LogDir(), "models", cfg.ModelUUID+".log")
+		modelsDir := filepath.Join(currentConfig.LogDir(), "models")
+		if err := os.MkdirAll(modelsDir, 0755); err != nil {
+			return nil, errors.Annotate(err, "unable to create models log directory")
+		}
+		if err := paths.SetSyslogOwner(modelsDir); err != nil {
+			return nil, errors.Annotate(err, "unable to set owner for log directory")
+		}
+		filename := cfg.ModelName + "-" + cfg.ModelUUID[:6] + ".log"
+		logFilename := filepath.Join(modelsDir, filename)
+		if err := paths.PrimeLogFile(logFilename); err != nil {
+			return nil, errors.Annotate(err, "unable to prime log file")
+		}
 		writer = &lumberjack.Logger{
 			Filename:   logFilename,
 			MaxSize:    cfg.ControllerConfig.ModelLogfileMaxSizeMB(),
@@ -1281,7 +1298,16 @@ func (a *MachineAgent) Tag() names.Tag {
 
 func (a *MachineAgent) createJujudSymlinks(dataDir string) error {
 	jujud := filepath.Join(tools.ToolsDir(dataDir, a.Tag().String()), jujunames.Jujud)
-	for _, link := range jujudSymlinks {
+	symlinks := jujudSymlinks
+	if a.isCaasAgent {
+		// For IAAS, this is done in systemd for for caas we need to do it here.
+		caasJujud := filepath.Join(tools.ToolsDir(dataDir, ""), jujunames.Jujud)
+		if err := a.createSymlink(caasJujud, jujud); err != nil {
+			return errors.Annotatef(err, "failed to create %s symlink", jujud)
+		}
+		symlinks = caasJujudSymlinks
+	}
+	for _, link := range symlinks {
 		err := a.createSymlink(jujud, link)
 		if err != nil {
 			return errors.Annotatef(err, "failed to create %s symlink", link)

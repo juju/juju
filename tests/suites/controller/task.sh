@@ -4,6 +4,8 @@ test_controller() {
         return
     fi
 
+    set_verbosity
+
     echo "==> Checking for dependencies"
     check_dependencies juju
 

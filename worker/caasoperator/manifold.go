@@ -45,6 +45,7 @@ type ManifoldConfig struct {
 	MachineLock           machinelock.Lock
 	LeadershipGuarantee   time.Duration
 	CharmDirName          string
+	ProfileDir            string
 	HookRetryStrategyName string
 	TranslateResolverErr  func(error) error
 
@@ -79,6 +80,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.CharmDirName == "" {
 		return errors.NotValidf("missing CharmDirName")
+	}
+	if config.ProfileDir == "" {
+		return errors.NotValidf("missing ProfileDir")
 	}
 	if config.MachineLock == nil {
 		return errors.NotValidf("missing MachineLock")
@@ -170,6 +174,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Clock:                 clock,
 				PodSpecSetter:         client,
 				DataDir:               agentConfig.DataDir(),
+				ProfileDir:            config.ProfileDir,
 				Downloader:            downloader,
 				StatusSetter:          client,
 				UnitGetter:            client,
@@ -189,7 +194,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 
 			loadOperatorInfoFunc := config.LoadOperatorInfo
 			if loadOperatorInfoFunc == nil {
-				loadOperatorInfoFunc = loadOperatorInfo
+				loadOperatorInfoFunc = LoadOperatorInfo
 			}
 			operatorInfo, err := loadOperatorInfoFunc(wCfg.getPaths())
 			if err != nil {
@@ -254,7 +259,8 @@ func socketConfig(info *caas.OperatorInfo) (*uniter.SocketConfig, error) {
 	return sc, nil
 }
 
-func loadOperatorInfo(paths Paths) (*caas.OperatorInfo, error) {
+// LoadOperatorInfo loads the operator info file from the state dir.
+func LoadOperatorInfo(paths Paths) (*caas.OperatorInfo, error) {
 	filepath := path.Join(paths.State.BaseDir, caas.OperatorInfoFile)
 	data, err := ioutil.ReadFile(filepath)
 	if err != nil {

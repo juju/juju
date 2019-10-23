@@ -93,6 +93,7 @@ import (
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/toolsversionchecker"
 	"github.com/juju/juju/worker/txnpruner"
+	"github.com/juju/juju/worker/upgradedatabase"
 	"github.com/juju/juju/worker/upgrader"
 	"github.com/juju/juju/worker/upgradeseries"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -137,6 +138,11 @@ type ManifoldsConfig struct {
 	// PreviousAgentVersion passes through the version the machine
 	// agent was running before the current restart.
 	PreviousAgentVersion version.Number
+
+	// UpgradeDBLock is passed to the upgrade database gate to
+	// coordinate workers that shouldn't do anything until the
+	// upgrade-database worker is done.
+	UpgradeDBLock gate.Lock
 
 	// UpgradeStepsLock is passed to the upgrade steps gate to
 	// coordinate workers that shouldn't do anything until the
@@ -256,6 +262,9 @@ type ManifoldsConfig struct {
 
 	// NewBrokerFunc is a function opens a instance broker (LXD/KVM)
 	NewBrokerFunc containerbroker.NewBrokerFunc
+
+	// IsCaasConfig is true if this config is for a caas agent.
+	IsCaasConfig bool
 }
 
 // commonManifolds returns a set of co-configured manifolds covering the
@@ -287,6 +296,11 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			return nil, errors.Trace(err)
 		}
 		return crosscontroller.NewClient(conn), nil
+	}
+
+	var externalUpdateProxyFunc func(proxy.Settings) error
+	if runtime.GOOS == "linux" && !config.IsCaasConfig {
+		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
 	}
 
 	agentConfig := config.Agent.CurrentConfig()
@@ -401,13 +415,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The modelcache manifold creates a cache.Controller and keeps
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
-		modelCacheName: ifController(modelcache.Manifold(modelcache.ManifoldConfig{
+		modelCacheName: ifDatabaseUpgradeComplete(ifController(modelcache.Manifold(modelcache.ManifoldConfig{
 			StateName:            stateName,
 			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
 			NewWorker:            modelcache.NewWorker,
-		})),
+		}))),
 
 		// The api-config-watcher manifold monitors the API server
 		// addresses in the agent config and bounces when they
@@ -440,6 +454,26 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			Filter:               connectFilter,
 			Logger:               loggo.GetLogger("juju.worker.apicaller"),
 		}),
+
+		// The upgrade database gate is used to coordinate workers that should
+		// not do anything until the upgrade-database worker has finished
+		// running any required database upgrade steps.
+		upgradeDatabaseGateName: ifController(gate.ManifoldEx(config.UpgradeDBLock)),
+		upgradeDatabaseFlagName: ifController(gate.FlagManifold(gate.FlagManifoldConfig{
+			GateName:  upgradeDatabaseGateName,
+			NewWorker: gate.NewFlagWorker,
+		})),
+
+		// The upgrade-database worker runs soon after the machine agent starts
+		// and runs any steps required to upgrade to the database to the
+		// current version. Once upgrade steps have run, the upgrade-database
+		// gate is unlocked and the worker exits.
+		upgradeDatabaseName: ifController(upgradedatabase.Manifold(upgradedatabase.ManifoldConfig{
+			AgentName:         agentName,
+			UpgradeDBGateName: upgradeDatabaseGateName,
+			OpenState:         config.OpenStateForUpgrade,
+			Logger:            loggo.GetLogger("juju.worker.upgradedatabase"),
+		})),
 
 		// The upgrade steps gate is used to coordinate workers which
 		// shouldn't do anything until the upgrade-steps worker has
@@ -616,7 +650,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// TODO Juju 3.0: the controller port worker is only needed while
 		// the controller port is a mutable controller config value.
 		// When we hit 3.0 we should make controller-port a required
-		// and unmutable value.
+		// and immutable value.
 		controllerPortName: controllerport.Manifold(controllerport.ManifoldConfig{
 			AgentName:               agentName,
 			HubName:                 centralHubName,
@@ -769,6 +803,19 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewStore:             leasemanager.NewStore,
 		})),
 
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings.
+		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:           agentName,
+			APICallerName:       apiCallerName,
+			Logger:              loggo.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:          proxyupdater.NewWorker,
+			SupportLegacyValues: !config.IsCaasConfig,
+			ExternalUpdate:      externalUpdateProxyFunc,
+			InProcessUpdate:     proxyconfig.DefaultConfig.Set,
+			RunFunc:             proxyupdater.RunWithStdIn,
+		})),
+
 		// TODO (thumper): It doesn't really make sense in a machine manifold as
 		// not every machine will have credentials. It is here for the
 		// ifCredentialValid function that is used solely for the machine
@@ -788,10 +835,6 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 // IAASManifolds returns a set of co-configured manifolds covering the
 // various responsibilities of a IAAS machine agent.
 func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
-	var externalUpdateProxyFunc func(proxy.Settings) error
-	if runtime.GOOS == "linux" {
-		externalUpdateProxyFunc = lxd.ConfigureLXDProxies
-	}
 	manifolds := dependency.Manifolds{
 		toolsVersionCheckerName: ifNotMigrating(toolsversionchecker.Manifold(toolsversionchecker.ManifoldConfig{
 			AgentName:     agentName,
@@ -801,18 +844,6 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 		authenticationWorkerName: ifNotMigrating(authenticationworker.Manifold(authenticationworker.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
-		})),
-
-		// The proxy config updater is a leaf worker that sets http/https/apt/etc
-		// proxy settings.
-		proxyConfigUpdater: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
-			AgentName:       agentName,
-			APICallerName:   apiCallerName,
-			Logger:          loggo.GetLogger("juju.worker.proxyupdater"),
-			WorkerFunc:      proxyupdater.NewWorker,
-			ExternalUpdate:  externalUpdateProxyFunc,
-			InProcessUpdate: proxyconfig.DefaultConfig.Set,
-			RunFunc:         proxyupdater.RunWithStdIn,
 		})),
 
 		hostKeyReporterName: ifNotMigrating(hostkeyreporter.Manifold(hostkeyreporter.ManifoldConfig{
@@ -1045,6 +1076,12 @@ var ifModelCacheInitialized = engine.Housing{
 	},
 }.Decorate
 
+var ifDatabaseUpgradeComplete = engine.Housing{
+	Flags: []string{
+		upgradeDatabaseFlagName,
+	},
+}.Decorate
+
 const (
 	agentName              = "agent"
 	agentConfigUpdaterName = "agent-config-updater"
@@ -1058,6 +1095,10 @@ const (
 	presenceName           = "presence"
 	pubSubName             = "pubsub-forwarder"
 	clockName              = "clock"
+
+	upgradeDatabaseName     = "upgrade-database-runner"
+	upgradeDatabaseGateName = "upgrade-database-gate"
+	upgradeDatabaseFlagName = "upgrade-database-flag"
 
 	upgraderName         = "upgrader"
 	upgradeStepsName     = "upgrade-steps-runner"

@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/resource/resourcetesting"
 	"github.com/juju/juju/state"
@@ -265,7 +264,7 @@ deployment:
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
-	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	sp := s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
 
 	// Assign new charm endpoint to "isolated" space
@@ -273,26 +272,100 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 		Charm:      sch,
 		ForceUnits: true,
 		EndpointBindings: map[string]string{
-			"events": "isolated",
+			"events": sp.Name(),
 		},
 	}
 	err := s.mysql.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
-		"server":  network.DefaultSpaceName,
-		"client":  network.DefaultSpaceName,
-		"cluster": network.DefaultSpaceName,
-		"events":  "isolated",
+		"":        network.DefaultSpaceId,
+		"server":  network.DefaultSpaceId,
+		"client":  network.DefaultSpaceId,
+		"cluster": network.DefaultSpaceId,
+		"events":  sp.Id(),
 	}
 
 	updatedBindings, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
+}
+
+func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
+	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+
+	expBindings := map[string]string{
+		"":               network.DefaultSpaceName,
+		"metrics-client": network.DefaultSpaceName,
+		"server":         network.DefaultSpaceName,
+		"server-admin":   network.DefaultSpaceName,
+	}
+	b, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	curBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curBindings, gc.DeepEquals, expBindings)
+
+	// Use MergeBindings to bind "server" -> "isolated"
+	b, err = state.NewBindings(s.State, map[string]string{
+		"server": "isolated",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.MergeBindings(b, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the bindings have been updated
+	expBindings["server"] = "isolated"
+	b, err = s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	updatedBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+}
+
+func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
+	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+
+	sn, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.99.99.0/24"})
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddSpace("far", "", []string{sn.ID()}, false)
+	c.Assert(err, gc.IsNil)
+
+	expBindings := map[string]string{
+		"":               network.DefaultSpaceName,
+		"metrics-client": network.DefaultSpaceName,
+		"server":         network.DefaultSpaceName,
+		"server-admin":   network.DefaultSpaceName,
+	}
+	b, err := s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+
+	curBindings, err := b.MapWithSpaceNames()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(curBindings, gc.DeepEquals, expBindings)
+
+	// Use MergeBindings to force-bind "server" -> "far"
+	b, err = state.NewBindings(s.State, map[string]string{
+		"server": "far",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.mysql.MergeBindings(b, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that the bindings have been updated
+	expBindings["server"] = "far"
+	b, err = s.mysql.EndpointBindings()
+	c.Assert(err, jc.ErrorIsNil)
+	updatedBindings, err := b.MapWithSpaceNames()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
 }
 
 func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *gc.C) {
-	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
+	_ = s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
 	sch := s.AddMetaCharm(c, "mysql", metaBaseWithNewEndpoint, 2)
 
 	// New charm endpoint should be auto-assigned to default space if not
@@ -305,22 +378,23 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
-		"server":  network.DefaultSpaceName,
-		"client":  network.DefaultSpaceName,
-		"cluster": network.DefaultSpaceName,
-		"events":  network.DefaultSpaceName,
+		"":        network.DefaultSpaceId,
+		"server":  network.DefaultSpaceId,
+		"client":  network.DefaultSpaceId,
+		"cluster": network.DefaultSpaceId,
+		"events":  network.DefaultSpaceId,
 	}
 
 	updatedBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, gc.DeepEquals, expBindings)
+	c.Assert(updatedBindings.Map(), gc.DeepEquals, expBindings)
 }
 
-func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a *state.Application, spaceName string) {
+func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a *state.Application, spaceName string) *state.Space {
 	sn1, err := s.State.AddSubnet(network.SubnetInfo{CIDR: "10.0.254.0/24"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddSpace("isolated", "", []string{sn1.ID()}, false)
+	sp, err := s.State.AddSpace(spaceName, "", []string{sn1.ID()}, false)
 	c.Assert(err, gc.IsNil)
 
 	m1, err := s.State.AddOneMachine(state.MachineTemplate{
@@ -331,7 +405,7 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	c.Assert(err, gc.IsNil)
 	err = m1.SetLinkLayerDevices(state.LinkLayerDeviceArgs{
 		Name: "enp5s0",
-		Type: corenetwork.EthernetDevice,
+		Type: network.EthernetDevice,
 	})
 	c.Assert(err, gc.IsNil)
 	err = m1.SetDevicesAddresses(state.LinkLayerDeviceAddress{
@@ -345,6 +419,8 @@ func (s *ApplicationSuite) assignUnitOnMachineWithSpaceToApplication(c *gc.C, a 
 	c.Assert(err, gc.IsNil)
 	err = u1.AssignToMachine(m1)
 	c.Assert(err, gc.IsNil)
+
+	return sp
 }
 
 func (s *ApplicationSuite) combinedSettings(ch *state.Charm, inSettings charm.Settings) charm.Settings {
@@ -490,9 +566,9 @@ func (s *ApplicationSuite) TestSetCharmPreconditions(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("client", "", nil, true)
+	clientSpace, err := s.State.AddSpace("client", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	oldCharm := s.AddMetaCharm(c, "mysql", metaBase, 44)
 
@@ -500,9 +576,9 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 		Name:  "yoursql",
 		Charm: oldCharm,
 		EndpointBindings: map[string]string{
-			"":       "db",
-			"server": "db",
-			"client": "client",
+			"":       dbSpace.Id(),
+			"server": dbSpace.Id(),
+			"client": clientSpace.Id(),
 		}})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -512,16 +588,16 @@ func (s *ApplicationSuite) TestSetCharmUpdatesBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	updatedBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(updatedBindings, jc.DeepEquals, map[string]string{
+	c.Assert(updatedBindings.Map(), jc.DeepEquals, map[string]string{
 		// Existing bindings are preserved.
-		"":        "db",
-		"server":  "db",
-		"client":  "client",
-		"cluster": "db", // inherited from defaults in AddApplication.
+		"":        dbSpace.Id(),
+		"server":  dbSpace.Id(),
+		"client":  clientSpace.Id(),
+		"cluster": dbSpace.Id(), // inherited from defaults in AddApplication.
 		// New endpoints use defaults.
-		"foo":  "db",
-		"baz":  "db",
-		"just": "db",
+		"foo":  dbSpace.Id(),
+		"baz":  dbSpace.Id(),
+		"just": dbSpace.Id(),
 	})
 }
 
@@ -1120,14 +1196,15 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 
 	oldBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(oldBindings, jc.DeepEquals, map[string]string{
-		"server":  "",
-		"kludge":  "",
-		"cluster": "",
+	c.Assert(oldBindings.Map(), jc.DeepEquals, map[string]string{
+		"":        network.DefaultSpaceId,
+		"server":  network.DefaultSpaceId,
+		"kludge":  network.DefaultSpaceId,
+		"cluster": network.DefaultSpaceId,
 	})
-	_, err = s.State.AddSpace("db", "", nil, true)
+	dbSpace, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("admin", "", nil, false)
+	adminSpace, err := s.State.AddSpace("admin", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	updateBindings := func(updatesMap bson.M) {
@@ -1145,14 +1222,14 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 			Before: func() {
 				// First change.
 				updateBindings(bson.M{
-					"bindings.server": "db",
-					"bindings.kludge": "admin", // will be removed before newCharm is set.
+					"bindings.server": dbSpace.Id(),
+					"bindings.kludge": adminSpace.Id(), // will be removed before newCharm is set.
 				})
 			},
 			After: func() {
 				// Second change.
 				updateBindings(bson.M{
-					"bindings.cluster": "admin",
+					"bindings.cluster": adminSpace.Id(),
 				})
 			},
 		},
@@ -1162,13 +1239,14 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 				// Verify final bindings.
 				newBindings, err := s.mysql.EndpointBindings()
 				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(newBindings, jc.DeepEquals, map[string]string{
-					"server":  "db", // from the first change.
-					"foo":     "",
-					"client":  "",
-					"baz":     "",
-					"cluster": "admin", // from the second change.
-					"just":    "",
+				c.Assert(newBindings.Map(), jc.DeepEquals, map[string]string{
+					"":        network.DefaultSpaceId,
+					"server":  dbSpace.Id(), // from the first change.
+					"foo":     network.DefaultSpaceId,
+					"client":  network.DefaultSpaceId,
+					"baz":     network.DefaultSpaceId,
+					"cluster": adminSpace.Id(), // from the second change.
+					"just":    network.DefaultSpaceId,
 				})
 			},
 		},
@@ -3434,7 +3512,7 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 	charm, _, err := application.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 
-	knownEndpoints := set.NewStrings()
+	knownEndpoints := set.NewStrings("")
 	allBindings := state.DefaultEndpointBindingsForCharm(charm.Meta())
 	for endpoint := range allBindings {
 		knownEndpoints.Add(endpoint)
@@ -3442,12 +3520,11 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setBindings, gc.NotNil)
+	c.Assert(setBindings.Map(), gc.NotNil)
 
-	for endpoint, space := range setBindings {
-		c.Check(endpoint, gc.Not(gc.Equals), "")
+	for endpoint, space := range setBindings.Map() {
 		c.Check(knownEndpoints.Contains(endpoint), jc.IsTrue)
-		c.Check(space, gc.Equals, "", gc.Commentf("expected empty space for endpoint %q, got %q", endpoint, space))
+		c.Check(space, gc.Equals, network.DefaultSpaceId, gc.Commentf("expected default space for endpoint %q, got %q", endpoint, space))
 	}
 }
 
@@ -3462,47 +3539,49 @@ func (s *ApplicationSuite) TestEndpointBindingsJustDefaults(c *gc.C) {
 }
 
 func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, true)
+	dbSpace, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("ha", "", nil, false)
+	haSpace, err := s.State.AddSpace("ha", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	bindings := map[string]string{
-		"server":  "db",
-		"cluster": "ha",
+		"server":  dbSpace.Id(),
+		"cluster": haSpace.Id(),
 	}
 	ch := s.AddMetaCharm(c, "mysql", metaBase, 42)
 	application := s.AddTestingApplicationWithBindings(c, "yoursql", ch, bindings)
 
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(setBindings, jc.DeepEquals, map[string]string{
-		"server":  "db",
-		"client":  "",
-		"cluster": "ha",
+	c.Assert(setBindings.Map(), jc.DeepEquals, map[string]string{
+		"":        network.DefaultSpaceId,
+		"server":  dbSpace.Id(),
+		"client":  network.DefaultSpaceId,
+		"cluster": haSpace.Id(),
 	})
 
 	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
 func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, true)
+	dbSpace, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 42)
 	oldBindings := map[string]string{
-		"kludge": "db",
-		"client": "db",
+		"kludge": dbSpace.Id(),
+		"client": dbSpace.Id(),
 	}
 	application := s.AddTestingApplicationWithBindings(c, "yoursql", oldCharm, oldBindings)
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
-		"kludge":  "db",
-		"client":  "db",
-		"cluster": "",
+		"":        network.DefaultSpaceId,
+		"kludge":  dbSpace.Id(),
+		"client":  dbSpace.Id(),
+		"cluster": network.DefaultSpaceId,
 	}
-	c.Assert(setBindings, jc.DeepEquals, effectiveOld)
+	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveOld)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 43)
 
@@ -3512,47 +3591,48 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	setBindings, err = application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
+		"": network.DefaultSpaceId,
 		// These two should be preserved from oldCharm.
-		"client":  "db",
-		"cluster": "",
+		"client":  dbSpace.Id(),
+		"cluster": network.DefaultSpaceId,
 		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": "",
+		"server": network.DefaultSpaceId,
 		// All the remaining are new and use the empty default.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"foo":  network.DefaultSpaceId,
+		"baz":  network.DefaultSpaceId,
+		"just": network.DefaultSpaceId,
 	}
-	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
+	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 
 	s.assertApplicationRemovedWithItsBindings(c, application)
 }
 
 func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C) {
 	oldCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, 69)
-	application := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
-	state.RemoveEndpointBindingsForApplication(c, application)
+	app := s.AddTestingApplicationWithBindings(c, "theirsql", oldCharm, nil)
+	state.RemoveEndpointBindingsForApplication(c, app)
 
 	newCharm := s.AddMetaCharm(c, "mysql", metaExtraEndpoints, 70)
 
 	cfg := state.SetCharmConfig{Charm: newCharm}
-	err := application.SetCharm(cfg)
+	err := app.SetCharm(cfg)
 	c.Assert(err, jc.ErrorIsNil)
-	setBindings, err := application.EndpointBindings()
+	setBindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// The following two exist for both oldCharm and newCharm.
-		"client":  "",
-		"cluster": "",
+		"client":  network.DefaultSpaceId,
+		"cluster": network.DefaultSpaceId,
 		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": "",
+		"server": network.DefaultSpaceId,
 		// All the remaining are new and use the empty default.
-		"foo":  "",
-		"baz":  "",
-		"just": "",
+		"foo":  network.DefaultSpaceId,
+		"baz":  network.DefaultSpaceId,
+		"just": network.DefaultSpaceId,
 	}
-	c.Assert(setBindings, jc.DeepEquals, effectiveNew)
+	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 
-	s.assertApplicationRemovedWithItsBindings(c, application)
+	s.assertApplicationRemovedWithItsBindings(c, app)
 }
 
 func (s *ApplicationSuite) setupApplicationWithUnitsForUpgradeCharmScenario(c *gc.C, numOfUnits int) (deployedV int, err error) {

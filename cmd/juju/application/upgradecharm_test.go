@@ -300,6 +300,24 @@ func (s *UpgradeCharmSuite) TestUpgradeWithBind(c *gc.C) {
 	})
 }
 
+func (s *UpgradeCharmSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
+	s.apiConnection = mockAPIConnection{
+		bestFacadeVersion: 11,
+		serverVersion: &version.Number{
+			Major: 1,
+			Minor: 2,
+			Patch: 3,
+		},
+	}
+
+	s.charmClient.charmInfo.Meta.ExtraBindings = map[string]charm.ExtraBinding{
+		"ep1": {Name: "ep1"},
+	}
+
+	_, err := s.runUpgradeCharm(c, "foo", "--bind", "unknown=sp1")
+	c.Assert(err, gc.ErrorMatches, `endpoint "unknown" not found`)
+}
+
 func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	// Set up the charm store testing server.

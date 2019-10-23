@@ -94,20 +94,20 @@ func (s *removeCAASSuite) runCommand(c *gc.C, cmd cmd.Command, args ...string) (
 }
 
 func (s *removeCAASSuite) TestExtraArg(c *gc.C) {
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "k8sname", "extra")
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "k8sname", "extra")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["extra"\]`)
 }
 
 func (s *removeCAASSuite) TestMissingName(c *gc.C) {
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd)
-	c.Assert(err, gc.ErrorMatches, `missing k8s name.`)
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command)
+	c.Assert(err, gc.ErrorMatches, `missing k8s cloud name.`)
 }
 
 func (s *removeCAASSuite) TestRemove(c *gc.C) {
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "myk8s", "-c", "foo")
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
@@ -120,48 +120,68 @@ func (s *removeCAASSuite) TestRemove(c *gc.C) {
 	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
-func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "myk8s", "--client")
+func (s *removeCAASSuite) TestRemoveControllerOnly(c *gc.C) {
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "myk8s", "-c", "foo", "--controller-only")
 	c.Assert(err, jc.ErrorIsNil)
 
+	// controller side operations
+	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
+	s.fakeCloudAPI.CheckCall(c, 0, "RemoveCloud", "myk8s")
+
+	// client side operations
+	s.cloudMetadataStore.CheckNoCalls(c)
+	s.store.CheckNoCalls(c)
+}
+
+func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "myk8s", "--client-only")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// controller side operations
 	s.fakeCloudAPI.CheckNoCalls(c)
 
+	// client side operations
 	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "WritePersonalCloudMetadata")
 	s.cloudMetadataStore.CheckCall(c, 1, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
-
 	s.store.CheckCallNames(c, "UpdateCredential")
 	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
 func (s *removeCAASSuite) TestRemoveNoController(c *gc.C) {
 	s.store.Controllers = nil
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "myk8s")
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "myk8s")
 	c.Assert(err, gc.NotNil)
-	_, err = cmdtesting.RunCommand(c, cmd, "homestack")
+	_, err = cmdtesting.RunCommand(c, command, "homestack")
 	c.Assert(err, gc.NotNil)
 	msg := err.Error()
 	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `There are no controllers running.To remove cloud "homestack" from the current client, use the --client option.*`)
+	c.Assert(msg, gc.Matches, `No controller was specified: cannot remove k8s cloud from a controller.`)
 
+	// controller side operations
 	s.fakeCloudAPI.CheckNoCalls(c)
-	s.cloudMetadataStore.CheckNoCalls(c)
-	s.store.CheckNoCalls(c)
+
+	// client side operations
+	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "WritePersonalCloudMetadata", "PersonalCloudMetadata")
+	s.cloudMetadataStore.CheckCall(c, 1, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
+	s.store.CheckCallNames(c, "UpdateCredential", "UpdateCredential")
+	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
 func (s *removeCAASSuite) TestRemoveNotInController(c *gc.C) {
 	s.fakeCloudAPI.SetErrors(errors.NotFoundf("cloud"))
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "myk8s", "-c", "foo")
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
 	c.Assert(err, gc.ErrorMatches, "cannot remove k8s cloud from controller.*")
 
 	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
 func (s *removeCAASSuite) TestRemoveNotInLocal(c *gc.C) {
-	cmd := s.makeCommand()
-	_, err := s.runCommand(c, cmd, "yourk8s", "-c", "foo")
+	command := s.makeCommand()
+	_, err := s.runCommand(c, command, "yourk8s", "-c", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")

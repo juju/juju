@@ -245,9 +245,9 @@ func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 }
 
 // EndpointBindings mocks base method
-func (m *MockApplication) EndpointBindings() (map[string]string, error) {
+func (m *MockApplication) EndpointBindings() (containerizer.Bindings, error) {
 	ret := m.ctrl.Call(m, "EndpointBindings")
-	ret0, _ := ret[0].(map[string]string)
+	ret0, _ := ret[0].(containerizer.Bindings)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

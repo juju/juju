@@ -24,25 +24,33 @@ func init() {
 	// jujuPreferredWorkloadStorage defines the opinionated storage
 	// that Juju requires to be available on supported clusters.
 	jujuPreferredWorkloadStorage = map[string]caas.PreferredStorage{
+		// WaitForFirstConsumer mode which will delay the binding and provisioning of a PersistentVolume until a
+		// Pod using the PersistentVolumeClaim is created.
+		// https://kubernetes.io/docs/concepts/storage/storage-classes/#volume-binding-mode
 		caas.K8sCloudMicrok8s: {
-			Name:        "hostpath",
-			Provisioner: "microk8s.io/hostpath",
+			Name:              "hostpath",
+			Provisioner:       "microk8s.io/hostpath",
+			VolumeBindingMode: "WaitForFirstConsumer",
 		},
 		caas.K8sCloudGCE: {
-			Name:        "GCE Persistent Disk",
-			Provisioner: "kubernetes.io/gce-pd",
+			Name:              "GCE Persistent Disk",
+			Provisioner:       "kubernetes.io/gce-pd",
+			VolumeBindingMode: "WaitForFirstConsumer",
 		},
 		caas.K8sCloudAzure: {
-			Name:        "Azure Disk",
-			Provisioner: "kubernetes.io/azure-disk",
+			Name:              "Azure Disk",
+			Provisioner:       "kubernetes.io/azure-disk",
+			VolumeBindingMode: "WaitForFirstConsumer",
 		},
 		caas.K8sCloudEC2: {
-			Name:        "EBS Volume",
-			Provisioner: "kubernetes.io/aws-ebs",
+			Name:              "EBS Volume",
+			Provisioner:       "kubernetes.io/aws-ebs",
+			VolumeBindingMode: "WaitForFirstConsumer",
 		},
 		caas.K8sCloudOpenStack: {
-			Name:        "Cinder Disk",
-			Provisioner: "csi-cinderplugin",
+			Name:              "Cinder Disk",
+			Provisioner:       "csi-cinderplugin",
+			VolumeBindingMode: "WaitForFirstConsumer",
 		},
 	}
 

@@ -310,6 +310,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(newUpgradeControllerCommand())
 	r.Register(application.NewUpgradeCharmCommand())
 	r.Register(application.NewSetSeriesCommand())
+	r.Register(application.NewBindCommand())
 
 	// Charm tool commands.
 	r.Register(newHelpToolCommand())
@@ -388,6 +389,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewCancelCommand())
 	if featureflag.Enabled(feature.JujuV3) {
 		r.Register(action.NewCallCommand())
+		r.Register(action.NewListTasksCommand())
 	} else {
 		r.Register(action.NewRunActionCommand())
 		r.Register(action.NewStatusCommand())

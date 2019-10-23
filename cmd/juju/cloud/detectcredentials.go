@@ -60,7 +60,7 @@ this Juju client. If a current controller is detected on the client, the user
 is prompted to confirm if the credentials should be uploaded to it. 
 To skip the prompt and to upload to a detected current controller, use --no-prompt.
 To upload credentials to a different controller, use --controller option. 
-To add credentials to the current client only, use --client option.
+To add credentials to the current client only, use --client-only option.
 
 Below are the cloud types for which credentials may be autoloaded,
 including the locations searched.
@@ -91,7 +91,7 @@ LXD
 
 Example:
     juju autoload-credentials
-    juju autoload-credentials --client
+    juju autoload-credentials --client-only
     juju autoload-credentials --controller mycontroller
     juju autoload-credentials --no-prompt
     juju autoload-credentials aws
@@ -133,6 +133,9 @@ func (c *detectCredentialsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *detectCredentialsCommand) Init(args []string) (err error) {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
+		return err
+	}
 	if len(args) > 0 {
 		c.cloudType = strings.ToLower(args[0])
 		return cmd.CheckEmpty(args[1:])
@@ -178,7 +181,7 @@ func (c *detectCredentialsCommand) allClouds(ctxt *cmd.Context) (map[string]juju
 	for k, v := range personalClouds {
 		clouds[k] = v
 	}
-	if !c.Local && c.ControllerName != "" {
+	if !c.ClientOnly && c.ControllerName != "" {
 		ctxt.Infof("\nLooking for cloud information on controller %q...", c.ControllerName)
 		// If there is a cloud definition for the same cloud both
 		// on the controller and on the client and they conflict,
@@ -204,7 +207,7 @@ func (c *detectCredentialsCommand) allClouds(ctxt *cmd.Context) (map[string]juju
 
 func (c *detectCredentialsCommand) Run(ctxt *cmd.Context) error {
 	var err error
-	if !c.Local && c.ControllerName == "" {
+	if !c.ClientOnly && c.ControllerName == "" {
 		// The user may have specified the controller via a --controller option.
 		// If not, let's see if there is a current controller that can be detected.
 		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "add a credential to")
@@ -443,7 +446,7 @@ func (c *detectCredentialsCommand) interactiveCredentialsUpdate(ctxt *cmd.Contex
 		}
 	}
 upload:
-	if !c.Local && c.ControllerName != "" {
+	if !c.ClientOnly && c.ControllerName != "" {
 		fmt.Fprintln(ctxt.Stderr)
 		return c.addRemoteCredentials(ctxt, clouds, loaded, localErr)
 	}

@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/loggo"
+
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -64,6 +66,7 @@ func (s *workerSuite) TestWorker(c *gc.C) {
 		Facade:        s.api,
 		Environ:       s.Environ,
 		CredentialAPI: &credentialAPIForTest{},
+		Logger:        loggo.GetLogger("test"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer func() {

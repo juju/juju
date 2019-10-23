@@ -120,6 +120,9 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"unit-agent-deployer",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
+			"upgrade-database-flag",
+			"upgrade-database-gate",
+			"upgrade-database-runner",
 			"upgrade-series",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
@@ -165,6 +168,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"model-worker-manager",
 			"peer-grouper",
 			"presence",
+			"proxy-config-updater",
 			"pubsub-forwarder",
 			"raft",
 			"raft-backstop",
@@ -181,6 +185,9 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"unconverted-api-workers",
 			"upgrade-check-flag",
 			"upgrade-check-gate",
+			"upgrade-database-flag",
+			"upgrade-database-gate",
+			"upgrade-database-runner",
 			"upgrade-steps-flag",
 			"upgrade-steps-gate",
 			"upgrade-steps-runner",
@@ -247,6 +254,9 @@ func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"migration-minion",
 		"upgrade-check-flag",
 		"upgrade-check-gate",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+		"upgrade-database-runner",
 		"upgrade-series",
 		"upgrade-series-enabled",
 		"upgrade-steps-flag",
@@ -287,6 +297,9 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"lease-manager",
 		"legacy-leases-flag",
 		"raft-transport",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
+		"upgrade-database-runner",
 	)
 	primaryControllerWorkers := set.NewStrings(
 		"external-controller-updater",
@@ -440,6 +453,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"state",
 		"state-config-watcher",
 		"upgrade-steps-gate",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"audit-config-updater": {
@@ -567,6 +582,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"restore-watcher",
 		"state",
 		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 		"upgrade-steps-gate",
 	},
 
@@ -730,6 +747,8 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"model-cache-initialized-gate",
 		"state",
 		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"model-cache-initialized-flag": {
@@ -1000,6 +1019,29 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 	"upgrade-check-flag": {"upgrade-check-gate"},
 
 	"upgrade-check-gate": {},
+
+	"upgrade-database-flag": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
+
+	"upgrade-database-gate": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+	},
+
+	"upgrade-database-runner": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-database-gate",
+	},
 
 	"upgrade-series": {
 		"agent",

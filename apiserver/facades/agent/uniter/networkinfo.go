@@ -75,9 +75,11 @@ func (n *NetworkInfo) init(tag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 
-	if n.bindings, err = n.app.EndpointBindings(); err != nil {
+	bindings, err := n.app.EndpointBindings()
+	if err != nil {
 		return errors.Trace(err)
 	}
+	n.bindings = bindings.Map()
 
 	if n.defaultEgress, err = n.getModelEgressSubnets(); err != nil {
 		return errors.Trace(err)
@@ -114,7 +116,6 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 	result := params.NetworkInfoResults{
 		Results: make(map[string]params.NetworkInfoResult),
 	}
-
 	// For each of the endpoints in the request, get the bound space and
 	// initialise the endpoint egress map with the model's configured
 	// egress subnets. Keep track of the spaces that we observe.
@@ -124,8 +125,10 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 			spaces.Add(binding)
 			bindings[endpoint] = binding
 		} else {
+			// If default binding is not explicitly defined, use the default space.
+			// This should no longer be the case....
 			if endpoint == "" {
-				bindings[endpoint] = corenetwork.DefaultSpaceName
+				bindings[endpoint] = corenetwork.DefaultSpaceId
 			} else {
 				err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
 				result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
@@ -168,25 +171,26 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 		// For CAAS units, we build up a minimal result struct
 		// based on the default space and unit public/private addresses,
 		// ie the addresses of the CAAS service.
-		addr, err := n.unit.AllAddresses()
+		addrs, err := n.unit.AllAddresses()
 		if err != nil {
 			return params.NetworkInfoResults{}, err
 		}
-		corenetwork.SortAddresses(addr)
+		corenetwork.SortAddresses(addrs)
 
 		// We record the interface addresses as the machine local ones - these
 		// are used later as the binding addresses.
 		// For CAAS models, we need to default ingress addresses to all available
 		// addresses so record those in the default ingress address slice.
 		var interfaceAddr []network.InterfaceAddress
-		for _, a := range addr {
+		for _, a := range addrs {
 			if a.Scope == corenetwork.ScopeMachineLocal {
 				interfaceAddr = append(interfaceAddr, network.InterfaceAddress{Address: a.Value})
+			} else {
+				defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 			}
-			defaultIngressAddresses = append(defaultIngressAddresses, a.Value)
 		}
 		networkInfos = make(map[string]state.MachineNetworkInfoResult)
-		networkInfos[corenetwork.DefaultSpaceName] = state.MachineNetworkInfoResult{
+		networkInfos[corenetwork.DefaultSpaceId] = state.MachineNetworkInfoResult{
 			NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
 		}
 	}
@@ -306,7 +310,7 @@ func (n *NetworkInfo) NetworksForRelation(
 	// If the endpoint for this relation is not bound to a space, or
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
-	if boundSpace == corenetwork.DefaultSpaceName || err != nil {
+	if boundSpace == corenetwork.DefaultSpaceId || err != nil {
 		_, crossModel, err := rel.RemoteApplication()
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
@@ -344,7 +348,11 @@ func (n *NetworkInfo) NetworksForRelation(
 			if err != nil {
 				logger.Warningf("no service address for unit %q in relation %q", n.unit.Name(), rel)
 			} else {
-				ingress = addrs
+				for _, addr := range addrs {
+					if addr.Scope != corenetwork.ScopeMachineLocal {
+						ingress = append(ingress, addr)
+					}
+				}
 			}
 		}
 	}
@@ -376,47 +384,22 @@ func (n *NetworkInfo) machineNetworkInfos(spaces ...string) (map[string]state.Ma
 		return nil, err
 	}
 
-	spInfos, err := n.lookupSpaces(spaces...)
-	if err != nil {
-		return nil, err
-	}
-
-	return machine.GetNetworkInfoForSpaces(spInfos), nil
+	return machine.GetNetworkInfoForSpaces(set.NewStrings(spaces...)), nil
 }
 
-// spaceForBinding returns the space name
+// spaceForBinding returns the space id
 // associated with the specified endpoint.
 func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 	boundSpace, known := n.bindings[endpoint]
 	if !known {
 		// If default binding is not explicitly defined, use the default space.
+		// This should no longer be the case....
 		if endpoint == "" {
-			return corenetwork.DefaultSpaceName, nil
+			return corenetwork.DefaultSpaceId, nil
 		}
-		return "", errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
+		return "", errors.NewNotValid(nil, fmt.Sprintf("binding id %q not defined by the unit's charm", endpoint))
 	}
 	return boundSpace, nil
-}
-
-// TODO (manadart 2019-10-09): Once endpoint bindings use space IDs,
-// we will not need to look up spaces this way. The spaces can be primed with
-// SpaceInfosByID and the retrieval will be a simple map lookup.
-func (n *NetworkInfo) lookupSpaces(names ...string) (corenetwork.SpaceInfos, error) {
-	spaceInfos := make(corenetwork.SpaceInfos, len(names))
-	for i, name := range names {
-		found := false
-		for _, sp := range n.spaces {
-			if sp.Name() == name {
-				spaceInfos[i] = sp.NetworkSpace()
-				found = true
-				break
-			}
-		}
-		if !found {
-			return nil, errors.NotFoundf("space with name %q", name)
-		}
-	}
-	return spaceInfos, nil
 }
 
 // spaceAddressesFromNetworkInfo returns a SpaceAddresses collection

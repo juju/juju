@@ -1366,7 +1366,7 @@ func (s *charmstoreSuite) assertDeployedApplicationBindings(c *gc.C, info map[st
 	for _, application := range applications {
 		endpointBindings, err := application.EndpointBindings()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(endpointBindings, jc.DeepEquals, info[application.Name()].endpointBindings)
+		c.Assert(endpointBindings.Map(), jc.DeepEquals, info[application.Name()].endpointBindings)
 	}
 }
 
@@ -1764,7 +1764,7 @@ func (s *legacyCharmStoreSuite) assertDeployedApplicationBindings(c *gc.C, info 
 	for _, application := range applications {
 		endpointBindings, err := application.EndpointBindings()
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(endpointBindings, jc.DeepEquals, info[application.Name()].endpointBindings)
+		c.Assert(endpointBindings.Map(), jc.DeepEquals, info[application.Name()].endpointBindings)
 	}
 }
 
@@ -2058,9 +2058,9 @@ summary: summary
 }
 
 func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecifiedSuccess(c *gc.C) {
-	_, err := s.State.AddSpace("db", "", nil, false)
+	dbSpace, err := s.State.AddSpace("db", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.State.AddSpace("public", "", nil, false)
+	publicSpace, err := s.State.AddSpace("public", "", nil, false)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, ch := testcharms.UploadCharmWithSeries(c, s.client, "cs:bionic/wordpress-extra-bindings-1", "wordpress-extra-bindings", "bionic")
@@ -2072,16 +2072,16 @@ func (s *DeployCharmStoreSuite) TestDeployCharmWithSomeEndpointBindingsSpecified
 	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
-				"":                "public",
-				"cache":           "public",
-				"url":             "public",
-				"logging-dir":     "public",
-				"monitoring-port": "public",
-				"db":              "db",
-				"db-client":       "db",
-				"admin-api":       "public",
-				"foo-bar":         "public",
-				"cluster":         "public",
+				"":                publicSpace.Id(),
+				"cache":           publicSpace.Id(),
+				"url":             publicSpace.Id(),
+				"logging-dir":     publicSpace.Id(),
+				"monitoring-port": publicSpace.Id(),
+				"db":              dbSpace.Id(),
+				"db-client":       dbSpace.Id(),
+				"admin-api":       publicSpace.Id(),
+				"foo-bar":         publicSpace.Id(),
+				"cluster":         publicSpace.Id(),
 			},
 		},
 	})

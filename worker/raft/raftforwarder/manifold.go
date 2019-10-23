@@ -5,18 +5,17 @@ package raftforwarder
 
 import (
 	"io"
-	"os"
 	"path/filepath"
 
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
-	"github.com/juju/utils"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
@@ -103,7 +102,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	st := statePool.SystemState()
 
 	logPath := filepath.Join(agent.CurrentConfig().LogDir(), "lease.log")
-	if err := primeLogFile(logPath); err != nil {
+	if err := paths.PrimeLogFile(logPath); err != nil {
 		// This isn't a fatal error, so log and continue if priming
 		// fails.
 		config.Logger.Warningf(
@@ -122,10 +121,10 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Target: notifyTarget,
 	})
 	if err != nil {
-		stTracker.Done()
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
-	return common.NewCleanupWorker(w, func() { stTracker.Done() }), nil
+	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }
 
 // Manifold builds a dependency.Manifold for running a raftforwarder
@@ -154,18 +153,4 @@ func makeLogger(path string) *lumberjack.Logger {
 		MaxBackups: maxLogs,
 		Compress:   true,
 	}
-}
-
-// primeLogFile ensures the lease log file is created with the
-// correct mode and ownership.
-func primeLogFile(path string) error {
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY, 0600)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := f.Close(); err != nil {
-		return errors.Trace(err)
-	}
-	err = utils.ChownPath(path, "syslog")
-	return errors.Trace(err)
 }

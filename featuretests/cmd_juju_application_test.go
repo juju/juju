@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-type CmdApplicationSuite struct {
+type cmdApplicationSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-func (s *CmdApplicationSuite) setupApplications(c *gc.C) {
+func (s *cmdApplicationSuite) setupApplications(c *gc.C) {
 	s.Factory.MakeSpace(c, &factory.SpaceParams{Name: "vlan2"})
 	// make an application with 2 endpoints
 	application1 := s.Factory.MakeApplication(c, &factory.ApplicationParams{
@@ -59,7 +59,7 @@ func (s *CmdApplicationSuite) setupApplications(c *gc.C) {
 	c.Assert(relation2, gc.NotNil)
 }
 
-func (s *CmdApplicationSuite) TestShowApplicationOne(c *gc.C) {
+func (s *cmdApplicationSuite) TestShowApplicationOne(c *gc.C) {
 	s.setupApplications(c)
 
 	ctx, err := cmdtesting.RunCommand(c, application.NewShowApplicationCommand(), "wordpress")
@@ -73,18 +73,19 @@ wordpress:
   exposed: false
   remote: false
   endpoint-bindings:
-    admin-api: ""
-    cache: ""
-    db: ""
-    db-client: ""
-    foo-bar: ""
-    logging-dir: ""
-    monitoring-port: ""
-    url: ""
+    "": "0"
+    admin-api: "0"
+    cache: "0"
+    db: "0"
+    db-client: "0"
+    foo-bar: "0"
+    logging-dir: "0"
+    monitoring-port: "0"
+    url: "0"
 `[1:])
 }
 
-func (s *CmdApplicationSuite) TestShowApplicationManyYaml(c *gc.C) {
+func (s *cmdApplicationSuite) TestShowApplicationManyYaml(c *gc.C) {
 	s.setupApplications(c)
 
 	ctx, err := cmdtesting.RunCommand(c, application.NewShowApplicationCommand(), "wordpress", "logging", "--format", "yaml")
@@ -98,9 +99,10 @@ logging:
   exposed: false
   remote: false
   endpoint-bindings:
-    info: vlan2
-    logging-client: ""
-    logging-directory: ""
+    "": "0"
+    info: "1"
+    logging-client: "0"
+    logging-directory: "0"
 wordpress:
   charm: wordpress
   series: quantal
@@ -108,18 +110,19 @@ wordpress:
   exposed: false
   remote: false
   endpoint-bindings:
-    admin-api: ""
-    cache: ""
-    db: ""
-    db-client: ""
-    foo-bar: ""
-    logging-dir: ""
-    monitoring-port: ""
-    url: ""
+    "": "0"
+    admin-api: "0"
+    cache: "0"
+    db: "0"
+    db-client: "0"
+    foo-bar: "0"
+    logging-dir: "0"
+    monitoring-port: "0"
+    url: "0"
 `[1:])
 }
 
-func (s *CmdApplicationSuite) TestRemoveApplication(c *gc.C) {
+func (s *cmdApplicationSuite) TestRemoveApplication(c *gc.C) {
 	s.setupApplications(c)
 
 	ctx, err := cmdtesting.RunCommand(c, application.NewRemoveApplicationCommand(), "wordpress")

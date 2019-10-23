@@ -5,7 +5,6 @@ package caasenvironupgrader
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
@@ -14,7 +13,9 @@ import (
 	"github.com/juju/juju/worker/gate"
 )
 
-var logger = loggo.GetLogger("juju.worker.modelupgrader")
+// Logger is here to stop the desire of creating a package level Logger.
+// Don't do this, instead use the one passed as manifold config.
+var logger interface{}
 
 // Facade exposes capabilities required by the worker.
 type Facade interface {
