@@ -81,9 +81,9 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 		expectedCode = 3
 	}
 	gomock.InOrder(
-		s.unitAPI.EXPECT().Refresh().Times(1).Return(nil),
-		s.unitAPI.EXPECT().ProviderID().Times(1).Return("gitlab-xxxx"),
-		s.unitAPI.EXPECT().Name().Times(1).Return("gitlab-k8s/0"),
+		s.unitAPI.EXPECT().Refresh().Return(nil),
+		s.unitAPI.EXPECT().ProviderID().Return("gitlab-xxxx"),
+		s.unitAPI.EXPECT().Name().Return("gitlab-k8s/0"),
 		s.executor.EXPECT().Exec(
 			exec.ExecParams{
 				PodName:  "gitlab-xxxx",
@@ -92,7 +92,7 @@ func (s *actionSuite) assertRunnerExecFunc(c *gc.C, errMsg string) {
 				Stdout:   stdout,
 				Stderr:   stderr,
 			}, cancel,
-		).Times(1).DoAndReturn(func(...interface{}) error {
+		).DoAndReturn(func(...interface{}) error {
 			stdout.WriteString("some message")
 			stderr.WriteString("some err message")
 			return exitErr

@@ -69,7 +69,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 			ContainerName: "juju-pod-init",
 			Stdout:        &bytes.Buffer{},
 			Stderr:        &bytes.Buffer{},
-		}, gomock.Any()).Return(nil).Times(1),
+		}, gomock.Any()).Return(nil),
 		mockExecClient.EXPECT().Copy(exec.CopyParam{
 			Src: exec.FileResource{
 				Path: "dir/charm",
@@ -79,7 +79,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 				PodName:       "gitlab-ffff",
 				ContainerName: "juju-pod-init",
 			},
-		}, gomock.Any()).Return(nil).Times(1),
+		}, gomock.Any()).Return(nil),
 		mockExecClient.EXPECT().Copy(exec.CopyParam{
 			Src: exec.FileResource{
 				Path: filepath.Join(os.TempDir(), "unit-gitlab-0-random/ca.crt"),
@@ -89,7 +89,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 				PodName:       "gitlab-ffff",
 				ContainerName: "juju-pod-init",
 			},
-		}, gomock.Any()).Return(nil).Times(1),
+		}, gomock.Any()).Return(nil),
 		mockExecClient.EXPECT().Copy(exec.CopyParam{
 			Src: exec.FileResource{
 				Path: "/var/lib/juju/agents/unit-gitlab-0/operator-client-cache.yaml",
@@ -99,7 +99,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 				PodName:       "gitlab-ffff",
 				ContainerName: "juju-pod-init",
 			},
-		}, gomock.Any()).Return(nil).Times(1),
+		}, gomock.Any()).Return(nil),
 		mockExecClient.EXPECT().Exec(exec.ExecParams{
 			Commands: []string{"/var/lib/juju/tools/jujud", "caas-unit-init",
 				"--send", "--unit", "unit-gitlab-0",
@@ -115,7 +115,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 			ContainerName: "juju-pod-init",
 			Stdout:        &bytes.Buffer{},
 			Stderr:        &bytes.Buffer{},
-		}, gomock.Any()).Return(nil).Times(1),
+		}, gomock.Any()).Return(nil),
 	)
 
 	cancel := make(chan struct{})
@@ -195,7 +195,7 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 			ContainerName: "juju-pod-init",
 			Stdout:        &bytes.Buffer{},
 			Stderr:        &bytes.Buffer{},
-		}, gomock.Any()).Return(nil).Times(1),
+		}, gomock.Any()).Return(nil),
 		mockExecClient.EXPECT().Copy(exec.CopyParam{
 			Src: exec.FileResource{
 				Path: "dir/charm",
@@ -205,7 +205,7 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 				PodName:       "gitlab-ffff",
 				ContainerName: "juju-pod-init",
 			},
-		}, gomock.Any()).Return(errors.NotFoundf("container")).Times(1),
+		}, gomock.Any()).Return(errors.NotFoundf("container")),
 	)
 
 	cancel := make(chan struct{})

@@ -103,19 +103,19 @@ func (s *k8sRawClientSuite) TestEnsureJujuAdminServiceAccount(c *gc.C) {
 
 	// 1st call of ensuring related resources - CREATE.
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoles.EXPECT().Create(cr).Times(1).
+		s.mockClusterRoles.EXPECT().Create(cr).
 			Return(cr, nil),
-		s.mockServiceAccounts.EXPECT().Create(newSa).Times(1).
+		s.mockServiceAccounts.EXPECT().Create(newSa).
 			Return(newSa, nil),
-		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).
 			Return(newSa, nil),
-		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).Times(1).
+		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).
 			Return(clusterRoleBinding, nil),
-		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).
 			Return(saWithSecret, nil),
-		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).Times(1).
+		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, cfg, contextName)
@@ -204,17 +204,17 @@ func (s *k8sRawClientSuite) TestEnsureJujuServiceAdminAccountIdempotent(c *gc.C)
 
 	// 2nd call of ensuring related resources - GET.
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).
 			Return(cr, nil),
-		s.mockServiceAccounts.EXPECT().Create(newSa).Times(1).
+		s.mockServiceAccounts.EXPECT().Create(newSa).
 			Return(newSa, nil),
-		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).
 			Return(newSa, nil),
-		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).Times(1).
+		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).
 			Return(clusterRoleBinding, nil),
-		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(newSa.Name, metav1.GetOptions{}).
 			Return(saWithSecret, nil),
-		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).Times(1).
+		s.mockSecrets.EXPECT().Get(saWithSecret.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
 	)
 	cfgOut, err := clientconfig.EnsureJujuAdminServiceAccount(s.k8sClient, cfg, contextName)
@@ -250,7 +250,7 @@ func (s *k8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).
 			Return(cr, nil),
 	)
 	crOut, err := clientconfig.EnsureClusterRole(s.k8sClient, cr.Name, s.namespace)
@@ -258,9 +258,9 @@ func (s *k8sRawClientSuite) TestEnsureClusterRole(c *gc.C) {
 	c.Assert(crOut, jc.DeepEquals, cr)
 
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockClusterRoles.EXPECT().Create(cr).Times(1).
+		s.mockClusterRoles.EXPECT().Create(cr).
 			Return(cr, nil),
 	)
 	crOut, err = clientconfig.EnsureClusterRole(s.k8sClient, cr.Name, s.namespace)
@@ -281,9 +281,9 @@ func (s *k8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().Create(sa).Times(1).
+		s.mockServiceAccounts.EXPECT().Create(sa).
 			Return(sa, nil),
-		s.mockServiceAccounts.EXPECT().Get(sa.Name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(sa.Name, metav1.GetOptions{}).
 			Return(sa, nil),
 	)
 	saOut, err := clientconfig.EnsureServiceAccount(s.k8sClient, sa.Name, s.namespace)
@@ -291,9 +291,9 @@ func (s *k8sRawClientSuite) TestEnsureServiceAccount(c *gc.C) {
 	c.Assert(saOut, jc.DeepEquals, sa)
 
 	gomock.InOrder(
-		s.mockServiceAccounts.EXPECT().Create(sa).Times(1).
+		s.mockServiceAccounts.EXPECT().Create(sa).
 			Return(sa, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().Get(sa.Name, metav1.GetOptions{}).Times(1).
+		s.mockServiceAccounts.EXPECT().Get(sa.Name, metav1.GetOptions{}).
 			Return(sa, nil),
 	)
 	saOut, err = clientconfig.EnsureServiceAccount(s.k8sClient, sa.Name, s.namespace)
@@ -348,7 +348,7 @@ func (s *k8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).Times(1).
+		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).
 			Return(clusterRoleBinding, nil),
 	)
 	clusterRoleBindingOut, err := clientconfig.EnsureClusterRoleBinding(s.k8sClient, clusterRoleBinding.Name, sa, cr)
@@ -356,7 +356,7 @@ func (s *k8sRawClientSuite) TestEnsureClusterRoleBinding(c *gc.C) {
 	c.Assert(clusterRoleBindingOut, jc.DeepEquals, clusterRoleBinding)
 
 	gomock.InOrder(
-		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).Times(1).
+		s.mockClusterRoleBinding.EXPECT().Create(clusterRoleBinding).
 			Return(clusterRoleBinding, s.k8sAlreadyExistsError()),
 	)
 	clusterRoleBindingOut, err = clientconfig.EnsureClusterRoleBinding(s.k8sClient, clusterRoleBinding.Name, sa, cr)
@@ -393,7 +393,7 @@ func (s *k8sRawClientSuite) TestGetServiceAccountSecret(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockSecrets.EXPECT().Get(sa.Secrets[0].Name, metav1.GetOptions{}).Times(1).
+		s.mockSecrets.EXPECT().Get(sa.Secrets[0].Name, metav1.GetOptions{}).
 			Return(secret, nil),
 	)
 	secretOut, err := clientconfig.GetServiceAccountSecret(s.k8sClient, sa)
