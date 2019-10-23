@@ -192,23 +192,19 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	var stderr bytes.Buffer
 	gomock.InOrder(
 		// check remote path is dir or not.
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-0", metav1.GetOptions{}).
-			Times(1).
-			Return(&pod, nil),
-		s.restClient.EXPECT().Post().Times(1).Return(checkRemotePathRequest),
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
+		s.restClient.EXPECT().Post().Return(checkRemotePathRequest),
 		s.mockRemoteCmdExecutor.EXPECT().Stream(
 			remotecommand.StreamOptions{
 				Stdout: &stdout,
 				Stderr: &stderr,
 				Tty:    false,
 			},
-		).Times(1).Return(nil),
+		).Return(nil),
 
 		// copy files.
-		s.mockPodGetter.EXPECT().Get("gitlab-k8s-0", metav1.GetOptions{}).
-			Times(1).
-			Return(&pod, nil),
-		s.restClient.EXPECT().Post().Times(1).Return(copyRequest),
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-0", metav1.GetOptions{}).Return(&pod, nil),
+		s.restClient.EXPECT().Post().Return(copyRequest),
 		s.mockRemoteCmdExecutor.EXPECT().Stream(
 			remotecommand.StreamOptions{
 				Stdin:  s.pipReader,
@@ -216,7 +212,7 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 				Stderr: &stderr,
 				Tty:    false,
 			},
-		).Times(1).Return(nil),
+		).Return(nil),
 	)
 
 	cancel := make(<-chan struct{}, 1)
