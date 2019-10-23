@@ -33,7 +33,7 @@ var skippedDeviceNames = set.NewStrings(
 // devices on those bridges for the containers to use.
 type BridgePolicy struct {
 	// spaces is a cache of the model's spaces.
-	spaces Spaces
+	spaces map[string]string
 
 	// netBondReconfigureDelay is how much of a delay to inject if we see that
 	// one of the devices being bridged is a BondDevice. This exists because of
@@ -53,9 +53,9 @@ type BridgePolicy struct {
 func NewBridgePolicy(cfgGetter environs.ConfigGetter, st SpaceBacking) (*BridgePolicy, error) {
 	cfg := cfgGetter.Config()
 
-	spaces, err := NewSpaces(st)
+	spaces, err := st.SpaceIDsByName()
 	if err != nil {
-		return nil, errors.Annotate(err, "creating spaces cache")
+		return nil, errors.Annotate(err, "getting space name to space ID map")
 	}
 
 	return &BridgePolicy{
@@ -78,7 +78,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 		return nil, 0, errors.Trace(err)
 	}
 	logger.Debugf("FindMissingBridgesForContainer(%q) spaces %s devices %v",
-		guest.Id(), guestSpaces.String(), formatDeviceMap(devicesPerSpace))
+		guest.Id(), guestSpaces, formatDeviceMap(devicesPerSpace))
 
 	spacesFound := set.NewStrings()
 	fanSpacesFound := set.NewStrings()
@@ -101,7 +101,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 	// consistently reasoning about spaces in terms of IDs, we should implement
 	// this kind of diffing on SpaceInfos.
 	// network.QuoteSpaceSet can be removed at that time too.
-	guestSpaceSet := set.NewStrings(guestSpaces.IDs()...)
+	guestSpaceSet := set.NewStrings(guestSpaces...)
 	notFound := guestSpaceSet.Difference(spacesFound)
 	fanNotFound := guestSpaceSet.Difference(fanSpacesFound)
 
@@ -194,7 +194,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 // find the devices on the host that are useful for the container.
 func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 	host Machine, guest Container,
-) (corenetwork.SpaceInfos, map[string][]LinkLayerDevice, error) {
+) ([]string, map[string][]LinkLayerDevice, error) {
 	containerSpaces, err := p.determineContainerSpaces(host, guest)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -217,7 +217,7 @@ func (p *BridgePolicy) findSpacesAndDevicesForContainer(
 // Note that devices like 'lxdbr0' that are bridges that might not be
 // externally accessible may be returned if the default space is
 // listed as one of the desired spaces.
-func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map[string][]LinkLayerDevice, error) {
+func linkLayerDevicesForSpaces(host Machine, spaces []string) (map[string][]LinkLayerDevice, error) {
 	deviceByName, err := linkLayerDevicesByName(host)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -273,7 +273,7 @@ func linkLayerDevicesForSpaces(host Machine, spaces corenetwork.SpaceInfos) (map
 		spaceToDevices = includeDevice(spaceToDevices, corenetwork.DefaultSpaceId, device)
 	}
 
-	requestedSpaces := set.NewStrings(spaces.IDs()...)
+	requestedSpaces := set.NewStrings(spaces...)
 	result := make(map[string][]LinkLayerDevice, len(spaceToDevices))
 	for spaceID, deviceMap := range spaceToDevices {
 		if !requestedSpaces.Contains(spaceID) {
@@ -328,7 +328,7 @@ func deviceMapToSortedList(deviceMap map[string]LinkLayerDevice) []LinkLayerDevi
 // we know about the host machine.
 func (p *BridgePolicy) determineContainerSpaces(
 	host Machine, guest Container,
-) (corenetwork.SpaceInfos, error) {
+) ([]string, error) {
 	// Gather any *positive* space constraints for the guest.
 	cons, err := guest.Constraints()
 	if err != nil {
@@ -339,11 +339,9 @@ func (p *BridgePolicy) determineContainerSpaces(
 	// Constraints have been left in space name form,
 	// as they are human readable and can be changed.
 	for _, spaceName := range cons.IncludeSpaces() {
-		info, err := p.spaces.GetByName(spaceName)
-		if err != nil {
-			return nil, errors.Trace(err)
+		if id, ok := p.spaces[spaceName]; ok {
+			spaces.Add(id)
 		}
-		spaces.Add(info.ID)
 	}
 
 	// Gather any space bindings for application endpoints
@@ -392,13 +390,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 		}
 	}
 
-	spaceInfos := make(corenetwork.SpaceInfos, len(spaces))
-	for i, space := range spaces.Values() {
-		if spaceInfos[i], err = p.spaces.GetByID(space); err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	return spaceInfos, nil
+	return spaces.Values(), nil
 }
 
 // inferContainerSpaces tries to find a valid space for the container to be
@@ -526,7 +518,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 		}
 	}
 
-	guestSpaceSet := set.NewStrings(guestSpaces.IDs()...)
+	guestSpaceSet := set.NewStrings(guestSpaces...)
 	missingSpaces := guestSpaceSet.Difference(spacesFound)
 
 	// Check if we are missing the default space and can fill it in with a local bridge
