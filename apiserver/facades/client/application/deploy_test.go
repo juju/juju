@@ -226,32 +226,6 @@ func (s *DeployLocalSuite) TestDeployWithInvalidSpace(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
-func (s *DeployLocalSuite) TestDeployWithInvalidBinding(c *gc.C) {
-	wordpressCharm := s.addWordpressCharm(c)
-	publicSpace, err := s.State.AddSpace("public", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-	internalSpace, err := s.State.AddSpace("internal", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	app, err := application.DeployApplication(stateDeployer{s.State},
-		application.DeployApplicationParams{
-			ApplicationName: "bob",
-			Charm:           wordpressCharm,
-			EndpointBindings: map[string]string{
-				"":      publicSpace.Id(),
-				"bd":    internalSpace.Id(), // typo 'bd'
-				"pubic": publicSpace.Id(),   // typo 'pubic'
-			},
-		})
-	c.Assert(err, gc.ErrorMatches,
-		`invalid binding\(s\) supplied "bd", "pubic", valid binding names are "admin-api", .* "url"`)
-	c.Check(app, gc.IsNil)
-	// The application should not have been added
-	_, err = s.State.Application("bob")
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-
-}
-
 func (s *DeployLocalSuite) TestDeployResources(c *gc.C) {
 	var f fakeDeployer
 
