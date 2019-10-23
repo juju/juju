@@ -388,7 +388,7 @@ func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	messages := a.Messages()
 	c.Assert(messages, gc.HasLen, 1)
-	c.Assert(messages[0].Message, gc.Equals, "hello world")
+	c.Assert(messages[0].Message(), gc.Equals, "hello world")
 }
 
 func (s *InterfaceSuite) TestRequestRebootAfterHook(c *gc.C) {

@@ -15,6 +15,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -296,8 +297,8 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 		obtained := a.Messages()
 		c.Assert(obtained, gc.HasLen, i+1)
 		for j, am := range obtained {
-			c.Assert(am.Timestamp, gc.Equals, clock.Now().UTC())
-			c.Assert(am.Message, gc.Equals, messages[j])
+			c.Assert(am.Timestamp(), gc.Equals, clock.Now().UTC())
+			c.Assert(am.Message(), gc.Equals, messages[j])
 		}
 	}
 
@@ -938,7 +939,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 		return time.Unix(0, startNow.UnixNano()).Add(offset).UTC()
 	}
 
-	checkExpected := func(wc statetesting.StringsWatcherC, expected []state.ActionMessage) {
+	checkExpected := func(wc statetesting.StringsWatcherC, expected []actions.ActionMessage) {
 		var ch []string
 		s.State.StartSync()
 		select {
@@ -946,9 +947,9 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("watcher did not send change")
 		}
-		var msg []state.ActionMessage
+		var msg []actions.ActionMessage
 		for i, chStr := range ch {
-			var gotMessage state.ActionMessage
+			var gotMessage actions.ActionMessage
 			err := json.Unmarshal([]byte(chStr), &gotMessage)
 			c.Assert(err, jc.ErrorIsNil)
 			// We can't control the actual time so check for
@@ -965,7 +966,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
-	expected := []state.ActionMessage{{
+	expected := []actions.ActionMessage{{
 		Timestamp: startNow,
 		Message:   "first",
 	}}
@@ -978,7 +979,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	err = fa1.Log("yet another")
 	c.Assert(err, jc.ErrorIsNil)
 
-	expected = []state.ActionMessage{{
+	expected = []actions.ActionMessage{{
 		Timestamp: startNow,
 		Message:   "another",
 	}, {
@@ -991,7 +992,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	// tracking of already reported messages works.
 	err = fa1.Log("and yet another")
 	c.Assert(err, jc.ErrorIsNil)
-	expected = []state.ActionMessage{{
+	expected = []actions.ActionMessage{{
 		Timestamp: makeTimestamp(0 * time.Second),
 		Message:   "and yet another",
 	}}
@@ -1002,7 +1003,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
 	// make sure the previously pending actions are sent on the watcher
-	expected = []state.ActionMessage{{
+	expected = []actions.ActionMessage{{
 		Timestamp: startNow,
 		Message:   "first",
 	}, {
