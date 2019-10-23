@@ -346,7 +346,7 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 	}
 
 	infoList, err := u.config.Environ.Instances(u.callContext, instList)
-	if err != nil && err != environs.ErrPartialInstances {
+	if err != nil && !(err == environs.ErrPartialInstances || err == environs.ErrNoInstances) {
 		return errors.Trace(err)
 	}
 	for idx, info := range infoList {

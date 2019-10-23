@@ -446,6 +446,39 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	})
 }
 
+func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+
+	// Add machine to short poll group and manually move it to long poll group.
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	updWorker.pollGroup[longPollGroup][machineTag] = entry
+	delete(updWorker.pollGroup[shortPollGroup], machineTag)
+
+	// Allow instance ID to be resolved but have the provider's Instances
+	// call fail with ErrNoInstances. This is probably rare but can happen
+	// and shouldn't cause the worker to exit with an error!
+	instID := instance.Id("d3adc0de")
+	machine.EXPECT().InstanceId().Return(instID, nil)
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
+		nil, environs.ErrNoInstances,
+	)
+
+	// Advance the clock to trigger processing of both the short AND long
+	// poll groups. This should trigger to full loop runs.
+	s.assertWorkerCompletesLoops(c, updWorker, 2, func() {
+		mocked.clock.Advance(LongPoll)
+	})
+}
+
 func (s *workerSuite) assertWorkerCompletesLoop(c *gc.C, w *updaterWorker, triggerFn func()) {
 	s.assertWorkerCompletesLoops(c, w, 1, triggerFn)
 }
