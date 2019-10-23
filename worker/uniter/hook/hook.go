@@ -46,12 +46,23 @@ type Info struct {
 // Validate returns an error if the info is not valid.
 func (hi Info) Validate() error {
 	switch hi.Kind {
-	case hooks.RelationJoined, hooks.RelationChanged, hooks.RelationDeparted:
-		// TODO: RemoteApplication
+	case hooks.RelationChanged:
+		if hi.RemoteUnit == "" {
+			if hi.RemoteApplication == "" {
+				return fmt.Errorf("%q hook requires a remote unit or application", hi.Kind)
+			}
+		} else if hi.RemoteApplication == "" {
+			return fmt.Errorf("%q hook has a unit but no application", hi.Kind)
+		}
+		return nil
+	case hooks.RelationJoined, hooks.RelationDeparted:
 		if hi.RemoteUnit == "" {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
-		fallthrough
+		if hi.RemoteApplication == "" {
+			return fmt.Errorf("%q hook has a unit but no application", hi.Kind)
+		}
+		return nil
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,
 		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.PreSeriesUpgrade, hooks.PostSeriesUpgrade:
 		return nil
