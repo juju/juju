@@ -549,11 +549,12 @@ func (s *addSuite) TestAddToControllerBadController(c *gc.C) {
 	store.Credentials = nil
 
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", cloudFileName, "-c", "badcontroller", "--no-prompt")
-	c.Assert(err, gc.ErrorMatches, "controller badcontroller not found")
+	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" successfully added to your local client.\n"+
 		"You will need to add a credential for this cloud (`juju add-credential garage-maas`)\n"+
 		"before you can use it to bootstrap a controller (`juju bootstrap garage-maas`) or\n"+
-		"to create a model (`juju add-model <your model name> garage-maas`).\n\n")
+		"to create a model (`juju add-model <your model name> garage-maas`).\n\n"+
+		"Could not upload cloud to a controller: controller badcontroller not found\n")
 }
 
 func (s *addSuite) TestAddToControllerMissingCredential(c *gc.C) {

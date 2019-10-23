@@ -4,7 +4,6 @@
 package featuretests
 
 import (
-	"flag"
 	"runtime"
 	"testing"
 
@@ -19,22 +18,12 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-var runFeatureTests = flag.Bool("featuretests", true, "Run long-running feature tests.")
-
 func init() {
 	// Required for anything requiring components (e.g. resources).
 	if err := all.RegisterForServer(); err != nil {
 		panic(err)
 	}
 
-	// TODO (go1.13)
-	// This will fail when we go to go 1.13
-	// https://github.com/golang/go/issues/33774
-	flag.Parse()
-
-	if *runFeatureTests == false {
-		return
-	}
 	// Initialize all suites here.
 	gc.Suite(&annotationsSuite{})
 	gc.Suite(&cmdApplicationSuite{})

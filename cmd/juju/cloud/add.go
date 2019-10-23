@@ -69,20 +69,23 @@ positional argument:
     juju add-cloud mycloud -f ~/mycloud.yaml
 
 When <cloud definition file> is provided with <cloud name>,
-Juju stores that definition in the current controller (after
-validating the contents), or the specified controller if
---controller is used. 
+Juju will validate the content of the file and add this cloud 
+to this client as well as upload it to a controller.
 
-If a current controller is detected, Juju will prompt the user to confirm
-whether this new cloud also needs to be uploaded. 
-Use --no-prompt option when this prompt is undesirable, but the upload to 
-the current controller is wanted.
+If a current controller can be detected, a user will be prompted to confirm 
+if specified cloud needs to be uploaded to it. 
+If the prompt is not needed and the cloud is always to be uploaded to
+the current controller if that controller is detected, use --no-prompt option.
+
 Use --controller option to upload a cloud to a different controller. 
+
+Use --controller-only option to add cloud to a controller only.
 
 Use --client-only option to add cloud to the current client only.
 
-DEPRECATED If <cloud name> already exists in Juju's cache, then the `[1:] + "`--replace`" + ` 
-option is required. Use 'update-credential' instead.
+DEPRECATED (use 'update-credential' instead) 
+If <cloud name> already exists on this client, then the `[1:] + "`--replace`" + ` 
+option is required.
 
 A cloud definition file has the following YAML format:
 
@@ -111,9 +114,9 @@ clouds:                           # mandatory
 
 When a a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs
-to have been added to the current client; add-credential is used to
+to have been added to the current client, use add-credential to
 do that. If there's only one credential for the cloud it will be
-uploaded to the controller automatically by add-clloud command. 
+uploaded to the controller automatically by add-cloud command. 
 However, if the cloud has multiple credentials on this client
 you can specify which to upload with the --credential option.
 
@@ -121,23 +124,21 @@ When adding clouds to a controller, some clouds are whitelisted and can be easil
 %v
 
 Other cloud combinations can only be force added as the user must consider
-network routability and other considerations that are outside of Juju concerns.
+network routability, etc - concerns that are outside of scope of Juju.
 When forced addition is desired, use --force.
 
 Examples:
     juju add-cloud
     juju add-cloud --force
     juju add-cloud mycloud ~/mycloud.yaml
-
-If the "multi-cloud" feature flag is turned on in the controller:
-
-    juju add-cloud --controller mycontroller mycloud
+    juju add-cloud --controller mycontroller mycloud --controller-only
     juju add-cloud --controller mycontroller mycloud --credential mycred
     juju add-cloud --client-only mycloud ~/mycloud.yaml
 
 See also: 
     clouds
     update-cloud
+    remove-cloud
     update-credential`
 
 // AddCloudAPI - Implemented by cloudapi.Client.
@@ -333,43 +334,38 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var returnErr error
-	if c.Replace || !c.existsLocally {
-		operation := "added"
-		if c.Replace {
-			operation = "updated"
-		}
-		err = addLocalCloud(c.cloudMetadataStore, *newCloud)
-		if err != nil {
-			ctxt.Infof("Cloud %q was not %v locally: %v", newCloud.Name, operation, err)
-			returnErr = cmd.ErrSilent
-		} else {
-			ctxt.Infof("Cloud %q successfully %v to your local client.", newCloud.Name, operation)
-			if len(newCloud.AuthTypes) != 0 {
-				ctxt.Infof("You will need to add a credential for this cloud (`juju add-credential %s`)", newCloud.Name)
-				ctxt.Infof("before you can use it to bootstrap a controller (`juju bootstrap %s`) or", newCloud.Name)
-				ctxt.Infof("to create a model (`juju add-model <your model name> %s`).", newCloud.Name)
-			}
-		}
+	if c.Replace || ((c.BothClientAndController || c.ClientOnly) && !c.existsLocally) {
+		returnErr = c.addLocalCloud(ctxt, newCloud)
 	}
-	if !c.Replace && c.existsLocally {
+	if !c.Replace && ((c.BothClientAndController || c.ClientOnly) && c.existsLocally) {
 		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client-only` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
-	if c.ClientOnly {
-		return returnErr
-	}
-	ctxt.Infof("")
 
-	// At this stage, the user may have specified the controller via a --controller option.
-	// If not, let's see if there is a current controller that can be detected.
-	if c.ControllerName == "" {
-		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("add cloud %q to", newCloud.Name))
-		if err != nil {
-			return errors.Trace(err)
+	if c.BothClientAndController {
+		ctxt.Infof("")
+	}
+
+	if c.BothClientAndController || c.ControllerOnly {
+		// At this stage, the user may have specified the controller via a --controller option.
+		// If not, let's see if there is a current controller that can be detected.
+		if c.ControllerName == "" {
+			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("add cloud %q to", newCloud.Name))
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if err = c.addRemoteCloud(ctxt, newCloud); err != nil {
+			ctxt.Infof("Could not upload cloud to a controller: %v", err)
+			returnErr = cmd.ErrSilent
 		}
 	}
+	return returnErr
+}
+
+func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
 	if c.ControllerName == "" {
 		ctxt.Infof("There are no controllers specified - not adding cloud %q to any controller.", newCloud.Name)
-		return returnErr
+		return nil
 	}
 
 	// A controller has been specified so upload the cloud details
@@ -386,13 +382,13 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 			ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 				"* 'add-model' with --credential option or\n"+
 				"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
-			return returnErr
+			return nil
 		}
 		if params.ErrCode(err) == params.CodeIncompatibleClouds {
 			logger.Infof("%v", err)
 			ctxt.Infof("Adding a cloud of type %q might not function correctly on this controller.\n"+
 				"If you really want to do this, use --force.", newCloud.Type)
-			return returnErr
+			return nil
 		}
 		return err
 	}
@@ -404,10 +400,28 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("To upload a credential to the controller for cloud %q, use \n"+
 			"* 'add-model' with --credential option or\n"+
 			"* 'add-credential -c %v'.", newCloud.Name, newCloud.Name)
-		return returnErr
+		return nil
 	}
 	ctxt.Infof("Credential for cloud %q added to controller %q.", c.Cloud, c.ControllerName)
-	return returnErr
+	return nil
+}
+
+func (c *AddCloudCommand) addLocalCloud(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
+	operation := "added"
+	if c.Replace {
+		operation = "updated"
+	}
+	if err := addLocalCloud(c.cloudMetadataStore, *newCloud); err != nil {
+		ctxt.Infof("Cloud %q was not %v locally: %v", newCloud.Name, operation, err)
+		return cmd.ErrSilent
+	}
+	ctxt.Infof("Cloud %q successfully %v to your local client.", newCloud.Name, operation)
+	if len(newCloud.AuthTypes) != 0 {
+		ctxt.Infof("You will need to add a credential for this cloud (`juju add-credential %s`)", newCloud.Name)
+		ctxt.Infof("before you can use it to bootstrap a controller (`juju bootstrap %s`) or", newCloud.Name)
+		ctxt.Infof("to create a model (`juju add-model <your model name> %s`).", newCloud.Name)
+	}
+	return nil
 }
 
 func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujucloud.Cloud, error) {
