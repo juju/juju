@@ -249,10 +249,8 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 		// poll interval for the machine and move it to the short poll
 		// group (if not already there) so we immediately poll its
 		// status at the next interval.
-		entry.resetShortPollInterval(u.config.Clock)
+		u.moveEntryToPollGroup(shortPollGroup, entry)
 		if groupType == longPollGroup {
-			delete(u.pollGroup[longPollGroup], tag)
-			u.pollGroup[shortPollGroup][tag] = entry
 			u.config.Logger.Debugf("moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
 		}
 		return nil
@@ -298,6 +296,17 @@ func (u *updaterWorker) appendToShortPollGroup(tag names.MachineTag, m Machine) 
 	}
 	entry.resetShortPollInterval(u.config.Clock)
 	u.pollGroup[shortPollGroup][tag] = entry
+}
+
+func (u *updaterWorker) moveEntryToPollGroup(toGroup pollGroupType, entry *pollGroupEntry) {
+	// Ensure that the entry is not present in the other group
+	delete(u.pollGroup[1-toGroup], entry.tag)
+	u.pollGroup[toGroup][entry.tag] = entry
+
+	// If moving to the short poll group reset the poll interval
+	if toGroup == shortPollGroup {
+		entry.resetShortPollInterval(u.config.Clock)
+	}
 }
 
 func (u *updaterWorker) lookupPolledMachine(tag names.MachineTag) (*pollGroupEntry, pollGroupType) {
@@ -454,9 +463,7 @@ func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *poll
 	// unknown status or suddenly has no network addresses, move it back to
 	// the short poll group.
 	if curGroup == longPollGroup && (curProviderStatus == status.Unknown || len(machAddrs) == 0) {
-		delete(u.pollGroup[longPollGroup], entry.tag)
-		u.pollGroup[shortPollGroup][entry.tag] = entry
-		entry.resetShortPollInterval(u.config.Clock)
+		u.moveEntryToPollGroup(shortPollGroup, entry)
 		u.config.Logger.Debugf("moving machine %q (instance ID %q) back to short poll group", entry.m, entry.instanceID)
 		return
 	}
@@ -464,12 +471,10 @@ func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *poll
 	// The machine has started and we have at least one address; move to
 	// the long poll group
 	if len(machAddrs) > 0 && curMachineStatus == status.Started {
-		if curGroup == longPollGroup {
-			return // already in long poll group
+		u.moveEntryToPollGroup(longPollGroup, entry)
+		if curGroup != longPollGroup {
+			u.config.Logger.Debugf("moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
 		}
-		delete(u.pollGroup[shortPollGroup], entry.tag)
-		u.pollGroup[longPollGroup][entry.tag] = entry
-		u.config.Logger.Debugf("moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
 		return
 	}
 
