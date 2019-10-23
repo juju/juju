@@ -344,7 +344,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) 
 		}
 		return nil, nil
 	}
-	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce")
+	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--no-prompt", "--controller-only")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -401,7 +401,7 @@ func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {
 		return []params.UpdateCredentialResult{{CredentialTag: expectedTag}}, nil
 	}
 	s.storeWithCredentials(c)
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--controller-only", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, ``)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
@@ -455,7 +455,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultNotUserCloudError(c *gc.C)
 			names.NewCloudTag("somecloud"): {Name: "somecloud", Type: "openstack"},
 		}, nil
 	}
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential")
+	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--no-prompt", "--controller-only")
 	c.Assert(err, gc.NotNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `No cloud "aws" available to user "admin@local" remotely on controller "controller"`)
 }
@@ -465,7 +465,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultError(c *gc.C) {
 		return nil, errors.New("kaboom")
 	}
 	s.storeWithCredentials(c)
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential")
+	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--no-prompt", "--controller-only")
 	c.Assert(err, gc.NotNil)
 	c.Assert(c.GetTestLog(), jc.Contains, ` kaboom`)
 	c.Assert(c.GetTestLog(), jc.Contains, `Could not update credentials remotely, on controller "controller"`)
@@ -500,7 +500,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteWithModels(c *gc.C) {
 	}
 	s.storeWithCredentials(c)
 
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--no-prompt", "--controller-only")
 	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Credential valid for:

@@ -71,10 +71,10 @@ clouds:
 		},
 	})
 
-	_, err := s.run(c, "show-credential", "dummy", "cred")
+	_, err := s.run(c, "show-credential", "dummy", "cred", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, "update-credential", "dummy", "cred")
+	_, err = s.run(c, "update-credential", "dummy", "cred", "--no-prompt")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
 	store.UpdateCredential("dummy", cloud.CloudCredential{
@@ -85,10 +85,11 @@ clouds:
 			}),
 		},
 	})
-	ctx, err := s.run(c, "update-credential", "dummy", "cred")
+	ctx, err := s.run(c, "update-credential", "dummy", "cred", "--no-prompt")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+Local client was updated successfully with provided credential information.
 Credential valid for:
   controller
 Controller credential "cred" for user "admin" for cloud "dummy" on controller "kontroll" updated.
