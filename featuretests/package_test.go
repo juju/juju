@@ -27,6 +27,9 @@ func init() {
 		panic(err)
 	}
 
+	// TODO (go1.13)
+	// This will fail when we go to go 1.13
+	// https://github.com/golang/go/issues/33774
 	flag.Parse()
 
 	if *runFeatureTests == false {
