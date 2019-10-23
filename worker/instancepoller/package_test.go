@@ -1,15 +1,14 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(wallyworld) - move to instancepoller_test
 package instancepoller
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	coretesting "github.com/juju/juju/testing"
+	gc "gopkg.in/check.v1"
 )
 
-func TestPackage(t *stdtesting.T) {
-	coretesting.MgoTestPackage(t)
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }
