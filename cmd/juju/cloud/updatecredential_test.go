@@ -401,9 +401,8 @@ func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {
 		return []params.UpdateCredentialResult{{CredentialTag: expectedTag}}, nil
 	}
 	s.storeWithCredentials(c)
-	ctx, _ := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--controller-only", "--no-prompt")
-	//ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--controller-only")
-	//c.Assert(err, jc.ErrorIsNil)
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--controller-only", "--no-prompt")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, ``)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
 Controller credential "my-credential" for user "admin@local" for cloud "aws" on controller "controller" updated.
