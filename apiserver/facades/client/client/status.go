@@ -689,12 +689,16 @@ func fetchAllApplicationsAndUnits(
 	for _, bindings := range endpointBindings {
 		// If the only binding is the default, and it's set to the
 		// default space, no need to print.
-		if len(bindings.Bindings) == 1 {
-			if v, ok := bindings.Bindings[""]; ok && v == network.DefaultSpaceId {
+		bindingMap, err := bindings.Bindings.MapWithSpaceNames()
+		if err != nil {
+			return applicationStatusInfo{}, err
+		}
+		if len(bindingMap) == 1 {
+			if v, ok := bindingMap[""]; ok && v == network.DefaultSpaceName {
 				continue
 			}
 		}
-		allBindingsByApp[bindings.AppName] = bindings.Bindings
+		allBindingsByApp[bindings.AppName] = bindingMap
 	}
 
 	lxdProfiles := make(map[string]*charm.LXDProfile)

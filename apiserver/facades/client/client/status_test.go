@@ -823,9 +823,9 @@ func (s *CAASStatusSuite) assertUnitStatus(c *gc.C, appStatus params.Application
 			Info:   info,
 		},
 		EndpointBindings: map[string]string{
-			"":             network.DefaultSpaceId,
-			"server":       network.DefaultSpaceId,
-			"server-admin": network.DefaultSpaceId,
+			"":             network.DefaultSpaceName,
+			"server":       network.DefaultSpaceName,
+			"server-admin": network.DefaultSpaceName,
 		},
 	})
 }
