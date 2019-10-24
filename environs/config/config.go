@@ -734,6 +734,10 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if err := cfg.validateDefaultSpace(); err != nil {
+		return err
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -827,6 +831,19 @@ func (c *Config) Name() string {
 // UUID returns the uuid for the model.
 func (c *Config) UUID() string {
 	return c.mustString(UUIDKey)
+}
+
+func (c *Config) validateDefaultSpace() error {
+	if raw, ok := c.defined[DefaultSpace]; ok {
+		if v, ok := raw.(string); ok {
+			if raw != corenetwork.DefaultSpaceName && !names.IsValidSpace(v) {
+				return errors.NotValidf("default space name %q", raw)
+			}
+		} else {
+			return errors.NotValidf("type for default space name %v", raw)
+		}
+	}
+	return nil
 }
 
 // DefaultSpace returns the default-space for the model.
