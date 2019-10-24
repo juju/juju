@@ -21,6 +21,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 )
 
@@ -399,6 +400,19 @@ func NewConfig(controllerUUID, caCert string, attrs map[string]interface{}) (Con
 	attrs[CACertKey] = caCert
 	config := Config(attrs)
 	return config, config.Validate()
+}
+
+// Apply returns a new configuration that has the attributes of c plus attrs.
+func (c Config) Apply(attrs map[string]interface{}) (Config, error) {
+	newAttrs := make(map[string]interface{})
+	for k, v := range c {
+		newAttrs[k] = v
+	}
+	for k, v := range attrs {
+		newAttrs[k] = v
+	}
+	cert, _ := c.CACert()
+	return NewConfig(c.ControllerUUID(), cert, newAttrs)
 }
 
 // mustInt returns the named attribute as an integer, panicking if
@@ -899,6 +913,9 @@ func (c Config) validateSpaceConfig(key, topic string) error {
 		return nil
 	}
 	if v, ok := val.(string); ok {
+		if v == network.DefaultSpaceName || v == "" {
+			return nil
+		}
 		if !names.IsValidSpace(v) {
 			return errors.NotValidf("%s space name %q", topic, val)
 		}
