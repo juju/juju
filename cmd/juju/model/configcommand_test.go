@@ -38,7 +38,7 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 			// Test reset
 			desc:       "reset requires arg",
 			args:       []string{"--reset"},
-			errorMatch: "flag needs an argument: --reset",
+			errorMatch: "option needs an argument: --reset",
 		}, {
 			desc:       "cannot set and retrieve at the same time",
 			args:       []string{"--reset", "something", "weird"},
@@ -72,8 +72,8 @@ func (s *ConfigCommandSuite) TestInit(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d: %s", i, test.desc)
-		cmd := model.NewConfigCommandForTest(s.fake)
-		err := cmdtesting.InitCommand(cmd, test.args)
+		command := model.NewConfigCommandForTest(s.fake)
+		err := cmdtesting.InitCommand(command, test.args)
 		if test.nilErr {
 			c.Check(err, jc.ErrorIsNil)
 			continue
