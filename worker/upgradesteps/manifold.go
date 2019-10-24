@@ -45,7 +45,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return nil, errors.New("missing PreUpgradeSteps in config")
 			}
 
-			// Get machine agent.
+			// Get the agent.
 			var agent agent.Agent
 			if err := context.Get(config.AgentName, &agent); err != nil {
 				return nil, errors.Trace(err)
@@ -72,7 +72,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			// application tag for CAAS operator, controller, machine or unit tag for agents.
+			// application tag for CAAS operator; controller, machine or unit tag for agents.
 			isOperator := agent.CurrentConfig().Tag().Kind() == names.ApplicationTagKind
 			if isOperator {
 				return NewWorker(

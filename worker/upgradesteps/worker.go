@@ -193,16 +193,19 @@ func (w *upgradesteps) run() error {
 		}
 		defer func() { _ = w.pool.Close() }()
 
-		if w.isMaster, err = IsMachineMaster(w.pool, w.tag.Id()); err != nil {
-			return errors.Trace(err)
-		}
-
 		st := w.pool.SystemState()
 		model, err := st.Model()
 		if err != nil {
 			return errors.Trace(err)
 		}
 		w.isCaas = model.Type() == state.ModelTypeCAAS
+		w.isMaster = w.isCaas
+		if !w.isCaas {
+			// TODO(caas) - will need fixing when we support HA controllers
+			if w.isMaster, err = IsMachineMaster(w.pool, w.tag.Id()); err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 
 	if err := w.runUpgrades(); err != nil {

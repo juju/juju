@@ -62,8 +62,8 @@ func (api *API) UpgradeOperator(arg params.KubernetesUpgradeArg) (params.ErrorRe
 	}
 	appName := tag.Id()
 
-	// Machines representing controllers really mean the controller operator.
-	if tag.Kind() == names.MachineTagKind {
+	// Nodes representing controllers really mean the controller operator.
+	if tag.Kind() == names.MachineTagKind || tag.Kind() == names.ControllerAgentTagKind {
 		appName = bootstrap.ControllerModelName
 	}
 	logger.Debugf("upgrading caas app %v", appName)
