@@ -60,9 +60,6 @@ type bindCommand struct {
 }
 
 const bindCmdDoc = `
-When no bind expression is specified, the command will print out the currently
-assigned bindings for the application.
-
 In order to be able to bind any endpoint to a space, all machines where the
 application units are deployed to are required to be configured with an address
 in that space. However, you can use the --force option to bypass this check.
@@ -128,6 +125,10 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 
 	if err = c.parseBindExpression(apiRoot); err != nil {
 		return err
+	}
+
+	if len(c.Bindings) == 0 {
+		return errors.New("no bindings specified")
 	}
 
 	modelConfigGetter := c.NewModelConfigGetter(apiRoot)
