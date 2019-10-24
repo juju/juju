@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/worker/pruner"
 	"github.com/juju/juju/worker/remoterelations"
 	"github.com/juju/juju/worker/singular"
+	"github.com/juju/juju/worker/spacenamer"
 	"github.com/juju/juju/worker/statushistorypruner"
 	"github.com/juju/juju/worker/storageprovisioner"
 	"github.com/juju/juju/worker/undertaker"
@@ -439,6 +440,13 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
 		})),
+		spaceNamerName: ifNotMigrating(spacenamer.Manifold(spacenamer.ManifoldConfig{
+			AgentName:     agentName,
+			APICallerName: apiCallerName,
+			Logger:        config.LoggingContext.GetLogger("juju.worker.spacenamer"),
+			NewClient:     spacenamer.NewClient,
+			NewWorker:     spacenamer.NewWorker,
+		})),
 	}
 
 	result := commonManifolds(config)
@@ -641,6 +649,7 @@ const (
 	logForwarderName         = "log-forwarder"
 	loggingConfigUpdaterName = "logging-config-updater"
 	instanceMutaterName      = "instance-mutater"
+	spaceNamerName           = "space-namer"
 
 	caasFirewallerName          = "caas-firewaller"
 	caasOperatorProvisionerName = "caas-operator-provisioner"
