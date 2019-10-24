@@ -25,6 +25,7 @@ type watcherModelInterface interface {
 }
 
 // newUnitIDWatcher watches a StringsWatcher and converts ProviderIDs into UnitIDs and re-emits them.
+// If the ProviderID does not match any Units, then the ProviderID is ignored.
 func newUnitIDWatcher(model watcherModelInterface, src corewatcher.StringsWatcher) (*unitIDWatcher, error) {
 	w := &unitIDWatcher{
 		out:   make(chan []string),
