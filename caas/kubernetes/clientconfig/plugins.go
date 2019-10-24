@@ -124,9 +124,9 @@ func ensureJujuAdminServiceAccount(
 	return config, nil
 }
 
-// TODO: call this in remove-k8s and destroy/kill-controller!!!!!!!
 // RemoveCaaSCredentialRBACResources removes all RBAC resources for specific caas credential UID.
 func RemoveCaaSCredentialRBACResources(config *rest.Config, UID string) error {
+	// TODO(caas): call this in destroy/kill-controller with UID == "microk8s" !!!!
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return errors.Trace(err)
@@ -135,7 +135,6 @@ func RemoveCaaSCredentialRBACResources(config *rest.Config, UID string) error {
 }
 
 func removeJujuAdminServiceAccount(clientset kubernetes.Interface, UID string) error {
-	// TODO: can we delete the credential while using itself as credential to talk to the cluster???????
 	labels := getRBACLabels(UID)
 	for _, api := range []rbacDeleter{
 		// Order matters.

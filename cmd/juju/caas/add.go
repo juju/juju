@@ -420,7 +420,6 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	logger.Criticalf("credentialUID -> %q", credentialUID)
 
 	config := provider.KubeCloudParams{
 		ClusterName:        clusterName,
@@ -758,7 +757,6 @@ func (c *AddCAASCommand) addCredentialToLocal(store CredentialStoreAPI, cloudNam
 		AuthCredentials: make(map[string]jujucloud.Credential),
 	}
 	newCredentials.AuthCredentials[credentialName] = newCredential
-	logger.Criticalf("newCredentials --> \n%#v", newCredentials)
 	err := store.UpdateCredential(cloudName, *newCredentials)
 	if err != nil {
 		return errors.Trace(err)
