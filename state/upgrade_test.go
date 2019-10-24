@@ -372,6 +372,7 @@ func (s *UpgradeSuite) TestWatchMethod(c *gc.C) {
 	_, err = s.State.EnsureUpgradeInfo(serverIdC, v111, v123)
 	c.Assert(err, jc.ErrorIsNil)
 	err = info.SetStatus(state.UpgradeDBComplete)
+	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
 	err = info.SetStatus(state.UpgradeRunning)
