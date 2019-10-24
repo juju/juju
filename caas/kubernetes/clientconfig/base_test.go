@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	testclock "github.com/juju/clock/testclock"
+	"github.com/juju/clock/testclock"
 	gc "gopkg.in/check.v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"

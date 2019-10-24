@@ -17,17 +17,7 @@ import (
 )
 
 func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Credential, string, error) {
-	var newCloud cloud.Cloud
-	configContent, err := getLocalMicroK8sConfig(cmdRunner)
-	if err != nil {
-		return newCloud, jujucloud.Credential{}, "", err
-	}
-
-	rdr := bytes.NewReader(configContent)
-
-	// TODO: ?????????!!!!!!!
-	clock := jujuclock.WallClock
-	cloudParams := KubeCloudParams{
+	return attemptMicroK8sCloudInternal(cmdRunner, KubeCloudParams{
 		ClusterName:   caas.MicroK8sClusterName,
 		CloudName:     caas.K8sCloudMicrok8s,
 		CredentialUID: caas.K8sCloudMicrok8s,
@@ -35,9 +25,22 @@ func attemptMicroK8sCloud(cmdRunner CommandRunner) (cloud.Cloud, jujucloud.Crede
 		ClientConfigGetter: func(caasType string) (clientconfig.ClientConfigFunc, error) {
 			return clientconfig.NewClientConfigReader(caasType)
 		},
-		Clock: clock,
+		Clock: jujuclock.WallClock,
+	})
+}
+
+func attemptMicroK8sCloudInternal(
+	cmdRunner CommandRunner,
+	kubeCloudParams KubeCloudParams,
+) (cloud.Cloud, jujucloud.Credential, string, error) {
+	var newCloud cloud.Cloud
+	configContent, err := getLocalMicroK8sConfig(cmdRunner)
+	if err != nil {
+		return newCloud, jujucloud.Credential{}, "", err
 	}
-	newCloud, credential, err := CloudFromKubeConfig(rdr, cloudParams)
+
+	rdr := bytes.NewReader(configContent)
+	newCloud, credential, err := CloudFromKubeConfig(rdr, kubeCloudParams)
 	if err != nil {
 		return newCloud, jujucloud.Credential{}, "", err
 	}

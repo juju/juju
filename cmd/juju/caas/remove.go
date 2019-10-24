@@ -119,6 +119,9 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	if c.ControllerName == "" && !c.ClientOnly {

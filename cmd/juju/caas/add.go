@@ -396,6 +396,9 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 			if err != nil {
 				return errors.Trace(err)
 			}
+			if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	if err := c.verifyName(c.caasName); err != nil {

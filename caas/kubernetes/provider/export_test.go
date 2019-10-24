@@ -29,7 +29,7 @@ var (
 	CompileK8sCloudCheckers    = compileK8sCloudCheckers
 	ControllerCorelation       = controllerCorelation
 	GetLocalMicroK8sConfig     = getLocalMicroK8sConfig
-	AttemptMicroK8sCloud       = attemptMicroK8sCloud
+	AttemptMicroK8sCloud       = attemptMicroK8sCloudInternal
 	EnsureMicroK8sSuitable     = ensureMicroK8sSuitable
 	NewK8sBroker               = newK8sBroker
 	ToYaml                     = toYaml
