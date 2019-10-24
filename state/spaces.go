@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -23,6 +24,7 @@ type Space struct {
 
 type spaceDoc struct {
 	DocId      string `bson:"_id"`
+	TxnRevno   int64  `bson:"txn-revno"`
 	Id         string `bson:"spaceid"`
 	Life       Life   `bson:"life"`
 	Name       string `bson:"name"`
@@ -98,6 +100,47 @@ func (s *Space) NetworkSpace() network.SpaceInfo {
 		// TODO (manadart 2019-08-13): Populate these after subnet refactor.
 		Subnets: nil,
 	}
+}
+
+func (s *Space) SetName(newName string) error {
+	if newName == "" {
+		return errors.NotValidf("empty string is not a valid space name")
+	}
+	if s.Id() != network.DefaultSpaceId {
+		return errors.New("Only the default space maybe have its name updated")
+	}
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := s.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		if newName == s.Name() {
+			return nil, jujutxn.ErrNoOperations
+		}
+
+		// There is a potential race here, difficult to
+		// guarentee that the following check stays true.
+		if _, err := s.st.Space(newName); err != nil {
+			if !errors.IsNotFound(err) {
+				return nil, errors.Annotatef(err, "checking for existing space with name %q", newName)
+			}
+		} else {
+			return nil, errors.AlreadyExistsf("space %q", newName)
+		}
+
+		ops := []txn.Op{{
+			C:      spacesC,
+			Id:     s.doc.DocId,
+			Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
+			Update: bson.D{{"$set", bson.D{{"name", newName}}}},
+		}}
+
+		return ops, nil
+	}
+	err := s.st.db().Run(buildTxn)
+	return errors.Annotatef(err, "cannot update the name of space %q to %q", s.Id(), newName)
 }
 
 // AddSpace creates and returns a new space.
@@ -373,14 +416,14 @@ func (s *Space) Refresh() error {
 
 // createDefaultSpaceOp returns a transaction operation
 // that creates the default space (id=0).
-func (st *State) createDefaultSpaceOp() txn.Op {
+func (st *State) createDefaultSpaceOp(name string) txn.Op {
 	return txn.Op{
 		C:  spacesC,
 		Id: st.docID(network.DefaultSpaceId),
 		Insert: spaceDoc{
 			Id:       network.DefaultSpaceId,
 			Life:     Alive,
-			Name:     network.DefaultSpaceName,
+			Name:     name,
 			IsPublic: true,
 		},
 	}
