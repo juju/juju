@@ -9409,12 +9409,16 @@
                         },
                         "created": {
                             "type": "integer"
+                        },
+                        "created-by": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "assigned-units",
-                        "created"
+                        "created",
+                        "created-by"
                     ]
                 },
                 "BundleChange": {

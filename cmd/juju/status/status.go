@@ -283,6 +283,10 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	activeBranch, err := c.ActiveBranch()
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	showRelations := c.relations
 	showStorage := c.storage
@@ -307,6 +311,7 @@ func (c *statusCommand) Run(ctx *cmd.Context) error {
 		outputName:     c.out.Name(),
 		isoTime:        c.isoTime,
 		showRelations:  showRelations,
+		activeBranch:   activeBranch,
 	}
 	if showStorage {
 		storageInfo, err := c.getStorageInfo(ctx)
