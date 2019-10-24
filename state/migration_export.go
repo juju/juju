@@ -1411,7 +1411,7 @@ func (e *exporter) actions() error {
 	e.logger.Debugf("read %d actions", len(actions))
 	for _, action := range actions {
 		results, message := action.Results()
-		e.model.AddAction(description.ActionArgs{
+		arg := description.ActionArgs{
 			Receiver:   action.Receiver(),
 			Name:       action.Name(),
 			Parameters: action.Parameters(),
@@ -1422,7 +1422,13 @@ func (e *exporter) actions() error {
 			Results:    results,
 			Message:    message,
 			Id:         action.Id(),
-		})
+		}
+		messages := action.Messages()
+		arg.Messages = make([]description.ActionMessage, len(messages))
+		for i, m := range messages {
+			arg.Messages[i] = m
+		}
+		e.model.AddAction(arg)
 	}
 	return nil
 }

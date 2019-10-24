@@ -51,7 +51,7 @@ func (s *aksSuite) TestGetKubeConfig(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks get-credentials --name mycluster --resource-group resourceGroup --overwrite-existing -f " + configFile,
 			Environment: []string{"KUBECONFIG=" + configFile, "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code: 0,
 			}, nil),
@@ -105,7 +105,7 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
@@ -115,7 +115,7 @@ func (s *aksSuite) TestInteractiveParam(c *gc.C) {
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(resourcegroupJSONResp),
@@ -178,7 +178,7 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json --resource-group " + resourceGroup,
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
@@ -188,7 +188,7 @@ func (s *aksSuite) TestInteractiveParamResourceGroupDefined(c *gc.C) {
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(resourcegroupJSONResp),
@@ -255,7 +255,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
@@ -265,7 +265,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedSingleResourceGr
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(resourcegroupJSONResp),
@@ -332,7 +332,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
@@ -342,7 +342,7 @@ func (s *aksSuite) TestInteractiveParamsNoResourceGroupSpecifiedMultiResourceGro
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(resourcegroupJSONResp),
@@ -408,7 +408,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
@@ -418,7 +418,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(namedResourcegroupJSONResp),
@@ -498,7 +498,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az aks list --output json",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(clusterJSONResp),
@@ -506,7 +506,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    `az group list --output json --query "[?properties.provisioningState=='Succeeded']"`,
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(resourcegroupJSONResp),
@@ -516,7 +516,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedNoResourceGroupSpecified
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(namedResourcegroupJSONResp),
@@ -573,7 +573,7 @@ func (s *aksSuite) TestInteractiveParamsClusterSpecifiedResourceGroupSpecified(c
 				`az group list --output json --query "[?properties.provisioningState=='Succeeded'] | [?name=='%s']"`,
 				resourceGroup),
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(namedResourcegroupJSONResp),
@@ -613,7 +613,7 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "which az",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(""),
@@ -621,7 +621,7 @@ func (s *aksSuite) TestEnsureExecutablePicksAZ(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "az account show",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte(""),
@@ -642,7 +642,7 @@ func (s *aksSuite) TestEnsureExecutableNotFound(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "which az",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code: 1,
 			}, nil),

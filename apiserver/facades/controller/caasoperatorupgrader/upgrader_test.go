@@ -58,9 +58,9 @@ func (s *CAASProvisionerSuite) TestUpgradeOperator(c *gc.C) {
 	s.broker.CheckCall(c, 0, "Upgrade", "app", vers)
 }
 
-func (s *CAASProvisionerSuite) TestUpgradeController(c *gc.C) {
+func (s *CAASProvisionerSuite) assertUpgradeController(c *gc.C, tag names.Tag) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
-		Tag:        names.NewMachineTag("0"),
+		Tag:        tag,
 		Controller: true,
 	}
 
@@ -75,6 +75,14 @@ func (s *CAASProvisionerSuite) TestUpgradeController(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Error, gc.IsNil)
 	s.broker.CheckCall(c, 0, "Upgrade", "controller", vers)
+}
+
+func (s *CAASProvisionerSuite) TestUpgradeLegacyController(c *gc.C) {
+	s.assertUpgradeController(c, names.NewMachineTag("0"))
+}
+
+func (s *CAASProvisionerSuite) TestUpgradeController(c *gc.C) {
+	s.assertUpgradeController(c, names.NewControllerAgentTag("0"))
 }
 
 type mockBroker struct {

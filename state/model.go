@@ -892,7 +892,7 @@ func (m *Model) AllUnits() ([]*Unit, error) {
 // ApplicationEndpointBindings - endpointBinding->space details for each application
 type ApplicationEndpointBindings struct {
 	AppName  string
-	Bindings map[string]string
+	Bindings *Bindings
 }
 
 // AllEndpointBindings returns all endpoint->space bindings for every application
@@ -906,8 +906,8 @@ func (m *Model) AllEndpointBindings() ([]ApplicationEndpointBindings, error) {
 		return nil, errors.Annotatef(err, "cannot get endpoint bindings")
 	}
 
-	var appEndpointBindings []ApplicationEndpointBindings
-	for _, doc := range docs {
+	appEndpointBindings := make([]ApplicationEndpointBindings, len(docs))
+	for i, doc := range docs {
 		var applicationName string
 		applicationKey := m.localID(doc.DocID)
 		// for each application deployed we have an instance of ApplicationEndpointBindings struct
@@ -916,12 +916,16 @@ func (m *Model) AllEndpointBindings() ([]ApplicationEndpointBindings, error) {
 		} else {
 			return nil, errors.NotValidf("application key %v", applicationKey)
 		}
+		bindings, err := NewBindings(m.st, doc.Bindings)
+		if err != nil {
+			return nil, errors.Annotatef(err, "cannot make bindings")
+		}
 		endpointBindings := ApplicationEndpointBindings{
 			AppName:  applicationName,
-			Bindings: doc.Bindings,
+			Bindings: bindings,
 		}
 
-		appEndpointBindings = append(appEndpointBindings, endpointBindings)
+		appEndpointBindings[i] = endpointBindings
 	}
 	return appEndpointBindings, nil
 }

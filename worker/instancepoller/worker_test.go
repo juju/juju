@@ -1,212 +1,580 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(wallyworld) - move to instancepoller_test
 package instancepoller
 
 import (
 	"fmt"
-	"reflect"
 	"time"
 
+	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-
-	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
-	"github.com/juju/juju/api"
-	apiinstancepoller "github.com/juju/juju/api/instancepoller"
+	"github.com/golang/mock/gomock"
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/instancepoller/mocks"
 )
 
-var _ = gc.Suite(&workerSuite{})
+var (
+	_ = gc.Suite(&configSuite{})
+	_ = gc.Suite(&pollGroupEntrySuite{})
+	_ = gc.Suite(&workerSuite{})
 
-type workerSuite struct {
-	testing.JujuConnSuite
+	testAddrs = network.ProviderAddresses{
+		network.NewProviderAddress("127.0.0.1"),
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.6.6.6",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			SpaceName:       "test-space",
+			ProviderSpaceID: "1",
+		},
+	}
 
-	apiSt api.Connection
-	api   *apiinstancepoller.API
+	testAddrs2 = network.ProviderAddresses{
+		network.NewProviderAddress("127.0.0.1"),
+		{
+			MachineAddress: network.MachineAddress{
+				Value: "10.9.9.9",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
+			},
+			SpaceName:       "test-space",
+			ProviderSpaceID: "1",
+		},
+	}
+)
+
+type configSuite struct{}
+
+func (s *configSuite) TestConfigValidation(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	origCfg := Config{
+		Clock:         testclock.NewClock(time.Now()),
+		Facade:        newMockFacadeAPI(ctrl, nil),
+		Environ:       mocks.NewMockEnviron(ctrl),
+		Logger:        loggo.GetLogger("juju.worker.instancepoller"),
+		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
+	}
+	c.Assert(origCfg.Validate(), jc.ErrorIsNil)
+
+	testCfg := origCfg
+	testCfg.Clock = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil clock.Clock.*")
+
+	testCfg = origCfg
+	testCfg.Facade = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Facade.*")
+
+	testCfg = origCfg
+	testCfg.Environ = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Environ.*")
+
+	testCfg = origCfg
+	testCfg.Logger = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil Logger.*")
+
+	testCfg = origCfg
+	testCfg.CredentialAPI = nil
+	c.Assert(testCfg.Validate(), gc.ErrorMatches, "nil CredentialAPI.*")
 }
 
-func (s *workerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-	s.apiSt, _ = s.OpenAPIAsNewMachine(c, state.JobManageModel)
-	s.api = s.apiSt.InstancePoller()
+type pollGroupEntrySuite struct{}
+
+func (s *pollGroupEntrySuite) TestShortPollIntervalLogic(c *gc.C) {
+	clock := testclock.NewClock(time.Now())
+	entry := new(pollGroupEntry)
+
+	// Test reset logic.
+	entry.resetShortPollInterval(clock)
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)
+	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPoll))
+
+	// Ensure that bumpping the short poll duration caps when we reach the
+	// LongPoll interval.
+	for i := 0; entry.shortPollInterval < LongPoll && i < 100; i++ {
+		entry.bumpShortPollInterval(clock)
+	}
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf("short poll interval did not reach short poll cap interval after 100 interval bumps"))
+
+	// Check that once we reach the short poll cap interval we stay capped at it.
+	entry.bumpShortPollInterval(clock)
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPollCap, gc.Commentf("short poll should have been capped at the short poll cap interval"))
+	c.Assert(entry.shortPollAt, gc.Equals, clock.Now().Add(ShortPollCap))
 }
 
-func (*workerSuite) addressesForIndex(i int) network.ProviderAddresses {
-	return network.NewProviderAddresses(fmt.Sprintf("127.0.0.%d", i))
+type workerSuite struct{}
+
+func (s *workerSuite) TestQueueingNewMachineAddsItToShortPollGroup(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Instance poller will look up machine with id "0" and get back a
+	// non-manual machine.
+	machineTag := names.NewMachineTag("0")
+	nonManualMachine := mocks.NewMockMachine(ctrl)
+	nonManualMachine.EXPECT().IsManual().Return(false, nil)
+	mocked.facadeAPI.addMachine(machineTag, nonManualMachine)
+
+	// Queue machine.
+	err := updWorker.queueMachineForPolling(machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1, gc.Commentf("machine didn't end up in short poll group"))
 }
 
-func (s *workerSuite) TestWorker(c *gc.C) {
-	// Most functionality is already tested in detail - we
-	// just need to test that things are wired together
-	// correctly.
+func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
 
-	// TODO(redir): per fwereade these should be in the worker config.
-	s.PatchValue(&ShortPoll, 10*time.Millisecond)
-	s.PatchValue(&LongPoll, 10*time.Millisecond)
+	w, _ := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
 
-	machines, insts := s.setupScenario(c)
-	s.State.StartSync()
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().Refresh().Return(nil)
+	machine.EXPECT().Life().Return(params.Alive)
+	updWorker.appendToShortPollGroup(machineTag, machine)
+
+	// Manually move entry to long poll group.
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	entry.shortPollInterval = LongPoll
+	updWorker.pollGroup[longPollGroup][machineTag] = entry
+	delete(updWorker.pollGroup[shortPollGroup], machineTag)
+
+	// Queue machine.
+	err := updWorker.queueMachineForPolling(machineTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1, gc.Commentf("machine didn't end up in short poll group"))
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll, gc.Commentf("poll interval was not reset"))
+}
+
+func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, _ := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Start with an entry for machine "0"
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+	entry := &pollGroupEntry{
+		tag:        machineTag,
+		m:          machine,
+		instanceID: "b4dc0ffee",
+	}
+
+	// The machine is alive, has an instance status of "provisioning" and
+	// is aware of its network addresses.
+	machine.EXPECT().Id().Return("0").AnyTimes()
+	machine.EXPECT().Life().Return(params.Alive)
+	machine.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
+	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil)
+
+	// The provider reports the instance status as running and also indicates
+	// that network addresses have been *changed*.
+	instInfo := mocks.NewMockInstance(ctrl)
+	instInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running, Message: "Running wild"})
+	instInfo.EXPECT().Addresses(gomock.Any()).Return(testAddrs2, nil)
+
+	// When we process the instance info we expect the machine instance
+	// status and list of network addresses to be updated so they match
+	// the values reported by the provider.
+	machine.EXPECT().SetInstanceStatus(status.Running, "Running wild", nil).Return(nil)
+	machine.EXPECT().SetProviderAddresses(testAddrs2[0], testAddrs2[1]).Return(nil)
+
+	providerStatus, err := updWorker.processProviderInfo(entry, instInfo)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(providerStatus, gc.Equals, status.Running)
+}
+
+func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, _ := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Start with machine "0" in the short poll group.
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+
+	// The machine is assigned a network address.
+	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil)
+
+	// The provider reports an instance status of "running"; the machine
+	// reports it's machine status as "started".
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started)
+
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
+}
+
+func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, _ := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machine := mocks.NewMockMachine(ctrl)
+
+	specs := []status.Status{status.Allocating, status.Pending}
+	for specIndex, spec := range specs {
+		c.Logf("provider reports instance status as: %q", spec)
+		machineTag := names.NewMachineTag(fmt.Sprint(specIndex))
+		updWorker.appendToShortPollGroup(machineTag, machine)
+		entry, _ := updWorker.lookupPolledMachine(machineTag)
+
+		updWorker.maybeSwitchPollGroup(shortPollGroup, entry, spec, status.Pending)
+		c.Assert(entry.shortPollInterval, gc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
+	}
+}
+
+func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, _ := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// The machine is assigned a network address.
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil).AnyTimes()
+
+	// Move the machine to the long poll group.
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started)
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
+
+	// If we get unknown status from the provider we expect the machine to
+	// be moved back to the short poll group.
+	updWorker.maybeSwitchPollGroup(longPollGroup, entry, status.Unknown, status.Started)
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 0)
+	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)
+}
+
+func (s *workerSuite) TestSkipMachineIfShortPollTargetTimeNotElapsed(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+
+	// Add machine to short poll group and bump its poll interval
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	entry.bumpShortPollInterval(mocked.clock)
+	pollAt := entry.shortPollAt
+
+	// Advance the clock to trigger processing of the short poll groups
+	// but not far enough to process the entry with the bumped interval.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.clock.Advance(ShortPoll)
+	})
+
+	c.Assert(pollAt, gc.Equals, entry.shortPollAt, gc.Commentf("machine shouldn't have been polled"))
+}
+
+func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+
+	// Add machine to short poll group
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+
+	// On next refresh, the machine reports as dead
+	machine.EXPECT().Refresh().Return(nil)
+	machine.EXPECT().Life().Return(params.Dead)
+
+	// Emit a change for the machine so the queueing code detects the
+	// dead machine and removes it.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.facadeAPI.assertEnqueueChange(c, []string{"0"})
+	})
+
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0, gc.Commentf("dead machine has not been removed"))
+}
+
+func (s *workerSuite) TestQueuingOfManualMachines(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Add two manual machines, one with "provisioning" status and one with
+	// "started" status. We expect the former to have its instance status
+	// changed to "running".
+	machineTag0 := names.NewMachineTag("0")
+	machine0 := mocks.NewMockMachine(ctrl)
+	machine0.EXPECT().IsManual().Return(true, nil)
+	machine0.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
+	machine0.EXPECT().SetInstanceStatus(status.Running, "Manually provisioned machine", nil).Return(nil)
+	mocked.facadeAPI.addMachine(machineTag0, machine0)
+
+	machineTag1 := names.NewMachineTag("1")
+	machine1 := mocks.NewMockMachine(ctrl)
+	machine1.EXPECT().IsManual().Return(true, nil)
+	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
+	mocked.facadeAPI.addMachine(machineTag1, machine1)
+
+	// Emit change for both machines.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.facadeAPI.assertEnqueueChange(c, []string{"0", "1"})
+	})
+
+	// None of the machines should have been added.
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
+	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 0)
+}
+
+func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Add two machines, one that is not yet provisioned and one that is
+	// has a "created" machine status and a "running" instance status.
+	machineTag0 := names.NewMachineTag("0")
+	machine0 := mocks.NewMockMachine(ctrl)
+	machine0.EXPECT().InstanceId().Return(instance.Id(""), common.ServerError(errors.NotProvisionedf("not there")))
+	updWorker.appendToShortPollGroup(machineTag0, machine0)
+
+	machineTag1 := names.NewMachineTag("1")
+	machine1 := mocks.NewMockMachine(ctrl)
+	machine1.EXPECT().Life().Return(params.Alive)
+	machine1.EXPECT().InstanceId().Return(instance.Id("b4dc0ffee"), nil)
+	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
+	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)
+	machine1.EXPECT().ProviderAddresses().Return(nil, nil).AnyTimes() // no addresses assigned yet
+	updWorker.appendToShortPollGroup(machineTag1, machine1)
+
+	machine1Info := mocks.NewMockInstance(ctrl)
+	machine1Info.EXPECT().Addresses(gomock.Any()).Return(nil, nil) // no addresses reported by provider
+	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return([]instances.Instance{machine1Info}, nil)
+
+	// Trigger a poll of the short poll group and wait for the worker loop
+	// to complete.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.clock.Advance(ShortPoll)
+	})
+}
+
+func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+
+	// Add machine to short poll group and manually move it to long poll group.
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	updWorker.pollGroup[longPollGroup][machineTag] = entry
+	delete(updWorker.pollGroup[shortPollGroup], machineTag)
+
+	// Allow instance ID to be resolved but have the provider's Instances
+	// call fail with a partial instance list.
+	instID := instance.Id("d3adc0de")
+	machine.EXPECT().InstanceId().Return(instID, nil)
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
+		[]instances.Instance{}, environs.ErrPartialInstances,
+	)
+
+	// Advance the clock to trigger processing of both the short AND long
+	// poll groups. This should trigger to full loop runs.
+	s.assertWorkerCompletesLoops(c, updWorker, 2, func() {
+		mocked.clock.Advance(LongPoll)
+	})
+}
+
+func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+
+	// Add machine to short poll group and manually move it to long poll group.
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	entry, _ := updWorker.lookupPolledMachine(machineTag)
+	updWorker.pollGroup[longPollGroup][machineTag] = entry
+	delete(updWorker.pollGroup[shortPollGroup], machineTag)
+
+	// Allow instance ID to be resolved but have the provider's Instances
+	// call fail with ErrNoInstances. This is probably rare but can happen
+	// and shouldn't cause the worker to exit with an error!
+	instID := instance.Id("d3adc0de")
+	machine.EXPECT().InstanceId().Return(instID, nil)
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
+		nil, environs.ErrNoInstances,
+	)
+
+	// Advance the clock to trigger processing of both the short AND long
+	// poll groups. This should trigger to full loop runs.
+	s.assertWorkerCompletesLoops(c, updWorker, 2, func() {
+		mocked.clock.Advance(LongPoll)
+	})
+}
+
+func (s *workerSuite) assertWorkerCompletesLoop(c *gc.C, w *updaterWorker, triggerFn func()) {
+	s.assertWorkerCompletesLoops(c, w, 1, triggerFn)
+}
+
+func (s *workerSuite) assertWorkerCompletesLoops(c *gc.C, w *updaterWorker, numLoops int, triggerFn func()) {
+	ch := make(chan struct{})
+	defer func() { w.loopCompletedHook = nil }()
+
+	w.loopCompletedHook = func() { ch <- struct{}{} }
+	triggerFn()
+
+	for loop := 0; loop < numLoops; loop++ {
+		select {
+		case <-ch: // loop completed
+		case <-time.After(coretesting.ShortWait):
+			c.Fatal("timed out waiting for instance poller to complete a full loop")
+		}
+	}
+}
+
+type workerMocks struct {
+	clock     *testclock.Clock
+	facadeAPI *mockFacadeAPI
+	environ   *mocks.MockEnviron
+}
+
+func (s *workerSuite) startWorker(c *gc.C, ctrl *gomock.Controller) (worker.Worker, workerMocks) {
+	workerMainLoopEnteredCh := make(chan struct{}, 1)
+	mocked := workerMocks{
+		clock:     testclock.NewClock(time.Now()),
+		facadeAPI: newMockFacadeAPI(ctrl, workerMainLoopEnteredCh),
+		environ:   mocks.NewMockEnviron(ctrl),
+	}
+
 	w, err := NewWorker(Config{
-		Delay:         time.Millisecond * 10,
-		Clock:         clock.WallClock,
-		Facade:        s.api,
-		Environ:       s.Environ,
-		CredentialAPI: &credentialAPIForTest{},
-		Logger:        loggo.GetLogger("test"),
+		Clock:         mocked.clock,
+		Facade:        mocked.facadeAPI,
+		Environ:       mocked.environ,
+		CredentialAPI: mocks.NewMockCredentialAPI(ctrl),
+		Logger:        loggo.GetLogger("juju.worker.instancepoller"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	defer func() {
-		c.Assert(worker.Stop(w), gc.IsNil)
-	}()
 
-	// TODO(perrito666) make this dependent on a juju status
-	checkInstanceInfo := func(index int, m machine, expectedStatus string) bool {
-		isProvisioned := true
-		instanceStatus, err := m.InstanceStatus()
-		if params.IsCodeNotProvisioned(err) {
-			isProvisioned = false
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		providerAddresses, err := m.ProviderAddresses()
-		c.Assert(err, jc.ErrorIsNil)
-		// TODO(perrito666) all providers should use juju statuses instead of message.
-		return reflect.DeepEqual(providerAddresses, s.addressesForIndex(index)) && (!isProvisioned || instanceStatus.Info == expectedStatus)
+	// Wait for worker to reach main loop before we allow tests to
+	// manipulate the clock.
+	select {
+	case <-workerMainLoopEnteredCh:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("timed out wating for worker to enter main loop")
 	}
 
-	// Wait for the odd numbered machines in the
-	// first half of the machine slice to be given their
-	// addresses and status.
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if !a.HasNext() {
-			c.Fatalf("timed out waiting for instance info")
-		}
-
-		if machinesSatisfy(c, machines, func(i int, m *apiinstancepoller.Machine) bool {
-			if i < len(machines)/2 && i%2 == 1 {
-				return checkInstanceInfo(i, m, "running")
-			}
-			instanceStatus, err := m.InstanceStatus()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Logf("instance message is: %q", instanceStatus.Info)
-			c.Assert(instanceStatus.Status, gc.Equals, status.Pending.String())
-			stm, err := s.State.Machine(m.Id())
-			c.Assert(err, jc.ErrorIsNil)
-			return len(stm.Addresses()) == 0
-		}) {
-			break
-		}
-	}
-	// Now provision the even machines in the first half and watch them get addresses.
-	for i := 0; i < len(insts)/2; i += 2 {
-		m, err := s.State.Machine(machines[i].Id())
-		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(insts[i].Id(), "", "nonce", nil)
-		c.Assert(err, jc.ErrorIsNil)
-		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
-		dummy.SetInstanceStatus(insts[i], "running")
-	}
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if !a.HasNext() {
-			c.Fatalf("timed out waiting for machine instance info")
-		}
-		if machinesSatisfy(c, machines, func(i int, m *apiinstancepoller.Machine) bool {
-			if i < len(machines)/2 {
-				return checkInstanceInfo(i, m, "running")
-			}
-			// Machines in second half still have no addresses, nor status.
-			instanceStatus, err := m.InstanceStatus()
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(instanceStatus.Status, gc.Equals, status.Pending.String())
-			stm, err := s.State.Machine(m.Id())
-			c.Assert(err, jc.ErrorIsNil)
-			return len(stm.Addresses()) == 0
-		}) {
-			break
-		}
-	}
-
-	// Provision the remaining machines and check the address and status.
-	for i := len(insts) / 2; i < len(insts); i++ {
-		if i%2 == 0 {
-			m, err := s.State.Machine(machines[i].Id())
-			c.Assert(err, jc.ErrorIsNil)
-			err = m.SetProvisioned(insts[i].Id(), "", "nonce", nil)
-			c.Assert(err, jc.ErrorIsNil)
-		}
-		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
-		dummy.SetInstanceStatus(insts[i], "running")
-	}
-	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if !a.HasNext() {
-			c.Fatalf("timed out waiting for machine instance info")
-		}
-		if machinesSatisfy(c, machines, func(i int, m *apiinstancepoller.Machine) bool {
-			return checkInstanceInfo(i, m, "running")
-		}) {
-			break
-		}
-	}
+	return w, mocked
 }
 
-// TODO(rog)
-// - check that the environment observer is actually hooked up.
-// - check that the environment observer is stopped.
-// - check that the errors propagate correctly.
+// mockFacadeAPI is a workaround for not being able to use gomock for the
+// FacadeAPI interface. Because the Machine() method returns a Machine interface,
+// gomock will import instancepoller and cause an import cycle.
+type mockFacadeAPI struct {
+	machineMap map[names.MachineTag]Machine
 
-func machinesSatisfy(c *gc.C, machines []*apiinstancepoller.Machine, f func(i int, m *apiinstancepoller.Machine) bool) bool {
-	for i, m := range machines {
-		err := m.Refresh()
-		c.Assert(err, jc.ErrorIsNil)
-		if !f(i, m) {
-			return false
-		}
-	}
-	return true
+	sw              *mocks.MockStringsWatcher
+	watcherChangeCh chan []string
 }
 
-func (s *workerSuite) setupScenario(c *gc.C) ([]*apiinstancepoller.Machine, []instances.Instance) {
-	var machines []*apiinstancepoller.Machine
-	var insts []instances.Instance
-	for i := 0; i < 10; i++ {
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
-		c.Assert(err, jc.ErrorIsNil)
-		apiMachine, err := s.api.Machine(names.NewMachineTag(m.Id()))
-		c.Assert(err, jc.ErrorIsNil)
-		machines = append(machines, apiMachine)
-		inst, _ := testing.AssertStartInstance(c, s.Environ, context.NewCloudCallContext(), s.ControllerConfig.ControllerUUID(), m.Id())
-		insts = append(insts, inst)
+func newMockFacadeAPI(ctrl *gomock.Controller, workerGotWatcherCh chan<- struct{}) *mockFacadeAPI {
+	api := &mockFacadeAPI{
+		machineMap:      make(map[names.MachineTag]Machine),
+		sw:              mocks.NewMockStringsWatcher(ctrl),
+		watcherChangeCh: make(chan []string),
 	}
-	// Associate the odd-numbered machines with an instance.
-	for i := 1; i < len(machines); i += 2 {
-		apiMachine := machines[i]
-		m, err := s.State.Machine(apiMachine.Id())
-		c.Assert(err, jc.ErrorIsNil)
-		err = m.SetProvisioned(insts[i].Id(), "", "nonce", nil)
-		c.Assert(err, jc.ErrorIsNil)
+
+	api.sw.EXPECT().Changes().DoAndReturn(func() watcher.StringsChannel {
+		select {
+		case workerGotWatcherCh <- struct{}{}:
+		default:
+		}
+		return api.watcherChangeCh
+	}).AnyTimes()
+	api.sw.EXPECT().Kill().AnyTimes()
+	api.sw.EXPECT().Wait().AnyTimes()
+	return api
+}
+
+func (api *mockFacadeAPI) assertEnqueueChange(c *gc.C, values []string) {
+	select {
+	case api.watcherChangeCh <- values:
+	case <-time.After(coretesting.ShortWait):
+		c.Fatal("timed out waiting for worker to pick up change")
 	}
-	// Associate the first half of the instances with an address and status.
-	for i := 0; i < len(machines)/2; i++ {
-		dummy.SetInstanceAddresses(insts[i], s.addressesForIndex(i))
-		dummy.SetInstanceStatus(insts[i], "running")
+}
+func (api *mockFacadeAPI) addMachine(tag names.MachineTag, m Machine) { api.machineMap[tag] = m }
+
+func (api *mockFacadeAPI) WatchModelMachines() (watcher.StringsWatcher, error) { return api.sw, nil }
+func (api *mockFacadeAPI) Machine(tag names.MachineTag) (Machine, error) {
+	if found := api.machineMap[tag]; found != nil {
+		return found, nil
 	}
-	// Make sure the second half of the instances have no addresses.
-	for i := len(machines) / 2; i < len(machines); i++ {
-		dummy.SetInstanceAddresses(insts[i], nil)
-	}
-	return machines, insts
+	return nil, errors.NotFoundf(tag.String())
 }

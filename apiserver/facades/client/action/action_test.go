@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/action"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/actions"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -816,7 +817,11 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	a, err := s.Model.Action("1")
 	c.Assert(err, jc.ErrorIsNil)
 	logged := a.Messages()
-	expected, err := json.Marshal(logged[0])
+	c.Assert(logged, gc.HasLen, 1)
+	expected, err := json.Marshal(actions.ActionMessage{
+		Message:   logged[0].Message(),
+		Timestamp: logged[0].Timestamp(),
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	wc.AssertChange(string(expected))

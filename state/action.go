@@ -112,8 +112,18 @@ type actionDoc struct {
 
 // ActionMessage represents a progress message logged by an action.
 type ActionMessage struct {
-	Message   string    `bson:"message"`
-	Timestamp time.Time `bson:"timestamp"`
+	MessageValue   string    `bson:"message"`
+	TimestampValue time.Time `bson:"timestamp"`
+}
+
+// Timestamp returns the message timestamp.
+func (m ActionMessage) Timestamp() time.Time {
+	return m.TimestampValue
+}
+
+// Message returns the message string.
+func (m ActionMessage) Message() string {
+	return m.MessageValue
 }
 
 // action represents an instruction to do some "action" and is expected
@@ -268,8 +278,8 @@ func (a *action) Messages() []ActionMessage {
 	result := make([]ActionMessage, len(a.doc.Logs))
 	for i, m := range a.doc.Logs {
 		result[i] = ActionMessage{
-			Message:   m.Message,
-			Timestamp: m.Timestamp.UTC(),
+			MessageValue:   m.MessageValue,
+			TimestampValue: m.TimestampValue.UTC(),
 		}
 	}
 	return result
@@ -277,6 +287,12 @@ func (a *action) Messages() []ActionMessage {
 
 // Log adds message to the action's progress message array.
 func (a *action) Log(message string) error {
+	// Just to ensure we do not allow bad actions to fill up disk.
+	// 1000 messages should be enough for anyone.
+	if len(a.doc.Logs) > 1000 {
+		logger.Warningf("exceeded 1000 log messages, action may be stuck")
+		return nil
+	}
 	m, err := a.st.Model()
 	if err != nil {
 		return errors.Trace(err)
@@ -298,7 +314,7 @@ func (a *action) Log(message string) error {
 				Id:     a.doc.DocId,
 				Assert: bson.D{{"status", ActionRunning}},
 				Update: bson.D{{"$push", bson.D{
-					{"messages", ActionMessage{Message: message, Timestamp: a.st.nowToTheSecond().UTC()}},
+					{"messages", ActionMessage{MessageValue: message, TimestampValue: a.st.nowToTheSecond().UTC()}},
 				}}},
 			}}
 		return ops, nil

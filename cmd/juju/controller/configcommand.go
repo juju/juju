@@ -82,14 +82,14 @@ func (c *configCommand) Info() *cmd.Info {
 		Args:    "[<attribute key>[=<value>] ...]",
 		Purpose: "Displays or sets configuration settings for a controller.",
 	}
-	if details, err := c.controllerConfigDetails(); err == nil {
-		if output, err := common.FormatConfigSchema(details); err == nil {
+	if details, err := ConfigDetails(); err == nil {
+		if formattedDetails, err := common.FormatConfigSchema(details); err == nil {
 			info.Doc = fmt.Sprintf("%s%s\n%s%s",
 				configCommandHelpDocPart1,
 				controllerConfigHelpDocKeys,
-				output,
+				formattedDetails,
 				configCommandHelpDocPart2)
-			return info
+			return jujucmd.Info(info)
 		}
 	}
 	info.Doc = strings.TrimSpace(fmt.Sprintf("%s%s",
@@ -227,7 +227,8 @@ func (c *configCommand) setConfig(client controllerAPI, ctx *cmd.Context) error 
 	return errors.Trace(client.ConfigSet(attrs))
 }
 
-func (c *configCommand) controllerConfigDetails() (map[string]interface{}, error) {
+// ConfigDetails gets information about controller config attributes.
+func ConfigDetails() (map[string]interface{}, error) {
 	specifics := make(map[string]interface{})
 	for key, attr := range controller.ConfigSchema {
 		if !controller.AllowedUpdateConfigAttributes.Contains(key) {

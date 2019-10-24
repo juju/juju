@@ -186,9 +186,9 @@ func (s *K8sMetadataSuite) TestListHostCloudRegions(c *gc.C) {
 	for i, v := range hostRegionsTestCases {
 		c.Logf("test %d", i)
 		gomock.InOrder(
-			s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+			s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 				Return(v.nodes, nil),
-			s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+			s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 				Return(&storagev1.StorageClassList{}, nil),
 		)
 		metadata, err := s.broker.GetClusterMetadata("")
@@ -203,9 +203,9 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClasses(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				Provisioner: "a-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
@@ -224,9 +224,9 @@ func (s *K8sMetadataSuite) TestNoDefaultStorageClassesTooMany(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				Provisioner: "a-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
@@ -245,9 +245,9 @@ func (s *K8sMetadataSuite) TestPreferDefaultStorageClass(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",
@@ -270,9 +270,9 @@ func (s *K8sMetadataSuite) TestBetaDefaultStorageClass(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.beta.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",
@@ -295,17 +295,17 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{IncludeUninitialized: true}).
 			Return(&storagev1.StorageClass{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",
 				Parameters:  map[string]string{"foo": "bar"},
 			}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				Provisioner: "kubernetes.io/aws-ebs",
 			}}}, nil),
@@ -326,11 +326,11 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassNoDefault(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				Provisioner: "kubernetes.io/aws-ebs",
 			}, {
@@ -353,11 +353,11 @@ func (s *K8sMetadataSuite) TestOperatorStorageClassPrefersDefault(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				Provisioner: "kubernetes.io/aws-ebs",
 			}, {
@@ -383,11 +383,11 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadStorageClass(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{{
 				ObjectMeta: v1.ObjectMeta{
 					Name: "juju-preferred-workload-storage",
@@ -418,11 +418,11 @@ func (s *K8sMetadataSuite) TestAnnotatedWorkloadAndOperatorStorageClass(c *gc.C)
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).Times(1).
+		s.mockNodes.EXPECT().List(v1.ListOptions{Limit: 5}).
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().List(v1.ListOptions{}).
 			Return(&storagev1.StorageClassList{Items: []storagev1.StorageClass{
 				{
 					ObjectMeta: v1.ObjectMeta{

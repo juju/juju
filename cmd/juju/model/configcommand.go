@@ -93,14 +93,14 @@ func (c *configCommand) Info() *cmd.Info {
 		Name:    "model-config",
 		Purpose: modelConfigSummary,
 	}
-	if details, err := c.modelConfigDetails(); err == nil {
-		if output, err := common.FormatConfigSchema(details); err == nil {
+	if details, err := ConfigDetails(); err == nil {
+		if formattedDetails, err := common.FormatConfigSchema(details); err == nil {
 			info.Doc = fmt.Sprintf("%s%s\n%s%s",
 				modelConfigHelpDocPartOne,
 				modelConfigHelpDocKeys,
-				output,
+				formattedDetails,
 				modelConfigHelpDocPartTwo)
-			return info
+			return jujucmd.Info(info)
 		}
 	}
 	info.Doc = fmt.Sprintf("%s%s",
@@ -331,7 +331,7 @@ func (c *configCommand) getFilteredModel(client configCommandAPI) (config.Config
 	}
 	for attrName := range attrs {
 		// We don't want model attributes included, these are available via show-model.
-		if c.isModelAttribute(attrName) {
+		if isModelAttribute(attrName) {
 			delete(attrs, attrName)
 		}
 	}
@@ -401,7 +401,7 @@ func (c *configCommand) verifyKnownKeys(client configCommandAPI, keys []string) 
 
 // isModelAttribute returns if the supplied attribute is a valid model
 // attribute.
-func (c *configCommand) isModelAttribute(attr string) bool {
+func isModelAttribute(attr string) bool {
 	switch attr {
 	case config.NameKey, config.TypeKey, config.UUIDKey:
 		return true
@@ -443,17 +443,16 @@ func formatConfigTabular(writer io.Writer, value interface{}) error {
 	return nil
 }
 
-// modelConfigDetails gets ModelDetails when a model is not available
+// ConfigDetails gets ModelDetails when a model is not available
 // to use.
-func (c *configCommand) modelConfigDetails() (map[string]interface{}, error) {
-
+func ConfigDetails() (map[string]interface{}, error) {
 	defaultSchema, err := config.Schema(nil)
 	if err != nil {
 		return nil, err
 	}
 	specifics := make(map[string]interface{})
 	for key, attr := range defaultSchema {
-		if attr.Secret || c.isModelAttribute(key) ||
+		if attr.Secret || isModelAttribute(key) ||
 			attr.Group != environschema.EnvironGroup {
 			continue
 		}

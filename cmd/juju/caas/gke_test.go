@@ -44,7 +44,7 @@ func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "gcloud auth list --format value\\(account,status\\)",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte("mysecret\ndefaultSecret *"),
@@ -52,7 +52,7 @@ func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "gcloud projects list --account mysecret --filter lifecycleState:ACTIVE --format value\\(projectId\\)",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte("myproject"),
@@ -60,7 +60,7 @@ func (s *gkeSuite) TestInteractiveParams(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\)",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte("mycluster asia-southeast1-a"),
@@ -114,7 +114,7 @@ func (s *gkeSuite) TestInteractiveParamsProjectSpecified(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\)",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte("mycluster asia-southeast1-a"),
@@ -162,7 +162,7 @@ func (s *gkeSuite) TestInteractiveParamsProjectAndRegionSpecified(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "gcloud container clusters list --filter status:RUNNING --account mysecret --project myproject --format value\\(name,zone\\)",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code:   0,
 				Stdout: []byte("mycluster asia-southeast1-a"),
@@ -216,7 +216,7 @@ func (s *gkeSuite) TestGetKubeConfig(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "gcloud container clusters get-credentials mycluster --account mysecret --project myproject --zone asia-southeast1-a",
 			Environment: []string{"KUBECONFIG=" + configFile, "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code: 0,
 			}, nil),
@@ -248,7 +248,7 @@ func (s *gkeSuite) TestEnsureExecutableGcloudFound(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "which gcloud",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code: 0,
 			}, nil),
@@ -268,7 +268,7 @@ func (s *gkeSuite) TestEnsureExecutableGcloudNotFound(c *gc.C) {
 		mockRunner.EXPECT().RunCommands(exec.RunParams{
 			Commands:    "which gcloud",
 			Environment: []string{"KUBECONFIG=", "PATH=/path/to/here"},
-		}).Times(1).
+		}).
 			Return(&exec.ExecResponse{
 				Code: 1,
 			}, nil),

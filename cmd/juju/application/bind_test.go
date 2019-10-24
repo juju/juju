@@ -124,30 +124,9 @@ func (s *BindSuite) TestBind(c *gc.C) {
 
 func (s *BindSuite) TestBindWithNoBindings(c *gc.C) {
 	s.setupAPIConnection(11)
-	s.applicationClient.getResults = &params.ApplicationGetResults{
-		EndpointBindings: map[string]string{
-			"ep1": network.DefaultSpaceName,
-			"ep2": "sp2",
-		},
-	}
 
-	// If the operator specifies no bindings, juju bind will simply print
-	// out the current bindings and make a no-op call to the server.
 	_, err := s.runBind(c, "foo")
-	c.Assert(err, jc.ErrorIsNil)
-	s.spacesClient.CheckNoCalls(c)
-	s.applicationClient.CheckCallNames(c, "Get", "MergeBindings")
-	s.applicationClient.CheckCall(c, 1, "MergeBindings", params.ApplicationMergeBindingsArgs{
-		Args: []params.ApplicationMergeBindings{
-			{
-				ApplicationTag: names.NewApplicationTag("foo").String(),
-				Bindings: map[string]string{
-					"ep1": network.DefaultSpaceName,
-					"ep2": "sp2",
-				},
-			},
-		},
-	})
+	c.Assert(err, gc.ErrorMatches, "no bindings specified")
 }
 
 func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {

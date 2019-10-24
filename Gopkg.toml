@@ -62,7 +62,7 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "303c0a2ac03fb315309324f8a1f7164b27c8193f"
+  revision = "ef199d6ad38cb2f3c5e32cf9006624e22ee66002"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "c769faf4c30ef9abde1b7a8c32b6404c8167f999"
+  revision = "780719c3e4a68329408cfecf46ed1ee84b530287"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"

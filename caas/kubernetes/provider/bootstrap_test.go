@@ -124,7 +124,7 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 	})
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).Times(1).
+		s.mockNamespaces.EXPECT().List(v1.ListOptions{IncludeUninitialized: true}).
 			Return(&core.NamespaceList{Items: []core.Namespace{existingNs}}, nil),
 	)
 	var err error
@@ -656,35 +656,35 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 
 	gomock.InOrder(
 		// create namespace.
-		s.mockNamespaces.EXPECT().Create(ns).Times(1).
+		s.mockNamespaces.EXPECT().Create(ns).
 			Return(ns, nil),
 
 		// ensure service
-		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().Get("juju-controller-test-service", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(svcNotProvisioned).Times(1).
+		s.mockServices.EXPECT().Update(svcNotProvisioned).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(svcNotProvisioned).Times(1).
+		s.mockServices.EXPECT().Create(svcNotProvisioned).
 			Return(svcNotProvisioned, nil),
 
 		// below calls are for GetService - 1st address no provisioned yet.
-		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).
 			Return(&core.ServiceList{Items: []core.Service{*svcNotProvisioned}}, nil),
-		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).
 			Return(nil, s.k8sNotFoundError()),
 
 		// below calls are for GetService - 2nd address is ready.
-		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).
 			Return(&core.ServiceList{Items: []core.Service{*svcProvisioned}}, nil),
-		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).Times(1).
+		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{IncludeUninitialized: false}).
 			Return(nil, s.k8sNotFoundError()),
 
 		// ensure shared-secret secret.
@@ -714,7 +714,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(emptyConfigMap, nil),
 		s.mockConfigMaps.EXPECT().Create(configMapWithBootstrapParamsAdded).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*emptyConfigMap}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapWithBootstrapParamsAdded).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
@@ -724,17 +724,17 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(configMapWithBootstrapParamsAdded, nil),
 		s.mockConfigMaps.EXPECT().Create(configMapWithAgentConfAdded).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).Times(1).
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test", IncludeUninitialized: true}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapWithAgentConfAdded).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),
 
 		// Check the operator storage exists.
 		// first check if <namespace>-<storage-class> exist or not.
-		s.mockStorageClass.EXPECT().Get("controller-1-some-storage", v1.GetOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().Get("controller-1-some-storage", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		// not found, fallback to <storage-class>.
-		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).Times(1).
+		s.mockStorageClass.EXPECT().Get("some-storage", v1.GetOptions{}).
 			Return(&sc, nil),
 
 		// ensure statefulset.
@@ -746,7 +746,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			},
 		).
 			Return(podWatcher, nil),
-		s.mockStatefulSets.EXPECT().Create(statefulSetSpec).Times(1).
+		s.mockStatefulSets.EXPECT().Create(statefulSetSpec).
 			Return(statefulSetSpec, nil),
 		s.mockEvents.EXPECT().Watch(
 			v1.ListOptions{

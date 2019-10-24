@@ -434,7 +434,7 @@ For more information, see ‘juju show-credential test-cloud blah’.
 	c.Assert(cmdtesting.Stdout(ctx), gc.DeepEquals, "Do you want to add a credential to current controller \"controller\"? (Y/n): \n")
 }
 
-func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
+func (s *detectCredentialsSuite) assertAutoloadCredentials(c *gc.C, expectedStderr string, args ...string) {
 	// Ensure that there is a current controller to be picked for
 	// loading remotely.
 	s.setupStore(c)
@@ -473,10 +473,15 @@ func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
 	}
 
 	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", cloudName))
-	ctx, err := s.run(c, stdin, clouds, "--no-prompt")
+	ctx, err := s.run(c, stdin, clouds, args...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, `
+	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, expectedStderr)
+	c.Assert(called, jc.IsFalse)
+}
+
+func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
+	s.assertAutoloadCredentials(c, `
 
 1. credential (new)
 Select a credential to save by number, or type Q to quit: 
@@ -488,8 +493,22 @@ Select a credential to save by number, or type Q to quit:
 
 Cloud "test-cloud" does not exist on the controller: not uploading credentials for it...
 Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.
-`[1:])
-	c.Assert(called, jc.IsFalse)
+`[1:],
+		"--no-prompt")
+}
+
+func (s *detectCredentialsSuite) TestDetectCredentialClientOnly(c *gc.C) {
+	s.assertAutoloadCredentials(c, `
+
+1. credential (new)
+Select a credential to save by number, or type Q to quit: 
+Select the cloud it belongs to, or type Q to quit [test-cloud]: 
+Saved credential to cloud test-cloud locally
+
+1. credential (existing, will overwrite)
+Select a credential to save by number, or type Q to quit: 
+`[1:],
+		"--client-only")
 }
 
 func (s *detectCredentialsSuite) TestAddLoadedCredential(c *gc.C) {

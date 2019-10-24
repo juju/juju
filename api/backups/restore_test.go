@@ -41,8 +41,8 @@ func (s *restoreSuite) TestRestoreFromFileBackupExistsOnController(c *gc.C) {
 	gomock.InOrder(
 		mockBackupFacadeCaller.EXPECT().FacadeCall("PrepareRestore", nil, gomock.Any()),
 		mockBackupFacadeCaller.EXPECT().FacadeCall("List", args, resultBackupList).SetArg(2, testBackupsListResults),
-		mockBackupFacadeCaller.EXPECT().FacadeCall("Restore", gomock.Any(), gomock.Any()).Times(1),
-		mockBackupFacadeCaller.EXPECT().FacadeCall("FinishRestore", gomock.Any(), gomock.Any()).Times(1),
+		mockBackupFacadeCaller.EXPECT().FacadeCall("Restore", gomock.Any(), gomock.Any()),
+		mockBackupFacadeCaller.EXPECT().FacadeCall("FinishRestore", gomock.Any(), gomock.Any()),
 	)
 
 	connFunc := func() (*backups.Client, error) {

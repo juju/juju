@@ -157,7 +157,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		addr := server.TCPAddr().String()
 		c, err := net.DialTimeout("tcp", addr, opts.Timeout)
 		if err != nil {
-			logger.Warningf("mongodb connection failed, will retry: %v", err)
+			logger.Debugf("mongodb connection failed, will retry: %v", err)
 			return nil, err
 		}
 		if tlsConfig != nil {

@@ -1151,8 +1151,8 @@ func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	messages := anAction.Messages()
 	c.Assert(messages, gc.HasLen, 1)
-	c.Assert(messages[0].Message, gc.Equals, "hello")
-	c.Assert(messages[0].Timestamp, gc.NotNil)
+	c.Assert(messages[0].Message(), gc.Equals, "hello")
+	c.Assert(messages[0].Timestamp(), gc.NotNil)
 }
 
 func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {

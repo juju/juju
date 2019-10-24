@@ -757,7 +757,7 @@ func (a *noopStatusSetter) SetStatus(setableStatus status.Status, info string, d
 }
 
 func (a *MachineAgent) statusSetter(apiConn api.Connection) (upgradesteps.StatusSetter, error) {
-	if a.agentTag.Kind() != names.MachineTagKind {
+	if a.isCaasAgent || a.agentTag.Kind() != names.MachineTagKind {
 		// TODO - support set status for controller agents
 		return &noopStatusSetter{}, nil
 	}
@@ -857,7 +857,7 @@ func (a *MachineAgent) validateMigration(apiCaller base.APICaller) error {
 	// TODO(mjs) - more extensive checks to come.
 	var err error
 	// TODO(controlleragent) - add k8s controller check.
-	if a.agentTag.Kind() == names.MachineTagKind {
+	if !a.isCaasAgent {
 		facade := apimachiner.NewState(apiCaller)
 		_, err = facade.Machine(a.agentTag.(names.MachineTag))
 	}
@@ -1095,7 +1095,6 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 		LoggingContext:              loggingContext,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
-		InstPollerAggregationDelay:  3 * time.Second,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
 		ActionPrunerInterval:        24 * time.Hour,
 		NewEnvironFunc:              newEnvirons,

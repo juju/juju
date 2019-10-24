@@ -14,56 +14,11 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Spaces,Address,Subnet,LinkLayerDevice,Bindings
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Address,Subnet,LinkLayerDevice,Bindings
 
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {
-	AllSpaces() ([]*state.Space, error)
-}
-
-// Spaces describes a cache of all space info for a model.
-type Spaces interface {
-	// GetByID returns the space for the input ID or an error if not found.
-	GetByID(id string) (network.SpaceInfo, error)
-	// GetByName returns the space for the input name or an error if not found.
-	GetByName(name string) (network.SpaceInfo, error)
-}
-
-// spaceCache implements Spaces.
-type spaceCache struct {
-	spaces network.SpaceInfos
-}
-
-// NewSpaces uses the input backing to populate and return a cache of spaces.
-func NewSpaces(st SpaceBacking) (Spaces, error) {
-	spaces, err := st.AllSpaces()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	infos := make(network.SpaceInfos, len(spaces))
-	for i, space := range spaces {
-		infos[i] = space.NetworkSpace()
-	}
-	return &spaceCache{spaces: infos}, nil
-}
-
-// GetByID implements Spaces.
-func (s *spaceCache) GetByID(id string) (network.SpaceInfo, error) {
-	sp := s.spaces.GetByID(id)
-	if sp == nil {
-		return network.SpaceInfo{}, errors.NotFoundf("space with ID %q", id)
-	}
-	return *sp, nil
-}
-
-// GetByName implements Spaces.
-func (s *spaceCache) GetByName(name string) (network.SpaceInfo, error) {
-	sp := s.spaces.GetByName(name)
-	if sp == nil {
-		return network.SpaceInfo{}, errors.NotFoundf("space with name %q", name)
-	}
-	return *sp, nil
+	SpaceIDsByName() (map[string]string, error)
 }
 
 // LinkLayerDevice is an indirection for state.LinkLayerDevice.
