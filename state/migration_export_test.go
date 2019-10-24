@@ -1365,7 +1365,11 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	a, err := m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	a, err = a.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = a.Log("hello")
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
@@ -1375,8 +1379,12 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	action := actions[0]
 	c.Check(action.Receiver(), gc.Equals, machine.Id())
 	c.Check(action.Name(), gc.Equals, "foo")
-	c.Check(action.Status(), gc.Equals, "pending")
+	c.Check(action.Status(), gc.Equals, "running")
 	c.Check(action.Message(), gc.Equals, "")
+	logs := action.Logs()
+	c.Assert(logs, gc.HasLen, 1)
+	c.Assert(logs[0].Message(), gc.Equals, "hello")
+	c.Assert(logs[0].Timestamp().IsZero(), jc.IsFalse)
 }
 
 func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {

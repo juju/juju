@@ -25,6 +25,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/tomb.v2"
 
+	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
@@ -2486,8 +2487,10 @@ func (w *actionLogsWatcher) messages() ([]string, error) {
 	}
 	var changes []string
 	for _, m := range doc.Messages {
-		m.Timestamp = m.Timestamp.UTC()
-		mjson, err := json.Marshal(m)
+		mjson, err := json.Marshal(actions.ActionMessage{
+			Message:   m.MessageValue,
+			Timestamp: m.TimestampValue.UTC(),
+		})
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

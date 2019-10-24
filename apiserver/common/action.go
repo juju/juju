@@ -249,8 +249,8 @@ func MakeActionResult(actionReceiverTag names.Tag, action state.Action) params.A
 	}
 	for _, m := range action.Messages() {
 		result.Log = append(result.Log, params.ActionMessage{
-			Timestamp: m.Timestamp,
-			Message:   m.Message,
+			Timestamp: m.Timestamp(),
+			Message:   m.Message(),
 		})
 	}
 
