@@ -1165,7 +1165,7 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 		}
 	})
 
-	imported, err := newSt.Space(space.Name())
+	imported, err := newSt.SpaceByName(space.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(imported.Id(), gc.Equals, space.Id())
@@ -1173,7 +1173,7 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	c.Check(imported.ProviderId(), gc.Equals, space.ProviderId())
 	c.Check(imported.IsPublic(), gc.Equals, space.IsPublic())
 
-	imported, err = newSt.Space(spaceNoID.Name())
+	imported, err = newSt.SpaceByName(spaceNoID.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(imported.Id(), gc.Not(gc.Equals), "")
 }

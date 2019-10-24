@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
-	reflect "reflect"
 )
 
 // MockEndpointBinding is a mock of EndpointBinding interface
@@ -33,17 +34,17 @@ func (m *MockEndpointBinding) EXPECT() *MockEndpointBindingMockRecorder {
 	return m.recorder
 }
 
-// SpaceByID mocks base method
-func (m *MockEndpointBinding) SpaceByID(arg0 string) (*state.Space, error) {
-	ret := m.ctrl.Call(m, "SpaceByID", arg0)
+// Space mocks base method
+func (m *MockEndpointBinding) Space(arg0 string) (*state.Space, error) {
+	ret := m.ctrl.Call(m, "Space", arg0)
 	ret0, _ := ret[0].(*state.Space)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SpaceByID indicates an expected call of SpaceByID
-func (mr *MockEndpointBindingMockRecorder) SpaceByID(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceByID", reflect.TypeOf((*MockEndpointBinding)(nil).SpaceByID), arg0)
+// Space indicates an expected call of Space
+func (mr *MockEndpointBindingMockRecorder) Space(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockEndpointBinding)(nil).Space), arg0)
 }
 
 // SpaceIDsByName mocks base method

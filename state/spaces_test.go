@@ -75,7 +75,7 @@ func (s *SpacesSuite) assertSpaceNotFound(c *gc.C, name string) {
 }
 
 func (s *SpacesSuite) assertSpaceNotFoundForState(c *gc.C, name string, st *state.State) {
-	_, err := st.Space(name)
+	_, err := st.SpaceByName(name)
 	s.assertSpaceNotFoundError(c, err, name)
 }
 
@@ -466,7 +466,7 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
-	defaultSpace, err := s.State.Space("")
+	defaultSpace, err := s.State.SpaceByName("")
 	c.Assert(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
@@ -490,12 +490,12 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestSpaceByID(c *gc.C) {
-	_, err := s.State.SpaceByID(network.DefaultSpaceId)
+	_, err := s.State.Space(network.DefaultSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *SpacesSuite) TestSpaceByIDNotFound(c *gc.C) {
-	_, err := s.State.SpaceByID("42")
+	_, err := s.State.Space("42")
 	c.Assert(err, gc.ErrorMatches, "space id \"42\" not found")
 }
 
@@ -565,7 +565,7 @@ func (s *SpacesSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {
 
 func (s *SpacesSuite) TestRefreshUpdatesStaleDocData(c *gc.C) {
 	space := s.addAliveSpace(c, "original")
-	spaceCopy, err := s.State.Space(space.Name())
+	spaceCopy, err := s.State.SpaceByName(space.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.ensureDeadAndAssertLifeIsDead(c, space)

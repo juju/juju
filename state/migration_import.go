@@ -1730,7 +1730,7 @@ func (i *importer) subnets() error {
 		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
 
 		if info.SpaceID == "" && info.SpaceName != "" {
-			space, err := i.st.Space(subnet.SpaceName())
+			space, err := i.st.SpaceByName(subnet.SpaceName())
 			if err != nil {
 				return errors.Trace(err)
 			}

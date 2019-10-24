@@ -110,7 +110,7 @@ func (st *State) AddSpace(
 	}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if _, err := st.Space(name); err != nil {
+		if _, err := st.SpaceByName(name); err != nil {
 			if !errors.IsNotFound(err) {
 				return nil, errors.Annotatef(err, "checking for existing space")
 			}
@@ -152,7 +152,7 @@ func (st *State) AddSpace(
 		return nil, errors.Trace(err)
 	}
 
-	space, err := st.Space(name)
+	space, err := st.SpaceByName(name)
 	return space, errors.Trace(err)
 }
 
@@ -207,28 +207,10 @@ func (st *State) addSpaceTxnOps(id, name string, providerId network.Id, isPublic
 	return ops
 }
 
-// Space returns a space from state that matches the provided name. An error
-// is returned if the space doesn't exist or if there was a problem accessing
-// its information.
-func (st *State) Space(name string) (*Space, error) {
-	spaces, closer := st.db().GetCollection(spacesC)
-	defer closer()
-
-	var doc spaceDoc
-	err := spaces.Find(bson.M{"name": name}).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("space %q", name)
-	}
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get space %q", name)
-	}
-	return &Space{st, doc}, nil
-}
-
-// SpaceByID returns a space from state that matches the input ID.
-// An error is returned if the space doesn't exist or if there was
-// a problem accessing its information.
-func (st *State) SpaceByID(id string) (*Space, error) {
+// Space returns a space from state that matches the input ID.
+// An error is returned if the space does not exist or if there was a problem
+// accessing its information.
+func (st *State) Space(id string) (*Space, error) {
 	spaces, closer := st.db().GetCollection(spacesC)
 	defer closer()
 
@@ -239,6 +221,24 @@ func (st *State) SpaceByID(id string) (*Space, error) {
 	}
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get space id %q", id)
+	}
+	return &Space{st, doc}, nil
+}
+
+// SpaceByName returns a space from state that matches the input name.
+// An error is returned if the space does not exist or if there was a problem
+// accessing its information.
+func (st *State) SpaceByName(name string) (*Space, error) {
+	spaces, closer := st.db().GetCollection(spacesC)
+	defer closer()
+
+	var doc spaceDoc
+	err := spaces.Find(bson.M{"name": name}).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("space %q", name)
+	}
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get space %q", name)
 	}
 	return &Space{st, doc}, nil
 }

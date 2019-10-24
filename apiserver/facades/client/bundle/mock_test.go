@@ -51,7 +51,7 @@ func (m *mockState) SpaceIDsByName() (map[string]string, error) {
 	return idsByName, nil
 }
 
-func (m *mockState) SpaceByID(_ string) (*state.Space, error) {
+func (m *mockState) Space(_ string) (*state.Space, error) {
 	return nil, nil
 }
 

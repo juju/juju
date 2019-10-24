@@ -97,7 +97,7 @@ func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access
 }
 
 func (s *stateShim) SpaceByID(id string) (Space, error) {
-	sp, err := s.st.Space(id)
+	sp, err := s.st.SpaceByName(id)
 	return &spaceShim{sp}, err
 }
 

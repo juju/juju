@@ -139,7 +139,7 @@ func (s *cmdSpaceSuite) TestSpaceCreateNoSubnets(c *gc.C) {
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, jc.Contains, "added space \"myspace\" with no subnets\n")
 
-	space, err := s.State.Space("myspace")
+	space, err := s.State.SpaceByName("myspace")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, "myspace")
 	subnets, err := space.Subnets()
@@ -160,7 +160,7 @@ func (s *cmdSpaceSuite) TestSpaceCreateWithSubnets(c *gc.C) {
 		"added space \"myspace\" with subnets 10.10.0.0/16, 10.11.0.0/16\n",
 	)
 
-	space, err := s.State.Space("myspace")
+	space, err := s.State.SpaceByName("myspace")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(space.Name(), gc.Equals, "myspace")
 	subnets, err := space.Subnets()

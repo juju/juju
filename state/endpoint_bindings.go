@@ -233,7 +233,7 @@ func (b *Bindings) updateOps(txnRevno int64, newMap map[string]string, newMeta *
 
 	// Ensure that the spaceIDs needed for the bindings exist.
 	for _, spID := range b.Map() {
-		sp, err := b.st.SpaceByID(spID)
+		sp, err := b.st.Space(spID)
 		if err != nil {
 			return ops, errors.Trace(err)
 		}
@@ -339,7 +339,7 @@ func (b *Bindings) validateForMachines() error {
 }
 
 func (b *Bindings) spaceNotFeasibleError(msg, id string) error {
-	space, err := b.st.SpaceByID(id)
+	space, err := b.st.Space(id)
 	if err != nil {
 		logger.Errorf(msg, id)
 		return errors.Annotatef(err, "cannot get space name for id %q", id)
@@ -445,7 +445,7 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 //
 //go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
-	SpaceByID(id string) (*Space, error)
+	Space(id string) (*Space, error)
 	SpaceIDsByName() (map[string]string, error)
 	SpaceNamesByID() (map[string]string, error)
 }

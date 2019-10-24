@@ -155,7 +155,7 @@ func (s *Subnet) SpaceName() string {
 	if s.spaceID == "" {
 		return network.DefaultSpaceName
 	}
-	sp, err := s.st.SpaceByID(s.spaceID)
+	sp, err := s.st.Space(s.spaceID)
 	if err != nil {
 		logger.Errorf("error finding space %q: %s", s.spaceID, err)
 		return network.DefaultSpaceName
@@ -247,7 +247,7 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 		if makeSpaceNameUpdate {
 			// TODO (hml) 2019-07-25
 			// Update for SpaceID once SubnetInfo Updated
-			sp, err := s.st.Space(args.SpaceName)
+			sp, err := s.st.SpaceByName(args.SpaceName)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -278,7 +278,7 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 
 func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	var spaceNameChange bool
-	sp, err := s.st.SpaceByID(s.doc.SpaceID)
+	sp, err := s.st.Space(s.doc.SpaceID)
 	switch {
 	case err != nil && !errors.IsNotFound(err):
 		return false, errors.Trace(err)
