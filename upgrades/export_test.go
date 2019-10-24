@@ -8,6 +8,8 @@ import "github.com/juju/juju/environs"
 var (
 	UpgradeOperations      = &upgradeOperations
 	StateUpgradeOperations = &stateUpgradeOperations
+
+	SetJujuFolderPermissionsToAdm = setJujuFolderPermissionsToAdm
 )
 
 type ModelConfigUpdater environConfigUpdater
