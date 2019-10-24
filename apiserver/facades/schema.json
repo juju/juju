@@ -30197,6 +30197,82 @@
         }
     },
     {
+        "Name": "SpaceNamer",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "SetDefaultSpaceName": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResult"
+                        }
+                    }
+                },
+                "WatchDefaultSpaceConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "ErrorResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "NotifyWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "NotifyWatcherId": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "NotifyWatcherId"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "Spaces",
         "Version": 5,
         "Schema": {

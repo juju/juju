@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/reboot"
 	"github.com/juju/juju/apiserver/facades/agent/resourceshookcontext"
 	"github.com/juju/juju/apiserver/facades/agent/retrystrategy"
+	"github.com/juju/juju/apiserver/facades/agent/spacenamer"
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner"
 	"github.com/juju/juju/apiserver/facades/agent/unitassigner"
 	"github.com/juju/juju/apiserver/facades/agent/uniter"
@@ -295,6 +296,8 @@ func AllFacades() *facade.Registry {
 	reg("Spaces", 3, spaces.NewAPIv3)
 	reg("Spaces", 4, spaces.NewAPIv4)
 	reg("Spaces", 5, spaces.NewAPI)
+
+	reg("SpaceNamer", 1, spacenamer.NewFacade)
 
 	reg("StatusHistory", 2, statushistory.NewAPI)
 
