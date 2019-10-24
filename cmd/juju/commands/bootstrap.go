@@ -30,6 +30,8 @@ import (
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
+	cmdcontroller "github.com/juju/juju/cmd/juju/controller"
+	cmdmodel "github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -56,7 +58,7 @@ var provisionalProviders = map[string]string{}
 var usageBootstrapSummary = `
 Initializes a cloud environment.`[1:]
 
-var usageBootstrapDetails = `
+var usageBootstrapDetailsPartOne = `
 Used without arguments, bootstrap will step you through the process of
 initializing a Juju cloud environment. Initialization consists of creating
 a 'controller' model and provisioning a machine to act as controller.
@@ -85,10 +87,6 @@ It is possible to override constraints and the automatic machine selection
 algorithm by assigning a "placement directive" via the '--to' option. This
 dictates what machine to use for the controller. This would typically be
 used with the MAAS provider ('--to <host>.maas').
-
-Available keys for use with --config can be found here:
-    https://jujucharms.com/stable/controllers-config
-    https://jujucharms.com/stable/models-config
 
 You can change the default timeout and retry delays used during the
 bootstrap by changing the following settings in your configuration
@@ -128,8 +126,14 @@ agent stream is 'released' (default), then a 2.3.1 client can bootstrap:
     * 2.3.1 controller by running '... bootstrap ...';
     * 2.3.2 controller by running 'bootstrap --auto-upgrade'.
 However, if this client has a copy of codebase, then a local copy of Juju
-will be built and bootstrapped - 2.3.1.1.
+will be built and bootstrapped - 2.3.1.1.`
 
+var usageBootstrapConfigTxt = `
+
+Available keys for use with --config are:
+`
+
+var usageBootstrapDetailsPartTwo = `
 Examples:
     juju bootstrap
     juju bootstrap --clouds
@@ -204,12 +208,42 @@ type bootstrapCommand struct {
 }
 
 func (c *bootstrapCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
+	info := &cmd.Info{
 		Name:    "bootstrap",
 		Args:    "[<cloud name>[/region] [<controller name>]]",
 		Purpose: usageBootstrapSummary,
-		Doc:     usageBootstrapDetails,
-	})
+	}
+	if details := c.configDetails(); len(details) > 0 {
+		if output, err := common.FormatConfigSchema(details); err == nil {
+			info.Doc = fmt.Sprintf("%s%s\n%s%s",
+				usageBootstrapDetailsPartOne,
+				usageBootstrapConfigTxt,
+				output,
+				usageBootstrapDetailsPartTwo)
+			return jujucmd.Info(info)
+		}
+	}
+	info.Doc = strings.TrimSpace(fmt.Sprintf("%s%s",
+		usageBootstrapDetailsPartOne,
+		usageBootstrapDetailsPartTwo))
+
+	return jujucmd.Info(info)
+}
+
+func (c *bootstrapCommand) configDetails() map[string]interface{} {
+	result := map[string]interface{}{}
+	addAll := func(m map[string]interface{}) {
+		for k, v := range m {
+			result[k] = v
+		}
+	}
+	if modelCgf, err := cmdmodel.ConfigDetails(); err == nil {
+		addAll(modelCgf)
+	}
+	if controllerCgf, err := cmdcontroller.ConfigDetails(); err == nil {
+		addAll(controllerCgf)
+	}
+	return result
 }
 
 func (c *bootstrapCommand) setControllerName(controllerName string) {
@@ -606,7 +640,7 @@ to create a new model to deploy k8s workloads.
 		c.Region = region.Name
 	}
 
-	config, err := c.bootstrapConfigs(ctx, cloud, provider)
+	bootstrapCfg, err := c.bootstrapConfigs(ctx, cloud, provider)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -643,8 +677,8 @@ to create a new model to deploy k8s workloads.
 
 	bootstrapCtx := modelcmd.BootstrapContext(ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
-		ModelConfig:      config.bootstrapModel,
-		ControllerConfig: config.controller,
+		ModelConfig:      bootstrapCfg.bootstrapModel,
+		ControllerConfig: bootstrapCfg.controller,
 		ControllerName:   c.controllerName,
 		Cloud: environs.CloudSpec{
 			Type:             cloud.Type,
@@ -657,7 +691,7 @@ to create a new model to deploy k8s workloads.
 			CACertificates:   cloud.CACertificates,
 		},
 		CredentialName: credentials.name,
-		AdminSecret:    config.bootstrap.AdminSecret,
+		AdminSecret:    bootstrapCfg.bootstrap.AdminSecret,
 	}
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
@@ -670,17 +704,17 @@ to create a new model to deploy k8s workloads.
 		AgentVersion:              c.AgentVersion,
 		Cloud:                     cloud,
 		CloudRegion:               region.Name,
-		ControllerConfig:          config.controller,
-		ControllerInheritedConfig: config.inheritedControllerAttrs,
+		ControllerConfig:          bootstrapCfg.controller,
+		ControllerInheritedConfig: bootstrapCfg.inheritedControllerAttrs,
 		RegionInheritedConfig:     cloud.RegionConfig,
-		AdminSecret:               config.bootstrap.AdminSecret,
-		CAPrivateKey:              config.bootstrap.CAPrivateKey,
+		AdminSecret:               bootstrapCfg.bootstrap.AdminSecret,
+		CAPrivateKey:              bootstrapCfg.bootstrap.CAPrivateKey,
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		DialOpts: environs.BootstrapDialOpts{
-			Timeout:        config.bootstrap.BootstrapTimeout,
-			RetryDelay:     config.bootstrap.BootstrapRetryDelay,
-			AddressesDelay: config.bootstrap.BootstrapAddressesDelay,
+			Timeout:        bootstrapCfg.bootstrap.BootstrapTimeout,
+			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
+			AddressesDelay: bootstrapCfg.bootstrap.BootstrapAddressesDelay,
 		},
 		Force: c.Force,
 	}
@@ -693,7 +727,7 @@ to create a new model to deploy k8s workloads.
 	}
 
 	hostedModel, err = c.initializeHostedModel(
-		isCAASController, config, store, environ, &bootstrapParams,
+		isCAASController, bootstrapCfg, store, environ, &bootstrapParams,
 	)
 	if err != nil {
 		return errors.Trace(err)
@@ -771,11 +805,11 @@ See `[1:] + "`juju kill-controller`" + `.`)
 	// space config.
 	// Do it before calling merge, because the constraints will be validated
 	// there.
-	constraints := c.Constraints
-	constraints.Spaces = config.controller.AsSpaceConstraints(constraints.Spaces)
+	bootstrapConstraints := c.Constraints
+	bootstrapConstraints.Spaces = bootstrapCfg.controller.AsSpaceConstraints(bootstrapConstraints.Spaces)
 
 	// Merge environ and bootstrap-specific constraints.
-	bootstrapParams.BootstrapConstraints, err = constraintsValidator.Merge(constraints, c.BootstrapConstraints)
+	bootstrapParams.BootstrapConstraints, err = constraintsValidator.Merge(bootstrapConstraints, c.BootstrapConstraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -845,7 +879,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 		for i, addr := range addrs {
 			hps[i] = network.MachineHostPort{
 				MachineAddress: addr.MachineAddress,
-				NetPort:        network.NetPort(config.controller.APIPort()),
+				NetPort:        network.NetPort(bootstrapCfg.controller.APIPort()),
 			}
 		}
 
@@ -856,7 +890,7 @@ See `[1:] + "`juju kill-controller`" + `.`)
 				juju.UpdateControllerParams{
 					AgentVersion:           agentVersion.String(),
 					CurrentHostPorts:       []network.MachineHostPorts{hps},
-					PublicDNSName:          newStringIfNonEmpty(config.controller.AutocertDNSName()),
+					PublicDNSName:          newStringIfNonEmpty(bootstrapCfg.controller.AutocertDNSName()),
 					MachineCount:           newInt(1),
 					ControllerMachineCount: newInt(1),
 				},
