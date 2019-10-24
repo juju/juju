@@ -26,17 +26,18 @@ func (s *IDWatcherSuite) TestWatcher(c *gc.C) {
 		&mockCloudContainer{unit: "A", providerID: "a"},
 		&mockCloudContainer{unit: "C", providerID: "c"},
 	}
-	wc := make(chan []string, 4)
+	wc := make(chan []string, 3)
 	wc <- []string{"a"}
+	// b should be ignored because the model has no CloudContainer
+	// that matches.
 	wc <- []string{"b"}
-	wc <- []string{"c"}
-	wc <- []string{"d"}
 	srcWatcher := watchertest.NewMockStringsWatcher(wc)
 	idWatcher, err := caasoperator.NewUnitIDWatcher(m, srcWatcher)
 	c.Assert(err, jc.ErrorIsNil)
 
 	testWatcher := testing.NewStringsWatcherC(c, s, idWatcher)
 	testWatcher.AssertChangeInSingleEvent("A")
+	wc <- []string{"c"}
 	testWatcher.AssertChangeInSingleEvent("C")
 
 	err = idWatcher.Stop()
