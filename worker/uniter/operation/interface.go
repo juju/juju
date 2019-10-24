@@ -130,6 +130,7 @@ type CommandArgs struct {
 	RelationId int
 	// RemoteUnitName is the remote unit for the relation context.
 	RemoteUnitName string
+	// TODO(jam): 2019-10-24 Include RemoteAppName
 	// ForceRemoteUnit skips unit inference and existence validation.
 	ForceRemoteUnit bool
 }

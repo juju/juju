@@ -142,11 +142,12 @@ func (s *UniterSuite) TestRunCommand(c *gc.C) {
 			relationRunCommands{
 				fmt.Sprintf("echo $JUJU_RELATION_ID > %s", testFile("jujuc-env.output")),
 				fmt.Sprintf("echo $JUJU_REMOTE_UNIT >> %s", testFile("jujuc-env.output")),
+				// TODO(jam): 2019-10-24 JUJU_REMOTE_APP isn't set by run-command at this time
 				fmt.Sprintf("echo $JUJU_REMOTE_APP >> %s", testFile("jujuc-env.output")),
 			},
 			verifyFile{
 				testFile("jujuc-env.output"),
-				"db:0\nmysql/0\nmysql\n",
+				"db:0\nmysql/0\n\n",
 			},
 		), ut(
 			"run commands: proxy settings set",

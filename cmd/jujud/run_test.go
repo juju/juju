@@ -53,6 +53,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		avoidContext    bool
 		relationId      string
 		remoteUnit      string
+		remoteApp       string
 		forceRemoteUnit bool
 	}{{
 		title:    "no args",
@@ -99,12 +100,13 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		forceRemoteUnit: false,
 	}, {
 		title:           "remote-unit",
-		args:            []string{"--remote-unit", "unit-name-1", "unit-name-2", "command"},
+		args:            []string{"--remote-unit", "name/1", "unit-name-2", "command"},
 		commands:        "command",
 		unit:            names.NewUnitTag("name/2"),
 		avoidContext:    false,
 		relationId:      "",
-		remoteUnit:      "unit-name-1",
+		remoteUnit:      "name/1",
+		remoteApp:       "name",
 		forceRemoteUnit: false,
 	}, {
 		title:           "no-remote-unit",
@@ -113,6 +115,14 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 		unit:            names.NewUnitTag("name/2"),
 		relationId:      "mongodb:1",
 		forceRemoteUnit: true,
+	}, {
+		title:           "remote-app",
+		args:            []string{"--relation", "mongodb:1", "--remote-app", "app", "name/2", "command"},
+		commands:        "command",
+		unit:            names.NewUnitTag("name/2"),
+		relationId:      "mongodb:1",
+		remoteApp:       "app",
+		forceRemoteUnit: false,
 	},
 	} {
 		c.Logf("%d: %s", i, test.title)
@@ -125,6 +135,7 @@ func (*RunTestSuite) TestArgParsing(c *gc.C) {
 			c.Assert(runCommand.noContext, gc.Equals, test.avoidContext)
 			c.Assert(runCommand.relationId, gc.Equals, test.relationId)
 			c.Assert(runCommand.remoteUnitName, gc.Equals, test.remoteUnit)
+			c.Assert(runCommand.remoteApplicationName, gc.Equals, test.remoteApp)
 			c.Assert(runCommand.forceRemoteUnit, gc.Equals, test.forceRemoteUnit)
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.errMatch)
@@ -272,7 +283,7 @@ func (s *RunTestSuite) TestSkipCheckAndRemoteUnit(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "unit-foo-1")
 
-	ctx, err := cmdtesting.RunCommand(c, s.runCommand(), "--force-remote-unit", "--remote-unit", "unit-name-2", "--relation", "db:1", "foo/1", "bar")
+	ctx, err := cmdtesting.RunCommand(c, s.runCommand(), "--force-remote-unit", "--remote-unit", "name/2", "--relation", "db:1", "foo/1", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "bar stdout")

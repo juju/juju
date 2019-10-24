@@ -237,25 +237,22 @@ action-reboot:
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
+func (ctx *context) matchHooks(c *gc.C) (match, cannotMatch, overshoot bool) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	c.Logf("actual hooks: %#v", ctx.hooksCompleted)
 	c.Logf("expected hooks: %#v", ctx.hooks)
-	// TODO(jam): Shortcircuit when we know that we *cannot* match. Specifically,
-	//  we match every hook exactly and exactly in order. If the 3rd hook is
-	//  "relation-changed" but we were expecting "config-changed", then there is
-	//  no reason to continue further, instead we can just fail with "unexpected hook".
-	//  The matching logic doesn't allow reordering
-	if len(ctx.hooksCompleted) < len(ctx.hooks) {
-		return false, false
-	}
 	for i, e := range ctx.hooks {
+		if i >= len(ctx.hooksCompleted) {
+			// not all hooks have fired yet
+			return false, false, false
+		}
 		if ctx.hooksCompleted[i] != e {
-			return false, false
+			cannotMatch = true
+			return false, cannotMatch, false
 		}
 	}
-	return true, len(ctx.hooksCompleted) > len(ctx.hooks)
+	return true, false, len(ctx.hooksCompleted) > len(ctx.hooks)
 }
 
 type uniterTest struct {
@@ -814,9 +811,12 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
-	match, overshoot := ctx.matchHooks(c)
+	match, cannotMatch, overshoot := ctx.matchHooks(c)
 	if overshoot && len(s) == 0 {
 		c.Fatalf("ran more hooks than expected")
+	}
+	if cannotMatch {
+		c.Fatalf("hooks did not match expected")
 	}
 	waitExecutionLockReleased := func() {
 		timeout := make(chan struct{})
@@ -848,9 +848,11 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 		ctx.s.BackingState.StartSync()
 		select {
 		case <-time.After(coretesting.ShortWait):
-			if match, _ = ctx.matchHooks(c); match {
+			if match, cannotMatch, _ = ctx.matchHooks(c); match {
 				waitExecutionLockReleased()
 				return
+			} else if cannotMatch {
+				c.Fatalf("unexpected hook triggered")
 			}
 		case <-timeout:
 			c.Fatalf("never got expected hooks")
@@ -1464,7 +1466,8 @@ func (cmds relationRunCommands) step(c *gc.C, ctx *context) {
 		Commands:       commands,
 		RelationId:     0,
 		RemoteUnitName: "",
-		UnitName:       "u/0",
+		// RemoteApplicationName: ""
+		UnitName: "u/0",
 	}
 	result, err := ctx.uniter.RunCommands(args)
 	c.Assert(err, jc.ErrorIsNil)

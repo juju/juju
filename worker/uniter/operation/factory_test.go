@@ -112,6 +112,7 @@ func commandArgs(commands string, relationId int, remoteUnit string) operation.C
 		Commands:       commands,
 		RelationId:     relationId,
 		RemoteUnitName: remoteUnit,
+		// TODO(jam): 2019-10-24 Include RemoteAppName
 	}
 }
 

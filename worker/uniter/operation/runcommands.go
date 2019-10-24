@@ -41,8 +41,9 @@ func (rc *runCommands) String() string {
 // Prepare is part of the Operation interface.
 func (rc *runCommands) Prepare(state State) (*State, error) {
 	rnr, err := rc.runnerFactory.NewCommandRunner(context.CommandInfo{
-		RelationId:      rc.args.RelationId,
-		RemoteUnitName:  rc.args.RemoteUnitName,
+		RelationId:     rc.args.RelationId,
+		RemoteUnitName: rc.args.RemoteUnitName,
+		// TODO(jam): 2019-10-24 include RemoteAppName
 		ForceRemoteUnit: rc.args.ForceRemoteUnit,
 	})
 	if err != nil {

@@ -249,6 +249,7 @@ func (f *contextFactory) CommandContext(commandInfo CommandInfo) (*HookContext, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(jam): 2019-10-24 Include remoteAppName
 	relationId, remoteUnitName, err := inferRemoteUnit(ctx.relations, commandInfo)
 	if err != nil {
 		return nil, errors.Trace(err)
