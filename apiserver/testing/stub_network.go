@@ -165,7 +165,7 @@ func (f *FakeSpace) Subnets() (bs []networkingcommon.BackingSubnet, err error) {
 		providerId := network.Id("provider-" + subnetId)
 
 		// Pick the third element of the IP address and use this to
-		// decide how we construct the SubnetByCIDR. It provides variation of
+		// decide how we construct the Subnet. It provides variation of
 		// test data.
 		first, err := strconv.Atoi(strings.Split(subnetId, ".")[2])
 		if err != nil {
@@ -558,7 +558,7 @@ func (sb *StubBacking) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
 	return output, nil
 }
 
-func (sb *StubBacking) Subnet(cidr string) (networkingcommon.BackingSubnet, error) {
+func (sb *StubBacking) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error) {
 	sb.MethodCall(sb, "SubnetByCIDR", cidr)
 	if err := sb.NextErr(); err != nil {
 		return nil, err

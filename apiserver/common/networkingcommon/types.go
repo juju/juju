@@ -125,7 +125,7 @@ type NetworkBacking interface {
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]BackingSubnet, error)
 
-	Subnet(cidr string) (BackingSubnet, error)
+	SubnetByCIDR(cidr string) (BackingSubnet, error)
 
 	// ModelTag returns the tag of the model this state is associated to.
 	ModelTag() names.ModelTag

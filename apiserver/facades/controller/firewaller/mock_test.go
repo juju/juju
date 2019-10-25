@@ -118,11 +118,11 @@ func (st *mockState) FirewallRule(service state.WellKnownServiceType) (*state.Fi
 	return r, nil
 }
 
-func (st *mockState) Subnet(cidr string) (firewaller.Subnet, error) {
+func (st *mockState) SubnetByCIDR(cidr string) (firewaller.Subnet, error) {
 	return nil, errors.NotImplementedf("SubnetByCIDR")
 }
 
-func (st *mockState) SubnetByID(id string) (firewaller.Subnet, error) {
+func (st *mockState) Subnet(id string) (firewaller.Subnet, error) {
 	return nil, errors.NotImplementedf("Subnet")
 }
 

@@ -52,7 +52,7 @@ func (s *stateShim) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	return spaces, nil
 }
 
-func (s *stateShim) Subnet(cidr string) (networkingcommon.BackingSubnet, error) {
+func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error) {
 	result, err := s.State.SubnetByCIDR(cidr)
 	if err != nil {
 		return nil, errors.Trace(err)

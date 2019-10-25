@@ -26,9 +26,9 @@ type State interface {
 
 	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
 
-	SubnetByID(id string) (Subnet, error)
+	Subnet(id string) (Subnet, error)
 
-	Subnet(cidr string) (Subnet, error)
+	SubnetByCIDR(cidr string) (Subnet, error)
 }
 
 // TODO(wallyworld) - for tests, remove when remaining firewaller tests become unit tests.
@@ -58,8 +58,8 @@ func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
 	return st.st.WatchOpenedPorts()
 }
 
-func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
-	api := state.NewFirewallRules(s.st)
+func (st stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+	api := state.NewFirewallRules(st.st)
 	return api.Rule(service)
 }
 
@@ -68,10 +68,10 @@ type Subnet interface {
 	CIDR() string
 }
 
-func (s stateShim) SubnetByID(id string) (Subnet, error) {
-	return s.st.Subnet(id)
+func (st stateShim) Subnet(id string) (Subnet, error) {
+	return st.st.Subnet(id)
 }
 
-func (s stateShim) Subnet(cidr string) (Subnet, error) {
-	return s.st.SubnetByCIDR(cidr)
+func (st stateShim) SubnetByCIDR(cidr string) (Subnet, error) {
+	return st.st.SubnetByCIDR(cidr)
 }

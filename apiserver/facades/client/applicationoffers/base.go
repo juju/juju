@@ -550,7 +550,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 	for _, id := range spaceIDs {
 		space := environs.DefaultSpaceInfo
 		if id != network.DefaultSpaceId {
-			dbSpace, err := backend.SpaceByID(id)
+			dbSpace, err := backend.Space(id)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -59,7 +59,7 @@ func (s *stateShim) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
 	return subnets, nil
 }
 
-func (s *stateShim) Subnet(cidr string) (networkingcommon.BackingSubnet, error) {
+func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error) {
 	result, err := s.State.SubnetByCIDR(cidr)
 	if err != nil {
 		return nil, errors.Trace(err)
