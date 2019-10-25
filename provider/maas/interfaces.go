@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
 )
@@ -88,18 +89,67 @@ type maasSubnet struct {
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
 func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
-	var (
-		infos = make([][]network.InterfaceInfo, len(ids))
-		err   error
-	)
-
-	for idx, id := range ids {
-		if infos[idx], err = env.networkInterfacesForInstance(ctx, id); err != nil {
+	switch len(ids) {
+	case 0:
+		return nil, environs.ErrNoInstances
+	case 1: // short-cut
+		ifList, err := env.networkInterfacesForInstance(ctx, ids[0])
+		if err != nil {
 			return nil, err
+		}
+		return [][]network.InterfaceInfo{ifList}, nil
+	}
+
+	// Fetch instance information for the IDs we are interested in.
+	insts, err := env.Instances(ctx, ids)
+	partialInfo := err == environs.ErrPartialInstances
+	if err != nil && err != environs.ErrPartialInstances {
+		if err == environs.ErrNoInstances {
+			return nil, err
+		}
+		return nil, errors.Trace(err)
+	}
+
+	subnetsMap, err := env.subnetToSpaceIds(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	infos := make([][]network.InterfaceInfo, len(ids))
+	if env.usingMAAS2() {
+		dnsSearchDomains, err := env.Domains(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		for idx, inst := range insts {
+			if inst == nil {
+				continue // unknown instance ID
+			}
+
+			ifList, err := maas2NetworkInterfaces(ctx, inst.(*maas2Instance), subnetsMap, dnsSearchDomains...)
+			if err != nil {
+				return nil, errors.Annotatef(err, "obtaining network interfaces for instance %v", ids[idx])
+			}
+			infos[idx] = ifList
+		}
+	} else {
+		for idx, inst := range insts {
+			if inst == nil {
+				continue // unknown instance ID
+			}
+			ifList, err := maasObjectNetworkInterfaces(ctx, inst.(*maas1Instance).maasObject, subnetsMap)
+			if err != nil {
+				return nil, errors.Annotatef(err, "obtaining network interfaces for instance %v", ids[idx])
+			}
+			infos[idx] = ifList
 		}
 	}
 
-	return infos, nil
+	if partialInfo {
+		err = environs.ErrPartialInstances
+	}
+	return infos, err
 }
 
 func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
