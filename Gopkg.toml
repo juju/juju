@@ -239,7 +239,7 @@
 
 [[constraint]]
   name = "github.com/golang/mock"
-  revision = "600781dde9cca80734169b9e969d9054ccc57937"
+  revision = "d74b93584564161b2de771089ee697f07d8bd5b5"
 
 [[constraint]]
   name = "github.com/google/go-querystring"
