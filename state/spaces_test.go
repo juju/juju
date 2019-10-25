@@ -617,3 +617,37 @@ func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
 	c.Assert(foundSubnet, gc.NotNil)
 	c.Assert(foundSubnet.SpaceID(), gc.Equals, space.Id())
 }
+
+func (s *SpacesSuite) TestSetName(c *gc.C) {
+	defaultSpace, err := s.State.Space(network.DefaultSpaceId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = defaultSpace.SetName("newName")
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = defaultSpace.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(defaultSpace.Name(), gc.Equals, "newName")
+}
+
+func (s *SpacesSuite) TestSetNameSame(c *gc.C) {
+	defaultSpace, err := s.State.Space(network.DefaultSpaceId)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = defaultSpace.SetName(network.DefaultSpaceName)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *SpacesSuite) TestSetNameOnlyDefaultSpace(c *gc.C) {
+	args := addSpaceArgs{
+		Name:        "space1",
+		ProviderId:  network.Id("some id 2"),
+		SubnetCIDRs: []string{"1.1.1.0/24"},
+	}
+	space, err := s.addSpaceWithSubnets(c, args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = space.SetName("newName")
+	c.Assert(err, gc.ErrorMatches, "Only the default space maybe have its name updated")
+}

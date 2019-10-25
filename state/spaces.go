@@ -102,6 +102,8 @@ func (s *Space) NetworkSpace() network.SpaceInfo {
 	}
 }
 
+// SetName changes the space's name to the provided string if this
+// is the default space.  For use with "default-space" in model-config.
 func (s *Space) SetName(newName string) error {
 	if newName == "" {
 		return errors.NotValidf("empty string is not a valid space name")
