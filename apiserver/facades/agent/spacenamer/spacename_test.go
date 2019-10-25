@@ -5,14 +5,19 @@ package spacenamer_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/core/network"
+	"github.com/juju/errors"
 	coretesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"time"
 
 	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/agent/spacenamer"
 	"github.com/juju/juju/apiserver/facades/agent/spacenamer/mocks"
+	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&spaceNamerAPISuite{})
@@ -24,19 +29,7 @@ type spaceNamerAPISuite struct {
 	state      *mocks.MockSpaceNamerState
 	model      *mocks.MockModelCache
 	resources  *facademocks.MockResources
-
-	notifyDone chan struct{}
 }
-
-func (s *spaceNamerAPISuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-
-	s.notifyDone = make(chan struct{})
-}
-
-//func (s *spaceNamerAPISuite) TestWatchDefaultSpaceConfig(c *gc.C) {
-//
-//}
 
 func (s *spaceNamerAPISuite) TestSetDefaultSpaceName(c *gc.C) {
 	ctrl := s.setup(c)
@@ -71,13 +64,12 @@ func (s *spaceNamerAPISuite) setup(c *gc.C) *gomock.Controller {
 
 	s.authorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.state = mocks.NewMockSpaceNamerState(ctrl)
-	s.model = mocks.NewMockModelCache(ctrl)
 
 	return ctrl
 }
 
 func (s *spaceNamerAPISuite) facadeAPI(c *gc.C) *spacenamer.SpaceNamerAPI {
-	facade, err := spacenamer.NewSpaceNamerAPI(s.state, s.model, nil, s.authorizer)
+	facade, err := spacenamer.NewSpaceNamerAPI(s.state, s.model, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	return facade
 }
@@ -106,4 +98,105 @@ func (s *spaceNamerAPISuite) expect(ctrl *gomock.Controller, newName string) {
 	sExp := s.state.EXPECT()
 	sExp.Model().Return(model, nil)
 	sExp.SpaceByID(network.DefaultSpaceId).Return(space, nil)
+}
+
+var _ = gc.Suite(&spaceNamerAPIWatchSuite{})
+
+type spaceNamerAPIWatchSuite struct {
+	spaceNamerAPISuite
+
+	watcher *mocks.MockNotifyWatcher
+
+	notifyDone chan struct{}
+}
+
+func (s *spaceNamerAPIWatchSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
+	s.notifyDone = make(chan struct{})
+}
+
+func (s *spaceNamerAPIWatchSuite) TestWatchDefaultSpaceConfig(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectWatchConfigWithNotify(1)
+
+	facade := s.facadeAPI(c)
+
+	result, err := facade.WatchDefaultSpaceConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{{
+			NotifyWatcherId: "1",
+		}},
+	})
+	s.assertNotifyStop(c)
+}
+
+func (s *spaceNamerAPIWatchSuite) TestWatchDefaultSpaceConfigWithClosedChannel(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectWatchConfigWithClosedChannel()
+
+	facade := s.facadeAPI(c)
+
+	_, err := facade.WatchDefaultSpaceConfig()
+	c.Assert(err, gc.ErrorMatches, "cannot obtain")
+}
+
+func (s *spaceNamerAPIWatchSuite) TestWatchDefaultSpaceConfigModelCacheError(c *gc.C) {
+	defer s.setup(c).Finish()
+	s.expectWatchConfigError()
+
+	facade := s.facadeAPI(c)
+
+	result, err := facade.WatchDefaultSpaceConfig()
+	c.Assert(err, gc.ErrorMatches, "error from model cache")
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
+}
+
+func (s *spaceNamerAPIWatchSuite) setup(c *gc.C) *gomock.Controller {
+	ctrl := s.spaceNamerAPISuite.setup(c)
+
+	s.model = mocks.NewMockModelCache(ctrl)
+	s.resources = facademocks.NewMockResources(ctrl)
+	s.watcher = mocks.NewMockNotifyWatcher(ctrl)
+
+	s.expectAuthMachineAgent()
+	s.expectAuthController()
+
+	return ctrl
+}
+
+func (s *spaceNamerAPIWatchSuite) expectWatchConfigWithNotify(times int) {
+	ch := make(chan struct{})
+
+	go func() {
+		for i := 0; i < times; i++ {
+			ch <- struct{}{}
+		}
+		close(s.notifyDone)
+	}()
+
+	s.model.EXPECT().WatchConfig(config.DefaultSpace).Return(s.watcher, nil)
+	s.watcher.EXPECT().Changes().Return(ch)
+	s.resources.EXPECT().Register(s.watcher).Return("1")
+}
+
+func (s *spaceNamerAPIWatchSuite) expectWatchConfigWithClosedChannel() {
+	ch := make(chan struct{})
+	close(ch)
+
+	s.model.EXPECT().WatchConfig(config.DefaultSpace).Return(s.watcher, nil)
+	s.watcher.EXPECT().Changes().Return(ch)
+}
+
+func (s *spaceNamerAPIWatchSuite) expectWatchConfigError() {
+	s.model.EXPECT().WatchConfig(config.DefaultSpace, "").Return(s.watcher, errors.New("error from model cache"))
+}
+
+func (s *spaceNamerAPIWatchSuite) assertNotifyStop(c *gc.C) {
+	select {
+	case <-s.notifyDone:
+	case <-time.After(testing.LongWait):
+		c.Errorf("timed out waiting for notifications to be consumed")
+	}
 }
