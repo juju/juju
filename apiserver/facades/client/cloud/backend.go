@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -81,8 +82,8 @@ type Model interface {
 
 // ModelPoolBackend defines a pool of models.
 type ModelPoolBackend interface {
-	// Get allows to retrieve a particular mode given a model UUID.
-	Get(modelUUID string) (PooledModelBackend, error)
+	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the given model.
+	GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error)
 
 	// SystemState allows access to an underlying controller state.
 	SystemState() *state.State
@@ -97,32 +98,18 @@ func NewModelPoolBackend(st *state.StatePool) ModelPoolBackend {
 	return statePoolShim{st}
 }
 
-// Get implements ModelPoolBackend.Get.
-func (s statePoolShim) Get(modelUUID string) (PooledModelBackend, error) {
-	m, err := s.StatePool.Get(modelUUID)
-	return NewPooledModelBackend(m), err
-}
-
-// PooledModelBackend defines a model retrieved from the model pool.
-type PooledModelBackend interface {
-	// Model represents the model itself.
-	Model() credentialcommon.PersistentBackend
-	// Release returns a connection to the model back to the pool.
-	Release() bool
-}
-
-type modelShim struct {
-	*state.PooledState
-}
-
-// NewPooledModelBackend creates a pooled model backend based on state.PooledState.
-func NewPooledModelBackend(st *state.PooledState) PooledModelBackend {
-	return modelShim{st}
-}
-
-// Model implements PooledModelBackend.Model.
-func (s modelShim) Model() credentialcommon.PersistentBackend {
-	return credentialcommon.NewPersistentBackend(s.PooledState.State)
+// GetModelCallContext implements ModelPoolBackend.GetModelCallContext.
+func (s statePoolShim) GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+	modelState, err := s.StatePool.Get(modelUUID)
+	if err != nil {
+		return nil, nil, err
+	}
+	defer modelState.Release()
+	m, err := modelState.Model()
+	if err != nil {
+		return nil, nil, err
+	}
+	return credentialcommon.NewPersistentBackend(m.State()), state.CallContext(m.State()), err
 }
 
 type User interface {

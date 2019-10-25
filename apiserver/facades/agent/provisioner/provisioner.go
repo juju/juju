@@ -140,7 +140,7 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 		ModelWatcher:            common.NewModelWatcher(model, resources, authorizer),
 		ModelMachinesWatcher:    common.NewModelMachinesWatcher(st, resources, authorizer),
 		ControllerConfigAPI:     common.NewStateControllerConfig(st),
-		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, callCtx, getCanModify),
+		NetworkConfigAPI:        networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                      st,
 		m:                       model,
 		resources:               resources,

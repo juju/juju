@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -25,15 +24,12 @@ var logger = loggo.GetLogger("juju.apiserver.common.networkingcommon")
 type NetworkConfigAPI struct {
 	st           *state.State
 	getCanModify common.GetAuthFunc
-
-	callContext context.ProviderCallContext
 }
 
-func NewNetworkConfigAPI(st *state.State, callCtx context.ProviderCallContext, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
+func NewNetworkConfigAPI(st *state.State, getCanModify common.GetAuthFunc) *NetworkConfigAPI {
 	return &NetworkConfigAPI{
 		st:           st,
 		getCanModify: getCanModify,
-		callContext:  callCtx,
 	}
 }
 
@@ -90,17 +86,17 @@ func (api *NetworkConfigAPI) fixUpFanSubnets(networkConfig []params.NetworkConfi
 	for _, subnet := range subnets {
 		if subnet.FanOverlay() != "" {
 			fanSubnets = append(fanSubnets, subnet)
-			_, net, err := net.ParseCIDR(subnet.CIDR())
+			_, aNet, err := net.ParseCIDR(subnet.CIDR())
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			fanCIDRs = append(fanCIDRs, net)
+			fanCIDRs = append(fanCIDRs, aNet)
 		}
 	}
 	for i := range networkConfig {
 		localIP := net.ParseIP(networkConfig[i].Address)
 		for j, fanSubnet := range fanSubnets {
-			if fanCIDRs[j].Contains(localIP) {
+			if len(fanCIDRs) >= j && fanCIDRs[j].Contains(localIP) {
 				networkConfig[i].CIDR = fanSubnet.CIDR()
 				networkConfig[i].ProviderId = string(fanSubnet.ProviderId())
 				networkConfig[i].ProviderSubnetId = string(fanSubnet.ProviderNetworkId())
@@ -216,8 +212,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	interfaceInfos, err := netEnviron.NetworkInterfaces(api.callContext, instId)
+	interfaceInfos, err := netEnviron.NetworkInterfaces(state.CallContext(model.State()), instId)
 	if errors.IsNotSupported(err) {
 		// It's possible to have a networking environ, but not support
 		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():

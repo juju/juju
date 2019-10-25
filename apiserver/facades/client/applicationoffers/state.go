@@ -11,6 +11,7 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -66,6 +67,9 @@ type Backend interface {
 	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
+
+	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the state current model.
+	GetModelCallContext() (context.ProviderCallContext, error)
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -104,6 +108,14 @@ func (s *stateShim) SpaceByID(id string) (Space, error) {
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
+}
+
+func (s *stateShim) GetModelCallContext() (context.ProviderCallContext, error) {
+	m, err := s.st.Model()
+	if err != nil {
+		return nil, err
+	}
+	return state.CallContext(m.State()), nil
 }
 
 type stateCharmShim struct {

@@ -17,9 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -50,7 +48,6 @@ func createOffersAPI(
 	authorizer facade.Authorizer,
 	resources facade.Resources,
 	authContext *commoncrossmodel.AuthContext,
-	callCtx context.ProviderCallContext,
 ) (*OffersAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -67,7 +64,6 @@ func createOffersAPI(
 			StatePool:            statePool,
 			getEnviron:           getEnviron,
 			getControllerInfo:    getControllerInfo,
-			callContext:          callCtx,
 		},
 	}
 	return api, nil
@@ -98,7 +94,6 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		return common.StateControllerInfo(st)
 	}
 
-	callCtx := state.CallContext(st)
 	authContext := ctx.Resources().Get("offerAccessAuthContext").(common.ValueResource).Value
 	return createOffersAPI(
 		GetApplicationOffers,
@@ -109,7 +104,6 @@ func NewOffersAPI(ctx facade.Context) (*OffersAPI, error) {
 		ctx.Auth(),
 		ctx.Resources(),
 		authContext.(*commoncrossmodel.AuthContext),
-		callCtx,
 	)
 }
 
