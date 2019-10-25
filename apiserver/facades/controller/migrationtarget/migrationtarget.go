@@ -17,7 +17,6 @@ import (
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -35,7 +34,6 @@ type API struct {
 	getClaimer    migration.ClaimerFunc
 	getEnviron    stateenvirons.NewEnvironFunc
 	getCAASBroker stateenvirons.NewCAASBrokerFunc
-	callContext   context.ProviderCallContext
 }
 
 // NewFacade is used for API registration.
@@ -43,13 +41,12 @@ func NewFacade(ctx facade.Context) (*API, error) {
 	return NewAPI(
 		ctx,
 		stateenvirons.GetNewEnvironFunc(environs.New),
-		stateenvirons.GetNewCAASBrokerFunc(caas.New),
-		state.CallContext(ctx.State()))
+		stateenvirons.GetNewCAASBrokerFunc(caas.New))
 }
 
 // NewAPI returns a new API. Accepts a NewEnvironFunc and context.ProviderCallContext
 // for testing purposes.
-func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc, callCtx context.ProviderCallContext) (*API, error) {
+func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAASBroker stateenvirons.NewCAASBrokerFunc) (*API, error) {
 	auth := ctx.Auth()
 	st := ctx.State()
 	if err := checkAuth(auth, st); err != nil {
@@ -64,7 +61,6 @@ func NewAPI(ctx facade.Context, getEnviron stateenvirons.NewEnvironFunc, getCAAS
 		getClaimer:    ctx.LeadershipClaimer,
 		getEnviron:    getEnviron,
 		getCAASBroker: getCAASBroker,
-		callContext:   callCtx,
 	}, nil
 }
 
@@ -251,7 +247,7 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 		return errors.Trace(err)
 	}
 
-	return errors.Trace(ra.AdoptResources(api.callContext, st.ControllerUUID(), args.SourceControllerVersion))
+	return errors.Trace(ra.AdoptResources(state.CallContext(m.State()), st.ControllerUUID(), args.SourceControllerVersion))
 }
 
 // CheckMachines compares the machines in state with the ones reported
@@ -269,7 +265,7 @@ func (api *API) CheckMachines(args params.ModelArgs) (params.ErrorResults, error
 
 	return credentialcommon.ValidateExistingModelCredential(
 		credentialcommon.NewPersistentBackend(st.State),
-		api.callContext,
+		state.CallContext(st.State),
 	)
 }
 

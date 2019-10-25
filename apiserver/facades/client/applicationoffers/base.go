@@ -19,7 +19,6 @@ import (
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -32,7 +31,6 @@ type BaseAPI struct {
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
 	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
-	callContext          context.ProviderCallContext
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
@@ -559,7 +557,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 				return nil, errors.Trace(err)
 			}
 		}
-		providerSpace, err := netEnv.ProviderSpaceInfo(api.callContext, space)
+		providerSpace, err := netEnv.ProviderSpaceInfo(backend.GetModelCallContext(), space)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}

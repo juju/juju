@@ -94,28 +94,26 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 	}
 
 	s.setTestAPIForUser(c, owner)
-	newModel := func(uuid string) *mockPooledModel {
-		return &mockPooledModel{
-			model: &mockModelBackend{
-				uuid: uuid,
-				model: &mockModel{
-					cloud:       "dummy",
-					cloudRegion: "nether",
-					cfg:         coretesting.ModelConfig(c),
-				},
-				cloud: cloud.Cloud{
-					Name:      "dummy",
-					Type:      "dummy",
-					AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-					Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
-				},
+	modelBackend := func(uuid string) *mockModelBackend {
+		return &mockModelBackend{
+			uuid: uuid,
+			model: &mockModel{
+				uuid:        coretesting.ModelTag.Id(),
+				cloud:       "dummy",
+				cloudRegion: "nether",
+				cfg:         coretesting.ModelConfig(c),
 			},
-			release: true,
+			cloud: cloud.Cloud{
+				Name:      "dummy",
+				Type:      "dummy",
+				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+				Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+			},
 		}
 	}
 	s.statePool = &mockStatePool{
-		getF: func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-			return newModel(modelUUID), nil
+		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+			return modelBackend(modelUUID), context.NewCloudCallContext(), nil
 		},
 	}
 }
@@ -124,7 +122,7 @@ func (s *cloudSuiteV2) setTestAPIForUser(c *gc.C, user names.UserTag) {
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag: user,
 	}
-	client, err := cloudfacade.NewCloudAPI(s.backend, s.backend, s.statePool, s.authorizer, context.NewCloudCallContext())
+	client, err := cloudfacade.NewCloudAPI(s.backend, s.backend, s.statePool, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.apiv2 = &cloudfacade.CloudAPIV2{&cloudfacade.CloudAPIV3{&cloudfacade.CloudAPIV4{&cloudfacade.CloudAPIV5{client}}}}
 }

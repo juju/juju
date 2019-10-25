@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -36,7 +35,6 @@ func (s *networkConfigSuite) SetUpTest(c *gc.C) {
 
 	s.networkconfig = networkingcommon.NewNetworkConfigAPI(
 		s.State,
-		context.NewCloudCallContext(),
 		common.AuthAlways(),
 	)
 }

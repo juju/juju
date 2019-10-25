@@ -9,6 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/apiserver/common/credentialcommon"
 	"github.com/juju/juju/apiserver/facades/client/cloud"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -54,7 +55,19 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 		return env, nil
 	}
 
-	api := cloud.NewCloudTestingAPI(backend, ctlrBackend, authorizer)
+	aCloud := jujucloud.Cloud{
+		Name:      "dummy",
+		Type:      "dummy",
+		AuthTypes: []jujucloud.AuthType{jujucloud.EmptyAuthType, jujucloud.UserPassAuthType},
+		Regions:   []jujucloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+	}
+	pool := &mockStatePool{
+		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+			return newModelBackend(c, aCloud, modelUUID), context.NewCloudCallContext(), nil
+		},
+	}
+	api, err := cloud.NewCloudAPI(backend, ctlrBackend, pool, authorizer)
+	c.Assert(err, jc.ErrorIsNil)
 
 	failureCons := constraints.Value{}
 	cons := params.CloudInstanceTypesConstraints{

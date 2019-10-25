@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
-	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -128,7 +127,6 @@ type CloudAPI struct {
 	authorizer             facade.Authorizer
 	apiUser                names.UserTag
 	getCredentialsAuthFunc common.GetAuthFunc
-	callContext            environscontext.ProviderCallContext
 	pool                   ModelPoolBackend
 }
 
@@ -176,7 +174,7 @@ func NewFacadeV6(context facade.Context) (*CloudAPI, error) {
 	st := NewStateBackend(context.State())
 	pool := NewModelPoolBackend(context.StatePool())
 	ctlrSt := NewStateBackend(pool.SystemState())
-	return NewCloudAPI(st, ctlrSt, pool, context.Auth(), state.CallContext(context.State()))
+	return NewCloudAPI(st, ctlrSt, pool, context.Auth())
 }
 
 // NewFacadeV5 is used for API registration.
@@ -226,7 +224,7 @@ func NewFacadeV1(context facade.Context) (*CloudAPIV1, error) {
 
 // NewCloudAPI creates a new API server endpoint for managing the controller's
 // cloud definition and cloud credentials.
-func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer, callCtx environscontext.ProviderCallContext) (*CloudAPI, error) {
+func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer facade.Authorizer) (*CloudAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
@@ -251,7 +249,6 @@ func NewCloudAPI(backend, ctlrBackend Backend, pool ModelPoolBackend, authorizer
 		authorizer:             authorizer,
 		getCredentialsAuthFunc: getUserAuthFunc,
 		apiUser:                authUser,
-		callContext:            callCtx,
 		pool:                   pool,
 	}, nil
 }
@@ -689,15 +686,14 @@ func (api *CloudAPI) credentialModels(tag names.CloudCredentialTag) (map[string]
 func (api *CloudAPI) validateCredentialForModel(modelUUID string, tag names.CloudCredentialTag, credential *cloud.Credential) []params.ErrorResult {
 	var result []params.ErrorResult
 
-	modelState, err := api.pool.Get(modelUUID)
+	m, callContext, err := api.pool.GetModelCallContext(modelUUID)
 	if err != nil {
 		return append(result, params.ErrorResult{common.ServerError(err)})
 	}
-	defer modelState.Release()
 
 	modelErrors, err := validateNewCredentialForModelFunc(
-		modelState.Model(),
-		api.callContext,
+		m,
+		callContext,
 		tag,
 		credential,
 	)
