@@ -212,7 +212,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	interfaceInfos, err := netEnviron.NetworkInterfaces(state.CallContext(model.State()), instId)
+	interfaceInfos, err := netEnviron.NetworkInterfaces(state.CallContext(api.st), instId)
 	if errors.IsNotSupported(err) {
 		// It's possible to have a networking environ, but not support
 		// NetworkInterfaces(). In leiu of adding SupportsNetworkInterfaces():
