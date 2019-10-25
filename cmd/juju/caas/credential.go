@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 )
 
-const caasCrendentialLabelKeyName = "rbac-id"
+const rbacLabelKeyName = provider.RBACLabelKeyName
 
 func ensureCredentialUID(
 	credentialName, credentialUID string,
@@ -26,7 +26,7 @@ func ensureCredentialUID(
 	if newAttr == nil {
 		return cred, errors.NotValidf("empty credential %q", credentialName)
 	}
-	newAttr[caasCrendentialLabelKeyName] = credentialUID
+	newAttr[rbacLabelKeyName] = credentialUID
 	return jujucloud.NewNamedCredential(
 		credentialName, credential.AuthType(), newAttr, credential.Revoked,
 	), nil
@@ -56,7 +56,7 @@ func decideCredentialUID(store credentialGetter, cloudName, credentialName strin
 		return "", errors.Trace(err)
 	}
 	if err == nil && existingCredential.Attributes() != nil {
-		credUID = existingCredential.Attributes()[caasCrendentialLabelKeyName]
+		credUID = existingCredential.Attributes()[rbacLabelKeyName]
 	}
 
 	if credUID == "" {
@@ -74,7 +74,7 @@ func cleanUpCredentialRBAC(cloud jujucloud.Cloud, credential jujucloud.Credentia
 	if attr == nil {
 		return nil
 	}
-	credUID := attr[caasCrendentialLabelKeyName]
+	credUID := attr[rbacLabelKeyName]
 	if credUID == "" {
 		return nil
 	}

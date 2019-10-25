@@ -152,7 +152,6 @@ func newK8sBroker(
 	randomPrefix RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
-
 	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
