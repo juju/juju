@@ -543,10 +543,6 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 		logger.Debugf("cloud provider doesn't support networking, not getting space info")
 		return nil, nil
 	}
-	callContext, err := backend.GetModelCallContext()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
 	results := make(map[string]params.RemoteSpace)
 	for _, id := range spaceIDs {
@@ -561,7 +557,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 				return nil, errors.Trace(err)
 			}
 		}
-		providerSpace, err := netEnv.ProviderSpaceInfo(callContext, space)
+		providerSpace, err := netEnv.ProviderSpaceInfo(backend.GetModelCallContext(), space)
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}

@@ -377,8 +377,8 @@ func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.Offe
 	return m.connections, nil
 }
 
-func (m *mockState) GetModelCallContext() (context.ProviderCallContext, error) {
-	return context.NewCloudCallContext(), nil
+func (m *mockState) GetModelCallContext() context.ProviderCallContext {
+	return context.NewCloudCallContext()
 }
 
 func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {

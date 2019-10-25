@@ -69,7 +69,7 @@ type Backend interface {
 	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
 
 	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the state current model.
-	GetModelCallContext() (context.ProviderCallContext, error)
+	GetModelCallContext() context.ProviderCallContext
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -110,12 +110,8 @@ func (s *stateShim) Model() (Model, error) {
 	return &modelShim{m}, err
 }
 
-func (s *stateShim) GetModelCallContext() (context.ProviderCallContext, error) {
-	m, err := s.st.Model()
-	if err != nil {
-		return nil, err
-	}
-	return state.CallContext(m.State()), nil
+func (s *stateShim) GetModelCallContext() context.ProviderCallContext {
+	return state.CallContext(s.st)
 }
 
 type stateCharmShim struct {

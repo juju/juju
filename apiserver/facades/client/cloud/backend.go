@@ -105,11 +105,7 @@ func (s statePoolShim) GetModelCallContext(modelUUID string) (credentialcommon.P
 		return nil, nil, err
 	}
 	defer modelState.Release()
-	m, err := modelState.Model()
-	if err != nil {
-		return nil, nil, err
-	}
-	return credentialcommon.NewPersistentBackend(m.State()), state.CallContext(m.State()), err
+	return credentialcommon.NewPersistentBackend(modelState.State), state.CallContext(modelState.State), err
 }
 
 type User interface {
