@@ -222,14 +222,19 @@ func (s *UpgradeSuite) TestOtherUpgradeRunFailure(c *gc.C) {
 
 	fakePerformUpgrade := func(version.Number, []upgrades.Target, upgrades.Context) error {
 		// Delete UpgradeInfo for the upgrade so that finaliseUpgrade() will fail
-		s.State.ClearUpgradeInfo()
-		return nil
+		return s.State.ClearUpgradeInfo()
 	}
 	s.PatchValue(&PerformUpgrade, fakePerformUpgrade)
-	s.Factory.MakeMachine(c, &factory.MachineParams{
+	m := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Jobs: []state.MachineJob{state.JobManageModel},
 	})
 	s.captureLogs(c)
+
+	// Simulate the upgrade-database worker having run successfully.
+	info, err := s.State.EnsureUpgradeInfo(m.Id(), s.oldVersion.Number, jujuversion.Current)
+	c.Assert(err, jc.ErrorIsNil)
+	err = info.SetStatus(state.UpgradeDBComplete)
+	c.Assert(err, jc.ErrorIsNil)
 
 	workerErr, config, statusCalls, doneLock := s.runUpgradeWorker(c, true)
 
@@ -308,7 +313,10 @@ func (s *UpgradeSuite) TestSuccessMaster(c *gc.C) {
 	// This test checks what happens when an upgrade works on the
 	// first attempt on a master controller.
 	s.machineIsMaster = true
-	info := s.checkSuccess(c, "databaseMaster", func(*state.UpgradeInfo) {})
+	info := s.checkSuccess(c, "databaseMaster", func(i *state.UpgradeInfo) {
+		err := i.SetStatus(state.UpgradeDBComplete)
+		c.Assert(err, jc.ErrorIsNil)
+	})
 	c.Assert(info.Status(), gc.Equals, state.UpgradeFinishing)
 }
 
@@ -318,7 +326,9 @@ func (s *UpgradeSuite) TestSuccessSecondary(c *gc.C) {
 	s.machineIsMaster = false
 	mungeInfo := func(info *state.UpgradeInfo) {
 		// Indicate that the master is done
-		err := info.SetStatus(state.UpgradeRunning)
+		err := info.SetStatus(state.UpgradeDBComplete)
+		c.Assert(err, jc.ErrorIsNil)
+		err = info.SetStatus(state.UpgradeRunning)
 		c.Assert(err, jc.ErrorIsNil)
 		err = info.SetStatus(state.UpgradeFinishing)
 		c.Assert(err, jc.ErrorIsNil)
