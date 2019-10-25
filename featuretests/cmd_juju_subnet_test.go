@@ -107,7 +107,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithoutZonesWhenProviderHasZones(c *gc.C) 
 		"added subnet with CIDR \"0.10.0.0/24\" in space \"myspace\"\n",
 	)
 
-	subnet, err := s.State.Subnet("0.10.0.0/24")
+	subnet, err := s.State.SubnetByCIDR("0.10.0.0/24")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, "0.10.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")
@@ -131,7 +131,7 @@ func (s *cmdSubnetSuite) TestSubnetAddWithZonesWithNoProviderZones(c *gc.C) {
 		"added subnet with ProviderId \"dummy-public\" in space \"myspace\"\n",
 	)
 
-	subnet, err := s.State.Subnet("0.20.0.0/24")
+	subnet, err := s.State.SubnetByCIDR("0.20.0.0/24")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnet.CIDR(), gc.Equals, "0.20.0.0/24")
 	c.Assert(subnet.SpaceName(), gc.Equals, "myspace")

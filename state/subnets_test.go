@@ -49,7 +49,7 @@ func (s *SubnetSuite) TestAddSubnetSucceedsWithFullyPopulatedInfo(c *gc.C) {
 	s.assertSubnetMatchesInfo(c, subnet, subnetInfo)
 
 	// check it's been stored in state by fetching it back again
-	subnetFromDB, err := s.State.Subnet("192.168.1.0/24")
+	subnetFromDB, err := s.State.SubnetByCIDR("192.168.1.0/24")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSubnetMatchesInfo(c, subnetFromDB, subnetInfo)
 }
@@ -245,7 +245,7 @@ func (s *SubnetSuite) removeSubnetAndAssertNotFound(c *gc.C, subnet *state.Subne
 }
 
 func (s *SubnetSuite) assertSubnetWithCIDRNotFound(c *gc.C, cidr string) {
-	_, err := s.State.Subnet(cidr)
+	_, err := s.State.SubnetByCIDR(cidr)
 	s.assertSubnetNotFoundError(c, err)
 }
 
@@ -265,7 +265,7 @@ func (s *SubnetSuite) TestRemoveSucceedsWhenCalledTwice(c *gc.C) {
 
 func (s *SubnetSuite) TestRefreshUpdatesStaleDocData(c *gc.C) {
 	subnet := s.addAliveSubnet(c, "fc00::/64")
-	subnetCopy, err := s.State.Subnet("fc00::/64")
+	subnetCopy, err := s.State.SubnetByCIDR("fc00::/64")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.ensureDeadAndAssertLifeIsDead(c, subnet)

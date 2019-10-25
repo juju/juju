@@ -1165,7 +1165,7 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 		}
 	})
 
-	imported, err := newSt.Space(space.Name())
+	imported, err := newSt.SpaceByName(space.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(imported.Id(), gc.Equals, space.Id())
@@ -1173,7 +1173,7 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	c.Check(imported.ProviderId(), gc.Equals, space.ProviderId())
 	c.Check(imported.IsPublic(), gc.Equals, space.IsPublic())
 
-	imported, err = newSt.Space(spaceNoID.Name())
+	imported, err = newSt.SpaceByName(spaceNoID.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(imported.Id(), gc.Not(gc.Equals), "")
 }
@@ -1308,7 +1308,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 		}
 	})
 
-	subnet, err := newSt.SubnetByID(original.ID())
+	subnet, err := newSt.Subnet(original.ID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")
@@ -1321,7 +1321,7 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(subnet.FanOverlay(), gc.Equals, "")
 	c.Assert(subnet.IsPublic(), gc.Equals, true)
 
-	imported, err := newSt.Subnet(originalNoID.CIDR())
+	imported, err := newSt.SubnetByCIDR(originalNoID.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(imported, gc.Not(gc.Equals), "")
 }
@@ -1348,7 +1348,7 @@ func (s *MigrationImportSuite) TestSubnetsWithFan(c *gc.C) {
 
 	_, newSt := s.importModel(c, s.State)
 
-	subnet, err = newSt.Subnet(original.CIDR())
+	subnet, err = newSt.SubnetByCIDR(original.CIDR())
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(subnet.CIDR(), gc.Equals, "10.0.0.0/24")

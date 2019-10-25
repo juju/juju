@@ -2428,7 +2428,7 @@ func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
 			if sDoc.SpaceName == network.DefaultSpaceName {
 				id = network.DefaultSpaceId
 			} else {
-				space, err := st.Space(sDoc.SpaceName)
+				space, err := st.SpaceByName(sDoc.SpaceName)
 				if err != nil {
 					return errors.Trace(err)
 				}
@@ -2535,7 +2535,7 @@ func ReplacePortsDocSubnetIDCIDR(pool *StatePool) (err error) {
 
 			// If we're upgrading from a model which has cidrs for
 			// subnetIDs, there can be only 1 of that cidr in the model.
-			subnet, err := st.Subnet(oldDoc.SubnetID)
+			subnet, err := st.SubnetByCIDR(oldDoc.SubnetID)
 			if err != nil {
 				return errors.Trace(err)
 			}

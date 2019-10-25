@@ -162,7 +162,7 @@ func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
 		return errors.Annotate(err, "cannot get controller info")
 	}
 
-	space, err := st.Space(spaceName)
+	space, err := st.SpaceByName(spaceName)
 	if err != nil {
 		return errors.Trace(err)
 	}

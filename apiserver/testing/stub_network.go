@@ -558,8 +558,8 @@ func (sb *StubBacking) AllSubnets() ([]networkingcommon.BackingSubnet, error) {
 	return output, nil
 }
 
-func (sb *StubBacking) Subnet(cidr string) (networkingcommon.BackingSubnet, error) {
-	sb.MethodCall(sb, "Subnet", cidr)
+func (sb *StubBacking) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error) {
+	sb.MethodCall(sb, "SubnetByCIDR", cidr)
 	if err := sb.NextErr(); err != nil {
 		return nil, err
 	}

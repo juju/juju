@@ -441,7 +441,7 @@ func (m *mockBackend) SpaceNamesByID() (map[string]string, error) {
 	return nil, nil
 }
 
-func (m *mockBackend) SpaceByID(_ string) (*state.Space, error) {
+func (m *mockBackend) Space(_ string) (*state.Space, error) {
 	return nil, nil
 }
 

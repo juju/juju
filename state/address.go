@@ -193,7 +193,7 @@ func (st *State) filterHostPortsForManagementSpace(
 
 	var hostPortsForAgents []network.SpaceHostPorts
 	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != network.DefaultSpaceName {
-		sp, err := st.Space(mgmtSpace)
+		sp, err := st.SpaceByName(mgmtSpace)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -525,7 +525,7 @@ func (st *State) ConvertSpaceHostPort(sHP network.SpaceHostPort) (network.Provid
 		NetPort:         sHP.NetPort,
 	}
 	if sHP.SpaceID != "" {
-		space, err := st.SpaceByID(sHP.SpaceID)
+		space, err := st.Space(sHP.SpaceID)
 		if err != nil {
 			return hp, errors.Trace(err)
 		}

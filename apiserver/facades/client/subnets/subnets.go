@@ -43,7 +43,7 @@ type Backing interface {
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]networkingcommon.BackingSubnet, error)
 
-	Subnet(cidr string) (networkingcommon.BackingSubnet, error)
+	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]networkingcommon.BackingSpace, error)
