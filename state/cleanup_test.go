@@ -313,6 +313,41 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": unit "riak/0": settings not found`)
 }
 
+func (s *CleanupSuite) TestCleanupModelBranches(c *gc.C) {
+	s.assertDoesNotNeedCleanup(c)
+
+	// Create a branch.
+	c.Assert(s.Model.AddBranch(newBranchName, newBranchCreator), jc.ErrorIsNil)
+	branches, err := s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 1)
+	s.assertDoesNotNeedCleanup(c)
+
+	// Destroy the model and check the branches unaffected, but a cleanup for
+	// the branches has been scheduled.
+	model, err := s.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.Destroy(state.DestroyModelParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertNeedsCleanup(c)
+	s.assertCleanupCount(c, 1)
+
+	s.assertCleanupRuns(c)
+	err = model.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertCleanupCount(c, 0)
+
+	_, err = s.Model.Branch(newBranchName)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 0)
+
+	// Now we should have all the cleanups done
+	s.assertDoesNotNeedCleanup(c)
+}
+
 func (s *CleanupSuite) TestDestroyControllerMachineErrors(c *gc.C) {
 	manager, err := s.State.AddMachine("quantal", state.JobManageModel)
 	c.Assert(err, jc.ErrorIsNil)

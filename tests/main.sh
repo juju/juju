@@ -26,11 +26,12 @@ import_subdir_files includes
 
 # If adding a test suite, then ensure to add it here to be picked up!
 TEST_NAMES="test_static_analysis \
+            test_branches \
+            test_cli \
             test_controller \
-            test_smoke \
             test_cmr_bundles \
             test_machine \
-            test_cli"
+            test_smoke"
 
 show_help() {
     version=$(juju version)

@@ -432,6 +432,30 @@ func (s *generationSuite) TestApplicationBranches(c *gc.C) {
 	c.Assert(appBranchesATake2, gc.DeepEquals, appBranchesA)
 }
 
+func (s *generationSuite) TestDestroyCleansupBranches(c *gc.C) {
+	s.setupTestingClock(c)
+
+	branches, err := s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 0)
+
+	_ = s.addBranch(c)
+
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 1)
+	c.Check(branches[0].BranchName(), gc.Equals, newBranchName)
+
+	c.Assert(s.Model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(s.Model.Refresh(), jc.ErrorIsNil)
+	assertNeedsCleanup(c, s.State)
+	assertCleanupRuns(c, s.State)
+
+	branches, err = s.State.Branches()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(branches, gc.HasLen, 0)
+}
+
 func (s *generationSuite) setupAssignAllUnits(c *gc.C) *state.Generation {
 	var cfgYAML = `
 options:

@@ -263,6 +263,17 @@ wait_for() {
     done
 }
 
+idle_condition() {
+    local name app_index unit_index
+
+    name=${1}
+    app_index=${2:-0}
+    unit_index=${3:-0}
+
+    echo ".applications | select(.$name | .units | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
+    exit 0
+}
+
 introspect_controller() {
     local name
 
