@@ -54,8 +54,9 @@ const (
 	// CAAS models require storage to be cleaned up.
 	cleanupDyingUnitResources cleanupKind = "dyingUnitResources"
 
-	cleanupResourceBlob         cleanupKind = "resourceBlob"
-	cleanupStorageForDyingModel cleanupKind = "modelStorage"
+	cleanupResourceBlob          cleanupKind = "resourceBlob"
+	cleanupStorageForDyingModel  cleanupKind = "modelStorage"
+	cleanupBranchesForDyingModel cleanupKind = "branches"
 )
 
 // cleanupDoc originally represented a set of documents that should be
@@ -195,6 +196,8 @@ func (st *State) Cleanup() (err error) {
 			err = st.cleanupResourceBlob(doc.Prefix)
 		case cleanupStorageForDyingModel:
 			err = st.cleanupStorageForDyingModel(args)
+		case cleanupBranchesForDyingModel:
+			err = st.cleanupBranchesForDyingModel(args)
 		default:
 			err = errors.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -449,6 +452,14 @@ func (st *State) cleanupStorageForDyingModel(cleanupArgs []bson.Raw) (err error)
 		} else if err != nil {
 			return errors.Trace(err)
 		}
+	}
+	return nil
+}
+
+func (st *State) cleanupBranchesForDyingModel(cleanupArgs []bson.Raw) (err error) {
+	change := branchesCleanupChange{}
+	if err := Apply(st.database, change); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
 }
