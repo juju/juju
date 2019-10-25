@@ -152,10 +152,10 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 		apiservertesting.ZonedNetworkingEnvironCall("SupportsSpaces", s.callContext),
 	}
 
-	// If we have an expected error, no calls to Subnet() nor
+	// If we have an expected error, no calls to SubnetByCIDR() nor
 	// AddSpace() should be made.  Check the methods called and
 	// return.  The exception is TestAddSpacesAPIError cause an
-	// error after Subnet() is called.
+	// error after SubnetByCIDR() is called.
 	if p.Error != "" && !subnetCallMade() {
 		apiservertesting.CheckMethodCalls(c, apiservertesting.SharedStub, baseCalls...)
 		return
@@ -164,7 +164,7 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 	allCalls := baseCalls
 	subnetIDs := []string{}
 	for _, cidr := range p.Subnets {
-		allCalls = append(allCalls, apiservertesting.BackingCall("Subnet", cidr))
+		allCalls = append(allCalls, apiservertesting.BackingCall("SubnetByCIDR", cidr))
 		for _, fakeSN := range apiservertesting.BackingInstance.Subnets {
 			if fakeSN.CIDR() == cidr {
 				subnetIDs = append(subnetIDs, fakeSN.ID())
@@ -182,7 +182,7 @@ func (s *SpacesSuite) checkAddSpaces(c *gc.C, p checkAddSpacesParams) {
 
 func subnetCallMade() bool {
 	for _, call := range apiservertesting.SharedStub.Calls() {
-		if call.FuncName == "Subnet" {
+		if call.FuncName == "SubnetByCIDR" {
 			return true
 		}
 	}

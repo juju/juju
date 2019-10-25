@@ -162,7 +162,7 @@ func (s *ipAddressesStateSuite) TestSubnetMethodReturnsSubnet(c *gc.C) {
 
 func (s *ipAddressesStateSuite) TestSubnetMethodReturnsNotFoundErrorWhenMissing(c *gc.C) {
 	_, addresses := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.41/16")
-	subnet, err := s.State.Subnet("10.20.0.0/16")
+	subnet, err := s.State.SubnetByCIDR("10.20.0.0/16")
 	c.Assert(err, jc.ErrorIsNil)
 	s.ensureEntityDeadAndRemoved(c, subnet)
 
@@ -350,7 +350,7 @@ func resetSubnet(c *gc.C, st *state.State, subnetInfo corenetwork.SubnetInfo) {
 	// We currently don't allow updating a subnet's information, so remove it
 	// and add it with the new value.
 	// XXX(jam): We should add mutation operations instead of this ugly hack
-	subnet, err := st.Subnet(subnetInfo.CIDR)
+	subnet, err := st.SubnetByCIDR(subnetInfo.CIDR)
 	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
@@ -514,7 +514,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesOKWhenCIDRAddressDoesNotM
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatchesDeadSubnet(c *gc.C) {
 	s.addNamedDevice(c, "eth0")
 	subnetCIDR := "10.20.0.0/16"
-	subnet, err := s.State.Subnet(subnetCIDR)
+	subnet, err := s.State.SubnetByCIDR(subnetCIDR)
 	c.Assert(err, jc.ErrorIsNil)
 	err = subnet.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

@@ -5,13 +5,14 @@
 package containerizer
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	set "github.com/juju/collections/set"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
 	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
-	reflect "reflect"
 )
 
 // MockContainer is a mock of Container interface
@@ -351,17 +352,17 @@ func (mr *MockAddressMockRecorder) DeviceName() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeviceName", reflect.TypeOf((*MockAddress)(nil).DeviceName))
 }
 
-// Subnet mocks base method
+// SubnetByCIDR mocks base method
 func (m *MockAddress) Subnet() (Subnet, error) {
-	ret := m.ctrl.Call(m, "Subnet")
+	ret := m.ctrl.Call(m, "SubnetByCIDR")
 	ret0, _ := ret[0].(Subnet)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Subnet indicates an expected call of Subnet
+// SubnetByCIDR indicates an expected call of SubnetByCIDR
 func (mr *MockAddressMockRecorder) Subnet() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Subnet", reflect.TypeOf((*MockAddress)(nil).Subnet))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetByCIDR", reflect.TypeOf((*MockAddress)(nil).Subnet))
 }
 
 // MockSubnet is a mock of Subnet interface

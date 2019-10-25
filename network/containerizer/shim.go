@@ -138,7 +138,7 @@ func (a *addressShim) Subnet() (Subnet, error) {
 	return a.Address.Subnet()
 }
 
-// Subnet is an indirection for state.Subnet
+// SubnetByCIDR is an indirection for state.SubnetByCIDR
 type Subnet interface {
 	SpaceID() string
 }

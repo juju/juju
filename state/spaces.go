@@ -119,7 +119,7 @@ func (st *State) AddSpace(
 		}
 
 		for _, subnetId := range subnetIDs {
-			subnet, err := st.SubnetByID(subnetId)
+			subnet, err := st.Subnet(subnetId)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

@@ -456,7 +456,7 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 
 	var expected []*state.Subnet
 	for _, cidr := range args.SubnetCIDRs {
-		subnet, err := s.State.Subnet(cidr)
+		subnet, err := s.State.SubnetByCIDR(cidr)
 		c.Assert(err, jc.ErrorIsNil)
 		expected = append(expected, subnet)
 	}

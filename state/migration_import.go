@@ -534,7 +534,7 @@ func (i *importer) machinePortsOps(m description.Machine) ([]txn.Op, error) {
 		if network.IsValidCidr(subnetID) {
 			// If we're migrating from a controller which has cidrs for
 			// subnetIDs, there can be only 1 of that cidr in the model.
-			subnet, err := i.st.Subnet(subnetID)
+			subnet, err := i.st.SubnetByCIDR(subnetID)
 			if err != nil {
 				return []txn.Op{}, errors.Trace(err)
 			}
@@ -1762,7 +1762,7 @@ func (i *importer) addSubnet(id string, args network.SubnetInfo) error {
 		}
 		subnet := &Subnet{st: i.st, doc: subnetDoc}
 		if attempt != 0 {
-			if _, err = i.st.SubnetByID(id); err == nil {
+			if _, err = i.st.Subnet(id); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {

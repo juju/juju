@@ -69,9 +69,9 @@ type Subnet interface {
 }
 
 func (s stateShim) SubnetByID(id string) (Subnet, error) {
-	return s.st.SubnetByID(id)
+	return s.st.Subnet(id)
 }
 
 func (s stateShim) Subnet(cidr string) (Subnet, error) {
-	return s.st.Subnet(cidr)
+	return s.st.SubnetByCIDR(cidr)
 }

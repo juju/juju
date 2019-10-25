@@ -176,7 +176,7 @@ func (s *Subnet) ProviderNetworkId() network.Id {
 }
 
 // Refresh refreshes the contents of the Subnet from the underlying
-// state. It an error that satisfies errors.IsNotFound if the Subnet has
+// state. It an error that satisfies errors.IsNotFound if the SubnetByCIDR has
 // been removed.
 func (s *Subnet) Refresh() error {
 	subnets, closer := s.st.db().GetCollection(subnetsC)
@@ -299,7 +299,7 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 
 // SubnetUpdate adds new info to the subnet based on provided info.
 func (st *State) SubnetUpdate(args network.SubnetInfo) error {
-	s, err := st.Subnet(args.CIDR)
+	s, err := st.SubnetByCIDR(args.CIDR)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -323,7 +323,7 @@ func (st *State) AddSubnet(args network.SubnetInfo) (subnet *Subnet, err error) 
 			if err := checkModelActive(st); err != nil {
 				return nil, errors.Trace(err)
 			}
-			if _, err = st.SubnetByID(subnet.ID()); err == nil {
+			if _, err = st.Subnet(subnet.ID()); err == nil {
 				return nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 			}
 			if err := subnet.Refresh(); err != nil {
@@ -421,18 +421,18 @@ func (st *State) uniqueSubnet(cidr, providerID string) (bool, error) {
 	return count == 0, nil
 }
 
+// Subnet returns the subnet specified by the id.
+func (st *State) Subnet(id string) (*Subnet, error) {
+	return st.subnet(bson.M{"subnet-id": id}, id)
+}
+
 // TODO (hml) 2019-08-06
 // This will need to be updated or removed once cidrs
 // are no longer unique identifiers of juju subnets.
 //
-// Subnet returns the subnet specified by the cidr.
-func (st *State) Subnet(cidr string) (*Subnet, error) {
+// SubnetByCIDR returns the subnet specified by the CIDR.
+func (st *State) SubnetByCIDR(cidr string) (*Subnet, error) {
 	return st.subnet(bson.M{"cidr": cidr}, cidr)
-}
-
-// SubnetByID returns the subnet specified by the id.
-func (st *State) SubnetByID(id string) (*Subnet, error) {
-	return st.subnet(bson.M{"subnet-id": id}, id)
 }
 
 func (st *State) subnet(exp bson.M, thing string) (*Subnet, error) {
