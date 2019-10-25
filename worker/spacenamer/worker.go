@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/worker/spacenamer SpaceNamerAPI,Logger
+
 // SpaceNamerAPI represents the API calls the logger makes.
 type SpaceNamerAPI interface {
 	SetDefaultSpaceName() error

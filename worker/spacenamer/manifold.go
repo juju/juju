@@ -4,6 +4,7 @@
 package spacenamer
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -31,6 +32,26 @@ type ManifoldConfig struct {
 	NewClient     func(base.APICaller) SpaceNamerAPI
 }
 
+// Validate ensures all the necessary fields have values.
+func (c *ManifoldConfig) Validate() error {
+	if c.AgentName == "" {
+		return errors.NotValidf("missing agent name")
+	}
+	if c.APICallerName == "" {
+		return errors.NotValidf("missing api caller name")
+	}
+	if c.Logger == nil {
+		return errors.NotValidf("missing Logger")
+	}
+	if c.NewWorker == nil {
+		return errors.NotValidf("missing NewWorker function")
+	}
+	if c.NewClient == nil {
+		return errors.NotValidf("missing NewClient function")
+	}
+	return nil
+}
+
 // Manifold returns a dependency manifold that runs a logger
 // worker, using the resource names defined in the supplied config.
 func Manifold(config ManifoldConfig) dependency.Manifold {
@@ -40,6 +61,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.APICallerName,
 		},
 		Start: func(context dependency.Context) (worker.Worker, error) {
+			if err := config.Validate(); err != nil {
+				return nil, errors.Trace(err)
+			}
+
 			var a agent.Agent
 			if err := context.Get(config.AgentName, &a); err != nil {
 				return nil, err
