@@ -1570,11 +1570,12 @@
   revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
-  digest = "1:f30cf5494ed1ee42a972a17d1b66e3831a7f5dff9fe403ab87ad3fdfa35c3767"
+  digest = "1:e7f12ee74a1c0f1820b292f304d5daaaa8fb837184973f6caae4fb914bc73819"
   name = "gopkg.in/juju/names.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "8d2f241f8a5d0e3a16baf52a5f31be80636ee12d"
+  revision = "e6519d0943d80adc6bbca7e260d98356cdf5f5cc"
+  source = "github.com/hmlanigan/names"
 
 [[projects]]
   digest = "1:5081ff05b4471731df7fa7457083397c2663791cd5809858a899306cdfe29b63"
