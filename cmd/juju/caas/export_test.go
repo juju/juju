@@ -17,6 +17,7 @@ import (
 
 func NewAddCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
+	credentialStoreAPI CredentialStoreAPI,
 	store jujuclient.ClientStore,
 	addCloudAPIFunc func() (AddCloudAPI, error),
 	brokerGetter BrokerGetter,
@@ -27,10 +28,12 @@ func NewAddCAASCommandForTest(
 	command := &AddCAASCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
+		credentialStoreAPI:        credentialStoreAPI,
 		addCloudAPIFunc:           addCloudAPIFunc,
 		brokerGetter:              brokerGetter,
 		k8sCluster:                k8sCluster,
 		newClientConfigReader:     newClientConfigReaderFunc,
+		credentialUIDGetter:       func(credentialGetter, string, string) (string, error) { return "9baa5e46", nil },
 		getAllCloudDetails: func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error) {
 			return getAllCloudDetails()
 		},
@@ -40,10 +43,12 @@ func NewAddCAASCommandForTest(
 
 func NewRemoveCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
+	credentialStoreAPI credentialGetter,
 	store jujuclient.ClientStore,
 	removeCloudAPIFunc func() (RemoveCloudAPI, error),
 ) cmd.Command {
 	command := &RemoveCAASCommand{
+		credentialStoreAPI:        credentialStoreAPI,
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
 		apiFunc:                   removeCloudAPIFunc,

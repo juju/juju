@@ -27,10 +27,9 @@ var (
 	NewStorageConfig           = newStorageConfig
 	NewKubernetesNotifyWatcher = newKubernetesNotifyWatcher
 	CompileK8sCloudCheckers    = compileK8sCloudCheckers
-	CloudSpecToK8sRestConfig   = cloudSpecToK8sRestConfig
 	ControllerCorelation       = controllerCorelation
 	GetLocalMicroK8sConfig     = getLocalMicroK8sConfig
-	AttemptMicroK8sCloud       = attemptMicroK8sCloud
+	AttemptMicroK8sCloud       = attemptMicroK8sCloudInternal
 	EnsureMicroK8sSuitable     = ensureMicroK8sSuitable
 	NewK8sBroker               = newK8sBroker
 	ToYaml                     = toYaml

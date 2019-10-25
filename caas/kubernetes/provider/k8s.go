@@ -152,7 +152,6 @@ func newK8sBroker(
 	randomPrefix RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
-
 	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -267,7 +266,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 
-	k8sRestConfig, err := cloudSpecToK8sRestConfig(spec)
+	k8sRestConfig, err := CloudSpecToK8sRestConfig(spec)
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
@@ -2437,7 +2436,7 @@ func labelsToSelector(labels map[string]string) string {
 	for k, v := range labels {
 		selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
 	}
-	sort.Strings(selectors) // for testing.
+	sort.Strings(selectors) // for tests.
 	return strings.Join(selectors, ",")
 }
 

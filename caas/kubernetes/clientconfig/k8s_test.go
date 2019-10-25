@@ -146,13 +146,8 @@ func (s *k8sConfigSuite) TestGetEmptyConfig(c *gc.C) {
 		title:              "get empty config",
 		configYamlContent:  emptyConfigYAML,
 		configYamlFileName: "emptyConfig",
-		expected: &clientconfig.ClientConfig{
-			Type:           "kubernetes",
-			Contexts:       map[string]clientconfig.Context{},
-			CurrentContext: "",
-			Clouds:         map[string]clientconfig.CloudConfig{},
-			Credentials:    map[string]cloud.Credential{},
-		}})
+		errMatch:           `no context found for context name: "", cluster name: ""`,
+	})
 }
 
 type newK8sClientConfigTestCase struct {
@@ -167,7 +162,7 @@ func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClient
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Logf("test: %s", testCase.title)
-	cfg, err := clientconfig.NewK8sClientConfig(f, testCase.contextName, testCase.clusterName, nil)
+	cfg, err := clientconfig.NewK8sClientConfig("", f, testCase.contextName, testCase.clusterName, nil)
 	if testCase.errMatch != "" {
 		c.Check(err, gc.ErrorMatches, testCase.errMatch)
 	} else {
@@ -177,10 +172,9 @@ func (s *k8sConfigSuite) assertNewK8sClientConfig(c *gc.C, testCase newK8sClient
 }
 
 func (s *k8sConfigSuite) TestGetSingleConfig(c *gc.C) {
-	cred := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{"username": "theuser", "password": "thepassword"})
-	cred.Label = `kubernetes credential "the-user"`
+	cred := cloud.NewNamedCredential(
+		"the-user", cloud.UserPassAuthType,
+		map[string]string{"username": "theuser", "password": "thepassword"}, false)
 	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
 		title:              "assert single config",
 		configYamlContent:  singleConfigYAML,
@@ -258,18 +252,15 @@ func (s *k8sConfigSuite) TestConfigErrors(c *gc.C) {
 }
 
 func (s *k8sConfigSuite) TestGetMultiConfig(c *gc.C) {
-	firstCred := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{"username": "defaultuser", "password": "defaultpassword"})
-	firstCred.Label = `kubernetes credential "default-user"`
-	theCred := cloud.NewCredential(
-		cloud.OAuth2WithCertAuthType,
-		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"})
-	theCred.Label = `kubernetes credential "the-user"`
-	secondCred := cloud.NewCredential(
-		cloud.CertificateAuthType,
-		map[string]string{"ClientCertificateData": "A", "Token": "tokenwithcerttoken"})
-	secondCred.Label = `kubernetes credential "second-user"`
+	firstCred := cloud.NewNamedCredential(
+		"default-user", cloud.UserPassAuthType,
+		map[string]string{"username": "defaultuser", "password": "defaultpassword"}, false)
+	theCred := cloud.NewNamedCredential(
+		"the-user", cloud.OAuth2WithCertAuthType,
+		map[string]string{"ClientCertificateData": "A", "ClientKeyData": "B", "Token": "tokenwithcerttoken"}, false)
+	secondCred := cloud.NewNamedCredential(
+		"second-user", cloud.CertificateAuthType,
+		map[string]string{"ClientCertificateData": "A", "Token": "tokenwithcerttoken"}, false)
 
 	for i, v := range []newK8sClientConfigTestCase{
 		{
@@ -423,10 +414,9 @@ func (s *k8sConfigSuite) TestGetSingleConfigReadsFilePaths(c *gc.C) {
 	singleConfigWithPathsYAML, err := clientcmd.Write(*singleConfig)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cred := cloud.NewCredential(
-		cloud.UserPassAuthType,
-		map[string]string{"username": "theuser", "password": "thepassword"})
-	cred.Label = `kubernetes credential "the-user"`
+	cred := cloud.NewNamedCredential(
+		"the-user", cloud.UserPassAuthType,
+		map[string]string{"username": "theuser", "password": "thepassword"}, false)
 	s.assertNewK8sClientConfig(c, newK8sClientConfigTestCase{
 		title:              "assert single config",
 		configYamlContent:  string(singleConfigWithPathsYAML),

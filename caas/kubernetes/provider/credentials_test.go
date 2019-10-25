@@ -82,13 +82,12 @@ func (s *credentialsSuite) TestDetectCredentials(c *gc.C) {
 	creds, err := s.provider.DetectCredentials()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(creds.DefaultRegion, gc.Equals, "")
-	expected := cloud.NewCredential(
-		cloud.UserPassAuthType, map[string]string{
+	expected := cloud.NewNamedCredential(
+		"the-user", cloud.UserPassAuthType, map[string]string{
 			"username": "theuser",
 			"password": "thepassword",
-		},
+		}, false,
 	)
-	expected.Label = `kubernetes credential "the-user"`
 	c.Assert(creds.AuthCredentials["the-user"], jc.DeepEquals, expected)
 }
 

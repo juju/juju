@@ -18,6 +18,8 @@ const (
 	CredAttrClientCertificateData = "ClientCertificateData"
 	CredAttrClientKeyData         = "ClientKeyData"
 	CredAttrToken                 = "Token"
+
+	RBACLabelKeyName = "rbac-id"
 )
 
 var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
@@ -69,6 +71,13 @@ var k8sCredentialSchemas = map[cloud.AuthType]cloud.CredentialSchema{
 				Hidden:      true,
 			},
 		},
+		{
+			Name: RBACLabelKeyName,
+			CredentialAttr: cloud.CredentialAttr{
+				Optional:    true,
+				Description: "the unique ID key name of the rbac resources",
+			},
+		},
 	},
 }
 
@@ -96,7 +105,7 @@ func (environProviderCredentials) DetectCredentials() (*cloud.CloudCredential, e
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	caasConfig, err := clientConfigFunc(nil, "", "", nil)
+	caasConfig, err := clientConfigFunc("", nil, "", "", nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
