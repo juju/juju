@@ -5,6 +5,7 @@ package upgradedatabase_test
 
 import (
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
@@ -36,6 +37,10 @@ func (s *manifoldSuite) TestValidateConfig(c *gc.C) {
 	cfg = s.getConfig()
 	cfg.OpenState = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
 func (s *manifoldSuite) getConfig() upgradedatabase.ManifoldConfig {
@@ -44,6 +49,7 @@ func (s *manifoldSuite) getConfig() upgradedatabase.ManifoldConfig {
 		UpgradeDBGateName: "upgrade-database-lock",
 		Logger:            s.logger,
 		OpenState:         func() (*state.StatePool, error) { return nil, nil },
+		Clock:             clock.WallClock,
 	}
 }
 

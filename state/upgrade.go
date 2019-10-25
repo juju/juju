@@ -57,12 +57,16 @@ const (
 	// UpgradePending indicates that an upgrade is queued but not yet started.
 	UpgradePending UpgradeStatus = "pending"
 
+	// UpgradeDBComplete indicates that the controller running the primary
+	// MongoDB has completed running the database upgrade steps.
+	UpgradeDBComplete UpgradeStatus = "db-complete"
+
 	// UpgradeRunning indicates that the master controller has started
-	// running upgrade logic, and other controllers are waiting for it.
+	// running non-DB upgrade logic, and other controllers are waiting for it.
 	UpgradeRunning UpgradeStatus = "running"
 
 	// UpgradeFinishing indicates that the master controller has finished
-	// running upgrade logic, and other controllers are catching up.
+	// running all upgrade logic, and other controllers are catching up.
 	UpgradeFinishing UpgradeStatus = "finishing"
 
 	// UpgradeComplete indicates that all controllers have finished running
@@ -216,7 +220,7 @@ func upgradeStatusHistoryAndOps(mb modelBackend, upgradeStatus UpgradeStatus, no
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	probablyUpdateStatusHistory(mb.db(), modelGlobalKey, doc)
+	_, _ = probablyUpdateStatusHistory(mb.db(), modelGlobalKey, doc)
 	return ops, nil
 }
 
@@ -227,9 +231,13 @@ func (info *UpgradeInfo) SetStatus(status UpgradeStatus) error {
 	switch status {
 	case UpgradePending, UpgradeComplete, UpgradeAborted:
 		return errors.Errorf("cannot explicitly set upgrade status to \"%s\"", status)
+	case UpgradeDBComplete:
+		assertSane = bson.D{{"status", bson.D{{"$in",
+			[]UpgradeStatus{UpgradePending, UpgradeDBComplete},
+		}}}}
 	case UpgradeRunning:
 		assertSane = bson.D{{"status", bson.D{{"$in",
-			[]UpgradeStatus{UpgradePending, UpgradeRunning},
+			[]UpgradeStatus{UpgradeDBComplete, UpgradeRunning},
 		}}}}
 	case UpgradeFinishing:
 		assertSane = bson.D{{"status", bson.D{{"$in",

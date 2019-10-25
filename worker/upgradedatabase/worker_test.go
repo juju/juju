@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -20,6 +22,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgradedatabase"
@@ -62,11 +65,13 @@ func logIt(c *gc.C, level loggo.Level, message string, args interface{}) {
 type workerSuite struct {
 	baseSuite
 
-	lock      *MockLock
-	agent     *MockAgent
-	agentCfg  *MockConfig
-	cfgSetter *MockConfigSetter
-	pool      *MockPool
+	lock        *MockLock
+	agent       *MockAgent
+	agentCfg    *MockConfig
+	cfgSetter   *MockConfigSetter
+	pool        *MockPool
+	upgradeInfo *MockUpgradeInfo
+	watcher     *MockNotifyWatcher
 }
 
 var _ = gc.Suite(&workerSuite{})
@@ -104,6 +109,10 @@ func (s *workerSuite) TestValidateConfig(c *gc.C) {
 
 	cfg = s.getConfig()
 	cfg.RetryStrategy = utils.AttemptStrategy{}
+	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
+
+	cfg = s.getConfig()
+	cfg.Clock = nil
 	c.Check(cfg.Validate(), jc.Satisfies, errors.IsNotValid)
 }
 
@@ -150,25 +159,80 @@ func (s *workerSuite) TestAlreadyUpgradedNoWork(c *gc.C) {
 	workertest.CleanKill(c, w)
 }
 
-func (s *workerSuite) TestNotPrimaryWatchForCompletion(c *gc.C) {
+func (s *workerSuite) TestNotPrimaryWatchForCompletionSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
-	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
-	s.pool.EXPECT().IsPrimary("0").Return(false, nil)
+	s.expectUpgradeRequired(false)
 
 	ver := jujuversion.Current.String()
 	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
 
-	// TODO: Expectations for wired up wait.
+	// Expect a watcher that will fire a change for the initial event
+	// and then a change for the watch loop.
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	changes := make(chan struct{}, 2)
+	changes <- struct{}{}
+	changes <- struct{}{}
+	s.watcher.EXPECT().Changes().Return(changes).MinTimes(1)
+
+	// Primary completes the upgrade.
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).MinTimes(1)
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradeDBComplete)
 
 	s.pool.EXPECT().SetStatus("0", status.Started, "confirmed primary database upgrade to "+ver)
-	s.lock.EXPECT().Unlock()
+
+	// We don't want to kill the worker while we are in the status observation
+	// loop, so we gate on this final expectation.
+	finished := make(chan struct{})
+	s.lock.EXPECT().Unlock().Do(func() {
+		finished <- struct{}{}
+	})
 
 	w, err := upgradedatabase.NewWorker(s.getConfig())
 	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-finished:
+	case <-time.After(testing.LongWait):
+	}
+	workertest.CleanKill(c, w)
+}
+
+func (s *workerSuite) TestNotPrimaryWatchForCompletionTimeout(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	s.expectUpgradeRequired(false)
+
+	ver := jujuversion.Current.String()
+	s.pool.EXPECT().SetStatus("0", status.Started, "waiting on primary database upgrade to "+ver)
+
+	// Expect a watcher that will fire a change for the initial event
+	// and then a change for the watch loop.
+	s.upgradeInfo.EXPECT().Watch().Return(s.watcher)
+	changes := make(chan struct{}, 2)
+	changes <- struct{}{}
+	changes <- struct{}{}
+	s.watcher.EXPECT().Changes().Return(changes).AnyTimes()
+
+	// Primary does not complete the upgrade.
+	s.upgradeInfo.EXPECT().Refresh().Return(nil).AnyTimes()
+	s.upgradeInfo.EXPECT().Status().Return(state.UpgradePending).AnyTimes()
+
+	s.logger.EXPECT().Errorf("timed out waiting for primary database upgrade")
+	s.pool.EXPECT().SetStatus("0", status.Error, "upgrading database to "+jujuversion.Current.String())
+
+	// Note that UpgradeComplete is not unlocked.
+
+	cfg := s.getConfig()
+	clk := testclock.NewClock(time.Now())
+	cfg.Clock = clk
+
+	w, err := upgradedatabase.NewWorker(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Advance the clock beyond the time-out duration for waiting on primary.
+	c.Assert(clk.WaitAdvance(time.Hour, 1*time.Second, 1), jc.ErrorIsNil)
 
 	workertest.CleanKill(c, w)
 }
@@ -177,12 +241,10 @@ func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.ignoreLogging(c)
 
-	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
-
-	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
+	s.expectUpgradeRequired(true)
 	s.expectExecution()
+
+	s.upgradeInfo.EXPECT().SetStatus(state.UpgradeDBComplete).Return(nil)
 	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
 	s.pool.EXPECT().SetStatus(
 		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
@@ -198,12 +260,9 @@ func (s *workerSuite) TestUpgradedSuccessFirst(c *gc.C) {
 func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
-
-	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
+	s.expectUpgradeRequired(true)
 	s.expectExecution()
+
 	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
 
 	cfg := s.getConfig()
@@ -211,6 +270,8 @@ func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 	s.logger.EXPECT().Errorf(msg, version.Number{}, jujuversion.Current, cfg.Tag, "will retry", gomock.Any())
 
 	s.pool.EXPECT().SetStatus("0", status.Error, "upgrading database to "+jujuversion.Current.String())
+
+	s.upgradeInfo.EXPECT().SetStatus(state.UpgradeDBComplete).Return(nil)
 	s.logger.EXPECT().Infof("database upgrade to %v completed successfully.", jujuversion.Current)
 	s.pool.EXPECT().SetStatus(
 		"0", status.Started, fmt.Sprintf("database upgrade to %v completed", jujuversion.Current))
@@ -238,12 +299,9 @@ func (s *workerSuite) TestUpgradedRetryThenSuccess(c *gc.C) {
 func (s *workerSuite) TestUpgradedRetryAllFailed(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 
-	s.lock.EXPECT().IsUnlocked().Return(false)
-	s.pool.EXPECT().IsPrimary("0").Return(true, nil)
-
-	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
-	s.agentCfg.EXPECT().UpgradedToVersion().Return(version.Number{})
+	s.expectUpgradeRequired(true)
 	s.expectExecution()
+
 	s.pool.EXPECT().SetStatus("0", status.Started, "upgrading database to "+jujuversion.Current.String())
 
 	cfg := s.getConfig()
@@ -276,6 +334,7 @@ func (s *workerSuite) getConfig() upgradedatabase.Config {
 		OpenState:       func() (upgradedatabase.Pool, error) { return s.pool, nil },
 		PerformUpgrade:  func(version.Number, []upgrades.Target, func() upgrades.Context) error { return nil },
 		RetryStrategy:   utils.AttemptStrategy{Delay: time.Millisecond, Min: 3},
+		Clock:           clock.WallClock,
 	}
 }
 
@@ -287,14 +346,31 @@ func (s *workerSuite) setupMocks(c *gc.C) *gomock.Controller {
 	s.agentCfg = NewMockConfig(ctrl)
 	s.cfgSetter = NewMockConfigSetter(ctrl)
 	s.logger = NewMockLogger(ctrl)
+	s.upgradeInfo = NewMockUpgradeInfo(ctrl)
 
 	s.pool = NewMockPool(ctrl)
-	s.pool.EXPECT().Close().Return(nil).AnyTimes()
+	s.pool.EXPECT().Close().Return(nil).MaxTimes(1)
+
+	s.watcher = NewMockNotifyWatcher(ctrl)
+	s.watcher.EXPECT().Stop().Return(nil).MaxTimes(1)
 
 	return ctrl
 }
 
-// This simply executes the mutator passed to ChangeConfig.
+// expectUpgradeRequired sets expectations for a scenario where a database
+// upgrade needs to be run.
+// The input bool simulates whether we are running the primary MongoDB.
+func (s *workerSuite) expectUpgradeRequired(isPrimary bool) {
+	fromVersion := version.Number{}
+
+	s.lock.EXPECT().IsUnlocked().Return(false)
+	s.pool.EXPECT().IsPrimary("0").Return(isPrimary, nil)
+	s.agent.EXPECT().CurrentConfig().Return(s.agentCfg)
+	s.agentCfg.EXPECT().UpgradedToVersion().Return(fromVersion)
+	s.pool.EXPECT().EnsureUpgradeInfo("0", fromVersion, jujuversion.Current).Return(s.upgradeInfo, nil)
+}
+
+// expectExecution simply executes the mutator passed to ChangeConfig.
 // In this case it is worker.runUpgradeSteps.
 func (s *workerSuite) expectExecution() {
 	s.agent.EXPECT().ChangeConfig(gomock.Any()).DoAndReturn(func(f agent.ConfigMutator) error {
