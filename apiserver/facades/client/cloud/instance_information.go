@@ -49,11 +49,7 @@ func instanceTypes(api *CloudAPI,
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}
-	modelCfg, err := api.ctlrBackend.ModelConfig()
-	if err != nil {
-		return params.InstanceTypesResults{}, errors.Trace(err)
-	}
-	_, callContext, err := api.pool.GetModelCallContext(modelCfg.UUID())
+	_, callContext, err := api.pool.GetModelCallContext(m.UUID())
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}

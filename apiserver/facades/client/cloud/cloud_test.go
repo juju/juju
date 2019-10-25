@@ -98,6 +98,7 @@ func newModelBackend(c *gc.C, aCloud cloud.Cloud, uuid string) *mockModelBackend
 	return &mockModelBackend{
 		uuid: uuid,
 		model: &mockModel{
+			uuid:        coretesting.ModelTag.Id(),
 			cloud:       "dummy",
 			cloudRegion: "nether",
 			cfg:         coretesting.ModelConfig(c),
@@ -1379,6 +1380,7 @@ func (st *mockBackend) ControllerConfig() (controller.Config, error) {
 func (st *mockBackend) Model() (cloudfacade.Model, error) {
 	st.MethodCall(st, "Model")
 	return &mockModel{
+		uuid:  coretesting.ModelTag.Id(),
 		cloud: st.cloud.Name,
 	}, st.NextErr()
 }
@@ -1517,6 +1519,7 @@ func (m *mockUser) DisplayName() string {
 }
 
 type mockModel struct {
+	uuid               string
 	cloud              string
 	cloudRegion        string
 	cloudCredentialTag names.CloudCredentialTag
@@ -1545,6 +1548,10 @@ func (m *mockModel) Config() (*config.Config, error) {
 
 func (m *mockModel) Type() state.ModelType {
 	return state.ModelType("")
+}
+
+func (m *mockModel) UUID() string {
+	return m.uuid
 }
 
 type mockStatePool struct {

@@ -98,6 +98,7 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 		return &mockModelBackend{
 			uuid: uuid,
 			model: &mockModel{
+				uuid:        coretesting.ModelTag.Id(),
 				cloud:       "dummy",
 				cloudRegion: "nether",
 				cfg:         coretesting.ModelConfig(c),

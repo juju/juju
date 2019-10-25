@@ -20,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type instanceTypesSuite struct{}
@@ -103,9 +102,7 @@ func (p *instanceTypesSuite) TestInstanceTypes(c *gc.C) {
 }
 
 func (*mockBackend) ModelConfig() (*config.Config, error) {
-	attrs := coretesting.FakeConfig()
-	attrs["uuid"] = coretesting.ModelTag.Id()
-	return config.New(config.UseDefaults, attrs)
+	return nil, nil
 }
 
 func (b *mockBackend) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {

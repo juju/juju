@@ -75,6 +75,7 @@ func (s stateShim) Model() (Model, error) {
 }
 
 type Model interface {
+	UUID() string
 	Cloud() string
 	CloudCredential() (names.CloudCredentialTag, bool)
 	CloudRegion() string
