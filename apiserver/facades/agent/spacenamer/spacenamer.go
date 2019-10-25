@@ -14,12 +14,6 @@ import (
 )
 
 //go:generate mockgen -package mocks -destination mocks/spacenamer_mock.go github.com/juju/juju/apiserver/facades/agent/spacenamer SpaceNamerState,Space,Model,Config
-//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/spacenamer ModelCache
-//go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher
-
-type SpaceNamerAPIV1 struct {
-	*SpaceNamerAPI
-}
 
 // NewFacade is used for API registration.
 func NewFacade(ctx facade.Context) (*SpaceNamerAPI, error) {
@@ -34,12 +28,14 @@ func NewFacade(ctx facade.Context) (*SpaceNamerAPI, error) {
 
 // NewSpaceNamerAPI creates a new API server endpoint for setting
 // the default space name for this model.
-func NewSpaceNamerAPI(st SpaceNamerState,
+func NewSpaceNamerAPI(
+	st SpaceNamerState,
 	model ModelCache,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*SpaceNamerAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthController() {
+
+	if !authorizer.AuthController() {
 		return nil, common.ErrPerm
 	}
 
