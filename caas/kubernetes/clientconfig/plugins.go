@@ -126,7 +126,7 @@ func ensureJujuAdminServiceAccount(
 
 // RemoveCredentialRBACResources removes all RBAC resources for specific caas credential UID.
 func RemoveCredentialRBACResources(config *rest.Config, UID string) error {
-	// TODO(caas): call this in destroy/kill-controller with UID == "microk8s" !!!!
+	// TODO(caas): call this in destroy/kill-controller with UID == "microk8s".
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
 		return errors.Trace(err)

@@ -72,7 +72,7 @@ func newCloudCredentialFromKubeConfig(reader io.Reader, cloudParams KubeCloudPar
 	caasConfig, err := clientConfigFunc(
 		cloudParams.CredentialUID, reader,
 		cloudParams.ContextName, cloudParams.ClusterName,
-		clientconfig.GetK8sCredentialResolver(cloudParams.Clock),
+		clientconfig.GetJujuAdminServiceAccountResolver(cloudParams.Clock),
 	)
 	if err != nil {
 		return fail(errors.Trace(err))

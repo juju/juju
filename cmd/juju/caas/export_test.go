@@ -43,10 +43,12 @@ func NewAddCAASCommandForTest(
 
 func NewRemoveCAASCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
+	credentialStoreAPI credentialGetter,
 	store jujuclient.ClientStore,
 	removeCloudAPIFunc func() (RemoveCloudAPI, error),
 ) cmd.Command {
 	command := &RemoveCAASCommand{
+		credentialStoreAPI:        credentialStoreAPI,
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
 		apiFunc:                   removeCloudAPIFunc,

@@ -297,7 +297,7 @@ func (s *k8sRawClientSuite) TestGetOrCreateClusterRole(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockClusterRoles.EXPECT().Get(cr.Name, metav1.GetOptions{}).Times(1).
+		s.mockClusterRoles.EXPECT().Get(s.name, metav1.GetOptions{}).Times(1).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoles.EXPECT().Create(cr).Times(1).
 			Return(cr, nil),

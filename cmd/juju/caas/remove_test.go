@@ -25,7 +25,8 @@ type fakeCredentialStore struct {
 }
 
 func (fcs *fakeCredentialStore) CredentialForCloud(string) (*cloud.CloudCredential, error) {
-	panic("unexpected call to CredentialForCloud")
+	fcs.AddCall("CredentialForCloud")
+	return &cloud.CloudCredential{}, nil
 }
 
 func (fcs *fakeCredentialStore) AllCredentials() (map[string]cloud.CloudCredential, error) {
@@ -82,6 +83,7 @@ func (s *removeCAASSuite) makeCommand() cmd.Command {
 	removecmd := caas.NewRemoveCAASCommandForTest(
 		s.cloudMetadataStore,
 		s.store,
+		s.store,
 		func() (caas.RemoveCloudAPI, error) {
 			return s.fakeCloudAPI, nil
 		},
@@ -113,11 +115,11 @@ func (s *removeCAASSuite) TestRemove(c *gc.C) {
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
 	s.fakeCloudAPI.CheckCall(c, 0, "RemoveCloud", "myk8s")
 
-	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "WritePersonalCloudMetadata")
-	s.cloudMetadataStore.CheckCall(c, 1, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
+	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "PersonalCloudMetadata", "WritePersonalCloudMetadata")
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
 
-	s.store.CheckCallNames(c, "UpdateCredential")
-	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
+	s.store.CheckCallNames(c, "CredentialForCloud", "UpdateCredential")
+	s.store.CheckCall(c, 1, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
 func (s *removeCAASSuite) TestRemoveControllerOnly(c *gc.C) {
@@ -164,10 +166,21 @@ func (s *removeCAASSuite) TestRemoveNoController(c *gc.C) {
 	s.fakeCloudAPI.CheckNoCalls(c)
 
 	// client side operations
-	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "WritePersonalCloudMetadata", "PersonalCloudMetadata")
-	s.cloudMetadataStore.CheckCall(c, 1, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
-	s.store.CheckCallNames(c, "UpdateCredential", "UpdateCredential")
-	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
+	s.cloudMetadataStore.CheckCallNames(c,
+		"PersonalCloudMetadata",
+		"PersonalCloudMetadata",
+		"WritePersonalCloudMetadata",
+		"PersonalCloudMetadata",
+		"PersonalCloudMetadata",
+	)
+	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
+	s.store.CheckCallNames(c,
+		"CredentialForCloud",
+		"UpdateCredential",
+		"UpdateCredential",
+	)
+	s.store.CheckCall(c, 1, "UpdateCredential", "myk8s", cloud.CloudCredential{})
+	s.store.CheckCall(c, 2, "UpdateCredential", "homestack", cloud.CloudCredential{})
 }
 
 func (s *removeCAASSuite) TestRemoveNotInController(c *gc.C) {
@@ -176,7 +189,7 @@ func (s *removeCAASSuite) TestRemoveNotInController(c *gc.C) {
 	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
 	c.Assert(err, gc.ErrorMatches, "cannot remove k8s cloud from controller.*")
 
-	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
+	s.store.CheckCall(c, 1, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
 func (s *removeCAASSuite) TestRemoveNotInLocal(c *gc.C) {
@@ -187,6 +200,6 @@ func (s *removeCAASSuite) TestRemoveNotInLocal(c *gc.C) {
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
 	s.fakeCloudAPI.CheckCall(c, 0, "RemoveCloud", "yourk8s")
 
-	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata")
+	s.cloudMetadataStore.CheckCallNames(c, "PersonalCloudMetadata", "PersonalCloudMetadata")
 	s.store.CheckCall(c, 0, "UpdateCredential", "yourk8s", cloud.CloudCredential{})
 }

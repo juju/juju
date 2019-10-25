@@ -23,8 +23,8 @@ var logger = loggo.GetLogger("juju.caas.kubernetes.clientconfig")
 // K8sCredentialResolver defines the function for resolving non supported k8s credential.
 type K8sCredentialResolver func(string, *clientcmdapi.Config, string) (*clientcmdapi.Config, error)
 
-// GetK8sCredentialResolver returns a function for ensuring juju admin service account created with admin cluster role binding setup.
-func GetK8sCredentialResolver(clock jujuclock.Clock) K8sCredentialResolver {
+// GetJujuAdminServiceAccountResolver returns a function for ensuring juju admin service account created with admin cluster role binding setup.
+func GetJujuAdminServiceAccountResolver(clock jujuclock.Clock) K8sCredentialResolver {
 	return func(credentialUID string, config *clientcmdapi.Config, contextName string) (*clientcmdapi.Config, error) {
 		clientset, err := newK8sClientSet(config, contextName)
 		if err != nil {

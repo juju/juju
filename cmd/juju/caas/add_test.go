@@ -624,24 +624,26 @@ func (s *addCAASSuite) assertAddCloudResult(
 	t testData,
 ) {
 
-	s.credentialStoreAPI.EXPECT().UpdateCredential(
-		"myk8s", jujucloud.CloudCredential{
-			AuthCredentials: map[string]jujucloud.Credential{
-				"myk8s": jujucloud.NewNamedCredential(
-					"myk8s",
-					jujucloud.AuthType("certificate"),
-					map[string]string{
-						"ClientCertificateData": `
+	if t.both || t.clientOnly {
+		s.credentialStoreAPI.EXPECT().UpdateCredential(
+			"myk8s", jujucloud.CloudCredential{
+				AuthCredentials: map[string]jujucloud.Credential{
+					"myk8s": jujucloud.NewNamedCredential(
+						"myk8s",
+						jujucloud.AuthType("certificate"),
+						map[string]string{
+							"ClientCertificateData": `
 -----BEGIN CERTIFICATE-----
 MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
-						"rbac-id": "9baa5e46",
-						"Token":   "xfdfsdfsdsd",
-					},
-					false,
-				),
+							"rbac-id": "9baa5e46",
+							"Token":   "xfdfsdfsdsd",
+						},
+						false,
+					),
+				},
 			},
-		},
-	).Times(1).Return(nil)
+		).Times(1).Return(nil)
+	}
 
 	testRun()
 
@@ -715,7 +717,6 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s".
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-
 	}, cloudRegion, "", "operator-sc", testData{both: true})
 }
 
@@ -809,6 +810,7 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 	}, cloudRegion, "mystorage", "mystorage", testData{both: true})
+
 }
 
 func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMsg string, t testData, additionalArgs ...string) {
@@ -842,7 +844,6 @@ func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMs
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, expectedMsg)
-
 	}, cloudRegion, "mystorage", "mystorage", t)
 }
 

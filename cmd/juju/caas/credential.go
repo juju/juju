@@ -37,7 +37,7 @@ type credentialGetter interface {
 	CredentialForCloud(string) (*jujucloud.CloudCredential, error)
 }
 
-func getExistingCredential(store credentialGetter, cloudName, credentialName string) (credential jujucloud.Credential, err error) {
+func getExistingLocalCredential(store credentialGetter, cloudName, credentialName string) (credential jujucloud.Credential, err error) {
 	cloudCredential, err := store.CredentialForCloud(cloudName)
 	if err != nil {
 		return credential, errors.Trace(err)
@@ -51,7 +51,7 @@ func getExistingCredential(store credentialGetter, cloudName, credentialName str
 
 func decideCredentialUID(store credentialGetter, cloudName, credentialName string) (string, error) {
 	var credUID string
-	existingCredential, err := getExistingCredential(store, cloudName, credentialName)
+	existingCredential, err := getExistingLocalCredential(store, cloudName, credentialName)
 	if err != nil && !errors.IsNotFound(err) {
 		return "", errors.Trace(err)
 	}

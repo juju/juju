@@ -121,11 +121,20 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 			}
 		}
 	}
+
 	if c.ControllerName == "" && !c.ClientOnly {
 		ctxt.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client-only option.", c.cloudName)
 	}
+
+	if c.BothClientAndController {
+		// TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
+		if err := cleanUpCredentialRBACResources(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
 	if c.BothClientAndController || c.ClientOnly {
-		if err := removeCloudFromLocal(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
+		if err := removeCloudFromLocal(c.cloudName, c.cloudMetadataStore); err != nil {
 			return errors.Annotatef(err, "cannot remove cloud from current client")
 		}
 
@@ -153,7 +162,7 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-func removeCloudFromLocal(
+func cleanUpCredentialRBACResources(
 	cloudName string,
 	cloudMetadataStore CloudMetadataStore, credentialStoreAPI credentialGetter,
 ) error {
@@ -168,14 +177,33 @@ func removeCloudFromLocal(
 	if !ok {
 		return nil
 	}
+
 	cloudCredentials, err := credentialStoreAPI.CredentialForCloud(cloudName)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if cloudCredentials == nil {
+		return nil
 	}
 	for _, credential := range cloudCredentials.AuthCredentials {
 		if err := cleanUpCredentialRBAC(cloud, credential); err != nil {
 			logger.Warningf("unable to remove RBAC resources for credential %q", credential.Label)
 		}
+	}
+	return nil
+}
+
+func removeCloudFromLocal(cloudName string, cloudMetadataStore CloudMetadataStore) error {
+	personalClouds, err := cloudMetadataStore.PersonalCloudMetadata()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if personalClouds == nil {
+		return nil
+	}
+	_, ok := personalClouds[cloudName]
+	if !ok {
+		return nil
 	}
 	delete(personalClouds, cloudName)
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
