@@ -87,6 +87,6 @@ func cleanUpCredentialRBAC(cloud jujucloud.Cloud, credential jujucloud.Credentia
 	if err != nil {
 		return errors.Trace(err)
 	}
-	err = clientconfig.RemoveCaaSCredentialRBACResources(restConfig, credUID)
+	err = clientconfig.RemoveCredentialRBACResources(restConfig, credUID)
 	return errors.Trace(err)
 }

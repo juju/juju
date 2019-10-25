@@ -119,9 +119,6 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 			if err != nil {
 				return errors.Trace(err)
 			}
-			if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
-				return errors.Trace(err)
-			}
 		}
 	}
 	if c.ControllerName == "" && !c.ClientOnly {
@@ -139,10 +136,10 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 			return nil
 		}
 	}
-	if c.ControllerName == "" {
-		return errors.New("No controller was specified: cannot remove k8s cloud from a controller.")
-	}
 	if c.BothClientAndController || c.ControllerOnly {
+		if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
+			return errors.Trace(err)
+		}
 		cloudAPI, err := c.apiFunc()
 		if err != nil {
 			return errors.Trace(err)

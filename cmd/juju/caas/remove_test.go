@@ -158,7 +158,7 @@ func (s *removeCAASSuite) TestRemoveNoController(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	msg := err.Error()
 	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `No controller was specified: cannot remove k8s cloud from a controller.`)
+	c.Assert(msg, gc.Matches, `empty controller name not valid`)
 
 	// controller side operations
 	s.fakeCloudAPI.CheckNoCalls(c)
