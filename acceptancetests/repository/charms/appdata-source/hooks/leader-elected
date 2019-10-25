@@ -4,6 +4,7 @@ set -eux
 is_leader="$(is-leader)"
 if [ "$is_leader" = "False" ]; then
     juju-log -l INFO "I'm not leader"
+    status-set active "Not leader" || true
     exit 0
 fi
 
