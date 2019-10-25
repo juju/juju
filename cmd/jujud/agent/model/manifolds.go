@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/featureflag"
 	"github.com/juju/utils/voyeur"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/cmd/jujud/agent/engine"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/feature"
 	"github.com/juju/juju/worker/actionpruner"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apicaller"
@@ -440,13 +442,16 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewClient:     instancemutater.NewClient,
 			NewWorker:     instancemutater.NewEnvironWorker,
 		})),
-		spaceNamerName: ifNotMigrating(spacenamer.Manifold(spacenamer.ManifoldConfig{
+	}
+
+	if featureflag.Enabled(feature.MutableSpaceNames) {
+		manifolds[spaceNamerName] = ifNotMigrating(spacenamer.Manifold(spacenamer.ManifoldConfig{
 			AgentName:     agentName,
 			APICallerName: apiCallerName,
 			Logger:        config.LoggingContext.GetLogger("juju.worker.spacenamer"),
 			NewClient:     spacenamer.NewClient,
 			NewWorker:     spacenamer.NewWorker,
-		})),
+		}))
 	}
 
 	result := commonManifolds(config)

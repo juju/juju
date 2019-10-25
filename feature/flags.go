@@ -70,3 +70,7 @@ const JujuV3 = "juju-v3"
 // This feature is disabled during import and export of information, turning
 // this on will allow that to happen.
 const CMRMigrations = "cmr-migrations"
+
+// MutableSpaceNames will allow the default-space model config value to
+// be used for changing the space name of the default space.
+const MutableSpaceNames = "space-names"
