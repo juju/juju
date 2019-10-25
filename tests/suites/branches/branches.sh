@@ -10,9 +10,7 @@ run_branch() {
 
     juju deploy redis
 
-    wait_for "redis" ".applications | select(.redis | .units | .[\"redis/0\"] | .[\"juju-status\"] | .current == \"idle\") | keys[0]"
-
-    set -ux
+    wait_for "redis" "$(idle_condition "redis")"
 
     juju add-branch test-branch
     juju branch | grep -q 'Active branch is "test-branch"'
