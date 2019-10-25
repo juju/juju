@@ -21,7 +21,6 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 )
 
@@ -913,9 +912,6 @@ func (c Config) validateSpaceConfig(key, topic string) error {
 		return nil
 	}
 	if v, ok := val.(string); ok {
-		if v == network.DefaultSpaceName || v == "" {
-			return nil
-		}
 		if !names.IsValidSpace(v) {
 			return errors.NotValidf("%s space name %q", topic, val)
 		}

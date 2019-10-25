@@ -836,7 +836,7 @@ func (c *Config) UUID() string {
 func (c *Config) validateDefaultSpace() error {
 	if raw, ok := c.defined[DefaultSpace]; ok {
 		if v, ok := raw.(string); ok {
-			if raw != corenetwork.DefaultSpaceName && !names.IsValidSpace(v) {
+			if !names.IsValidSpace(v) {
 				return errors.NotValidf("default space name %q", raw)
 			}
 		} else {
