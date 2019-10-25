@@ -706,7 +706,7 @@ func (e *exporter) readAllStorageConstraints() error {
 	storageConstraints := make(map[string]storageConstraintsDoc)
 	var doc storageConstraintsDoc
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		storageConstraints[e.st.localID(doc.DocID)] = doc
 	}
@@ -1710,7 +1710,7 @@ func (e *exporter) readAllStatusHistory() error {
 	// underconstrained - include document id for deterministic
 	// ordering in those cases.
 	iter := statuses.Find(nil).Sort("-updated", "-_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		history := e.statusHistory[doc.GlobalKey]
 		e.statusHistory[doc.GlobalKey] = append(history, doc)
@@ -2017,7 +2017,7 @@ func (e *exporter) volumes() error {
 
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		vol := &volume{e.st, doc}
 		plan := attachmentPlans[doc.Name]
@@ -2141,7 +2141,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 	var doc volumeAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
@@ -2161,7 +2161,7 @@ func (e *exporter) readVolumeAttachmentPlans() (map[string][]volumeAttachmentPla
 	var doc volumeAttachmentPlanDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
@@ -2183,7 +2183,7 @@ func (e *exporter) filesystems() error {
 	}
 	var doc filesystemDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		fs := &filesystem{e.st, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
@@ -2263,7 +2263,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 	var doc filesystemAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
 		count++
@@ -2289,7 +2289,7 @@ func (e *exporter) storageInstances() error {
 	}
 	var doc storageInstanceDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		instance := &storageInstance{sb, doc}
 		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
@@ -2328,7 +2328,7 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 	var doc storageAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		unit := names.NewUnitTag(doc.Unit)
 		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
