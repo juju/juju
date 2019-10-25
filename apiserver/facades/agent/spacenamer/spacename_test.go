@@ -97,7 +97,7 @@ func (s *spaceNamerAPISuite) expect(ctrl *gomock.Controller, newName string) {
 
 	sExp := s.state.EXPECT()
 	sExp.Model().Return(model, nil)
-	sExp.SpaceByID(network.DefaultSpaceId).Return(space, nil)
+	sExp.Space(network.DefaultSpaceId).Return(space, nil)
 }
 
 var _ = gc.Suite(&spaceNamerAPIWatchSuite{})

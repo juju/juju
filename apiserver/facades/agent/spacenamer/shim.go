@@ -20,8 +20,8 @@ func (s *spaceNamerStateShim) Model() (Model, error) {
 	return &modelShim{Model: m}, nil
 }
 
-func (s *spaceNamerStateShim) SpaceByID(id string) (Space, error) {
-	sp, err := s.State.SpaceByID(id)
+func (s *spaceNamerStateShim) Space(id string) (Space, error) {
+	sp, err := s.State.Space(id)
 	if err != nil {
 		return nil, err
 	}

@@ -93,7 +93,7 @@ func (api *SpaceNamerAPI) setDefaultSpaceName() error {
 		return err
 	}
 
-	sp, err := api.st.SpaceByID(network.DefaultSpaceId)
+	sp, err := api.st.Space(network.DefaultSpaceId)
 	if err != nil {
 		return err
 	}

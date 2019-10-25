@@ -27,7 +27,7 @@ type ModelCache interface {
 type SpaceNamerState interface {
 	state.EntityFinder
 
-	SpaceByID(id string) (Space, error)
+	Space(id string) (Space, error)
 	Model() (Model, error)
 }
 

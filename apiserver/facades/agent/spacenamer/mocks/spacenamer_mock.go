@@ -61,17 +61,17 @@ func (mr *MockSpaceNamerStateMockRecorder) Model() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockSpaceNamerState)(nil).Model))
 }
 
-// SpaceByID mocks base method
-func (m *MockSpaceNamerState) SpaceByID(arg0 string) (spacenamer.Space, error) {
-	ret := m.ctrl.Call(m, "SpaceByID", arg0)
+// Space mocks base method
+func (m *MockSpaceNamerState) Space(arg0 string) (spacenamer.Space, error) {
+	ret := m.ctrl.Call(m, "Space", arg0)
 	ret0, _ := ret[0].(spacenamer.Space)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// SpaceByID indicates an expected call of SpaceByID
-func (mr *MockSpaceNamerStateMockRecorder) SpaceByID(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceByID", reflect.TypeOf((*MockSpaceNamerState)(nil).SpaceByID), arg0)
+// Space indicates an expected call of Space
+func (mr *MockSpaceNamerStateMockRecorder) Space(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockSpaceNamerState)(nil).Space), arg0)
 }
 
 // MockSpace is a mock of Space interface
