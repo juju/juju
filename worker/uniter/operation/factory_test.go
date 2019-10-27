@@ -202,11 +202,12 @@ func (s *FactorySuite) TestNewHookString_Run(c *gc.C) {
 
 func (s *FactorySuite) TestNewHookString_Skip(c *gc.C) {
 	op, err := s.factory.NewSkipHook(hook.Info{
-		Kind:       hooks.RelationJoined,
-		RemoteUnit: "foo/22",
-		RelationId: 123,
+		Kind:              hooks.RelationJoined,
+		RemoteUnit:        "foo/22",
+		RemoteApplication: "foo/22",
+		RelationId:        123,
 	})
-	c.Check(err, jc.ErrorIsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(op.String(), gc.Equals, "skip run relation-joined (123; foo/22) hook")
 }
 

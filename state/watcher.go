@@ -1047,6 +1047,7 @@ func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
 	}
 	rsw := watchRelationScope(r.st, r.globalScope(), ep.Role, "")
 	appSettingsDocID := relationApplicationSettingsKey(r.Id(), appName)
+	logger.Criticalf("Relation.WatchUnits(%q) watching: %q", appName, appSettingsDocID)
 	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsDocID}), nil
 }
 
@@ -1102,11 +1103,6 @@ func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationU
 	// you then use to know you can read the database without missing updates.
 	for _, key := range w.appSettingsKeys {
 		if err := w.mergeAppSettings(changes, key); err != nil {
-			panic(err)
-			/// // There may not be an application settings document yet.
-			/// if errors.IsNotFound(err) {
-			/// 	continue
-			/// }
 			return errors.Trace(err)
 		}
 	}
@@ -1196,6 +1192,10 @@ func (w *relationUnitsWatcher) finish() {
 	watcher.Stop(w.sw, &w.tomb)
 	for _, watchedValue := range w.watching.Values() {
 		w.watcher.Unwatch(settingsC, watchedValue, w.updates)
+	}
+	for _, appKey := range w.appSettingsKeys {
+		docID := w.backend.docID(appKey)
+		w.watcher.Unwatch(settingsC, docID, w.appUpdates)
 	}
 	close(w.updates)
 	close(w.out)

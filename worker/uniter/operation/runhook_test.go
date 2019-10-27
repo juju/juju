@@ -778,43 +778,63 @@ func (s *RunHookSuite) TestQueueNothing_Stop_Preserve(c *gc.C) {
 
 func (s *RunHookSuite) TestQueueNothing_RelationJoined_BlankSlate(c *gc.C) {
 	s.testQueueNothing_BlankSlate(c, hook.Info{
-		Kind:       hooks.RelationJoined,
-		RemoteUnit: "u/0",
+		Kind:              hooks.RelationJoined,
+		RemoteUnit:        "u/0",
+		RemoteApplication: "u",
 	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_RelationJoined_Preserve(c *gc.C) {
 	s.testQueueNothing_Preserve(c, hook.Info{
-		Kind:       hooks.RelationJoined,
-		RemoteUnit: "u/0",
+		Kind:              hooks.RelationJoined,
+		RemoteUnit:        "u/0",
+		RemoteApplication: "u",
 	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_RelationChanged_BlankSlate(c *gc.C) {
 	s.testQueueNothing_BlankSlate(c, hook.Info{
-		Kind:       hooks.RelationChanged,
-		RemoteUnit: "u/0",
+		Kind:              hooks.RelationChanged,
+		RemoteUnit:        "u/0",
+		RemoteApplication: "u",
 	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_RelationChanged_Preserve(c *gc.C) {
 	s.testQueueNothing_Preserve(c, hook.Info{
-		Kind:       hooks.RelationChanged,
-		RemoteUnit: "u/0",
+		Kind:              hooks.RelationChanged,
+		RemoteUnit:        "u/0",
+		RemoteApplication: "u",
+	})
+}
+
+func (s *RunHookSuite) TestQueueNothing_RelationChangedApp_BlankSlate(c *gc.C) {
+	s.testQueueNothing_BlankSlate(c, hook.Info{
+		Kind:              hooks.RelationChanged,
+		RemoteApplication: "u",
+	})
+}
+
+func (s *RunHookSuite) TestQueueNothing_RelationChangedApp_Preserve(c *gc.C) {
+	s.testQueueNothing_Preserve(c, hook.Info{
+		Kind:              hooks.RelationChanged,
+		RemoteApplication: "u",
 	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_RelationDeparted_BlankSlate(c *gc.C) {
 	s.testQueueNothing_BlankSlate(c, hook.Info{
-		Kind:       hooks.RelationDeparted,
-		RemoteUnit: "u/0",
+		Kind:              hooks.RelationDeparted,
+		RemoteUnit:        "u/0",
+		RemoteApplication: "u",
 	})
 }
 
 func (s *RunHookSuite) TestQueueNothing_RelationDeparted_Preserve(c *gc.C) {
 	s.testQueueNothing_Preserve(c, hook.Info{
-		Kind:       hooks.RelationDeparted,
-		RemoteUnit: "u/0",
+		Kind:              hooks.RelationDeparted,
+		RemoteUnit:        "u/0",
+		RemoteApplication: "u",
 	})
 }
 

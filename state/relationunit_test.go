@@ -531,7 +531,7 @@ func (s *RelationUnitSuite) TestAliveRelationScope(c *gc.C) {
 	assertNotInScope(c, pr.ru3)
 }
 
-func (s *StateSuite) TestWatchWatchScopeDiesOnStateClose(c *gc.C) {
+func (s *StateSuite) TestWatchScopeDiesOnStateClose(c *gc.C) {
 	testWatcherDiesWhenStateCloses(c, s.Session, s.modelTag, s.State.ControllerTag(), func(c *gc.C, st *state.State) waiter {
 		pr := newPeerRelation(c, st)
 		w := pr.ru0.WatchScope()
@@ -611,15 +611,19 @@ func (s *RelationUnitSuite) TestRemoteProReqWatchScope(c *gc.C) {
 	s.testProReqWatchScope(c, prr.pru0, prr.pru1, prr.rru0, prr.rru1, prr.watches)
 }
 
+func stopAllRelationScope(c *gc.C, ws []*state.RelationScopeWatcher) {
+	for _, w := range ws {
+		testing.AssertStop(c, w)
+	}
+}
+
 func (s *RelationUnitSuite) testProReqWatchScope(
 	c *gc.C, pru0, pru1, rru0, rru1 *state.RelationUnit,
 	watches func() []*state.RelationScopeWatcher,
 ) {
 	// Test empty initial events for all RUs.
 	ws := watches()
-	for _, w := range ws {
-		defer testing.AssertStop(c, w)
-	}
+	defer stopAllRelationScope(c, ws)
 	for _, w := range ws {
 		s.assertScopeChange(c, w, nil, nil)
 	}
@@ -666,9 +670,7 @@ func (s *RelationUnitSuite) testProReqWatchScope(
 
 	// Start new watches, check initial events.
 	ws = watches()
-	for _, w := range ws {
-		defer testing.AssertStop(c, w)
-	}
+	defer stopAllRelationScope(c, ws)
 	for _, w := range pws() {
 		s.assertScopeChange(c, w, []string{"wordpress/0", "wordpress/1"}, nil)
 	}
@@ -1162,7 +1164,8 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 			fmt.Sprintf("riak%d.example.com", i),
 			network.ScopeCloudLocal,
 		)
-		machine.SetProviderAddresses(privateAddr)
+		err = machine.SetProviderAddresses(privateAddr)
+		c.Assert(err, jc.ErrorIsNil)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(ru.Endpoint(), gc.Equals, riakEP)
@@ -1186,6 +1189,11 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	err = ru0.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
 	changeSettings(c, ru0)
+	w0c.AssertNoChange()
+
+	// Update the application settings, and see that the units notice
+	updateAppSettings(c, s.State, rel, riak, "riak/0", map[string]interface{}{"foo": "bar"})
+	w0c.AssertChange(nil, []string{"riak"}, nil)
 	w0c.AssertNoChange()
 
 	// ---------- Two units ----------
@@ -1242,6 +1250,15 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	w2c.AssertChange(expectChanged, nil, nil)
 	w2c.AssertNoChange()
 
+	// Update the application settings, and see that the units notice
+	updateAppSettings(c, s.State, rel, riak, "riak/0", map[string]interface{}{"foo": "baz"})
+	w0c.AssertChange(nil, []string{"riak"}, nil)
+	w0c.AssertNoChange()
+	w1c.AssertChange(nil, []string{"riak"}, nil)
+	w1c.AssertNoChange()
+	w2c.AssertChange(nil, []string{"riak"}, nil)
+	w2c.AssertNoChange()
+
 	// ---------- Two units again ----------
 
 	// Depart the second unit, and check that the first and third detect it.
@@ -1271,19 +1288,14 @@ func (s *WatchRelationUnitsSuite) TestWatchAppSettings(c *gc.C) {
 	loggo.GetLogger("juju.state.relationunits").SetLogLevel(loggo.TRACE)
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	prr.allEnterScope(c)
-	claimer := s.State.LeadershipClaimer()
-	c.Assert(claimer.ClaimLeadership(prr.papp.Name(), prr.pu0.Name(), time.Minute), jc.ErrorIsNil)
-	// Watch from the perspective of the requiring unit
+	// Watch from the perspective of the requiring unit, and see that a change to the
+	// providing application is seen
 	watcher := prr.rru0.Watch()
 	defer testing.AssertStop(c, watcher)
 	w0c := testing.NewRelationUnitsWatcherC(c, s.State, watcher)
 	w0c.AssertChange([]string{"mysql/0", "mysql/1"}, []string{"mysql"}, nil)
 	w0c.AssertNoChange()
-	token := s.State.LeadershipChecker().LeadershipCheck(prr.papp.Name(), prr.pu0.Name())
-	settings := map[string]interface{}{
-		"foo": "bar",
-	}
-	c.Assert(prr.rel.UpdateApplicationSettings(prr.papp, token, settings), jc.ErrorIsNil)
+	updateAppSettings(c, s.State, prr.rel, prr.papp, prr.pu0.Name(), map[string]interface{}{"foo": "bar"})
 	w0c.AssertChange(nil, []string{prr.papp.Name()}, nil)
 }
 
@@ -1400,6 +1412,14 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// ...and requirers don't.
 	wpw0c.AssertNoChange()
 	wpw1c.AssertNoChange()
+
+	// Change the application settings for the provider, and see that both
+	// requirers see it, but the providers do not
+	updateAppSettings(c, s.State, rel, mysql, "mysql/0", map[string]interface{}{"foo": "bar"})
+	wpw0c.AssertChange(nil, []string{"mysql"}, nil)
+	wpw1c.AssertChange(nil, []string{"mysql"}, nil)
+	msw0c.AssertNoChange()
+	msw1c.AssertNoChange()
 
 	// Depart the second requirer and check the providers see it...
 	err = wpru1.LeaveScope()
@@ -1541,7 +1561,14 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	// ...but that nothing else does.
 	msw0c.AssertNoChange()
 	msw1c.AssertNoChange()
+	lgw0c.AssertNoChange()
+
+	// Change the provider application settings, and see that all requirers notice
+	updateAppSettings(c, s.State, rel, mysql, "mysql/0", map[string]interface{}{"foo": "bar"})
+	lgw0c.AssertChange(nil, []string{"mysql"}, nil)
+	lgw1c.AssertChange(nil, []string{"mysql"}, nil)
 	msw0c.AssertNoChange()
+	msw1c.AssertNoChange()
 
 	// Finally, depart the first provider, and check that only the first
 	// requirer observes any change.
@@ -1563,6 +1590,16 @@ type WatchUnitsSuite struct {
 }
 
 var _ = gc.Suite(&WatchUnitsSuite{})
+
+// updateAppSettings will update the application settings in a relation.
+// It claims leadership of the application for "unitName" and then sets the
+// application settings for that application to the provided settings.
+func updateAppSettings(c *gc.C, state *state.State, rel *state.Relation, app *state.Application, unitName string, settings map[string]interface{}) {
+	claimer := state.LeadershipClaimer()
+	c.Assert(claimer.ClaimLeadership(app.Name(), unitName, time.Minute), jc.ErrorIsNil)
+	token := state.LeadershipChecker().LeadershipCheck(app.Name(), unitName)
+	c.Assert(rel.UpdateApplicationSettings(app, token, settings), jc.ErrorIsNil)
+}
 
 func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Create a pair of applications and a relation between them.
@@ -1590,7 +1627,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, wordpressWatcher)
 	wordpressWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, wordpressWatcher)
-	wordpressWatcherC.AssertChange(nil, nil, nil)
+	wordpressWatcherC.AssertChange(nil, []string{"wordpress"}, nil)
 	wordpressWatcherC.AssertNoChange()
 
 	// Join the mysql unit to the relation, change settings, and check
@@ -1604,7 +1641,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, mysqlWatcher)
 	mysqlWatcherC := testing.NewRelationUnitsWatcherC(c, s.State, mysqlWatcher)
-	mysqlWatcherC.AssertChange([]string{"mysql/0"}, nil, nil)
+	mysqlWatcherC.AssertChange([]string{"mysql/0"}, []string{"mysql"}, nil)
 	mysqlWatcherC.AssertNoChange()
 	wordpressWatcherC.AssertNoChange()
 
@@ -1615,6 +1652,12 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	wordpressWatcherC.AssertChange([]string{"wordpress/0"}, nil, nil)
 	wordpressWatcherC.AssertNoChange()
 	mysqlWatcherC.AssertNoChange()
+
+	// Now update the mysql application settings, and see that only the mysql watcher notices
+	updateAppSettings(c, s.State, rel, mysql, "mysql/0", map[string]interface{}{"foo": "bar"})
+	mysqlWatcherC.AssertChange(nil, []string{"mysql"}, nil)
+	mysqlWatcherC.AssertNoChange()
+	wordpressWatcherC.AssertNoChange()
 }
 
 func (s *WatchUnitsSuite) TestProviderRequirerContainer(c *gc.C) {

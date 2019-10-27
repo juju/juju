@@ -52,7 +52,7 @@ func (hi Info) Validate() error {
 				return fmt.Errorf("%q hook requires a remote unit or application", hi.Kind)
 			}
 		} else if hi.RemoteApplication == "" {
-			return fmt.Errorf("%q hook has a unit but no application", hi.Kind)
+			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
 	case hooks.RelationJoined, hooks.RelationDeparted:
@@ -60,7 +60,7 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		if hi.RemoteApplication == "" {
-			return fmt.Errorf("%q hook has a unit but no application", hi.Kind)
+			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,

@@ -111,7 +111,8 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
 	djangoRelationUnitsWatcher.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{"django/0": {Version: 1}},
+		Changed:    map[string]params.UnitSettings{"django/0": {Version: 1}},
+		AppChanged: map[string]int64{"django": 0},
 	}
 	djangoRelation := newMockRelation(123)
 	djangoRelation.endpointUnitsWatchers["django"] = djangoRelationUnitsWatcher
@@ -137,6 +138,9 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 				"django/0": {
 					Version: 1,
 				},
+			},
+			AppChanged: map[string]int64{
+				"django": 0,
 			},
 		},
 	}, {

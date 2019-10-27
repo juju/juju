@@ -286,6 +286,7 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 // watching failed.
 func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchResult, error) {
 	w := api.st.WatchRemoteApplications()
+	// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 	if changes, ok := <-w.Changes(); ok {
 		return params.StringsWatchResult{
 			StringsWatcherId: api.resources.Register(w),
@@ -314,6 +315,7 @@ func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (pa
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 		changes, ok := <-w.Changes()
 		if !ok {
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
@@ -345,6 +347,7 @@ func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entit
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
+		// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 		changes, ok := <-w.Changes()
 		if !ok {
 			results.Results[i].Error = common.ServerError(watcher.EnsureErr(w))
@@ -362,6 +365,7 @@ func (api *RemoteRelationsAPI) WatchRemoteApplicationRelations(args params.Entit
 // watching failed.
 func (api *RemoteRelationsAPI) WatchRemoteRelations() (params.StringsWatchResult, error) {
 	w := api.st.WatchRemoteRelations()
+	// TODO(jam): 2019-10-27 Watching Changes() should be protected with a select with api.ctx.Cancel()
 	if changes, ok := <-w.Changes(); ok {
 		return params.StringsWatchResult{
 			StringsWatcherId: api.resources.Register(w),

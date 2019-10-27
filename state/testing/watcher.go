@@ -299,6 +299,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 	timeout := time.After(testing.LongWait)
 	select {
 	case actual, ok := <-c.Watcher.Changes():
+		c.Logf("Watcher.Changes() => %# v", actual)
 		c.Assert(ok, jc.IsTrue)
 		c.Check(actual.Changed, gc.HasLen, len(changed))
 		c.Check(actual.AppChanged, gc.HasLen, len(appChanged))
@@ -320,7 +321,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 			}
 		}
 		for k, version := range actual.AppChanged {
-			c.Assert(appChangedNames.Contains(k), jc.IsTrue)
+			c.Check(appChangedNames.Contains(k), jc.IsTrue)
 			oldVer, ok := c.appSettingsVersions[k]
 			if ok {
 				// Make sure if we've seen this setting before, it has been updated
@@ -330,7 +331,7 @@ func (c RelationUnitsWatcherC) AssertChange(changed []string, appChanged []strin
 			}
 			c.appSettingsVersions[k] = version
 		}
-		c.Assert(actual.Departed, jc.SameContents, departed)
+		c.Check(actual.Departed, jc.SameContents, departed)
 	case <-timeout:
 		c.Fatalf("watcher did not send change")
 	}

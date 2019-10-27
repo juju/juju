@@ -26,14 +26,20 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.RelationJoined},
 		`"relation-joined" hook requires a remote unit`,
 	}, {
+		hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "foo/0"},
+		`"relation-joined" hook has a remote unit but no application`,
+	}, {
 		hook.Info{Kind: hooks.RelationChanged},
 		`"relation-changed" hook requires a remote unit or application`,
 	}, {
 		hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "foo/0"},
-		`"relation-changed" hook has a unit but no application`,
+		`"relation-changed" hook has a remote unit but no application`,
 	}, {
 		hook.Info{Kind: hooks.RelationDeparted},
 		`"relation-departed" hook requires a remote unit`,
+	}, {
+		hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "foo/0"},
+		`"relation-departed" hook has a remote unit but no application`,
 	}, {
 		hook.Info{Kind: hooks.Kind("grok")},
 		`unknown hook kind "grok"`,

@@ -147,7 +147,9 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	assertRelationUnitsChange(c, s.BackingState, w, watcher.RelationUnitsChange{})
+	assertRelationUnitsChange(c, s.BackingState, w, watcher.RelationUnitsChange{
+		AppChanged: map[string]int64{"wordpress": 0},
+	})
 	assertNoRelationUnitsChange(c, s.BackingState, w)
 
 	// Add a unit of wordpress, expect a change.
