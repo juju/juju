@@ -792,3 +792,34 @@ func makeItemChanges(coreChanges settings.ItemChanges) []itemChange {
 	}
 	return changes
 }
+
+// branchesCleanupChange removes the generation doc.
+type branchesCleanupChange struct{}
+
+// Prepare is part of the Change interface.
+func (change branchesCleanupChange) Prepare(db Database) ([]txn.Op, error) {
+	generations, closer := db.GetCollection(generationsC)
+	defer closer()
+
+	var docs []struct {
+		DocID string `bson:"_id"`
+	}
+	err := generations.Find(nil).Select(bson.D{{"_id", 1}}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, ErrChangeComplete
+	}
+
+	ops := make([]txn.Op, len(docs))
+	for i, doc := range docs {
+		ops[i] = txn.Op{
+			C:      generationsC,
+			Id:     doc.DocID,
+			Remove: true,
+		}
+	}
+	return ops, nil
+
+}

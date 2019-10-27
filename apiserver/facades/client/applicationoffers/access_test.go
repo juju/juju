@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/applicationoffers"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -43,7 +42,6 @@ func (s *offerAccessSuite) SetUpTest(c *gc.C) {
 	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, nil, getFakeControllerInfo,
 		s.mockState, s.mockStatePool, s.authorizer, resources, s.authContext,
-		context.NewCloudCallContext(),
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	s.api = &applicationoffers.OffersAPIV2{OffersAPI: apiV1}

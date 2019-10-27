@@ -335,7 +335,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
-	_, err = st.Space(network.DefaultSpaceName)
+	_, err = st.SpaceByName(network.DefaultSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -49,6 +49,10 @@ func instanceTypes(api *CloudAPI,
 	if err != nil {
 		return params.InstanceTypesResults{}, errors.Trace(err)
 	}
+	_, callContext, err := api.pool.GetModelCallContext(m.UUID())
+	if err != nil {
+		return params.InstanceTypesResults{}, errors.Trace(err)
+	}
 
 	result := make([]params.InstanceTypesResult, len(cons.Constraints))
 	// TODO(perrito666) Cache the results to avoid excessive querying of the cloud.
@@ -76,10 +80,9 @@ func instanceTypes(api *CloudAPI,
 		if err != nil {
 			return params.InstanceTypesResults{}, errors.Trace(err)
 		}
-
 		itCons := common.NewInstanceTypeConstraints(
 			env,
-			api.callContext,
+			callContext,
 			value,
 		)
 		it, err := common.InstanceTypes(itCons)

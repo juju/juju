@@ -35,8 +35,8 @@ type Backing interface {
 	// ModelTag returns the tag of this model.
 	ModelTag() names.ModelTag
 
-	// Subnet return a subnet based on the given cidr.
-	Subnet(cidr string) (networkingcommon.BackingSubnet, error)
+	// SubnetByCIDR returns a subnet based on the input CIDR.
+	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
 
 	// AddSpace creates a space.
 	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
@@ -219,7 +219,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 		if !network.IsValidCidr(cidr) {
 			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
 		}
-		subnet, err := api.backing.Subnet(cidr)
+		subnet, err := api.backing.SubnetByCIDR(cidr)
 		if err != nil {
 			return err
 		}

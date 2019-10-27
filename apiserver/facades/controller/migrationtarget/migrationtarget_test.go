@@ -75,10 +75,10 @@ func (s *Suite) SetUpTest(c *gc.C) {
 }
 
 func (s *Suite) TestFacadeRegistered(c *gc.C) {
-	factory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 1)
+	aFactory, err := apiserver.AllFacades().GetFactory("MigrationTarget", 1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	api, err := factory(&facadetest.Context{
+	api, err := aFactory(&facadetest.Context{
 		State_:     s.State,
 		Resources_: s.resources,
 		Auth_:      s.authorizer,
@@ -306,7 +306,10 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(env.Stub.Calls(), gc.HasLen, 1)
-	env.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
+	aCall := env.Stub.Calls()[0]
+	c.Assert(aCall.FuncName, gc.Equals, "AdoptResources")
+	c.Assert(aCall.Args[1], gc.Equals, st.ControllerUUID())
+	c.Assert(aCall.Args[2], gc.Equals, version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestAdoptCAASResources(c *gc.C) {
@@ -332,7 +335,10 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(broker.Stub.Calls(), gc.HasLen, 1)
-	broker.Stub.CheckCall(c, 0, "AdoptResources", s.callContext, st.ControllerUUID(), version.MustParse("3.2.1"))
+	aCall := broker.Stub.Calls()[0]
+	c.Assert(aCall.FuncName, gc.Equals, "AdoptResources")
+	c.Assert(aCall.Args[1], gc.Equals, st.ControllerUUID())
+	c.Assert(aCall.Args[2], gc.Equals, version.MustParse("3.2.1"))
 }
 
 func (s *Suite) TestCheckMachinesSuccess(c *gc.C) {
@@ -414,7 +420,7 @@ func (s *Suite) TestCheckMachinesHandlesManual(c *gc.C) {
 }
 
 func (s *Suite) newAPI(environFunc stateenvirons.NewEnvironFunc, brokerFunc stateenvirons.NewCAASBrokerFunc) (*migrationtarget.API, error) {
-	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc, s.callContext)
+	api, err := migrationtarget.NewAPI(&s.facadeContext, environFunc, brokerFunc)
 	return api, err
 }
 
@@ -472,8 +478,8 @@ func (e *mockEnv) AdoptResources(ctx context.ProviderCallContext, controllerUUID
 func (e *mockEnv) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	e.MethodCall(e, "AllInstances", ctx)
 	results := make([]instances.Instance, len(e.instances))
-	for i, instance := range e.instances {
-		results[i] = instance
+	for i, anInstance := range e.instances {
+		results[i] = anInstance
 	}
 	return results, e.NextErr()
 }

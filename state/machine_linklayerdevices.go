@@ -736,7 +736,7 @@ func (m *Machine) newIPAddressDocFromArgs(args *LinkLayerDeviceAddress) (*ipAddr
 	}
 	addressValue := ip.String()
 	subnetCIDR := ipNet.String()
-	subnet, err := m.st.Subnet(subnetCIDR)
+	subnet, err := m.st.SubnetByCIDR(subnetCIDR)
 	if errors.IsNotFound(err) {
 		logger.Debugf(
 			"address %q on machine %q uses unknown or machine-local subnet %q",
@@ -834,7 +834,7 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 }
 
 func (m *Machine) maybeAssertSubnetAliveOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) ([]txn.Op, error) {
-	subnet, err := m.st.Subnet(newDoc.SubnetCIDR)
+	subnet, err := m.st.SubnetByCIDR(newDoc.SubnetCIDR)
 	if errors.IsNotFound(err) {
 		// Subnet is machine-local, no need to assert whether it's alive.
 		return opsSoFar, nil

@@ -264,7 +264,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 
 		spaceID := addr.SpaceID
 		if spaceID != network.DefaultSpaceId && spaceID != "" {
-			space, err := st.SpaceByID(spaceID)
+			space, err := st.Space(spaceID)
 			if err != nil {
 				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
 			}

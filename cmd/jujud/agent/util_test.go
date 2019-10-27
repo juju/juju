@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/collections/set"
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/arch"
@@ -27,7 +26,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	apideployer "github.com/juju/juju/api/deployer"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/instance"
@@ -47,7 +45,6 @@ import (
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/authenticationworker"
-	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/logsender"
 )
 
@@ -227,21 +224,6 @@ func (s *commonMachineSuite) newBufferedLogWriter() *logsender.BufferedLogWriter
 	logger := logsender.NewBufferedLogWriter(1024)
 	s.AddCleanup(func(*gc.C) { logger.Close() })
 	return logger
-}
-
-func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
-	ctx := &fakeContext{
-		inited:   newSignal(),
-		deployed: make(set.Strings),
-	}
-	orig := newDeployContext
-	newDeployContext = func(dst *apideployer.State, agentConfig agent.Config) deployer.Context {
-		ctx.st = st
-		ctx.agentConfig = agentConfig
-		ctx.inited.trigger()
-		return ctx
-	}
-	return ctx, func() { newDeployContext = orig }
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {

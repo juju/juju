@@ -274,7 +274,7 @@ func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string]
 			spaceName, m.Id(), includeSpaces[1:],
 		)
 	}
-	space, err := api.st.Space(spaceName)
+	space, err := api.st.SpaceByName(spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

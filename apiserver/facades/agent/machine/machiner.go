@@ -51,7 +51,7 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanModify),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, state.CallContext(st), getCanModify),
+		NetworkConfigAPI:   networkingcommon.NewNetworkConfigAPI(st, getCanModify),
 		st:                 st,
 		auth:               authorizer,
 		getCanModify:       getCanModify,

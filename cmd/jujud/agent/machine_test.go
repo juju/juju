@@ -571,7 +571,7 @@ func (s *MachineLegacyLeasesSuite) assertAgentSetsToolsVersion(c *gc.C, job stat
 		Arch:   arch.HostArch(),
 		Series: series.MustHostSeries(),
 	}
-	vers.Minor++
+	vers.Minor--
 	m, _, _ := s.primeAgentVersion(c, vers, job)
 	a := s.newAgent(c, m)
 	ctx := cmdtesting.Context(c)

@@ -121,6 +121,7 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var invalidOffers []string
 	for i, urlStr := range c.offers {
 		url, err := crossmodel.ParseOfferURL(urlStr)
 		if err != nil {
@@ -136,6 +137,13 @@ func (c *removeCommand) Run(ctx *cmd.Context) error {
 		if c.offerSource != url.Source {
 			return errors.New("all offer URLs must use the same controller")
 		}
+		if strings.Contains(url.ApplicationName, ":") {
+			invalidOffers = append(invalidOffers, " -"+c.offers[i])
+		}
+	}
+
+	if len(invalidOffers) > 0 {
+		return errors.Errorf("These offers contain endpoints. Only specify the offer name itself.\n%v", strings.Join(invalidOffers, "\n"))
 	}
 
 	if c.offerSource == "" {

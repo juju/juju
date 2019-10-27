@@ -1444,7 +1444,7 @@ func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
 		return errors.Errorf("invalid subnet ID %q", subnetID)
 	}
 
-	subnet, err := u.st.SubnetByID(subnetID)
+	subnet, err := u.st.Subnet(subnetID)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "getting subnet %q", subnetID)
 	} else if errors.IsNotFound(err) || subnet.Life() != Alive {

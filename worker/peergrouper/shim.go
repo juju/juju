@@ -46,7 +46,7 @@ func (s StateShim) RemoveControllerReference(c ControllerNode) error {
 }
 
 func (s StateShim) Space(name string) (Space, error) {
-	return s.State.Space(name)
+	return s.State.SpaceByName(name)
 }
 
 // cloudServiceShim stubs out functionality not yet

@@ -42,6 +42,14 @@ func (s *removeSuite) TestRemoveURLError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "application offer URL has invalid form.*")
 }
 
+func (s *removeSuite) TestRemoveURLWithEndpoints(c *gc.C) {
+	_, err := s.runRemove(c, "fred/model.db2:db")
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `
+These offers contain endpoints. Only specify the offer name itself.
+ -fred/model.db2:db`[1:])
+}
+
 func (s *removeSuite) TestRemoveInconsistentControllers(c *gc.C) {
 	_, err := s.runRemove(c, "ctrl:fred/model.db2", "ctrl2:fred/model.db2")
 	c.Assert(err, gc.ErrorMatches, "all offer URLs must use the same controller")

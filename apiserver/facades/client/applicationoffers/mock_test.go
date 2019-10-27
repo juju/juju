@@ -333,7 +333,7 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 	return &offer, nil
 }
 
-func (m *mockState) SpaceByID(id string) (applicationoffers.Space, error) {
+func (m *mockState) Space(id string) (applicationoffers.Space, error) {
 	space, ok := m.spaces[id]
 	if !ok {
 		return nil, errors.NotFoundf("space %q", id)
@@ -375,6 +375,10 @@ func (m *mockState) KeyRelation(key string) (crossmodel.Relation, error) {
 
 func (m *mockState) OfferConnections(offerUUID string) ([]applicationoffers.OfferConnection, error) {
 	return m.connections, nil
+}
+
+func (m *mockState) GetModelCallContext() context.ProviderCallContext {
+	return context.NewCloudCallContext()
 }
 
 func (m *mockState) User(tag names.UserTag) (applicationoffers.User, error) {

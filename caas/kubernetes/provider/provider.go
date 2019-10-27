@@ -71,7 +71,8 @@ func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.
 	return k8sClient, apiextensionsclient, nil
 }
 
-func cloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
+// CloudSpecToK8sRestConfig tranlates cloudspec to k8s rest config.
+func CloudSpecToK8sRestConfig(cloudSpec environs.CloudSpec) (*rest.Config, error) {
 	if cloudSpec.Credential == nil {
 		return nil, errors.Errorf("cloud %v has no credential", cloudSpec.Name)
 	}
@@ -101,7 +102,7 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 	if err := p.validateCloudSpec(args.Cloud); err != nil {
 		return nil, errors.Annotate(err, "validating cloud spec")
 	}
-	k8sRestConfig, err := cloudSpecToK8sRestConfig(args.Cloud)
+	k8sRestConfig, err := CloudSpecToK8sRestConfig(args.Cloud)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

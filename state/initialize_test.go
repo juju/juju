@@ -223,7 +223,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(refCount, gc.Equals, 1)
 
 	// Check that the default space is created.
-	_, err = s.State.Space("")
+	_, err = s.State.SpaceByName("")
 	c.Assert(err, jc.ErrorIsNil)
 }
 

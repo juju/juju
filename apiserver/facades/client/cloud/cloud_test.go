@@ -86,26 +86,25 @@ func (s *cloudSuite) SetUpTest(c *gc.C) {
 		controllerInfoF:   func() (*state.ControllerInfo, error) { return controllerInfo, nil },
 	}
 
-	newModel := func(uuid string) *mockPooledModel {
-		return &mockPooledModel{
-			model: &mockModelBackend{
-				uuid: uuid,
-				model: &mockModel{
-					cloud:       "dummy",
-					cloudRegion: "nether",
-					cfg:         coretesting.ModelConfig(c),
-				},
-				cloud: aCloud,
-			},
-			release: true,
-		}
-	}
 	s.statePool = &mockStatePool{
-		getF: func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-			return newModel(modelUUID), nil
+		getF: func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+			return newModelBackend(c, aCloud, modelUUID), context.NewCloudCallContext(), nil
 		},
 	}
 	s.setTestAPIForUser(c, names.NewUserTag("admin"))
+}
+
+func newModelBackend(c *gc.C, aCloud cloud.Cloud, uuid string) *mockModelBackend {
+	return &mockModelBackend{
+		uuid: uuid,
+		model: &mockModel{
+			uuid:        coretesting.ModelTag.Id(),
+			cloud:       "dummy",
+			cloudRegion: "nether",
+			cfg:         coretesting.ModelConfig(c),
+		},
+		cloud: aCloud,
+	}
 }
 
 func (s *cloudSuite) setTestAPIForUser(c *gc.C, user names.UserTag) {
@@ -113,7 +112,7 @@ func (s *cloudSuite) setTestAPIForUser(c *gc.C, user names.UserTag) {
 		Tag: user,
 	}
 	var err error
-	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.statePool, s.authorizer, context.NewCloudCallContext())
+	s.api, err = cloudfacade.NewCloudAPI(s.backend, s.ctlrBackend, s.statePool, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -697,8 +696,8 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetError(c *gc.C) {
 			coretesting.ModelTag.Id(): "testModel1",
 		}, nil
 	}
-	s.statePool.getF = func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-		return nil, errors.New("cannot get a model")
+	s.statePool.getF = func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+		return nil, nil, errors.New("cannot get a model")
 	}
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
@@ -730,8 +729,8 @@ func (s *cloudSuite) TestUpdateCredentialsModelGetErrorForce(c *gc.C) {
 			coretesting.ModelTag.Id(): "testModel1",
 		}, nil
 	}
-	s.statePool.getF = func(modelUUID string) (cloudfacade.PooledModelBackend, error) {
-		return nil, errors.New("cannot get a model")
+	s.statePool.getF = func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
+		return nil, nil, errors.New("cannot get a model")
 	}
 
 	results, err := s.api.UpdateCredentialsCheckModels(params.UpdateCredentialArgs{
@@ -1381,6 +1380,7 @@ func (st *mockBackend) ControllerConfig() (controller.Config, error) {
 func (st *mockBackend) Model() (cloudfacade.Model, error) {
 	st.MethodCall(st, "Model")
 	return &mockModel{
+		uuid:  coretesting.ModelTag.Id(),
 		cloud: st.cloud.Name,
 	}, st.NextErr()
 }
@@ -1519,6 +1519,7 @@ func (m *mockUser) DisplayName() string {
 }
 
 type mockModel struct {
+	uuid               string
 	cloud              string
 	cloudRegion        string
 	cloudCredentialTag names.CloudCredentialTag
@@ -1549,11 +1550,15 @@ func (m *mockModel) Type() state.ModelType {
 	return state.ModelType("")
 }
 
-type mockStatePool struct {
-	getF func(modelUUID string) (cloudfacade.PooledModelBackend, error)
+func (m *mockModel) UUID() string {
+	return m.uuid
 }
 
-func (m *mockStatePool) Get(modelUUID string) (cloudfacade.PooledModelBackend, error) {
+type mockStatePool struct {
+	getF func(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error)
+}
+
+func (m *mockStatePool) GetModelCallContext(modelUUID string) (credentialcommon.PersistentBackend, context.ProviderCallContext, error) {
 	return m.getF(modelUUID)
 }
 

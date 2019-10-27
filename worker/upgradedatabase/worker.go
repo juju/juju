@@ -5,6 +5,7 @@ package upgradedatabase
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	"github.com/juju/juju/worker/gate"
@@ -70,6 +72,10 @@ type Config struct {
 
 	// RetryStrategy is the strategy to use for re-attempting failed upgrades.
 	RetryStrategy utils.AttemptStrategy
+
+	// Clock is used to enforce time-out logic for controllers waiting for the
+	// master MongoDB upgrades to execute.
+	Clock Clock
 }
 
 // Validate returns an error if the worker config is not valid.
@@ -100,6 +106,9 @@ func (cfg Config) Validate() error {
 	if cfg.RetryStrategy == a {
 		return errors.NotValidf("empty RetryStrategy")
 	}
+	if cfg.Clock == nil {
+		return errors.NotValidf("nil Clock")
+	}
 	return nil
 }
 
@@ -115,7 +124,9 @@ type upgradeDB struct {
 	logger         Logger
 	pool           Pool
 	performUpgrade func(version.Number, []upgrades.Target, func() upgrades.Context) error
+	upgradeInfo    UpgradeInfo
 	retryStrategy  utils.AttemptStrategy
+	clock          Clock
 
 	fromVersion version.Number
 	toVersion   version.Number
@@ -137,6 +148,7 @@ func NewWorker(cfg Config) (worker.Worker, error) {
 		logger:          cfg.Logger,
 		performUpgrade:  cfg.PerformUpgrade,
 		retryStrategy:   cfg.RetryStrategy,
+		clock:           cfg.Clock,
 	}
 	if w.pool, err = cfg.OpenState(); err != nil {
 		return nil, err
@@ -160,6 +172,16 @@ func (w *upgradeDB) run() error {
 	isPrimary, err := w.pool.IsPrimary(w.tag.Id())
 	if err != nil {
 		return errors.Trace(err)
+	}
+
+	// Ensure that an upgrade document exists in order to monitor this upgrade.
+	// This is the same document that will be used by the `upgradesteps` worker
+	// that will execute subsequently.
+	// In this worker we use it as a distributed lock - once the status reports
+	// `UpgradeDBComplete` this causes our member `upgradeComplete` to unlock
+	// on each controller running this worker.
+	if w.upgradeInfo, err = w.pool.EnsureUpgradeInfo(w.tag.Id(), w.fromVersion, w.toVersion); err != nil {
+		return errors.Annotate(err, "retrieving upgrade info")
 	}
 
 	// If we are the primary we need to run the upgrade steps.
@@ -197,6 +219,13 @@ func (w *upgradeDB) runUpgrade() {
 	w.setStatus(status.Started, fmt.Sprintf("upgrading database to %v", w.toVersion))
 
 	if err := w.agent.ChangeConfig(w.runUpgradeSteps); err == nil {
+		// Update the upgrade status document to unlock the other controllers.
+		if err = w.upgradeInfo.SetStatus(state.UpgradeDBComplete); err != nil {
+			w.logger.Errorf("failed to update upgrade info: %v", err)
+			w.setFailStatus()
+			return
+		}
+
 		w.logger.Infof("database upgrade to %v completed successfully.", w.toVersion)
 		w.setStatus(status.Started, fmt.Sprintf("database upgrade to %v completed", w.toVersion))
 		w.upgradeComplete.Unlock()
@@ -234,10 +263,31 @@ func (w *upgradeDB) contextGetter(agentConfig agent.ConfigSetter) func() upgrade
 func (w *upgradeDB) watchUpgrade() {
 	w.setStatus(status.Started, fmt.Sprintf("waiting on primary database upgrade to %v", w.toVersion))
 
-	// TODO: Wire this up.
+	timeout := w.clock.After(10 * time.Minute)
+	watcher := w.upgradeInfo.Watch()
+	defer func() { _ = watcher.Stop() }()
 
-	w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
-	w.upgradeComplete.Unlock()
+	for {
+		select {
+		case <-watcher.Changes():
+			if err := w.upgradeInfo.Refresh(); err != nil {
+				w.logger.Errorf("unable to refresh upgrade info: %v", err)
+				w.setFailStatus()
+				return
+			}
+			if w.upgradeInfo.Status() == state.UpgradeDBComplete {
+				w.setStatus(status.Started, fmt.Sprintf("confirmed primary database upgrade to %v", w.toVersion))
+				w.upgradeComplete.Unlock()
+				return
+			}
+		case <-timeout:
+			w.logger.Errorf("timed out waiting for primary database upgrade")
+			w.setFailStatus()
+			return
+		case <-w.tomb.Dying():
+			return
+		}
+	}
 }
 
 func (w *upgradeDB) reportUpgradeFailure(err error, willRetry bool) {
@@ -248,7 +298,10 @@ func (w *upgradeDB) reportUpgradeFailure(err error, willRetry bool) {
 
 	w.logger.Errorf("database upgrade from %v to %v for %q failed (%s): %v",
 		w.fromVersion, w.toVersion, w.tag, retryText, err)
+	w.setFailStatus()
+}
 
+func (w *upgradeDB) setFailStatus() {
 	w.setStatus(status.Error, fmt.Sprintf("upgrading database to %v", w.toVersion))
 }
 

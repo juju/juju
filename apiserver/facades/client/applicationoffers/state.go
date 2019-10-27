@@ -11,6 +11,7 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -59,13 +60,16 @@ type Backend interface {
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
-	SpaceByID(string) (Space, error)
+	Space(string) (Space, error)
 	User(names.UserTag) (User, error)
 
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	UpdateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
 	RemoveOfferAccess(offer names.ApplicationOfferTag, user names.UserTag) error
 	GetOfferUsers(offerUUID string) (map[string]permission.Access, error)
+
+	// GetModelCallContext gets everything that is needed to make cloud calls on behalf of the state current model.
+	GetModelCallContext() context.ProviderCallContext
 }
 
 var GetStateAccess = func(st *state.State) Backend {
@@ -96,7 +100,7 @@ func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access
 	return s.st.GetOfferUsers(offerUUID)
 }
 
-func (s *stateShim) SpaceByID(id string) (Space, error) {
+func (s *stateShim) Space(id string) (Space, error) {
 	sp, err := s.st.Space(id)
 	return &spaceShim{sp}, err
 }
@@ -104,6 +108,10 @@ func (s *stateShim) SpaceByID(id string) (Space, error) {
 func (s *stateShim) Model() (Model, error) {
 	m, err := s.st.Model()
 	return &modelShim{m}, err
+}
+
+func (s *stateShim) GetModelCallContext() context.ProviderCallContext {
+	return state.CallContext(s.st)
 }
 
 type stateCharmShim struct {
