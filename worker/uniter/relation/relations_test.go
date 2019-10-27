@@ -456,7 +456,7 @@ func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
 	}
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
-			1: remotestate.RelationSnapshot{
+			1: {
 				Life:      params.Alive,
 				Suspended: false,
 				Members: map[string]int64{
