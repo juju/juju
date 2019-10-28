@@ -30,7 +30,7 @@ $ sudo apt install python-simplestreams
   * **JUJU_REPOSITORY**: The directory containing the local dummy charms. You can use '\<juju root\>/acceptancetests/repository'.
 
 ### Quick run using `access.py`
-`access.py` encapsulate the mucking of yaml and env vars which can be further seen below, by setting some sane defaults 
+`access.py` encapsulate the creating of yaml and env vars which can be further seen below, by setting some sane defaults 
 which you have to set yourself else.
 
 Defaults currently are:  `(lxd, bionic, tempdir..)`. Those can be changed during each run by setting the respective parameter.
