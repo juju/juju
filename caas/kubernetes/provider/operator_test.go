@@ -352,7 +352,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "test-operator-config",
-			Labels: map[string]string{"juju-app": "test", "juju-model": "test"},
+			Labels: map[string]string{"juju-app": "test"},
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
@@ -459,7 +459,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   "test-operator-config",
-			Labels: map[string]string{"juju-app": "test", "juju-model": "test"},
+			Labels: map[string]string{"juju-app": "test"},
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",

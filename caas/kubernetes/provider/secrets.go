@@ -20,7 +20,6 @@ import (
 func (k *kubernetesClient) getSecretLabels(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
-		labelModel:       k.namespace,
 	}
 }
 
