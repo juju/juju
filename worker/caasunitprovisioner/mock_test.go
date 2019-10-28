@@ -121,6 +121,9 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 
 func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
 	m.MethodCall(m, "Operator", appName)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
 	return &caas.Operator{
 		Dying: false,
 		Status: status.StatusInfo{

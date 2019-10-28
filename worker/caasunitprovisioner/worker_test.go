@@ -684,6 +684,23 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
 	s.containerBroker.ResetCalls()
 
+	// Initial event
+	s.containerBroker.SetErrors(errors.NotFoundf("gitlab"))
+	select {
+	case s.caasOperatorChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+	s.statusSetter.CheckNoCalls(c)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "Operator")
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	s.containerBroker.ResetCalls()
+
 	select {
 	case s.caasOperatorChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
