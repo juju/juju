@@ -331,7 +331,7 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "app-name-test-secret",
 			Namespace:   "test",
-			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:      map[string]string{"juju-app": "app-name"},
 			Annotations: annotations,
 		},
 		Type: "kubernetes.io/dockerconfigjson",
@@ -759,19 +759,19 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		// delete secrets.
 		s.mockSecrets.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 
 		// delete configmaps.
 		s.mockConfigMaps.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
@@ -779,7 +779,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockClusterRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
@@ -787,7 +787,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, nil),
@@ -1009,7 +1009,7 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myData",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Data: map[string]string{
 			"foo":   "bar",
@@ -1020,7 +1020,7 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Type: core.SecretTypeOpaque,
 		StringData: map[string]string{
@@ -1042,7 +1042,7 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "another-build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: secrets2Data,
@@ -1201,7 +1201,7 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "myData",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Data: map[string]string{
 			"foo":   "bar",
@@ -1212,7 +1212,7 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Type: core.SecretTypeOpaque,
 		StringData: map[string]string{
@@ -1234,7 +1234,7 @@ password: shhhh`[1:],
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "another-build-robot-secret",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: secrets2Data,
@@ -1248,7 +1248,7 @@ password: shhhh`[1:],
 		// ensure configmaps.
 		s.mockConfigMaps.EXPECT().Create(cm).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*cm}}, nil),
 		s.mockConfigMaps.EXPECT().Update(cm).
 			Return(cm, nil),
@@ -1256,13 +1256,13 @@ password: shhhh`[1:],
 		// ensure secrets.
 		s.mockSecrets.EXPECT().Create(secrets1).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&core.SecretList{Items: []core.Secret{*secrets1}}, nil),
 		s.mockSecrets.EXPECT().Update(secrets1).
 			Return(secrets1, nil),
 		s.mockSecrets.EXPECT().Create(secrets2).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&core.SecretList{Items: []core.Secret{*secrets2}}, nil),
 		s.mockSecrets.EXPECT().Update(secrets2).
 			Return(secrets2, nil),
@@ -1885,7 +1885,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -1893,7 +1893,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -1907,7 +1907,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -1928,7 +1928,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
@@ -2031,7 +2031,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2039,7 +2039,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2053,7 +2053,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -2074,14 +2074,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Return(rb, nil),
@@ -2200,7 +2200,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2347,7 +2347,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2390,7 +2390,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Create(cr).Return(nil, s.k8sAlreadyExistsError()),
@@ -2534,7 +2534,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2542,7 +2542,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2556,7 +2556,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -2575,7 +2575,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "k8sRBAC1",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2583,7 +2583,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "k8sRBAC1",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2597,7 +2597,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "k8sRBAC1",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "k8sRBAC1",
@@ -2619,13 +2619,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount1).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(role1).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb1).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount2).Return(svcAccount2, nil),
 		s.mockRoles.EXPECT().Create(role2).Return(role2, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb2).Return(rb2, nil),
 
@@ -2759,7 +2759,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2767,7 +2767,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2781,7 +2781,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "app-name",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -2800,7 +2800,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 		ObjectMeta: v1.ObjectMeta{
 			Name:      "k8sRBAC1",
 			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Labels:    map[string]string{"juju-app": "app-name"},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2854,7 +2854,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount1).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(role1).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb1).Return(rb1, nil),
 
