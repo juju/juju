@@ -1291,7 +1291,7 @@ func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers [
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if _, err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
