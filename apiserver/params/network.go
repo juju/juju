@@ -825,9 +825,14 @@ type NetworkInfoResultsV6 struct {
 
 // NetworkInfoParams holds a name of the unit and list of bindings for which we want to get NetworkInfos.
 type NetworkInfoParams struct {
-	Unit       string   `json:"unit"`
-	RelationId *int     `json:"relation-id,omitempty"`
-	Endpoints  []string `json:"bindings"`
+	Unit       string `json:"unit"`
+	RelationId *int   `json:"relation-id,omitempty"`
+	// TODO (manadart 2019-10-28): The name of this member was changed to
+	// better indicate what it is, but the encoded name was left as-is to
+	// avoid the need for facade schema regeneration.
+	// Change it to "endpoints" if bumping the facade version for another
+	// purpose.
+	Endpoints []string `json:"bindings"`
 }
 
 // FanConfigEntry holds configuration for a single fan.

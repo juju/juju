@@ -871,7 +871,7 @@ func Validate(c Config) error {
 	}
 
 	if v, ok := c[ControllerAPIPort].(int); ok {
-		// TODO: change the validation so 0 is invalide and --reset is used.
+		// TODO: change the validation so 0 is invalid and --reset is used.
 		// However that doesn't exist yet.
 		if v < 0 {
 			return errors.NotValidf("non-positive integer for controller-api-port")
