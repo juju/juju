@@ -23,6 +23,7 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -177,9 +178,20 @@ func InitializeState(
 		}
 	}
 
+	// Verify model config DefaultSpace exists now that
+	// spaces have been loaded.
+	if err := verifyModelConfigDefaultSpace(st); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Now that we have spaces loaded, verify spaces in
+	// the controller config.
+	if err := maybeUpdateControllerConfigSpaces(st); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-
 	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, err
 	}
@@ -242,6 +254,45 @@ func InitializeState(
 		return nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, nil
+}
+
+func verifyModelConfigDefaultSpace(st *state.State) error {
+	m, err := st.Model()
+	if err != nil {
+		return err
+	}
+	mCfg, err := m.Config()
+	if err != nil {
+		return err
+	}
+	name := mCfg.DefaultSpace()
+
+	_, err = st.SpaceByName(name)
+	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpace)
+}
+
+// maybeUpdateControllerConfigSpaces sets the JujuHASpace and
+// JujuManagementSpace to the DefaultSpaceName if either is
+// an empty string.
+//
+// TODO (hml) 2019-10-28
+// Is changing the default values of JujuHASpace and JujuManagementSpace
+// to corenetwork.DefaultSpaceName a better idea.
+func maybeUpdateControllerConfigSpaces(st *state.State) error {
+	ctrlCg, err := st.ControllerConfig()
+	if err != nil {
+		return err
+	}
+
+	spaceAttrs := make(map[string]interface{})
+	if ctrlCg.JujuHASpace() == "" {
+		spaceAttrs[controller.JujuHASpace] = corenetwork.DefaultSpaceName
+	}
+	if ctrlCg.JujuManagementSpace() == "" {
+		spaceAttrs[controller.JujuManagementSpace] = corenetwork.DefaultSpaceName
+	}
+
+	return st.UpdateControllerConfig(spaceAttrs, nil)
 }
 
 func getCloudCredentials(

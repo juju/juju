@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	jujucmd "github.com/juju/juju/cmd"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
@@ -285,14 +284,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	args.ControllerModelConfig = controllerModelCfg
 
-	ctrlConfig, err := ensureDefaultSpaces(args.ControllerConfig, controllerModelCfg.DefaultSpace())
-	if err != nil {
-		if err != nil {
-			return errors.Annotate(err, "failed to update model config")
-		}
-	}
-	args.ControllerConfig = ctrlConfig
-
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var controller *state.Controller
 	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
@@ -400,19 +391,6 @@ func getAddressesForMongo(
 		return nil, errors.Annotate(err, "getting bootstrap instance addresses")
 	}
 	return addrs, nil
-}
-
-// ensureDefaultSpaces sets, the JujuHASpace and JujuManagementSpace
-// to the same value as provided if either is an empty string.
-func ensureDefaultSpaces(cfg controller.Config, name string) (controller.Config, error) {
-	spaceAttrs := make(map[string]interface{})
-	if cfg.JujuHASpace() == "" {
-		spaceAttrs[controller.JujuHASpace] = name
-	}
-	if cfg.JujuManagementSpace() == "" {
-		spaceAttrs[controller.JujuManagementSpace] = name
-	}
-	return cfg.Apply(spaceAttrs)
 }
 
 func ensureKeys(

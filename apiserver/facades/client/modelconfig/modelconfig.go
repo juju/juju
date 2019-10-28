@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
+	"github.com/juju/juju/state"
 )
 
 // NewFacade is used for API registration.
@@ -141,18 +142,23 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 	if err := c.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
+
 	// Make sure we don't allow changing agent-version.
-	checkAgentVersion := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
-		if v, found := updateAttrs["agent-version"]; found {
-			oldVersion, _ := oldConfig.AgentVersion()
-			if v != oldVersion.String() {
-				return errors.New("agent-version cannot be changed")
-			}
-		}
-		return nil
-	}
+	checkAgentVersion := c.checkAgentVersion()
+
 	// Only controller admins can set trace level debugging on a model.
-	checkLogTrace := func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+	checkLogTrace := c.checkLogTrace()
+
+	// Make sure DefaultSpace exists.
+	checkDefaultSpace := c.checkDefaultSpace()
+
+	// Replace any deprecated attributes with their new values.
+	attrs := config.ProcessDeprecatedAttributes(args.Config)
+	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace, checkDefaultSpace)
+}
+
+func (c *ModelConfigAPI) checkLogTrace() state.ValidateConfigFunc {
+	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
 		spec, ok := updateAttrs["logging-config"]
 		if !ok {
 			return nil
@@ -181,10 +187,35 @@ func (c *ModelConfigAPI) ModelSet(args params.ModelSet) error {
 		}
 		return nil
 	}
+}
 
-	// Replace any deprecated attributes with their new values.
-	attrs := config.ProcessDeprecatedAttributes(args.Config)
-	return c.backend.UpdateModelConfig(attrs, nil, checkAgentVersion, checkLogTrace)
+func (c *ModelConfigAPI) checkAgentVersion() state.ValidateConfigFunc {
+	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		if v, found := updateAttrs["agent-version"]; found {
+			oldVersion, _ := oldConfig.AgentVersion()
+			if v != oldVersion.String() {
+				return errors.New("agent-version cannot be changed")
+			}
+		}
+		return nil
+	}
+}
+
+func (c *ModelConfigAPI) checkDefaultSpace() state.ValidateConfigFunc {
+	return func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error {
+		v, ok := updateAttrs["default-space"]
+		if !ok {
+			return nil
+		}
+
+		// Has not run thru the config validator yet, make sure we
+		// have a string.
+		spaceName, ok := v.(string)
+		if !ok {
+			return errors.NotValidf("\"default-space\" is not a string")
+		}
+		return c.backend.SpaceByName(spaceName)
+	}
 }
 
 // ModelUnset implements the server-side part of the
