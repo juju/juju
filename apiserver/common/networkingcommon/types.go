@@ -142,13 +142,6 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	zones := subnet.AvailabilityZones()
 	status := subnet.Status()
 
-	var spaceTag string
-	if subnet.SpaceName() != "" {
-		// The BackingSubnet will be returning for client commands,
-		// thus the space name is appropriate here.
-		spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()
-	}
-
 	return params.Subnet{
 		CIDR:              cidr,
 		VLANTag:           vlantag,
@@ -156,7 +149,7 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 		ProviderNetworkId: string(providerNetworkid),
 		Zones:             zones,
 		Status:            status,
-		SpaceTag:          spaceTag,
+		SpaceTag:          names.NewSpaceTag(subnet.SpaceName()).String(),
 		Life:              params.Life(subnet.Life()),
 	}
 }

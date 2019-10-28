@@ -191,24 +191,20 @@ func (st *State) filterHostPortsForManagementSpace(
 		return nil, errors.Trace(err)
 	}
 
-	var hostPortsForAgents []network.SpaceHostPorts
-	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
-		sp, err := st.SpaceByName(mgmtSpace)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		spaceInfo := sp.NetworkSpace()
+	mgmtSpace := config.JujuManagementSpace()
+	sp, err := st.SpaceByName(mgmtSpace)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	spaceInfo := sp.NetworkSpace()
 
-		hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
-		for i := range apiHostPorts {
-			if filtered, ok := apiHostPorts[i].InSpaces(spaceInfo); ok {
-				hostPortsForAgents[i] = filtered
-			} else {
-				hostPortsForAgents[i] = apiHostPorts[i]
-			}
+	hostPortsForAgents := make([]network.SpaceHostPorts, len(apiHostPorts))
+	for i := range apiHostPorts {
+		if filtered, ok := apiHostPorts[i].InSpaces(spaceInfo); ok {
+			hostPortsForAgents[i] = filtered
+		} else {
+			hostPortsForAgents[i] = apiHostPorts[i]
 		}
-	} else {
-		hostPortsForAgents = apiHostPorts
 	}
 
 	return hostPortsForAgents, nil

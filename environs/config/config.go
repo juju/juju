@@ -242,6 +242,8 @@ const (
 	// list will be comma separated.
 	ContainerInheritPropertiesKey = "container-inherit-properties"
 
+	// TODO (hml) 2019-10-28
+	// Should we rename to default-endpoint-space?
 	// DefaultSpace is the key to specify the name of the default space.
 	DefaultSpace = "default-space"
 
