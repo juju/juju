@@ -1046,9 +1046,9 @@ func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
 		return nil, errors.Errorf("%q endpoint is not globally scoped", ep.Name)
 	}
 	rsw := watchRelationScope(r.st, r.globalScope(), ep.Role, "")
-	appSettingsDocID := relationApplicationSettingsKey(r.Id(), appName)
-	logger.Criticalf("Relation.WatchUnits(%q) watching: %q", appName, appSettingsDocID)
-	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsDocID}), nil
+	appSettingsKey := relationApplicationSettingsKey(r.Id(), appName)
+	logger.Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
+	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsKey}), nil
 }
 
 func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher, appSettingsKeys []string) RelationUnitsWatcher {
@@ -1099,7 +1099,7 @@ func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationU
 	if err := w.watcher.WatchMulti(settingsC, idsAsInterface, w.appUpdates); err != nil {
 		return errors.Trace(err)
 	}
-	// WatchMulti does *not* fire an initial event, it just starts the watch, which
+	// WatchMulti (as a raw DB watcher) does *not* fire an initial event, it just starts the watch, which
 	// you then use to know you can read the database without missing updates.
 	for _, key := range w.appSettingsKeys {
 		if err := w.mergeAppSettings(changes, key); err != nil {
@@ -1204,10 +1204,14 @@ func (w *relationUnitsWatcher) finish() {
 
 func (w *relationUnitsWatcher) loop() (err error) {
 	var (
-		sentInitial bool
-		changes     params.RelationUnitsChange
-		out         chan<- params.RelationUnitsChange
+		gotInitialScopeWatcher bool
+		sentInitial            bool
+		changes                params.RelationUnitsChange
+		out                    chan<- params.RelationUnitsChange
 	)
+	// Note that w.ScopeWatcher *does* trigger an initial event, while
+	// WatchMulti from raw document watchers does *not*. (raw database watchers
+	// don't send initial events, logical watchers built on top of them do.)
 	if err := w.watchRelatedAppSettings(&changes); err != nil {
 		return errors.Trace(err)
 	}
@@ -1221,36 +1225,43 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				return watcher.EnsureErr(w.sw)
 			}
+			gotInitialScopeWatcher = true
+			w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
 			}
 			if !sentInitial || !emptyRelationUnitsChanges(&changes) {
 				out = w.out
 			} else {
+				// If we get a change that negates a previous change, cancel the event
 				out = nil
 			}
 		case c := <-w.updates:
 			id, ok := c.Id.(string)
 			if !ok {
-				w.logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
+				w.logger.Warningf("relationUnitsWatcher %q ignoring bad relation scope id: %#v", w.sw.prefix, c.Id)
 				continue
 			}
 			w.logger.Tracef("relationUnitsWatcher %q relation update %q", w.sw.prefix, id)
 			if err := w.mergeSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
-			out = w.out
+			if gotInitialScopeWatcher && !emptyRelationUnitsChanges(&changes) {
+				out = w.out
+			}
 		case c := <-w.appUpdates:
 			id, ok := c.Id.(string)
 			if !ok {
-				w.logger.Warningf("ignoring bad application settings id: %#v", c.Id)
+				w.logger.Warningf("relationUnitsWatcher %q ignoring bad application settings id: %#v", w.sw.prefix, c.Id)
 				continue
 			}
 			w.logger.Tracef("relationUnitsWatcher %q app settings update %q", w.sw.prefix, id)
 			if err := w.mergeAppSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
-			out = w.out
+			if gotInitialScopeWatcher && (!sentInitial || !emptyRelationUnitsChanges(&changes)) {
+				out = w.out
+			}
 		case out <- changes:
 			w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			sentInitial = true

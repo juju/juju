@@ -1622,6 +1622,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	}
 	mysql0 := addUnit(mysql)
 	wordpress0 := addUnit(wordpress)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	wordpressWatcher, err := rel.WatchUnits("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1637,6 +1638,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	changeSettings(c, mysql0)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 
+	c.Logf("watching just mysql")
 	mysqlWatcher, err := rel.WatchUnits("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	defer testing.AssertStop(c, mysqlWatcher)

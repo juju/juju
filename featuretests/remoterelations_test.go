@@ -140,6 +140,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	w, err := s.client.WatchLocalRelationUnits(rel.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
