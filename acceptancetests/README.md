@@ -29,6 +29,34 @@ $ sudo apt install python-simplestreams
      * Create a **JUJU_DATA** dir for use for the duration of the test. The directory is created in: $JUJU_HOME/juju-homes/.
   * **JUJU_REPOSITORY**: The directory containing the local dummy charms. You can use '\<juju root\>/acceptancetests/repository'.
 
+### Quick run using `access.py`
+`access.py` encapsulate the mucking of yaml and env vars which can be further seen below, by setting some sane defaults 
+which you have to set yourself else.
+
+Defaults currently are:  `(lxd, bionic, tempdir..)`. Those can be changed during each run by setting the respective parameter.
+
+
+To run `assess_min_version.py` test locally with lxd and locally compiled juju:
+```shell script
+cd $GOPATH/src/github.com/juju/juju/acceptancetests
+./assess min_version
+```
+
+To run the same above in `aws` instead of `lxd`:
+
+```shell script
+./assess --substrate=aws upgrade
+```
+
+
+The script is parameter-rich and should be able to accept any tweaks that you want to make to its defaults:
+
+`./assess -h`
+
+Further description can be found here in discourse:
+
+here: [discourse-link](https://discourse.jujucharms.com/t/call-for-testing-running-acceptance-tests-locally-and-easily/1449)
+and here: [discourse-link](https://discourse.jujucharms.com/t/wip-juju-acceptance-testing-primer/1482)
 
 ### Quick run using LXD
 To run a test locally with lxd and locally complied juju:
@@ -52,6 +80,8 @@ To run a test locally with lxd and locally complied juju:
   * Now you can run the test with:
      * ```$ ./assess_model_migration.py lxd . . .```
 
+Alternatively one can run: 
+` ./assess model_migration` which sets the environments with some defaults `(lxd, bionic, tempdir..)` and respective folders.
 ### Quick run using AWS
 
 See [(Use of environments.yaml below)](#envs) and [(Use of credentials.yaml below)](#envs-creds) for a full explanation of the files used here.
