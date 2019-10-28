@@ -33,6 +33,18 @@ TEST_NAMES="static_analysis \
             machine \
             smoke"
 
+# Show test suites, can be used to test if a test suite is available or not.
+show_test_suites() {
+    output=""
+    for test in ${TEST_NAMES}; do
+        name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
+        # shellcheck disable=SC2086
+        output="${output}\n${test}"
+    done
+    echo "${output}" | column -t -s "|"
+    exit 0
+}
+
 show_help() {
     version=$(juju version)
     echo ""
@@ -89,13 +101,16 @@ show_help() {
     echo "which is then copied into the artifact tar file on test cleanup):"
     echo ""
     echo "    $(green 'cmd -V -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
-    exit 0
+    exit 1
 }
 
-while getopts "h?:vVsaxrp" opt; do
+while getopts "hH?:vVsaxrp" opt; do
     case "${opt}" in
     h|\?)
         show_help
+        ;;
+    H)
+        show_test_suites
         ;;
     v)
         VERBOSE=2
