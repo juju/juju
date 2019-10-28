@@ -9,7 +9,7 @@ run_deploy_bundle() {
     wait_for "ubuntu" ".applications | keys[0]"
     wait_for "ubuntu-lite" ".applications | keys[1]"
 
-    destroy_model "test-cmr-bundles-deploy"
+    destroy_model "test-bundles-deploy"
 }
 
 run_deploy_cmr_bundle() {
@@ -27,7 +27,7 @@ run_deploy_cmr_bundle() {
 
     juju switch other
 
-    bundle=./tests/suites/cmr_bundles/bundles/cmr_bundles_test_deploy.yaml
+    bundle=./tests/suites/deploy/bundles/cmr_bundles_test_deploy.yaml
     sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
     juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 

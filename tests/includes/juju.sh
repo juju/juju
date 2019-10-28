@@ -180,8 +180,8 @@ destroy_model() {
     echo "${name}" | xargs -I % juju destroy-model --force -y % 2>&1 | add_date >"${output}"
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
-        printf "\\nFound some issues"
-        cat "${output}" | xargs echo -I % "\\n%"
+        printf "\\nFound some issues\\n"
+        cat "${output}"
         exit 1
     fi
     echo "====> Destroyed juju model ${name}"
@@ -220,8 +220,8 @@ destroy_controller() {
     echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % 2>&1 | add_date >"${output}"
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
-        printf "\\nFound some issues"
-        cat "${output}" | xargs echo -I % "\\n%"
+        printf "\\nFound some issues\\n"
+        cat "${output}"
         exit 1
     fi
     sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
