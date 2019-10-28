@@ -125,13 +125,12 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 }
 
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
-	context.SetEnvironmentHookContextRelation(
-		ctx, 22, "an-endpoint", "that-unit/456",
-	)
+	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app")
 	return []string{
 		"JUJU_RELATION=an-endpoint",
 		"JUJU_RELATION_ID=an-endpoint:22",
 		"JUJU_REMOTE_UNIT=that-unit/456",
+		"JUJU_REMOTE_APP=that-app",
 	}
 }
 

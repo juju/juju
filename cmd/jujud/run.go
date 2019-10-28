@@ -35,15 +35,16 @@ import (
 
 type RunCommand struct {
 	cmd.CommandBase
-	dataDir         string
-	MachineLock     machinelock.Lock
-	unit            names.UnitTag
-	commands        string
-	showHelp        bool
-	noContext       bool
-	forceRemoteUnit bool
-	relationId      string
-	remoteUnitName  string
+	dataDir               string
+	MachineLock           machinelock.Lock
+	unit                  names.UnitTag
+	commands              string
+	showHelp              bool
+	noContext             bool
+	forceRemoteUnit       bool
+	relationId            string
+	remoteUnitName        string
+	remoteApplicationName string
 }
 
 const runCommandDoc = `
@@ -78,6 +79,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.relationId, "r", "", "run the commands for a specific relation context on a unit")
 	f.StringVar(&c.relationId, "relation", "", "")
 	f.StringVar(&c.remoteUnitName, "remote-unit", "", "run the commands for a specific remote unit in a relation context on a unit")
+	f.StringVar(&c.remoteApplicationName, "remote-app", "", "run the commands for a specific remote application in a relation context on a unit")
 	f.BoolVar(&c.forceRemoteUnit, "force-remote-unit", false, "run the commands for a specific relation context, bypassing the remote unit check")
 }
 
@@ -113,6 +115,18 @@ func (c *RunCommand) Init(args []string) error {
 				}
 			}
 		}
+	}
+	// if remoteApplication wasn't set but remoteUnit was, infer the remoteApplication
+	if c.remoteApplicationName == "" && c.remoteUnitName != "" {
+		// Note: the positional argument is allowed to be a unit name (unit/0) or a unit tag (unit-name-0)
+		// However, when I tested, the remoteUnit must always be a name (unit/0).
+		// TODO(jam): 2019-10-24 We could support remote unit name being a tag, but it doesn't seem necessary.
+		//  The environment variable is a name anyway.
+		appName, err := names.UnitApplication(c.remoteUnitName)
+		if err != nil {
+			return errors.Annotatef(err, "remoteUnit %q is not a valid unit name", c.remoteUnitName)
+		}
+		c.remoteApplicationName = appName
 	}
 	if len(args) < 1 {
 		return fmt.Errorf("missing commands")
@@ -218,6 +232,10 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 		return nil, errors.Errorf("remote unit: %s, provided without a relation", c.remoteUnitName)
 	}
 
+	if len(c.remoteApplicationName) > 0 && relationId == -1 {
+		return nil, errors.Errorf("remote app: %s, provided without a relation", c.remoteApplicationName)
+	}
+
 	// juju-run on k8s uses an operator yaml file
 	infoFilePath := filepath.Join(unitDir, caas.OperatorClientInfoFile)
 	infoFileBytes, err := ioutil.ReadFile(infoFilePath)
@@ -246,11 +264,12 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 
 	var result exec.ExecResponse
 	args := uniter.RunCommandsArgs{
-		Commands:        c.commands,
-		RelationId:      relationId,
-		UnitName:        c.unit.Id(),
-		RemoteUnitName:  c.remoteUnitName,
-		ForceRemoteUnit: c.forceRemoteUnit,
+		Commands:              c.commands,
+		RelationId:            relationId,
+		UnitName:              c.unit.Id(),
+		RemoteUnitName:        c.remoteUnitName,
+		RemoteApplicationName: c.remoteApplicationName,
+		ForceRemoteUnit:       c.forceRemoteUnit,
 	}
 	if operatorClientInfo != nil {
 		args.Token = operatorClientInfo.Token

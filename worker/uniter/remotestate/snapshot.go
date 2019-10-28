@@ -97,6 +97,9 @@ type RelationSnapshot struct {
 
 	// Members tracks the Change version of each member's data bag
 	Members map[string]int64
+
+	// ApplicationMembers tracks the Change version of each member's application data bag
+	ApplicationMembers map[string]int64
 }
 
 // StorageSnapshot has information relating to a storage

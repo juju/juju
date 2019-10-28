@@ -340,7 +340,10 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 				Life:      params.Alive,
 				Suspended: false,
 				Members: map[string]int64{
-					"wordpress": 1,
+					"wordpress/0": 1,
+				},
+				ApplicationMembers: map[string]int64{
+					"wordpress": 0,
 				},
 			},
 		},
@@ -349,9 +352,8 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, 9)
-	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit with relation 1")
+	c.Assert(op.String(), gc.Equals, "run hook relation-joined on unit wordpress/0 with relation 1")
 
-	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	err = r.CommitHook(op.(*mockOperation).hookInfo)
@@ -384,7 +386,7 @@ func (s *relationsSuite) assertHookRelationChanged(
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore)
-	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit with relation 1")
+	c.Assert(op.String(), gc.Equals, "run hook relation-changed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
@@ -412,7 +414,7 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 		Life:      params.Alive,
 		Suspended: false,
 		Members: map[string]int64{
-			"wordpress": 2,
+			"wordpress/0": 2,
 		},
 	}, &numCalls)
 
@@ -425,9 +427,53 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
 		Life: params.Alive,
 		Members: map[string]int64{
-			"wordpress": 1,
+			"wordpress/0": 1,
 		},
 	}, &numCalls)
+}
+
+func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
+	var numCalls int32
+	apiCalls := relationJoinedAPICalls()
+	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
+
+	// There will be an initial relation-changed regardless of
+	// members, due to the "changed pending" local persistent
+	// state.
+	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
+		Life:      params.Alive,
+		Suspended: false,
+	}, &numCalls)
+
+	// wordpress app starts at 0, changing to 1 should trigger a
+	// relation-changed hook for the app. We also leave wordpress/0 at 1 so that
+	// it doesn't trigger relation-departed or relation-changed.
+	numCallsBefore := numCalls
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	remoteState := remotestate.Snapshot{
+		Relations: map[int]remotestate.RelationSnapshot{
+			1: {
+				Life:      params.Alive,
+				Suspended: false,
+				Members: map[string]int64{
+					"wordpress/0": 1,
+				},
+				ApplicationMembers: map[string]int64{
+					"wordpress": 1,
+				},
+			},
+		},
+	}
+	relationsResolver := relation.NewRelationsResolver(r)
+	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, jc.ErrorIsNil)
+	// No new calls
+	assertNumCalls(c, &numCalls, numCallsBefore)
+	c.Assert(op.String(), gc.Equals, "run hook relation-changed on app wordpress with relation 1")
 }
 
 func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
@@ -464,7 +510,7 @@ func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, numCallsBefore)
-	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
+	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 }
 
 func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
@@ -485,7 +531,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 			1: {
 				Life: params.Dying,
 				Members: map[string]int64{
-					"wordpress": 1,
+					"wordpress/0": 1,
 				},
 			},
 		},
@@ -494,7 +540,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, numCalls, numCallsBefore)
-	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit with relation 1")
+	c.Assert(op.String(), gc.Equals, "run hook relation-departed on unit wordpress/0 with relation 1")
 
 	// Commit the operation so we save local state for any next operation.
 	_, err = r.PrepareHook(op.(*mockOperation).hookInfo)
@@ -533,7 +579,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 9)
-	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
+	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
 }
 
 func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
@@ -559,7 +605,7 @@ func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	op, err := relationsResolver.NextOp(localState, remoteState, &mockOperations{})
 	c.Assert(err, jc.ErrorIsNil)
 	assertNumCalls(c, &numCalls, 9)
-	c.Assert(op.String(), gc.Equals, "run hook relation-broken on unit with relation 1")
+	c.Assert(op.String(), gc.Equals, "run hook relation-broken with relation 1")
 }
 
 func (s *relationsSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
@@ -605,7 +651,7 @@ func (s *relationsSuite) TestCommitHook(c *gc.C) {
 	apiCalls = append(apiCalls,
 		uniterAPICall("LeaveScope", relationUnits, params.ErrorResults{Results: []params.ErrorResult{{}}}, nil),
 	)
-	stateFile := filepath.Join(s.relationsDir, "1", "wordpress")
+	stateFile := filepath.Join(s.relationsDir, "1", "wordpress-0")
 	c.Assert(stateFile, jc.DoesNotExist)
 	r := s.assertHookRelationJoined(c, &numCalls, apiCalls...)
 
@@ -614,10 +660,11 @@ func (s *relationsSuite) TestCommitHook(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "change-version: 1\nchanged-pending: true\n")
 
 	err = r.CommitHook(hook.Info{
-		Kind:          hooks.RelationChanged,
-		RemoteUnit:    "wordpress",
-		RelationId:    1,
-		ChangeVersion: 2,
+		Kind:              hooks.RelationChanged,
+		RemoteUnit:        "wordpress-0",
+		RemoteApplication: "wordpress",
+		RelationId:        1,
+		ChangeVersion:     2,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	data, err = ioutil.ReadFile(stateFile)
@@ -625,9 +672,10 @@ func (s *relationsSuite) TestCommitHook(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "change-version: 2\n")
 
 	err = r.CommitHook(hook.Info{
-		Kind:       hooks.RelationDeparted,
-		RemoteUnit: "wordpress",
-		RelationId: 1,
+		Kind:              hooks.RelationDeparted,
+		RemoteUnit:        "wordpress-0",
+		RemoteApplication: "wordpress",
+		RelationId:        1,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stateFile, jc.DoesNotExist)

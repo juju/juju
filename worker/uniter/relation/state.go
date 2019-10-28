@@ -29,6 +29,10 @@ type State struct {
 	// for which a hook.Info was delivered on the output channel.
 	Members map[string]int64
 
+	// ApplicationMembers is a map from application name to the last change
+	// version for which a hook.Info was delivered
+	ApplicationMembers map[string]int64
+
 	// ChangedPending indicates that a "relation-changed" hook for the given
 	// unit name must be the first hook.Info to be sent to the output channel.
 	ChangedPending string
@@ -41,9 +45,15 @@ func (s *State) copy() *State {
 		ChangedPending: s.ChangedPending,
 	}
 	if s.Members != nil {
-		copy.Members = map[string]int64{}
+		copy.Members = make(map[string]int64, len(s.Members))
 		for m, v := range s.Members {
 			copy.Members[m] = v
+		}
+	}
+	if s.ApplicationMembers != nil {
+		copy.ApplicationMembers = make(map[string]int64, len(s.ApplicationMembers))
+		for m, v := range s.ApplicationMembers {
+			copy.ApplicationMembers[m] = v
 		}
 	}
 	return copy
@@ -61,7 +71,13 @@ func (s *State) Validate(hi hook.Info) (err error) {
 	if s.Members == nil {
 		return fmt.Errorf(`relation is broken and cannot be changed further`)
 	}
+	/// app := hi.RemoteApplication
 	unit, kind := hi.RemoteUnit, hi.Kind
+	// TODO(jam): 2019-10-22 I think this is the correct thing to do, but right
+	//  now it breaks a lot of tests, so I want to bring it in incrementally
+	/// if app == "" {
+	/// 	return fmt.Errorf(`hook %v triggered for unit %q but application not set`, kind, unit)
+	/// }
 	if kind == hooks.RelationBroken {
 		if len(s.Members) == 0 {
 			return nil
@@ -69,13 +85,25 @@ func (s *State) Validate(hi hook.Info) (err error) {
 		return fmt.Errorf(`cannot run "relation-broken" while units still present`)
 	}
 	if s.ChangedPending != "" {
+		// ChangedPending doesn't take an Application name, because it is
+		// triggered when a unit joins so that immediately after relation-joined
+		// we trigger relation-changed for the same unit.
 		if unit != s.ChangedPending || kind != hooks.RelationChanged {
 			return fmt.Errorf(`expected "relation-changed" for %q`, s.ChangedPending)
 		}
-	} else if _, joined := s.Members[unit]; joined && kind == hooks.RelationJoined {
-		return fmt.Errorf("unit already joined")
-	} else if !joined && kind != hooks.RelationJoined {
-		return fmt.Errorf("unit has not joined")
+	} else {
+		/// if _, found := s.ApplicationMembers[app]; !found {
+		/// 	return fmt.Errorf("unit %v hook triggered %v without corresponding app: %v", unit, kind, app)
+		/// }
+		if unit == "" {
+			// This should be an app hook
+		} else {
+			if _, joined := s.Members[unit]; joined && kind == hooks.RelationJoined {
+				return fmt.Errorf("unit already joined")
+			} else if !joined && kind != hooks.RelationJoined {
+				return fmt.Errorf("unit has not joined")
+			}
+		}
 	}
 	return nil
 }
@@ -104,7 +132,12 @@ func (d *StateDir) State() *State {
 func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 	d = &StateDir{
 		filepath.Join(dirPath, strconv.Itoa(relationId)),
-		State{relationId, map[string]int64{}, ""},
+		State{
+			RelationId:         relationId,
+			Members:            map[string]int64{},
+			ApplicationMembers: map[string]int64{},
+			ChangedPending:     "",
+		},
 	}
 	defer errors.DeferredAnnotatef(&err, "cannot load relation state from %q", d.path)
 	if _, err := os.Stat(d.path); os.IsNotExist(err) {
@@ -126,10 +159,17 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 		}
 		svcName := name[:i]
 		unitId := name[i+1:]
-		if _, err := strconv.Atoi(unitId); err != nil {
-			continue
+		isApp := false
+		unitOrAppName := ""
+		if unitId == "app" {
+			isApp = true
+			unitOrAppName = svcName
+		} else {
+			if _, err := strconv.Atoi(unitId); err != nil {
+				continue
+			}
+			unitOrAppName = svcName + "/" + unitId
 		}
-		unitName := svcName + "/" + unitId
 		var info diskInfo
 		if err = utils.ReadYaml(filepath.Join(d.path, name), &info); err != nil {
 			return nil, fmt.Errorf("invalid unit file %q: %v", name, err)
@@ -137,12 +177,16 @@ func ReadStateDir(dirPath string, relationId int) (d *StateDir, err error) {
 		if info.ChangeVersion == nil {
 			return nil, fmt.Errorf(`invalid unit file %q: "changed-version" not set`, name)
 		}
-		d.state.Members[unitName] = *info.ChangeVersion
+		if isApp {
+			d.state.ApplicationMembers[unitOrAppName] = *info.ChangeVersion
+		} else {
+			d.state.Members[unitOrAppName] = *info.ChangeVersion
+		}
 		if info.ChangedPending {
 			if d.state.ChangedPending != "" {
-				return nil, fmt.Errorf("%q and %q both have pending changed hooks", d.state.ChangedPending, unitName)
+				return nil, fmt.Errorf("%q and %q both have pending changed hooks", d.state.ChangedPending, unitOrAppName)
 			}
-			d.state.ChangedPending = unitName
+			d.state.ChangedPending = unitOrAppName
 		}
 	}
 	return d, nil
@@ -200,13 +244,22 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 		return d.Remove()
 	}
 	name := strings.Replace(hi.RemoteUnit, "/", "-", 1)
+	isApp := false
+	if hi.RemoteUnit == "" {
+		isApp = true
+		name = hi.RemoteApplication + "-app"
+	}
 	path := filepath.Join(d.path, name)
 	if hi.Kind == hooks.RelationDeparted {
 		if err = os.Remove(path); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 		// If atomic delete succeeded, update own state.
-		delete(d.state.Members, hi.RemoteUnit)
+		if isApp {
+			delete(d.state.ApplicationMembers, hi.RemoteApplication)
+		} else {
+			delete(d.state.Members, hi.RemoteUnit)
+		}
 		return nil
 	}
 	di := diskInfo{&hi.ChangeVersion, hi.Kind == hooks.RelationJoined}
@@ -214,7 +267,11 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 		return err
 	}
 	// If write was successful, update own state.
-	d.state.Members[hi.RemoteUnit] = hi.ChangeVersion
+	if isApp {
+		d.state.ApplicationMembers[hi.RemoteApplication] = hi.ChangeVersion
+	} else {
+		d.state.Members[hi.RemoteUnit] = hi.ChangeVersion
+	}
 	if hi.Kind == hooks.RelationJoined {
 		d.state.ChangedPending = hi.RemoteUnit
 	} else {
@@ -225,11 +282,21 @@ func (d *StateDir) Write(hi hook.Info) (err error) {
 
 // Remove removes the directory if it exists and is empty.
 func (d *StateDir) Remove() error {
+	// Note(jam): 2019-10-22 os.Remove() requires the directory to be empty, but
+	//  we added "foo-app" but we won't call RelationDeparted for "foo" and thus won't
+	//  delete "foo-app". Instead, during relation-broken, we cleanup all related applications.
+	for appMember := range d.state.ApplicationMembers {
+		path := filepath.Join(d.path, appMember+"-app")
+		if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			return errors.Trace(err)
+		}
+	}
 	if err := os.Remove(d.path); err != nil && !os.IsNotExist(err) {
-		return err
+		return errors.Trace(err)
 	}
 	// If atomic delete succeeded, update own state.
 	d.state.Members = nil
+	d.state.ApplicationMembers = nil
 	return nil
 }
 

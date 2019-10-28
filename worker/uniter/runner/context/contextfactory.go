@@ -26,6 +26,7 @@ type CommandInfo struct {
 	RelationId int
 	// RemoteUnitName is the remote unit for the relation context.
 	RemoteUnitName string
+	// TODO(jam): 2019-10-23 Add RemoteApplicationName
 	// ForceRemoteUnit skips unit inference and existence validation.
 	ForceRemoteUnit bool
 }
@@ -212,8 +213,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 	if hookInfo.Kind.IsRelation() {
 		ctx.relationId = hookInfo.RelationId
 		ctx.remoteUnitName = hookInfo.RemoteUnit
-		// TODO(jam): 2019-10-03 implement remoteApplicationName
-		// ctx.remoteApplicationName = hookInfo.RemoteApplication
+		ctx.remoteApplicationName = hookInfo.RemoteApplication
 		relation, found := ctx.relations[hookInfo.RelationId]
 		if !found {
 			return nil, errors.Errorf("unknown relation id: %v", hookInfo.RelationId)
@@ -222,8 +222,9 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 			relation.cache.RemoveMember(hookInfo.RemoteUnit)
 		} else if hookInfo.RemoteUnit != "" {
 			// Clear remote settings cache for changing remote unit.
-			// TODO(jam): 2019-10-03 RemoteApplication
 			relation.cache.InvalidateMember(hookInfo.RemoteUnit)
+		} else if hookInfo.RemoteApplication != "" {
+			// relation.cache.InvalidateApplication(hookInfo.RemoteApplication)
 		}
 		hookName = fmt.Sprintf("%s-%s", relation.Name(), hookInfo.Kind)
 	}
@@ -248,6 +249,7 @@ func (f *contextFactory) CommandContext(commandInfo CommandInfo) (*HookContext, 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	// TODO(jam): 2019-10-24 Include remoteAppName
 	relationId, remoteUnitName, err := inferRemoteUnit(ctx.relations, commandInfo)
 	if err != nil {
 		return nil, errors.Trace(err)

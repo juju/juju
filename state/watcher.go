@@ -1010,48 +1010,57 @@ func (w *RelationScopeWatcher) loop() error {
 // to have entered.
 type relationUnitsWatcher struct {
 	commonWatcher
-	sw       *RelationScopeWatcher
-	watching set.Strings
-	updates  chan watcher.Change
-	out      chan params.RelationUnitsChange
+	sw              *RelationScopeWatcher
+	watching        set.Strings
+	updates         chan watcher.Change
+	appSettingsKeys []string
+	appUpdates      chan watcher.Change
+	out             chan params.RelationUnitsChange
+	logger          loggo.Logger
 }
 
-// Watch returns a watcher that notifies of changes to conterpart units in
+// Watch returns a watcher that notifies of changes to counterpart units in
 // the relation.
 func (ru *RelationUnit) Watch() RelationUnitsWatcher {
-	return newRelationUnitsWatcher(ru.st, ru.WatchScope())
+	// TODO(jam): 2019-10-21 passing in ru.counterpartApplicationSettingsKeys() feels wrong here.
+	//  we need *some* way to give the relation units watcher an idea of what actual
+	//  relation it is watching, not just the Scope of what units have/haven't entered.
+	//  However, we need the relation ID (which isn't currently passed), and
+	//  the application names to be passed. We could
+	//  a) pass in 'RelationUnit'
+	//  b) pass just the relation id and app names separately
+	//  c) filter on what enters scope to determine what 'apps' are connected,
+	//     but I was hoping to decouple app settings from scope.
+	return newRelationUnitsWatcher(ru.st, ru.WatchScope(), ru.counterpartApplicationSettingsKeys())
 }
 
 // WatchUnits returns a watcher that notifies of changes to the units of the
 // specified application endpoint in the relation. This method will return an error
 // if the endpoint is not globally scoped.
 func (r *Relation) WatchUnits(appName string) (RelationUnitsWatcher, error) {
-	return r.watchUnits(appName, false)
-}
-
-func (r *Relation) watchUnits(applicationName string, counterpart bool) (RelationUnitsWatcher, error) {
-	ep, err := r.Endpoint(applicationName)
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return nil, err
 	}
 	if ep.Scope != charm.ScopeGlobal {
 		return nil, errors.Errorf("%q endpoint is not globally scoped", ep.Name)
 	}
-	role := ep.Role
-	if counterpart {
-		role = counterpartRole(role)
-	}
-	rsw := watchRelationScope(r.st, r.globalScope(), role, "")
-	return newRelationUnitsWatcher(r.st, rsw), nil
+	rsw := watchRelationScope(r.st, r.globalScope(), ep.Role, "")
+	appSettingsKey := relationApplicationSettingsKey(r.Id(), appName)
+	logger.Tracef("Relation.WatchUnits(%q) watching: %q", appName, appSettingsKey)
+	return newRelationUnitsWatcher(r.st, rsw, []string{appSettingsKey}), nil
 }
 
-func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher) RelationUnitsWatcher {
+func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher, appSettingsKeys []string) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
-		commonWatcher: newCommonWatcher(backend),
-		sw:            sw,
-		watching:      make(set.Strings),
-		updates:       make(chan watcher.Change),
-		out:           make(chan params.RelationUnitsChange),
+		commonWatcher:   newCommonWatcher(backend),
+		sw:              sw,
+		appSettingsKeys: appSettingsKeys,
+		watching:        make(set.Strings),
+		updates:         make(chan watcher.Change),
+		appUpdates:      make(chan watcher.Change),
+		out:             make(chan params.RelationUnitsChange),
+		logger:          logger.Child("relationunits"),
 	}
 	w.tomb.Go(func() error {
 		defer w.finish()
@@ -1069,7 +1078,7 @@ func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
 }
 
 func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
-	return len(changes.Changed)+len(changes.Departed) == 0
+	return len(changes.Changed)+len(changes.AppChanged)+len(changes.Departed) == 0
 }
 
 func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key string, version int64) {
@@ -1081,20 +1090,52 @@ func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key strin
 	changes.Changed[name] = settings
 }
 
+func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationUnitsChange) error {
+	idsAsInterface := make([]interface{}, len(w.appSettingsKeys))
+	for i, key := range w.appSettingsKeys {
+		idsAsInterface[i] = w.backend.docID(key)
+	}
+	w.logger.Tracef("relationUnitsWatcher %q watching app keys: %v", w.sw.prefix, w.appSettingsKeys)
+	if err := w.watcher.WatchMulti(settingsC, idsAsInterface, w.appUpdates); err != nil {
+		return errors.Trace(err)
+	}
+	// WatchMulti (as a raw DB watcher) does *not* fire an initial event, it just starts the watch, which
+	// you then use to know you can read the database without missing updates.
+	for _, key := range w.appSettingsKeys {
+		if err := w.mergeAppSettings(changes, key); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // mergeSettings reads the relation settings node for the unit with the
 // supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
 func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) error {
-	var doc struct {
-		TxnRevno int64 `bson:"txn-revno"`
-		Version  int64 `bson:"version"`
+	version, err := readSettingsDocVersion(w.backend.db(), settingsC, key)
+	if err != nil {
+		w.logger.Tracef("relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
+		return errors.Trace(err)
 	}
-	if err := readSettingsDocInto(w.backend.db(), settingsC, key, &doc); err != nil {
-		logger.Tracef("relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
-		return err
+	w.logger.Tracef("relationUnitsWatcher %q merging key %q version: %d", w.sw.prefix, key, version)
+	setRelationUnitChangeVersion(changes, key, version)
+	return nil
+}
+
+func (w *relationUnitsWatcher) mergeAppSettings(changes *params.RelationUnitsChange, key string) error {
+	version, err := readSettingsDocVersion(w.backend.db(), settingsC, key)
+	if err != nil {
+		w.logger.Tracef("relationUnitsWatcher %q merging app key %q (not found)", w.sw.prefix, key)
+		return errors.Trace(err)
 	}
-	logger.Tracef("relationUnitsWatcher %q merging key %q revno: %d version: %d", w.sw.prefix, key, doc.TxnRevno, doc.Version)
-	setRelationUnitChangeVersion(changes, key, doc.Version)
+	w.logger.Tracef("relationUnitsWatcher %q merging app key %q version: %d", w.sw.prefix, key, version)
+	if changes.AppChanged == nil {
+		changes.AppChanged = make(map[string]int64)
+	}
+	// This also works for appName
+	name := unitNameFromScopeKey(key)
+	changes.AppChanged[name] = version
 	return nil
 }
 
@@ -1108,7 +1149,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		docID := w.backend.docID(key)
 		docIds[i] = docID
 	}
-	logger.Tracef("relationUnitsWatcher %q watching newly entered: %v, and unwatching left %v", w.sw.prefix, c.Entered, c.Left)
+	w.logger.Tracef("relationUnitsWatcher %q watching newly entered: %v, and unwatching left %v", w.sw.prefix, c.Entered, c.Left)
 	if err := w.watcher.WatchMulti(settingsC, docIds, w.updates); err != nil {
 		return errors.Trace(err)
 	}
@@ -1132,7 +1173,7 @@ func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c
 		w.watcher.Unwatch(settingsC, docID, w.updates)
 		w.watching.Remove(docID)
 	}
-	logger.Tracef("relationUnitsWatcher %q Change updated to: %# v", w.sw.prefix, changes)
+	w.logger.Tracef("relationUnitsWatcher %q Change updated to: %# v", w.sw.prefix, changes)
 	return nil
 }
 
@@ -1152,17 +1193,28 @@ func (w *relationUnitsWatcher) finish() {
 	for _, watchedValue := range w.watching.Values() {
 		w.watcher.Unwatch(settingsC, watchedValue, w.updates)
 	}
+	for _, appKey := range w.appSettingsKeys {
+		docID := w.backend.docID(appKey)
+		w.watcher.Unwatch(settingsC, docID, w.appUpdates)
+	}
+	close(w.appUpdates)
 	close(w.updates)
 	close(w.out)
-	// w.tomb.Done()
 }
 
 func (w *relationUnitsWatcher) loop() (err error) {
 	var (
-		sentInitial bool
-		changes     params.RelationUnitsChange
-		out         chan<- params.RelationUnitsChange
+		gotInitialScopeWatcher bool
+		sentInitial            bool
+		changes                params.RelationUnitsChange
+		out                    chan<- params.RelationUnitsChange
 	)
+	// Note that w.ScopeWatcher *does* trigger an initial event, while
+	// WatchMulti from raw document watchers does *not*. (raw database watchers
+	// don't send initial events, logical watchers built on top of them do.)
+	if err := w.watchRelatedAppSettings(&changes); err != nil {
+		return errors.Trace(err)
+	}
 	for {
 		select {
 		case <-w.watcher.Dead():
@@ -1173,25 +1225,45 @@ func (w *relationUnitsWatcher) loop() (err error) {
 			if !ok {
 				return watcher.EnsureErr(w.sw)
 			}
+			gotInitialScopeWatcher = true
+			w.logger.Tracef("relationUnitsWatcher %q scope Changes(): %# v", w.sw.prefix, pretty.Formatter(c))
 			if err = w.mergeScope(&changes, c); err != nil {
 				return err
 			}
 			if !sentInitial || !emptyRelationUnitsChanges(&changes) {
 				out = w.out
 			} else {
+				// If we get a change that negates a previous change, cancel the event
 				out = nil
 			}
 		case c := <-w.updates:
 			id, ok := c.Id.(string)
 			if !ok {
-				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
+				w.logger.Warningf("relationUnitsWatcher %q ignoring bad relation scope id: %#v", w.sw.prefix, c.Id)
+				continue
 			}
+			w.logger.Tracef("relationUnitsWatcher %q relation update %q", w.sw.prefix, id)
 			if err := w.mergeSettings(&changes, id); err != nil {
 				return errors.Annotatef(err, "relation scope id %q", id)
 			}
-			out = w.out
+			if gotInitialScopeWatcher && !emptyRelationUnitsChanges(&changes) {
+				out = w.out
+			}
+		case c := <-w.appUpdates:
+			id, ok := c.Id.(string)
+			if !ok {
+				w.logger.Warningf("relationUnitsWatcher %q ignoring bad application settings id: %#v", w.sw.prefix, c.Id)
+				continue
+			}
+			w.logger.Tracef("relationUnitsWatcher %q app settings update %q", w.sw.prefix, id)
+			if err := w.mergeAppSettings(&changes, id); err != nil {
+				return errors.Annotatef(err, "relation scope id %q", id)
+			}
+			if gotInitialScopeWatcher && (!sentInitial || !emptyRelationUnitsChanges(&changes)) {
+				out = w.out
+			}
 		case out <- changes:
-			logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
+			w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			sentInitial = true
 			changes = params.RelationUnitsChange{}
 			out = nil

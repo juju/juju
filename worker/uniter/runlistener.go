@@ -40,6 +40,8 @@ type RunCommandsArgs struct {
 	RelationId int
 	// RemoteUnitName is the remote unit for the relation context.
 	RemoteUnitName string
+	// RemoteUnitName is the remote unit for the relation context.
+	RemoteApplicationName string
 	// ForceRemoteUnit skips relation membership and existence validation.
 	ForceRemoteUnit bool
 	// UnitName is the unit for which the command is being run.
@@ -307,9 +309,10 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 
 	id := c.config.Commands.AddCommand(
 		operation.CommandArgs{
-			Commands:        args.Commands,
-			RelationId:      args.RelationId,
-			RemoteUnitName:  args.RemoteUnitName,
+			Commands:       args.Commands,
+			RelationId:     args.RelationId,
+			RemoteUnitName: args.RemoteUnitName,
+			// TODO(jam): 2019-10-24 Include RemoteAppName
 			ForceRemoteUnit: args.ForceRemoteUnit,
 		},
 		responseFunc,

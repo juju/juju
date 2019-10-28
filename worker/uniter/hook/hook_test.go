@@ -26,11 +26,20 @@ var validateTests = []struct {
 		hook.Info{Kind: hooks.RelationJoined},
 		`"relation-joined" hook requires a remote unit`,
 	}, {
+		hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "foo/0"},
+		`"relation-joined" hook has a remote unit but no application`,
+	}, {
 		hook.Info{Kind: hooks.RelationChanged},
-		`"relation-changed" hook requires a remote unit`,
+		`"relation-changed" hook requires a remote unit or application`,
+	}, {
+		hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "foo/0"},
+		`"relation-changed" hook has a remote unit but no application`,
 	}, {
 		hook.Info{Kind: hooks.RelationDeparted},
 		`"relation-departed" hook requires a remote unit`,
+	}, {
+		hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "foo/0"},
+		`"relation-departed" hook has a remote unit but no application`,
 	}, {
 		hook.Info{Kind: hooks.Kind("grok")},
 		`unknown hook kind "grok"`,
@@ -43,9 +52,10 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Action}, "hooks.Kind Action is deprecated"},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},
-	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x"}, ""},
-	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x"}, ""},
-	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x/0", RemoteApplication: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x/0", RemoteApplication: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationChanged, RemoteApplication: "x"}, ""},
+	{hook.Info{Kind: hooks.RelationDeparted, RemoteUnit: "x/0", RemoteApplication: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationBroken}, ""},
 	{hook.Info{Kind: hooks.StorageAttached}, `invalid storage ID ""`},
 	{hook.Info{Kind: hooks.StorageAttached, StorageId: "data/0"}, ""},

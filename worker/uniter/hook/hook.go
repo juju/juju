@@ -31,8 +31,9 @@ type Info struct {
 	// set when Kind indicates a relation hook other than relation-broken.
 	RemoteUnit string `yaml:"remote-unit,omitempty"`
 
-	// TODO(jam): 2019-10-03 implement RemoteApplication
-	// RemoteApplication string `yaml:"remote-application,omitempty"`
+	// RemoteApplication is always set if either an app or a unit triggers the hook.
+	// If the app triggers the hook, then RemoteUnit will be empty
+	RemoteApplication string `yaml:"remote-application,omitempty"`
 
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
@@ -45,12 +46,23 @@ type Info struct {
 // Validate returns an error if the info is not valid.
 func (hi Info) Validate() error {
 	switch hi.Kind {
-	case hooks.RelationJoined, hooks.RelationChanged, hooks.RelationDeparted:
-		// TODO: RemoteApplication
+	case hooks.RelationChanged:
+		if hi.RemoteUnit == "" {
+			if hi.RemoteApplication == "" {
+				return fmt.Errorf("%q hook requires a remote unit or application", hi.Kind)
+			}
+		} else if hi.RemoteApplication == "" {
+			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
+		}
+		return nil
+	case hooks.RelationJoined, hooks.RelationDeparted:
 		if hi.RemoteUnit == "" {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
-		fallthrough
+		if hi.RemoteApplication == "" {
+			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
+		}
+		return nil
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,
 		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.PreSeriesUpgrade, hooks.PostSeriesUpgrade:
 		return nil

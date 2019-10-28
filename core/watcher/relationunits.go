@@ -16,6 +16,10 @@ type RelationUnitsChange struct {
 	// latest known settings version for each.
 	Changed map[string]UnitSettings
 
+	// AppChanged holds the latest known settings version for associated
+	// applications.
+	AppChanged map[string]int64
+
 	// Departed holds a set of units that have previously been reported to
 	// be in scope, but which no longer are.
 	Departed []string

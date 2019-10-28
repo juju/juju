@@ -73,6 +73,7 @@ type Application interface {
 
 type Relation interface {
 	Id() int
+	Tag() names.RelationTag
 	Life() params.Life
 	Suspended() bool
 	UpdateSuspended(bool)

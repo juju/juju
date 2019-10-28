@@ -6,7 +6,6 @@ package relation_test
 import (
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -21,7 +20,7 @@ import (
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	coretesting "github.com/juju/juju/testing"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )
@@ -118,40 +117,21 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
 	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 
-	// u/1 does not consider u/0 to be alive.
 	w := ru1.Watch()
+	// u/1 does not consider u/0 to be alive.
 	defer stop(c, w)
-	s.State.StartSync()
-	ch, ok := <-w.Changes()
-	c.Assert(ok, jc.IsTrue)
-	c.Assert(ch.Changed, gc.HasLen, 0)
-	c.Assert(ch.Departed, gc.HasLen, 0)
+	rc := statetesting.NewRelationUnitsWatcherC(c, s.State, w)
+	rc.AssertChange(nil, []string{"u"}, nil)
 
 	// u/0 enters scope; u/1 observes it.
 	err := r.Join()
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
-	select {
-	case ch, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(ch.Changed, gc.HasLen, 1)
-		_, found := ch.Changed["u/0"]
-		c.Assert(found, jc.IsTrue)
-		c.Assert(ch.Departed, gc.HasLen, 0)
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for presence detection")
-	}
+	rc.AssertChange([]string{"u/0"}, nil, nil)
 
 	// re-Join is no-op.
 	err = r.Join()
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(jam): This would be a great to replace with statetesting.NotifyWatcherC
-	s.State.StartSync()
-	select {
-	case ch, ok := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v, %#v", ch, ok)
-	case <-time.After(coretesting.ShortWait):
-	}
+	rc.AssertNoChange()
 
 	// u/0 leaves scope; u/1 observes it.
 	hi := hook.Info{Kind: hooks.RelationBroken}
@@ -160,15 +140,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 
 	err = r.CommitHook(hi)
 	c.Assert(err, jc.ErrorIsNil)
-	s.State.StartSync()
-	select {
-	case ch, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(ch.Changed, gc.HasLen, 0)
-		c.Assert(ch.Departed, gc.DeepEquals, []string{"u/0"})
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("timed out waiting for absence detection")
-	}
+	rc.AssertChange(nil, nil, []string{"u/0"})
 }
 
 func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
@@ -188,9 +160,10 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *gc.C) {
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
-		Kind:          hooks.RelationChanged,
-		RemoteUnit:    "u/1",
-		ChangeVersion: 7,
+		Kind:              hooks.RelationChanged,
+		RemoteUnit:        "u/1",
+		RemoteApplication: "u",
+		ChangeVersion:     7,
 	}
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, gc.ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)

@@ -70,6 +70,9 @@ func (opc *operationCallbacks) CommitHook(hi hook.Info) error {
 func notifyHook(hook string, ctx runner.Context, method func(string)) {
 	if r, err := ctx.HookRelation(); err == nil {
 		remote, _ := ctx.RemoteUnitName()
+		if remote == "" {
+			remote, _ = ctx.RemoteApplicationName()
+		}
 		if remote != "" {
 			remote = " " + remote
 		}

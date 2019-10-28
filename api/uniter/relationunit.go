@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/watcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -204,14 +203,4 @@ func (ru *RelationUnit) UpdateRelationSettings(unit, application params.Settings
 		return errors.Trace(err)
 	}
 	return nil
-}
-
-// Watch returns a watcher that notifies of changes to counterpart
-// units in the relation.
-func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
-	watcher, err := ru.st.WatchRelationUnits(ru.relation.tag, ru.unit.tag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return watcher, nil
 }

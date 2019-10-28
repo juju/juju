@@ -30,7 +30,7 @@ type RemoteStateWatcher struct {
 	unit                      Unit
 	application               Application
 	modelType                 model.ModelType
-	relations                 map[names.RelationTag]*relationUnitsWatcher
+	relations                 map[names.RelationTag]*wrappedRelationUnitsWatcher
 	relationUnitsChanges      chan relationUnitsChange
 	storageAttachmentWatchers map[names.StorageTag]*storageAttachmentWatcher
 	storageAttachmentChanges  chan storageAttachmentChange
@@ -75,7 +75,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 	}
 	w := &RemoteStateWatcher{
 		st:                        config.State,
-		relations:                 make(map[names.RelationTag]*relationUnitsWatcher),
+		relations:                 make(map[names.RelationTag]*wrappedRelationUnitsWatcher),
 		relationUnitsChanges:      make(chan relationUnitsChange),
 		storageAttachmentWatchers: make(map[names.StorageTag]*storageAttachmentWatcher),
 		storageAttachmentChanges:  make(chan storageAttachmentChange),
@@ -128,12 +128,16 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	snapshot.Relations = make(map[int]RelationSnapshot)
 	for id, relationSnapshot := range w.current.Relations {
 		relationSnapshotCopy := RelationSnapshot{
-			Life:      relationSnapshot.Life,
-			Suspended: relationSnapshot.Suspended,
-			Members:   make(map[string]int64),
+			Life:               relationSnapshot.Life,
+			Suspended:          relationSnapshot.Suspended,
+			Members:            make(map[string]int64),
+			ApplicationMembers: make(map[string]int64),
 		}
 		for name, version := range relationSnapshot.Members {
 			relationSnapshotCopy.Members[name] = version
+		}
+		for name, version := range relationSnapshot.ApplicationMembers {
+			relationSnapshotCopy.ApplicationMembers[name] = version
 		}
 		snapshot.Relations[id] = relationSnapshotCopy
 	}
@@ -690,60 +694,70 @@ func (w *RemoteStateWatcher) relationsChanged(keys []string) error {
 		} else if err != nil {
 			return errors.Trace(err)
 		} else {
-			if _, ok := w.relations[relationTag]; ok {
-				relationSnapshot := w.current.Relations[rel.Id()]
-				relationSnapshot.Life = rel.Life()
-				relationSnapshot.Suspended = rel.Suspended()
-				w.current.Relations[rel.Id()] = relationSnapshot
-				if rel.Suspended() {
-					// Relation has been suspended, so stop the listeners here.
-					// The relation itself is retained in the current relations
-					// in the suspended state so that departed/broken hooks can run.
-					if ruw, ok := w.relations[relationTag]; ok {
-						_ = worker.Stop(ruw)
-						delete(w.relations, relationTag)
-					}
-				}
-				continue
-			}
-			// If the relation is suspended, we don't need to watch it.
-			if rel.Suspended() {
-				continue
-			}
-			ruw, err := w.st.WatchRelationUnits(relationTag, w.unit.Tag())
-			// Deal with the race where the Relation call above returned
-			// a valid, perhaps dying relation, but by the time we ask to
-			// watch it, we get unauthorized because it is no longer around.
-			if params.IsCodeNotFoundOrCodeUnauthorized(err) {
-				continue
-			} else if err != nil {
-				return errors.Trace(err)
-			}
-			// Because of the delay before handing off responsibility to
-			// newRelationUnitsWatcher below, add to our own catacomb to
-			// ensure errors get picked up if they happen.
-			if err := w.catacomb.Add(ruw); err != nil {
-				return errors.Trace(err)
-			}
-			if err := w.watchRelationUnits(rel, relationTag, ruw); err != nil {
-				return errors.Trace(err)
-			}
+			w.ensureRelationUnits(rel)
 		}
 	}
 	return nil
 }
 
+func (w *RemoteStateWatcher) ensureRelationUnits(rel Relation) error {
+	relationTag := rel.Tag()
+	if _, ok := w.relations[relationTag]; ok {
+		// We're already watching this one, so just update life/suspension status
+		relationSnapshot := w.current.Relations[rel.Id()]
+		relationSnapshot.Life = rel.Life()
+		relationSnapshot.Suspended = rel.Suspended()
+		w.current.Relations[rel.Id()] = relationSnapshot
+		if rel.Suspended() {
+			// Relation has been suspended, so stop the listeners here.
+			// The relation itself is retained in the current relations
+			// in the suspended state so that departed/broken hooks can run.
+			if ruw, ok := w.relations[relationTag]; ok {
+				err := worker.Stop(ruw)
+				if err != nil {
+					// This was always silently ignored, so it can't be
+					// particularly useful, but avoid suppressing errors entirely.
+					logger.Debugf("error stopping relation watcher: %v", err)
+				}
+				delete(w.relations, relationTag)
+			}
+		}
+		return nil
+	}
+	// We weren't watching it already, but if the relation is suspended,
+	// we don't need to start watching it.
+	if rel.Suspended() {
+		return nil
+	}
+	return errors.Trace(w.watchRelationUnits(rel))
+}
+
 // watchRelationUnits starts watching the relation units for the given
 // relation, waits for its first event, and records the information in
 // the current snapshot.
-func (w *RemoteStateWatcher) watchRelationUnits(
-	rel Relation, relationTag names.RelationTag, ruw watcher.RelationUnitsWatcher,
-) error {
-	relationSnapshot := RelationSnapshot{
-		Life:      rel.Life(),
-		Suspended: rel.Suspended(),
-		Members:   make(map[string]int64),
+func (w *RemoteStateWatcher) watchRelationUnits(rel Relation) error {
+	ruw, err := w.st.WatchRelationUnits(rel.Tag(), w.unit.Tag())
+	// Deal with the race where Relation returned a valid, perhaps dying
+	// relation, but by the time we ask to watch it, we get unauthorized
+	// because it is no longer around.
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
+		return nil
+	} else if err != nil {
+		return errors.Trace(err)
 	}
+	// Because of the delay before handing off responsibility to
+	// wrapRelationUnitsWatcher below, add to our own catacomb to
+	// ensure errors get picked up if they happen.
+	if err := w.catacomb.Add(ruw); err != nil {
+		return errors.Trace(err)
+	}
+	relationSnapshot := RelationSnapshot{
+		Life:               rel.Life(),
+		Suspended:          rel.Suspended(),
+		Members:            make(map[string]int64),
+		ApplicationMembers: make(map[string]int64),
+	}
+	// Handle the first change to populate the Members map.
 	select {
 	case <-w.catacomb.Dying():
 		return w.catacomb.ErrDying()
@@ -754,8 +768,13 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 		for unit, settings := range change.Changed {
 			relationSnapshot.Members[unit] = settings.Version
 		}
+		for app, settingsVersion := range change.AppChanged {
+			relationSnapshot.ApplicationMembers[app] = settingsVersion
+		}
 	}
-	innerRUW, err := newRelationUnitsWatcher(rel.Id(), ruw, w.relationUnitsChanges)
+	// Wrap the Changes() with the relationId so we can process all changes
+	// via the same channel.
+	innerRUW, err := wrapRelationUnitsWatcher(rel.Id(), ruw, w.relationUnitsChanges)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -763,7 +782,7 @@ func (w *RemoteStateWatcher) watchRelationUnits(
 		return errors.Trace(err)
 	}
 	w.current.Relations[rel.Id()] = relationSnapshot
-	w.relations[relationTag] = innerRUW
+	w.relations[rel.Tag()] = innerRUW
 	return nil
 }
 
@@ -777,6 +796,9 @@ func (w *RemoteStateWatcher) relationUnitsChanged(change relationUnitsChange) er
 	}
 	for unit, settings := range change.Changed {
 		snapshot.Members[unit] = settings.Version
+	}
+	for app, settingsVersion := range change.AppChanged {
+		snapshot.ApplicationMembers[app] = settingsVersion
 	}
 	for _, unit := range change.Departed {
 		delete(snapshot.Members, unit)

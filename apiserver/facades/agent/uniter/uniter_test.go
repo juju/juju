@@ -2764,125 +2764,6 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestWatchRelationApplicationSettings(c *gc.C) {
-	s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	rel := s.addRelation(c, "wordpress", "mysql")
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, relUnit, true)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
-	args := params.RelationApplications{RelationApplications: []params.RelationApplication{{
-		Relation:    rel.Tag().String(),
-		Application: "application-logging",
-	}, {
-		Relation:    rel.Tag().String(),
-		Application: "unit-wordpress-0",
-	}, {
-		Relation:    rel.Tag().String(),
-		Application: "application-mysql",
-	}, {
-		Relation:    rel.Tag().String(),
-		Application: "application-wordpress",
-	}}}
-
-	result, err := s.uniter.WatchRelationApplicationSettings(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{NotifyWatcherId: "1"},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	// Set some application settings for mysql and check that we get a
-	// notification for it.
-	err = rel.UpdateApplicationSettings(s.mysql, &fakeToken{}, map[string]interface{}{
-		"problem thinker": "fireproof",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertOneChange()
-
-	// Check we don't get notified about a change to wordpress
-	// settings.
-	err = rel.UpdateApplicationSettings(s.wordpress, &fakeToken{}, map[string]interface{}{
-		"tent": "house",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-}
-
-func (s *uniterSuite) TestWatchRelationApplicationSettingsUnrelatedUnit(c *gc.C) {
-	logging := s.AddTestingApplication(c, "logging", s.AddTestingCharm(c, "logging"))
-	rel := s.addRelation(c, "logging", "mysql")
-
-	args := params.RelationApplications{
-		RelationApplications: []params.RelationApplication{{
-			Relation:    rel.Tag().String(),
-			Application: logging.Tag().String(),
-		}},
-	}
-	results, err := s.uniter.WatchRelationApplicationSettings(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
-func (s *uniterSuite) TestWatchRelationApplicationSettingsPeerRelation(c *gc.C) {
-	riak := s.AddTestingApplication(c, "riak", s.AddTestingCharm(c, "riak"))
-	rels, err := riak.Relations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(rels, gc.HasLen, 1)
-	rel := rels[0]
-
-	riakUnit := s.Factory.MakeUnit(c, &factory.UnitParams{
-		Application: riak,
-		Machine:     s.machine0,
-	})
-
-	relUnit, err := rel.Unit(riakUnit)
-	c.Assert(err, jc.ErrorIsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, jc.ErrorIsNil)
-	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-
-	auth := apiservertesting.FakeAuthorizer{Tag: riakUnit.Tag()}
-	uniter := s.newUniterAPI(c, s.State, auth)
-
-	args := params.RelationApplications{
-		RelationApplications: []params.RelationApplication{{
-			Relation:    rel.Tag().String(),
-			Application: riak.Tag().String(),
-		}},
-	}
-	results, err := uniter.WatchRelationApplicationSettings(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{NotifyWatcherId: "1"},
-		},
-	})
-
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	statetesting.AssertStop(c, resource)
-}
-
 func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	// Add a relation between wordpress and mysql and enter scope with
 	// mysqlUnit.
@@ -2923,6 +2804,9 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 		Changed: map[string]params.UnitSettings{
 			"mysql/0": {changed.Version},
 		},
+		AppChanged: map[string]int64{
+			"mysql": 0,
+		},
 	}
 	c.Assert(result, gc.DeepEquals, params.RelationUnitsWatchResults{
 		Results: []params.RelationUnitsWatchResult{
@@ -2958,7 +2842,9 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, false)
 
-	wc.AssertChange(nil, []string{"mysql/0"})
+	wc.AssertChange(nil, nil, []string{"mysql/0"})
+	// TODO(jam): 2019-10-21 this test is getting a bit unweildy, but maybe we
+	//  should test that changing application data triggers a change here
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {

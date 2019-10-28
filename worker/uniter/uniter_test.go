@@ -117,6 +117,21 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 	}
 }
 
+func (s *UniterSuite) runUniterTest(c *gc.C, steps ...stepper) {
+	ctx := &context{
+		s:                      s,
+		st:                     s.State,
+		uuid:                   s.State.ModelUUID(),
+		path:                   s.unitDir,
+		dataDir:                s.dataDir,
+		charms:                 make(map[string][]byte),
+		leaseManager:           s.LeaseManager,
+		updateStatusHookTicker: s.updateStatusHookTicker,
+		charmDirGuard:          &mockCharmDirGuard{},
+	}
+	ctx.run(c, steps)
+}
+
 func (s *UniterSuite) TestUniterStartup(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Check conditions that can cause the uniter to fail to start.
@@ -937,6 +952,22 @@ func (s *UniterSuite) TestUniterUpgradeConflicts(c *gc.C) {
 	})
 }
 
+func (s *UniterSuite) TestUniterRelationsSimpleJoinedChangedDeparted(c *gc.C) {
+	s.runUniterTest(c,
+		quickStartRelation{},
+		addRelationUnit{},
+		waitHooks{
+			"db-relation-joined mysql/1 db:0",
+			"db-relation-changed mysql/1 db:0",
+		},
+		changeRelationUnit{"mysql/0"},
+		waitHooks{"db-relation-changed mysql/0 db:0"},
+		removeRelationUnit{"mysql/1"},
+		waitHooks{"db-relation-departed mysql/1 db:0"},
+		verifyRunning{},
+	)
+}
+
 func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 	waitDyingHooks := custom{func(c *gc.C, ctx *context) {
@@ -976,19 +1007,6 @@ func (s *UniterSuite) TestUniterRelations(c *gc.C) {
 	s.runUniterTests(c, []uniterTest{
 		// Relations.
 		ut(
-			"simple joined/changed/departed",
-			quickStartRelation{},
-			addRelationUnit{},
-			waitHooks{
-				"db-relation-joined mysql/1 db:0",
-				"db-relation-changed mysql/1 db:0",
-			},
-			changeRelationUnit{"mysql/0"},
-			waitHooks{"db-relation-changed mysql/0 db:0"},
-			removeRelationUnit{"mysql/1"},
-			waitHooks{"db-relation-departed mysql/1 db:0"},
-			verifyRunning{},
-		), ut(
 			"relation becomes dying; unit is not last remaining member",
 			quickStartRelation{},
 			relationDying,

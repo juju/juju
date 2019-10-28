@@ -92,12 +92,10 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
-func SetEnvironmentHookContextRelation(
-	context *HookContext,
-	relationId int, endpointName, remoteUnitName string,
-) {
+func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName string, remoteAppName string) {
 	context.relationId = relationId
 	context.remoteUnitName = remoteUnitName
+	context.remoteApplicationName = remoteAppName
 	context.relations = map[int]*ContextRelation{
 		relationId: {
 			endpointName: endpointName,
@@ -199,6 +197,12 @@ func UpdateCachedAppSettings(cf0 ContextFactory, relId int, appName string, sett
 func CachedSettings(cf0 ContextFactory, relId int, unitName string) (params.Settings, bool) {
 	cf := cf0.(*contextFactory)
 	settings, found := cf.relationCaches[relId].members[unitName]
+	return settings, found
+}
+
+func CachedAppSettings(cf0 ContextFactory, relId int, appName string) (params.Settings, bool) {
+	cf := cf0.(*contextFactory)
+	settings, found := cf.relationCaches[relId].applications[appName]
 	return settings, found
 }
 

@@ -304,42 +304,49 @@ func (s *relationUnitSuite) TestReadSettingsInvalidUnitTag(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "\"0mysql\" is not a valid unit or application")
 }
 
-func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
+func (s *relationUnitSuite) setupMysqlRelatedToWordpress(c *gc.C) (*state.RelationUnit, *uniter.Unit) {
 	// Enter scope with mysqlUnit.
-	myRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
+	mysqlRelUnit, err := s.stateRelation.Unit(s.mysqlUnit)
 	c.Assert(err, jc.ErrorIsNil)
-	err = myRelUnit.EnterScope(nil)
+	err = mysqlRelUnit.EnterScope(nil)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, myRelUnit, true)
+	s.assertInScope(c, mysqlRelUnit, true)
 
 	apiRel, err := s.uniter.Relation(s.stateRelation.Tag().(names.RelationTag))
 	c.Assert(err, jc.ErrorIsNil)
 	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
 	c.Assert(err, jc.ErrorIsNil)
-	apiRelUnit, err := apiRel.Unit(apiUnit)
+	_, err = apiRel.Unit(apiUnit)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We just created the wordpress unit, make sure its event isn't still in the queue
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	return mysqlRelUnit, apiUnit
+}
 
-	w, err := apiRelUnit.Watch()
+func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
+	mysqlRelUnit, wpAPIUnit := s.setupMysqlRelatedToWordpress(c)
+
+	w, err := s.uniter.WatchRelationUnits(s.stateRelation.Tag().(names.RelationTag), wpAPIUnit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	wc := watchertest.NewRelationUnitsWatcherC(c, w, s.BackingState.StartSync)
 	defer wc.AssertStops()
 
 	// Initial event.
-	wc.AssertChange([]string{"mysql/0"}, nil)
+	wc.AssertChange([]string{"mysql/0"}, []string{"mysql"}, nil)
+	wc.AssertNoChange()
 
 	// Leave scope with mysqlUnit, check it's detected.
-	err = myRelUnit.LeaveScope()
+	err = mysqlRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertInScope(c, myRelUnit, false)
-	wc.AssertChange(nil, []string{"mysql/0"})
+	s.assertInScope(c, mysqlRelUnit, false)
+	wc.AssertChange(nil, nil, []string{"mysql/0"})
 
 	// Non-change is not reported.
-	err = myRelUnit.LeaveScope()
+	err = mysqlRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
+	// TODO(jam): make an application settings change and see that it is detected
 }
 
 func (s *relationUnitSuite) TestUpdateRelationSettingsForUnit(c *gc.C) {

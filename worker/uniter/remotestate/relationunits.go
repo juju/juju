@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-type relationUnitsWatcher struct {
+type wrappedRelationUnitsWatcher struct {
 	catacomb   catacomb.Catacomb
 	relationId int
 	changes    watcher.RelationUnitsChannel
@@ -23,18 +23,18 @@ type relationUnitsChange struct {
 	watcher.RelationUnitsChange
 }
 
-// newRelationUnitsWatcher creates a new worker that takes values from the
+// wrapRelationUnitsWatcher creates a new worker that takes values from the
 // supplied watcher's Changes chan, annotates them with the supplied relation
 // id, and delivers then on the supplied out chan.
 //
 // The caller releases responsibility for stopping the supplied watcher and
 // waiting for errors, *whether or not this method succeeds*.
-func newRelationUnitsWatcher(
+func wrapRelationUnitsWatcher(
 	relationId int,
 	watcher watcher.RelationUnitsWatcher,
 	out chan<- relationUnitsChange,
-) (*relationUnitsWatcher, error) {
-	ruw := &relationUnitsWatcher{
+) (*wrappedRelationUnitsWatcher, error) {
+	ruw := &wrappedRelationUnitsWatcher{
 		relationId: relationId,
 		changes:    watcher.Changes(),
 		out:        out,
@@ -51,16 +51,16 @@ func newRelationUnitsWatcher(
 }
 
 // Kill is part of the worker.Worker interface.
-func (w *relationUnitsWatcher) Kill() {
+func (w *wrappedRelationUnitsWatcher) Kill() {
 	w.catacomb.Kill(nil)
 }
 
 // Wait is part of the worker.Worker interface.
-func (w *relationUnitsWatcher) Wait() error {
+func (w *wrappedRelationUnitsWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
-func (w *relationUnitsWatcher) loop() error {
+func (w *wrappedRelationUnitsWatcher) loop() error {
 	for {
 		select {
 		case <-w.catacomb.Dying():
