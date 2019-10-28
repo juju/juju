@@ -124,6 +124,7 @@ func (api *fakeAddCloudAPI) AddCredential(tag string, credential cloud.Credentia
 type fakeK8sClusterMetadataChecker struct {
 	*jujutesting.CallMocker
 	jujucaas.ClusterMetadataChecker
+	existingSC bool
 }
 
 func (api *fakeK8sClusterMetadataChecker) GetClusterMetadata(storageClass string) (result *jujucaas.ClusterMetadata, err error) {
@@ -136,9 +137,9 @@ func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster st
 	return jujutesting.TypeAssertError(results[0])
 }
 
-func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg jujucaas.StorageProvisioner) (*jujucaas.StorageProvisioner, error) {
+func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg jujucaas.StorageProvisioner) (*jujucaas.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner", cfg)
-	return results[0].(*jujucaas.StorageProvisioner), jujutesting.TypeAssertError(results[1])
+	return results[0].(*jujucaas.StorageProvisioner), api.existingSC, jujutesting.TypeAssertError(results[1])
 }
 
 func fakeNewK8sClientConfig(_ string, _ io.Reader, contextName, clusterName string, _ clientconfig.K8sCredentialResolver) (*clientconfig.ClientConfig, error) {
@@ -247,7 +248,10 @@ func (s *addCAASSuite) SetUpTest(c *gc.C) {
 		Cloud: "gce", Regions: set.NewStrings("us-east1"),
 		OperatorStorageClass: &jujucaas.StorageProvisioner{Name: "operator-sc"},
 	}
-	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{CallMocker: jujutesting.NewCallMocker(logger)}
+	s.fakeK8sClusterMetadataChecker = &fakeK8sClusterMetadataChecker{
+		CallMocker: jujutesting.NewCallMocker(logger),
+		existingSC: true,
+	}
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(defaultClusterMetadata, nil)
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(nil)
 
@@ -463,6 +467,7 @@ type regionTestCase struct {
 	title          string
 	cloud, region  string
 	expectedErrStr string
+	gke, aks       bool
 }
 
 func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
@@ -471,74 +476,72 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 			title:          "missing cloud --region=/region",
 			region:         "/region",
 			expectedErrStr: `parsing cloud region: parsing region option: host cloud region "/region" not valid`,
-		},
-		{
+		}, {
 			title:          "missing region --region=cloud/",
 			region:         "cloud/",
 			expectedErrStr: `validating cloud region "cloud": cloud region "cloud" not valid`,
-		},
-		{
+		}, {
 			title:          "missing cloud --region=region",
 			region:         "region",
-			expectedErrStr: `validating cloud region "region": cloud region "region" not valid`,
-		},
-		{
+			expectedErrStr: `parsing cloud region: when --region is used, --cloud is required`,
+		}, {
 			title:          "not a known juju cloud region: --region=cloud/region",
 			region:         "cloud/region",
 			expectedErrStr: `validating cloud region "cloud/region": cloud region "cloud/region" not valid`,
-		},
-		{
+		}, {
 			title:          "region is not required --region=maas/non-existing-region",
 			region:         "maas/non-existing-region",
 			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided`,
-		},
-		{
+		}, {
 			title:          "region is not required --cloud=maas --region=non-existing-region",
 			cloud:          "maas",
 			region:         "non-existing-region",
 			expectedErrStr: `validating cloud region "maas/non-existing-region": cloud "maas" does not have a region, but "non-existing-region" provided`,
-		},
-		{
+		}, {
 			title:          "missing region --cloud=ec2 with no cloud default region",
 			cloud:          "ec2",
 			expectedErrStr: `validating cloud region "ec2": cloud region "ec2" not valid`,
-		},
-		{
+		}, {
 			title:          "missing region --cloud=brokenteststack and cloud's default region is not a cloud region",
 			cloud:          "brokenteststack",
 			expectedErrStr: `validating cloud region "azure": cloud region "azure" not valid`,
-		},
-		{
+		}, {
+			title:          "specify cloud with gke",
+			cloud:          "aws",
+			gke:            true,
+			expectedErrStr: `do not specify --cloud when adding a GKE or AKS cluster`,
+		}, {
+			title:          "specify cloud with aks",
+			cloud:          "aws",
+			aks:            true,
+			expectedErrStr: `do not specify --cloud when adding a GKE or AKS cluster`,
+		}, {
+			title:          "specify cloud/region with gke",
+			region:         "gce/us-east",
+			gke:            true,
+			expectedErrStr: `only specify region, not cloud/region, when adding a GKE or AKS cluster`,
+		}, {
 			title: "missing region --cloud=teststack but cloud has default region",
 			cloud: "teststack",
-		},
-		{
+		}, {
 			title:          "cloud option contains region --cloud=gce/us-east1",
 			cloud:          "gce/us-east1",
 			expectedErrStr: `parsing cloud region: --cloud incorrectly specifies a cloud/region instead of just a cloud`,
-		},
-		{
-			title:          "two different clouds --cloud=gce --region=gce/us-east1",
+		}, {
+			title:          "specify cloud twice --cloud=gce --region=gce/us-east1",
 			cloud:          "ec2",
 			region:         "gce/us-east1",
-			expectedErrStr: `parsing cloud region: two different clouds specified: "gce", "ec2" not valid`,
-		},
-		{
+			expectedErrStr: "parsing cloud region: when --cloud is used, --region may only specify a region, not a cloud/region",
+		}, {
 			title:  "all good --region=gce/us-east1",
 			region: "gce/us-east1",
-		},
-		{
+		}, {
 			title:  "all good --region=us-east1 --cloud=gce",
 			region: "us-east1",
 			cloud:  "gce",
-		},
-		{
+		}, {
 			title: "all good --cloud=maas",
 			cloud: "maas",
-		},
-		{
-			title:  "all good --region=maas",
-			region: "maas",
 		},
 	} {
 		c.Logf("%v: %s", i, ts.title)
@@ -552,6 +555,12 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 		}
 		if ts.cloud != "" {
 			args = append(args, "--cloud", ts.cloud)
+		}
+		if ts.gke {
+			args = append(args, "--gke")
+		}
+		if ts.aks {
+			args = append(args, "--aks")
 		}
 		_, err := s.runCommand(c, nil, command, args...)
 		if ts.expectedErrStr == "" {
@@ -730,7 +739,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--cloud=<cloud> --region=<cloud>/<someregion> to specify the cloud/region.
+	--cloud=<cloud> to specify the cloud.
 : oops`[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -746,7 +755,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--cloud=<cloud> --region=<cloud>/<someregion> to specify the cloud/region.
+	--cloud=<cloud> to specify the cloud.
 `[1:]
 	c.Assert(err, gc.ErrorMatches, expectedErr)
 }
@@ -872,6 +881,7 @@ func (s *addCAASSuite) TestCreateDefaultStorageProvisionerControllerOnly(c *gc.C
 
 func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 	s.fakeCloudAPI.isCloudRegionRequired = true
+	s.fakeK8sClusterMetadataChecker.existingSC = false
 	cloudRegion := "gce/us-east1"
 
 	ctrl := s.setupBroker(c)
@@ -893,7 +903,7 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
-		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
+		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the new "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
 	}, cloudRegion, "mystorage", "mystorage", testData{client: true, controller: true})
 }
 

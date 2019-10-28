@@ -164,5 +164,5 @@ func ValidateIaasController(c modelcmd.CommandBase, cmdName, controllerName stri
 	if details.ModelType == model.IAAS {
 		return nil
 	}
-	return errors.Errorf("Juju command %q not supported on kubernetes controllers", cmdName)
+	return errors.Errorf("Juju command %q not supported on k8s controllers", cmdName)
 }
