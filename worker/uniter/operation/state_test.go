@@ -87,7 +87,7 @@ var stateTests = []struct {
 		},
 		err: `missing action id`,
 	}, {
-		description: "run action without action id",
+		description: "run action with spurious charmURL",
 		st: operation.State{
 			Kind:     operation.RunAction,
 			Step:     operation.Pending,

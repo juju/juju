@@ -1197,9 +1197,9 @@ func (w *relationUnitsWatcher) finish() {
 		docID := w.backend.docID(appKey)
 		w.watcher.Unwatch(settingsC, docID, w.appUpdates)
 	}
+	close(w.appUpdates)
 	close(w.updates)
 	close(w.out)
-	// w.tomb.Done()
 }
 
 func (w *relationUnitsWatcher) loop() (err error) {
