@@ -61,6 +61,7 @@ type TrackBranchCommandAPI interface {
 	// TrackBranch sets the input units and/or applications
 	// to track changes made under the input branch name.
 	TrackBranch(branchName string, entities []string) error
+	HasActiveBranch(branchName string) (bool, error)
 }
 
 // Info implements part of the cmd.Command interface.
@@ -84,9 +85,7 @@ func (c *trackBranchCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("expected a branch name plus unit and/or application names(s)")
 	}
-	if len(args) == 1 {
-		return errors.Errorf("expected unit and/or application names(s)")
-	}
+
 	for _, arg := range args[1:] {
 		if !names.IsValidApplication(arg) && !names.IsValidUnit(arg) {
 			return errors.Errorf("invalid application or unit name %q", arg)
@@ -114,10 +113,23 @@ func (c *trackBranchCommand) getAPI() (TrackBranchCommandAPI, error) {
 // Run implements the meaty part of the cmd.Command interface.
 func (c *trackBranchCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
+	defer func() { _ = client.Close() }()
+
 	if err != nil {
 		return err
 	}
-	defer func() { _ = client.Close() }()
+
+	if len(c.entities) == 0 {
+		isActiveBranch, err := client.HasActiveBranch(c.branchName)
+		if err != nil {
+			return errors.Annotate(err, "checking for active branch")
+		}
+		if !isActiveBranch {
+			return errors.NotFoundf("branch %q", c.branchName)
+		} else {
+			return errors.Errorf("expected unit and/or application names(s)")
+		}
+	}
 
 	return errors.Trace(client.TrackBranch(c.branchName, c.entities))
 }

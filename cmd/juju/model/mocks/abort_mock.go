@@ -34,6 +34,7 @@ func (m *MockAbortCommandAPI) EXPECT() *MockAbortCommandAPIMockRecorder {
 
 // AbortBranch mocks base method
 func (m *MockAbortCommandAPI) AbortBranch(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AbortBranch", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -41,11 +42,13 @@ func (m *MockAbortCommandAPI) AbortBranch(arg0 string) error {
 
 // AbortBranch indicates an expected call of AbortBranch
 func (mr *MockAbortCommandAPIMockRecorder) AbortBranch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AbortBranch", reflect.TypeOf((*MockAbortCommandAPI)(nil).AbortBranch), arg0)
 }
 
 // Close mocks base method
 func (m *MockAbortCommandAPI) Close() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -53,11 +56,13 @@ func (m *MockAbortCommandAPI) Close() error {
 
 // Close indicates an expected call of Close
 func (mr *MockAbortCommandAPIMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockAbortCommandAPI)(nil).Close))
 }
 
 // HasActiveBranch mocks base method
 func (m *MockAbortCommandAPI) HasActiveBranch(arg0 string) (bool, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HasActiveBranch", arg0)
 	ret0, _ := ret[0].(bool)
 	ret1, _ := ret[1].(error)
@@ -66,5 +71,6 @@ func (m *MockAbortCommandAPI) HasActiveBranch(arg0 string) (bool, error) {
 
 // HasActiveBranch indicates an expected call of HasActiveBranch
 func (mr *MockAbortCommandAPIMockRecorder) HasActiveBranch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HasActiveBranch", reflect.TypeOf((*MockAbortCommandAPI)(nil).HasActiveBranch), arg0)
 }

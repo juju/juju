@@ -55,6 +55,30 @@ func (s *trackBranchSuite) TestInitInvalid(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid application or unit name "test me"`)
 }
 
+func (s *trackBranchSuite) TestRunCommandValidBranchMissingArg(c *gc.C) {
+	mockController, api := setUpAdvanceMocks(c)
+	defer mockController.Finish()
+
+	api.EXPECT().HasActiveBranch(s.branchName).Return(true, nil)
+
+	_, err := s.runCommand(c, api, s.branchName)
+	c.Assert(err, gc.NotNil)
+	msg := err.Error()
+	c.Assert(msg, gc.Equals, `expected unit and/or application names(s)`)
+}
+
+func (s *trackBranchSuite) TestRunCommandInValidBranchMissingArg(c *gc.C) {
+	mockController, api := setUpAdvanceMocks(c)
+	defer mockController.Finish()
+
+	api.EXPECT().HasActiveBranch("test").Return(false, nil)
+
+	_, err := s.runCommand(c, api, "test")
+	c.Assert(err, gc.NotNil)
+	msg := err.Error()
+	c.Assert(msg, gc.Equals, `branch "test" not found`)
+}
+
 func (s *trackBranchSuite) TestRunCommand(c *gc.C) {
 	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
