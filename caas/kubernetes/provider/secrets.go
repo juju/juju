@@ -33,14 +33,14 @@ func processSecretData(in map[string]string) (_ map[string][]byte, err error) {
 	return out, nil
 }
 
-func (k *kubernetesClient) ensureSecrets(appName string, secrets []k8sspecs.Secret) (cleanUps []func(), err error) {
+func (k *kubernetesClient) ensureSecrets(appName string, annotations k8sannotations.Annotation, secrets []k8sspecs.Secret) (cleanUps []func(), err error) {
 	for _, v := range secrets {
 		spec := &core.Secret{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        v.Name,
 				Namespace:   k.namespace,
 				Labels:      k.getSecretLabels(appName),
-				Annotations: v.Annotations,
+				Annotations: annotations.Merge(v.Annotations),
 			},
 			Type:       v.Type,
 			StringData: v.StringData,

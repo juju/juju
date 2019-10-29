@@ -293,7 +293,7 @@ var basicServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
 		Name:        "app-name",
 		Labels:      map[string]string{"juju-app": "app-name"},
-		Annotations: map[string]string{}},
+		Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
 	Spec: core.ServiceSpec{
 		Selector: map[string]string{"juju-app": "app-name"},
 		Type:     "nodeIP",
@@ -308,9 +308,12 @@ var basicServiceArg = &core.Service{
 
 var basicHeadlessServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
-		Name:        "app-name-endpoints",
-		Labels:      map[string]string{"juju-app": "app-name"},
-		Annotations: map[string]string{"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true"},
+		Name:   "app-name-endpoints",
+		Labels: map[string]string{"juju-app": "app-name"},
+		Annotations: map[string]string{
+			"juju.io/controller": testing.ControllerTag.Id(),
+			"service.alpha.kubernetes.io/tolerate-unready-endpoints": "true",
+		},
 	},
 	Spec: core.ServiceSpec{
 		Selector:                 map[string]string{"juju-app": "app-name"},
@@ -326,6 +329,7 @@ func (s *K8sBrokerSuite) getOCIImageSecret(c *gc.C, annotations map[string]strin
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
+	annotations["juju.io/controller"] = testing.ControllerTag.Id()
 
 	return &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -645,7 +649,9 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 }
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
-	s.assertDestroy(c, true, func() error { return s.broker.DestroyController(context.NewCloudCallContext(), s.controllerUUID) })
+	s.assertDestroy(c, true, func() error {
+		return s.broker.DestroyController(context.NewCloudCallContext(), testing.ControllerTag.Id())
+	})
 }
 
 func (s *K8sBrokerSuite) TestDestroy(c *gc.C) {
@@ -697,7 +703,8 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name",
 			Annotations: map[string]string{
-				"juju-app-uuid": "appuuid",
+				"juju-app-uuid":      "appuuid",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -711,6 +718,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -839,7 +847,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -855,7 +864,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -867,8 +877,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -905,7 +916,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorage(c *gc.C) {
 	params := &caas.ServiceParams{
 		PodSpec:           basicPodSpec,
 		OperatorImagePath: "operator/image-path",
-		ResourceTags:      map[string]string{"fred": "mary"},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -962,7 +976,8 @@ password: shhhh`[1:],
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -978,7 +993,8 @@ password: shhhh`[1:],
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -990,8 +1006,9 @@ password: shhhh`[1:],
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -1010,6 +1027,10 @@ password: shhhh`[1:],
 			Name:      "myData",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
 		},
 		Data: map[string]string{
 			"foo":   "bar",
@@ -1021,6 +1042,10 @@ password: shhhh`[1:],
 			Name:      "build-robot-secret",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
 		},
 		Type: core.SecretTypeOpaque,
 		StringData: map[string]string{
@@ -1043,6 +1068,10 @@ password: shhhh`[1:],
 			Name:      "another-build-robot-secret",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: secrets2Data,
@@ -1082,7 +1111,10 @@ password: shhhh`[1:],
 	params := &caas.ServiceParams{
 		PodSpec:           basicPodSpec,
 		OperatorImagePath: "operator/image-path",
-		ResourceTags:      map[string]string{"fred": "mary"},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -1154,7 +1186,8 @@ password: shhhh`[1:],
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -1170,7 +1203,8 @@ password: shhhh`[1:],
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -1182,8 +1216,9 @@ password: shhhh`[1:],
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -1202,6 +1237,10 @@ password: shhhh`[1:],
 			Name:      "myData",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
 		},
 		Data: map[string]string{
 			"foo":   "bar",
@@ -1213,6 +1252,10 @@ password: shhhh`[1:],
 			Name:      "build-robot-secret",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
 		},
 		Type: core.SecretTypeOpaque,
 		StringData: map[string]string{
@@ -1235,6 +1278,10 @@ password: shhhh`[1:],
 			Name:      "another-build-robot-secret",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: secrets2Data,
@@ -1284,8 +1331,11 @@ password: shhhh`[1:],
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           basicPodSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: basicPodSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -1314,7 +1364,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name",
 			Annotations: map[string]string{
-				"juju-app-uuid": "appuuid",
+				"juju-app-uuid":      "appuuid",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -1328,6 +1379,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -1371,6 +1423,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 			DeploymentType: caas.DeploymentStateful,
 		},
 		OperatorImagePath: "operator/image-path",
+		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -1393,7 +1446,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name",
 			Annotations: map[string]string{
-				"juju-app-uuid": "appuuid",
+				"juju-app-uuid":      "appuuid",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -1407,6 +1461,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -1450,6 +1505,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 			ServiceType: caas.ServiceExternal,
 		},
 		OperatorImagePath: "operator/image-path",
+		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -1491,6 +1547,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 			ServiceType:    caas.ServiceExternal,
 		},
 		OperatorImagePath: "operator/image-path",
+		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err := s.broker.EnsureService(
 		"app-name",
@@ -1521,7 +1578,8 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name",
 			Annotations: map[string]string{
-				"juju-app-uuid": "appuuid",
+				"juju-app-uuid":      "appuuid",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -1535,6 +1593,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -1586,6 +1645,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 			DeploymentType: caas.DeploymentStateful,
 		},
 		OperatorImagePath: "operator/image-path",
+		ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
@@ -1647,9 +1707,10 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name:        "tfjobs.kubeflow.org",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1756,9 +1817,10 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
 
 	crd := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name:        "tfjobs.kubeflow.org",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -1838,7 +1900,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -1854,7 +1917,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -1866,8 +1930,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"fred":               "mary",
+				"a":                  "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -1886,6 +1951,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -1894,6 +1963,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -1908,6 +1981,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -1947,8 +2024,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           podSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: podSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
@@ -1984,7 +2064,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2000,7 +2081,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -2012,8 +2094,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"fred":               "mary",
+				"a":                  "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -2032,6 +2115,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2040,6 +2127,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2054,6 +2145,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -2103,8 +2198,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           podSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: podSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 
@@ -2153,7 +2251,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2169,7 +2268,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -2181,8 +2281,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"fred":               "mary",
+				"a":                  "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -2201,6 +2302,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2209,6 +2314,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Name:      "test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2223,6 +2332,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Name:      "test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-app-name",
@@ -2262,8 +2375,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           podSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: podSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
@@ -2300,7 +2416,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2316,7 +2433,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -2328,8 +2446,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"fred":               "mary",
+				"a":                  "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -2348,6 +2467,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2356,6 +2479,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Name:      "test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2370,6 +2497,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			Name:      "test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-app-name",
@@ -2419,8 +2550,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           podSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: podSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 
@@ -2487,7 +2621,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
@@ -2503,7 +2638,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -2515,8 +2651,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"fred":               "mary",
+				"a":                  "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -2535,6 +2672,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2543,6 +2684,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2557,6 +2702,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -2576,6 +2725,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "k8sRBAC1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2584,6 +2737,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "k8sRBAC1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2598,6 +2755,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "k8sRBAC1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "k8sRBAC1",
@@ -2645,8 +2806,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           podSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: podSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
@@ -2712,8 +2876,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-			}},
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			},
+		},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
@@ -2728,7 +2894,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-						"fred": "mary",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+						"fred":                                     "mary",
 					},
 				},
 				Spec: provider.PodSpec(workloadSpec),
@@ -2740,8 +2907,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:   "app-name",
 			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
-				"fred": "mary",
-				"a":    "b",
+				"fred":               "mary",
+				"a":                  "b",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			}},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "app-name"},
@@ -2760,6 +2928,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2768,6 +2940,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2782,6 +2958,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "app-name",
@@ -2801,6 +2981,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "k8sRBAC1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
@@ -2809,6 +2993,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "test-k8sRBAC1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -2833,6 +3021,10 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			Name:      "test-k8sRBAC1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-k8sRBAC1",
@@ -2880,8 +3072,11 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	)
 
 	params := &caas.ServiceParams{
-		PodSpec:           podSpec,
-		ResourceTags:      map[string]string{"fred": "mary"},
+		PodSpec: podSpec,
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+			"fred":                 "mary",
+		},
 		OperatorImagePath: "operator/image-path",
 	}
 	err = s.broker.EnsureService("app-name", func(_ string, _ status.Status, _ string, _ map[string]interface{}) error { return nil }, params, 2, application.ConfigAttributes{
@@ -2951,6 +3146,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithStorage(c *gc.C) {
 	params := &caas.ServiceParams{
 		PodSpec:           basicPodSpec,
 		OperatorImagePath: "operator/image-path",
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		Filesystems: []storage.KubernetesFilesystemParams{{
 			StorageName: "database",
 			Size:        100,
@@ -3003,7 +3201,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name:        "app-name",
 			Labels:      map[string]string{"juju-app": "app-name"},
-			Annotations: map[string]string{}},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
 		Spec: appsv1.DeploymentSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
@@ -3016,6 +3214,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -3051,6 +3250,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 				Count:      3,
 				Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 			},
+		},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -3135,6 +3337,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceForStatefulSetWithDevices(c *gc.C) {
 				Attributes: map[string]string{"gpu": "nvidia-tesla-p100"},
 			},
 		},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -3208,6 +3413,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithConstraints(c *gc.C) {
 			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		Constraints: constraints.MustParse("mem=64 cpu-power=500"),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -3295,6 +3503,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithNodeAffinity(c *gc.C) {
 			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
@@ -3374,6 +3585,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithZones(c *gc.C) {
 			Attributes:   map[string]interface{}{"storage-class": "workload-storage"},
 			ResourceTags: map[string]string{"foo": "bar"},
 		}},
+		ResourceTags: map[string]string{
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		Constraints: constraints.MustParse(`zones=a,b,c`),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{

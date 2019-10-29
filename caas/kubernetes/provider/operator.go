@@ -45,7 +45,7 @@ func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {
 	return nil
 }
 
-func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labels map[string]string) (sa *core.ServiceAccount, cleanUps []func(), err error) {
+func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labels, annotations map[string]string) (sa *core.ServiceAccount, cleanUps []func(), err error) {
 	defer func() {
 		// ensure cleanup in reversed order.
 		i := 0
@@ -61,9 +61,10 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 	// ensure service account.
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      operatorName,
-			Namespace: k.namespace,
-			Labels:    labels,
+			Name:        operatorName,
+			Namespace:   k.namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		AutomountServiceAccountToken: &mountToken,
 	}
@@ -75,9 +76,10 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 	// ensure role.
 	r, rCleanups, err := k.ensureRole(&rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      operatorName,
-			Namespace: k.namespace,
-			Labels:    labels,
+			Name:        operatorName,
+			Namespace:   k.namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -104,9 +106,10 @@ func (k *kubernetesClient) ensureOperatorRBACResources(operatorName string, labe
 	// ensure rolebinding.
 	_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      operatorName,
-			Namespace: k.namespace,
-			Labels:    labels,
+			Name:        operatorName,
+			Namespace:   k.namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: r.GetName(),
@@ -134,6 +137,8 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 
 	operatorName := k.operatorName(appName)
 	labels := operatorLabels(appName)
+	annotations := resourceTagsToAnnotations(config.ResourceTags).
+		Add(labelVersion, config.Version.String())
 
 	var cleanups []func()
 	defer func() {
@@ -147,8 +152,9 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 
 	service := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   operatorName,
-			Labels: labels,
+			Name:        operatorName,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{labelOperator: appName},
@@ -167,7 +173,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 		return errors.Trace(err)
 	}
 
-	sa, rbacCleanUps, err := k.ensureOperatorRBACResources(operatorName, labels)
+	sa, rbacCleanUps, err := k.ensureOperatorRBACResources(operatorName, labels, annotations)
 	cleanups = append(cleanups, rbacCleanUps...)
 	if err != nil {
 		return errors.Trace(err)
@@ -182,15 +188,13 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		cmCleanUp, err := k.ensureConfigMapLegacy(operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), config))
+		cmCleanUp, err := k.ensureConfigMapLegacy(
+			operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), annotations, config))
 		cleanups = append(cleanups, cmCleanUp)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
 		}
 	}
-
-	annotations := resourceTagsToAnnotations(config.ResourceTags).
-		Add(labelVersion, config.Version.String())
 
 	// Set up the parameters for creating charm storage.
 	operatorVolumeClaim := "charm"
@@ -581,11 +585,12 @@ func operatorConfigMapAgentConfKey(appName string) string {
 
 // operatorConfigMap returns a *core.ConfigMap for the operator pod
 // of the specified application, with the specified configuration.
-func operatorConfigMap(appName, name string, labels map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
+func operatorConfigMap(appName, name string, labels, annotations map[string]string, config *caas.OperatorConfig) *core.ConfigMap {
 	return &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   name,
-			Labels: labels,
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Data: map[string]string{
 			operatorConfigMapAgentConfKey(appName): string(config.AgentConf),

@@ -19,13 +19,18 @@ func (k *kubernetesClient) getConfigMapLabels(appName string) map[string]string 
 	}
 }
 
-func (k *kubernetesClient) ensureConfigMaps(appName string, cms map[string]specs.ConfigMap) (cleanUps []func(), _ error) {
+func (k *kubernetesClient) ensureConfigMaps(
+	appName string,
+	annotations map[string]string,
+	cms map[string]specs.ConfigMap,
+) (cleanUps []func(), _ error) {
 	for name, v := range cms {
 		spec := &core.ConfigMap{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      name,
-				Namespace: k.namespace,
-				Labels:    k.getConfigMapLabels(appName),
+				Name:        name,
+				Namespace:   k.namespace,
+				Labels:      k.getConfigMapLabels(appName),
+				Annotations: annotations,
 			},
 			Data: v,
 		}

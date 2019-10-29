@@ -25,10 +25,21 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+var operatorAnnotations = map[string]string{
+	"fred":               "mary",
+	"juju-version":       "2.99.0",
+	"juju.io/controller": testing.ControllerTag.Id(),
+}
+
 var operatorServiceArg = &core.Service{
 	ObjectMeta: v1.ObjectMeta{
 		Name:   "test-operator",
 		Labels: map[string]string{"juju-operator": "test"},
+		Annotations: map[string]string{
+			"fred":               "mary",
+			"juju-version":       "2.99.0",
+			"juju.io/controller": testing.ControllerTag.Id(),
+		},
 	},
 	Spec: core.ServiceSpec{
 		Selector: map[string]string{"juju-operator": "test"},
@@ -119,10 +130,8 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 			Labels: map[string]string{
 				"juju-operator": "test",
 			},
-			Annotations: map[string]string{
-				"juju-version": "2.99.0",
-				"fred":         "mary",
-			}},
+			Annotations: operatorAnnotations,
+		},
 		Spec: appsv1.StatefulSetSpec{
 			Replicas: &numUnits,
 			Selector: &v1.LabelSelector{
@@ -134,8 +143,9 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 						"juju-operator": "test",
 					},
 					Annotations: map[string]string{
-						"fred":         "mary",
-						"juju-version": "2.99.0",
+						"fred":               "mary",
+						"juju-version":       "2.99.0",
+						"juju.io/controller": testing.ControllerTag.Id(),
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 					},
@@ -165,7 +175,8 @@ $JUJU_TOOLS_DIR/jujud caasoperator --application-name=test --debug
 
 func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 	tags := map[string]string{
-		"fred": "mary",
+		"fred":               "mary",
+		"juju.io/controller": testing.ControllerTag.Id(),
 	}
 	pod, err := provider.OperatorPod("gitlab", "gitlab", "10666", "/var/lib/juju", "jujusolutions/jujud-operator", "2.99.0", tags, "operator-service-account")
 	c.Assert(err, jc.ErrorIsNil)
@@ -174,8 +185,9 @@ func (s *K8sSuite) TestOperatorPodConfig(c *gc.C) {
 		"juju-operator": "gitlab",
 	})
 	c.Assert(pod.Annotations, jc.DeepEquals, map[string]string{
-		"fred":         "mary",
-		"juju-version": "2.99.0",
+		"fred":               "mary",
+		"juju-version":       "2.99.0",
+		"juju.io/controller": testing.ControllerTag.Id(),
 		"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 		"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
 	})
@@ -258,17 +270,19 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -285,9 +299,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-operator",
@@ -334,7 +349,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
 		OperatorImagePath: "/path/to/image",
 		Version:           version.MustParse("2.99.0"),
-		ResourceTags:      map[string]string{"fred": "mary"},
+		ResourceTags: map[string]string{
+			"fred":                 "mary",
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		CharmStorage: caas.CharmStorageParams{
 			Size:         uint64(10),
 			Provider:     "kubernetes",
@@ -351,8 +369,9 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "test-operator-config",
-			Labels: map[string]string{"juju-app": "test"},
+			Name:        "test-operator-config",
+			Labels:      map[string]string{"juju-app": "test"},
+			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
@@ -362,17 +381,19 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -389,9 +410,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-operator",
@@ -443,7 +465,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		Version:           version.MustParse("2.99.0"),
 		AgentConf:         []byte("agent-conf-data"),
 		OperatorInfo:      []byte("operator-info-data"),
-		ResourceTags:      map[string]string{"fred": "mary"},
+		ResourceTags: map[string]string{
+			"fred":                 "mary",
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		CharmStorage: caas.CharmStorageParams{
 			Size:         uint64(10),
 			Provider:     "kubernetes",
@@ -460,8 +485,9 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 	configMapArg := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   "test-operator-config",
-			Labels: map[string]string{"juju-app": "test"},
+			Name:        "test-operator-config",
+			Labels:      map[string]string{"juju-app": "test"},
+			Annotations: operatorAnnotations,
 		},
 		Data: map[string]string{
 			"test-agent.conf": "agent-conf-data",
@@ -471,17 +497,19 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -498,9 +526,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-operator",
@@ -565,7 +594,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 			Version:           version.MustParse("2.99.0"),
 			AgentConf:         []byte("agent-conf-data"),
 			OperatorInfo:      []byte("operator-info-data"),
-			ResourceTags:      map[string]string{"fred": "mary"},
+			ResourceTags: map[string]string{
+				"fred":                 "mary",
+				"juju-controller-uuid": testing.ControllerTag.Id(),
+			},
 			CharmStorage: caas.CharmStorageParams{
 				Size:         uint64(10),
 				Provider:     "kubernetes",
@@ -591,18 +623,20 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 
 	svcAccount := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		AutomountServiceAccountToken: boolPtr(true),
 	}
 	svcAccountUID := svcAccount.GetUID()
 	role := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		Rules: []rbacv1.PolicyRule{
 			{
@@ -620,9 +654,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	roleUID := role.GetUID()
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-operator",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-operator": "test"},
+			Name:        "test-operator",
+			Namespace:   "test",
+			Labels:      map[string]string{"juju-operator": "test"},
+			Annotations: operatorAnnotations,
 		},
 		RoleRef: rbacv1.RoleRef{
 			Name: "test-operator",
@@ -672,6 +707,10 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{
 		OperatorImagePath: "/path/to/image",
 		Version:           version.MustParse("2.99.0"),
+		ResourceTags: map[string]string{
+			"fred":                 "mary",
+			"juju-controller-uuid": testing.ControllerTag.Id(),
+		},
 		CharmStorage: caas.CharmStorageParams{
 			Size:     uint64(10),
 			Provider: "kubernetes",
@@ -696,7 +735,8 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 	ss := apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
-				"juju-version": "2.99.0",
+				"juju-version":       "2.99.0",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: apps.StatefulSetSpec{
@@ -745,7 +785,8 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 	ss := apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Annotations: map[string]string{
-				"juju-version": "2.99.0",
+				"juju-version":       "2.99.0",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: apps.StatefulSetSpec{
@@ -780,7 +821,8 @@ func (s *K8sBrokerSuite) TestUpgradeOperator(c *gc.C) {
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-app-operator",
 			Annotations: map[string]string{
-				"juju-version": "1.1.1",
+				"juju-version":       "1.1.1",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 			Labels: map[string]string{"juju-app": "test-app"},
 		},
