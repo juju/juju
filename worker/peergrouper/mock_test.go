@@ -115,7 +115,10 @@ func NewFakeState() *fakeState {
 		controllers: make(map[string]*fakeController),
 	}
 	st.session = newFakeMongoSession(st, &st.errors)
-	st.controllerConfig.Set(controller.Config{})
+	st.controllerConfig.Set(controller.Config{
+		controller.JujuHASpace:         network.AlphaSpaceName,
+		controller.JujuManagementSpace: network.AlphaSpaceName,
+	})
 	return st
 }
 
@@ -322,7 +325,7 @@ func (st *fakeState) setHASpace(spaceName string) {
 func (st *fakeState) Space(name string) (Space, error) {
 	// Return a representation of the default space whenever requested.
 	if name == network.AlphaSpaceName {
-		return &fakeSpace{network.SpaceInfo{}}, nil
+		return &fakeSpace{network.SpaceInfo{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName}}, nil
 	}
 
 	st.mu.Lock()

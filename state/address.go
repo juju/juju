@@ -180,7 +180,7 @@ func (st *State) getOpsForHostPortsChange(
 
 // filterHostPortsForManagementSpace filters the collection of API addresses
 // based on the configured management space for the controller.
-// If there is no space configured, or if the one of the slices is filtered down
+// If there is no space configured, or if one of the slices is filtered down
 // to zero elements, just use the unfiltered slice for safety - we do not
 // want to cut off communication to the controller based on erroneous config.
 func (st *State) filterHostPortsForManagementSpace(
@@ -192,7 +192,9 @@ func (st *State) filterHostPortsForManagementSpace(
 	}
 
 	var hostPortsForAgents []network.SpaceHostPorts
-	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != network.AlphaSpaceName {
+	// TODO (hml) 2019-10-29
+	// Investigate why we still need to check mgmtSpace != ""
+	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
 		sp, err := st.SpaceByName(mgmtSpace)
 		if err != nil {
 			return nil, errors.Trace(err)

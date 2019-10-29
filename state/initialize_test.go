@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/permission"
@@ -222,8 +223,8 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(refCount, gc.Equals, 1)
 
-	// Check that the default space is created.
-	_, err = s.State.SpaceByName("")
+	// Check that the alpha space is created.
+	_, err = s.State.SpaceByName(network.AlphaSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

@@ -19,7 +19,6 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
-	"github.com/juju/juju/core/network"
 )
 
 // NewListCommand returns a command used to list spaces.
@@ -264,8 +263,5 @@ type formattedShortList struct {
 }
 
 func spaceName(name string) string {
-	if name == network.AlphaSpaceName {
-		return "(default)"
-	}
 	return name
 }

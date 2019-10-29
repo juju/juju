@@ -89,7 +89,7 @@ func (s *ListSuite) TestOutputFormats(c *gc.C) {
 	expectedYAML := `
 spaces:
 - id: "0"
-  name: ""
+  name: alpha
   subnets: {}
 - id: "1"
   name: space1
@@ -129,7 +129,7 @@ spaces:
   "spaces": [
     {
       "id": "0",
-      "name": "",
+      "name": "alpha",
       "subnets": {}
     },
     {
@@ -189,7 +189,7 @@ spaces:
 	)
 	expectedShortYAML := `
 spaces:
-- (default)
+- alpha
 - space1
 - space2
 `[1:]
@@ -197,7 +197,7 @@ spaces:
 	expectedShortJSON := unwrap.ReplaceAllLiteralString(`
 {
   "spaces": [
-    "(default)",
+    "alpha",
     "space1",
     "space2"
   ]
@@ -205,18 +205,18 @@ spaces:
 `, "") + "\n"
 
 	expectedTabular := `
-Space  Name       Subnets      
-0      (default)               
-1      space1     2001:db8::/32
-                  invalid      
-2      space2     10.1.2.0/24  
-                  4.3.2.0/28   
-                               
+Space  Name    Subnets      
+0      alpha                
+1      space1  2001:db8::/32
+               invalid      
+2      space2  10.1.2.0/24  
+               4.3.2.0/28   
+                            
 `[1:]
 
 	expectedShortTabular := `
 Space
-(default)
+alpha
 space1
 space2
 

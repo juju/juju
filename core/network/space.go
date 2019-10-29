@@ -12,7 +12,7 @@ const (
 	AlphaSpaceId = "0"
 
 	// AlphaSpaceName is the name of the alpha network space.
-	AlphaSpaceName = ""
+	AlphaSpaceName = "alpha"
 )
 
 // SpaceLookup describes methods for acquiring lookups that

@@ -466,12 +466,12 @@ func (s *SpacesSuite) TestSubnetsReturnsExpectedSubnets(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
-	defaultSpace, err := s.State.SpaceByName("")
+	alphaSpace, err := s.State.SpaceByName(network.AlphaSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	spaces, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces, jc.DeepEquals, []*state.Space{defaultSpace})
+	c.Assert(spaces, jc.DeepEquals, []*state.Space{alphaSpace})
 
 	subnets := []string{"1.1.1.0/24", "2.1.1.0/24", "3.1.1.0/24"}
 	isPublic := false
@@ -486,7 +486,7 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 
 	actual, err := s.State.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third, defaultSpace})
+	c.Assert(actual, jc.SameContents, []*state.Space{first, second, third, alphaSpace})
 }
 
 func (s *SpacesSuite) TestSpaceByID(c *gc.C) {

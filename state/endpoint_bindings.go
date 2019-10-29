@@ -557,7 +557,10 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		if v == network.AlphaSpaceId || v == network.AlphaSpaceName {
+
+		// TODO (hml) 2019-10-29
+		// investigate if v == "" is still necessary
+		if v == network.AlphaSpaceId || v == network.AlphaSpaceName || v == "" {
 			retVal[k] = network.AlphaSpaceName
 			continue
 		}
