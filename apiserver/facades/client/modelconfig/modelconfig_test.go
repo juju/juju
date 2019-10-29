@@ -261,6 +261,10 @@ func (m *mockBackend) SLALevel() (string, error) {
 	return "mock-level", nil
 }
 
+func (m *mockBackend) SpaceByName(string) error {
+	return nil
+}
+
 type mockBlock struct {
 	state.Block
 	t state.BlockType
