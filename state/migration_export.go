@@ -43,7 +43,7 @@ import (
 // one and each migration step will add itself to that and Run for completion.
 //
 // Whilst we're creating these steps, it is expected to create the unit tests
-// and suppliment all of these tests with existing tests, to ensure that no
+// and supplement all of these tests with existing tests, to ensure that no
 // gaps are missing. In the future the integration tests should be replaced with
 // the new shell tests to ensure a full end to end test is performed.
 
@@ -562,19 +562,20 @@ func (e *exporter) openedPortsArgsForMachine(machineId string, portsData []ports
 }
 
 func (e *exporter) newAddressArgsSlice(a []address) []description.AddressArgs {
-	result := []description.AddressArgs{}
-	for _, addr := range a {
-		result = append(result, e.newAddressArgs(addr))
+	result := make([]description.AddressArgs, len(a))
+	for i, addr := range a {
+		result[i] = e.newAddressArgs(addr)
 	}
 	return result
 }
 
 func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	return description.AddressArgs{
-		Value:  a.Value,
-		Type:   a.AddressType,
-		Scope:  a.Scope,
-		Origin: a.Origin,
+		Value:   a.Value,
+		Type:    a.AddressType,
+		Scope:   a.Scope,
+		Origin:  a.Origin,
+		SpaceID: a.SpaceID,
 	}
 }
 

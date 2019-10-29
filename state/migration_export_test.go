@@ -303,11 +303,16 @@ func (s *MigrationExportSuite) TestMachinesWithRootDiskSourceConstraint(c *gc.C)
 func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.Value) {
 	// Add a machine with an LXC container.
 	source := "vashti"
+
+	addr := network.NewSpaceAddress("1.1.1.1")
+	addr.SpaceID = "0"
+
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: cons,
 		Characteristics: &instance.HardwareCharacteristics{
 			RootDiskSource: &source,
 		},
+		Addresses: network.SpaceAddresses{addr},
 	})
 	nested := s.Factory.MakeMachineNested(c, machine1.Id(), nil)
 
@@ -358,6 +363,11 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	instance := exported.Instance()
 	c.Assert(instance.ModificationStatus().Value(), gc.Equals, "idle")
 	c.Assert(instance.RootDiskSource(), gc.Equals, "vashti")
+
+	c.Assert(exported.ProviderAddresses(), gc.HasLen, 1)
+	exAddr := exported.ProviderAddresses()[0]
+	c.Assert(exAddr.Value(), gc.Equals, "1.1.1.1")
+	c.Assert(exAddr.SpaceID(), gc.Equals, "0")
 }
 
 func (s *MigrationExportSuite) TestMachineDevices(c *gc.C) {
