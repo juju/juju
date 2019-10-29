@@ -241,7 +241,8 @@ const (
 	// list will be comma separated.
 	ContainerInheritPropertiesKey = "container-inherit-properties"
 
-	// Networking spaces
+	// DefaultSpace specifies which space should be used for the default
+	// endpoint bindings.
 	DefaultSpace = "default-space"
 
 	//
@@ -733,6 +734,10 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	if err := cfg.validateDefaultSpace(); err != nil {
+		return err
+	}
+
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
@@ -828,7 +833,23 @@ func (c *Config) UUID() string {
 	return c.mustString(UUIDKey)
 }
 
-// DefaultSpace returns the default-space for the model.
+func (c *Config) validateDefaultSpace() error {
+	if raw, ok := c.defined[DefaultSpace]; ok {
+		if v, ok := raw.(string); ok {
+			if v == "" {
+				return nil
+			}
+			if !names.IsValidSpace(v) {
+				return errors.NotValidf("default space name %q", raw)
+			}
+		} else {
+			return errors.NotValidf("type for default space name %v", raw)
+		}
+	}
+	return nil
+}
+
+// DefaultSpace returns the default-space for unspecified default endpoint bindings.
 func (c *Config) DefaultSpace() string {
 	return c.asString(DefaultSpace)
 }
