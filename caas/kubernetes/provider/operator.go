@@ -363,7 +363,7 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 		// Delete secrets.
 		for _, c := range p.Spec.Containers {
 			secretName := appSecretName(deploymentName, c.Name)
-			if err := k.deleteSecret(secretName, nil); err != nil {
+			if err := k.deleteSecret(secretName, ""); err != nil {
 				return errors.Annotatef(err, "deleting %s secret for container %s", appName, c.Name)
 			}
 		}
