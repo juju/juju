@@ -11,6 +11,7 @@ import (
 	"github.com/juju/jsonschema"
 	"github.com/juju/utils/exec"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -58,17 +59,25 @@ func (defaultRunner) RunCommands(run exec.RunParams) (*exec.ExecResponse, error)
 	return exec.RunCommands(run)
 }
 
-func newK8sClient(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
-	k8sClient, err := kubernetes.NewForConfig(c)
+func newK8sClient(c *rest.Config) (
+	k8sClient kubernetes.Interface,
+	apiextensionsclient apiextensionsclientset.Interface,
+	dynamicClient dynamic.Interface,
+	err error,
+) {
+	k8sClient, err = kubernetes.NewForConfig(c)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	var apiextensionsclient *apiextensionsclientset.Clientset
 	apiextensionsclient, err = apiextensionsclientset.NewForConfig(c)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	return k8sClient, apiextensionsclient, nil
+	dynamicClient, err = dynamic.NewForConfig(c)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return k8sClient, apiextensionsclient, dynamicClient, nil
 }
 
 // CloudSpecToK8sRestConfig tranlates cloudspec to k8s rest config.
