@@ -8,7 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
-	testclock "github.com/juju/clock/testclock"
+	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -17,7 +17,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	watch "k8s.io/apimachinery/pkg/watch"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -38,8 +38,6 @@ type BaseSuite struct {
 	k8sRestConfig *rest.Config
 
 	namespace string
-
-	controllerUUID string
 
 	k8sClient                  *mocks.MockInterface
 	mockRestClient             *mocks.MockRestClientInterface
@@ -102,7 +100,6 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
-	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
 	s.namespace = s.cfg.Name()
 }
 
@@ -144,7 +141,7 @@ func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 	randomPrefixFunc provider.RandomPrefixFunc) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
 	var err error
-	s.broker, err = provider.NewK8sBroker(s.controllerUUID, s.k8sRestConfig, s.cfg, newK8sRestClientFunc,
+	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, newK8sRestClientFunc,
 		newK8sWatcherFunc, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
@@ -267,7 +264,7 @@ func (s *BaseSuite) k8sNewFakeWatcher() *watch.RaceFreeFakeWatcher {
 
 func (s *BaseSuite) ensureJujuNamespaceAnnotations(isController bool, ns *core.Namespace) *core.Namespace {
 	annotations := map[string]string{
-		"juju.io/controller": s.controllerUUID,
+		"juju.io/controller": testing.ControllerTag.Id(),
 		"juju.io/model":      s.cfg.UUID(),
 	}
 	if isController {

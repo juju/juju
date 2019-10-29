@@ -20,9 +20,13 @@ func (k *kubernetesClient) getCRDLabels(appName string) map[string]string {
 }
 
 // ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
-func (k *kubernetesClient) ensureCustomResourceDefinitions(appName string, crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (cleanUps []func(), _ error) {
+func (k *kubernetesClient) ensureCustomResourceDefinitions(
+	appName string,
+	annotations map[string]string,
+	crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec,
+) (cleanUps []func(), _ error) {
 	for name, crd := range crds {
-		crd, err := k.ensureCustomResourceDefinition(name, k.getCRDLabels(appName), crd)
+		crd, err := k.ensureCustomResourceDefinition(name, k.getCRDLabels(appName), annotations, crd)
 		if err != nil {
 			return cleanUps, errors.Annotate(err, fmt.Sprintf("ensure custom resource definition %q", name))
 		}
@@ -34,13 +38,15 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(appName string, crds 
 
 func (k *kubernetesClient) ensureCustomResourceDefinition(
 	name string, labels map[string]string,
+	annotations map[string]string,
 	spec apiextensionsv1beta1.CustomResourceDefinitionSpec,
 ) (crd *apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	crdIn := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      name,
-			Namespace: k.namespace,
-			Labels:    labels,
+			Name:        name,
+			Namespace:   k.namespace,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Spec: spec,
 	}

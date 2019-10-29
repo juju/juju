@@ -88,9 +88,10 @@ var controllerServiceSpecs = map[string]*controllerServiceSpec{
 type controllerStack struct {
 	ctx environs.BootstrapContext
 
-	stackName   string
-	stackLabels map[string]string
-	broker      *kubernetesClient
+	stackName        string
+	stackLabels      map[string]string
+	stackAnnotations map[string]string
+	broker           *kubernetesClient
 
 	pcfg        *podcfg.ControllerPodConfig
 	agentConfig agent.ConfigSetterWriter
@@ -188,10 +189,11 @@ func newcontrollerStack(
 	pcfg.Bootstrap.StateServingInfo = si
 
 	cs := &controllerStack{
-		ctx:         ctx,
-		stackName:   stackName,
-		stackLabels: map[string]string{labelApplication: stackName},
-		broker:      broker,
+		ctx:              ctx,
+		stackName:        stackName,
+		stackLabels:      map[string]string{labelApplication: stackName},
+		stackAnnotations: map[string]string{annotationControllerUUIDKey: pcfg.ControllerTag.Id()},
+		broker:           broker,
 
 		pcfg:        pcfg,
 		agentConfig: agentConfig,
@@ -241,9 +243,10 @@ func (c *controllerStack) getControllerSecret() (secret *core.Secret, err error)
 	if errors.IsNotFound(err) {
 		_, err = c.broker.createSecret(&core.Secret{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      c.resourceNameSecret,
-				Labels:    c.stackLabels,
-				Namespace: c.broker.GetCurrentNamespace(),
+				Name:        c.resourceNameSecret,
+				Labels:      c.stackLabels,
+				Namespace:   c.broker.GetCurrentNamespace(),
+				Annotations: c.stackAnnotations,
 			},
 			Type: core.SecretTypeOpaque,
 		})
@@ -268,9 +271,10 @@ func (c *controllerStack) getControllerConfigMap() (cm *core.ConfigMap, err erro
 	if errors.IsNotFound(err) {
 		_, err = c.broker.createConfigMap(&core.ConfigMap{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      c.resourceNameConfigMap,
-				Labels:    c.stackLabels,
-				Namespace: c.broker.GetCurrentNamespace(),
+				Name:        c.resourceNameConfigMap,
+				Labels:      c.stackLabels,
+				Namespace:   c.broker.GetCurrentNamespace(),
+				Annotations: c.stackAnnotations,
 			},
 		})
 	}
@@ -362,9 +366,10 @@ func (c *controllerStack) createControllerService() error {
 	}
 	spec := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      svcName,
-			Labels:    c.stackLabels,
-			Namespace: c.broker.GetCurrentNamespace(),
+			Name:        svcName,
+			Labels:      c.stackLabels,
+			Namespace:   c.broker.GetCurrentNamespace(),
+			Annotations: c.stackAnnotations,
 		},
 		Spec: core.ServiceSpec{
 			Selector: c.stackLabels,
@@ -519,9 +524,10 @@ func (c *controllerStack) createControllerStatefulset() error {
 	numberOfPods := int32(1) // TODO(caas): HA mode!
 	spec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      c.resourceNameStatefulSet,
-			Labels:    c.stackLabels,
-			Namespace: c.broker.GetCurrentNamespace(),
+			Name:        c.resourceNameStatefulSet,
+			Labels:      c.stackLabels,
+			Namespace:   c.broker.GetCurrentNamespace(),
+			Annotations: c.stackAnnotations,
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: c.resourceNameService,
@@ -531,9 +537,10 @@ func (c *controllerStack) createControllerStatefulset() error {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Labels:    c.stackLabels,
-					Name:      c.pcfg.GetPodName(), // This really should not be set.
-					Namespace: c.broker.GetCurrentNamespace(),
+					Labels:      c.stackLabels,
+					Name:        c.pcfg.GetPodName(), // This really should not be set.
+					Namespace:   c.broker.GetCurrentNamespace(),
+					Annotations: c.stackAnnotations,
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,
@@ -721,8 +728,9 @@ func (c *controllerStack) buildStorageSpecForController(statefulset *apps.Statef
 	statefulset.Spec.VolumeClaimTemplates = []core.PersistentVolumeClaim{
 		{
 			ObjectMeta: v1.ObjectMeta{
-				Name:   c.pvcNameControllerPodStorage,
-				Labels: c.stackLabels,
+				Name:        c.pvcNameControllerPodStorage,
+				Labels:      c.stackLabels,
+				Annotations: c.stackAnnotations,
 			},
 			Spec: core.PersistentVolumeClaimSpec{
 				StorageClassName: &c.storageClass,

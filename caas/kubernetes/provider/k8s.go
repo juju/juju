@@ -780,8 +780,8 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 
 func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
 	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: "juju.io/controller",
-		tags.JujuModel:      "juju.io/model",
+		tags.JujuController: annotationControllerUUIDKey,
+		tags.JujuModel:      annotationModelUUIDKey,
 	}
 
 	out := k8sannotations.New(nil)
@@ -928,9 +928,11 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
+	annotations := resourceTagsToAnnotations(params.ResourceTags)
+
 	// ensure configmap.
 	if len(workloadSpec.ConfigMaps) > 0 {
-		cmsCleanUps, err := k.ensureConfigMaps(appName, workloadSpec.ConfigMaps)
+		cmsCleanUps, err := k.ensureConfigMaps(appName, annotations, workloadSpec.ConfigMaps)
 		cleanups = append(cleanups, cmsCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating configmaps")
@@ -939,7 +941,7 @@ func (k *kubernetesClient) EnsureService(
 
 	// ensure secrets.
 	if len(workloadSpec.Secrets) > 0 {
-		secretsCleanUps, err := k.ensureSecrets(appName, workloadSpec.Secrets)
+		secretsCleanUps, err := k.ensureSecrets(appName, annotations, workloadSpec.Secrets)
 		cleanups = append(cleanups, secretsCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating secrets")
@@ -949,7 +951,7 @@ func (k *kubernetesClient) EnsureService(
 	// ensure custom resource definitions first.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
-		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, crds)
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, annotations, crds)
 		cleanups = append(cleanups, crdCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating custom resource definitions")
@@ -958,7 +960,7 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	for _, sa := range workloadSpec.ServiceAccounts {
-		saCleanups, err := k.ensureServiceAccountForApp(appName, sa)
+		saCleanups, err := k.ensureServiceAccountForApp(appName, annotations, sa)
 		cleanups = append(cleanups, saCleanups...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
@@ -973,8 +975,6 @@ func (k *kubernetesClient) EnsureService(
 	if err := processConstraints(&workloadSpec.Pod, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
-
-	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
@@ -1288,6 +1288,7 @@ type configMapNameFunc func(fileSetName string) string
 
 func (k *kubernetesClient) configurePodFiles(
 	appName string,
+	annotations map[string]string,
 	podSpec *core.PodSpec,
 	containers []specs.ContainerSpec,
 	cfgMapName configMapNameFunc,
@@ -1296,7 +1297,7 @@ func (k *kubernetesClient) configurePodFiles(
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, k.getConfigMapLabels(appName), &fileSet)); err != nil {
+			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -1396,7 +1397,7 @@ func (k *kubernetesClient) configureDeployment(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1494,7 +1495,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		},
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 	existingPodSpec := podSpec
@@ -2251,11 +2252,12 @@ func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) 
 
 // filesetConfigMap returns a *core.ConfigMap for a pod
 // of the specified unit, with the specified files.
-func filesetConfigMap(configMapName string, labels map[string]string, files *specs.FileSet) *core.ConfigMap {
+func filesetConfigMap(configMapName string, labels, annotations map[string]string, files *specs.FileSet) *core.ConfigMap {
 	result := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   configMapName,
-			Labels: labels,
+			Name:        configMapName,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Data: map[string]string{},
 	}
