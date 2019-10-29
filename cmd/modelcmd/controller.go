@@ -408,7 +408,7 @@ type OptionalControllerCommand struct {
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.Client, "client", false, "Command to operate on or with a copy from this client")
+	f.BoolVar(&c.Client, "client", false, "Client operation")
 	// TODO (juju3) remove me
 	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
 	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
