@@ -274,7 +274,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 		storedCredentials, err := c.Store.CredentialForCloud(cloudName)
 		if errors.IsNotFound(err) {
 			ctx.Warningf("Could not find credentials for cloud %v on this client.", cloudName)
-			ctx.Infof("Use `juju add-credential` to add credentials to this client.")
+			ctx.Infof("Use `juju add-credential` to add a credential to this client.")
 			erred = true
 			continue
 		} else if err != nil {

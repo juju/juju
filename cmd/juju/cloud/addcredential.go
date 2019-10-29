@@ -92,7 +92,7 @@ provide that functionality.
 
 Use --controller option to upload a credential to a controller. 
 
-Use --client option to add credentials to the current client.
+Use --client option to add a credential to the current client.
 
 Further help:
 Please visit https://discourse.jujucharms.com/t/1508 for cloud-specific
