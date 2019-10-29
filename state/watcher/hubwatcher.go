@@ -6,6 +6,7 @@ package watcher
 import (
 	"fmt"
 	"reflect"
+	"runtime/debug"
 	"time"
 
 	"github.com/juju/errors"
@@ -22,6 +23,10 @@ var (
 	// having notified no watchers to be considered idle.
 	HubWatcherIdleTime = 50 * time.Millisecond
 )
+
+// syncEventSendTimeout is the amount of time we'll wait to send an
+// event on a watch's channel before complaining about it.
+const syncEventSendTimeout = 10 * time.Second
 
 // HubSource represents the listening aspects of the pubsub hub.
 type HubSource interface {
@@ -253,6 +258,7 @@ func (w *HubWatcher) WatchMulti(collection string, ids []interface{}, ch chan<- 
 		ids:         ids,
 		completedCh: make(chan error),
 		watchCh:     ch,
+		source:      debug.Stack(),
 	}
 	return errors.Trace(w.sendAndWaitReq(req))
 }
@@ -268,8 +274,13 @@ func (w *HubWatcher) Watch(collection string, id interface{}, ch chan<- Change) 
 	// -1 would indicate that we think the document is deleted (and won't trigger
 	// a change event if the document really is deleted).
 	w.sendAndWaitReq(reqWatch{
-		key:          watchKey{collection, id},
-		info:         watchInfo{ch, -2, nil},
+		key: watchKey{collection, id},
+		info: watchInfo{
+			ch:     ch,
+			revno:  -2,
+			filter: nil,
+			source: debug.Stack(),
+		},
 		registeredCh: make(chan error),
 	})
 }
@@ -287,8 +298,13 @@ func (w *HubWatcher) WatchCollection(collection string, ch chan<- Change) {
 // specified filter function returns true when called with the document id value.
 func (w *HubWatcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
 	w.sendAndWaitReq(reqWatch{
-		key:          watchKey{collection, nil},
-		info:         watchInfo{ch, 0, filter},
+		key: watchKey{collection, nil},
+		info: watchInfo{
+			ch:     ch,
+			revno:  0,
+			filter: filter,
+			source: debug.Stack(),
+		},
 		registeredCh: make(chan error),
 	})
 }
@@ -334,6 +350,10 @@ type HubWatcherStats struct {
 
 type reqStats struct {
 	ch chan<- HubWatcherStats
+}
+
+func (r reqStats) String() string {
+	return fmt.Sprintf("%#v", r)
 }
 
 func (w *HubWatcher) Stats() HubWatcherStats {
@@ -414,7 +434,9 @@ func (w *HubWatcher) flush() bool {
 	// syncEvents may grow during the looping here if new
 	// watch events come in while we are notifying other watchers.
 	w.logger.Tracef("%p flushing syncEvents: len(%d) cap(%d)", w, len(w.syncEvents), cap(w.syncEvents))
+allevents:
 	for i := 0; i < len(w.syncEvents); i++ {
+		deadline := w.clock.After(syncEventSendTimeout)
 		// We need to reget the address value each time through the loop
 		// as the slice may be reallocated.
 		for e := &w.syncEvents[i]; e.ch != nil; e = &w.syncEvents[i] {
@@ -436,6 +458,10 @@ func (w *HubWatcher) flush() bool {
 			case e.ch <- outChange:
 				w.logger.Tracef("%p e.ch=%v has been notified %v", w, e.ch, outChange)
 				watchersNotified = true
+			case <-deadline:
+				w.logger.Criticalf("%p programming error, e.ch=%v did not accept %v - missing Unwatch?\nwatch source:\n%s",
+					w, e.ch, outChange, e.watchSource)
+				continue allevents
 			}
 			break
 		}
@@ -448,10 +474,6 @@ func (w *HubWatcher) flush() bool {
 	// This allows us to compute an "average" without having to actually track N samples.
 	w.averageSyncLen = (filterFactor * float64(w.lastSyncLen)) + ((1.0 - filterFactor) * w.averageSyncLen)
 	w.syncEvents = w.syncEvents[:0]
-	// TODO(jam): 2018-11-07 This would probably be a good time to wipe syncEvents if cap(syncEvents) is significantly
-	// larger than averageSyncLen. Consider something like "if cap(syncEventsLen) > 10*w.averageSyncLen".
-	// That means that we can shrink the buffer after an outlier, rather than requiring it to always be the longest
-	// it was ever needed.
 	w.logger.Tracef("%p syncEvents after flush: len(%d), cap(%d) avg(%.1f)", w, len(w.syncEvents), cap(w.syncEvents), w.averageSyncLen)
 	if cap(w.syncEvents) > 100 && float64(cap(w.syncEvents)) > 10.0*w.averageSyncLen {
 		w.logger.Debugf("syncEvents buffer being reset from peak size %d", cap(w.syncEvents))
@@ -464,7 +486,7 @@ func (w *HubWatcher) flush() bool {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *HubWatcher) handle(req interface{}) {
-	w.logger.Tracef("%p got request: %#v", w, req)
+	w.logger.Tracef("%p got request: %s", w, req)
 	w.requestCount++
 	switch r := req.(type) {
 	case reqWatch:
@@ -502,6 +524,7 @@ func (w *HubWatcher) handle(req interface{}) {
 				ch:     r.watchCh,
 				revno:  -2,
 				filter: nil,
+				source: r.source,
 			}
 			w.watches[key] = append(w.watches[key], info)
 		}
@@ -595,9 +618,10 @@ func (w *HubWatcher) queueChange(change Change) {
 			continue
 		}
 		evt := event{
-			ch:    info.ch,
-			key:   key,
-			revno: revno,
+			ch:          info.ch,
+			key:         key,
+			revno:       revno,
+			watchSource: info.source,
 		}
 		w.syncEvents = append(w.syncEvents, evt)
 		w.syncEventCollectionCount++
@@ -610,9 +634,10 @@ func (w *HubWatcher) queueChange(change Change) {
 		if revno > info.revno || revno < 0 && info.revno >= 0 {
 			infos[i].revno = revno
 			evt := event{
-				ch:    info.ch,
-				key:   key,
-				revno: revno,
+				ch:          info.ch,
+				key:         key,
+				revno:       revno,
+				watchSource: info.source,
 			}
 			w.syncEvents = append(w.syncEvents, evt)
 			w.syncEventDocCount++
