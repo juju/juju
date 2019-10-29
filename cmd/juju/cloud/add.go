@@ -351,11 +351,6 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
-	if c.ControllerName == "" {
-		ctxt.Infof("There are no controllers specified - not adding cloud %q to any controller.", newCloud.Name)
-		return nil
-	}
-
 	// A controller has been specified so upload the cloud details
 	// plus a corresponding credential to the controller.
 	api, err := c.addCloudAPIFunc()

@@ -525,14 +525,12 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !c.Client {
-		if c.ControllerName != "" {
-			ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			openParams.ControllerUUID = ctrlUUID
+	if c.ControllerName != "" {
+		ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		openParams.ControllerUUID = ctrlUUID
 	}
 	return caas.New(openParams)
 }

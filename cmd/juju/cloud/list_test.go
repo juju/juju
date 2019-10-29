@@ -44,7 +44,6 @@ func (s *listSuite) TestListNoCredentialsRegistered(c *gc.C) {
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Only clouds with registered credentials are shown.
 There are more clouds, use --all to see them.
-No controllers were specified.
 `[1:])
 }
 
@@ -70,10 +69,6 @@ func (s *listSuite) TestListPublicLocalDefault(c *gc.C) {
 	s.store.Controllers = nil
 	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--all", "--client")
 	c.Assert(err, jc.ErrorIsNil)
-	out := cmdtesting.Stderr(ctx)
-	out = strings.Replace(out, "\n", "", -1)
-	c.Assert(out, gc.Matches, `No controllers were specified.`)
-
 	// Check that we are producing the expected fields
 	s.assertCloudsOutput(c, cmdtesting.Stdout(ctx))
 }

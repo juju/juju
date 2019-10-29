@@ -203,9 +203,6 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		result = clouds
 	default:
-		if c.ControllerName == "" {
-			ctxt.Infof("No controllers were specified.")
-		}
 		result = details
 	}
 	return c.out.Write(ctxt, result)

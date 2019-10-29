@@ -442,19 +442,20 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 		return errors.Trace(err)
 	}
 	if useController {
-		return c.queryControllerName(pollster)
+		return c.queryControllerName(ctxt, pollster)
 	}
 	return nil
 }
 
-func (c *OptionalControllerCommand) queryControllerName(pollster *interact.Pollster) error {
+func (c *OptionalControllerCommand) queryControllerName(ctxt *cmd.Context, pollster *interact.Pollster) error {
 	all, err := c.Store.AllControllers()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(all) == 0 {
 		// No controllers, so nothing to do.
-		return errors.NotFoundf("registered controllers on this client")
+		ctxt.Infof("No registered controllers on this client: either bootstrap one or register one.")
+		return nil
 	}
 
 	controllers := []string{}
