@@ -141,9 +141,6 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 	if err := c.MaybePrompt(ctxt, fmt.Sprintf("update cloud %q on", c.Cloud)); err != nil {
 		return errors.Trace(err)
 	}
-	if c.ControllerName == "" && !c.Client {
-		ctxt.Infof("To update cloud %q on this client, use the --client option.", c.Cloud)
-	}
 	var returnErr error
 	processErr := func(err error, successMsg string) {
 		if err != nil {

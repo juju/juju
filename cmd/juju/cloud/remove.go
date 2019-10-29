@@ -96,9 +96,6 @@ func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	if err := c.MaybePrompt(ctxt, fmt.Sprintf("remove cloud %v from", c.Cloud)); err != nil {
 		return errors.Trace(err)
 	}
-	if c.ControllerName == "" && !c.Client {
-		ctxt.Infof("To remove cloud %q from this client, use the --client option.", c.Cloud)
-	}
 	var returnErr error
 	if c.Client {
 		if err := c.removeLocalCloud(ctxt); err != nil {

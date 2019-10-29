@@ -119,9 +119,6 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	if err := c.MaybePrompt(ctxt, fmt.Sprintf("remove credential %q for cloud %q from", c.credential, c.cloud)); err != nil {
 		return errors.Trace(err)
 	}
-	if c.ControllerName == "" && !c.Client {
-		ctxt.Infof("To remove credential %q for cloud %q from this client, use the --client option.", c.credential, c.cloud)
-	}
 	var client RemoveCredentialAPI
 	if c.ControllerName != "" {
 		var err error
