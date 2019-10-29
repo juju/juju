@@ -341,14 +341,19 @@ func (s *MigrationImportSuite) AssertMachineEqual(c *gc.C, newMachine, oldMachin
 }
 
 func (s *MigrationImportSuite) TestMachines(c *gc.C) {
-	// Let's add a machine with an LXC container.
+	// Add a machine with an LXC container.
 	cons := constraints.MustParse("arch=amd64 mem=8G root-disk-source=bunyan")
 	source := "bunyan"
+
+	addr := network.NewSpaceAddress("1.1.1.1")
+	addr.SpaceID = "9"
+
 	machine1 := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Constraints: cons,
 		Characteristics: &instance.HardwareCharacteristics{
 			RootDiskSource: &source,
 		},
+		Addresses: corenetwork.SpaceAddresses{addr},
 	})
 	err := s.Model.SetAnnotations(machine1, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
@@ -662,6 +667,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
 	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
+	addr.SpaceID = "0"
 	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -948,6 +954,7 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 		c.Assert(containerInfo.ProviderId(), gc.Equals, "provider-id")
 		c.Assert(containerInfo.Ports(), jc.DeepEquals, []string{"80"})
 		addr := network.NewScopedSpaceAddress("192.168.1.2", network.ScopeMachineLocal)
+		addr.SpaceID = "0"
 		c.Assert(containerInfo.Address(), jc.DeepEquals, &addr)
 	}
 
