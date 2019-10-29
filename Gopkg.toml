@@ -457,22 +457,27 @@
 [[constraint]]
   name = "golang.org/x/crypto"
   revision = "f027049dab0ad238e394a753dba2d14753473a04"
+  source = "github.com/golang/crypto"
 
 [[constraint]]
   name = "golang.org/x/net"
   revision = "61147c48b25b599e5b561d2e9c4f3e1ef489ca41"
+  source = "github.com/golang/net"
 
 [[constraint]]
   name = "golang.org/x/oauth2"
   revision = "a6bd8cefa1811bd24b86f8902872e4e8225f74c4"
+  source = "github.com/golang/oauth2"
 
 [[constraint]]
   name = "golang.org/x/sys"
   revision = "0cf1ed9e522b7dbb416f080a5c8003de9b702bf4"
+  source = "github.com/golang/sys"
 
 [[override]]
   name = "golang.org/x/text"
   revision = "b19bf474d317b857955b12035d2c5acb57ce8b01"
+  source = "github.com/golang/text"
 
 [[constraint]]
   name = "google.golang.org/api"
