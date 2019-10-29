@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/juju/juju/caas/specs"
@@ -90,7 +91,9 @@ type KubernetesResources struct {
 
 	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
-	ServiceAccounts           []K8sServiceAccountSpec                                      `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
+	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
+
+	ServiceAccounts []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
@@ -103,6 +106,16 @@ func (krs *KubernetesResources) Validate() error {
 			)
 		}
 	}
+
+	for k, crs := range krs.CustomResources {
+		if _, ok := krs.CustomResourceDefinitions[k]; !ok {
+			return errors.NewNotValid(nil, fmt.Sprintf("no custom resource definition found for custom resource %q", k))
+		}
+		if len(crs) == 0 {
+			return errors.NotValidf("empty custom resources %q", k)
+		}
+	}
+
 	for _, sa := range krs.ServiceAccounts {
 		if err := sa.Validate(); err != nil {
 			return errors.Trace(err)

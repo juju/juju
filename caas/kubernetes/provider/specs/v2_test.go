@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -167,33 +168,64 @@ kubernetesResources:
   customResourceDefinitions:
     tfjobs.kubeflow.org:
       group: kubeflow.org
-      version: v1alpha2
       scope: Namespaced
       names:
-        plural: "tfjobs"
-        singular: "tfjob"
         kind: TFJob
+        singular: tfjob
+        plural: tfjobs
+      versions:
+        - name: v1
+          served: true
+          storage: true
+      subresources:
+        status: {}
       validation:
         openAPIV3Schema:
           properties:
-            tfReplicaSpecs:
+            spec:
               properties:
-                Worker:
+                tfReplicaSpecs:
                   properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                PS:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                Chief:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                      maximum: 1
+                    Worker:
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                    PS:
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                    Chief:
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                          maximum: 1
+  customResources:
+    tfjobs.kubeflow.org:
+      - apiVersion: "kubeflow.org/v1"
+        kind: "TFJob"
+        metadata:
+          name: "dist-mnist-for-e2e-test"
+        spec:
+          tfReplicaSpecs:
+            PS:
+              replicas: 2
+              restartPolicy: Never
+              template:
+                spec:
+                  containers:
+                    - name: tensorflow
+                      image: kubeflow/tf-dist-mnist-test:1.0
+            Worker:
+              replicas: 4
+              restartPolicy: Never
+              template:
+                spec:
+                  containers:
+                    - name: tensorflow
+                      image: kubeflow/tf-dist-mnist-test:1.0
 `[1:]
 
 	expectedFileContent := `
@@ -421,6 +453,51 @@ password: shhhh`[1:],
 													"replicas": {
 														Type:    "integer",
 														Minimum: float64Ptr(1),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				CustomResources: map[string]unstructured.Unstructured{
+					"tfjobs.kubeflow.org": {
+						Object: map[string]interface{}{
+							"kind": "TFJob",
+							"spec": map[string]interface{}{
+								"tfReplicaSpecs": map[string]interface{}{
+									"PS": map[string]interface{}{
+										"replicas":      int64(1),
+										"restartPolicy": "Never",
+										"template": map[string]interface{}{
+											"spec": map[string]interface{}{
+												"containers": []interface{}{
+													map[string]interface{}{
+														"name":  "tensorflow",
+														"image": "tensorflow/tensorflow:1.5.0",
+														"command": []interface{}{
+															"bash", "-c", "curl -v https://raw.githubusercontent.com/juju-solutions/charm-kubeflow-tf-job-operator/master/files/mnist.py | python /dev/stdin --train_steps 10",
+														},
+													},
+												},
+											},
+										},
+									},
+									"Worker": map[string]interface{}{
+										"replicas":      int64(1),
+										"restartPolicy": "Never",
+										"template": map[string]interface{}{
+											"spec": map[string]interface{}{
+												"containers": []interface{}{
+													map[string]interface{}{
+														"name":  "tensorflow",
+														"image": "tensorflow/tensorflow:1.5.0",
+														"command": []interface{}{
+															"bash", "-c", "curl -v https://raw.githubusercontent.com/juju-solutions/charm-kubeflow-tf-job-operator/master/files/mnist.py | python /dev/stdin --train_steps 10",
+														},
 													},
 												},
 											},
