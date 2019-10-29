@@ -35,9 +35,9 @@ a model was created with to the new and valid details on controller.
 This command allows to update an existing, already-stored, named,
 cloud-specific credential on a controller as well as the one from this client.
 
-Use --controller option to update a cloud on a controller. 
+Use --controller option to update a credential definition on a controller. 
 
-If --client is used, Juju updates credential on this client.
+Use --client to update a credential definition on this client.
 If a user will use a different client, say a different laptop, 
 the update will not affect that client's (laptop's) copy.
 
