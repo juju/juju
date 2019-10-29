@@ -1286,12 +1286,17 @@ func configureConstraint(pod *core.PodSpec, constraint, value string) error {
 
 type configMapNameFunc func(fileSetName string) string
 
-func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers []specs.ContainerSpec, cfgMapName configMapNameFunc) error {
+func (k *kubernetesClient) configurePodFiles(
+	appName string,
+	podSpec *core.PodSpec,
+	containers []specs.ContainerSpec,
+	cfgMapName configMapNameFunc,
+) error {
 	for i, container := range containers {
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, k.getConfigMapLabels(appName), &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -1391,7 +1396,7 @@ func (k *kubernetesClient) configureDeployment(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1489,7 +1494,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		},
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 	existingPodSpec := podSpec
@@ -2246,10 +2251,11 @@ func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) 
 
 // filesetConfigMap returns a *core.ConfigMap for a pod
 // of the specified unit, with the specified files.
-func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMap {
+func filesetConfigMap(configMapName string, labels map[string]string, files *specs.FileSet) *core.ConfigMap {
 	result := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name: configMapName,
+			Name:   configMapName,
+			Labels: labels,
 		},
 		Data: map[string]string{},
 	}
