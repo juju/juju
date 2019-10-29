@@ -113,6 +113,7 @@ func (aw *applicationWorker) loop() error {
 	// so we only report true changes.
 	lastReportedStatus := make(map[string]status.StatusInfo)
 	lastReportedScale := -1
+	initialOperatorEvent := true
 	logger := aw.logger
 	for {
 		// The caas watcher can just die from underneath so recreate if needed.
@@ -225,6 +226,10 @@ func (aw *applicationWorker) loop() error {
 			logger.Debugf("operator update for %v", aw.application)
 			operator, err := aw.containerBroker.Operator(aw.application)
 			if errors.IsNotFound(err) {
+				if initialOperatorEvent {
+					initialOperatorEvent = false
+					continue
+				}
 				logger.Debugf("pod not found for application %q", aw.application)
 				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, status.Terminated, "", nil); err != nil {
 					return errors.Trace(err)
