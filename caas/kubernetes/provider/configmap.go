@@ -38,6 +38,23 @@ func (k *kubernetesClient) ensureConfigMaps(appName string, cms map[string]specs
 	return cleanUps, nil
 }
 
+// ensureConfigMapLegacy is a tmp fix for upgrading configmap(no proper labels) created in 2.6.
+// TODO(caas): remove this and use "updateConfigMap" once `modelupgrader` supports CaaS models.
+func (k *kubernetesClient) ensureConfigMapLegacy(cm *core.ConfigMap) (cleanUp func(), err error) {
+	cleanUp = func() {}
+	api := k.client().CoreV1().ConfigMaps(k.namespace)
+	_, err = api.Update(cm)
+	if k8serrors.IsNotFound(err) {
+		var out *core.ConfigMap
+		if out, err = api.Create(cm); err == nil {
+			logger.Debugf("configmap %q created", out.GetName())
+			cleanUp = func() { k.deleteConfigMap(out.GetName(), out.GetUID()) }
+			return cleanUp, nil
+		}
+	}
+	return cleanUp, errors.Trace(err)
+}
+
 // ensureConfigMap ensures a ConfigMap resource.
 func (k *kubernetesClient) ensureConfigMap(cm *core.ConfigMap) (func(), error) {
 	cleanUp := func() {}

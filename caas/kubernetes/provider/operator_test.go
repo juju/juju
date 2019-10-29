@@ -426,6 +426,8 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
+		s.mockConfigMaps.EXPECT().Update(configMapArg).
+			Return(nil, s.k8sNotFoundError()),
 		s.mockConfigMaps.EXPECT().Create(configMapArg).
 			Return(configMapArg, nil),
 		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).
@@ -544,7 +546,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
-		s.mockConfigMaps.EXPECT().Create(configMapArg).
+		s.mockConfigMaps.EXPECT().Update(configMapArg).
 			Return(configMapArg, nil),
 		s.mockStorageClass.EXPECT().Get("test-operator-storage", v1.GetOptions{IncludeUninitialized: false}).
 			Return(&storagev1.StorageClass{ObjectMeta: v1.ObjectMeta{Name: "test-operator-storage"}}, nil),

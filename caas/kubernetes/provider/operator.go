@@ -182,7 +182,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 			return errors.Annotatef(err, "config map for %q should already exist", appName)
 		}
 	} else {
-		cmCleanUp, err := k.ensureConfigMap(operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), config))
+		cmCleanUp, err := k.ensureConfigMapLegacy(operatorConfigMap(appName, cmName, k.getConfigMapLabels(appName), config))
 		cleanups = append(cleanups, cmCleanUp)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating ConfigMap")
