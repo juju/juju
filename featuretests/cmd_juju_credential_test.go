@@ -71,10 +71,10 @@ clouds:
 		},
 	})
 
-	_, err := s.run(c, "show-credential", "dummy", "cred", "--no-prompt")
+	_, err := s.run(c, "show-credential", "dummy", "cred", "-c", "kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = s.run(c, "update-credential", "dummy", "cred", "--no-prompt")
+	_, err = s.run(c, "update-credential", "dummy", "cred", "-c", "kontroll")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(c.GetTestLog(), jc.Contains, `ERROR juju.cmd.juju.cloud finalizing "cred" credential for cloud "dummy": unknown key "tenant-name" (value "hrm")`)
 	store.UpdateCredential("dummy", cloud.CloudCredential{
@@ -85,7 +85,7 @@ clouds:
 			}),
 		},
 	})
-	ctx, err := s.run(c, "update-credential", "dummy", "cred", "--no-prompt")
+	ctx, err := s.run(c, "update-credential", "dummy", "cred", "-c", "kontroll", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
@@ -185,7 +185,7 @@ Changed cloud credential on model "controller" to "newcred".
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandAll(c *gc.C) {
-	ctx, err := s.run(c, "show-credential", "--no-prompt")
+	ctx, err := s.run(c, "show-credential", "-c", "kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -202,7 +202,7 @@ controller-credentials:
 }
 
 func (s *CmdCredentialSuite) TestShowCredentialCommandWithName(c *gc.C) {
-	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets", "--no-prompt", "--controller-only")
+	ctx, err := s.run(c, "show-credential", "dummy", "cred", "--show-secrets", "-c", "kontroll")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 controller-credentials:

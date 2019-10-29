@@ -264,7 +264,7 @@ func (s *updateCredentialSuite) TestCloudCredentialFromLocalCacheWithCloudAndCre
 }
 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenNoneExists(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--client")
 	c.Assert(err, gc.ErrorMatches, "could not get credentials from local client: loading credentials: credentials for cloud somecloud not found")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
@@ -272,7 +272,7 @@ func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenNoneExists(c *gc.C) 
 
 func (s *updateCredentialSuite) TestUpdateLocalWithCloudWhenCredentialDoesNotExists(c *gc.C) {
 	s.storeWithCredentials(c)
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "fluffy-credential", "--client")
 	c.Assert(err, gc.ErrorMatches, `could not get credentials from local client: credential "fluffy-credential" for cloud "somecloud" in local client not found`)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
@@ -290,7 +290,7 @@ credentials:
 	s.storeWithCredentials(c)
 	before := s.store.Credentials["somecloud"].AuthCredentials["its-credential"].Attributes()["access-key"]
 	c.Assert(before, gc.DeepEquals, "key")
-	ctxt, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--client-only", "-f", testFile)
+	ctxt, err := cmdtesting.RunCommand(c, s.testCommand, "somecloud", "its-credential", "--client", "-f", testFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "Local client was updated successfully with provided credential information.\n")
 	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, "")
@@ -344,7 +344,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) 
 		}
 		return nil, nil
 	}
-	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--no-prompt", "--controller-only")
+	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -384,7 +384,7 @@ credentials:
       auth-type: jsonfile
       file: %v
 `, tmpFile.Name()))
-	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--client-only", "-f", testFile)
+	_, err = cmdtesting.RunCommand(c, s.testCommand, "google", "gce", "--client", "-f", testFile)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Not(jc.Contains), string(contents))
 	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Equals, tmpFile.Name())
@@ -401,7 +401,7 @@ func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {
 		return []params.UpdateCredentialResult{{CredentialTag: expectedTag}}, nil
 	}
 	s.storeWithCredentials(c)
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--controller-only", "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, ``)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `
@@ -455,7 +455,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultNotUserCloudError(c *gc.C)
 			names.NewCloudTag("somecloud"): {Name: "somecloud", Type: "openstack"},
 		}, nil
 	}
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--no-prompt", "--controller-only")
+	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller")
 	c.Assert(err, gc.NotNil)
 	c.Assert(c.GetTestLog(), jc.Contains, `No cloud "aws" available to user "admin@local" remotely on controller "controller"`)
 }
@@ -465,7 +465,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultError(c *gc.C) {
 		return nil, errors.New("kaboom")
 	}
 	s.storeWithCredentials(c)
-	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--no-prompt", "--controller-only")
+	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller")
 	c.Assert(err, gc.NotNil)
 	c.Assert(c.GetTestLog(), jc.Contains, ` kaboom`)
 	c.Assert(c.GetTestLog(), jc.Contains, `Could not update credentials remotely, on controller "controller"`)
@@ -500,7 +500,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteWithModels(c *gc.C) {
 	}
 	s.storeWithCredentials(c)
 
-	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "--no-prompt", "--controller-only")
+	ctx, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller")
 	c.Assert(err, gc.DeepEquals, jujucmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Credential valid for:

@@ -60,7 +60,7 @@ func (s *removeCredentialSuite) TestMissingLocalCredential(c *gc.C) {
 		},
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	ctx, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stderr(ctx)
 	output = strings.Replace(output, "\n", "", -1)
@@ -69,7 +69,7 @@ func (s *removeCredentialSuite) TestMissingLocalCredential(c *gc.C) {
 
 func (s *removeCredentialSuite) TestBadLocalCloudName(c *gc.C) {
 	command := cloud.NewRemoveCredentialCommandForTest(jujuclient.NewMemStore(), s.cloudByNameFunc, s.clientF)
-	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "--client")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 No cloud "somecloud" is found.
@@ -91,13 +91,11 @@ func (s *removeCredentialSuite) TestRemove(c *gc.C) {
 		},
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	ctx, err := cmdtesting.RunCommand(c, command, "aws", "my-credential")
+	ctx, err := cmdtesting.RunCommand(c, command, "aws", "my-credential", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-To remove credential "my-credential" for cloud "aws" from this client, use the --client-only option.
 Found local cloud "aws" on this client.
 Credential "my-credential" for cloud "aws" removed from this client.
-Could not remove credential "my-credential" for cloud "aws" from any controllers: no controller specified.
 `[1:])
 	_, stillThere := store.Credentials["aws"].AuthCredentials["my-credential"]
 	c.Assert(stillThere, jc.IsFalse)
@@ -127,7 +125,7 @@ func (s *removeCredentialSuite) TestGettingApiClientError(c *gc.C) {
 	store := s.setupStore(c)
 	s.clientF = func() (cloud.RemoveCredentialAPI, error) { return s.fakeClient, errors.New("kaboom") }
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--no-prompt")
+	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "-c", "controller")
 	c.Assert(err, gc.ErrorMatches, "kaboom")
 	s.fakeClient.CheckNoCalls(c)
 }
@@ -136,7 +134,7 @@ func (s *removeCredentialSuite) TestGettingApiClientErrorButLocal(c *gc.C) {
 	store := s.setupStore(c)
 	s.clientF = func() (cloud.RemoveCredentialAPI, error) { return s.fakeClient, errors.New("kaboom") }
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client-only")
+	_, err := cmdtesting.RunCommand(c, command, "aws", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.fakeClient.CheckNoCalls(c)
 }
@@ -159,7 +157,7 @@ func (s *removeCredentialSuite) TestBadRemoteCloudName(c *gc.C) {
 	store := s.setupStore(c)
 	s.setupClientForRemote(c)
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	ctx, err := cmdtesting.RunCommand(c, command, "other", "foo", "--controller-only", "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "other", "foo", "-c", "controller")
 	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 No cloud "other" is found.
@@ -176,11 +174,10 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredential(c *gc.C) {
 		return nil
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 Found remote cloud "somecloud" from the controller.
-No credentials exist on this client since cloud "somecloud" is not found.
 Credential "foo" for cloud "somecloud" removed from the controller "controller".
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
@@ -193,12 +190,10 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialFail(c *gc.C) {
 		return errors.New("kaboom")
 	}
 	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
-	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals,
-		"Found remote cloud \"somecloud\" from the controller.\n"+
-			"No credentials exist on this client since cloud \"somecloud\" is not found.\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Found remote cloud \"somecloud\" from the controller.\n")
 }
 
 type fakeRemoveCredentialAPI struct {

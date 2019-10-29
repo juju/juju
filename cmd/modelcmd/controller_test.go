@@ -161,103 +161,62 @@ func (s *OptionalControllerCommandSuite) TearDownTest(c *gc.C) {
 	s.JujuOSEnvSuite.TearDownTest(c)
 }
 
-func (s *OptionalControllerCommandSuite) TestControllerCommandNoneRunning(c *gc.C) {
-	command, err := runTestOptionalControllerCommand(c, "", jujuclient.NewMemStore())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = command.ControllerNameFromArg()
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `
-No controllers registered.
-
-Please either create a new controller using "juju bootstrap" or connect to
-another controller that you have been given access to using "juju register".
-`[1:])
-}
-
-func (s *OptionalControllerCommandSuite) TestControllerCommandCurrent(c *gc.C) {
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-	}
-	store.CurrentControllerName = "fred"
-	command, err := runTestOptionalControllerCommand(c, "", store)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerName, err := command.ControllerNameFromArg()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, "fred")
-}
-
-func (s *OptionalControllerCommandSuite) TestControllerCommandCurrentFromEnv(c *gc.C) {
-	s.PatchEnvironment("JUJU_CONTROLLER", "mary")
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-		"mary": {},
-	}
-	store.CurrentControllerName = "fred"
-	command, err := runTestOptionalControllerCommand(c, "", store)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerName, err := command.ControllerNameFromArg()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, "mary")
-}
-
 func (s *OptionalControllerCommandSuite) TestControllerCommandLocal(c *gc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers = map[string]jujuclient.ControllerDetails{
 		"fred": {},
 	}
 	store.CurrentControllerName = "fred"
-	command, err := runTestOptionalControllerCommand(c, "", store, "--local")
+	command, err := runTestOptionalControllerCommand(c, store, "--local")
 	c.Assert(err, jc.ErrorIsNil)
-	controllerName, err := command.ControllerNameFromArg()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, "")
+	c.Assert(command.ControllerName, gc.Equals, "")
 }
 
-func (s *OptionalControllerCommandSuite) TestControllerCommandNoFlag(c *gc.C) {
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-	}
-	store.CurrentControllerName = "fred"
-	command, err := runTestOptionalControllerCommand(c, "multi-cloud", store)
+func (s *OptionalControllerCommandSuite) assertPrompt(c *gc.C,
+	store jujuclient.ClientStore,
+	userAnswer string,
+	in ...string,
+) (*cmd.Context, *testOptionalControllerCommand, error) {
+	ctx, command, err := runOptionalControllerCommand(c, store, in...)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerName, err := command.ControllerNameFromArg()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, "")
+	ctx.Stdin = strings.NewReader(userAnswer)
+	err = command.MaybePrompt(ctx, "")
+	return ctx, command, err
 }
-
-func (s *OptionalControllerCommandSuite) TestControllerCommandWithFlag(c *gc.C) {
-	s.SetFeatureFlags("multi-cloud")
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-	}
-	store.CurrentControllerName = "fred"
-	command, err := runTestOptionalControllerCommand(c, "multi-cloud", store)
-	c.Assert(err, jc.ErrorIsNil)
-	controllerName, err := command.ControllerNameFromArg()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, "fred")
-}
-
 func (s *OptionalControllerCommandSuite) assertDetectCurrentController(c *gc.C,
 	store jujuclient.ClientStore,
+	userAnswer string,
 	expectedControllerName string,
+	expectedClientOperation bool,
 	in ...string,
 ) {
-	ctx, command, err := runOptionalControllerCommand(c, "", store, in...)
+	ctx, command, err := s.assertPrompt(c, store, userAnswer, in...)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerName, err := command.MaybePromptCurrentController(ctx, "")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, expectedControllerName)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
+	c.Assert(command.ControllerName, gc.Equals, expectedControllerName)
+	c.Assert(command.Client, gc.Equals, expectedClientOperation)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to  this client? (Y/n): 
+Do you want to  a controller? (Y/n): 
+Controller Names
+  fred
+
+Select controller name [fred]: 
+`[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
-func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoControllers(c *gc.C) {
-	s.assertDetectCurrentController(c, jujuclient.NewMemStore(), "")
+func (s *OptionalControllerCommandSuite) TestPromptNoControllers(c *gc.C) {
+	ctx, command, err := s.assertPrompt(c, jujuclient.NewMemStore(), "n\ny\n")
+	c.Assert(err, gc.ErrorMatches, "registered controllers on this client not found")
+	c.Assert(command.ControllerName, gc.Equals, "")
+	c.Assert(command.Client, gc.Equals, false)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to  this client? (Y/n): 
+Do you want to  a controller? (Y/n): 
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoCurrentController(c *gc.C) {
@@ -265,40 +224,56 @@ func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoCurrentCon
 	store.Controllers = map[string]jujuclient.ControllerDetails{
 		"fred": {},
 	}
-	s.assertDetectCurrentController(c, store, "")
+	s.assertDetectCurrentController(c, store, "n\ny\nfred\n", "fred", false)
 }
 
-func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerSkipPrompt(c *gc.C) {
+func (s *OptionalControllerCommandSuite) assertDetectCurrentControllerPrompt(c *gc.C,
+	userAnswer, expectedControllerName string,
+	expectedClientOperation bool,
+	expectedOut string,
+) {
 	store := jujuclient.NewMemStore()
 	store.Controllers = map[string]jujuclient.ControllerDetails{
 		"fred": {},
 	}
 	store.CurrentControllerName = "fred"
-	s.assertDetectCurrentController(c, store, "fred", "--no-prompt")
-}
-
-func (s *OptionalControllerCommandSuite) assertDetectCurrentControllerPrompt(c *gc.C, userAnswer, expectedControllerName string) {
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-	}
-	store.CurrentControllerName = "fred"
-	ctx, command, err := runOptionalControllerCommand(c, "", store)
+	ctx, command, err := runOptionalControllerCommand(c, store)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdin = strings.NewReader(userAnswer)
-	controllerName, err := command.MaybePromptCurrentController(ctx, "test on")
+	err = command.MaybePrompt(ctx, "test on")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(controllerName, gc.Equals, expectedControllerName)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you want to test on current controller \"fred\"? (Y/n): \n")
+	c.Assert(command.ControllerName, gc.Equals, expectedControllerName)
+	c.Assert(command.Client, gc.Equals, expectedClientOperation)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOut)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
-func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerPromptConfirm(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "y", "fred")
+var testFullOutput = `
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to test on this client? (Y/n): 
+Do you want to test on a controller? (Y/n): 
+Controller Names
+  fred
+
+Select controller name [fred]: 
+`[1:]
+
+var testShortOutput = `
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to test on this client? (Y/n): 
+Do you want to test on a controller? (Y/n): 
+`[1:]
+
+func (s *OptionalControllerCommandSuite) TestPrompt(c *gc.C) {
+	s.assertDetectCurrentControllerPrompt(c, "y\ny\n\n", "fred", true, testFullOutput)
 }
 
-func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerPromptDeny(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "n", "")
+func (s *OptionalControllerCommandSuite) TestPromptDeny(c *gc.C) {
+	s.assertDetectCurrentControllerPrompt(c, "n\nn\n", "", false, testShortOutput)
+}
+
+func (s *OptionalControllerCommandSuite) TestPromptUseNonDefaultController(c *gc.C) {
+	s.assertDetectCurrentControllerPrompt(c, "n\ny\nfred\n", "fred", false, testFullOutput)
 }
 
 type testOptionalControllerCommand struct {
@@ -316,16 +291,13 @@ func (c *testOptionalControllerCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func runTestOptionalControllerCommand(c *gc.C, enabledFlag string, store jujuclient.ClientStore, args ...string) (*testOptionalControllerCommand, error) {
-	_, command, err := runOptionalControllerCommand(c, enabledFlag, store, args...)
+func runTestOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*testOptionalControllerCommand, error) {
+	_, command, err := runOptionalControllerCommand(c, store, args...)
 	return command, errors.Trace(err)
 }
 
-func runOptionalControllerCommand(c *gc.C, enabledFlag string, store jujuclient.ClientStore, args ...string) (*cmd.Context, *testOptionalControllerCommand, error) {
+func runOptionalControllerCommand(c *gc.C, store jujuclient.ClientStore, args ...string) (*cmd.Context, *testOptionalControllerCommand, error) {
 	optCommand := modelcmd.OptionalControllerCommand{Store: store}
-	if enabledFlag != "" {
-		optCommand.EnabledFlag = enabledFlag
-	}
 	command := &testOptionalControllerCommand{OptionalControllerCommand: optCommand}
 	ctx, err := cmdtesting.RunCommand(c, command, args...)
 	return ctx, command, errors.Trace(err)

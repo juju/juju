@@ -35,24 +35,17 @@ type listRegionsCommand struct {
 var listRegionsDoc = `
 List regions for a given cloud.
 
-If the current controller can be detected, a user will be prompted to 
-confirm if regions for the cloud known to the controller need to be 
-listed as well. If the prompt is not needed and the regions from 
-current controller's cloud are always to be listed, use --no-prompt option.
+Use --controller option to list regions from the cloud from a controller.
 
-Use --controller option to list regions from the cloud from a different controller.
-
-Use --client-only option to only list regions known locally on this client.
-
-Use --controller-only option to only list regions known remotely on a controller.
+Use --client option to list regions known locally on this client.
 
 
 Examples:
 
     juju regions aws
     juju regions aws --controller mycontroller
-    juju regions aws --client-only
-    juju regions aws --no-prompt
+    juju regions aws --client
+    juju regions aws --client --controller mycontroller
 
 See also:
     add-cloud
@@ -132,16 +125,19 @@ func (f *FoundRegions) IsEmpty() bool {
 
 // Run implements Command.Run.
 func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("list regions for cloud %q from", c.cloudName)); err != nil {
+		return errors.Trace(err)
+	}
 	c.found = &FoundRegions{}
 	var returnErr error
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := c.findLocalRegions(ctxt); err != nil {
 			ctxt.Warningf("%v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
 
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
 		if err := c.findRemoteRegions(ctxt); err != nil {
 			ctxt.Warningf("%v", err)
 			returnErr = cmd.ErrSilent
@@ -157,19 +153,6 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listRegionsCommand) findRemoteRegions(ctxt *cmd.Context) error {
-	if c.ControllerName == "" {
-		// The user may have specified the controller via a --controller option.
-		// If not, let's see if there is a current controller that can be detected.
-		var err error
-		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("list regions for cloud %q from", c.cloudName))
-		if err != nil {
-			return errors.Trace(err)
-		}
-	}
-	if c.ControllerName == "" {
-		return errors.Errorf("Not listing regions for cloud %q from a controller: no controller specified.", c.cloudName)
-	}
-
 	api, err := c.cloudAPIFunc()
 	if err != nil {
 		return errors.Trace(err)

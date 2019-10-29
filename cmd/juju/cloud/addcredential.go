@@ -75,12 +75,11 @@ overwritten. This option is DEPRECATED, use 'juju update-credential' instead.
 
 Examples:
     juju add-credential google
-    juju add-credential google --client-only
+    juju add-credential google --client
     juju add-credential google -c mycontroller
     juju add-credential aws -f ~/credentials.yaml -c mycontroller
     juju add-credential aws -f ~/credentials.yaml
-    juju add-credential aws -f ~/credentials.yaml --client-only
-    juju add-credential aws -f ~/credentials.yaml --no-prompt
+    juju add-credential aws -f ~/credentials.yaml --client
 
 Notes:
 If you are setting up Juju for the first time, consider running
@@ -91,16 +90,9 @@ This command does not set default regions nor default credentials for the
 cloud. The commands ` + "`juju default-region`" + ` and ` + "`juju default-credential`" + `
 provide that functionality.
 
-By default, after validating the contents, Juju will add a credential locally,
-to the current client device, and will upload it to a controller. 
+Use --controller option to upload a credential to a controller. 
 
-If a current controller is detected, Juju will prompt the user to confirm
-whether this new credential also needs to be uploaded. 
-Use --no-prompt option when this prompt is undesirable, but the upload to 
-the current controller is wanted.
-Use --controller option to upload a credential to a different controller. 
-
-Use --client-only option to add credentials to the current client only.
+Use --client option to add credentials to the current client.
 
 Further help:
 Please visit https://discourse.jujucharms.com/t/1508 for cloud-specific
@@ -189,18 +181,12 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Warningf("--replace is DEPRECATED. Use 'juju update-credential' to update credentials.")
 	}
 
-	var err error
-	if (c.BothClientAndController || c.ControllerOnly) && c.ControllerName == "" {
-		// The user may have specified the controller via a --controller option.
-		// If not, let's see if there is a current controller that can be detected.
-		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "add a credential to")
-		if err != nil {
-			return errors.Trace(err)
-		}
+	if err := c.MaybePrompt(ctxt, "add a credential to"); err != nil {
+		return errors.Trace(err)
 	}
 
 	// Check that the supplied cloud is valid.
-	if !c.ClientOnly && c.ControllerName != "" {
+	if c.ControllerName != "" {
 		if err := c.maybeRemoteCloud(ctxt); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
@@ -209,6 +195,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	if c.cloud == nil {
+		var err error
 		if c.cloud, err = common.CloudOrProvider(c.CloudName, c.cloudByNameFunc); err != nil {
 			logger.Errorf("%v", err)
 			ctxt.Infof("To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.")
@@ -314,7 +301,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 
 func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb string, existingCredentials jujucloud.CloudCredential, added map[string]jujucloud.Credential, allNames []string) error {
 	var err error
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		// Local processing.
 		if len(allNames) == 0 {
 			fmt.Fprintf(ctxt.Stdout, "No local credentials for cloud %q changed.\n", c.CloudName)
@@ -334,16 +321,9 @@ func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb str
 			}
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
 		// Remote processing.
-		if !c.ClientOnly {
-			if c.ControllerName != "" {
-				return c.addRemoteCredentials(ctxt, added, err)
-			} else {
-				ctxt.Infof("There are no controllers specified - not adding a credential to any controller.")
-				return err
-			}
-		}
+		return c.addRemoteCredentials(ctxt, added, err)
 	}
 	return err
 }

@@ -53,25 +53,14 @@ The credential to be removed is specified by a "credential name".
 Credential names, and optionally the corresponding authentication
 material, can be listed with `[1:] + "`juju credentials`" + `.
 
-By default, after validating the contents, a credential is removed
-from both the current controller and the current client device. 
+Use --controller option to remove credentials from a controller. 
 
-If a current controller can be detected, a user will be prompted to confirm 
-if specified credential needs to be removed from it. 
-If the prompt is not needed and the credential is always to be removed from
-the current controller if that controller is detected, use --no-prompt option.
-
-Use --controller option to remove credentials from a different controller. 
-
-Use --controller-only option to remove credentials from a controller only. 
-
-Use --client-only option to remove credentials from the current client only.
+Use --client option to remove credentials from the current client.
 
 Examples:
     juju remove-credential rackspace credential_name
-    juju remove-credential rackspace credential_name --no-prompt --controller-only
-    juju remove-credential rackspace credential_name --client-only
-    juju remove-credential rackspace credential_name -c another_controller
+    juju remove-credential rackspace credential_name --client
+    juju remove-credential rackspace credential_name -c mycontroller
 
 See also: 
     credentials
@@ -127,22 +116,14 @@ func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("remove credential %q for cloud %q from", c.credential, c.cloud))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("remove credential %q for cloud %q from", c.credential, c.cloud)); err != nil {
+		return errors.Trace(err)
 	}
-	if c.ControllerName == "" && !c.ClientOnly {
-		ctxt.Infof("To remove credential %q for cloud %q from this client, use the --client-only option.", c.credential, c.cloud)
+	if c.ControllerName == "" && !c.Client {
+		ctxt.Infof("To remove credential %q for cloud %q from this client, use the --client option.", c.credential, c.cloud)
 	}
 	var client RemoveCredentialAPI
-	if !c.ClientOnly {
+	if c.ControllerName != "" {
 		var err error
 		client, err = c.credentialAPIFunc()
 		if err != nil {
@@ -157,36 +138,30 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 		return cmd.ErrSilent
 	}
 	var returnErr error
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := c.removeFromLocal(ctxt); err != nil {
 			ctxt.Warningf("%v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName != "" {
-			if err := c.removeFromController(ctxt, client); err != nil {
-				ctxt.Warningf("%v", err)
-				returnErr = cmd.ErrSilent
-			}
-		} else {
-			ctxt.Infof("Could not remove credential %q for cloud %q from any controllers: no controller specified.", c.credential, c.cloud)
+	if c.ControllerName != "" {
+		if err := c.removeFromController(ctxt, client); err != nil {
+			ctxt.Warningf("%v", err)
+			returnErr = cmd.ErrSilent
 		}
 	}
 	return returnErr
 }
 
 func (c *removeCredentialCommand) checkCloud(ctxt *cmd.Context, client RemoveCredentialAPI) {
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName != "" {
-			if err := c.maybeRemoteCloud(ctxt, client); err != nil {
-				if !errors.IsNotFound(err) {
-					logger.Errorf("%v", err)
-				}
+	if c.ControllerName != "" {
+		if err := c.maybeRemoteCloud(ctxt, client); err != nil {
+			if !errors.IsNotFound(err) {
+				logger.Errorf("%v", err)
 			}
 		}
 	}
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := c.maybeLocalCloud(ctxt); err != nil {
 			if !errors.IsNotFound(err) {
 				logger.Errorf("%v", err)
