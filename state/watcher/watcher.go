@@ -115,12 +115,14 @@ type watchInfo struct {
 	ch     chan<- Change
 	revno  int64
 	filter func(interface{}) bool
+	source []byte
 }
 
 type event struct {
-	ch    chan<- Change
-	key   watchKey
-	revno int64
+	ch          chan<- Change
+	key         watchKey
+	revno       int64
+	watchSource []byte
 }
 
 // Period is the delay between each sync.
@@ -138,20 +140,35 @@ func (r reqWatch) Completed() chan error {
 	return r.registeredCh
 }
 
+func (r reqWatch) String() string {
+	r.info.source = nil
+	return fmt.Sprintf("%#v", r)
+}
+
 type reqWatchMulti struct {
 	collection  string
 	ids         []interface{}
 	completedCh chan error
 	watchCh     chan<- Change
+	source      []byte
 }
 
 func (r reqWatchMulti) Completed() chan error {
 	return r.completedCh
 }
 
+func (r reqWatchMulti) String() string {
+	r.source = nil
+	return fmt.Sprintf("%#v", r)
+}
+
 type reqUnwatch struct {
 	key watchKey
 	ch  chan<- Change
+}
+
+func (r reqUnwatch) String() string {
+	return fmt.Sprintf("%#v", r)
 }
 
 type reqSync struct{}

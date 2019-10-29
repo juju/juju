@@ -6,6 +6,7 @@ package watcher
 // Logger represents methods called by this package to a logging
 // system.
 type Logger interface {
+	Criticalf(format string, values ...interface{})
 	Warningf(format string, values ...interface{})
 	Infof(format string, values ...interface{})
 	Debugf(format string, values ...interface{})
@@ -14,7 +15,8 @@ type Logger interface {
 
 type noOpLogger struct{}
 
-func (noOpLogger) Warningf(format string, values ...interface{}) {}
-func (noOpLogger) Infof(format string, values ...interface{})    {}
-func (noOpLogger) Debugf(format string, values ...interface{})   {}
-func (noOpLogger) Tracef(format string, values ...interface{})   {}
+func (noOpLogger) Criticalf(format string, values ...interface{}) {}
+func (noOpLogger) Warningf(format string, values ...interface{})  {}
+func (noOpLogger) Infof(format string, values ...interface{})     {}
+func (noOpLogger) Debugf(format string, values ...interface{})    {}
+func (noOpLogger) Tracef(format string, values ...interface{})    {}

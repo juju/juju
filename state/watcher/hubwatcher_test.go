@@ -6,7 +6,7 @@ package watcher_test
 import (
 	"time"
 
-	"github.com/juju/clock"
+	"github.com/juju/clock/testclock"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
@@ -24,6 +24,8 @@ type HubWatcherSuite struct {
 	w   watcher.BaseWatcher
 	hub *pubsub.SimpleHub
 	ch  chan watcher.Change
+
+	clock *testclock.Clock
 }
 
 var _ = gc.Suite(&HubWatcherSuite{})
@@ -34,10 +36,12 @@ func (s *HubWatcherSuite) SetUpTest(c *gc.C) {
 	logger := loggo.GetLogger("HubWatcherSuite")
 	logger.SetLogLevel(loggo.TRACE)
 
+	s.clock = testclock.NewClock(time.Now())
+
 	s.hub = pubsub.NewSimpleHub(nil)
 	s.ch = make(chan watcher.Change)
 	var started <-chan struct{}
-	s.w, started = watcher.NewTestHubWatcher(s.hub, clock.WallClock, "model-uuid", logger)
+	s.w, started = watcher.NewTestHubWatcher(s.hub, s.clock, "model-uuid", logger)
 	s.AddCleanup(func(c *gc.C) {
 		worker.Stop(s.w)
 	})
@@ -349,4 +353,108 @@ func (s *HubWatcherSuite) TestWatchStoppedWhileFlushing(c *gc.C) {
 	// Since we haven't removed anything off the channel before the
 	// unwatch, all the pending events should be cleared.
 	assertNoChange(c, s.ch)
+}
+
+func (s *HubWatcherSuite) TestDetectsDeadReceivers(c *gc.C) {
+	logger := loggo.GetLogger("HubWatcherSuite")
+	// Skip the trace logging.
+	logger.SetLogLevel(loggo.CRITICAL)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), gc.IsNil)
+
+	// Watch a and b, and publish changes for both of them.
+	aCh := make(chan watcher.Change)
+
+	s.w.Watch("test", "a", aCh)
+	s.w.Watch("test", "b", s.ch)
+
+	aEvent := watcher.Change{"test", "a", 2}
+	bEvent := watcher.Change{"test", "b", 3}
+	s.publish(c, aEvent)
+	s.publish(c, bEvent)
+
+	assertChange(c, aCh, aEvent)
+	assertChange(c, s.ch, bEvent)
+
+	// Stop receiving a changes - publish a and b changes again.
+	aEvent = watcher.Change{"test", "a", 22}
+	bEvent = watcher.Change{"test", "b", 33}
+	s.publish(c, aEvent)
+	s.publish(c, bEvent)
+
+	assertNoChange(c, s.ch)
+	// 3 waiters - the first two messages and then the blocked one.
+	err := s.clock.WaitAdvance(10*time.Second, testing.LongWait, 3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Eventually the watcher gives up on trying to send the a change.
+	// Still sends the b change.
+	assertChange(c, s.ch, bEvent)
+
+	// And complains about the receiver that's not listening (with
+	// stack trace).
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.CRITICAL,
+		`0x.......... programming error, e.ch=0x.......... did not accept {test a 22} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+	}})
+}
+
+func (s *HubWatcherSuite) TestWatchMultiDeadReceivers(c *gc.C) {
+	logger := loggo.GetLogger("HubWatcherSuite")
+	logger.SetLogLevel(loggo.CRITICAL)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), gc.IsNil)
+
+	aCh := make(chan watcher.Change)
+	err := s.w.WatchMulti("test", []interface{}{"a", "b"}, aCh)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.w.Watch("test", "b", s.ch)
+
+	event := watcher.Change{"test", "b", 3}
+	s.publish(c, event)
+
+	assertNoChange(c, s.ch)
+	err = s.clock.WaitAdvance(10*time.Second, testing.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Eventually the watcher gives up on trying to send to the first one.
+	// Still sends the b change to the next watch.
+	assertChange(c, s.ch, event)
+
+	// And complains about the receiver that's not listening (with
+	// stack trace).
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.CRITICAL,
+		`0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+	}})
+}
+
+func (s *HubWatcherSuite) TestWatchCollectionDeadReceivers(c *gc.C) {
+	logger := loggo.GetLogger("HubWatcherSuite")
+	logger.SetLogLevel(loggo.CRITICAL)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("hubwatcher-tests", &tw), gc.IsNil)
+
+	aCh := make(chan watcher.Change)
+	s.w.WatchCollection("test", aCh)
+	s.w.Watch("test", "b", s.ch)
+
+	event := watcher.Change{"test", "b", 3}
+	s.publish(c, event)
+
+	assertNoChange(c, s.ch)
+	err := s.clock.WaitAdvance(10*time.Second, testing.LongWait, 1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Eventually the watcher gives up on trying to send to the first one.
+	// Still sends the b change to the next watch.
+	assertChange(c, s.ch, event)
+
+	// And complains about the receiver that's not listening (with
+	// stack trace).
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
+		loggo.CRITICAL,
+		`0x.......... programming error, e.ch=0x.......... did not accept {test b 3} - missing Unwatch\?\nwatch source:\ngoroutine .*`,
+	}})
 }
