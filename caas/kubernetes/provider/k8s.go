@@ -1320,7 +1320,13 @@ func configureInitContainer(podSpec *core.PodSpec, operatorImagePath string) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait")
+	jujudCmd := `
+initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
+if test -n "$initCmd"; then
+$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait;
+else
+exit 0
+fi`[1:]
 	container := core.Container{
 		Name:            caas.InitContainerName,
 		Image:           operatorImagePath,

@@ -3771,11 +3771,20 @@ func (s *K8sBrokerSuite) TestUpgradeNotSupported(c *gc.C) {
 }
 
 func initContainers() []core.Container {
+	jujudCmd := "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/jujud $JUJU_TOOLS_DIR/jujud"
+	jujudCmd += `
+initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
+if test -n "$initCmd"; then
+$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait;
+else
+exit 0
+fi
+`
 	return []core.Container{{
 		Name:            "juju-pod-init",
 		Image:           "operator/image-path",
 		Command:         []string{"/bin/sh"},
-		Args:            []string{"-c", "export JUJU_DATA_DIR=/var/lib/juju\nexport JUJU_TOOLS_DIR=$JUJU_DATA_DIR/tools\n\nmkdir -p $JUJU_TOOLS_DIR\ncp /opt/jujud $JUJU_TOOLS_DIR/jujud\n$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait\n"},
+		Args:            []string{"-c", jujudCmd},
 		WorkingDir:      "/var/lib/juju",
 		VolumeMounts:    []core.VolumeMount{{Name: "juju-data-dir", MountPath: "/var/lib/juju"}},
 		ImagePullPolicy: "IfNotPresent",
