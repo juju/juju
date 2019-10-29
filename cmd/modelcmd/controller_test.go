@@ -4,6 +4,7 @@
 package modelcmd_test
 
 import (
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -183,7 +184,8 @@ func (s *OptionalControllerCommandSuite) assertPrompt(c *gc.C,
 	err = command.MaybePrompt(ctx, "")
 	return ctx, command, err
 }
-func (s *OptionalControllerCommandSuite) assertDetectCurrentController(c *gc.C,
+
+func (s *OptionalControllerCommandSuite) assertOneController(c *gc.C,
 	store jujuclient.ClientStore,
 	userAnswer string,
 	expectedControllerName string,
@@ -198,12 +200,47 @@ func (s *OptionalControllerCommandSuite) assertDetectCurrentController(c *gc.C,
 This operation can be applied to both a copy on this client and a controller of your choice.
 Do you want to  this client? (Y/n): 
 Do you want to  a controller? (Y/n): 
-Controller Names
-  fred
-
-Select controller name [fred]: 
+Only one controller "fred" is registered. Use it? (Y/n): 
 `[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *OptionalControllerCommandSuite) assertManyControllers(c *gc.C,
+	store jujuclient.ClientStore,
+	userAnswer string,
+	expectedControllerNames []string,
+	expectedControllerDefault string,
+	expectedControllerName string,
+	expectedClientOperation bool,
+	in ...string,
+) {
+	ctx, command, err := s.assertPrompt(c, store, userAnswer, in...)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(command.ControllerName, gc.Equals, expectedControllerName)
+	c.Assert(command.Client, gc.Equals, expectedClientOperation)
+	part1 := fmt.Sprintf(`
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to  this client? (Y/n): 
+Do you want to  a controller? (Y/n): 
+Controller Names
+  %v
+
+Select controller name [%v]: 
+`[1:],
+		strings.Join(expectedControllerNames, "\n  "),
+		expectedControllerDefault)
+
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, part1)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *OptionalControllerCommandSuite) TestPromptManyControllers(c *gc.C) {
+	store := jujuclient.NewMemStore()
+	store.Controllers = map[string]jujuclient.ControllerDetails{
+		"fred": {},
+		"mary": {},
+	}
+	s.assertManyControllers(c, store, "n\n\nmary\n", []string{"fred", "mary"}, "fred", "mary", false)
 }
 
 func (s *OptionalControllerCommandSuite) TestPromptNoControllers(c *gc.C) {
@@ -224,7 +261,7 @@ func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoCurrentCon
 	store.Controllers = map[string]jujuclient.ControllerDetails{
 		"fred": {},
 	}
-	s.assertDetectCurrentController(c, store, "n\ny\nfred\n", "fred", false)
+	s.assertOneController(c, store, "n\n\n\n", "fred", false)
 }
 
 func (s *OptionalControllerCommandSuite) assertDetectCurrentControllerPrompt(c *gc.C,
@@ -252,10 +289,7 @@ var testFullOutput = `
 This operation can be applied to both a copy on this client and a controller of your choice.
 Do you want to test on this client? (Y/n): 
 Do you want to test on a controller? (Y/n): 
-Controller Names
-  fred
-
-Select controller name [fred]: 
+Only one controller "fred" is registered. Use it? (Y/n): 
 `[1:]
 
 var testShortOutput = `
@@ -273,7 +307,7 @@ func (s *OptionalControllerCommandSuite) TestPromptDeny(c *gc.C) {
 }
 
 func (s *OptionalControllerCommandSuite) TestPromptUseNonDefaultController(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "n\ny\nfred\n", "fred", false, testFullOutput)
+	s.assertDetectCurrentControllerPrompt(c, "n\n\n\n", "fred", false, testFullOutput)
 }
 
 type testOptionalControllerCommand struct {

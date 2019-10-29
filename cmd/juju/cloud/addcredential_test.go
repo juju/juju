@@ -942,10 +942,7 @@ func (s *addCredentialSuite) TestAddRemoteCloudPromptForController(c *gc.C) {
 This operation can be applied to both a copy on this client and a controller of your choice.
 Do you want to add a credential to this client? (Y/n): 
 Do you want to add a credential to a controller? (Y/n): 
-Controller Names
-  controller
-
-Select controller name [controller]: 
+Only one controller "controller" is registered. Use it? (Y/n): 
 Enter credential name: 
 Using auth-type "jsonfile".
 

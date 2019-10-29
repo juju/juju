@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"sort"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -458,11 +459,26 @@ func (c *OptionalControllerCommand) queryControllerName(ctxt *cmd.Context, polls
 		return nil
 	}
 
+	if len(all) == 1 {
+		cName := ""
+		for n := range all {
+			cName = n
+			break
+		}
+		useController, err := pollster.YN(fmt.Sprintf("Only one controller %q is registered. Use it", cName), true)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if useController {
+			c.ControllerName = cName
+		}
+		return nil
+	}
 	controllers := []string{}
 	for one := range all {
 		controllers = append(controllers, one)
 	}
-
+	sort.Strings(controllers)
 	knownClouds := interact.VerifyOptions("controller", controllers, true)
 
 	nameVerify := func(s string) (ok bool, errmsg string, err error) {
