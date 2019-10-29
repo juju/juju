@@ -208,7 +208,7 @@ Select controller name [fred]:
 
 func (s *OptionalControllerCommandSuite) TestPromptNoControllers(c *gc.C) {
 	ctx, command, err := s.assertPrompt(c, jujuclient.NewMemStore(), "n\ny\n")
-	c.Assert(err, gc.ErrorMatches, "registered controllers on this client not found")
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ControllerName, gc.Equals, "")
 	c.Assert(command.Client, gc.Equals, false)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -216,7 +216,7 @@ This operation can be applied to both a copy on this client and a controller of 
 Do you want to  this client? (Y/n): 
 Do you want to  a controller? (Y/n): 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No registered controllers on this client: either bootstrap one or register one.\n")
 }
 
 func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoCurrentController(c *gc.C) {
