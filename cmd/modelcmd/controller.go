@@ -500,8 +500,8 @@ func (c *OptionalControllerCommand) queryControllerName(ctxt *cmd.Context, polls
 		defaultController = controllers[0]
 	}
 	cName, err := pollster.SelectVerify(interact.List{
-		Singular: "controller name",
-		Plural:   "controller names",
+		Singular: "controller",
+		Plural:   "controllers",
 		Options:  controllers,
 		Default:  defaultController,
 	}, nameVerify)

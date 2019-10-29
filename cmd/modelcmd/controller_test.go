@@ -222,10 +222,10 @@ func (s *OptionalControllerCommandSuite) assertManyControllers(c *gc.C,
 This operation can be applied to both a copy on this client and a controller of your choice.
 Do you want to  this client? (Y/n): 
 Do you want to  a controller? (Y/n): 
-Controller Names
+Controllers
   %v
 
-Select controller name [%v]: 
+Select controller [%v]: 
 `[1:],
 		strings.Join(expectedControllerNames, "\n  "),
 		expectedControllerDefault)
