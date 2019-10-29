@@ -130,8 +130,16 @@ type Credential struct {
 }
 
 type credentialsMap struct {
-	ClientOnly bool                       `yaml:"-" json:"-"`
-	Client     map[string]CloudCredential `yaml:"client-credentials,omitempty" json:"client-credentials,omitempty"`
+	// ClientOnly holds whether the client list was requested or not.
+	// It is needed in the formatter when we get an empty list -
+	// is it that there are no credentials on the client or
+	// is it that we were not even looking on the client for credentials.
+	ClientOnly bool `yaml:"-" json:"-"`
+
+	// Client has a collection of all client credentials keyed on credential name.
+	Client map[string]CloudCredential `yaml:"client-credentials,omitempty" json:"client-credentials,omitempty"`
+
+	// Controller has a collection of all controller credentials keyed on credential name.
 	Controller map[string]CloudCredential `yaml:"controller-credentials,omitempty" json:"controller-credentials,omitempty"`
 }
 
