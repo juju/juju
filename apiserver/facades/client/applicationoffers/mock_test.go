@@ -85,7 +85,7 @@ type mockEnviron struct {
 
 func (e *mockEnviron) ProviderSpaceInfo(ctx context.ProviderCallContext, space *network.SpaceInfo) (*environs.ProviderSpaceInfo, error) {
 	e.stub.MethodCall(e, "ProviderSpaceInfo", space)
-	spaceName := corenetwork.DefaultSpaceName
+	spaceName := corenetwork.AlphaSpaceName
 	if space != nil {
 		spaceName = string(space.Name)
 	}

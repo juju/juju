@@ -623,7 +623,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string) (map[string]str
 		return nil, errors.Trace(err)
 	}
 	for k, v := range endpointsWithSpaceNames {
-		if v == network.DefaultSpaceName {
+		if v == network.AlphaSpaceName {
 			delete(endpointsWithSpaceNames, k)
 		}
 	}

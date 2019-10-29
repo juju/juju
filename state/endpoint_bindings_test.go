@@ -54,11 +54,11 @@ extra-bindings:
 	oldCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithOneOfEachRelationTypeAndExtraBindings, 1)
 	s.oldMeta = oldCharm.Meta()
 	s.oldDefaults = map[string]string{
-		"":          network.DefaultSpaceId,
-		"foo1":      network.DefaultSpaceId,
-		"bar1":      network.DefaultSpaceId,
-		"self":      network.DefaultSpaceId,
-		"one-extra": network.DefaultSpaceId,
+		"":          network.AlphaSpaceId,
+		"foo1":      network.AlphaSpaceId,
+		"bar1":      network.AlphaSpaceId,
+		"self":      network.AlphaSpaceId,
+		"one-extra": network.AlphaSpaceId,
 	}
 
 	const dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings = `
@@ -82,12 +82,12 @@ peers:
 	newCharm := s.AddMetaCharm(c, "dummy", dummyCharmWithTwoOfEachRelationTypeAndNoExtraBindings, 2)
 	s.newMeta = newCharm.Meta()
 	s.newDefaults = map[string]string{
-		"foo1": network.DefaultSpaceId,
-		"foo2": network.DefaultSpaceId,
-		"bar2": network.DefaultSpaceId,
-		"bar3": network.DefaultSpaceId,
-		"self": network.DefaultSpaceId,
-		"me":   network.DefaultSpaceId,
+		"foo1": network.AlphaSpaceId,
+		"foo2": network.AlphaSpaceId,
+		"bar2": network.AlphaSpaceId,
+		"bar3": network.AlphaSpaceId,
+		"self": network.AlphaSpaceId,
+		"me":   network.AlphaSpaceId,
 	}
 
 	// Add some spaces to use in bindings, but notably NOT the default space, as
@@ -131,18 +131,18 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"":          network.DefaultSpaceId,
+			"":          network.AlphaSpaceId,
 			"foo1":      s.clientSpace.Id(),
-			"bar1":      network.DefaultSpaceId,
+			"bar1":      network.AlphaSpaceId,
 			"self":      s.dbSpace.Id(),
-			"one-extra": network.DefaultSpaceId,
+			"one-extra": network.AlphaSpaceId,
 		},
 		modified: true,
 	}, {
 		about: "currentMap overrides defaults, mergeWithMap overrides currentMap",
 		mergeWithMap: map[string]string{
-			"":          network.DefaultSpaceId,
-			"foo1":      network.DefaultSpaceId,
+			"":          network.AlphaSpaceId,
+			"foo1":      network.AlphaSpaceId,
 			"self":      s.dbSpace.Id(),
 			"bar1":      s.clientSpace.Id(),
 			"one-extra": s.appsSpace.Id(),
@@ -153,8 +153,8 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"":          network.DefaultSpaceId,
-			"foo1":      network.DefaultSpaceId,
+			"":          network.AlphaSpaceId,
+			"foo1":      network.AlphaSpaceId,
 			"bar1":      s.clientSpace.Id(),
 			"self":      s.dbSpace.Id(),
 			"one-extra": s.appsSpace.Id(),
@@ -168,11 +168,11 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		currentMap: nil,
 		meta:       s.oldMeta,
 		updated: map[string]string{
-			"":          network.DefaultSpaceId,
-			"foo1":      network.DefaultSpaceId,
-			"bar1":      network.DefaultSpaceId,
+			"":          network.AlphaSpaceId,
+			"foo1":      network.AlphaSpaceId,
+			"bar1":      network.AlphaSpaceId,
 			"self":      s.dbSpace.Id(),
-			"one-extra": network.DefaultSpaceId,
+			"one-extra": network.AlphaSpaceId,
 		},
 		modified: true,
 	}, {
@@ -185,9 +185,9 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		},
 		meta: s.oldMeta,
 		updated: map[string]string{
-			"":          network.DefaultSpaceId,
-			"foo1":      network.DefaultSpaceId,
-			"bar1":      network.DefaultSpaceId,
+			"":          network.AlphaSpaceId,
+			"foo1":      network.AlphaSpaceId,
+			"bar1":      network.AlphaSpaceId,
 			"self":      s.dbSpace.Id(),
 			"one-extra": s.appsSpace.Id(),
 		},
@@ -202,12 +202,12 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		currentMap: s.copyMap(s.oldDefaults),
 		meta:       s.newMeta,
 		updated: map[string]string{
-			"":     network.DefaultSpaceId,
-			"foo1": network.DefaultSpaceId,
+			"":     network.AlphaSpaceId,
+			"foo1": network.AlphaSpaceId,
 			"foo2": s.dbSpace.Id(),
-			"bar2": network.DefaultSpaceId,
+			"bar2": network.AlphaSpaceId,
 			"bar3": s.dbSpace.Id(),
-			"self": network.DefaultSpaceId,
+			"self": network.AlphaSpaceId,
 			"me":   s.clientSpace.Id(),
 		},
 		modified: true,
@@ -387,31 +387,31 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	expected := map[string]string{
 		"db":      "two",
 		"testing": "three",
-		"empty":   network.DefaultSpaceName,
+		"empty":   network.AlphaSpaceName,
 	}
 	c.Assert(withSpaceNames, jc.DeepEquals, expected)
 }
 
 func (s *bindingsMockSuite) expectNamesByID() {
 	n2i := map[string]string{
-		network.DefaultSpaceId: network.DefaultSpaceName,
-		"1":                    "one",
-		"2":                    "two",
-		"3":                    "three",
-		"4":                    "four",
-		"5":                    "42",
+		network.AlphaSpaceId: network.AlphaSpaceName,
+		"1":                  "one",
+		"2":                  "two",
+		"3":                  "three",
+		"4":                  "four",
+		"5":                  "42",
 	}
 	s.endpointBinding.EXPECT().SpaceNamesByID().Return(n2i, nil).AnyTimes()
 }
 
 func (s *bindingsMockSuite) expectIDsByName() {
 	i2n := map[string]string{
-		network.DefaultSpaceName: network.DefaultSpaceId,
-		"one":                    "1",
-		"two":                    "2",
-		"three":                  "3",
-		"four":                   "4",
-		"42":                     "5",
+		network.AlphaSpaceName: network.AlphaSpaceId,
+		"one":                  "1",
+		"two":                  "2",
+		"three":                "3",
+		"four":                 "4",
+		"42":                   "5",
 	}
 	s.endpointBinding.EXPECT().SpaceIDsByName().Return(i2n, nil).AnyTimes()
 }

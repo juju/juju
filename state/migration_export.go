@@ -1252,7 +1252,7 @@ func (e *exporter) spaces() error {
 		// We do not export the default space because it is created by default
 		// with the new model. This is OK, because it is immutable.
 		// Any subnets added to the space will still be exported.
-		if space.Name() == network.DefaultSpaceName {
+		if space.Name() == network.AlphaSpaceName {
 			continue
 		}
 

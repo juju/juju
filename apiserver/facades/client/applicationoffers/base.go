@@ -492,7 +492,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 		if bindings == nil {
 			bindings = make(map[string]string)
 		}
-		bindings[ep.Name] = network.DefaultSpaceName
+		bindings[ep.Name] = network.AlphaSpaceName
 		logger.Warningf("no local binding for %q endpoint on application %q, assume default space", ep.Name, app.Name())
 	}
 
@@ -547,7 +547,7 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 	results := make(map[string]params.RemoteSpace)
 	for _, id := range spaceIDs {
 		space := environs.DefaultSpaceInfo
-		if id != network.DefaultSpaceId {
+		if id != network.AlphaSpaceId {
 			dbSpace, err := backend.Space(id)
 			if err != nil {
 				return nil, errors.Trace(err)

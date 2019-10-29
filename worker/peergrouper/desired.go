@@ -477,7 +477,7 @@ func (p *peerGroupChanges) getNodesVoting() {
 // the HA space if one is configured.
 func (p *peerGroupChanges) updateAddresses() error {
 	var err error
-	if p.info.haSpace.Name == network.DefaultSpaceName {
+	if p.info.haSpace.Name == network.AlphaSpaceName {
 		err = p.updateAddressesFromInternal()
 	} else {
 		err = p.updateAddressesFromSpace()

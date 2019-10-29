@@ -376,11 +376,11 @@ func (s *Space) Refresh() error {
 func (st *State) createDefaultSpaceOp() txn.Op {
 	return txn.Op{
 		C:  spacesC,
-		Id: st.docID(network.DefaultSpaceId),
+		Id: st.docID(network.AlphaSpaceId),
 		Insert: spaceDoc{
-			Id:       network.DefaultSpaceId,
+			Id:       network.AlphaSpaceId,
 			Life:     Alive,
-			Name:     network.DefaultSpaceName,
+			Name:     network.AlphaSpaceName,
 			IsPublic: true,
 		},
 	}

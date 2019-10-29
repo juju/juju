@@ -120,8 +120,8 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 	// find. One of them is always the loopback, but we could find any
 	// other addresses that someone created on the machine that we
 	// don't know what they are.
-	s.expectNICWithIP(ctrl, "lo", network.DefaultSpaceId)
-	s.expectNICWithIP(ctrl, "ens5", network.DefaultSpaceId)
+	s.expectNICWithIP(ctrl, "lo", network.AlphaSpaceId)
+	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
 	res, err := linkLayerDevicesForSpaces(s.machine, []string{"1"})
@@ -138,15 +138,15 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICWithIP(ctrl, "ens4", network.DefaultSpaceId)
-	s.expectNICWithIP(ctrl, "ens5", network.DefaultSpaceId)
+	s.expectNICWithIP(ctrl, "ens4", network.AlphaSpaceId)
+	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.DefaultSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
-	devices, ok := res[network.DefaultSpaceId]
+	devices, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 2)
 	c.Check(devices[0].Name(), gc.Equals, "ens4")
@@ -160,16 +160,16 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	defer ctrl.Finish()
 
 	s.expectNICAndBridgeWithIP(ctrl, "ens4", "br-ens4", "1")
-	s.expectNICWithIP(ctrl, "ens5", network.DefaultSpaceId)
+	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectLoopbackNIC(ctrl)
 	s.expectMachineAddressesDevices()
 
-	spaces := []string{network.DefaultSpaceId, "1"}
+	spaces := []string{network.AlphaSpaceId, "1"}
 	res, err := linkLayerDevicesForSpaces(s.machine, spaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 2)
 
-	devices, ok := res[network.DefaultSpaceId]
+	devices, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 1)
 	c.Check(devices[0].Name(), gc.Equals, "ens5")
@@ -190,14 +190,14 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	// address yet (which is the case when we first show up on a machine.)
 	s.expectBridgeDevice(ctrl, "lxdbr0")
 
-	s.expectNICWithIP(ctrl, "ens5", network.DefaultSpaceId)
+	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.DefaultSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
-	devices, ok := res[network.DefaultSpaceId]
+	devices, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(devices, gc.HasLen, 2)
 	names := make([]string, len(devices))
@@ -214,18 +214,18 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICWithIP(ctrl, "ens3", network.DefaultSpaceId)
-	s.expectNICAndBridgeWithIP(ctrl, "ens4", "br-ens4", network.DefaultSpaceId)
+	s.expectNICWithIP(ctrl, "ens3", network.AlphaSpaceId)
+	s.expectNICAndBridgeWithIP(ctrl, "ens4", "br-ens4", network.AlphaSpaceId)
 	s.expectLoopbackNIC(ctrl)
 	s.expectBridgeDevice(ctrl, "lxcbr0")
 	s.expectBridgeDevice(ctrl, "lxdbr0")
 	s.expectBridgeDevice(ctrl, "virbr0")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.DefaultSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
-	devices, ok := res[network.DefaultSpaceId]
+	devices, ok := res[network.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	names := make([]string, len(devices))
 	for i, dev := range devices {
@@ -238,14 +238,14 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", network.DefaultSpaceId)
+	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", network.AlphaSpaceId)
 	s.setupForNaturalSort(ctrl)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.DefaultSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
-	defaultDevices, ok := res[network.DefaultSpaceId]
+	defaultDevices, ok := res[network.AlphaSpaceId]
 	c.Check(ok, jc.IsTrue)
 	names := make([]string, 0, len(defaultDevices))
 	for _, dev := range defaultDevices {
@@ -267,7 +267,7 @@ func (s *linkLayerDevForSpacesSuite) setupForNaturalSort(ctrl *gomock.Controller
 	// back in NaturallySorted order
 	subnet := NewMockSubnet(ctrl)
 	sExp := subnet.EXPECT()
-	sExp.SpaceID().Return(network.DefaultSpaceId).AnyTimes()
+	sExp.SpaceID().Return(network.AlphaSpaceId).AnyTimes()
 
 	testDevs := []testDev{
 		{"eth1", "br-eth1"},

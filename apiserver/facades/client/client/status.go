@@ -694,7 +694,7 @@ func fetchAllApplicationsAndUnits(
 			return applicationStatusInfo{}, err
 		}
 		if len(bindingMap) == 1 {
-			if v, ok := bindingMap[""]; ok && v == network.DefaultSpaceName {
+			if v, ok := bindingMap[""]; ok && v == network.AlphaSpaceName {
 				continue
 			}
 		}

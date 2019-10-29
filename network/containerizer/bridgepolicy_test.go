@@ -94,8 +94,8 @@ func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.guest.EXPECT().Id().Return("guest-id").AnyTimes()
 
-	for i, space := range []string{network.DefaultSpaceName, "foo", "bar", "fizz"} {
-		// 0 is the DefaultSpaceId
+	for i, space := range []string{network.AlphaSpaceName, "foo", "bar", "fizz"} {
+		// 0 is the AlphaSpaceId
 		id := strconv.Itoa(i)
 		s.spaces[space] = id
 	}

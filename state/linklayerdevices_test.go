@@ -48,7 +48,7 @@ func (s *linkLayerDevicesStateSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.spaces = map[string]corenetwork.SpaceInfo{
-		corenetwork.DefaultSpaceName: {ID: "0", Name: corenetwork.DefaultSpaceName},
+		corenetwork.AlphaSpaceName: {ID: "0", Name: corenetwork.AlphaSpaceName},
 	}
 
 	s.bridgePolicy = &containerizer.BridgePolicy{}
@@ -767,7 +767,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
 	c.Assert(err, jc.ErrorIsNil)
 
-	hml := set.NewStrings(s.spaces["default"].ID, s.spaces["dmz"].ID, "666", corenetwork.DefaultSpaceId)
+	hml := set.NewStrings(s.spaces["default"].ID, s.spaces["dmz"].ID, "666", corenetwork.AlphaSpaceId)
 	res := s.machine.GetNetworkInfoForSpaces(hml)
 	c.Check(res, gc.HasLen, 4)
 
@@ -789,7 +789,7 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	c.Check(resDMZ.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.10.0.20")
 	c.Check(resDMZ.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.10.0.0/24")
 
-	resEmpty, ok := res[corenetwork.DefaultSpaceId]
+	resEmpty, ok := res[corenetwork.AlphaSpaceId]
 	c.Assert(ok, jc.IsTrue)
 	c.Check(resEmpty.Error, jc.ErrorIsNil)
 	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)

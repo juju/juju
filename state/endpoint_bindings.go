@@ -94,7 +94,7 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 
 	defaultBinding, mergeOK := b.bindingsMap[defaultEndpointName]
 	if !mergeOK {
-		defaultBinding = network.DefaultSpaceId
+		defaultBinding = network.AlphaSpaceId
 	}
 	if newDefaultBinding, newOk := mergeMap[defaultEndpointName]; newOk {
 		// new default binding supersedes the old default binding
@@ -302,7 +302,7 @@ func (b *Bindings) validateForMachines() error {
 	// We only need to validate changes to the default space ID for the
 	// application if the operator is trying to change it to something
 	// other than network.DefaultSpaceID
-	if newDefaultSpaceIDForApp, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpaceIDForApp != network.DefaultSpaceId {
+	if newDefaultSpaceIDForApp, defined := b.bindingsMap[defaultEndpointName]; defined && newDefaultSpaceIDForApp != network.AlphaSpaceId {
 		if machineCountInSpace[newDefaultSpaceIDForApp] != len(deployedMachines) {
 			msg := "changing default space to %q is not feasible: one or more deployed machines lack an address in this space"
 			return b.spaceNotFeasibleError(msg, newDefaultSpaceIDForApp)
@@ -323,7 +323,7 @@ func (b *Bindings) validateForMachines() error {
 		// it will not have a provider address in the default
 		// space so the machine-count check below would
 		// otherwise fail.
-		if spID == network.DefaultSpaceId {
+		if spID == network.AlphaSpaceId {
 			continue
 		}
 
@@ -432,10 +432,10 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = network.DefaultSpaceId
+		bindings[name] = network.AlphaSpaceId
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = network.DefaultSpaceId
+		bindings[name] = network.AlphaSpaceId
 	}
 	return bindings
 }
@@ -557,8 +557,8 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		if v == network.DefaultSpaceId || v == network.DefaultSpaceName {
-			retVal[k] = network.DefaultSpaceName
+		if v == network.AlphaSpaceId || v == network.AlphaSpaceName {
+			retVal[k] = network.AlphaSpaceName
 			continue
 		}
 		spaceID, found := namesToIDs[v]

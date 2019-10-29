@@ -1658,7 +1658,7 @@ func (i *importer) spaces() error {
 	for _, s := range i.model.Spaces() {
 		// The default space should not have been exported, but be defensive.
 		// Any subnets added to the space will be imported subsequently.
-		if s.Name() == network.DefaultSpaceName {
+		if s.Name() == network.AlphaSpaceName {
 			continue
 		}
 

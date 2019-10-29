@@ -758,5 +758,5 @@ func detectDefaultSpace(modelConfig *config.Config, curBindings map[string]strin
 	// specifying the default space we should check whether it is set and
 	// use its value as the default before falling-back to the global
 	// default below.
-	return network.DefaultSpaceName
+	return network.AlphaSpaceName
 }

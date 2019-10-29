@@ -45,7 +45,7 @@ func (a OldAddress27) Upgrade(lookup map[string]string) (OldAddress27, error) {
 	if a.SpaceName == "" {
 		// If both fields are empty, populate with the default space ID.
 		if a.SpaceID == "" {
-			a.SpaceID = network.DefaultSpaceId
+			a.SpaceID = network.AlphaSpaceId
 		} else {
 			// If we have a space (provider) ID and no name, which should
 			// not be possible in old addresses, then this address *looks*

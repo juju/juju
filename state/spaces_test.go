@@ -414,7 +414,7 @@ func (s *SpacesSuite) assertInvalidSpaceNameErrorAndWasNotAdded(c *gc.C, err err
 
 	// The default space will be present, although we cannot add it.
 	// Only check non-default names.
-	if name != network.DefaultSpaceName {
+	if name != network.AlphaSpaceName {
 		s.assertSpaceNotFound(c, name)
 	}
 }
@@ -490,7 +490,7 @@ func (s *SpacesSuite) TestAllSpaces(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestSpaceByID(c *gc.C) {
-	_, err := s.State.Space(network.DefaultSpaceId)
+	_, err := s.State.Space(network.AlphaSpaceId)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

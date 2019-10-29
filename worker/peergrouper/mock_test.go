@@ -307,7 +307,7 @@ func (st *fakeState) setHASpace(spaceName string) {
 	defer st.mu.Unlock()
 
 	// Ensure the configured space always exists in state.
-	if spaceName != network.DefaultSpaceName {
+	if spaceName != network.AlphaSpaceName {
 		if st.spaces == nil {
 			st.spaces = make(map[string]*fakeSpace)
 		}
@@ -321,7 +321,7 @@ func (st *fakeState) setHASpace(spaceName string) {
 
 func (st *fakeState) Space(name string) (Space, error) {
 	// Return a representation of the default space whenever requested.
-	if name == network.DefaultSpaceName {
+	if name == network.AlphaSpaceName {
 		return &fakeSpace{network.SpaceInfo{}}, nil
 	}
 

@@ -192,7 +192,7 @@ func NewStubAPI() *StubAPI {
 	}}
 	spaces := []params.Space{{
 		Id:   "0",
-		Name: network.DefaultSpaceName,
+		Name: network.AlphaSpaceName,
 	}, {
 		Id:      "1",
 		Name:    "space1",

@@ -100,7 +100,7 @@ func (s *BindSuite) TestBind(c *gc.C) {
 	s.setupAPIConnection(11)
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
-			"ep1": network.DefaultSpaceName,
+			"ep1": network.AlphaSpaceName,
 			"ep2": "sp2",
 		},
 	}
@@ -133,7 +133,7 @@ func (s *BindSuite) TestBindUnknownEndpoint(c *gc.C) {
 	s.setupAPIConnection(11)
 	s.applicationClient.getResults = &params.ApplicationGetResults{
 		EndpointBindings: map[string]string{
-			"ep1": network.DefaultSpaceName,
+			"ep1": network.AlphaSpaceName,
 			"ep2": "sp2",
 		},
 	}

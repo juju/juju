@@ -143,7 +143,7 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	status := subnet.Status()
 
 	var spaceTag string
-	if subnet.SpaceName() != corenetwork.DefaultSpaceName {
+	if subnet.SpaceName() != corenetwork.AlphaSpaceName {
 		// The BackingSubnet will be returning for client commands,
 		// thus the space name is appropriate here.
 		spaceTag = names.NewSpaceTag(subnet.SpaceName()).String()

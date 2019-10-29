@@ -192,7 +192,7 @@ func checkSpacesEqual(c *gc.C, spaces []*state.Space, spaceInfos []network.Space
 	// Filter out the default space for comparisons.
 	filtered := spaces[:0]
 	for _, s := range spaces {
-		if s.Name() != network.DefaultSpaceName {
+		if s.Name() != network.AlphaSpaceName {
 			filtered = append(filtered, s)
 		}
 	}

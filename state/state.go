@@ -1817,7 +1817,7 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 		// TODO (manadart 2019-10-08): "" is not a valid space name and so
 		// can not be used as a constraint. This condition will be removed with
 		// the institution of universal mutable spaces.
-		if name != network.DefaultSpaceName {
+		if name != network.AlphaSpaceName {
 			spaces.Add(name)
 		}
 	}

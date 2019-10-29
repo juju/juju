@@ -192,7 +192,7 @@ func (st *State) filterHostPortsForManagementSpace(
 	}
 
 	var hostPortsForAgents []network.SpaceHostPorts
-	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != network.DefaultSpaceName {
+	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != network.AlphaSpaceName {
 		sp, err := st.SpaceByName(mgmtSpace)
 		if err != nil {
 			return nil, errors.Trace(err)

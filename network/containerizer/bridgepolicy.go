@@ -137,7 +137,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 			spacesFound.Add(spaceID)
 		}
 		if len(hostDeviceNames) > 0 {
-			if spaceID == corenetwork.DefaultSpaceId {
+			if spaceID == corenetwork.AlphaSpaceId {
 				// When we are bridging unknown space devices, we bridge all
 				// of them. Both because this is a fallback, and because we
 				// don't know what the exact spaces are going to be.
@@ -244,7 +244,7 @@ func linkLayerDevicesForSpaces(host Machine, spaces []string) (map[string][]Link
 			continue
 		}
 
-		spaceID := corenetwork.DefaultSpaceId
+		spaceID := corenetwork.AlphaSpaceId
 
 		subnet, err := addr.Subnet()
 		if err != nil {
@@ -270,7 +270,7 @@ func linkLayerDevicesForSpaces(host Machine, spaces []string) (map[string][]Link
 		if device.Type() == corenetwork.LoopbackDevice || device.ParentName() != "" {
 			continue
 		}
-		spaceToDevices = includeDevice(spaceToDevices, corenetwork.DefaultSpaceId, device)
+		spaceToDevices = includeDevice(spaceToDevices, corenetwork.AlphaSpaceId, device)
 	}
 
 	requestedSpaces := set.NewStrings(spaces...)
@@ -403,7 +403,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 // as a machine should ALWAYS be in a space.
 func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (set.Strings, error) {
 	if p.containerNetworkingMethod == "local" {
-		return set.NewStrings(corenetwork.DefaultSpaceId), nil
+		return set.NewStrings(corenetwork.AlphaSpaceId), nil
 	}
 	hostSpaces, err := host.AllSpaces()
 	if err != nil {
@@ -420,7 +420,7 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (s
 		logger.Debugf("container has no desired spaces, " +
 			"and host has no known spaces, triggering fallback " +
 			"to bridge all devices")
-		return set.NewStrings(corenetwork.DefaultSpaceId), nil
+		return set.NewStrings(corenetwork.AlphaSpaceId), nil
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %s",
 		containerId, network.QuoteSpaceSet(hostSpaces))
@@ -523,16 +523,16 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 
 	// Check if we are missing the default space and can fill it in with a local bridge
 	if len(missingSpaces) == 1 &&
-		missingSpaces.Contains(corenetwork.DefaultSpaceId) &&
+		missingSpaces.Contains(corenetwork.AlphaSpaceId) &&
 		p.containerNetworkingMethod == "local" {
 		localBridgeName := localBridgeForType[guest.ContainerType()]
-		for _, hostDevice := range devicesPerSpace[corenetwork.DefaultSpaceId] {
+		for _, hostDevice := range devicesPerSpace[corenetwork.AlphaSpaceId] {
 			name := hostDevice.Name()
 			if hostDevice.Type() == corenetwork.BridgeDevice && name == localBridgeName {
-				missingSpaces.Remove(corenetwork.DefaultSpaceId)
+				missingSpaces.Remove(corenetwork.AlphaSpaceId)
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
-				spacesFound.Add(corenetwork.DefaultSpaceId)
+				spacesFound.Add(corenetwork.AlphaSpaceId)
 			}
 		}
 	}

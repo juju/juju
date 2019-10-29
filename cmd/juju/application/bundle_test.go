@@ -329,23 +329,23 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleEndpointBindingsSuccess(c 
 	s.assertDeployedApplicationBindings(c, map[string]applicationInfo{
 		"mysql": {
 			endpointBindings: map[string]string{
-				"":               network.DefaultSpaceId,
+				"":               network.AlphaSpaceId,
 				"server":         dbSpace.Id(),
-				"server-admin":   network.DefaultSpaceId,
-				"metrics-client": network.DefaultSpaceId},
+				"server-admin":   network.AlphaSpaceId,
+				"metrics-client": network.AlphaSpaceId},
 		},
 		"wordpress-extra-bindings": {
 			endpointBindings: map[string]string{
-				"":                network.DefaultSpaceId,
-				"cache":           network.DefaultSpaceId,
+				"":                network.AlphaSpaceId,
+				"cache":           network.AlphaSpaceId,
 				"url":             publicSpace.Id(),
-				"logging-dir":     network.DefaultSpaceId,
-				"monitoring-port": network.DefaultSpaceId,
+				"logging-dir":     network.AlphaSpaceId,
+				"monitoring-port": network.AlphaSpaceId,
 				"db":              dbSpace.Id(),
-				"cluster":         network.DefaultSpaceId,
+				"cluster":         network.AlphaSpaceId,
 				"db-client":       dbSpace.Id(),
 				"admin-api":       publicSpace.Id(),
-				"foo-bar":         network.DefaultSpaceId,
+				"foo-bar":         network.AlphaSpaceId,
 			},
 		},
 	})

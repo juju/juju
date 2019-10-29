@@ -81,7 +81,7 @@ func (s *ParseBindSuite) TestParseFailsWithUnknownSpaceName(c *gc.C) {
 func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C) {
 	newCharmEndpoints := set.NewStrings("ep1", "ep2", "ep3")
 	oldEndpointsMap := map[string]string{
-		"":    network.DefaultSpaceName,
+		"":    network.AlphaSpaceName,
 		"ep1": "sp1",
 	}
 
@@ -92,11 +92,11 @@ func (s *ParseBindSuite) TestMergeBindingsNewBindingsInheritDefaultSpace(c *gc.C
 
 	expMergedBindings := map[string]string{
 		"ep1": "sp-foo",
-		"ep2": network.DefaultSpaceName, // new endpoint ep2 inherits the default space
+		"ep2": network.AlphaSpaceName, // new endpoint ep2 inherits the default space
 		"ep3": "sp1",
 	}
 
-	mergedBindings, _ := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.DefaultSpaceName)
+	mergedBindings, _ := mergeBindings(newCharmEndpoints, oldEndpointsMap, userBindings, network.AlphaSpaceName)
 	c.Assert(mergedBindings, gc.DeepEquals, expMergedBindings)
 }
 

@@ -264,7 +264,7 @@ type formattedShortList struct {
 }
 
 func spaceName(name string) string {
-	if name == network.DefaultSpaceName {
+	if name == network.AlphaSpaceName {
 		return "(default)"
 	}
 	return name

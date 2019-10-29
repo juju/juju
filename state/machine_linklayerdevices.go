@@ -1037,15 +1037,15 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 
 	var privateAddress corenetwork.SpaceAddress
 
-	if spaces.Contains(corenetwork.DefaultSpaceId) {
+	if spaces.Contains(corenetwork.AlphaSpaceId) {
 		var err error
 		privateAddress, err = m.PrivateAddress()
 		if err != nil {
-			results[corenetwork.DefaultSpaceId] = MachineNetworkInfoResult{Error: errors.Annotatef(
+			results[corenetwork.AlphaSpaceId] = MachineNetworkInfoResult{Error: errors.Annotatef(
 				err, "getting machine %q preferred private address", m.MachineTag())}
 
 			// Remove this id to prevent further processing.
-			spaces.Remove(corenetwork.DefaultSpaceId)
+			spaces.Remove(corenetwork.AlphaSpaceId)
 		}
 	}
 
@@ -1078,13 +1078,13 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 					results[subnet.spaceID] = r
 				}
 			}
-			if spaces.Contains(corenetwork.DefaultSpaceId) && privateAddress.Value == addr.Value() {
-				r := results[corenetwork.DefaultSpaceId]
+			if spaces.Contains(corenetwork.AlphaSpaceId) && privateAddress.Value == addr.Value() {
+				r := results[corenetwork.AlphaSpaceId]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
 					r.Error = err
 				} else {
-					results[corenetwork.DefaultSpaceId] = r
+					results[corenetwork.AlphaSpaceId] = r
 				}
 			}
 		}
@@ -1092,13 +1092,13 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 
 	// For a spaceless model we won't find a subnet that's linked to privateAddress,
 	// we have to work around that and at least return minimal information.
-	if r, ok := results[corenetwork.DefaultSpaceId]; !ok && spaces.Contains(corenetwork.DefaultSpaceId) {
+	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaces.Contains(corenetwork.AlphaSpaceId) {
 		r.NetworkInfos = []network.NetworkInfo{{
 			Addresses: []network.InterfaceAddress{{
 				Address: privateAddress.Value,
 			}},
 		}}
-		results[corenetwork.DefaultSpaceId] = r
+		results[corenetwork.AlphaSpaceId] = r
 	}
 
 	for _, id := range spaces.Values() {

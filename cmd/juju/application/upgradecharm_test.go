@@ -295,7 +295,7 @@ func (s *UpgradeCharmSuite) TestUpgradeWithBind(c *gc.C) {
 		},
 		EndpointBindings: map[string]string{
 			"ep1": "sp1",
-			"ep2": network.DefaultSpaceName,
+			"ep2": network.AlphaSpaceName,
 		},
 	})
 }

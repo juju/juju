@@ -1165,8 +1165,8 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 	st := s.mockStatePool.st[testing.ModelTag.Id()].(*mockState)
 	st.users["someone"] = &mockUser{"someone"}
 	delete(st.applications["mysql"].(*mockApplication).bindings, "database")
-	st.spaces[network.DefaultSpaceId] = &mockSpace{
-		name: network.DefaultSpaceName,
+	st.spaces[network.AlphaSpaceId] = &mockSpace{
+		name: network.AlphaSpaceName,
 	}
 
 	apiUser := names.NewUserTag("someone")
@@ -1188,7 +1188,7 @@ func (s *consumeSuite) TestConsumeDetailsDefaultEndpoint(c *gc.C) {
 		OfferUUID:              "hosted-mysql-uuid",
 		ApplicationDescription: "a database",
 		Endpoints:              []params.RemoteEndpoint{{Name: "server", Role: "provider", Interface: "mysql"}},
-		Bindings:               map[string]string{"database": network.DefaultSpaceName},
+		Bindings:               map[string]string{"database": network.AlphaSpaceName},
 		Users: []params.OfferUserDetails{
 			{UserName: "someone", DisplayName: "someone", Access: "consume"},
 		},

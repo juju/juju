@@ -89,7 +89,7 @@ func (c *controllerTracker) Addresses() network.SpaceAddresses {
 // use, using the input space.
 // An error is returned if the empty space is supplied.
 func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceInfo) (string, error) {
-	if space.Name == network.DefaultSpaceName {
+	if space.Name == network.AlphaSpaceName {
 		return "", fmt.Errorf(
 			"empty space supplied as an argument for selecting Mongo address for controller node %q", c.id)
 	}
