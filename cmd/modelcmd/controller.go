@@ -418,9 +418,7 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init populates the command with the args from the command line.
 func (c *OptionalControllerCommand) Init(args []string) (err error) {
-	if c.Local && !c.Client {
-		c.Client = c.Local
-	}
+	c.Client = c.Client || c.Local
 	return nil
 }
 
