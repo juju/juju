@@ -4,8 +4,6 @@
 package caas_test
 
 import (
-	"strings"
-
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -109,7 +107,7 @@ func (s *removeCAASSuite) TestMissingName(c *gc.C) {
 
 func (s *removeCAASSuite) TestRemove(c *gc.C) {
 	command := s.makeCommand()
-	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
+	_, err := s.runCommand(c, command, "myk8s", "-c", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")
@@ -124,7 +122,7 @@ func (s *removeCAASSuite) TestRemove(c *gc.C) {
 
 func (s *removeCAASSuite) TestRemoveControllerOnly(c *gc.C) {
 	command := s.makeCommand()
-	_, err := s.runCommand(c, command, "myk8s", "-c", "foo", "--controller-only")
+	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// controller side operations
@@ -136,9 +134,9 @@ func (s *removeCAASSuite) TestRemoveControllerOnly(c *gc.C) {
 	s.store.CheckNoCalls(c)
 }
 
-func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
+func (s *removeCAASSuite) TestRemoveClientOnly(c *gc.C) {
 	command := s.makeCommand()
-	_, err := s.runCommand(c, command, "myk8s", "--client-only")
+	_, err := s.runCommand(c, command, "myk8s", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// controller side operations
@@ -151,50 +149,17 @@ func (s *removeCAASSuite) TestRemoveLocalOnly(c *gc.C) {
 	s.store.CheckCall(c, 0, "UpdateCredential", "myk8s", cloud.CloudCredential{})
 }
 
-func (s *removeCAASSuite) TestRemoveNoController(c *gc.C) {
-	s.store.Controllers = nil
-	command := s.makeCommand()
-	_, err := s.runCommand(c, command, "myk8s")
-	c.Assert(err, gc.NotNil)
-	_, err = cmdtesting.RunCommand(c, command, "homestack")
-	c.Assert(err, gc.NotNil)
-	msg := err.Error()
-	msg = strings.Replace(msg, "\n", "", -1)
-	c.Assert(msg, gc.Matches, `empty controller name not valid`)
-
-	// controller side operations
-	s.fakeCloudAPI.CheckNoCalls(c)
-
-	// client side operations
-	s.cloudMetadataStore.CheckCallNames(c,
-		"PersonalCloudMetadata",
-		"PersonalCloudMetadata",
-		"WritePersonalCloudMetadata",
-		"PersonalCloudMetadata",
-		"PersonalCloudMetadata",
-	)
-	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata", map[string]cloud.Cloud{})
-	s.store.CheckCallNames(c,
-		"CredentialForCloud",
-		"UpdateCredential",
-		"UpdateCredential",
-	)
-	s.store.CheckCall(c, 1, "UpdateCredential", "myk8s", cloud.CloudCredential{})
-	s.store.CheckCall(c, 2, "UpdateCredential", "homestack", cloud.CloudCredential{})
-}
-
 func (s *removeCAASSuite) TestRemoveNotInController(c *gc.C) {
 	s.fakeCloudAPI.SetErrors(errors.NotFoundf("cloud"))
 	command := s.makeCommand()
 	_, err := s.runCommand(c, command, "myk8s", "-c", "foo")
 	c.Assert(err, gc.ErrorMatches, "cannot remove k8s cloud from controller.*")
-
-	s.store.CheckCall(c, 1, "UpdateCredential", "myk8s", cloud.CloudCredential{})
+	s.store.CheckNoCalls(c)
 }
 
 func (s *removeCAASSuite) TestRemoveNotInLocal(c *gc.C) {
 	command := s.makeCommand()
-	_, err := s.runCommand(c, command, "yourk8s", "-c", "foo")
+	_, err := s.runCommand(c, command, "yourk8s", "-c", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.fakeCloudAPI.CheckCallNames(c, "RemoveCloud")

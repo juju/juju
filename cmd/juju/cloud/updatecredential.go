@@ -35,16 +35,9 @@ a model was created with to the new and valid details on controller.
 This command allows to update an existing, already-stored, named,
 cloud-specific credential on a controller as well as the one from this client.
 
-If a current controller can be detected, a user will be prompted to confirm 
-if specified cloud needs to be updated on it. 
-If the prompt is not needed and the cloud is always to be updated on
-the current controller if that controller is detected, use --no-prompt option.
+Use --controller option to update a credential definition on a controller. 
 
-Use --controller option to update a cloud on a different controller. 
-
-Use --controller-only option to only update controller copy of the cloud.
-
-If --client-only is used, Juju updates credential only on this client.
+Use --client to update a credential definition on this client.
 If a user will use a different client, say a different laptop, 
 the update will not affect that client's (laptop's) copy.
 
@@ -55,8 +48,7 @@ use --region.
 Examples:
     juju update-credential aws mysecrets
     juju update-credential -f mine.yaml
-    juju update-credential -f mine.yaml --client-only
-    juju update-credential -f mine.yaml --no-prompt --controller-only
+    juju update-credential -f mine.yaml --client
     juju update-credential aws -f mine.yaml
     juju update-credential azure --region brazilsouth -f mine.yaml
 
@@ -168,28 +160,18 @@ func (c *updateCredentialCommand) Run(ctx *cmd.Context) error {
 			return errors.Annotatef(err, "could not get credentials from local client")
 		}
 	}
+	if err := c.MaybePrompt(ctx, fmt.Sprintf("update credential %q on cloud %q on", c.credential, c.cloud)); err != nil {
+		return errors.Trace(err)
+	}
 	var returnErr error
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := c.updateLocalCredentials(ctx, credentials); err != nil {
 			returnErr = err
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctx, fmt.Sprintf("update credential %q on cloud %q on", c.credential, c.cloud))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-		if c.ControllerName != "" {
-			if err := c.updateRemoteCredentials(ctx, credentials); err != nil {
-				returnErr = err
-			}
-		} else {
-			return errors.New("To update credential on a controller, a controller name is needed.")
+	if c.ControllerName != "" {
+		if err := c.updateRemoteCredentials(ctx, credentials); err != nil {
+			returnErr = err
 		}
 	}
 	return returnErr
@@ -292,7 +274,7 @@ func (c *updateCredentialCommand) updateLocalCredentials(ctx *cmd.Context, updat
 		storedCredentials, err := c.Store.CredentialForCloud(cloudName)
 		if errors.IsNotFound(err) {
 			ctx.Warningf("Could not find credentials for cloud %v on this client.", cloudName)
-			ctx.Infof("Use `juju add-credential` to add credentials to this client.")
+			ctx.Infof("Use `juju add-credential` to add a credential to this client.")
 			erred = true
 			continue
 		} else if err != nil {

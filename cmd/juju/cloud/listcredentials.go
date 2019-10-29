@@ -68,25 +68,17 @@ for more information.
 Credentials denoted with an asterisk '*' are currently set as the user default
 for a given cloud.
 
-If the current controller can be detected, a user will be prompted to 
-confirm if credentials known to the controller need to be 
-listed as well. If the prompt is not needed and the credentials from 
-current controller are always to be listed, use --no-prompt option.
+Use --controller option to list credentials from a controller.
 
-Use --controller option to list credentials from a different controller.
-
-Use --client-only option to only list credentials known locally on this client.
-
-Use --controller-only option to only list credentials known remotely on the controller.
+Use --client option to list credentials known locally on this client.
 
 Examples:
     juju credentials
     juju credentials aws
-    juju credentials aws --client-only
+    juju credentials aws --client
     juju credentials --format yaml --show-secrets
-    juju credentials --no-prompt
     juju credentials --controller mycontroller
-    juju credentials --controller mycontroller --controller-only
+    juju credentials --controller mycontroller --client
 
 See also: 
     add-credential
@@ -138,8 +130,16 @@ type Credential struct {
 }
 
 type credentialsMap struct {
-	ClientOnly bool                       `yaml:"-" json:"-"`
-	Client     map[string]CloudCredential `yaml:"client-credentials,omitempty" json:"client-credentials,omitempty"`
+	// ClientOnly holds whether the client list was requested or not.
+	// It is needed in the formatter when we get an empty list -
+	// is it that there are no credentials on the client or
+	// is it that we were not even looking on the client for credentials.
+	ClientOnly bool `yaml:"-" json:"-"`
+
+	// Client has a collection of all client credentials keyed on credential name.
+	Client map[string]CloudCredential `yaml:"client-credentials,omitempty" json:"client-credentials,omitempty"`
+
+	// Controller has a collection of all controller credentials keyed on credential name.
 	Controller map[string]CloudCredential `yaml:"controller-credentials,omitempty" json:"controller-credentials,omitempty"`
 }
 
@@ -243,15 +243,22 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("secrets are not shown in tabular format")
 		c.showSecrets = false
 	}
-	credentials := credentialsMap{ClientOnly: c.ClientOnly}
+	credentials := credentialsMap{ClientOnly: c.Client}
+	cloudMsg := ""
+	if c.cloudName != "" {
+		cloudMsg = fmt.Sprintf("for cloud %q ", c.cloudName)
+	}
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("list credentials %vfrom", cloudMsg)); err != nil {
+		return errors.Trace(err)
+	}
 	var err error
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		credentials.Client, err = c.localCredentials(ctxt)
 		if err != nil {
 			ctxt.Warningf("%v", err)
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
 		credentials.Controller, err = c.remoteCredentials(ctxt)
 		if err != nil {
 			ctxt.Warningf("%v", err)
@@ -261,22 +268,6 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *listCredentialsCommand) remoteCredentials(ctxt *cmd.Context) (map[string]CloudCredential, error) {
-	if c.ControllerName == "" {
-		// The user may have specified the controller via a --controller option.
-		// If not, let's see if there is a current controller that can be detected.
-		var err error
-		cloudMsg := ""
-		if c.cloudName != "" {
-			cloudMsg = fmt.Sprintf("for cloud %q ", c.cloudName)
-		}
-		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("list credentials %vfrom", cloudMsg))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if c.ControllerName == "" {
-		return nil, errors.New("Not listing credentials from a controller: no controller specified.")
-	}
 	client, err := c.listCredentialsAPIFunc()
 	if err != nil {
 		return nil, err
@@ -383,11 +374,12 @@ func formatCredentialsTabular(writer io.Writer, value interface{}) error {
 		return errors.Errorf("expected value of type %T, got %T", credentials, value)
 	}
 
-	if len(credentials.Client) == 0 {
-		fmt.Fprintln(writer, "No credentials from this client to display.")
-	}
-	if len(credentials.Controller) == 0 {
-		if !credentials.ClientOnly {
+	if credentials.ClientOnly {
+		if len(credentials.Client) == 0 {
+			fmt.Fprintln(writer, "No credentials from this client to display.")
+		}
+	} else {
+		if len(credentials.Controller) == 0 {
 			fmt.Fprintln(writer, "No credentials from any controller to display.")
 		}
 	}

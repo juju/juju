@@ -25,20 +25,11 @@ Remove a cloud from Juju.
 If --controller is used, also remove the cloud from the specified controller,
 if it is not in use.
 
-If --controller option was not used and the current controller can be detected, 
-a user will be prompted to confirm if specified cloud needs to be removed from it. 
-If the prompt is not needed and the cloud is always to be removed from
-the current controller if that controller is detected, use --no-prompt option.
-
-If you just want to update your controller and not your current client, 
-use the --controller-only option.
-
-If --client-only is specified, Juju removes the cloud from this client only.
+If --client is specified, Juju removes the cloud from this client.
 
 Examples:
     juju remove-cloud mycloud
-    juju remove-cloud mycloud --controller-only --no-prompt
-    juju remove-cloud mycloud --client-only
+     juju remove-cloud mycloud --client
     juju remove-cloud mycloud --controller mycontroller
 
 See also:
@@ -102,33 +93,20 @@ func (c *removeCloudCommand) Init(args []string) (err error) {
 }
 
 func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("remove cloud %v from", c.Cloud))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-	if c.ControllerName == "" && !c.ClientOnly {
-		ctxt.Infof("To remove cloud %q from this client, use the --client-only option.", c.Cloud)
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("remove cloud %v from", c.Cloud)); err != nil {
+		return errors.Trace(err)
 	}
 	var returnErr error
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := c.removeLocalCloud(ctxt); err != nil {
 			ctxt.Warningf("%v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			ctxt.Infof("Could not remote a cloud from a controller: no controller was specified.")
+	if c.ControllerName != "" {
+		if err := c.removeControllerCloud(ctxt); err != nil {
+			ctxt.Warningf("%v", err)
 			returnErr = cmd.ErrSilent
-		} else {
-			return c.removeControllerCloud(ctxt)
 		}
 	}
 	return returnErr

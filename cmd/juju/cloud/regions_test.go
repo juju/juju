@@ -5,6 +5,7 @@ package cloud_test
 
 import (
 	"io/ioutil"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -64,7 +65,7 @@ func (s *regionsSuite) TestListRegionsInvalidArgs(c *gc.C) {
 }
 
 func (s *regionsSuite) TestListRegionsLocalOnly(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlondon\nparis\n\n")
@@ -97,7 +98,7 @@ func (s *regionsSuite) setupControllerData(c *gc.C) cmd.Command {
 
 func (s *regionsSuite) TestListRegions(c *gc.C) {
 	aCommand := s.setupControllerData(c)
-	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "--no-prompt", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "-c", "mycontroller", "--client", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
@@ -116,21 +117,21 @@ controller-cloud-regions:
 
 func (s *regionsSuite) TestListRegionsControllerOnly(c *gc.C) {
 	aCommand := s.setupControllerData(c)
-	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "--controller-only", "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, "\nController Cloud Regions\nhive  \nmind  \n\n")
 }
 
 func (s *regionsSuite) TestListRegionsBuiltInCloud(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "localhost", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, "\nClient Cloud Regions\nlocalhost\n\n")
 }
 
 func (s *regionsSuite) TestListRegionsYaml(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "yaml", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "yaml", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `
@@ -142,14 +143,25 @@ client-cloud-regions:
 `[1:])
 }
 
-func (s *regionsSuite) TestListNoRegionsOnController(c *gc.C) {
-	_, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "google")
-	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
-	c.Assert(c.GetTestLog(), jc.Contains, `Not listing regions for cloud "google" from a controller: no controller specified.`)
+func (s *regionsSuite) TestListNoController(c *gc.C) {
+	ctx := cmdtesting.Context(c)
+	ctx.Stdin = strings.NewReader("n\ny\n")
+	command := cloud.NewListRegionsCommand()
+	err := cmdtesting.InitCommand(command, []string{"google"})
+	c.Assert(err, jc.ErrorIsNil)
+	err = command.Run(ctx)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to list regions for cloud "google" from this client? (Y/n): 
+Do you want to list regions for cloud "google" from a controller? (Y/n): 
+
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No registered controllers on this client: either bootstrap one or register one.\n")
 }
 
 func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "json", "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListRegionsCommand(), "kloud", "--format", "json", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), jc.DeepEquals, "{\"client-cloud-regions\":{\"london\":{\"endpoint\":\"http://london/1.0\"},\"paris\":{\"endpoint\":\"http://paris/1.0\"}}}\n")
 }

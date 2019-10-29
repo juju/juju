@@ -73,7 +73,7 @@ func (s *ShowCredentialSuite) TestShowCredentialBadArgs(c *gc.C) {
 func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
 	s.api.v = 1
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 credential content lookup on the controller failed: credential content lookup on the controller in Juju v1 not supported
@@ -86,7 +86,7 @@ No credentials from this client or from a controller to display.
 func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"), nil)
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 credential content lookup on the controller failed: boom
@@ -99,7 +99,7 @@ No credentials from this client or from a controller to display.
 func (s *ShowCredentialSuite) TestShowCredentialNone(c *gc.C) {
 	s.api.contents = []params.CredentialContentResult{}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No credentials from this client or from a controller to display.\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
@@ -130,7 +130,7 @@ func (s *ShowCredentialSuite) TestShowCredentialBothClientAndController(c *gc.C)
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets", "--no-prompt")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets", "-c", "controller", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -225,7 +225,7 @@ func (s *ShowCredentialSuite) TestShowCredentialMany(c *gc.C) {
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--no-prompt", "--controller-only")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "boom\n")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `

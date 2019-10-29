@@ -400,13 +400,13 @@ func (s *addCAASSuite) TestAddExtraArg(c *gc.C) {
 
 func (s *addCAASSuite) TestEmptyKubeConfigFileWithoutStdin(c *gc.C) {
 	command := s.makeCommand(c, true, true, true)
-	_, err := s.runCommand(c, nil, command, "k8sname", "--no-prompt")
+	_, err := s.runCommand(c, nil, command, "k8sname", "--client")
 	c.Assert(err, gc.ErrorMatches, `No k8s cluster definitions found in config`)
 }
 
 func (s *addCAASSuite) TestAddNameClash(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "mrcloud1", "--no-prompt")
+	_, err := s.runCommand(c, nil, command, "mrcloud1", "--controller", "foo", "--client")
 	c.Assert(err, gc.ErrorMatches, `"mrcloud1" is the name of a public cloud`)
 }
 
@@ -424,7 +424,7 @@ func (s *addCAASSuite) TestMissingArgs(c *gc.C) {
 
 func (s *addCAASSuite) TestNonExistClusterName(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "non existing cluster name", "--client-only")
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "non existing cluster name", "--client")
 	c.Assert(err, gc.ErrorMatches, `context for cluster name "non existing cluster name" not found`)
 }
 
@@ -564,7 +564,7 @@ func (s *addCAASSuite) TestCloudAndRegionFlag(c *gc.C) {
 
 func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *gc.C) {
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
+	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -613,9 +613,8 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionNoMatchesThenIgnored(c *
 }
 
 type testData struct {
-	both           bool
-	clientOnly     bool
-	controllerOnly bool
+	client     bool
+	controller bool
 }
 
 func (s *addCAASSuite) assertAddCloudResult(
@@ -624,7 +623,7 @@ func (s *addCAASSuite) assertAddCloudResult(
 	t testData,
 ) {
 
-	if t.both || t.clientOnly {
+	if t.client {
 		s.credentialStoreAPI.EXPECT().UpdateCredential(
 			"myk8s", jujucloud.CloudCredential{
 				AuthCredentials: map[string]jujucloud.Credential{
@@ -666,12 +665,12 @@ MIIDBDCCAeygAwIBAgIJAPUHbpCysNxyMA0GCSqGSIb3DQEBCwUAMBcxFTATBgNV`[1:],
 	if region != "" {
 		expectedCloudToAdd.Regions = []cloud.Region{{Name: region, Endpoint: "fakeendpoint2"}}
 	}
-	if t.clientOnly {
+	if !t.controller {
 		s.fakeCloudAPI.CheckNoCalls(c)
 	} else {
 		s.fakeCloudAPI.CheckCall(c, 0, "AddCloud", expectedCloudToAdd, false)
 	}
-	if t.both || t.clientOnly {
+	if t.client {
 		s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 			map[string]cloud.Cloud{
 				"mrcloud1": {
@@ -713,11 +712,11 @@ func (s *addCAASSuite) TestGatherClusterRegionMetaRegionMatchesAndPassThrough(c 
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
-		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--no-prompt")
+		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--client", "-c", "foo")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(strings.Trim(cmdtesting.Stdout(ctx), "\n"), gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s".
 You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "", "operator-sc", testData{both: true})
+	}, cloudRegion, "", "operator-sc", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestGatherClusterMetadataError(c *gc.C) {
@@ -741,7 +740,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRegions(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("GetClusterMetadata").Returns(&result, nil)
 
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--no-prompt")
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "-c", "foo")
 	expectedErr := `
 	Juju needs to query the k8s cluster to ensure that the recommended
 	storage defaults are available and to detect the cluster's cloud/region.
@@ -761,7 +760,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataUnknownError(c *gc.C) {
 	s.fakeK8sClusterMetadataChecker.Call("CheckDefaultWorkloadStorage").Returns(errors.NotFoundf("foo"))
 
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--no-prompt")
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "-c", "foo")
 	expectedErr := `
 	Juju needs to query the k8s cluster to ensure that the recommended
 	storage defaults are available and to detect the cluster's cloud/region.
@@ -776,7 +775,7 @@ func (s *addCAASSuite) TestGatherClusterMetadataNoRecommendedStorageError(c *gc.
 		&jujucaas.NonPreferredStorageError{PreferredStorage: jujucaas.PreferredStorage{Name: "disk"}})
 
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--no-prompt")
+	_, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "-c", "foo")
 	expectedErr := `
 	No recommended storage configuration is defined on this cluster.
 	Run add-k8s again with --storage=<name> and Juju will use the
@@ -804,12 +803,12 @@ func (s *addCAASSuite) TestUnknownClusterExistingStorageClass(c *gc.C) {
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
-		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage", "--no-prompt")
+		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage", "--client")
 		c.Assert(err, jc.ErrorIsNil)
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "mystorage", "mystorage", testData{both: true})
+	}, cloudRegion, "mystorage", "mystorage", testData{client: true, controller: true})
 
 }
 
@@ -835,7 +834,13 @@ func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMs
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
-		args := []string{"myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage"}
+		args := []string{"myk8s", "--cluster-name", "mrcloud2", "--storage", "mystorage"}
+		if t.controller {
+			args = append(args, "-c", "foo")
+		}
+		if t.client {
+			args = append(args, "--client")
+		}
 		if len(additionalArgs) > 0 {
 			args = append(args, additionalArgs...)
 		}
@@ -850,21 +855,19 @@ func (s *addCAASSuite) assertCreateDefaultStorageProvisioner(c *gc.C, expectedMs
 func (s *addCAASSuite) TestCreateDefaultStorageProvisionerBoth(c *gc.C) {
 	s.assertCreateDefaultStorageProvisioner(c,
 		`k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`,
-		testData{both: true})
+		testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestCreateDefaultStorageProvisionerClientOnly(c *gc.C) {
 	s.assertCreateDefaultStorageProvisioner(c,
 		`k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`,
-		testData{clientOnly: true},
-		"--client-only")
+		testData{client: true})
 }
 
 func (s *addCAASSuite) TestCreateDefaultStorageProvisionerControllerOnly(c *gc.C) {
 	s.assertCreateDefaultStorageProvisioner(c,
 		`k8s substrate "mrcloud2" added as cloud "myk8s" with gce disk default storage provisioned by the existing "mystorage" storage class.`,
-		testData{controllerOnly: true},
-		"--controller-only")
+		testData{controller: true})
 }
 
 func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
@@ -886,12 +889,12 @@ func (s *addCAASSuite) TestCreateCustomStorageProvisioner(c *gc.C) {
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
-		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage")
+		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--storage", "mystorage", "--client")
 		c.Assert(err, jc.ErrorIsNil)
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, cloudRegion, "mystorage", "mystorage", testData{both: true})
+	}, cloudRegion, "mystorage", "mystorage", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStorageOptionProvided(c *gc.C) {
@@ -914,12 +917,12 @@ func (s *addCAASSuite) TestFoundStorageProvisionerViaAnnationForMAASWIthoutStora
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
-		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--cloud", "maas")
+		ctx, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--cloud", "maas", "--client")
 		c.Assert(err, jc.ErrorIsNil)
 		result := strings.Trim(cmdtesting.Stdout(ctx), "\n")
 		result = strings.Replace(result, "\n", " ", -1)
 		c.Assert(result, gc.Equals, `k8s substrate "mrcloud2" added as cloud "myk8s" with storage provisioned by the existing "mystorage" storage class. You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`)
-	}, "maas", "mystorage", "mystorage", testData{both: true})
+	}, "maas", "mystorage", "mystorage", testData{client: true, controller: true})
 }
 
 func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
@@ -931,11 +934,11 @@ func (s *addCAASSuite) TestLocalOnly(c *gc.C) {
 
 	s.assertAddCloudResult(c, func() {
 		command := s.makeCommand(c, true, false, true)
-		ctx, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--client-only")
+		ctx, err := s.runCommand(c, nil, command, "myk8s", "--cluster-name", "mrcloud2", "--client")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `k8s substrate "mrcloud2" added as cloud "myk8s".You can now bootstrap to this cloud by running 'juju bootstrap myk8s'.`
 		c.Assert(strings.Replace(cmdtesting.Stdout(ctx), "\n", "", -1), gc.Equals, expected)
-	}, cloudRegion, "", "operator-sc", testData{clientOnly: true})
+	}, cloudRegion, "", "operator-sc", testData{client: true})
 }
 
 func mockStdinPipe(content string) (*os.File, error) {
@@ -976,7 +979,7 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 	c.Assert(stdIn, gc.NotNil)
 	defer stdIn.Close()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = s.runCommand(c, stdIn, command, "myk8s", "-c", "foo")
+	_, err = s.runCommand(c, stdIn, command, "myk8s", "-c", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStoreClouds(c, "gce/us-east1")
 }
@@ -1003,7 +1006,7 @@ func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
 	).Times(1).Return(nil)
 
 	command := s.makeCommand(c, true, true, false)
-	_, err := s.runCommand(c, nil, command, "-c", "foo", "--gke", "myk8s", "--region", "us-east1")
+	_, err := s.runCommand(c, nil, command, "-c", "foo", "--gke", "myk8s", "--region", "us-east1", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStoreClouds(c, "gce/us-east1")
 }
@@ -1035,7 +1038,6 @@ func (s *addCAASSuite) TestGivenRegionMismatch(c *gc.C) {
 }
 
 func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
-
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
 			"myk8s": {
@@ -1087,8 +1089,11 @@ func (s *addCAASSuite) assertStoreClouds(c *gc.C, hostCloud string) {
 }
 
 func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+	s.credentialStoreAPI.EXPECT().UpdateCredential("myk8s", gomock.Any()).Times(1).Return(nil)
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "-c", "foo", "myk8s")
+	_, err := s.runCommand(c, nil, command, "-c", "foo", "myk8s", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{
@@ -1137,8 +1142,11 @@ func (s *addCAASSuite) TestCorrectUseCurrentContext(c *gc.C) {
 }
 
 func (s *addCAASSuite) TestCorrectSelectContext(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+	s.credentialStoreAPI.EXPECT().UpdateCredential("myk8s", gomock.Any()).Times(1).Return(nil)
 	command := s.makeCommand(c, true, false, true)
-	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2")
+	_, err := s.runCommand(c, nil, command, "myk8s", "-c", "foo", "--cluster-name", "mrcloud2", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.cloudMetadataStore.CheckCall(c, 2, "WritePersonalCloudMetadata",
 		map[string]cloud.Cloud{

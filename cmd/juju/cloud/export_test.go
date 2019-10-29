@@ -164,13 +164,14 @@ func NewSetDefaultRegionCommandForTest(testStore jujuclient.CredentialStore) *se
 	}
 }
 
-func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialAPI) *updateCredentialCommand {
-	return &updateCredentialCommand{
+func NewUpdateCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialAPI) cmd.Command {
+	command := &updateCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: testStore},
 		updateCredentialAPIFunc: func() (CredentialAPI, error) {
 			return api, nil
 		},
 	}
+	return modelcmd.WrapBase(command)
 }
 
 func NewShowCredentialCommandForTest(testStore jujuclient.ClientStore, api CredentialContentAPI) cmd.Command {

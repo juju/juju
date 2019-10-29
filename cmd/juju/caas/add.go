@@ -65,17 +65,8 @@ Creates a user-defined cloud based on a k8s cluster.
 The new k8s cloud can then be used to bootstrap into, or it
 can be added to an existing controller.
 
-If the current controller can be detected, a user will be prompted to 
-confirm if the new k8s cloud needs to be added to it. 
-If the prompt is not needed and the k8s cloud is always to be added to
-the current controller if that controller is detected, use --no-prompt option.
-
-Use --controller option to add k8s cloud to a different controller.
-
-Use --controller-only option to only add k8s cloud to a controller.
-
-If you just want to update your current client and not a running controller, use
-the --client-only option.
+Use --controller option to add k8s cloud to a controller.
+Use --client option to add k8s cloud to this client.
 
 Specify a non default kubeconfig file location using $KUBECONFIG
 environment variable or pipe in file content from stdin.
@@ -95,8 +86,8 @@ necessary parameters directly.
 
 Examples:
     juju add-k8s myk8scloud
-    juju add-k8s myk8scloud --client-only
-    juju add-k8s myk8scloud --controller mycontroller --controller-only
+    juju add-k8s myk8scloud --client
+    juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
     juju add-k8s myk8scloud --region <cloudNameOrCloudType>/<someregion>
     juju add-k8s myk8scloud --cloud <cloudNameOrCloudType>
@@ -387,16 +378,8 @@ var noRecommendedStorageErrMsg = `
 
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctx, fmt.Sprintf("add k8s cloud %v to", c.caasName))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
+	if err := c.MaybePrompt(ctx, fmt.Sprintf("add k8s cloud %v to", c.caasName)); err != nil {
+		return errors.Trace(err)
 	}
 	if err := c.verifyName(c.caasName); err != nil {
 		return errors.Trace(err)
@@ -475,7 +458,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err := checkCloudRegion(c.givenHostCloudRegion, newCloud.HostCloudRegion); err != nil {
 		return errors.Trace(err)
 	}
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
 			return errors.Trace(err)
 		}
@@ -489,12 +472,12 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
 	var msgDisplayed bool
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		msgDisplayed = true
 		successMsg += fmt.Sprintf("\nYou can now bootstrap to this cloud by running 'juju bootstrap %s'.", c.caasName)
 		fmt.Fprintln(ctx.Stdout, successMsg)
 	}
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
 		if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
 			return errors.Trace(err)
 		}
@@ -542,14 +525,12 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if !c.ClientOnly {
-		if c.ControllerName != "" {
-			ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			openParams.ControllerUUID = ctrlUUID
+	if c.ControllerName != "" {
+		ctrlUUID, err := c.ControllerUUID(c.Store, c.ControllerName)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
+		openParams.ControllerUUID = ctrlUUID
 	}
 	return caas.New(openParams)
 }

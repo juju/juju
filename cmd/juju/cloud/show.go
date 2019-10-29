@@ -41,24 +41,17 @@ options.
 If ‘--include-config’ is used, additional configuration (key, type, and
 description) specific to the cloud are displayed if available.
 
-If the current controller can be detected, a user will be prompted to 
-confirm if a cloud known to the controller need to be shown as well. 
-If the prompt is not needed and the cloud from current controller is
-always to be shown, use --no-prompt option.
+Use --controller option to show a cloud from a controller.
 
-Use --controller option to show a cloud from a different controller.
-
-Use --client-only option to only show a cloud known on this client.
-
-Use --controller-only option to only show a cloud known on the controller.
+Use --client option to show a cloud known on this client.
 
 Examples:
 
     juju show-cloud google
     juju show-cloud azure-china --output ~/azure_cloud_details.txt
-    juju show-cloud myopenstack --controller mycontroller --controller-only
-    juju show-cloud myopenstack --client-only
-    juju show-cloud myopenstack --no-prompt
+    juju show-cloud myopenstack --controller mycontroller
+    juju show-cloud myopenstack --client
+    juju show-cloud myopenstack --client --controller mycontroller
 
 See also:
     clouds
@@ -123,45 +116,29 @@ func (c *showCloudCommand) Info() *cmd.Info {
 }
 
 func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("show cloud %q from", c.CloudName)); err != nil {
+		return errors.Trace(err)
+	}
 	var (
 		localCloud *CloudDetails
 		localErr   error
 	)
-	if c.BothClientAndController || c.ClientOnly {
-		if localCloud, localErr = c.getLocalCloud(); c.ClientOnly && localErr != nil {
-			return localErr
-		}
-	}
-
-	var (
-		remoteCloud *CloudDetails
-		remoteErr   error
-	)
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			c.ControllerName, remoteErr = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("show cloud %q from", c.CloudName))
-		}
-		if c.ControllerName == "" && remoteErr == nil {
-			remoteErr = errors.New("Not showing a cloud from a controller: no controller specified.")
-		}
-		if remoteErr == nil {
-			remoteCloud, remoteErr = c.getControllerCloud()
-		}
+	if c.Client {
+		localCloud, localErr = c.getLocalCloud()
 	}
 
 	var displayErr error
-	showRemoteConfig := c.includeConfig
-	if localCloud != nil && remoteCloud != nil {
-		// It's possible that a local cloud named A is different to
-		// a remote cloud named A. If their types are different and we
-		// need to display config, we'd need to list each cloud type config.
-		// If the clouds' types are the same, we only need to list
-		// config once after the local cloud information.
-		showRemoteConfig = showRemoteConfig && localCloud.CloudType != remoteCloud.CloudType
-	}
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
+		remoteCloud, remoteErr := c.getControllerCloud()
+		showRemoteConfig := c.includeConfig
+		if localCloud != nil && remoteCloud != nil {
+			// It's possible that a local cloud named A is different to
+			// a remote cloud named A. If their types are different and we
+			// need to display config, we'd need to list each cloud type config.
+			// If the clouds' types are the same, we only need to list
+			// config once after the local cloud information.
+			showRemoteConfig = showRemoteConfig && localCloud.CloudType != remoteCloud.CloudType
+		}
 		if remoteCloud != nil {
 			if err := c.displayCloud(ctxt, remoteCloud, fmt.Sprintf("Cloud %q from controller %q:\n", c.CloudName, c.ControllerName), showRemoteConfig, remoteErr); err != nil {
 				ctxt.Warningf("%v", err)
@@ -176,7 +153,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 			}
 		}
 	}
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if localCloud != nil {
 			if err := c.displayCloud(ctxt, localCloud, fmt.Sprintf("\nClient cloud %q:\n", c.CloudName), c.includeConfig, localErr); err != nil {
 				ctxt.Warningf("%v", err)
