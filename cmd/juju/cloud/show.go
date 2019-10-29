@@ -127,25 +127,18 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		localCloud, localErr = c.getLocalCloud()
 	}
 
-	var (
-		remoteCloud *CloudDetails
-		remoteErr   error
-	)
-	if c.ControllerName != "" {
-		remoteCloud, remoteErr = c.getControllerCloud()
-	}
-
 	var displayErr error
-	showRemoteConfig := c.includeConfig
-	if localCloud != nil && remoteCloud != nil {
-		// It's possible that a local cloud named A is different to
-		// a remote cloud named A. If their types are different and we
-		// need to display config, we'd need to list each cloud type config.
-		// If the clouds' types are the same, we only need to list
-		// config once after the local cloud information.
-		showRemoteConfig = showRemoteConfig && localCloud.CloudType != remoteCloud.CloudType
-	}
 	if c.ControllerName != "" {
+		remoteCloud, remoteErr := c.getControllerCloud()
+		showRemoteConfig := c.includeConfig
+		if localCloud != nil && remoteCloud != nil {
+			// It's possible that a local cloud named A is different to
+			// a remote cloud named A. If their types are different and we
+			// need to display config, we'd need to list each cloud type config.
+			// If the clouds' types are the same, we only need to list
+			// config once after the local cloud information.
+			showRemoteConfig = showRemoteConfig && localCloud.CloudType != remoteCloud.CloudType
+		}
 		if remoteCloud != nil {
 			if err := c.displayCloud(ctxt, remoteCloud, fmt.Sprintf("Cloud %q from controller %q:\n", c.CloudName, c.ControllerName), showRemoteConfig, remoteErr); err != nil {
 				ctxt.Warningf("%v", err)
