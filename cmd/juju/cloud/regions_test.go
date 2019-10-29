@@ -150,12 +150,11 @@ func (s *regionsSuite) TestListNoController(c *gc.C) {
 	err := cmdtesting.InitCommand(command, []string{"google"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = command.Run(ctx)
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "Neither client nor controller specified - nothing to do.")
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
 This operation can be applied to both a copy on this client and a controller of your choice.
 Do you want to list regions for cloud "google" from this client? (Y/n): 
 Do you want to list regions for cloud "google" from a controller? (Y/n): 
-
 `[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No registered controllers on this client: either bootstrap one or register one.\n")
 }

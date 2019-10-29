@@ -245,7 +245,7 @@ func (s *OptionalControllerCommandSuite) TestPromptManyControllers(c *gc.C) {
 
 func (s *OptionalControllerCommandSuite) TestPromptNoControllers(c *gc.C) {
 	ctx, command, err := s.assertPrompt(c, jujuclient.NewMemStore(), "n\ny\n")
-	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(err, gc.ErrorMatches, "Neither client nor controller specified - nothing to do.")
 	c.Assert(command.ControllerName, gc.Equals, "")
 	c.Assert(command.Client, gc.Equals, false)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -254,6 +254,19 @@ Do you want to  this client? (Y/n):
 Do you want to  a controller? (Y/n): 
 `[1:])
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No registered controllers on this client: either bootstrap one or register one.\n")
+}
+
+func (s *OptionalControllerCommandSuite) TestPromptNothingPicked(c *gc.C) {
+	ctx, command, err := s.assertPrompt(c, jujuclient.NewMemStore(), "n\nn\n")
+	c.Assert(err, gc.ErrorMatches, "Neither client nor controller specified - nothing to do.")
+	c.Assert(command.ControllerName, gc.Equals, "")
+	c.Assert(command.Client, gc.Equals, false)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
+This operation can be applied to both a copy on this client and a controller of your choice.
+Do you want to  this client? (Y/n): 
+Do you want to  a controller? (Y/n): 
+`[1:])
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
 }
 
 func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoCurrentController(c *gc.C) {
@@ -303,7 +316,7 @@ func (s *OptionalControllerCommandSuite) TestPrompt(c *gc.C) {
 }
 
 func (s *OptionalControllerCommandSuite) TestPromptDeny(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "n\nn\n", "", false, testShortOutput)
+	s.assertDetectCurrentControllerPrompt(c, "y\nn\n", "", true, testShortOutput)
 }
 
 func (s *OptionalControllerCommandSuite) TestPromptUseNonDefaultController(c *gc.C) {

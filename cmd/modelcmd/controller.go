@@ -441,7 +441,12 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 		return errors.Trace(err)
 	}
 	if useController {
-		return c.queryControllerName(ctxt, pollster)
+		if err := c.queryControllerName(ctxt, pollster); err != nil {
+			return err
+		}
+	}
+	if !c.Client && c.ControllerName == "" {
+		return errors.New("Neither client nor controller specified - nothing to do.")
 	}
 	return nil
 }
