@@ -104,13 +104,14 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if c.ControllerName == "" && !c.Client {
+	if c.ControllerName == "" {
 		ctxt.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client option.", c.cloudName)
 	}
 
-	// TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
-	if err := cleanUpCredentialRBACResources(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
-		return errors.Trace(err)
+	if c.ControllerName != "" && c.Client { // TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
+		if err := cleanUpCredentialRBACResources(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	if c.Client {
