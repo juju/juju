@@ -478,7 +478,7 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 		if err != nil {
 			return err
 		}
-		input = strings.TrimSpace(input)
+		input = strings.ToLower(strings.TrimSpace(input))
 		switch input {
 		case "q":
 			goto quit
