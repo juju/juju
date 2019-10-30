@@ -1726,6 +1726,10 @@ func (i *importer) subnets() error {
 			AvailabilityZones: subnet.AvailabilityZones(),
 			IsPublic:          subnet.IsPublic(),
 			SpaceID:           subnet.SpaceID(),
+
+			// SpaceName will only be present when migrating from pre-2.7
+			// models. We use it to look up a space ID.
+			SpaceName: subnet.SpaceName(),
 		}
 		info.SetFan(subnet.FanLocalUnderlay(), subnet.FanOverlay())
 

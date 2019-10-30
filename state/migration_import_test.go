@@ -1280,8 +1280,8 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	original, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:              "10.0.0.0/24",
-		ProviderId:        network.Id("foo"),
-		ProviderNetworkId: network.Id("elm"),
+		ProviderId:        "foo",
+		ProviderNetworkId: "elm",
 		VLANTag:           64,
 		SpaceID:           sp.Id(),
 		AvailabilityZones: []string{"bar"},
@@ -1290,8 +1290,8 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	originalNoID, err := s.State.AddSubnet(network.SubnetInfo{
 		CIDR:              "10.76.0.0/24",
-		ProviderId:        network.Id("bar"),
-		ProviderNetworkId: network.Id("oak"),
+		ProviderId:        "bar",
+		ProviderNetworkId: "oak",
 		VLANTag:           64,
 		SpaceID:           sp.Id(),
 		AvailabilityZones: []string{"bar"},
@@ -1301,9 +1301,16 @@ func (s *MigrationImportSuite) TestSubnets(c *gc.C) {
 	_, newSt := s.importModel(c, s.State, func(desc map[string]interface{}) {
 		subnets := desc["subnets"].(map[interface{}]interface{})
 		for _, item := range subnets["subnets"].([]interface{}) {
-			sp := item.(map[interface{}]interface{})
-			if sp["subnet-id"] == originalNoID.ID() {
-				sp["subnet-id"] = ""
+			sn := item.(map[interface{}]interface{})
+
+			if sn["subnet-id"] == originalNoID.ID() {
+				// Remove the subnet ID, to check that it is created by import.
+				sn["subnet-id"] = ""
+
+				// Swap the space ID for a space name to check migrating from
+				// a pre-2.7 model.
+				sn["space-id"] = ""
+				sn["space-name"] = sp.Name()
 			}
 		}
 	})
