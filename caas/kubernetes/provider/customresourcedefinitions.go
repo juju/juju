@@ -98,6 +98,31 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(appName string) error
 	return errors.Trace(err)
 }
 
+func (k *kubernetesClient) deleteCustomResources(appName string) error {
+	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{IncludeUninitialized: true})
+	if err != nil {
+		return errors.Trace(err)
+	}
+	for _, crd := range crds.Items {
+		for _, version := range crd.Spec.Versions {
+			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = crdClient.DeleteCollection(&v1.DeleteOptions{
+				PropagationPolicy: &defaultPropagationPolicy,
+			}, v1.ListOptions{
+				LabelSelector:        labelsToSelector(k.getCRLabels(appName)),
+				IncludeUninitialized: true,
+			})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+		}
+	}
+	return nil
+}
+
 type apiVersionGetter interface {
 	GetAPIVersion() string
 }
@@ -113,7 +138,7 @@ func (k *kubernetesClient) ensureCustomResources(
 ) (cleanUps []func(), _ error) {
 	for crdName, crSpecList := range crSpecs {
 		for _, crSpec := range crSpecList {
-			crdClient, err := k.getCustomResourceDefinitionClient(crdName, getCRVersion(&crSpec))
+			crdClient, err := k.getCustomResourceDefinitionClientByName(crdName, getCRVersion(&crSpec))
 			if err != nil {
 				return cleanUps, errors.Trace(err)
 			}
@@ -151,7 +176,7 @@ func deleteCustomResourceDefinition(api dynamic.ResourceInterface, name string, 
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) getCustomResourceDefinitionClient(crdName, version string) (dynamic.ResourceInterface, error) {
+func (k *kubernetesClient) getCustomResourceDefinitionClientByName(crdName, version string) (dynamic.ResourceInterface, error) {
 	logger.Criticalf("getting custom resource definition client %q, version %q", crdName, version)
 
 	// TODO: add waiter to ensure crds are stablised.!!!!!!!!!
@@ -161,7 +186,10 @@ func (k *kubernetesClient) getCustomResourceDefinitionClient(crdName, version st
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	return k.getCustomResourceDefinitionClient(crd, version)
+}
 
+func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv1beta1.CustomResourceDefinition, version string) (dynamic.ResourceInterface, error) {
 	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped {
 		// This has already done in podspec validation for checking Juju created CRD.
 		// Here, check it again for referencing exisitng CRD which was not created by Juju.
