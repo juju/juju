@@ -77,17 +77,17 @@ func stateStepsFor27() []Step {
 			},
 		},
 		&upgradeStep{
-			description: "adds default value for default_space",
-			targets:     []Target{DatabaseMaster},
-			run: func(context Context) error {
-				return context.State().AddDefaultSpaceSetting()
-			},
-		},
-		&upgradeStep{
 			description: "replace space name in endpointBindingDoc bindings with an space ID",
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().ReplaceSpaceNameWithIDEndpointBindings()
+			},
+		},
+		&upgradeStep{
+			description: `remove model config for default-space if set to "_default"`,
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().EnsureDefaultSpaceSetting()
 			},
 		},
 	}

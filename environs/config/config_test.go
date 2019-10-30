@@ -575,7 +575,7 @@ var configTests = []configTest{
 		about:       "Default-space takes a string as valid value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"default-space": "_bar",
+			"default-space": "bar",
 		}),
 	},
 }
