@@ -65,6 +65,9 @@ type ControllerGauges struct {
 	ApplicationHashCacheHit  prometheus.Gauge
 	ApplicationHashCacheMiss prometheus.Gauge
 
+	CharmConfigHashCacheHit  prometheus.Gauge
+	CharmConfigHashCacheMiss prometheus.Gauge
+
 	LXDProfileChangeError        prometheus.Gauge
 	LXDProfileChangeNotification prometheus.Gauge
 	LXDProfileNoChange           prometheus.Gauge
@@ -91,6 +94,20 @@ func createControllerGauges() *ControllerGauges {
 				Namespace: metricsNamespace,
 				Name:      "model_hash_cache_miss",
 				Help:      "The number of times the model config change hash was generated.",
+			},
+		),
+		CharmConfigHashCacheHit: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "charm_config_watcher_hash_hit",
+				Help:      "The number of times a change in master or branch config required no notification to config watcher(s)",
+			},
+		),
+		CharmConfigHashCacheMiss: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Namespace: metricsNamespace,
+				Name:      "charm_config_watcher_hash_miss",
+				Help:      "The number of times a change in master or branch config required notification to config watcher(s)",
 			},
 		),
 		ApplicationConfigReads: prometheus.NewGauge(
@@ -144,6 +161,9 @@ func (c *ControllerGauges) Describe(ch chan<- *prometheus.Desc) {
 	c.ModelHashCacheHit.Describe(ch)
 	c.ModelHashCacheMiss.Describe(ch)
 
+	c.CharmConfigHashCacheHit.Describe(ch)
+	c.CharmConfigHashCacheMiss.Describe(ch)
+
 	c.ApplicationConfigReads.Describe(ch)
 	c.ApplicationHashCacheHit.Describe(ch)
 	c.ApplicationHashCacheMiss.Describe(ch)
@@ -158,6 +178,9 @@ func (c *ControllerGauges) Collect(ch chan<- prometheus.Metric) {
 	c.ModelConfigReads.Collect(ch)
 	c.ModelHashCacheHit.Collect(ch)
 	c.ModelHashCacheMiss.Collect(ch)
+
+	c.CharmConfigHashCacheHit.Collect(ch)
+	c.CharmConfigHashCacheMiss.Collect(ch)
 
 	c.ApplicationConfigReads.Collect(ch)
 	c.ApplicationHashCacheHit.Collect(ch)

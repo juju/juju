@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/core/settings"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 )
@@ -25,7 +26,13 @@ type charmConfigWatcherSuite struct {
 var _ = gc.Suite(&charmConfigWatcherSuite{})
 
 func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
+	// After initializing we expect not miss
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), gc.Equals, float64(0))
+
 	w := s.newWatcher(c, defaultUnitName, defaultCharmURL)
+	// After initializing the first watcher we expect one change and one miss
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), gc.Equals, float64(1))
+
 	s.assertOneChange(c, w, map[string]interface{}{"password": defaultPassword}, defaultCharmURL)
 
 	// Publish a tracked branch change with altered config.
@@ -35,9 +42,15 @@ func (s *charmConfigWatcherSuite) TestTrackingBranchChangedNotified(c *gc.C) {
 			Config: map[string]settings.ItemChanges{"redis": {settings.MakeAddition("password", "new-pass")}},
 		},
 	}
+	// publish the second change.
 	s.Hub.Publish(branchChange, b)
 
 	s.assertOneChange(c, w, map[string]interface{}{"password": "new-pass"}, defaultCharmURL)
+
+	// After the branchChange we expect another change and hence inc again.
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheMiss), gc.Equals, float64(2))
+	c.Check(testutil.ToFloat64(s.Gauges.CharmConfigHashCacheHit), gc.Equals, float64(0))
+
 	w.AssertStops()
 }
 
@@ -165,6 +178,7 @@ func (s *charmConfigWatcherSuite) newStubModel() *stubCharmConfigModel {
 	return &stubCharmConfigModel{
 		app:      *app,
 		branches: map[string]Branch{"0": *branch},
+		metrics:  s.Gauges,
 	}
 }
 
@@ -181,6 +195,7 @@ func (s *charmConfigWatcherSuite) assertOneChange(
 type stubCharmConfigModel struct {
 	app      Application
 	branches map[string]Branch
+	metrics  *ControllerGauges
 }
 
 func (m *stubCharmConfigModel) Application(name string) (Application, error) {
@@ -198,4 +213,8 @@ func (m *stubCharmConfigModel) Branches() []Branch {
 		i += 1
 	}
 	return branches
+}
+
+func (m *stubCharmConfigModel) Metrics() *ControllerGauges {
+	return m.metrics
 }

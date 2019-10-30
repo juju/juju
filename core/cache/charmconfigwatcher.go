@@ -14,6 +14,7 @@ import (
 type charmConfigModel interface {
 	Application(string) (Application, error)
 	Branches() []Branch
+	Metrics() *ControllerGauges
 }
 
 // charmConfigWatchConfig contains data required for a
@@ -58,6 +59,9 @@ type CharmConfigWatcher struct {
 	appName    string
 	charmURL   string
 	branchName string
+
+	CharmConfigHashCacheHitInc  func()
+	CharmConfigHashCacheMissInc func()
 
 	masterSettings map[string]interface{}
 	branchDeltas   settings.ItemChanges
@@ -105,6 +109,9 @@ func (w *CharmConfigWatcher) init(model charmConfigModel) error {
 		return errors.Trace(err)
 	}
 	w.masterSettings = app.Config()
+
+	w.CharmConfigHashCacheHitInc = model.Metrics().CharmConfigHashCacheHit.Inc
+	w.CharmConfigHashCacheMissInc = model.Metrics().CharmConfigHashCacheMiss.Inc
 
 	branches := model.Branches()
 	for _, b := range branches {
@@ -220,9 +227,9 @@ func (w *CharmConfigWatcher) checkConfig() {
 	}
 }
 
-// checkConfig applies any known branch deltas to the master charm config,
+// setConfigHash applies any known branch deltas to the master charm config,
 // Then compares a hash of the result with the last known config hash.
-// The boolean return indicates whether the has has changed.
+// The boolean return indicates whether the hash has changed.
 func (w *CharmConfigWatcher) setConfigHash() (bool, error) {
 	cfg := copyDataMap(w.masterSettings)
 	for _, delta := range w.branchDeltas {
@@ -239,9 +246,10 @@ func (w *CharmConfigWatcher) setConfigHash() (bool, error) {
 		return false, errors.Trace(err)
 	}
 	if w.configHash == newHash {
+		w.CharmConfigHashCacheHitInc()
 		return false, nil
 	}
-
+	w.CharmConfigHashCacheMissInc()
 	w.configHash = newHash
 	return true, nil
 }
