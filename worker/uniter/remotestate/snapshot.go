@@ -77,6 +77,10 @@ type Snapshot struct {
 	// be performed by this unit.
 	Actions []string
 
+	// ActionsBlocked is true on CAAS when actions cannot be run due to
+	// pod initialization.
+	ActionsBlocked bool
+
 	// Commands is the list of IDs of commands to be
 	// executed by this unit.
 	Commands []string

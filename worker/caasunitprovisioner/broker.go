@@ -4,6 +4,8 @@
 package caasunitprovisioner
 
 import (
+	"gopkg.in/juju/names.v3"
+
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/watcher"
@@ -15,6 +17,7 @@ type ContainerBroker interface {
 	Units(appName string) ([]caas.Unit, error)
 	WatchOperator(string) (watcher.NotifyWatcher, error)
 	Operator(string) (*caas.Operator, error)
+	AnnotateUnit(appName, podName string, unit names.UnitTag) error
 }
 
 type ServiceBroker interface {

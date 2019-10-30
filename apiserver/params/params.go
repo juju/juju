@@ -419,6 +419,29 @@ type ApplicationUnitParams struct {
 	Data           map[string]interface{}     `json:"data,omitempty"`
 }
 
+// UpdateApplicationUnitResults holds results from UpdateApplicationUnits
+type UpdateApplicationUnitResults struct {
+	Results []UpdateApplicationUnitResult `json:"results"`
+}
+
+// UpdateApplicationUnitResult holds a single result from UpdateApplicationUnits
+type UpdateApplicationUnitResult struct {
+	Info  *UpdateApplicationUnitsInfo `json:"info,omitempty"`
+	Error *Error                      `json:"error,omitempty"`
+}
+
+// UpdateApplicationUnitsInfo holds info about the application units after a call to
+// UpdateApplicationUnits
+type UpdateApplicationUnitsInfo struct {
+	Units []ApplicationUnitInfo `json:"units"`
+}
+
+// ApplicationUnitInfo holds info about the unit in the application.
+type ApplicationUnitInfo struct {
+	ProviderId string `json:"provider-id"`
+	UnitTag    string `json:"unit-tag"`
+}
+
 // ApplicationMergeBindingsArgs holds the parameters for updating application
 // bindings.
 type ApplicationMergeBindingsArgs struct {
@@ -1232,4 +1255,16 @@ type CharmProfilingInfoResult struct {
 	ProfileChanges  []ProfileInfoResult `json:"profile-changes"`
 	CurrentProfiles []string            `json:"current-profiles"`
 	Error           *Error              `json:"error"`
+}
+
+// WatchContainerStartArg contains arguments for watching for container start
+// events on a CAAS application.
+type WatchContainerStartArg struct {
+	Entity    Entity `json:"entity"`
+	Container string `json:"container,omitempty"`
+}
+
+// WatchContainerStartArgs holds the details to watch many containers for start events.
+type WatchContainerStartArgs struct {
+	Args []WatchContainerStartArg `json:"args"`
 }

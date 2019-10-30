@@ -72,6 +72,23 @@ func (s *actionsSuite) TestNextAction(c *gc.C) {
 	c.Assert(op, jc.DeepEquals, mockOp("actionB"))
 }
 
+func (s *actionsSuite) TestNextActionBlocked(c *gc.C) {
+	actionResolver := actions.NewResolver()
+	localState := resolver.LocalState{
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+		CompletedActions: map[string]struct{}{"actionA": {}},
+	}
+	remoteState := remotestate.Snapshot{
+		Actions:        []string{"actionA", "actionB"},
+		ActionsBlocked: true,
+	}
+	op, err := actionResolver.NextOp(localState, remoteState, &mockOperations{})
+	c.Assert(err, gc.DeepEquals, resolver.ErrNoOperation)
+	c.Assert(op, gc.IsNil)
+}
+
 func (s *actionsSuite) TestActionStateKindRunAction(c *gc.C) {
 	actionResolver := actions.NewResolver()
 	var actionA string = "actionA"

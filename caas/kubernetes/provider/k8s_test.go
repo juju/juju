@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/workertest"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
@@ -25,6 +26,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
 	"k8s.io/apimachinery/pkg/watch"
@@ -3636,7 +3638,69 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestWatchUnitStart(c *gc.C) {
+func (s *K8sBrokerSuite) TestAnnotateUnit(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	pod := &core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "pod-name",
+		},
+	}
+
+	updatePod := &core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "pod-name",
+			Annotations: map[string]string{"juju.io/unit": "appname/0"},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().Get("pod-name", v1.GetOptions{
+			IncludeUninitialized: true,
+		}).Return(pod, nil),
+		s.mockPods.EXPECT().Update(updatePod).Return(updatePod, nil),
+	)
+
+	err := s.broker.AnnotateUnit("appname", "pod-name", names.NewUnitTag("appname/0"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podList := &core.PodList{
+		Items: []core.Pod{{ObjectMeta: v1.ObjectMeta{
+			Name: "pod-name",
+			UID:  types.UID("uuid"),
+		}}},
+	}
+
+	updatePod := &core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "pod-name",
+			UID:         types.UID("uuid"),
+			Annotations: map[string]string{"juju.io/unit": "appname/0"},
+		},
+	}
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().Get("uuid", v1.GetOptions{
+			IncludeUninitialized: true,
+		}).Return(nil, s.k8sNotFoundError()),
+		s.mockPods.EXPECT().List(v1.ListOptions{
+			LabelSelector:        "juju-app==appname",
+			IncludeUninitialized: true,
+		}).Return(podList, nil),
+		s.mockPods.EXPECT().Update(updatePod).Return(updatePod, nil),
+	)
+
+	err := s.broker.AnnotateUnit("appname", "uuid", names.NewUnitTag("appname/0"))
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3647,6 +3711,9 @@ func (s *K8sBrokerSuite) TestWatchUnitStart(c *gc.C) {
 				Name: "test-0",
 				OwnerReferences: []v1.OwnerReference{
 					{Kind: "StatefulSet"},
+				},
+				Annotations: map[string]string{
+					"juju.io/unit": "test-0",
 				},
 			},
 			Status: core.PodStatus{
@@ -3670,7 +3737,7 @@ func (s *K8sBrokerSuite) TestWatchUnitStart(c *gc.C) {
 		}).Return(podList, nil),
 	)
 
-	w, err := s.broker.WatchUnitStart("test")
+	w, err := s.broker.WatchContainerStart("test", caas.InitContainerName)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Send an event to one of the watchers; multi-watcher should fire.
@@ -3680,10 +3747,176 @@ func (s *K8sBrokerSuite) TestWatchUnitStart(c *gc.C) {
 			OwnerReferences: []v1.OwnerReference{
 				{Kind: "StatefulSet"},
 			},
+			Annotations: map[string]string{
+				"juju.io/unit": "test-0",
+			},
 		},
 		Status: core.PodStatus{
 			InitContainerStatuses: []core.ContainerStatus{
 				{Name: "juju-pod-init", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
+			Phase: core.PodPending,
+		},
+	}
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		if !w.IsStopped() {
+			w.Modify(pod)
+			clk.WaitAdvance(time.Second, testing.LongWait, 1)
+		}
+	}(podWatcher, s.clock)
+
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
+func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podWatcher := watch.NewRaceFreeFake()
+	podList := &core.PodList{
+		Items: []core.Pod{{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "test-0",
+				OwnerReferences: []v1.OwnerReference{
+					{Kind: "StatefulSet"},
+				},
+				Annotations: map[string]string{
+					"juju.io/unit": "test-0",
+				},
+			},
+			Status: core.PodStatus{
+				ContainerStatuses: []core.ContainerStatus{
+					{Name: "first-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+					{Name: "second-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+				},
+				Phase: core.PodPending,
+			},
+		}},
+	}
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().Watch(v1.ListOptions{
+			LabelSelector:        "juju-app==test",
+			Watch:                true,
+			IncludeUninitialized: true,
+		}).Return(podWatcher, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{
+			LabelSelector:        "juju-app==test",
+			IncludeUninitialized: true,
+		}).Return(podList, nil),
+	)
+
+	w, err := s.broker.WatchContainerStart("test", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send an event to one of the watchers; multi-watcher should fire.
+	pod := &core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test-0",
+			OwnerReferences: []v1.OwnerReference{
+				{Kind: "StatefulSet"},
+			},
+			Annotations: map[string]string{
+				"juju.io/unit": "test-0",
+			},
+		},
+		Status: core.PodStatus{
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "first-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+				{Name: "second-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+			},
+			Phase: core.PodPending,
+		},
+	}
+	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
+		if !w.IsStopped() {
+			w.Modify(pod)
+			clk.WaitAdvance(time.Second, testing.LongWait, 1)
+		}
+	}(podWatcher, s.clock)
+
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.DeepEquals, []string{"test-0"})
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+}
+
+func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	podWatcher := watch.NewRaceFreeFake()
+	podList := &core.PodList{
+		Items: []core.Pod{{
+			ObjectMeta: v1.ObjectMeta{
+				Name: "test-0",
+				OwnerReferences: []v1.OwnerReference{
+					{Kind: "StatefulSet"},
+				},
+			},
+			Status: core.PodStatus{
+				ContainerStatuses: []core.ContainerStatus{
+					{Name: "first-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+				},
+				Phase: core.PodPending,
+			},
+		}},
+	}
+
+	gomock.InOrder(
+		s.mockPods.EXPECT().Watch(v1.ListOptions{
+			LabelSelector:        "juju-app==test",
+			Watch:                true,
+			IncludeUninitialized: true,
+		}).Return(podWatcher, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{
+			LabelSelector:        "juju-app==test",
+			IncludeUninitialized: true,
+		}).Return(podList, nil),
+	)
+
+	w, err := s.broker.WatchContainerStart("test", "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Send an event to one of the watchers; multi-watcher should fire.
+	pod := &core.Pod{
+		ObjectMeta: v1.ObjectMeta{
+			Name: "test-0",
+			OwnerReferences: []v1.OwnerReference{
+				{Kind: "StatefulSet"},
+			},
+			Annotations: map[string]string{
+				"juju.io/unit": "test-0",
+			},
+		},
+		Status: core.PodStatus{
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "first-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
 			},
 			Phase: core.PodPending,
 		},

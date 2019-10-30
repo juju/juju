@@ -68,6 +68,7 @@ type fakeClient struct {
 	testing.Stub
 	caasoperator.Client
 	unitsWatcher       *watchertest.MockStringsWatcher
+	containerWatcher   *watchertest.MockStringsWatcher
 	watcher            *watchertest.MockNotifyWatcher
 	applicationWatched chan struct{}
 	unitRemoved        chan struct{}
@@ -102,6 +103,14 @@ func (c *fakeClient) CharmConfig(application string) (charm.Settings, error) {
 
 func (c *fakeClient) WatchCharmConfig(application string) (watcher.NotifyWatcher, error) {
 	return nil, errors.NotSupportedf("watch charm config")
+}
+
+func (c *fakeClient) WatchContainerStart(application, container string) (watcher.StringsWatcher, error) {
+	c.MethodCall(c, "WatchContainerStart", application, container)
+	if err := c.NextErr(); err != nil {
+		return nil, err
+	}
+	return c.containerWatcher, nil
 }
 
 func (c *fakeClient) WatchUnits(application string) (watcher.StringsWatcher, error) {

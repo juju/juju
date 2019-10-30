@@ -118,14 +118,14 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 
 			cfg := Config{
-				Logger:             config.Logger,
-				Application:        applicationTag.Id(),
-				Clock:              clock,
-				DataDir:            agentConfig.DataDir(),
-				UnitStartWatcher:   client,
-				UnitProviderIDFunc: unitProviderID,
-				ExecClient:         execClient,
-				InitializeUnit:     InitializeUnit,
+				Logger:                config.Logger,
+				Application:           applicationTag.Id(),
+				Clock:                 clock,
+				DataDir:               agentConfig.DataDir(),
+				ContainerStartWatcher: client,
+				UnitProviderIDFunc:    unitProviderID,
+				ExecClient:            execClient,
+				InitializeUnit:        InitializeUnit,
 			}
 			cfg.Paths = caasoperator.NewPaths(cfg.DataDir, names.NewApplicationTag(cfg.Application))
 

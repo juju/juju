@@ -8,8 +8,9 @@ import (
 )
 
 var (
-	ProcessEnv = processEnv
-	NewForTest = newClient
+	ProcessEnv                   = processEnv
+	NewForTest                   = newClient
+	HandleContainerNotFoundError = handleContainerNotFoundError
 )
 
 func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {
@@ -20,6 +21,6 @@ func (fr *FileResource) Validate() error {
 	return fr.validate()
 }
 
-func (cp *CopyParam) Validate() error {
+func (cp *CopyParams) Validate() error {
 	return cp.validate()
 }

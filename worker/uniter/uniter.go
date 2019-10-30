@@ -112,6 +112,13 @@ type Uniter struct {
 	// application's charm. It is passed to the remote state watcher.
 	applicationChannel watcher.NotifyChannel
 
+	// runningStatusChannel, if set, is used to signal a change in the
+	// unit's status. It is passed to the remote state watcher.
+	runningStatusChannel watcher.NotifyChannel
+
+	// runningStatusFunc used to determine the unit's running status.
+	runningStatusFunc remotestate.RunningStatusFunc
+
 	// hookRetryStrategy represents configuration for hook retries
 	hookRetryStrategy params.RetryStrategy
 
@@ -138,6 +145,8 @@ type UniterParams struct {
 	TranslateResolverErr    func(error) error
 	Clock                   clock.Clock
 	ApplicationChannel      watcher.NotifyChannel
+	RunningStatusChannel    watcher.NotifyChannel
+	RunningStatusFunc       remotestate.RunningStatusFunc
 	SocketConfig            *SocketConfig
 	// TODO (mattyw, wallyworld, fwereade) Having the observer here make this approach a bit more legitimate, but it isn't.
 	// the observer is only a stop gap to be used in tests. A better approach would be to have the uniter tests start hooks
@@ -196,6 +205,8 @@ func newUniter(uniterParams *UniterParams) func() (worker.Worker, error) {
 		clock:                   uniterParams.Clock,
 		downloader:              uniterParams.Downloader,
 		applicationChannel:      uniterParams.ApplicationChannel,
+		runningStatusChannel:    uniterParams.RunningStatusChannel,
+		runningStatusFunc:       uniterParams.RunningStatusFunc,
 		runListener:             uniterParams.RunListener,
 	}
 	startFunc := func() (worker.Worker, error) {
@@ -307,14 +318,16 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		var err error
 		watcher, err = remotestate.NewWatcher(
 			remotestate.WatcherConfig{
-				State:               remotestate.NewAPIState(u.st),
-				LeadershipTracker:   u.leadershipTracker,
-				UnitTag:             unitTag,
-				UpdateStatusChannel: u.updateStatusAt,
-				CommandChannel:      u.commandChannel,
-				RetryHookChannel:    retryHookChan,
-				ApplicationChannel:  u.applicationChannel,
-				ModelType:           u.modelType,
+				State:                remotestate.NewAPIState(u.st),
+				LeadershipTracker:    u.leadershipTracker,
+				UnitTag:              unitTag,
+				UpdateStatusChannel:  u.updateStatusAt,
+				CommandChannel:       u.commandChannel,
+				RetryHookChannel:     retryHookChan,
+				ApplicationChannel:   u.applicationChannel,
+				RunningStatusChannel: u.runningStatusChannel,
+				RunningStatusFunc:    u.runningStatusFunc,
+				ModelType:            u.modelType,
 			})
 		if err != nil {
 			return errors.Trace(err)

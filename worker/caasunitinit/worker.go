@@ -28,13 +28,13 @@ type Logger interface {
 // with the CAASOperator API. Subsets of this
 // should be passed to the CAASUnitInit worker.
 type Client interface {
-	UnitStartWatcher
+	ContainerStartWatcher
 }
 
-// UnitStartWatcher provides an interface for watching
-// for unit starts.
-type UnitStartWatcher interface {
-	WatchUnitStart(string) (watcher.StringsWatcher, error)
+// ContainerStartWatcher provides an interface for watching
+// for unit container starts.
+type ContainerStartWatcher interface {
+	WatchContainerStart(string, string) (watcher.StringsWatcher, error)
 }
 
 // Config for a caasUnitInitWorker and unitInitializer
@@ -55,8 +55,9 @@ type Config struct {
 	// expects to find the jujud binary at <data-dir>/tools/jujud.
 	DataDir string
 
-	// UnitStartWatcher is an interface for watching unit startup.
-	UnitStartWatcher UnitStartWatcher
+	// ContainerStartWatcher provides an interface for watching
+	// for unit container starts.
+	ContainerStartWatcher ContainerStartWatcher
 
 	// UnitProviderIDFunc returns the ProviderID for the given unit.
 	UnitProviderIDFunc func(unit names.UnitTag) (string, error)
@@ -78,8 +79,8 @@ func (config Config) Validate() error {
 	if !names.IsValidApplication(config.Application) {
 		return errors.NotValidf("application name %q", config.Application)
 	}
-	if config.UnitStartWatcher == nil {
-		return errors.NotValidf("missing UnitStartWatcher")
+	if config.ContainerStartWatcher == nil {
+		return errors.NotValidf("missing ContainerStartWatcher")
 	}
 	if config.UnitProviderIDFunc == nil {
 		return errors.NotValidf("missing UnitProviderIDFunc")
@@ -133,11 +134,11 @@ func (w *caasUnitInitWorker) Wait() error {
 }
 
 func (w *caasUnitInitWorker) loop() error {
-	unitStartWatcher, err := w.config.UnitStartWatcher.WatchUnitStart(w.config.Application)
+	containerStartWatcher, err := w.config.ContainerStartWatcher.WatchContainerStart(w.config.Application, caas.InitContainerName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if err := w.catacomb.Add(unitStartWatcher); err != nil {
+	if err := w.catacomb.Add(containerStartWatcher); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -145,7 +146,7 @@ func (w *caasUnitInitWorker) loop() error {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case units, ok := <-unitStartWatcher.Changes():
+		case units, ok := <-containerStartWatcher.Changes():
 			if !ok {
 				return errors.Errorf("watcher closed channel")
 			}

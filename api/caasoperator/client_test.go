@@ -337,10 +337,13 @@ func (s *operatorSuite) TestWatchUnitStart(c *gc.C) {
 		c.Check(objType, gc.Equals, "CAASOperator")
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
-		c.Check(request, gc.Equals, "WatchUnitStart")
-		c.Assert(arg, jc.DeepEquals, params.Entities{
-			Entities: []params.Entity{{
-				Tag: "application-gitlab",
+		c.Check(request, gc.Equals, "WatchContainerStart")
+		c.Assert(arg, jc.DeepEquals, params.WatchContainerStartArgs{
+			Args: []params.WatchContainerStartArg{{
+				Entity: params.Entity{
+					Tag: "application-gitlab",
+				},
+				Container: "container",
 			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.StringsWatchResults{})
@@ -353,7 +356,7 @@ func (s *operatorSuite) TestWatchUnitStart(c *gc.C) {
 	})
 
 	client := caasoperator.NewClient(apiCaller)
-	watcher, err := client.WatchUnitStart("gitlab")
+	watcher, err := client.WatchContainerStart("gitlab", "container")
 	c.Assert(watcher, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "FAIL")
 }

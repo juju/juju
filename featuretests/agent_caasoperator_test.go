@@ -22,10 +22,13 @@ import (
 	jujudagent "github.com/juju/juju/cmd/jujud/agent"
 	"github.com/juju/juju/cmd/jujud/agent/agenttest"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
+	"github.com/juju/juju/core/watcher"
+	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	caasoperatorworker "github.com/juju/juju/worker/caasoperator"
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -185,10 +188,18 @@ func sockPath(c *gc.C) sockets.Socket {
 }
 
 func (s *CAASOperatorSuite) newCaasOperatorAgent(c *gc.C, ctx *cmd.Context, bufferedLogger *logsender.BufferedLogWriter) (*jujudagent.CaasOperatorAgent, error) {
-	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), newExecClient, func(*uniter.SocketConfig) (*sockets.Socket, error) {
-		socket := sockPath(c)
-		return &socket, nil
-	})
+	configure := func(mc *caasoperator.ManifoldsConfig) error {
+		mc.NewExecClient = newExecClient
+		mc.RunListenerSocket = func(*uniter.SocketConfig) (*sockets.Socket, error) {
+			socket := sockPath(c)
+			return &socket, nil
+		}
+		mc.NewContainerStartWatcherClient = func(_ caasoperatorworker.Client) caasoperatorworker.ContainerStartWatcher {
+			return &mockContainerStartWatcher{}
+		}
+		return nil
+	}
+	a, err := jujudagent.NewCaasOperatorAgent(ctx, s.newBufferedLogWriter(), configure)
 	c.Assert(err, jc.ErrorIsNil)
 	return a, nil
 }
@@ -210,4 +221,10 @@ func (s *CAASOperatorSuite) TestWorkers(c *gc.C) {
 	matcher := agenttest.NewWorkerMatcher(c, tracker, a.Tag().String(),
 		append(alwaysCAASWorkers, notMigratingCAASWorkers...))
 	agenttest.WaitMatch(c, matcher.Check, coretesting.LongWait, s.BackingState.StartSync)
+}
+
+type mockContainerStartWatcher struct{}
+
+func (*mockContainerStartWatcher) WatchContainerStart(appName string, container string) (watcher.StringsWatcher, error) {
+	return watchertest.NewMockStringsWatcher(make(chan []string)), nil
 }

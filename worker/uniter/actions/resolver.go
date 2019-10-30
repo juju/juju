@@ -41,6 +41,11 @@ func (r *actionsResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
+	// During CAAS unit initialization action operations are
+	// deferred until the unit is running.
+	if remoteState.ActionsBlocked {
+		return nil, resolver.ErrNoOperation
+	}
 	// If there are no operation left to be run, then we cannot return the
 	// error signaling such here, we must first check to see if an action is
 	// already running (that has been interrupted) before we declare that
