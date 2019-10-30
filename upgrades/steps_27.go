@@ -84,7 +84,7 @@ func stateStepsFor27() []Step {
 			},
 		},
 		&upgradeStep{
-			description: `remove model config for default-space if set to "_default"`,
+			description: `ensure model config for default-space is "" if either absent or is set to "_default"`,
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().EnsureDefaultSpaceSetting()
