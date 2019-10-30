@@ -268,7 +268,7 @@ type ClusterMetadataChecker interface {
 	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
 
 	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
-	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, error)
+	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, bool, error)
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.

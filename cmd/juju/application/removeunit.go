@@ -43,15 +43,15 @@ const removeUnitDoc = `
 Remove application units from the model.
 
 The usage of this command differs depending on whether it is being used on a
-Kubernetes or cloud model.
+k8s or cloud model.
 
 Removing all units of a application is not equivalent to removing the
 application itself; for that, the ` + "`juju remove-application`" + ` command
 is used.
 
-For Kubernetes models only a single application can be supplied and only the
+For k8s models only a single application can be supplied and only the
 --num-units argument supported.
-Specific units cannot be targeted for removal as that is handled by Kubernetes,
+Specific units cannot be targeted for removal as that is handled by k8s,
 instead the total number of units to be removed is specified.
 
 Examples:
@@ -105,7 +105,7 @@ func (c *removeUnitCommand) Info() *cmd.Info {
 
 func (c *removeUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (kubernetes models only)")
+	f.IntVar(&c.NumUnits, "num-units", 0, "Number of units to remove (k8s models only)")
 	f.BoolVar(&c.DestroyStorage, "destroy-storage", false, "Destroy storage attached to the unit")
 	f.BoolVar(&c.Force, "force", false, "Completely remove an application and all its dependencies")
 	f.BoolVar(&c.NoWait, "no-wait", false, "Rush through application removal without waiting for each individual step to complete")
@@ -139,7 +139,14 @@ func (c *removeUnitCommand) validateArgsByModelType() error {
 func (c *removeUnitCommand) validateCAASRemoval() error {
 	if c.DestroyStorage {
 		// TODO(caas): enable --destroy-storage for caas model.
-		return errors.New("Kubernetes models only support --num-units")
+		return errors.New("k8s models only support --num-units")
+	}
+	if names.IsValidUnit(c.EntityNames[0]) {
+		msg := `
+k8s models do not support removing named units.
+Instead specify an application with --num-units (defaults to 1).
+`[1:]
+		return errors.Errorf(msg)
 	}
 	if len(c.EntityNames) != 1 {
 		return errors.Errorf("only single application supported")
@@ -156,7 +163,7 @@ func (c *removeUnitCommand) validateCAASRemoval() error {
 
 func (c *removeUnitCommand) validateIAASRemoval() error {
 	if c.NumUnits != 0 {
-		return errors.NotValidf("--num-units for non kubernetes models")
+		return errors.NotValidf("--num-units for non k8s models")
 	}
 	if len(c.EntityNames) == 0 {
 		return errors.Errorf("no units specified")

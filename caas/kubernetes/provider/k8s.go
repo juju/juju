@@ -525,7 +525,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	}
 	if !haveStorageClass {
 		params.storageConfig.storageClass = storageClassName
-		sc, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
+		sc, _, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:          params.storageConfig.storageClass,
 			Namespace:     k.namespace,
 			Provisioner:   params.storageConfig.storageProvisioner,
@@ -575,19 +575,19 @@ func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClas
 }
 
 // EnsureStorageProvisioner creates a storage class with the specified config, or returns an existing one.
-func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, error) {
+func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error) {
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return toCaaSStorageProvisioner(*sc), nil
+		return toCaaSStorageProvisioner(*sc), true, nil
 	}
 	if !k8serrors.IsNotFound(err) {
-		return nil, errors.Annotatef(err, "getting storage class %q", cfg.Name)
+		return nil, false, errors.Annotatef(err, "getting storage class %q", cfg.Name)
 	}
 	// If it's not found but there's no provisioner specified, we can't
 	// create it so just return not found.
 	if cfg.Provisioner == "" {
-		return nil, errors.NewNotFound(nil,
+		return nil, false, errors.NewNotFound(nil,
 			fmt.Sprintf("storage class %q doesn't exist, but no storage provisioner has been specified",
 				cfg.Name))
 	}
@@ -613,9 +613,9 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	}
 	_, err = k.client().StorageV1().StorageClasses().Create(sc)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating storage class %q", cfg.Name)
+		return nil, false, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
-	return toCaaSStorageProvisioner(*sc), nil
+	return toCaaSStorageProvisioner(*sc), false, nil
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {

@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -77,8 +78,19 @@ It's also possible to select a context by name using --context-name.
 
 When running add-k8s the underlying cloud/region hosting the cluster needs to be
 detected to enable storage to be correctly configured. If the cloud/region cannot
-be detected automatically, use --region <cloudType|cloudName>/<someregion> to specify the host
-cloud type and region.
+be detected automatically, use either
+  --cloud <cloudType|cloudName> to specify the host cloud
+or
+  --region <cloudType|cloudName>/<someregion> to specify the host
+  cloud type and region.
+
+Region is strictly necessary only when adding a k8s cluster to a JAAS controller.
+When using a standalone Juju controller, usually just --cloud is required.
+
+Once Juju is aware of the underlying cloud type, it looks for a suitably configured
+storage class to provide operator and workload storage. If none is found, use
+of the --storage option is required so that Juju will create a storage class
+with the specified name.
 
 When adding a GKE or AKS cluster, you can use the --gke or --aks option to
 interactively be stepped through the registration process, or you can supply the
@@ -89,9 +101,10 @@ Examples:
     juju add-k8s myk8scloud --client
     juju add-k8s myk8scloud --controller mycontroller
     juju add-k8s --context-name mycontext myk8scloud
-    juju add-k8s myk8scloud --region <cloudNameOrCloudType>/<someregion>
-    juju add-k8s myk8scloud --cloud <cloudNameOrCloudType>
-    juju add-k8s myk8scloud --cloud <cloudNameOrCloudType> --region=<someregion>
+    juju add-k8s myk8scloud --region cloudNameOrCloudType/someregion
+    juju add-k8s myk8scloud --cloud cloudNameOrCloudType
+    juju add-k8s myk8scloud --cloud cloudNameOrCloudType --region=someregion
+    juju add-k8s myk8scloud --cloud cloudNameOrCloudType --storage mystorageclass
 
     KUBECONFIG=path-to-kubuconfig-file juju add-k8s myk8scloud --cluster-name=my_cluster_name
     kubectl config view --raw | juju add-k8s myk8scloud --cluster-name=my_cluster_name
@@ -142,8 +155,8 @@ type AddCAASCommand struct {
 	// hostCloudRegion is the cloud region that the nodes of cluster (k8s) are running in.
 	// The format is <cloudType/region>.
 	hostCloudRegion string
-	// cloud is an alias of the hostCloudRegion.
-	cloud string
+	// hostCloud is an alias of the hostCloudRegion.
+	hostCloud string
 
 	// givenHostCloudRegion holds a copy of cloud name/type and/or region as supplied by the user via options.
 	givenHostCloudRegion string
@@ -213,9 +226,9 @@ func (c *AddCAASCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
 	f.StringVar(&c.clusterName, "cluster-name", "", "Specify the k8s cluster to import")
 	f.StringVar(&c.contextName, "context-name", "", "Specify the k8s context to import")
-	f.StringVar(&c.hostCloudRegion, "region", "", "kubernetes cluster cloud and/or region")
-	f.StringVar(&c.cloud, "cloud", "", "kubernetes cluster cloud and/or region")
-	f.StringVar(&c.workloadStorage, "storage", "", "kubernetes storage class for workload storage")
+	f.StringVar(&c.hostCloudRegion, "region", "", "k8s cluster region or cloud/region")
+	f.StringVar(&c.hostCloud, "cloud", "", "k8s cluster cloud")
+	f.StringVar(&c.workloadStorage, "storage", "", "k8s storage class for workload storage")
 	f.StringVar(&c.project, "project", "", "project to which the cluster belongs")
 	f.StringVar(&c.credential, "credential", "", "the credential to use when accessing the cluster")
 	f.StringVar(&c.resourceGroup, "resource-group", "", "the Azure resource group of the AKS cluster")
@@ -240,10 +253,19 @@ func (c *AddCAASCommand) Init(args []string) (err error) {
 	if c.contextName != "" && c.clusterName != "" {
 		return errors.New("only specify one of cluster-name or context-name, not both")
 	}
-	if c.hostCloudRegion != "" || c.cloud != "" {
-		c.hostCloudRegion, err = c.tryEnsureCloudTypeForHostRegion(c.cloud, c.hostCloudRegion)
-		if err != nil {
-			return errors.Trace(err)
+	if c.hostCloudRegion != "" || c.hostCloud != "" {
+		if c.gke || c.aks {
+			if c.hostCloud != "" {
+				return errors.Errorf("do not specify --cloud when adding a GKE or AKS cluster")
+			}
+			if strings.Contains(c.hostCloudRegion, "/") {
+				return errors.Errorf("only specify region, not cloud/region, when adding a GKE or AKS cluster")
+			}
+		} else {
+			c.hostCloudRegion, err = c.tryEnsureCloudTypeForHostRegion(c.hostCloud, c.hostCloudRegion)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		// Keep a copy of the original user supplied value for comparison and validation later.
 		c.givenHostCloudRegion = c.hostCloudRegion
@@ -359,7 +381,7 @@ var clusterQueryErrMsg = `
 	storage defaults are available and to detect the cluster's cloud/region.
 	This was not possible in this case so run add-k8s again, using
 	--storage=<name> to specify the storage class to use and
-	--cloud=<cloud> --region=<cloud>/<someregion> to specify the cloud/region.
+	%s.
 `[1:]
 
 var unknownClusterErrMsg = `
@@ -435,10 +457,14 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	storageMsg, err := provider.UpdateKubeCloudWithStorage(&newCloud, storageParams)
 	if err != nil {
 		if provider.IsClusterQueryError(err) {
-			if err.Error() == "" {
-				return errors.New(clusterQueryErrMsg)
+			cloudArg := "--cloud=<cloud> to specify the cloud"
+			if c.ControllerName == "jaas" {
+				cloudArg = "--region=<cloud>/<someregion> to specify the cloud/region"
 			}
-			return errors.Annotate(err, clusterQueryErrMsg)
+			if err.Error() == "" {
+				return errors.Errorf(clusterQueryErrMsg, cloudArg)
+			}
+			return errors.Annotatef(err, clusterQueryErrMsg, cloudArg)
 		}
 		if provider.IsNoRecommendedStorageError(err) {
 			return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
@@ -536,21 +562,30 @@ func (c *AddCAASCommand) newK8sClusterBroker(cloud jujucloud.Cloud, credential j
 }
 
 func getCloudAndRegionFromOptions(cloudOption, regionOption string) (string, string, error) {
-	cloudNameOrType, region, err := jujucloud.SplitHostCloudRegion(regionOption)
-	if err != nil && cloudOption == "" {
-		return "", "", errors.Annotate(err, "parsing region option")
+	regionIsMaybeCloudRegion := strings.Contains(regionOption, "/")
+	if cloudOption == "" && regionOption != "" && !regionIsMaybeCloudRegion {
+		return "", "", errors.NewNotValid(nil, "when --region is used, --cloud is required")
+	}
+	cloudNameOrType := ""
+	region := regionOption
+	var err error
+	if regionIsMaybeCloudRegion {
+		cloudNameOrType, region, err = jujucloud.SplitHostCloudRegion(regionOption)
+		if err != nil && cloudOption == "" {
+			return "", "", errors.Annotate(err, "parsing region option")
+		}
+	}
+	if cloudOption != "" && cloudNameOrType != "" {
+		return "", "", errors.NewNotValid(nil, "when --cloud is used, --region may only specify a region, not a cloud/region")
 	}
 	c, r, _ := jujucloud.SplitHostCloudRegion(cloudOption)
 	if region == "" && c != "" {
 		// --cloud ec2 --region us-east-1
-		region = cloudNameOrType
+		region = r
 		cloudNameOrType = c
 	}
 	if r != "" {
 		return "", "", errors.NewNotValid(nil, "--cloud incorrectly specifies a cloud/region instead of just a cloud")
-	}
-	if cloudNameOrType != "" && region != "" && c != "" && cloudNameOrType != c {
-		return "", "", errors.NotValidf("two different clouds specified: %q, %q", cloudNameOrType, c)
 	}
 	if cloudNameOrType == "" {
 		cloudNameOrType = c
