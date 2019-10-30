@@ -1175,6 +1175,8 @@ func (s *WatchRelationUnitsSuite) TestPeer(c *gc.C) {
 	ru1 := addUnit(1)
 	ru2 := addUnit(2)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	// ---------- Single unit ----------
 
 	// Start watching the relation from the perspective of the first unit.
@@ -1288,6 +1290,8 @@ func (s *WatchRelationUnitsSuite) TestWatchAppSettings(c *gc.C) {
 	loggo.GetLogger("juju.state.relationunits").SetLogLevel(loggo.TRACE)
 	prr := newProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
 	prr.allEnterScope(c)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+
 	// Watch from the perspective of the requiring unit, and see that a change to the
 	// providing application is seen
 	watcher := prr.rru0.Watch()
@@ -1323,6 +1327,8 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {
 	msru1 := addUnit(mysql, "ms1", mysqlEP)
 	wpru0 := addUnit(wordpress, "wp0", wordpressEP)
 	wpru1 := addUnit(wordpress, "wp1", wordpressEP)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// ---------- Single role active ----------
 
@@ -1471,6 +1477,8 @@ func (s *WatchRelationUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	}
 	msru0, lgru0 := addUnits(0)
 	msru1, lgru1 := addUnits(1)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// ---------- Single role active ----------
 
@@ -1672,6 +1680,7 @@ func (s *WatchUnitsSuite) TestProviderRequirerContainer(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(mysqlEP, loggingEP)
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	_, err = rel.WatchUnits("mysql")
 	c.Assert(err, gc.ErrorMatches, `"juju-info" endpoint is not globally scoped`)
