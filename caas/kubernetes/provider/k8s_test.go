@@ -20,7 +20,6 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8sstorage "k8s.io/api/storage/v1"
 	storagev1 "k8s.io/api/storage/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -613,10 +612,10 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 			Return(namespaceWatcher, nil),
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).
 			Return(ns, nil),
-		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(nil),
 		s.mockStorageClass.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).
 			Return(s.k8sNotFoundError()),
@@ -747,50 +746,50 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
 
-		s.mockServices.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockServices.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockStatefulSets.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Delete("test-endpoints", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockServices.EXPECT().Delete("test-endpoints", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockDeployments.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 
 		// delete secrets.
 		s.mockSecrets.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 
 		// delete configmaps.
 		s.mockConfigMaps.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockClusterRoles.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Return(nil),
 	)
@@ -1472,7 +1471,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 			Return(ociImageSecret, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
 			Return(&appsv1.StatefulSet{ObjectMeta: v1.ObjectMeta{Annotations: map[string]string{"juju-app-uuid": "appuuid"}}}, nil),
-		s.mockSecrets.EXPECT().Delete("app-name-test-secret", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockSecrets.EXPECT().Delete("app-name-test-secret", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(nil),
 	)
 	caasPodSpec := getBasicPodspec()
@@ -1502,316 +1501,6 @@ func (s *K8sBrokerSuite) TestEnsureServiceServiceWithoutPortsNotValid(c *gc.C) {
 		},
 	)
 	c.Assert(err, gc.ErrorMatches, `ports are required for kubernetes service "app-name"`)
-}
-
-func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
-
-	basicPodSpec := getBasicPodspec()
-	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
-		KubernetesResources: &k8sspecs.KubernetesResources{
-			CustomResourceDefinitions: crds,
-		},
-	}
-	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
-	c.Assert(err, jc.ErrorIsNil)
-	podSpec := provider.PodSpec(workloadSpec)
-
-	numUnits := int32(2)
-	statefulSetArg := &appsv1.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name: "app-name",
-			Annotations: map[string]string{
-				"juju-app-uuid": "appuuid",
-			},
-		},
-		Spec: appsv1.StatefulSetSpec{
-			Replicas: &numUnits,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{"juju-app": "app-name"},
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels: map[string]string{"juju-app": "app-name"},
-					Annotations: map[string]string{
-						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
-						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
-					},
-				},
-				Spec: podSpec,
-			},
-			PodManagementPolicy: apps.ParallelPodManagement,
-			ServiceName:         "app-name-endpoints",
-		},
-	}
-
-	serviceArg := *basicServiceArg
-	serviceArg.Spec.Type = core.ServiceTypeClusterIP
-
-	assertCalls = append(
-		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).
-				Return(nil, s.k8sNotFoundError()),
-		},
-		assertCalls...,
-	)
-
-	ociImageSecret := s.getOCIImageSecret(c, nil)
-	assertCalls = append(assertCalls, []*gomock.Call{
-		s.mockSecrets.EXPECT().Create(ociImageSecret).
-			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(&serviceArg).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(&serviceArg).
-			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
-			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
-			Return(nil, nil),
-	}...)
-	gomock.InOrder(assertCalls...)
-
-	params := &caas.ServiceParams{
-		PodSpec: basicPodSpec,
-		Deployment: caas.DeploymentParams{
-			DeploymentType: caas.DeploymentStateful,
-		},
-		OperatorImagePath: "operator/image-path",
-	}
-	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
-		"kubernetes-service-loadbalancer-ip": "10.0.0.1",
-		"kubernetes-service-externalname":    "ext-name",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionCreate(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	crds := map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-		"tfjobs.kubeflow.org": {
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Kind:     "TFJob",
-				Singular: "tfjob",
-				Plural:   "tfjobs",
-			},
-			Version: "v1alpha2",
-			Group:   "kubeflow.org",
-			Scope:   "Namespaced",
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
-		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Scope:   "Namespaced",
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   "tfjobs",
-				Kind:     "TFJob",
-				Singular: "tfjob",
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	s.assertCustomerResourceDefinitions(
-		c, crds,
-		s.mockCustomResourceDefinition.EXPECT().Create(crd).Return(crd, nil),
-	)
-}
-
-func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionUpdate(c *gc.C) {
-	ctrl := s.setupController(c)
-	defer ctrl.Finish()
-
-	crds := map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-		"tfjobs.kubeflow.org": {
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Kind:     "TFJob",
-				Singular: "tfjob",
-				Plural:   "tfjobs",
-			},
-			Version: "v1alpha2",
-			Group:   "kubeflow.org",
-			Scope:   "Namespaced",
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
-		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Scope:   "Namespaced",
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   "tfjobs",
-				Kind:     "TFJob",
-				Singular: "tfjob",
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	s.assertCustomerResourceDefinitions(
-		c, crds,
-		s.mockCustomResourceDefinition.EXPECT().Create(crd).Return(crd, s.k8sAlreadyExistsError()),
-		s.mockCustomResourceDefinition.EXPECT().Get("tfjobs.kubeflow.org", v1.GetOptions{}).Return(crd, nil),
-		s.mockCustomResourceDefinition.EXPECT().Update(crd).Return(crd, nil),
-	)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.C) {
@@ -2083,7 +1772,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Return(nil),
+		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Return(rb, nil),
 		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
@@ -2399,7 +2088,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockClusterRoles.EXPECT().Update(cr).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("test-app-name", s.deleteOptions(v1.DeletePropagationForeground, &crbUID)).Return(nil),
+		s.mockClusterRoleBindings.EXPECT().Delete("test-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Get("test-app-name", v1.GetOptions{IncludeUninitialized: true}).Return(crb, nil),
 		s.mockClusterRoleBindings.EXPECT().Get("test-app-name", v1.GetOptions{IncludeUninitialized: true}).Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Return(crb, nil),

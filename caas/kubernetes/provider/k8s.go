@@ -133,8 +133,9 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 //go:generate mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensions_mock.go k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
-//go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset  Interface
+//go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
+//go:generate mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -967,16 +968,16 @@ func (k *kubernetesClient) EnsureService(
 		}
 		logger.Debugf("created/updated custom resource definition for %q.", appName)
 
-		// ensure custom resources.
-		crs := workloadSpec.CustomResources
-		if len(crs) > 0 {
-			crCleanUps, err := k.ensureCustomResources(appName, crs)
-			cleanups = append(cleanups, crCleanUps...)
-			if err != nil {
-				return errors.Annotate(err, "creating or updating custom resources")
-			}
-			logger.Debugf("created/updated custom resources for %q.", appName)
+	}
+	// ensure custom resources.
+	crs := workloadSpec.CustomResources
+	if len(crs) > 0 {
+		crCleanUps, err := k.ensureCustomResources(appName, crs)
+		cleanups = append(cleanups, crCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating custom resources")
 		}
+		logger.Debugf("created/updated custom resources for %q.", appName)
 	}
 
 	for _, sa := range workloadSpec.ServiceAccounts {

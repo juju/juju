@@ -76,8 +76,8 @@ func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) getCustomResourceDefinition(name string) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
-	crd, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{IncludeUninitialized: true})
+func (k *kubernetesClient) getCustomResourceDefinition(name string, includeUninitialized bool) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
+	crd, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{IncludeUninitialized: includeUninitialized})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("custom resource definition %q", name)
 	}
@@ -117,8 +117,9 @@ func (k *kubernetesClient) ensureCustomResources(
 			if err != nil {
 				return cleanUps, errors.Trace(err)
 			}
-
+			logger.Criticalf("crSpec before -> %#v", crSpec)
 			crSpec.SetLabels(k.getCRLabels(appName))
+			logger.Criticalf("crSpec after -> %#v", crSpec)
 			_, cleanUp, err := ensureCustomResource(crdClient, &crSpec)
 			cleanUps = append(cleanUps, cleanUp)
 			if err != nil {
@@ -156,7 +157,7 @@ func (k *kubernetesClient) getCustomResourceDefinitionClient(crdName, version st
 	// TODO: add waiter to ensure crds are stablised.!!!!!!!!!
 	time.Sleep(5 * time.Second)
 
-	crd, err := k.getCustomResourceDefinition(crdName)
+	crd, err := k.getCustomResourceDefinition(crdName, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -177,7 +178,6 @@ func (k *kubernetesClient) getCustomResourceDefinitionClient(crdName, version st
 		if crd.Spec.Version == version {
 			return nil
 		}
-
 		for _, v := range crd.Spec.Versions {
 			if !v.Served {
 				continue
