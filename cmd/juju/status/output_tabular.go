@@ -265,10 +265,13 @@ func printApplications(tw *ansiterm.TabWriter, fs formattedStatus) {
 }
 
 func printBranches(tw *ansiterm.TabWriter, branches map[string]branchStatus) {
-	w := startSection(tw, false, "Branch", "Ref", "Created")
+	w := startSection(tw, false, "Branch", "Ref", "Created", "Created By")
 	for _, branchName := range naturalsort.Sort(stringKeysFromMap(branches)) {
 		b := branches[branchName]
-		w.Println(branchName, b.Ref, b.Created)
+		if b.Active {
+			branchName = branchName + "*"
+		}
+		w.Println(branchName, b.Ref, b.Created, b.CreatedBy)
 	}
 }
 

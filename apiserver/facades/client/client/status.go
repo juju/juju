@@ -1449,6 +1449,7 @@ func (c *statusContext) processBranches() map[string]params.BranchStatus {
 		branchMap[name] = params.BranchStatus{
 			AssignedUnits: branch.AssignedUnits(),
 			Created:       branch.Created(),
+			CreatedBy:     branch.CreatedBy(),
 		}
 	}
 	return branchMap

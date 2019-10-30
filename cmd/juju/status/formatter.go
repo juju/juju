@@ -32,7 +32,9 @@ type statusFormatter struct {
 
 	// Ideally this map should not be here.  It is used to facilitate
 	// getting an active branch ref number for a subordinate unit.
+	// Additionally it is used to set the active Branch as we get it locally and not from the facade.
 	formattedBranches map[string]branchStatus
+	activeBranch      string
 }
 
 // NewStatusFormatter takes stored model information (params.FullStatus) and populates
@@ -51,6 +53,7 @@ type newStatusFormatterParams struct {
 	status                 *params.FullStatus
 	controllerName         string
 	outputName             string
+	activeBranch           string
 	isoTime, showRelations bool
 }
 
@@ -63,6 +66,7 @@ func newStatusFormatter(p newStatusFormatterParams) *statusFormatter {
 		isoTime:        p.isoTime,
 		showRelations:  p.showRelations,
 		outputName:     p.outputName,
+		activeBranch:   p.activeBranch,
 	}
 	if p.showRelations {
 		for _, relation := range p.status.Relations {
@@ -120,7 +124,8 @@ func (sf *statusFormatter) format() (formattedStatus, error) {
 	i := 1
 	for _, sn := range naturalsort.Sort(stringKeysFromMap(sf.status.Branches)) {
 		s := sf.status.Branches[sn]
-		out.Branches[sn] = sf.formatBranch(i, s)
+		isActiveBranch := sn == sf.activeBranch
+		out.Branches[sn] = sf.formatBranch(i, s, isActiveBranch)
 		i += 1
 	}
 	sf.formattedBranches = out.Branches
@@ -497,17 +502,20 @@ func (sf *statusFormatter) updateUnitStatusInfo(unit *params.UnitStatus, applica
 		}
 	}
 }
-
-func (sf *statusFormatter) formatBranch(ref int, branch params.BranchStatus) branchStatus {
+func (sf *statusFormatter) formatBranch(ref int, branch params.BranchStatus, isActiveBranch bool) branchStatus {
 	created := time.Unix(branch.Created, 0)
 	if sf.outputName == "tabular" {
 		return branchStatus{
-			Ref:     fmt.Sprintf("#%d", ref),
-			Created: common.UserFriendlyDuration(created, time.Now()),
+			Ref:       fmt.Sprintf("#%d", ref),
+			Created:   common.UserFriendlyDuration(created, time.Now()),
+			CreatedBy: branch.CreatedBy,
+			Active:    isActiveBranch,
 		}
 	}
 	return branchStatus{
-		Created: common.FormatTimeAsTimestamp(&created, sf.isoTime),
+		Created:   common.FormatTimeAsTimestamp(&created, sf.isoTime),
+		CreatedBy: branch.CreatedBy,
+		Active:    isActiveBranch,
 	}
 }
 
