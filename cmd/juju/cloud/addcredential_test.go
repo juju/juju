@@ -939,11 +939,11 @@ func (s *addCredentialSuite) TestAddRemoteCloudPromptForController(c *gc.C) {
 		}, nil
 	}
 	stdout := `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to add a credential to this client? (Y/n): 
-Do you want to add a credential to a controller? (Y/n): 
-Only one controller "controller" is registered. Use it? (Y/n): 
-Enter credential name: 
+Do you want to add a credential to:
+    1. client only (--client)
+    2. controller "controller" only (--controller controller)
+    3. both (--client --controller controller)
+Enter your choice, or type Q|q to quit: Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
@@ -953,11 +953,12 @@ Credential "blah" added locally for cloud "remote".
 
 `[1:]
 	stderr := `
+This operation can be applied to both a copy on this client and to the one on a controller.
 Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
-	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "y\ny\n\n", stderr, true, true)
+	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "3\n", stderr, true, true)
 }
 
 func (s *addCredentialSuite) TestAddRemoteCloudControllerOnly(c *gc.C) {
