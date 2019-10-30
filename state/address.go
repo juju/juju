@@ -192,8 +192,6 @@ func (st *State) filterHostPortsForManagementSpace(
 	}
 
 	var hostPortsForAgents []network.SpaceHostPorts
-	// TODO (hml) 2019-10-29
-	// Investigate why we still need to check mgmtSpace != ""
 	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace != "" {
 		sp, err := st.SpaceByName(mgmtSpace)
 		if err != nil {

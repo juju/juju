@@ -23,7 +23,6 @@ import (
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
-	"github.com/juju/juju/controller"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
@@ -184,12 +183,6 @@ func InitializeState(
 		return nil, errors.Trace(err)
 	}
 
-	// Verify spaces in the controller config.  If unset, their
-	// values will be changed to the AlphaSpaceName.
-	if err := maybeUpdateControllerConfigSpaces(st); err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
 	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
@@ -274,26 +267,6 @@ func verifyModelConfigDefaultSpace(st *state.State) error {
 
 	_, err = st.SpaceByName(name)
 	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpace)
-}
-
-// maybeUpdateControllerConfigSpaces sets the JujuHASpace and
-// JujuManagementSpace to the AlphaSpaceName if either is
-// an empty string.
-func maybeUpdateControllerConfigSpaces(st *state.State) error {
-	ctrlCg, err := st.ControllerConfig()
-	if err != nil {
-		return err
-	}
-
-	spaceAttrs := make(map[string]interface{})
-	if ctrlCg.JujuHASpace() == "" {
-		spaceAttrs[controller.JujuHASpace] = corenetwork.AlphaSpaceName
-	}
-	if ctrlCg.JujuManagementSpace() == "" {
-		spaceAttrs[controller.JujuManagementSpace] = corenetwork.AlphaSpaceName
-	}
-
-	return st.UpdateControllerConfig(spaceAttrs, nil)
 }
 
 func getCloudCredentials(

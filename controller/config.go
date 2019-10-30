@@ -21,7 +21,6 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/resources"
 )
 
@@ -925,11 +924,11 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	}
 
 	for _, c := range []string{c.JujuManagementSpace(), c.JujuHASpace()} {
-		// TODO (hml) 2019-10-29
-		// Ideally we shouldn't have to check for the AlphaSpaceName,
-		// but it's not a real space yet.  Remove once the alpha space
-		// is no longer needed.  Still check for empty.
-		if c != network.AlphaSpaceName && c != "" {
+		// NOTE (hml) 2019-10-30
+		// This can cause issues in deployment and/or enabling HA if
+		// c == AlphaSpaceName as the provisioner expects any space
+		// listed to have subnets. Which is only AWS today.
+		if c != "" {
 			newSpaces.Add(c)
 		}
 	}

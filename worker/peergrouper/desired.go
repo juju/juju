@@ -477,7 +477,10 @@ func (p *peerGroupChanges) getNodesVoting() {
 // the HA space if one is configured.
 func (p *peerGroupChanges) updateAddresses() error {
 	var err error
-	if p.info.haSpace.Name == network.AlphaSpaceName {
+	// TODO (hml) 2019-10-30
+	// The alpha space is currently where subnets not in a specific space are
+	// placed. Revisit this guard in the future.
+	if p.info.haSpace.Name == network.AlphaSpaceName || p.info.haSpace.Name == "" {
 		err = p.updateAddressesFromInternal()
 	} else {
 		err = p.updateAddressesFromSpace()

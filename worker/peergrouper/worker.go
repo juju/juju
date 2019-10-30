@@ -749,7 +749,16 @@ func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}
 
-	space, err := w.config.State.Space(config.JujuHASpace())
+	// Before we changed the AlphaSpaceName to "alpha"
+	// instead of "", the call to SpaceByName would
+	// always work.  To mimic that behavior, if the
+	// JujuHASpace() is not set, use AlphaSpaceName
+	// instead.
+	jujuHASpace := config.JujuHASpace()
+	if jujuHASpace == "" {
+		jujuHASpace = network.AlphaSpaceName
+	}
+	space, err := w.config.State.Space(jujuHASpace)
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}

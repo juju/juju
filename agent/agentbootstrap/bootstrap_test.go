@@ -226,8 +226,6 @@ LXC_BRIDGE="ignored"`[1:])
 		"state-port":                1234,
 		"api-port":                  17777,
 		"set-numa-control-policy":   false,
-		"juju-ha-space":             corenetwork.AlphaSpaceName,
-		"juju-mgmt-space":           corenetwork.AlphaSpaceName,
 		"max-txn-log-size":          "10M",
 		"model-logfile-max-backups": 1,
 		"model-logfile-max-size":    "1M",
