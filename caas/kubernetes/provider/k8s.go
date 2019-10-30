@@ -960,7 +960,7 @@ func (k *kubernetesClient) EnsureService(
 	// ensure custom resource definitions.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
-		createdCRDs, crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, crds)
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, crds)
 		cleanups = append(cleanups, crdCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating custom resource definitions")
@@ -970,7 +970,7 @@ func (k *kubernetesClient) EnsureService(
 		// ensure custom resources.
 		crs := workloadSpec.CustomResources
 		if len(crs) > 0 {
-			crCleanUps, err := k.ensureCustomResources(appName, createdCRDs, crs)
+			crCleanUps, err := k.ensureCustomResources(appName, crs)
 			cleanups = append(cleanups, crCleanUps...)
 			if err != nil {
 				return errors.Annotate(err, "creating or updating custom resources")

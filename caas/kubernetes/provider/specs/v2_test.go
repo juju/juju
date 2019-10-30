@@ -173,12 +173,14 @@ kubernetesResources:
         kind: TFJob
         singular: tfjob
         plural: tfjobs
+      version: v1
       versions:
-        - name: v1
-          served: true
-          storage: true
-      subresources:
-        status: {}
+      - name: v1
+        served: true
+        storage: true
+      - name: v1beta2
+        served: true
+        storage: false
       validation:
         openAPIV3Schema:
           properties:
@@ -420,8 +422,12 @@ password: shhhh`[1:],
 				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 					"tfjobs.kubeflow.org": {
 						Group:   "kubeflow.org",
-						Version: "v1alpha2",
-						Scope:   "Namespaced",
+						Version: "v1",
+						Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+							{Name: "v1", Served: true, Storage: true},
+							{Name: "v1beta2", Served: true, Storage: false},
+						},
+						Scope: "Namespaced",
 						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
@@ -430,29 +436,33 @@ password: shhhh`[1:],
 						Validation: &apiextensionsv1beta1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"tfReplicaSpecs": {
+									"spec": {
 										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"PS": {
+											"tfReplicaSpecs": {
 												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"replicas": {
-														Type: "integer", Minimum: float64Ptr(1),
+													"PS": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type: "integer", Minimum: float64Ptr(1),
+															},
+														},
 													},
-												},
-											},
-											"Chief": {
-												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"replicas": {
-														Type:    "integer",
-														Minimum: float64Ptr(1),
-														Maximum: float64Ptr(1),
+													"Chief": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type:    "integer",
+																Minimum: float64Ptr(1),
+																Maximum: float64Ptr(1),
+															},
+														},
 													},
-												},
-											},
-											"Worker": {
-												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"replicas": {
-														Type:    "integer",
-														Minimum: float64Ptr(1),
+													"Worker": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type:    "integer",
+																Minimum: float64Ptr(1),
+															},
+														},
 													},
 												},
 											},
@@ -463,40 +473,40 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				CustomResources: map[string]unstructured.Unstructured{
+				CustomResources: map[string][]unstructured.Unstructured{
 					"tfjobs.kubeflow.org": {
-						Object: map[string]interface{}{
-							"kind": "TFJob",
-							"spec": map[string]interface{}{
-								"tfReplicaSpecs": map[string]interface{}{
-									"PS": map[string]interface{}{
-										"replicas":      int64(1),
-										"restartPolicy": "Never",
-										"template": map[string]interface{}{
-											"spec": map[string]interface{}{
-												"containers": []interface{}{
-													map[string]interface{}{
-														"name":  "tensorflow",
-														"image": "tensorflow/tensorflow:1.5.0",
-														"command": []interface{}{
-															"bash", "-c", "curl -v https://raw.githubusercontent.com/juju-solutions/charm-kubeflow-tf-job-operator/master/files/mnist.py | python /dev/stdin --train_steps 10",
+						{
+							Object: map[string]interface{}{
+								"apiVersion": "kubeflow.org/v1",
+								"metadata": map[string]interface{}{
+									"name": "dist-mnist-for-e2e-test",
+								},
+								"kind": "TFJob",
+								"spec": map[string]interface{}{
+									"tfReplicaSpecs": map[string]interface{}{
+										"PS": map[string]interface{}{
+											"replicas":      int64(2),
+											"restartPolicy": "Never",
+											"template": map[string]interface{}{
+												"spec": map[string]interface{}{
+													"containers": []interface{}{
+														map[string]interface{}{
+															"name":  "tensorflow",
+															"image": "kubeflow/tf-dist-mnist-test:1.0",
 														},
 													},
 												},
 											},
 										},
-									},
-									"Worker": map[string]interface{}{
-										"replicas":      int64(1),
-										"restartPolicy": "Never",
-										"template": map[string]interface{}{
-											"spec": map[string]interface{}{
-												"containers": []interface{}{
-													map[string]interface{}{
-														"name":  "tensorflow",
-														"image": "tensorflow/tensorflow:1.5.0",
-														"command": []interface{}{
-															"bash", "-c", "curl -v https://raw.githubusercontent.com/juju-solutions/charm-kubeflow-tf-job-operator/master/files/mnist.py | python /dev/stdin --train_steps 10",
+										"Worker": map[string]interface{}{
+											"replicas":      int64(4),
+											"restartPolicy": "Never",
+											"template": map[string]interface{}{
+												"spec": map[string]interface{}{
+													"containers": []interface{}{
+														map[string]interface{}{
+															"name":  "tensorflow",
+															"image": "kubeflow/tf-dist-mnist-test:1.0",
 														},
 													},
 												},

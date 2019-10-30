@@ -108,9 +108,6 @@ func (krs *KubernetesResources) Validate() error {
 	}
 
 	for k, crs := range krs.CustomResources {
-		if _, ok := krs.CustomResourceDefinitions[k]; !ok {
-			return errors.NewNotValid(nil, fmt.Sprintf("no custom resource definition found for custom resource %q", k))
-		}
 		if len(crs) == 0 {
 			return errors.NotValidf("empty custom resources %q", k)
 		}
