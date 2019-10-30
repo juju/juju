@@ -4087,10 +4087,7 @@ func (s *upgradesSuite) TestEnsureDefaultSpaceSetting(c *gc.C) {
 	m2 := s.makeModel(c, "m2", coretesting.Attrs{})
 	defer func() { _ = m2.Close() }()
 
-	// Should be set to "" because it has the old default value "_default".
-	m3 := s.makeModel(c, "m3", coretesting.Attrs{
-		config.DefaultSpace: "_default",
-	})
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{})
 	defer func() { _ = m3.Close() }()
 
 	err = settingsColl.Insert(bson.M{
@@ -4115,6 +4112,17 @@ func (s *upgradesSuite) TestEnsureDefaultSpaceSetting(c *gc.C) {
 	exp2[config.DefaultSpace] = ""
 
 	exp3 := getCfg(m3)
+
+	// Should be set to "" because it has the old default value "_default".
+	// "_default" will no longer pass the config validation for DefaultSpace,
+	// so add the hard way.
+	exp3[config.DefaultSpace] = "_default"
+	err = settingsColl.Update(
+		bson.D{{"_id", m3.ModelUUID() + ":e"}},
+		bson.D{{"$set", bson.D{{"settings", exp3}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	exp3[config.DefaultSpace] = ""
 
 	expectedSettings := bsonMById{
