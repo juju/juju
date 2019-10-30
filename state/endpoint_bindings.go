@@ -90,11 +90,18 @@ func (b *Bindings) Merge(mergeWith map[string]string, meta *charm.Meta) (bool, e
 	}
 	mergeMap := merge.Map()
 
-	defaultsMap := DefaultEndpointBindingsForCharm(meta)
+	defaultsMap, err := DefaultEndpointBindingsForCharm(b.st, meta)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
 
 	defaultBinding, mergeOK := b.bindingsMap[defaultEndpointName]
 	if !mergeOK {
-		defaultBinding = network.AlphaSpaceId
+		var err error
+		defaultBinding, err = b.st.DefaultEndpointBindingSpace()
+		if err != nil {
+			return false, errors.Trace(err)
+		}
 	}
 	if newDefaultBinding, newOk := mergeMap[defaultEndpointName]; newOk {
 		// new default binding supersedes the old default binding
@@ -403,7 +410,10 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 		return errors.Trace(err)
 	}
 
-	allBindings := DefaultEndpointBindingsForCharm(charmMeta)
+	allBindings, err := DefaultEndpointBindingsForCharm(b.st, charmMeta)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	endpointsNamesSet := set.NewStrings()
 	for name := range allBindings {
 		endpointsNamesSet.Add(name)
@@ -425,19 +435,49 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 	return nil
 }
 
+// DefaultEndpointBindingSpace returns the current space ID to be used for
+// the default endpoint binding.
+func (st *State) DefaultEndpointBindingSpace() (string, error) {
+	model, err := st.Model()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	cfg, err := model.Config()
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+
+	defaultBinding := network.AlphaSpaceId
+
+	space, err := st.SpaceByName(cfg.DefaultSpace())
+	if err != nil && !errors.IsNotFound(err) {
+		return "", errors.Trace(err)
+	}
+	if err == nil {
+		defaultBinding = space.Id()
+	}
+
+	return defaultBinding, nil
+}
+
 // DefaultEndpointBindingsForCharm populates a bindings map containing each
 // endpoint of the given charm metadata (relation name or extra-binding name)
 // bound to an empty space.
-func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
+func DefaultEndpointBindingsForCharm(st EndpointBinding, charmMeta *charm.Meta) (map[string]string, error) {
+	defaultBindingSpaceID, err := st.DefaultEndpointBindingSpace()
+	if err != nil {
+		return nil, err
+	}
 	allRelations := charmMeta.CombinedRelations()
 	bindings := make(map[string]string, len(allRelations)+len(charmMeta.ExtraBindings))
 	for name := range allRelations {
-		bindings[name] = network.AlphaSpaceId
+		bindings[name] = defaultBindingSpaceID
 	}
 	for name := range charmMeta.ExtraBindings {
-		bindings[name] = network.AlphaSpaceId
+		bindings[name] = defaultBindingSpaceID
 	}
-	return bindings
+	return bindings, nil
 }
 
 // EndpointBinding are the methods necessary for exported methods of
@@ -445,6 +485,7 @@ func DefaultEndpointBindingsForCharm(charmMeta *charm.Meta) map[string]string {
 //
 //go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
+	DefaultEndpointBindingSpace() (string, error)
 	Space(id string) (*Space, error)
 	SpaceIDsByName() (map[string]string, error)
 	SpaceNamesByID() (map[string]string, error)
@@ -554,13 +595,10 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		if v == "" {
-			retVal[k] = network.AlphaSpaceName
-			continue
-		}
 		spaceID, found := namesToIDs[v]
 		if !found {
 			return nil, errors.NotFoundf("space id for space %q", v)

@@ -3513,7 +3513,8 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 
 	knownEndpoints := set.NewStrings("")
-	allBindings := state.DefaultEndpointBindingsForCharm(charm.Meta())
+	allBindings, err := state.DefaultEndpointBindingsForCharm(s.State, charm.Meta())
+	c.Assert(err, jc.ErrorIsNil)
 	for endpoint := range allBindings {
 		knownEndpoints.Add(endpoint)
 	}

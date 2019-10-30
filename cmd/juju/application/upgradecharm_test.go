@@ -118,7 +118,7 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.charmAPIClient = mockCharmAPIClient{charmURL: currentCharmURL}
-	s.modelConfigGetter = mockModelConfigGetter{}
+	s.modelConfigGetter = newMockModelConfigGetter()
 	s.resourceLister = mockResourceLister{}
 	s.spacesClient = mockSpacesClient{
 		spaceList: []params.Space{
@@ -267,7 +267,22 @@ type UpgradeCharmErrorsStateSuite struct {
 	srv     *httptest.Server
 }
 
-func (s *UpgradeCharmSuite) TestUpgradeWithBind(c *gc.C) {
+func (s *UpgradeCharmSuite) TestUpgradeWithBindDefaults(c *gc.C) {
+	s.testUpgradeWithBind(c, map[string]string{
+		"ep1": "sp1",
+		"ep2": network.AlphaSpaceName,
+	})
+}
+
+func (s *UpgradeCharmSuite) TestUpgradeWithBindDefaultSpaceConfigured(c *gc.C) {
+	s.modelConfigGetter.SetDefaultSpace("testing")
+	s.testUpgradeWithBind(c, map[string]string{
+		"ep1": "sp1",
+		"ep2": "testing",
+	})
+}
+
+func (s *UpgradeCharmSuite) testUpgradeWithBind(c *gc.C, expectedBindings map[string]string) {
 	s.apiConnection = mockAPIConnection{
 		bestFacadeVersion: 11,
 		serverVersion: &version.Number{
@@ -293,10 +308,7 @@ func (s *UpgradeCharmSuite) TestUpgradeWithBind(c *gc.C) {
 			URL:     s.resolvedCharmURL,
 			Channel: csclientparams.StableChannel,
 		},
-		EndpointBindings: map[string]string{
-			"ep1": "sp1",
-			"ep2": network.AlphaSpaceName,
-		},
+		EndpointBindings: expectedBindings,
 	})
 }
 
@@ -982,14 +994,24 @@ func (m *mockCharmAPIClient) Get(branchName, applicationName string) (*params.Ap
 	return &params.ApplicationGetResults{}, m.NextErr()
 }
 
+func newMockModelConfigGetter() mockModelConfigGetter {
+	return mockModelConfigGetter{cfg: coretesting.FakeConfig()}
+}
+
 type mockModelConfigGetter struct {
 	ModelConfigGetter
 	testing.Stub
+
+	cfg map[string]interface{}
 }
 
 func (m *mockModelConfigGetter) ModelGet() (map[string]interface{}, error) {
 	m.MethodCall(m, "ModelGet")
-	return coretesting.FakeConfig(), m.NextErr()
+	return m.cfg, m.NextErr()
+}
+
+func (m *mockModelConfigGetter) SetDefaultSpace(name string) {
+	m.cfg["default-space"] = name
 }
 
 type mockResourceLister struct {

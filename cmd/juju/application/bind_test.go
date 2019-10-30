@@ -52,11 +52,12 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.applicationClient = mockApplicationBindClient{}
-	s.modelConfigGetter = mockModelConfigGetter{}
+	s.modelConfigGetter = newMockModelConfigGetter()
 	s.spacesClient = mockSpacesClient{
 		spaceList: []params.Space{
-			{Id: "0", Name: ""}, // default
+			{Id: "0", Name: network.AlphaSpaceName},
 			{Id: "1", Name: "sp1"},
+			{Id: "4", Name: "sp4"},
 		},
 	}
 

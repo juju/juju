@@ -747,16 +747,20 @@ func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	return epSet
 }
 
+// detectDefaultSpace returns the current default space for the bindings provided.
+// The default space is determined via the following sequence.
+// 1. the space of the default endpoint in the bindings provided.
+// 2. the "default-space" from the model-config.
+// 3. AlphaSpaceName
 func detectDefaultSpace(modelConfig *config.Config, curBindings map[string]string) string {
 	if curBindings != nil {
 		if defaultSpace, defined := curBindings[""]; defined {
 			return defaultSpace
 		}
 	}
-
-	// TODO(achilleasa): When we introduce a model config parameter for
-	// specifying the default space we should check whether it is set and
-	// use its value as the default before falling-back to the global
-	// default below.
+	configSpaceName := modelConfig.DefaultSpace()
+	if configSpaceName != "" {
+		return configSpaceName
+	}
 	return network.AlphaSpaceName
 }
