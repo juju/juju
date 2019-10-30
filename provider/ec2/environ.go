@@ -978,7 +978,136 @@ func (e *environ) gatherInstances(
 }
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	switch len(ids) {
+	case 0:
+		return nil, environs.ErrNoInstances
+	case 1: // short-cut for single instance
+		ifList, err := e.networkInterfacesForInstance(ctx, ids[0])
+		if err != nil {
+			return nil, err
+		}
+		return [][]network.InterfaceInfo{ifList}, nil
+	}
+
+	// Collect all available subnets into a map where keys are subnet IDs
+	// and values are subnets. We will use this map to resolve subnets
+	// for the bulk network interface info requests below.
+	subMap, err := e.subnetMap()
+	if err != nil {
+		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet info")
+	}
+
+	infos := make([][]network.InterfaceInfo, len(ids))
+	idToInfosIndex := make(map[string]int)
+	for idx, id := range ids {
+		idToInfosIndex[string(id)] = idx
+	}
+
+	// Make a series of requests to cope with eventual consistency.  Each
+	// request will attempt to add more network interface queries to the
+	// requested set till we eventually obtain the full set of data.
+	for a := shortAttempt.Start(); a.Next(); {
+		var need []string
+		for idx, info := range infos {
+			if info == nil {
+				need = append(need, string(ids[idx]))
+			}
+		}
+
+		// Network interfaces are not currently tagged so we cannot
+		// use a model filter here.
+		filter := ec2.NewFilter()
+		filter.Add("attachment.instance-id", need...)
+		logger.Tracef("retrieving NICs for instances %v", need)
+		err = e.gatherNetworkInterfaceInfo(ctx, filter, infos, idToInfosIndex, subMap)
+		if err == nil || err != environs.ErrPartialInstances {
+			break
+		}
+	}
+
+	if err == environs.ErrPartialInstances {
+		for _, info := range infos {
+			if info != nil {
+				return infos, environs.ErrPartialInstances
+			}
+		}
+		return nil, environs.ErrNoInstances
+	}
+	if err != nil {
+		return nil, err
+	}
+	return infos, nil
+}
+
+// subnetMap returns a map with all known ec2.Subnets and their IDs as keys.
+func (e *environ) subnetMap() (map[string]ec2.Subnet, error) {
+	subnetsResp, err := e.ec2.Subnets(nil, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	subMap := make(map[string]ec2.Subnet, len(subnetsResp.Subnets))
+	for _, sub := range subnetsResp.Subnets {
+		subMap[sub.Id] = sub
+	}
+	return subMap, nil
+}
+
+// gatherNetworkInterfaceInfo executes a filtered network interface lookup,
+// parses the results and appends them to the correct infos slot based on
+// the attachment instance ID information for each result.
+//
+// This method returns environs.ErrPartialInstances if the infos slice contains
+// any nil entries.
+func (e *environ) gatherNetworkInterfaceInfo(
+	ctx context.ProviderCallContext,
+	filter *ec2.Filter,
+	infos [][]network.InterfaceInfo,
+	idToInfosIndex map[string]int,
+	subMap map[string]ec2.Subnet,
+) error {
+	// Check how many queries have already been answered; machines must
+	// have at least one network interface attached to them.
+	pending := len(infos)
+	for _, info := range infos {
+		if len(info) != 0 {
+			pending--
+		}
+	}
+
+	// Run query
+	networkInterfacesResp, err := e.ec2.NetworkInterfaces(nil, filter)
+	if err != nil {
+		return maybeConvertCredentialError(err, ctx)
+	}
+
+	for _, netIfSpec := range networkInterfacesResp.Interfaces {
+		idx, found := idToInfosIndex[netIfSpec.Attachment.InstanceId]
+		if !found {
+			continue
+		} else if infos[idx] == nil {
+			// This is the first (and perhaps only) interface that
+			// we obtained for this instance. Decrement the number
+			// of pending queries.
+			pending--
+		}
+
+		subnet, found := subMap[netIfSpec.SubnetId]
+		if !found {
+			return errors.NotFoundf("info for subnet %q", netIfSpec.SubnetId)
+		}
+
+		infos[idx] = append(infos[idx], mapNetworkInterface(netIfSpec, subnet))
+	}
+
+	if pending != 0 {
+		return environs.ErrPartialInstances
+	}
+	return nil
+}
+
+func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -1018,27 +1147,29 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 		if len(resp.Subnets) != 1 {
 			return nil, errors.Errorf("expected 1 subnet, got %d", len(resp.Subnets))
 		}
-		subnet := resp.Subnets[0]
-		cidr := subnet.CIDRBlock
 
-		result[i] = network.InterfaceInfo{
-			DeviceIndex:       iface.Attachment.DeviceIndex,
-			MACAddress:        iface.MACAddress,
-			CIDR:              cidr,
-			ProviderId:        corenetwork.Id(iface.Id),
-			ProviderSubnetId:  corenetwork.Id(iface.SubnetId),
-			AvailabilityZones: []string{subnet.AvailZone},
-			VLANTag:           0, // Not supported on EC2.
-			// Getting the interface name is not supported on EC2, so fake it.
-			InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
-			Disabled:      false,
-			NoAutoStart:   false,
-			ConfigType:    network.ConfigDHCP,
-			InterfaceType: network.EthernetInterface,
-			Address:       corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
-		}
+		result[i] = mapNetworkInterface(iface, resp.Subnets[0])
 	}
 	return result, nil
+}
+
+func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) network.InterfaceInfo {
+	return network.InterfaceInfo{
+		DeviceIndex:       iface.Attachment.DeviceIndex,
+		MACAddress:        iface.MACAddress,
+		CIDR:              subnet.CIDRBlock,
+		ProviderId:        corenetwork.Id(iface.Id),
+		ProviderSubnetId:  corenetwork.Id(iface.SubnetId),
+		AvailabilityZones: []string{subnet.AvailZone},
+		VLANTag:           0, // Not supported on EC2.
+		// Getting the interface name is not supported on EC2, so fake it.
+		InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
+		Disabled:      false,
+		NoAutoStart:   false,
+		ConfigType:    network.ConfigDHCP,
+		InterfaceType: network.EthernetInterface,
+		Address:       corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
+	}
 }
 
 func makeSubnetInfo(
@@ -1081,7 +1212,7 @@ func (e *environ) Subnets(
 	}
 
 	if instId != instance.UnknownId {
-		interfaces, err := e.NetworkInterfaces(ctx, instId)
+		interfaces, err := e.networkInterfacesForInstance(ctx, instId)
 		if err != nil {
 			return results, errors.Trace(err)
 		}

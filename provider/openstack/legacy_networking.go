@@ -88,6 +88,6 @@ func (n *LegacyNovaNetworking) Subnets(
 }
 
 // NetworkInterfaces is part of the Networking interface.
-func (n *LegacyNovaNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *LegacyNovaNetworking) NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("nova network interfaces")
 }

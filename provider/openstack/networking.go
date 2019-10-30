@@ -42,9 +42,9 @@ type Networking interface {
 	Subnets(instance.Id, []corenetwork.Id) ([]corenetwork.SubnetInfo, error)
 
 	// NetworkInterfaces requests information about the network
-	// interfaces on the given instance.
+	// interfaces on the given list of instances.
 	// Needed for Environ.Networking
-	NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error)
+	NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -124,11 +124,11 @@ func (n *switchingNetworking) Subnets(
 }
 
 // NetworkInterfaces is part of the Networking interface
-func (n *switchingNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *switchingNetworking) NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error) {
 	if err := n.initNetworking(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return n.networking.NetworkInterfaces(instId)
+	return n.networking.NetworkInterfaces(ids)
 }
 
 type networkingBase struct {
@@ -425,6 +425,6 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(instId instance.Id) ([]network.InterfaceInfo, error) {
+func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("neutron network interfaces")
 }

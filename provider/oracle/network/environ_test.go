@@ -168,9 +168,10 @@ func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
 	netEnv := network.NewEnviron(&fakeNetworkingAPI{}, env)
 	c.Assert(netEnv, gc.NotNil)
 
-	info, err := netEnv.NetworkInterfaces(e.callCtx, instance.Id("0"))
-	c.Assert(info, jc.DeepEquals, []jujunetwork.InterfaceInfo{})
+	infoList, err := netEnv.NetworkInterfaces(e.callCtx, []instance.Id{instance.Id("0")})
 	c.Assert(err, gc.IsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	c.Assert(infoList[0], jc.DeepEquals, []jujunetwork.InterfaceInfo{})
 }
 
 func (e *environSuite) TestSpaces(c *gc.C) {

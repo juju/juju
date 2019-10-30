@@ -16,6 +16,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -117,10 +118,12 @@ func (e *environ) getMatchingSubnets(
 func (e *environ) getInstanceSubnets(
 	ctx context.ProviderCallContext, inst instance.Id, subnetIds IncludeSet, zones []string,
 ) ([]corenetwork.SubnetInfo, error) {
-	ifaces, err := e.NetworkInterfaces(ctx, inst)
+	ifLists, err := e.NetworkInterfaces(ctx, []instance.Id{inst})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	ifaces := ifLists[0]
+
 	var results []corenetwork.SubnetInfo
 	for _, iface := range ifaces {
 		if subnetIds.Include(string(iface.ProviderSubnetId)) {
@@ -136,16 +139,21 @@ func (e *environ) getInstanceSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
-	insts, err := e.Instances(ctx, []instance.Id{instId})
-	if err != nil {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	if len(ids) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
+	// Fetch instance information for the IDs we are interested in.
+	insts, err := e.Instances(ctx, ids)
+	partialInfo := err == environs.ErrPartialInstances
+	if err != nil && err != environs.ErrPartialInstances {
+		if errors.Cause(err) == environs.ErrNoInstances {
+			return nil, err
+		}
 		return nil, errors.Trace(err)
 	}
-	envInst, ok := insts[0].(*environInstance)
-	if !ok {
-		// This shouldn't happen.
-		return nil, errors.Errorf("couldn't extract google instance for %q", instId)
-	}
+
 	// In GCE all the subnets are in all AZs.
 	zones, err := e.zoneNames(ctx)
 	if err != nil {
@@ -155,46 +163,80 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, instId inst
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	googleInst := envInst.base
-	ifaces := googleInst.NetworkInterfaces()
 
-	var subnetURLs []string
-	for _, iface := range ifaces {
-		if iface.Subnetwork != "" {
-			subnetURLs = append(subnetURLs, iface.Subnetwork)
-		}
-	}
-	subnets, err := e.subnetsByURL(ctx, subnetURLs, networks, zones)
+	// Extract the unique list of subnet URLs we are interested in for
+	// all instances and fetch related subnet information.
+	uniqueSubnetURLs, err := getUniqueSubnetURLs(ids, insts)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// We know there'll be a subnet for each url requested, otherwise
-	// there would have been an error.
 
-	var results []network.InterfaceInfo
-	for i, iface := range ifaces {
-		details, err := findNetworkDetails(iface, subnets, networks)
-		if err != nil {
-			return nil, errors.Annotatef(err, "instance %q", instId)
-		}
-		results = append(results, network.InterfaceInfo{
-			DeviceIndex: i,
-			CIDR:        details.cidr,
-			// The network interface has no id in GCE so it's
-			// identified by the machine's id + its name.
-			ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", instId, iface.Name)),
-			ProviderSubnetId:  details.subnet,
-			ProviderNetworkId: details.network,
-			AvailabilityZones: copyStrings(zones),
-			InterfaceName:     iface.Name,
-			Address:           corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
-			InterfaceType:     network.EthernetInterface,
-			Disabled:          false,
-			NoAutoStart:       false,
-			ConfigType:        network.ConfigDHCP,
-		})
+	subnets, err := e.subnetsByURL(ctx, uniqueSubnetURLs.Values(), networks, zones)
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return results, nil
+
+	infos := make([][]network.InterfaceInfo, len(ids))
+	for idx, inst := range insts {
+		if inst == nil {
+			continue // no instance with this ID known by provider
+		}
+
+		// Note: we have already verified that we can safely cast inst
+		// to environInstance when we iterated the instance list to
+		// obtain the unique subnet URLs
+		for i, iface := range inst.(*environInstance).base.NetworkInterfaces() {
+			details, err := findNetworkDetails(iface, subnets, networks)
+			if err != nil {
+				return nil, errors.Annotatef(err, "instance %q", ids[idx])
+			}
+
+			infos[idx] = append(infos[idx], network.InterfaceInfo{
+				DeviceIndex: i,
+				CIDR:        details.cidr,
+				// The network interface has no id in GCE so it's
+				// identified by the machine's id + its name.
+				ProviderId:        corenetwork.Id(fmt.Sprintf("%s/%s", ids[idx], iface.Name)),
+				ProviderSubnetId:  details.subnet,
+				ProviderNetworkId: details.network,
+				AvailabilityZones: copyStrings(zones),
+				InterfaceName:     iface.Name,
+				Address:           corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
+				InterfaceType:     network.EthernetInterface,
+				Disabled:          false,
+				NoAutoStart:       false,
+				ConfigType:        network.ConfigDHCP,
+			})
+		}
+	}
+
+	if partialInfo {
+		err = environs.ErrPartialInstances
+	}
+	return infos, err
+}
+
+func getUniqueSubnetURLs(ids []instance.Id, insts []instances.Instance) (set.Strings, error) {
+	uniqueSet := set.NewStrings()
+
+	for idx, inst := range insts {
+		if inst == nil {
+			continue // no instance with this ID known by provider
+		}
+
+		envInst, ok := inst.(*environInstance)
+		if !ok { // This shouldn't happen.
+			return nil, errors.Errorf("couldn't extract GCE instance for %q", ids[idx])
+		}
+
+		for _, iface := range envInst.base.NetworkInterfaces() {
+			if iface.Subnetwork != "" {
+				uniqueSet.Add(iface.Subnetwork)
+			}
+		}
+	}
+
+	return uniqueSet, nil
 }
 
 type networkDetails struct {
