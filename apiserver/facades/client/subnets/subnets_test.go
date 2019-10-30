@@ -584,26 +584,6 @@ func (s *SubnetsSuite) TestListSubnetsAllSubnetError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no subnets for you")
 }
 
-func (s *SubnetsSuite) TestListSubnetsBlankSpaceTag(c *gc.C) {
-	args := params.SubnetsFilters{}
-	apiservertesting.BackingInstance.Subnets = []networkingcommon.BackingSubnet{
-		&apiservertesting.FakeSubnet{Info: networkingcommon.BackingSubnetInfo{
-			CIDR:              "10.0.10.0/24",
-			ProviderId:        "1",
-			AvailabilityZones: []string{"zone1"},
-			SpaceName:         "",
-		}},
-	}
-	results, err := s.facade.ListSubnets(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ListSubnetsResults{Results: []params.Subnet{{
-		CIDR:       "10.0.10.0/24",
-		ProviderId: "1",
-		SpaceTag:   "",
-		Zones:      []string{"zone1"},
-	}}})
-}
-
 func (s *SubnetsSuite) TestAddSubnetsParamsCombinations(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(
 		c,
