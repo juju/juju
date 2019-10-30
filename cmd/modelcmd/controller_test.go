@@ -4,7 +4,6 @@
 package modelcmd_test
 
 import (
-	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -171,156 +170,176 @@ func (s *OptionalControllerCommandSuite) TestControllerCommandLocal(c *gc.C) {
 	command, err := runTestOptionalControllerCommand(c, store, "--local")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ControllerName, gc.Equals, "")
+	c.Assert(command.Client, jc.IsTrue)
 }
 
 func (s *OptionalControllerCommandSuite) assertPrompt(c *gc.C,
 	store jujuclient.ClientStore,
+	action string,
 	userAnswer string,
 	in ...string,
 ) (*cmd.Context, *testOptionalControllerCommand, error) {
 	ctx, command, err := runOptionalControllerCommand(c, store, in...)
 	c.Assert(err, jc.ErrorIsNil)
 	ctx.Stdin = strings.NewReader(userAnswer)
-	err = command.MaybePrompt(ctx, "")
+	err = command.MaybePrompt(ctx, action)
 	return ctx, command, err
 }
 
-func (s *OptionalControllerCommandSuite) assertOneController(c *gc.C,
-	store jujuclient.ClientStore,
-	userAnswer string,
-	expectedControllerName string,
-	expectedClientOperation bool,
-	in ...string,
-) {
-	ctx, command, err := s.assertPrompt(c, store, userAnswer, in...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(command.ControllerName, gc.Equals, expectedControllerName)
-	c.Assert(command.Client, gc.Equals, expectedClientOperation)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to  this client? (Y/n): 
-Do you want to  a controller? (Y/n): 
-Only one controller "fred" is registered. Use it? (Y/n): 
-`[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+type testData struct {
+	action                  string
+	userAnswer              string
+	expectedPrompt          string
+	expectedInfo            string
+	expectedErr             string
+	expectedControllerName  string
+	expectedClientOperation bool
+	args                    []string
 }
 
-func (s *OptionalControllerCommandSuite) assertManyControllers(c *gc.C,
-	store jujuclient.ClientStore,
-	userAnswer string,
-	expectedControllerNames []string,
-	expectedControllerDefault string,
-	expectedControllerName string,
-	expectedClientOperation bool,
-	in ...string,
-) {
-	ctx, command, err := s.assertPrompt(c, store, userAnswer, in...)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(command.ControllerName, gc.Equals, expectedControllerName)
-	c.Assert(command.Client, gc.Equals, expectedClientOperation)
-	part1 := fmt.Sprintf(`
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to  this client? (Y/n): 
-Do you want to  a controller? (Y/n): 
-Controllers
-  %v
-
-Select controller [%v]: 
-`[1:],
-		strings.Join(expectedControllerNames, "\n  "),
-		expectedControllerDefault)
-
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, part1)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+func (s *OptionalControllerCommandSuite) assertPrompted(c *gc.C, store jujuclient.ClientStore, t testData) {
+	//ctx, command, _ := s.assertPrompt(c, store, t.action, t.userAnswer, t.args...)
+	ctx, command, err := s.assertPrompt(c, store, t.action, t.userAnswer, t.args...)
+	if t.expectedErr == "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, t.expectedErr)
+	}
+	c.Assert(command.ControllerName, gc.Equals, t.expectedControllerName)
+	c.Assert(command.Client, gc.Equals, t.expectedClientOperation)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, t.expectedPrompt)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, t.expectedInfo)
 }
 
-func (s *OptionalControllerCommandSuite) TestPromptManyControllers(c *gc.C) {
+func (s *OptionalControllerCommandSuite) TestPromptManyControllersNoCurrent(c *gc.C) {
 	store := jujuclient.NewMemStore()
 	store.Controllers = map[string]jujuclient.ControllerDetails{
 		"fred": {},
 		"mary": {},
 	}
-	s.assertManyControllers(c, store, "n\n\nmary\n", []string{"fred", "mary"}, "fred", "mary", false)
+	s.assertPrompted(c, store, testData{
+		userAnswer:     "y\n",
+		expectedPrompt: "Do you ONLY want to  this client? (Y/n): \n",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
+			"No current controller was detected but there are other controllers registered: use -c or --controller to specify a controller if needed.\n",
+		expectedControllerName:  "",
+		expectedClientOperation: true,
+	})
 }
 
-func (s *OptionalControllerCommandSuite) TestPromptNoControllers(c *gc.C) {
-	ctx, command, err := s.assertPrompt(c, jujuclient.NewMemStore(), "n\ny\n")
-	c.Assert(err, gc.ErrorMatches, "Neither client nor controller specified - nothing to do.")
-	c.Assert(command.ControllerName, gc.Equals, "")
-	c.Assert(command.Client, gc.Equals, false)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to  this client? (Y/n): 
-Do you want to  a controller? (Y/n): 
-`[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "No registered controllers on this client: either bootstrap one or register one.\n")
+func (s *OptionalControllerCommandSuite) TestPromptNoControllersAndNoCurrent(c *gc.C) {
+	s.assertPrompted(c, jujuclient.NewMemStore(), testData{
+		userAnswer:     "y\n",
+		expectedPrompt: "Do you ONLY want to  this client? (Y/n): \n",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
+			"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n",
+		expectedControllerName:  "",
+		expectedClientOperation: true,
+	})
 }
 
-func (s *OptionalControllerCommandSuite) TestPromptNothingPicked(c *gc.C) {
-	ctx, command, err := s.assertPrompt(c, jujuclient.NewMemStore(), "n\nn\n")
-	c.Assert(err, gc.ErrorMatches, "Neither client nor controller specified - nothing to do.")
-	c.Assert(command.ControllerName, gc.Equals, "")
-	c.Assert(command.Client, gc.Equals, false)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to  this client? (Y/n): 
-Do you want to  a controller? (Y/n): 
-`[1:])
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+func (s *OptionalControllerCommandSuite) TestPromptDenyClientAndNoCurrent(c *gc.C) {
+	s.assertPrompted(c, jujuclient.NewMemStore(), testData{
+		userAnswer:     "n\n",
+		expectedPrompt: "Do you ONLY want to  this client? (Y/n): \n",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
+			"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n",
+		expectedErr:             "Neither client nor controller specified - nothing to do.",
+		expectedControllerName:  "",
+		expectedClientOperation: false,
+	})
 }
 
-func (s *OptionalControllerCommandSuite) TestDetectCurrentControllerNoCurrentController(c *gc.C) {
-	store := jujuclient.NewMemStore()
-	store.Controllers = map[string]jujuclient.ControllerDetails{
-		"fred": {},
-	}
-	s.assertOneController(c, store, "n\n\n\n", "fred", false)
-}
-
-func (s *OptionalControllerCommandSuite) assertDetectCurrentControllerPrompt(c *gc.C,
-	userAnswer, expectedControllerName string,
-	expectedClientOperation bool,
-	expectedOut string,
-) {
+func setupTestStore() jujuclient.ClientStore {
 	store := jujuclient.NewMemStore()
 	store.Controllers = map[string]jujuclient.ControllerDetails{
 		"fred": {},
 	}
 	store.CurrentControllerName = "fred"
-	ctx, command, err := runOptionalControllerCommand(c, store)
-	c.Assert(err, jc.ErrorIsNil)
-	ctx.Stdin = strings.NewReader(userAnswer)
-	err = command.MaybePrompt(ctx, "test on")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(command.ControllerName, gc.Equals, expectedControllerName)
-	c.Assert(command.Client, gc.Equals, expectedClientOperation)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOut)
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "")
+	return store
 }
 
-var testFullOutput = `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to test on this client? (Y/n): 
-Do you want to test on a controller? (Y/n): 
-Only one controller "fred" is registered. Use it? (Y/n): 
-`[1:]
-
-var testShortOutput = `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to test on this client? (Y/n): 
-Do you want to test on a controller? (Y/n): 
-`[1:]
-
-func (s *OptionalControllerCommandSuite) TestPrompt(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "y\ny\n\n", "fred", true, testFullOutput)
+func (s *OptionalControllerCommandSuite) TestPromptDenyClientAndCurrent(c *gc.C) {
+	s.assertPrompted(c, setupTestStore(), testData{
+		action:       "build a snowman on",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n",
+		expectedPrompt: `
+Do you want to build a snowman on:
+    1. client only (--client)
+    2. controller "fred" only (--controller fred)
+    3. both (--client --controller fred)
+Enter your choice, or type Q|q to quit: `[1:],
+		userAnswer:              "q\n",
+		expectedErr:             "Neither client nor controller specified - nothing to do.",
+		expectedControllerName:  "",
+		expectedClientOperation: false,
+	})
 }
 
-func (s *OptionalControllerCommandSuite) TestPromptDeny(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "y\nn\n", "", true, testShortOutput)
+func (s *OptionalControllerCommandSuite) TestPromptInvalidChoice(c *gc.C) {
+	s.assertPrompted(c, setupTestStore(), testData{
+		action: "build a snowman on",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
+			"Invalid choice, enter a number between 1 and 3 or quit Q|q\n",
+		expectedPrompt: `
+Do you want to build a snowman on:
+    1. client only (--client)
+    2. controller "fred" only (--controller fred)
+    3. both (--client --controller fred)
+Enter your choice, or type Q|q to quit: `[1:],
+		userAnswer:              "5\nq\n",
+		expectedErr:             "Neither client nor controller specified - nothing to do.",
+		expectedControllerName:  "",
+		expectedClientOperation: false,
+	})
 }
 
-func (s *OptionalControllerCommandSuite) TestPromptUseNonDefaultController(c *gc.C) {
-	s.assertDetectCurrentControllerPrompt(c, "n\n\n\n", "fred", false, testFullOutput)
+func (s *OptionalControllerCommandSuite) TestPromptConfirmClient(c *gc.C) {
+	s.assertPrompted(c, setupTestStore(), testData{
+		action:       "build a snowman on",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n",
+		expectedPrompt: `
+Do you want to build a snowman on:
+    1. client only (--client)
+    2. controller "fred" only (--controller fred)
+    3. both (--client --controller fred)
+Enter your choice, or type Q|q to quit: `[1:],
+		userAnswer:              "1\n",
+		expectedControllerName:  "",
+		expectedClientOperation: true,
+	})
+}
+
+func (s *OptionalControllerCommandSuite) TestPromptConfirmController(c *gc.C) {
+	s.assertPrompted(c, setupTestStore(), testData{
+		action:       "build a snowman on",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n",
+		expectedPrompt: `
+Do you want to build a snowman on:
+    1. client only (--client)
+    2. controller "fred" only (--controller fred)
+    3. both (--client --controller fred)
+Enter your choice, or type Q|q to quit: `[1:],
+		userAnswer:              "2\n",
+		expectedControllerName:  "fred",
+		expectedClientOperation: false,
+	})
+}
+
+func (s *OptionalControllerCommandSuite) TestPromptConfirmBoth(c *gc.C) {
+	s.assertPrompted(c, setupTestStore(), testData{
+		action:       "build a snowman on",
+		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n",
+		expectedPrompt: `
+Do you want to build a snowman on:
+    1. client only (--client)
+    2. controller "fred" only (--controller fred)
+    3. both (--client --controller fred)
+Enter your choice, or type Q|q to quit: `[1:],
+		userAnswer:              "3\n",
+		expectedControllerName:  "fred",
+		expectedClientOperation: true,
+	})
 }
 
 type testOptionalControllerCommand struct {
