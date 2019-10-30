@@ -462,9 +462,9 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 			return errors.Trace(err)
 		}
 		if !useClient {
-			return errors.New("Neither client nor controller specified - nothing to do.")
+			ctxt.Infof("Neither client nor controller specified - nothing to do.")
 		}
-		c.Client = true
+		c.Client = useClient
 		return nil
 	}
 
@@ -498,7 +498,7 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 	}
 quit:
 	if !c.Client && c.ControllerName == "" {
-		return errors.New("Neither client nor controller specified - nothing to do.")
+		ctxt.Infof("Neither client nor controller specified - nothing to do.")
 	}
 	return nil
 }

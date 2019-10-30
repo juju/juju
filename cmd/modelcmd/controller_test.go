@@ -191,7 +191,6 @@ type testData struct {
 	userAnswer              string
 	expectedPrompt          string
 	expectedInfo            string
-	expectedErr             string
 	expectedControllerName  string
 	expectedClientOperation bool
 	args                    []string
@@ -199,11 +198,7 @@ type testData struct {
 
 func (s *OptionalControllerCommandSuite) assertPrompted(c *gc.C, store jujuclient.ClientStore, t testData) {
 	ctx, command, err := s.assertPrompt(c, store, t.action, t.userAnswer, t.args...)
-	if t.expectedErr == "" {
-		c.Assert(err, jc.ErrorIsNil)
-	} else {
-		c.Assert(err, gc.ErrorMatches, t.expectedErr)
-	}
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(command.ControllerName, gc.Equals, t.expectedControllerName)
 	c.Assert(command.Client, gc.Equals, t.expectedClientOperation)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, t.expectedPrompt)
@@ -242,8 +237,8 @@ func (s *OptionalControllerCommandSuite) TestPromptDenyClientAndNoCurrent(c *gc.
 		userAnswer:     "n\n",
 		expectedPrompt: "Do you ONLY want to  this client? (Y/n): \n",
 		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
-			"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n",
-		expectedErr:             "Neither client nor controller specified - nothing to do.",
+			"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n" +
+			"Neither client nor controller specified - nothing to do.\n",
 		expectedControllerName:  "",
 		expectedClientOperation: false,
 	})
@@ -261,8 +256,9 @@ func setupTestStore() jujuclient.ClientStore {
 func (s *OptionalControllerCommandSuite) TestPromptDenyClientAndCurrent(c *gc.C) {
 	for _, input := range []string{"q\n", "Q\n"} {
 		s.assertPrompted(c, setupTestStore(), testData{
-			action:       "build a snowman on",
-			expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n",
+			action: "build a snowman on",
+			expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
+				"Neither client nor controller specified - nothing to do.\n",
 			expectedPrompt: `
 Do you want to build a snowman on:
     1. client only (--client)
@@ -270,7 +266,6 @@ Do you want to build a snowman on:
     3. both (--client --controller fred)
 Enter your choice, or type Q|q to quit: `[1:],
 			userAnswer:              input,
-			expectedErr:             "Neither client nor controller specified - nothing to do.",
 			expectedControllerName:  "",
 			expectedClientOperation: false,
 		})
@@ -281,7 +276,8 @@ func (s *OptionalControllerCommandSuite) TestPromptInvalidChoice(c *gc.C) {
 	s.assertPrompted(c, setupTestStore(), testData{
 		action: "build a snowman on",
 		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
-			"Invalid choice, enter a number between 1 and 3 or quit Q|q\n",
+			"Invalid choice, enter a number between 1 and 3 or quit Q|q\n" +
+			"Neither client nor controller specified - nothing to do.\n",
 		expectedPrompt: `
 Do you want to build a snowman on:
     1. client only (--client)
@@ -289,7 +285,6 @@ Do you want to build a snowman on:
     3. both (--client --controller fred)
 Enter your choice, or type Q|q to quit: `[1:],
 		userAnswer:              "5\nq\n",
-		expectedErr:             "Neither client nor controller specified - nothing to do.",
 		expectedControllerName:  "",
 		expectedClientOperation: false,
 	})

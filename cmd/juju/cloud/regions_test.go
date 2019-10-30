@@ -150,10 +150,11 @@ func (s *regionsSuite) TestListNoController(c *gc.C) {
 	err := cmdtesting.InitCommand(command, []string{"google"})
 	c.Assert(err, jc.ErrorIsNil)
 	err = command.Run(ctx)
-	c.Assert(err, gc.ErrorMatches, "Neither client nor controller specified - nothing to do.")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you ONLY want to list regions for cloud \"google\" from this client? (Y/n): \n")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you ONLY want to list regions for cloud \"google\" from this client? (Y/n): \n\n")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "This operation can be applied to both a copy on this client and to the one on a controller.\n"+
-		"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n")
+		"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n"+
+		"Neither client nor controller specified - nothing to do.\n")
 }
 
 func (s *regionsSuite) TestListRegionsJson(c *gc.C) {
