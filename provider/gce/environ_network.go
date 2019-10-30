@@ -16,6 +16,7 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/gce/google"
 )
@@ -147,7 +148,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 	insts, err := e.Instances(ctx, ids)
 	partialInfo := err == environs.ErrPartialInstances
 	if err != nil && err != environs.ErrPartialInstances {
-		if err == environs.ErrNoInstances {
+		if errors.Cause(err) == environs.ErrNoInstances {
 			return nil, err
 		}
 		return nil, errors.Trace(err)
@@ -163,35 +164,28 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		return nil, errors.Trace(err)
 	}
 
-	var (
-		infos      = make([][]network.InterfaceInfo, len(ids))
-		subnetURLs []string
-	)
+	// Extract the unique list of subnet URLs we are interested in for
+	// all instances and fetch related subnet information.
+	uniqueSubnetURLs, err := getUniqueSubnetURLs(ids, insts)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
+	subnets, err := e.subnetsByURL(ctx, uniqueSubnetURLs.Values(), networks, zones)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	infos := make([][]network.InterfaceInfo, len(ids))
 	for idx, inst := range insts {
 		if inst == nil {
 			continue // no instance with this ID known by provider
 		}
 
-		envInst, ok := inst.(*environInstance)
-		if !ok { // This shouldn't happen.
-			return nil, errors.Errorf("couldn't extract google instance for %q", ids[idx])
-		}
-
-		subnetURLs = subnetURLs[:0]
-		ifaces := envInst.base.NetworkInterfaces()
-		for _, iface := range ifaces {
-			if iface.Subnetwork != "" {
-				subnetURLs = append(subnetURLs, iface.Subnetwork)
-			}
-		}
-
-		subnets, err := e.subnetsByURL(ctx, subnetURLs, networks, zones)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		for i, iface := range ifaces {
+		// Note: we have already verified that we can safely cast inst
+		// to environInstance when we iterated the instance list to
+		// obtain the unique subnet URLs
+		for i, iface := range inst.(*environInstance).base.NetworkInterfaces() {
 			details, err := findNetworkDetails(iface, subnets, networks)
 			if err != nil {
 				return nil, errors.Annotatef(err, "instance %q", ids[idx])
@@ -220,6 +214,29 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		err = environs.ErrPartialInstances
 	}
 	return infos, err
+}
+
+func getUniqueSubnetURLs(ids []instance.Id, insts []instances.Instance) (set.Strings, error) {
+	uniqueSet := set.NewStrings()
+
+	for idx, inst := range insts {
+		if inst == nil {
+			continue // no instance with this ID known by provider
+		}
+
+		envInst, ok := inst.(*environInstance)
+		if !ok { // This shouldn't happen.
+			return nil, errors.Errorf("couldn't extract GCE instance for %q", ids[idx])
+		}
+
+		for _, iface := range envInst.base.NetworkInterfaces() {
+			if iface.Subnetwork != "" {
+				uniqueSet.Add(iface.Subnetwork)
+			}
+		}
+	}
+
+	return uniqueSet, nil
 }
 
 type networkDetails struct {
