@@ -410,10 +410,11 @@ func (s *detectCredentialsSuite) TestRemoteLoad(c *gc.C) {
 		return &remoteTestCloud, nil
 	}
 
-	stdin := strings.NewReader(fmt.Sprintf("y\ny\n\n1\n%s\nQ\n", cloudName))
+	stdin := strings.NewReader(fmt.Sprintf("3\n1\n%s\nQ\n", cloudName))
 	ctx, err := s.runWithCloudsFunc(c, stdin, nil, cloudByNameFunc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, `
+This operation can be applied to both a copy on this client and to the one on a controller.
 
 Looking for cloud and credential information on local client...
 
@@ -432,11 +433,11 @@ For more information, see ‘juju show-credential test-cloud blah’.
 `[1:])
 	c.Assert(called, jc.IsTrue)
 	c.Assert(cmdtesting.Stdout(ctx), gc.DeepEquals, `
-This operation can be applied to both a copy on this client and a controller of your choice.
-Do you want to add a credential to this client? (Y/n): 
-Do you want to add a credential to a controller? (Y/n): 
-Only one controller "controller" is registered. Use it? (Y/n): 
-`[1:])
+Do you want to add a credential to:
+    1. client only (--client)
+    2. controller "controller" only (--controller controller)
+    3. both (--client --controller controller)
+Enter your choice, or type Q|q to quit: `[1:])
 }
 
 func (s *detectCredentialsSuite) assertAutoloadCredentials(c *gc.C, expectedStderr string, args ...string) {

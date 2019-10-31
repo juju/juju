@@ -64,7 +64,8 @@ func NewListRegionsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &listRegionsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 	}
 	c.cloudAPIFunc = c.cloudAPI

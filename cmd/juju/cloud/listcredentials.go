@@ -153,7 +153,8 @@ func NewListCredentialsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &listCredentialsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 		cloudByNameFunc: jujucloud.CloudByName,
 	}

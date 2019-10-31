@@ -69,7 +69,8 @@ func NewShowCloudCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &showCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 	}
 	c.showCloudAPIFunc = c.cloudAPI

@@ -38,7 +38,8 @@ func NewShowCredentialCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	command := &showCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 	}
 	command.newAPIFunc = func() (CredentialContentAPI, error) {
