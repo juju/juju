@@ -622,10 +622,19 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string) (map[string]str
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	names := set.NewStrings()
 	for k, v := range endpointsWithSpaceNames {
 		if v == network.AlphaSpaceName {
 			delete(endpointsWithSpaceNames, k)
 		}
+		names.Add(v)
+	}
+	// Assumption: if all endpoints are in the same space,
+	// spaces aren't really in use and will "muddy the waters"
+	// for export bundle.  If there is only 1 endpoint, we
+	// have no idea, so print it.
+	if names.Size() == 1 && len(endpointsWithSpaceNames) != 1 {
+		return map[string]string{}, nil
 	}
 	return endpointsWithSpaceNames, nil
 }

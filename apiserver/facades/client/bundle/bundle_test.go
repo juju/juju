@@ -764,6 +764,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
 `[1:]}
 
@@ -805,6 +806,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
     trust: true
 `[1:]}
@@ -858,6 +860,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
@@ -867,6 +870,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
 --- # overlay.yaml
 applications:
@@ -927,6 +931,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
 `[1:]}
 
