@@ -154,10 +154,6 @@ func (s *Subnet) AvailabilityZones() []string {
 
 // SpaceName returns the space the subnet is associated with.  If no
 // space is associated, return the default space and log an error.
-//
-// TODO (hml) 2019-10-29
-// Aside from tests, this is only used in status, and we can just look
-// it up by ID there and remove the entity cross-dependency here.
 func (s *Subnet) SpaceName() string {
 	if s.spaceID == "" {
 		logger.Errorf("subnet %q has no spaceID", s.spaceID)
