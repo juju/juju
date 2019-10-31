@@ -496,16 +496,16 @@ func (s *UpgradeCharmSuccessStateSuite) TestRespectsLocalRevisionWhenPossible(c 
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
-	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
-	err := runDeploy(c, path, "multi-series", "--series", "bionic")
+	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "multi-series")
+	err := runDeploy(c, repoPath, "multi-series", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("multi-series")
+	app, err := s.State.Application("multi-series")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := application.Charm()
+	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 1)
 
-	units, err := application.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
@@ -515,12 +515,12 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 	c.Assert(errs, gc.DeepEquals, make([]error, len(units)))
 
 	// Overwrite the metadata.yaml to change the supported series.
-	metadataPath := filepath.Join(path, "metadata.yaml")
+	metadataPath := filepath.Join(repoPath, "metadata.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
 		c.Fatal(errors.Annotate(err, "cannot open metadata.yaml for overwriting"))
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	metadata := strings.Join(
 		[]string{
@@ -540,29 +540,29 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedSeriesUpgrade(c *gc.C) {
 		c.Fatal(errors.Annotate(err, "cannot write to metadata.yaml"))
 	}
 
-	err = runUpgradeCharm(c, "multi-series", "--path", path, "--force-series")
+	err = runUpgradeCharm(c, "multi-series", "--path", repoPath, "--force-series")
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = application.Refresh()
+	err = app.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
 
-	ch, force, err := application.Charm()
+	ch, force, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(ch.Revision(), gc.Equals, 2)
 	c.Check(force, gc.Equals, false)
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
-	path := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "lxd-profile-alt")
-	err := runDeploy(c, path, "lxd-profile-alt", "--to", "lxd")
+	repoPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "lxd-profile-alt")
+	err := runDeploy(c, repoPath, "lxd-profile-alt", "--to", "lxd")
 	c.Assert(err, jc.ErrorIsNil)
-	application, err := s.State.Application("lxd-profile-alt")
+	app, err := s.State.Application("lxd-profile-alt")
 	c.Assert(err, jc.ErrorIsNil)
-	ch, _, err := application.Charm()
+	ch, _, err := app.Charm()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ch.Revision(), gc.Equals, 0)
 
-	units, err := application.AllUnits()
+	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
 	unit := units[0]
@@ -584,12 +584,12 @@ func (s *UpgradeCharmSuccessStateSuite) TestForcedLXDProfileUpgrade(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Overwrite the lxd-profile.yaml to change the supported series.
-	lxdProfilePath := filepath.Join(path, "lxd-profile.yaml")
+	lxdProfilePath := filepath.Join(repoPath, "lxd-profile.yaml")
 	file, err := os.OpenFile(lxdProfilePath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {
 		c.Fatal(errors.Annotate(err, "cannot open lxd-profile.yaml for overwriting"))
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	lxdProfile := `
 description: lxd profile for testing
@@ -605,7 +605,7 @@ devices: {}
 		c.Fatal(errors.Annotate(err, "cannot write to lxd-profile.yaml"))
 	}
 
-	err = runUpgradeCharm(c, "lxd-profile-alt", "--path", path)
+	err = runUpgradeCharm(c, "lxd-profile-alt", "--path", repoPath)
 	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains config value "boot.autostart.delay"`)
 }
 
@@ -684,7 +684,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C)
 	if err != nil {
 		c.Fatal(errors.Annotate(err, "cannot open metadata.yaml"))
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Overwrite the metadata.yaml to contain a new name.
 	newMetadata := strings.Join([]string{`name: myriak`, `summary: ""`, `description: ""`}, "\n")
