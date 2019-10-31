@@ -378,10 +378,10 @@ func (s *CAASProvisionerSuite) assertUpdateApplicationsStatelessUnits(c *gc.C, w
 
 	results, err := s.facade.UpdateApplicationsUnits(params.UpdateApplicationUnitArgs{Args: args})
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{&params.Error{Message: "application another not found", Code: "not found"}},
-			{nil},
+	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+		Results: []params.UpdateApplicationUnitResult{
+			{Error: &params.Error{Message: "application another not found", Code: "not found"}},
+			{Error: nil},
 		},
 	})
 	s.st.application.CheckCallNames(c, "Life", "AddOperation", "Name", "GetScale")
@@ -447,9 +447,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsScaleChange(c *gc.C) {
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
+	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+		Results: []params.UpdateApplicationUnitResult{
+			{},
 		},
 	})
 	s.st.application.CheckCallNames(c, "SetStatus", "Life", "Name", "GetScale", "SetScale")
@@ -502,9 +502,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnknownScale(c *gc.C) {
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
+	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+		Results: []params.UpdateApplicationUnitResult{
+			{nil, nil},
 		},
 	})
 	s.st.application.CheckCallNames(c, "Life", "Name")
@@ -554,9 +554,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsNotAlive(c *gc.C) {
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
+	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+		Results: []params.UpdateApplicationUnitResult{
+			{nil, nil},
 		},
 	})
 	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale")
@@ -572,7 +572,10 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 		&mockUnit{name: "gitlab/2", containerInfo: &mockContainerInfo{providerId: "gone-uuid"}, life: state.Alive},
 		&mockUnit{name: "gitlab/3", containerInfo: &mockContainerInfo{providerId: "gone-uuid2"}, life: state.Alive},
 	}
-	s.st.model.containers = []state.CloudContainer{&mockContainerInfo{unitName: "gitlab/1", providerId: "another-uuid"}}
+	s.st.model.containers = []state.CloudContainer{
+		&mockContainerInfo{unitName: "gitlab/0", providerId: "uuid"},
+		&mockContainerInfo{unitName: "gitlab/1", providerId: "another-uuid"},
+	}
 	s.storage.storageFilesystems[names.NewStorageTag("data/0")] = names.NewFilesystemTag("gitlab/0/0")
 	s.storage.storageFilesystems[names.NewStorageTag("data/1")] = names.NewFilesystemTag("gitlab/1/0")
 	s.storage.storageFilesystems[names.NewStorageTag("data/2")] = names.NewFilesystemTag("gitlab/2/0")
@@ -614,9 +617,12 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
+	c.Assert(results.Results[0], gc.DeepEquals, params.UpdateApplicationUnitResult{
+		Info: &params.UpdateApplicationUnitsInfo{
+			Units: []params.ApplicationUnitInfo{
+				{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
+				{ProviderId: "another-uuid", UnitTag: "unit-gitlab-1"},
+			},
 		},
 	})
 	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale")
@@ -717,6 +723,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorage(c *gc.C) {
 			Status: status.Detached,
 			Since:  &now,
 		})
+
+	s.st.model.CheckCall(c, 0, "Containers", []string{"another-uuid"})
+	s.st.model.CheckCall(c, 1, "Containers", []string{"uuid", "another-uuid"})
 }
 
 func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVolume(c *gc.C) {
@@ -745,9 +754,9 @@ func (s *CAASProvisionerSuite) TestUpdateApplicationsUnitsWithStorageNoBackingVo
 	}
 	results, err := s.facade.UpdateApplicationsUnits(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{nil},
+	c.Assert(results, gc.DeepEquals, params.UpdateApplicationUnitResults{
+		Results: []params.UpdateApplicationUnitResult{
+			{nil, nil},
 		},
 	})
 	s.st.application.CheckCallNames(c, "Life", "Name", "GetScale")

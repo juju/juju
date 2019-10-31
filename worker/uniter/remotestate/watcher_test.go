@@ -28,7 +28,9 @@ type WatcherSuite struct {
 	watcher    *remotestate.RemoteStateWatcher
 	clock      *testclock.Clock
 
-	applicationWatcher *mockNotifyWatcher
+	applicationWatcher   *mockNotifyWatcher
+	runningStatusWatcher *mockNotifyWatcher
+	running              bool
 }
 
 type WatcherSuiteIAAS struct {
@@ -109,13 +111,16 @@ func (s *WatcherSuiteCAAS) SetUpTest(c *gc.C) {
 	}
 
 	s.applicationWatcher = newMockNotifyWatcher()
+	s.runningStatusWatcher = newMockNotifyWatcher()
 	w, err := remotestate.NewWatcher(remotestate.WatcherConfig{
-		State:               s.st,
-		ModelType:           s.modelType,
-		LeadershipTracker:   s.leadership,
-		UnitTag:             s.st.unit.tag,
-		UpdateStatusChannel: statusTicker,
-		ApplicationChannel:  s.applicationWatcher.Changes(),
+		State:                s.st,
+		ModelType:            s.modelType,
+		LeadershipTracker:    s.leadership,
+		UnitTag:              s.st.unit.tag,
+		UpdateStatusChannel:  statusTicker,
+		ApplicationChannel:   s.applicationWatcher.Changes(),
+		RunningStatusChannel: s.runningStatusWatcher.Changes(),
+		RunningStatusFunc:    func() (bool, error) { return s.running, nil },
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.watcher = w
@@ -226,6 +231,33 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		LeaderSettingsVersion: 1,
 		Leader:                true,
 		UpgradeSeriesStatus:   "",
+		ActionsBlocked:        true,
+	})
+
+	s.running = true
+	select {
+	case s.runningStatusWatcher.changes <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timeout waiting to post running status change")
+	}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	snap = s.watcher.Snapshot()
+	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+		Life:                  s.st.unit.life,
+		Relations:             map[int]remotestate.RelationSnapshot{},
+		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
+		CharmModifiedVersion:  0,
+		CharmURL:              nil,
+		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
+		ResolvedMode:          s.st.unit.resolved,
+		ConfigHash:            "confighash",
+		TrustHash:             "trusthash",
+		AddressesHash:         "addresseshash",
+		LeaderSettingsVersion: 1,
+		Leader:                true,
+		UpgradeSeriesStatus:   "",
+		ActionsBlocked:        false,
 	})
 }
 

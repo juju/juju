@@ -455,9 +455,9 @@ func (f *Facade) getApplicationConfig(tagString string) (map[string]interface{},
 
 // UpdateApplicationsUnits updates the Juju data model to reflect the given
 // units of the specified application.
-func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Args)),
+func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) (params.UpdateApplicationUnitResults, error) {
+	result := params.UpdateApplicationUnitResults{
+		Results: make([]params.UpdateApplicationUnitResult, len(args.Args)),
 	}
 	if len(args.Args) == 0 {
 		return result, nil
@@ -487,11 +487,18 @@ func (a *Facade) UpdateApplicationsUnits(args params.UpdateApplicationUnitArgs) 
 				continue
 			}
 		}
-		err = a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Generation, appUpdate.Units)
+		appUnitInfo, err := a.updateUnitsFromCloud(app, appUpdate.Scale, appUpdate.Generation, appUpdate.Units)
 		if err != nil {
 			// Mask any not found errors as the worker (caller) treats them specially
 			// and they are not relevant here.
 			result.Results[i].Error = common.ServerError(errors.Mask(err))
+		}
+
+		// Errors from SetScale will also include unit info.
+		if appUnitInfo != nil {
+			result.Results[i].Info = &params.UpdateApplicationUnitsInfo{
+				Units: appUnitInfo,
+			}
 		}
 	}
 	return result, nil
@@ -546,20 +553,21 @@ func (a *Facade) updateStatus(params params.ApplicationUnitParams) (
 // source (typically a cloud update event) and merges that with the existing unit
 // data model in state. The passed in units are the complete set for the cloud, so
 // any existing units in state with provider ids which aren't in the set will be removed.
-func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *int64, unitUpdates []params.ApplicationUnitParams) error {
+func (a *Facade) updateUnitsFromCloud(app Application, scale *int,
+	generation *int64, unitUpdates []params.ApplicationUnitParams) ([]params.ApplicationUnitInfo, error) {
 	logger.Debugf("unit updates: %#v", unitUpdates)
 	if scale != nil {
 		logger.Debugf("application scale: %v", *scale)
 		if *scale > 0 && len(unitUpdates) == 0 {
 			// no ops for empty units because we can not determine if it's stateful or not in this case.
 			logger.Debugf("ignoring empty k8s event for %q", app.Tag().String())
-			return nil
+			return nil, nil
 		}
 	}
 	// Set up the initial data structures.
 	existingStateUnits, err := app.AllUnits()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	stateUnitsById := make(map[string]stateUnit)
 	cloudPodsById := make(map[string]params.ApplicationUnitParams)
@@ -596,7 +604,7 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *i
 		var providerId string
 		info, err := u.ContainerInfo()
 		if err != nil && !errors.IsNotFound(err) {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 		if err == nil {
 			providerId = info.ProviderId()
@@ -685,11 +693,31 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *i
 	}
 
 	if err := a.updateStateUnits(app, unitInfo); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
+	}
+
+	var providerIds []string
+	for _, u := range unitUpdates {
+		providerIds = append(providerIds, u.ProviderId)
+	}
+	m, err := a.state.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	containers, err := m.Containers(providerIds...)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	var appUnitInfo []params.ApplicationUnitInfo
+	for _, c := range containers {
+		appUnitInfo = append(appUnitInfo, params.ApplicationUnitInfo{
+			ProviderId: c.ProviderId(),
+			UnitTag:    names.NewUnitTag(c.Unit()).String(),
+		})
 	}
 
 	if scale == nil {
-		return nil
+		return appUnitInfo, nil
 	}
 	// Update the scale last now that the state
 	// model accurately reflects the cluster pods.
@@ -699,9 +727,9 @@ func (a *Facade) updateUnitsFromCloud(app Application, scale *int, generation *i
 		gen = *generation
 	}
 	if currentScale != *scale {
-		return app.SetScale(*scale, gen, false)
+		return appUnitInfo, app.SetScale(*scale, gen, false)
 	}
-	return nil
+	return appUnitInfo, nil
 }
 
 type stateUnit struct {

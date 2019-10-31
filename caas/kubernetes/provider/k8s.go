@@ -20,6 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -93,6 +94,7 @@ var (
 	annotationModelUUIDKey              = annotationPrefix + "/" + "model"
 	annotationControllerUUIDKey         = annotationPrefix + "/" + "controller"
 	annotationControllerIsControllerKey = annotationPrefix + "/" + "is-controller"
+	annotationUnit                      = annotationPrefix + "/" + "unit"
 )
 
 type kubernetesClient struct {
@@ -1799,6 +1801,53 @@ func applicationSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelApplication, appName)
 }
 
+// AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
+func (k *kubernetesClient) AnnotateUnit(appName, podName string, unit names.UnitTag) error {
+	pods := k.client().CoreV1().Pods(k.namespace)
+
+	pod, err := pods.Get(podName, v1.GetOptions{
+		IncludeUninitialized: true,
+	})
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		pods, err := pods.List(v1.ListOptions{
+			LabelSelector:        applicationSelector(appName),
+			IncludeUninitialized: true,
+		})
+		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, v := range pods.Items {
+			if string(v.GetUID()) == podName {
+				p := v
+				pod = &p
+				break
+			}
+		}
+	}
+	if pod == nil {
+		return errors.NotFoundf("pod %q", podName)
+	}
+
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	unitID := unit.Id()
+	if pod.Annotations[annotationUnit] == unitID {
+		return nil
+	}
+	pod.Annotations[annotationUnit] = unitID
+
+	_, err = pods.Update(pod)
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("pod %q", podName)
+	}
+	return errors.Trace(err)
+}
+
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
@@ -1815,10 +1864,11 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	return k.newWatcher(w, appName, k.clock)
 }
 
-// WatchUnitStart returns a watcher which notifies when units
-// in an application is starting/restarting. Each string represents
-// the provider id for the unit.
-func (k *kubernetesClient) WatchUnitStart(appName string) (watcher.StringsWatcher, error) {
+// WatchContainerStart returns a watcher which is notified when the specified container
+// for each unit in the application is starting/restarting. Each string represents
+// the provider id for the unit. If containerName is empty, then the first workload container
+// is used.
+func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	selector := applicationSelector(appName)
 	logger.Debugf("selecting units %q to watch", selector)
@@ -1840,8 +1890,20 @@ func (k *kubernetesClient) WatchUnitStart(appName string) (watcher.StringsWatche
 	}
 
 	podInInit := func(pod *core.Pod) bool {
+		if _, ok := pod.Annotations[annotationUnit]; !ok {
+			// Ignore pods that aren't annotated as a unit yet.
+			return false
+		}
 		for _, cs := range pod.Status.InitContainerStatuses {
-			if cs.Name == caas.InitContainerName {
+			if cs.Name == containerName {
+				if cs.State.Running != nil {
+					return true
+				}
+			}
+		}
+		for i, cs := range pod.Status.ContainerStatuses {
+			useDefault := i == 0 && containerName == ""
+			if cs.Name == containerName || useDefault {
 				if cs.State.Running != nil {
 					return true
 				}

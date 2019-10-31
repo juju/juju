@@ -49,13 +49,13 @@ type fakeAPICaller struct {
 type fakeClient struct {
 	testing.Stub
 	caasunitinit.Client
-	unitStartWatcher *watchertest.MockStringsWatcher
+	ContainerStartWatcher *watchertest.MockStringsWatcher
 }
 
-func (c *fakeClient) WatchUnitStart(application string) (watcher.StringsWatcher, error) {
-	c.MethodCall(c, "WatchUnits", application)
+func (c *fakeClient) WatchContainerStart(application string, container string) (watcher.StringsWatcher, error) {
+	c.MethodCall(c, "WatchContainerStart", application, container)
 	if err := c.NextErr(); err != nil {
 		return nil, err
 	}
-	return c.unitStartWatcher, nil
+	return c.ContainerStartWatcher, nil
 }

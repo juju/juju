@@ -39,6 +39,8 @@ type RemoteStateWatcher struct {
 	commandChannel            <-chan string
 	retryHookChannel          watcher.NotifyChannel
 	applicationChannel        watcher.NotifyChannel
+	runningStatusChannel      watcher.NotifyChannel
+	runningStatusFunc         RunningStatusFunc
 
 	catacomb catacomb.Catacomb
 
@@ -47,22 +49,36 @@ type RemoteStateWatcher struct {
 	current Snapshot
 }
 
+// RunningStatusFunc is used by the RemoteStateWatcher in a CAAS
+// model to determine if the unit is running and ready to execute actions.
+type RunningStatusFunc func() (bool, error)
+
 // WatcherConfig holds configuration parameters for the
 // remote state watcher.
 type WatcherConfig struct {
-	State               State
-	LeadershipTracker   leadership.Tracker
-	UpdateStatusChannel UpdateStatusTimerFunc
-	CommandChannel      <-chan string
-	RetryHookChannel    watcher.NotifyChannel
-	ApplicationChannel  watcher.NotifyChannel
-	UnitTag             names.UnitTag
-	ModelType           model.ModelType
+	State                State
+	LeadershipTracker    leadership.Tracker
+	UpdateStatusChannel  UpdateStatusTimerFunc
+	CommandChannel       <-chan string
+	RetryHookChannel     watcher.NotifyChannel
+	ApplicationChannel   watcher.NotifyChannel
+	RunningStatusChannel watcher.NotifyChannel
+	RunningStatusFunc    RunningStatusFunc
+	UnitTag              names.UnitTag
+	ModelType            model.ModelType
 }
 
 func (w WatcherConfig) validate() error {
-	if w.ModelType == model.CAAS && w.ApplicationChannel == nil {
-		return errors.NotValidf("watcher config for CAAS model with nil application channel")
+	if w.ModelType == model.CAAS {
+		if w.ApplicationChannel == nil {
+			return errors.NotValidf("watcher config for CAAS model with nil application channel")
+		}
+		if w.RunningStatusChannel == nil {
+			return errors.NotValidf("watcher config for CAAS model with nil running status channel")
+		}
+		if w.RunningStatusFunc == nil {
+			return errors.NotValidf("watcher config for CAAS model with nil running status func")
+		}
 	}
 	return nil
 }
@@ -84,6 +100,8 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		commandChannel:            config.CommandChannel,
 		retryHookChannel:          config.RetryHookChannel,
 		applicationChannel:        config.ApplicationChannel,
+		runningStatusChannel:      config.RunningStatusChannel,
+		runningStatusFunc:         config.RunningStatusFunc,
 		modelType:                 config.ModelType,
 		// Note: it is important that the out channel be buffered!
 		// The remote state watcher will perform a non-blocking send
@@ -191,6 +209,13 @@ func (w *RemoteStateWatcher) setUp(unitTag names.UnitTag) error {
 	w.application, err = w.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
+	}
+	if w.runningStatusFunc != nil {
+		running, err := w.runningStatusFunc()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		w.actionsBlocked(!running)
 	}
 	return nil
 }
@@ -406,6 +431,17 @@ func (w *RemoteStateWatcher) loop(unitTag names.UnitTag) (err error) {
 				return errors.Trace(err)
 			}
 			observedEvent(&seenApplicationChange)
+
+		case _, ok := <-w.runningStatusChannel:
+			logger.Debugf("got running status change")
+			if !ok {
+				return errors.New("running status watcher closed")
+			}
+			running, err := w.runningStatusFunc()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			w.actionsBlocked(!running)
 
 		case hashes, ok := <-charmConfigw.Changes():
 			logger.Debugf("got config change: ok=%t, hashes=%v", ok, hashes)
@@ -817,6 +853,12 @@ func (w *RemoteStateWatcher) actionsChanged(actions []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	w.current.Actions = append(w.current.Actions, actions...)
+}
+
+func (w *RemoteStateWatcher) actionsBlocked(blocked bool) {
+	w.mu.Lock()
+	w.current.ActionsBlocked = blocked
+	w.mu.Unlock()
 }
 
 // storageChanged responds to unit storage changes.

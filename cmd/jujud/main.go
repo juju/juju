@@ -26,6 +26,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	agentcmd "github.com/juju/juju/cmd/jujud/agent"
+	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	"github.com/juju/juju/cmd/jujud/dumplogs"
 	"github.com/juju/juju/cmd/jujud/introspect"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
@@ -240,7 +241,10 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 	}
 	jujud.Register(unitAgent)
 
-	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, k8sexec.NewInCluster, nil)
+	caasOperatorAgent, err := agentcmd.NewCaasOperatorAgent(ctx, bufferedLogger, func(mc *caasoperator.ManifoldsConfig) error {
+		mc.NewExecClient = k8sexec.NewInCluster
+		return nil
+	})
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

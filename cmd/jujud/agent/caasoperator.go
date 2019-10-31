@@ -26,19 +26,16 @@ import (
 	"github.com/juju/juju/api/base"
 	apicaasoperator "github.com/juju/juju/api/caasoperator"
 	caasprovider "github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/caasoperator"
 	cmdutil "github.com/juju/juju/cmd/jujud/util"
 	"github.com/juju/juju/core/machinelock"
-	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/introspection"
 	"github.com/juju/juju/worker/logsender"
-	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
 )
 
@@ -67,16 +64,14 @@ type CaasOperatorAgent struct {
 
 	prometheusRegistry *prometheus.Registry
 
-	newExecClient     func(namespace string) (exec.Executor, error)
-	runListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
+	configure func(*caasoperator.ManifoldsConfig) error
 }
 
 // NewCaasOperatorAgent creates a new CAASOperatorAgent instance properly initialized.
 func NewCaasOperatorAgent(
 	ctx *cmd.Context,
 	bufferedLogger *logsender.BufferedLogWriter,
-	newExecClient func(namespace string) (exec.Executor, error),
-	runListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error),
+	configure func(*caasoperator.ManifoldsConfig) error,
 ) (*CaasOperatorAgent, error) {
 	prometheusRegistry, err := newPrometheusRegistry()
 	if err != nil {
@@ -90,8 +85,7 @@ func NewCaasOperatorAgent(
 		bufferedLogger:     bufferedLogger,
 		prometheusRegistry: prometheusRegistry,
 		preUpgradeSteps:    upgrades.PreUpgradeSteps,
-		newExecClient:      newExecClient,
-		runListenerSocket:  runListenerSocket,
+		configure:          configure,
 	}, nil
 }
 
@@ -222,7 +216,7 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 	}
 
 	agentConfig := op.AgentConf.CurrentConfig()
-	manifolds := CaasOperatorManifolds(caasoperator.ManifoldsConfig{
+	manifoldConfig := caasoperator.ManifoldsConfig{
 		Agent:                agent.APIHostPortsSetter{op},
 		AgentConfigChanged:   op.configChangedVal,
 		Clock:                clock.WallClock,
@@ -235,9 +229,13 @@ func (op *CaasOperatorAgent) Workers() (worker.Worker, error) {
 		ValidateMigration:    op.validateMigration,
 		MachineLock:          op.machineLock,
 		PreviousAgentVersion: agentConfig.UpgradedToVersion(),
-		NewExecClient:        op.newExecClient,
-		RunListenerSocket:    op.runListenerSocket,
-	})
+	}
+	if op.configure != nil {
+		if err := op.configure(&manifoldConfig); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	manifolds := CaasOperatorManifolds(manifoldConfig)
 
 	engine, err := dependency.NewEngine(dependencyEngineConfig())
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -96,12 +97,18 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		Commands: []string{"echo", "'hello world'"},
 		PodName:  "gitlab-k8s-uid",
 	}
-	pod := core.Pod{}
+	pod := core.Pod{
+		Spec: core.PodSpec{
+			InitContainers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodSucceeded,
+		},
+	}
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
-	pod.Status = core.PodStatus{
-		Phase: core.PodSucceeded,
-	}
 	gomock.InOrder(
 		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -115,12 +122,18 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		Commands: []string{"echo", "'hello world'"},
 		PodName:  "gitlab-k8s-uid",
 	}
-	pod = core.Pod{}
+	pod = core.Pod{
+		Spec: core.PodSpec{
+			InitContainers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodFailed,
+		},
+	}
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
-	pod.Status = core.PodStatus{
-		Phase: core.PodFailed,
-	}
 	gomock.InOrder(
 		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -136,6 +149,11 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		ContainerName: "non-existing-container-name",
 	}
 	pod = core.Pod{
+		Spec: core.PodSpec{
+			InitContainers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
 		},
@@ -164,6 +182,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		},
 		Status: core.PodStatus{
 			Phase: core.PodPending,
+			InitContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")
@@ -190,6 +211,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		},
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")
@@ -201,6 +225,35 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
 	)
 	c.Assert(params.Validate(s.mockPodGetter), jc.ErrorIsNil)
+
+	// non fatal error - container not running - container name specified.
+	params = exec.ExecParams{
+		Commands:      []string{"echo", "'hello world'"},
+		PodName:       "gitlab-k8s-uid",
+		ContainerName: "gitlab-container",
+	}
+	pod = core.Pod{
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Waiting: &core.ContainerStateWaiting{}}},
+			},
+		},
+	}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).Times(1).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).Times(1).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+	c.Assert(params.Validate(s.mockPodGetter), gc.ErrorMatches, `container \"gitlab-container\" not running`)
 
 	// all good - no container name specified, pick the 1st container.
 	params = exec.ExecParams{
@@ -216,6 +269,9 @@ func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 		},
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")
@@ -251,6 +307,9 @@ func (s *execSuite) TestExec(c *gc.C) {
 		},
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
 		},
 	}
 	pod.SetUID("gitlab-k8s-uid")
@@ -305,4 +364,11 @@ func (s *execSuite) TestExec(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for Exec return")
 	}
+}
+
+func (s *execSuite) TestErrorHandling(c *gc.C) {
+	err := exec.HandleContainerNotFoundError(errors.New(`unable to upgrade connection: container not found ("mariadb-k8s")`))
+	c.Assert(err, gc.FitsTypeOf, &exec.ContainerNotRunningError{})
+	err = exec.HandleContainerNotFoundError(errors.New(`wow`))
+	c.Assert(err, gc.ErrorMatches, "wow")
 }

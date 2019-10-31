@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/clock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
@@ -115,6 +116,10 @@ type Config struct {
 	// ApplicationWatcher is an interface for getting info about an application's charm.
 	ApplicationWatcher ApplicationWatcher
 
+	// ContainerStartWatcher provides an interface for watching
+	// for unit container starts.
+	ContainerStartWatcher ContainerStartWatcher
+
 	// VersionSetter is an interface for setting the operator agent version.
 	VersionSetter VersionSetter
 
@@ -152,6 +157,9 @@ func (config Config) Validate() error {
 	}
 	if config.UnitRemover == nil {
 		return errors.NotValidf("missing UnitRemover")
+	}
+	if config.ContainerStartWatcher == nil {
+		return errors.NotValidf("missing ContainerStartWatcher")
 	}
 	if config.LeadershipTrackerFunc == nil {
 		return errors.NotValidf("missing LeadershipTrackerFunc")
@@ -413,13 +421,25 @@ func (op *caasOperator) loop() (err error) {
 		return errors.Trace(err)
 	}
 
+	containerStartWatcher, err := op.config.ContainerStartWatcher.WatchContainerStart(op.config.Application, "")
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := op.catacomb.Add(containerStartWatcher); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := op.setStatus(status.Active, ""); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Keep a record of the alive units an a channel used to notify
+	// Keep a record of the alive units and a channel used to notify
 	// their uniter workers when the charm version has changed.
 	aliveUnits := make(map[string]chan struct{})
+	// Channels used to notify uniter worker that the workload container
+	// is running.
+	unitRunningChannels := make(map[string]chan struct{})
+	unitRunning := set.NewStrings()
 
 	if err = restartWatcher(); err != nil {
 		err = errors.Annotate(err, "(re)starting watcher")
@@ -452,8 +472,8 @@ func (op *caasOperator) loop() (err error) {
 					return errors.Trace(err)
 				}
 				// Notify all uniters of the change so they run the upgrade-charm hook.
-				for unitId, changedChan := range aliveUnits {
-					logger.Debugf("trigger upgrade charm for caas unit %v", unitId)
+				for unitID, changedChan := range aliveUnits {
+					logger.Debugf("trigger upgrade charm for caas unit %v", unitID)
 					select {
 					case <-op.catacomb.Dying():
 						return op.catacomb.ErrDying()
@@ -461,19 +481,37 @@ func (op *caasOperator) loop() (err error) {
 					}
 				}
 			}
+		case units, ok := <-containerStartWatcher.Changes():
+			if !ok {
+				return errors.New("container start watcher closed channel")
+			}
+			for _, unitID := range units {
+				if runningChan, ok := unitRunningChannels[unitID]; ok {
+					logger.Debugf("trigger running status for caas unit %v", unitID)
+					unitRunning.Add(unitID)
+					select {
+					case <-op.catacomb.Dying():
+						return op.catacomb.ErrDying()
+					case runningChan <- struct{}{}:
+					}
+				}
+			}
 		case units, ok := <-jujuUnitsWatcher.Changes():
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
-			for _, unitId := range units {
-				unitLife, err := op.config.UnitGetter.Life(unitId)
+			for _, v := range units {
+				unitID := v
+				unitLife, err := op.config.UnitGetter.Life(unitID)
 				if err != nil && !errors.IsNotFound(err) {
 					return errors.Trace(err)
 				}
-				unitTag := names.NewUnitTag(unitId)
+				unitTag := names.NewUnitTag(unitID)
 				if errors.IsNotFound(err) || unitLife == life.Dead {
-					delete(aliveUnits, unitId)
-					if err := op.runner.StopWorker(unitId); err != nil {
+					delete(aliveUnits, unitID)
+					delete(unitRunningChannels, unitID)
+					unitRunning.Remove(unitID)
+					if err := op.runner.StopWorker(unitID); err != nil {
 						return err
 					}
 					// Remove the unit's directory
@@ -481,16 +519,19 @@ func (op *caasOperator) loop() (err error) {
 						return err
 					}
 					// Remove the unit from state.
-					if err := op.config.UnitRemover.RemoveUnit(unitId); err != nil {
+					if err := op.config.UnitRemover.RemoveUnit(unitID); err != nil {
 						return err
 					}
 				} else {
-					if _, ok := aliveUnits[unitId]; !ok {
-						aliveUnits[unitId] = make(chan struct{})
+					if _, ok := aliveUnits[unitID]; !ok {
+						aliveUnits[unitID] = make(chan struct{})
+					}
+					if _, ok := unitRunningChannels[unitID]; !ok {
+						unitRunningChannels[unitID] = make(chan struct{})
 					}
 				}
 				// Start a worker to manage any new units.
-				if _, err := op.runner.Worker(unitId, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
+				if _, err := op.runner.Worker(unitID, op.catacomb.Dying()); err == nil || unitLife == life.Dead {
 					// Already watching the unit. or we're
 					// not yet watching it and it's dead.
 					continue
@@ -506,7 +547,12 @@ func (op *caasOperator) loop() (err error) {
 				params.UnitTag = unitTag
 				params.UniterFacade = op.config.UniterFacadeFunc(unitTag)
 				params.LeadershipTracker = op.config.LeadershipTrackerFunc(unitTag)
-				params.ApplicationChannel = aliveUnits[unitId]
+				params.ApplicationChannel = aliveUnits[unitID]
+				params.RunningStatusChannel = unitRunningChannels[unitID]
+				params.RunningStatusFunc = func() (bool, error) {
+					// TODO(caas): call off to k8s to check container status.
+					return unitRunning.Contains(unitID), nil
+				}
 				if err := op.config.StartUniterFunc(op.runner, params); err != nil {
 					return errors.Trace(err)
 				}

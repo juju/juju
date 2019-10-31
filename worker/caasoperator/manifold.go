@@ -57,6 +57,8 @@ type ManifoldConfig struct {
 	RunListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
 
 	LoadOperatorInfo func(paths Paths) (*caas.OperatorInfo, error)
+
+	NewContainerStartWatcherClient func(Client) ContainerStartWatcher
 }
 
 func (config ManifoldConfig) Validate() error {
@@ -166,6 +168,13 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			if runListenerSocketFunc == nil {
 				runListenerSocketFunc = runListenerSocket
 			}
+			containerStartWatcherClient := config.NewContainerStartWatcherClient
+			if containerStartWatcherClient == nil {
+				containerStartWatcherClient = func(c Client) ContainerStartWatcher {
+					return c
+				}
+			}
+
 			wCfg := Config{
 				ModelUUID:             agentConfig.Model().Id(),
 				ModelName:             model.Name,
@@ -180,6 +189,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				UnitGetter:            client,
 				UnitRemover:           client,
 				ApplicationWatcher:    client,
+				ContainerStartWatcher: containerStartWatcherClient(client),
 				VersionSetter:         client,
 				StartUniterFunc:       uniter.StartUniter,
 				RunListenerSocketFunc: runListenerSocketFunc,
@@ -202,19 +212,15 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			}
 			wCfg.OperatorInfo = *operatorInfo
 			wCfg.UniterParams = &uniter.UniterParams{
-				NewOperationExecutor: operation.NewExecutor,
-				NewRemoteRunnerExecutor: getNewRunnerExecutor(
-					execClient,
-					wCfg.getPaths(),
-					*operatorInfo,
-				),
-				DataDir:              agentConfig.DataDir(),
-				Clock:                clock,
-				MachineLock:          config.MachineLock,
-				CharmDirGuard:        charmDirGuard,
-				UpdateStatusSignal:   uniter.NewUpdateStatusTimer(),
-				HookRetryStrategy:    hookRetryStrategy,
-				TranslateResolverErr: config.TranslateResolverErr,
+				NewOperationExecutor:    operation.NewExecutor,
+				NewRemoteRunnerExecutor: getNewRunnerExecutor(execClient),
+				DataDir:                 agentConfig.DataDir(),
+				Clock:                   clock,
+				MachineLock:             config.MachineLock,
+				CharmDirGuard:           charmDirGuard,
+				UpdateStatusSignal:      uniter.NewUpdateStatusTimer(),
+				HookRetryStrategy:       hookRetryStrategy,
+				TranslateResolverErr:    config.TranslateResolverErr,
 			}
 			wCfg.UniterParams.SocketConfig, err = socketConfig(operatorInfo)
 			if err != nil {

@@ -31,14 +31,14 @@ func (cp *FileResource) validate() (err error) {
 	return nil
 }
 
-// CopyParam holds all the necessary parameters for a copy request.
-type CopyParam struct {
+// CopyParams holds all the necessary parameters for a copy request.
+type CopyParams struct {
 	Src                           FileResource
 	Dest                          FileResource
 	overwriteOwnershipPermissions bool
 }
 
-func (cp *CopyParam) validate() error {
+func (cp *CopyParams) validate() error {
 	if err := cp.Src.validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -55,7 +55,7 @@ func (cp *CopyParam) validate() error {
 }
 
 // Exec copy files/directories from host to a pod or from a pod to host.
-func (c client) Copy(params CopyParam, cancel <-chan struct{}) error {
+func (c client) Copy(params CopyParams, cancel <-chan struct{}) error {
 	if err := params.validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -68,14 +68,14 @@ func (c client) Copy(params CopyParam, cancel <-chan struct{}) error {
 	return nil
 }
 
-func (c client) copyFromPod(params CopyParam, cancel <-chan struct{}) error {
+func (c client) copyFromPod(params CopyParams, cancel <-chan struct{}) error {
 	// TODO(caas): implement when we need later.
 	return errors.NotSupportedf("copy from pod")
 }
 
 // this is inspired by kubectl cmd package.
 // - https://github.com/kubernetes/kubernetes/blob/master/pkg/kubectl/cmd/cp/cp.go
-func (c client) copyToPod(params CopyParam, cancel <-chan struct{}) (err error) {
+func (c client) copyToPod(params CopyParams, cancel <-chan struct{}) (err error) {
 	src := params.Src
 	dest := params.Dest
 	logger.Debugf("coping from %v to %v", src, dest)

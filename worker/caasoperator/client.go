@@ -21,6 +21,7 @@ type Client interface {
 	UnitGetter
 	UnitRemover
 	ApplicationWatcher
+	ContainerStartWatcher
 	PodSpecSetter
 	StatusSetter
 	VersionSetter
@@ -53,6 +54,12 @@ type UnitRemover interface {
 // for application changes.
 type ApplicationWatcher interface {
 	Watch(string) (watcher.NotifyWatcher, error)
+}
+
+// ContainerStartWatcher provides an interface for watching
+// for unit starts.
+type ContainerStartWatcher interface {
+	WatchContainerStart(string, string) (watcher.StringsWatcher, error)
 }
 
 // PodSpecSetter provides an interface for
