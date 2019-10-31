@@ -19,6 +19,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/dynamic"
+
+	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
 //go:generate mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
@@ -150,6 +152,7 @@ func getCRVersion(cr apiVersionGetter) string {
 
 func (k *kubernetesClient) ensureCustomResources(
 	appName string,
+	annotations map[string]string,
 	crSpecs map[string][]unstructured.Unstructured,
 ) (cleanUps []func(), _ error) {
 	crds, err := k.getCRDsForCRs(crSpecs, &crdGetter{k})
@@ -169,6 +172,11 @@ func (k *kubernetesClient) ensureCustomResources(
 				return cleanUps, errors.Trace(err)
 			}
 			crSpec.SetLabels(k.getCRLabels(appName))
+			crSpec.SetAnnotations(
+				k8sannotations.New(crSpec.GetAnnotations()).
+					Merge(k8sannotations.New(annotations)).
+					ToMap(),
+			)
 			_, crCleanUps, err := ensureCustomResource(crdClient, &crSpec)
 			cleanUps = append(cleanUps, crCleanUps...)
 			if err != nil {

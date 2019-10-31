@@ -362,7 +362,8 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 		ObjectMeta: v1.ObjectMeta{
 			Name: "app-name",
 			Annotations: map[string]string{
-				"juju-app-uuid": "appuuid",
+				"juju-app-uuid":      "appuuid",
+				"juju.io/controller": testing.ControllerTag.Id(),
 			},
 		},
 		Spec: appsv1.StatefulSetSpec{
@@ -376,6 +377,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 					Annotations: map[string]string{
 						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
 						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
 					},
 				},
 				Spec: podSpec,
@@ -429,6 +431,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 				DeploymentType: caas.DeploymentStateful,
 			},
 			OperatorImagePath: "operator/image-path",
+			ResourceTags:      map[string]string{"juju-controller-uuid": testing.ControllerTag.Id()},
 		}
 		errChan <- s.broker.EnsureService("app-name",
 			func(_ string, _ status.Status, e string, _ map[string]interface{}) error {
@@ -549,8 +552,10 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourcesCreate(c *gc.C) {
 
 	cr1 := getCR1()
 	cr1.SetLabels(map[string]string{"juju-app": "app-name"})
+	cr1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	cr2 := getCR2()
 	cr2.SetLabels(map[string]string{"juju-app": "app-name"})
+	cr2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 
 	crs := map[string][]unstructured.Unstructured{
 		"tfjobs.kubeflow.org": {
@@ -666,15 +671,19 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourcesUpdate(c *gc.C) {
 
 	cr1 := getCR1()
 	cr1.SetLabels(map[string]string{"juju-app": "app-name"})
+	cr1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	cr2 := getCR2()
 	cr2.SetLabels(map[string]string{"juju-app": "app-name"})
+	cr2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 
 	crUpdatedResourceVersion1 := getCR1()
 	crUpdatedResourceVersion1.SetLabels(map[string]string{"juju-app": "app-name"})
+	crUpdatedResourceVersion1.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	crUpdatedResourceVersion1.SetResourceVersion("11111")
 
 	crUpdatedResourceVersion2 := getCR2()
 	crUpdatedResourceVersion2.SetLabels(map[string]string{"juju-app": "app-name"})
+	crUpdatedResourceVersion2.SetAnnotations(map[string]string{"juju.io/controller": testing.ControllerTag.Id()})
 	crUpdatedResourceVersion2.SetResourceVersion("11111")
 
 	crs := map[string][]unstructured.Unstructured{
