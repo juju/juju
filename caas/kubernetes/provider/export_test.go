@@ -7,7 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
@@ -41,6 +43,7 @@ type (
 	KubernetesClient        = kubernetesClient
 	KubernetesNotifyWatcher = kubernetesNotifyWatcher
 	ControllerServiceSpec   = controllerServiceSpec
+	CRDGetter               = crdGetter
 )
 
 type ControllerStackerForTest interface {
@@ -105,6 +108,10 @@ func NewProviderCredentials(getter func(CommandRunner) (cloud.Cloud, jujucloud.C
 	return environProviderCredentials{
 		builtinCloudGetter: getter,
 	}
+}
+
+func (k *kubernetesClient) GetCRDsForCRs(crs map[string][]unstructured.Unstructured, getter CRDGetterInterface) (out map[string]*apiextensionsv1beta1.CustomResourceDefinition, err error) {
+	return k.getCRDsForCRs(crs, getter)
 }
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {

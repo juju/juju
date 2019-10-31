@@ -216,25 +216,25 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-operator==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-operator==test", IncludeUninitialized: true},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, nil),
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-operator==test", IncludeUninitialized: true},
 		).Return(nil),
 
-		s.mockConfigMaps.EXPECT().Delete("test-operator-config", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockConfigMaps.EXPECT().Delete("test-operator-config", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockConfigMaps.EXPECT().Delete("test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockConfigMaps.EXPECT().Delete("test-configurations-config", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockServices.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
 			Return(&core.PodList{Items: []core.Pod{{
@@ -250,13 +250,13 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 					}},
 				},
 			}}}, nil),
-		s.mockSecrets.EXPECT().Delete("test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockSecrets.EXPECT().Delete("test-jujud-secret", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockPersistentVolumeClaims.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockPersistentVolumes.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockPersistentVolumes.EXPECT().Delete("test-operator-volume", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockDeployments.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockDeployments.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 	)
 
@@ -570,7 +570,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test", IncludeUninitialized: true}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Return(nil),
+		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Return(rb, nil),
 		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{IncludeUninitialized: true}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
@@ -695,13 +695,13 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 			Return(nil, s.k8sNotFoundError()),
 
 		// clean up steps.
-		s.mockServices.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, nil)).
+		s.mockServices.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
 
 		// delete RBAC resources.
-		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, &rbUID)).Return(nil),
-		s.mockRoles.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, &roleUID)).Return(nil),
-		s.mockServiceAccounts.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, &svcAccountUID)).Return(nil),
+		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
+		s.mockRoles.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, roleUID)).Return(nil),
+		s.mockServiceAccounts.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, svcAccountUID)).Return(nil),
 	)
 
 	err := s.broker.EnsureOperator("test", "path/to/agent", &caas.OperatorConfig{

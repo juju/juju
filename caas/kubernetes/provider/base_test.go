@@ -18,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -61,6 +62,10 @@ type BaseSuite struct {
 	mockApiextensionsV1          *mocks.MockApiextensionsV1beta1Interface
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
+
+	mockDynamicClient               *mocks.MockDynamicInterface
+	mockResourceClient              *mocks.MockResourceInterface
+	mockNamespaceableResourceClient *mocks.MockNamespaceableResourceInterface
 
 	mockServiceAccounts     *mocks.MockServiceAccountInterface
 	mockRoles               *mocks.MockRoleInterface
@@ -208,6 +213,11 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockApiextensionsClient.EXPECT().ApiextensionsV1beta1().AnyTimes().Return(s.mockApiextensionsV1)
 	s.mockApiextensionsV1.EXPECT().CustomResourceDefinitions().AnyTimes().Return(s.mockCustomResourceDefinition)
 
+	s.mockDynamicClient = mocks.NewMockDynamicInterface(ctrl)
+	s.mockResourceClient = mocks.NewMockResourceInterface(ctrl)
+	s.mockNamespaceableResourceClient = mocks.NewMockNamespaceableResourceInterface(ctrl)
+	s.mockNamespaceableResourceClient.EXPECT().Namespace(namespace).AnyTimes().Return(s.mockResourceClient)
+
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
 
@@ -226,7 +236,7 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockDiscovery = mocks.NewMockDiscoveryInterface(ctrl)
 	s.k8sClient.EXPECT().Discovery().AnyTimes().Return(s.mockDiscovery)
 
-	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error) {
+	return func(cfg *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error) {
 		c.Assert(cfg.Username, gc.Equals, "fred")
 		c.Assert(cfg.Password, gc.Equals, "secret")
 		c.Assert(cfg.Host, gc.Equals, "some-host")
@@ -235,7 +245,7 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 			KeyData:  []byte("cert-key"),
 			CAData:   []byte(testing.CACert),
 		})
-		return s.k8sClient, s.mockApiextensionsClient, nil
+		return s.k8sClient, s.mockApiextensionsClient, s.mockDynamicClient, nil
 	}
 }
 
@@ -247,13 +257,12 @@ func (s *BaseSuite) k8sAlreadyExistsError() *k8serrors.StatusError {
 	return k8serrors.NewAlreadyExists(schema.GroupResource{}, "test")
 }
 
-func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid *types.UID) *v1.DeleteOptions {
+func (s *BaseSuite) deleteOptions(policy v1.DeletionPropagation, uid types.UID) *v1.DeleteOptions {
 	ops := &v1.DeleteOptions{
 		PropagationPolicy: &policy,
 	}
-	if uid != nil {
-		// TODO(caas): change uid is required once all delete operation refactored.
-		ops.Preconditions = &v1.Preconditions{UID: uid}
+	if uid != "" {
+		ops.Preconditions = &v1.Preconditions{UID: &uid}
 	}
 	return ops
 }

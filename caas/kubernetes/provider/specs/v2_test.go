@@ -8,6 +8,7 @@ import (
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
@@ -167,33 +168,66 @@ kubernetesResources:
   customResourceDefinitions:
     tfjobs.kubeflow.org:
       group: kubeflow.org
-      version: v1alpha2
       scope: Namespaced
       names:
-        plural: "tfjobs"
-        singular: "tfjob"
         kind: TFJob
+        singular: tfjob
+        plural: tfjobs
+      version: v1
+      versions:
+      - name: v1
+        served: true
+        storage: true
+      - name: v1beta2
+        served: true
+        storage: false
       validation:
         openAPIV3Schema:
           properties:
-            tfReplicaSpecs:
+            spec:
               properties:
-                Worker:
+                tfReplicaSpecs:
                   properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                PS:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                Chief:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                      maximum: 1
+                    Worker:
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                    PS:
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                    Chief:
+                      properties:
+                        replicas:
+                          type: integer
+                          minimum: 1
+                          maximum: 1
+  customResources:
+    tfjobs.kubeflow.org:
+      - apiVersion: "kubeflow.org/v1"
+        kind: "TFJob"
+        metadata:
+          name: "dist-mnist-for-e2e-test"
+        spec:
+          tfReplicaSpecs:
+            PS:
+              replicas: 2
+              restartPolicy: Never
+              template:
+                spec:
+                  containers:
+                    - name: tensorflow
+                      image: kubeflow/tf-dist-mnist-test:1.0
+            Worker:
+              replicas: 4
+              restartPolicy: Never
+              template:
+                spec:
+                  containers:
+                    - name: tensorflow
+                      image: kubeflow/tf-dist-mnist-test:1.0
 `[1:]
 
 	expectedFileContent := `
@@ -388,8 +422,12 @@ password: shhhh`[1:],
 				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
 					"tfjobs.kubeflow.org": {
 						Group:   "kubeflow.org",
-						Version: "v1alpha2",
-						Scope:   "Namespaced",
+						Version: "v1",
+						Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+							{Name: "v1", Served: true, Storage: true},
+							{Name: "v1beta2", Served: true, Storage: false},
+						},
+						Scope: "Namespaced",
 						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
@@ -398,29 +436,78 @@ password: shhhh`[1:],
 						Validation: &apiextensionsv1beta1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"tfReplicaSpecs": {
+									"spec": {
 										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"PS": {
+											"tfReplicaSpecs": {
 												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"replicas": {
-														Type: "integer", Minimum: float64Ptr(1),
+													"PS": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type: "integer", Minimum: float64Ptr(1),
+															},
+														},
+													},
+													"Chief": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type:    "integer",
+																Minimum: float64Ptr(1),
+																Maximum: float64Ptr(1),
+															},
+														},
+													},
+													"Worker": {
+														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+															"replicas": {
+																Type:    "integer",
+																Minimum: float64Ptr(1),
+															},
+														},
 													},
 												},
 											},
-											"Chief": {
-												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"replicas": {
-														Type:    "integer",
-														Minimum: float64Ptr(1),
-														Maximum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				CustomResources: map[string][]unstructured.Unstructured{
+					"tfjobs.kubeflow.org": {
+						{
+							Object: map[string]interface{}{
+								"apiVersion": "kubeflow.org/v1",
+								"metadata": map[string]interface{}{
+									"name": "dist-mnist-for-e2e-test",
+								},
+								"kind": "TFJob",
+								"spec": map[string]interface{}{
+									"tfReplicaSpecs": map[string]interface{}{
+										"PS": map[string]interface{}{
+											"replicas":      int64(2),
+											"restartPolicy": "Never",
+											"template": map[string]interface{}{
+												"spec": map[string]interface{}{
+													"containers": []interface{}{
+														map[string]interface{}{
+															"name":  "tensorflow",
+															"image": "kubeflow/tf-dist-mnist-test:1.0",
+														},
 													},
 												},
 											},
-											"Worker": {
-												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"replicas": {
-														Type:    "integer",
-														Minimum: float64Ptr(1),
+										},
+										"Worker": map[string]interface{}{
+											"replicas":      int64(4),
+											"restartPolicy": "Never",
+											"template": map[string]interface{}{
+												"spec": map[string]interface{}{
+													"containers": []interface{}{
+														map[string]interface{}{
+															"name":  "tensorflow",
+															"image": "kubeflow/tf-dist-mnist-test:1.0",
+														},
 													},
 												},
 											},

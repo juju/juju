@@ -30,10 +30,12 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -110,6 +112,7 @@ type kubernetesClient struct {
 	envCfgUnlocked              *config.Config
 	clientUnlocked              kubernetes.Interface
 	apiextensionsClientUnlocked apiextensionsclientset.Interface
+	dynamicClientUnlocked       dynamic.Interface
 
 	newClient NewK8sClientFunc
 
@@ -132,11 +135,12 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
 //go:generate mockgen -package mocks -destination mocks/rbacv1_mock.go k8s.io/client-go/kubernetes/typed/rbac/v1 RbacV1Interface,ClusterRoleBindingInterface,ClusterRoleInterface,RoleInterface,RoleBindingInterface
 //go:generate mockgen -package mocks -destination mocks/apiextensions_mock.go k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1 ApiextensionsV1beta1Interface,CustomResourceDefinitionInterface
-//go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset  Interface
+//go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
+//go:generate mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
-type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, error)
+type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
 
 // NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
 type NewK8sWatcherFunc func(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesNotifyWatcher, error)
@@ -154,7 +158,7 @@ func newK8sBroker(
 	randomPrefix RandomPrefixFunc,
 	clock jujuclock.Clock,
 ) (*kubernetesClient, error) {
-	k8sClient, apiextensionsClient, err := newClient(k8sRestConfig)
+	k8sClient, apiextensionsClient, dynamicClient, err := newClient(k8sRestConfig)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -171,6 +175,7 @@ func newK8sBroker(
 		clock:                       clock,
 		clientUnlocked:              k8sClient,
 		apiextensionsClientUnlocked: apiextensionsClient,
+		dynamicClientUnlocked:       dynamicClient,
 		envCfgUnlocked:              newCfg.Config,
 		namespace:                   newCfg.Name(),
 		modelUUID:                   modelUUID,
@@ -243,6 +248,13 @@ func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
 	return client
 }
 
+func (k *kubernetesClient) dynamicClient() dynamic.Interface {
+	k.lock.Lock()
+	defer k.lock.Unlock()
+	client := k.dynamicClientUnlocked
+	return client
+}
+
 // Config returns environ config.
 func (k *kubernetesClient) Config() *config.Config {
 	k.lock.Lock()
@@ -273,7 +285,7 @@ func (k *kubernetesClient) SetCloudSpec(spec environs.CloudSpec) error {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
 
-	k.clientUnlocked, k.apiextensionsClientUnlocked, err = k.newClient(k8sRestConfig)
+	k.clientUnlocked, k.apiextensionsClientUnlocked, k.dynamicClientUnlocked, err = k.newClient(k8sRestConfig)
 	if err != nil {
 		return errors.Annotate(err, "cannot set cloud spec")
 	}
@@ -774,6 +786,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteAllServiceAccountResources(appName); err != nil {
 		return errors.Trace(err)
 	}
+	// Order matters: delete custom resources first then custom resource definitions.
+	if err := k.deleteCustomResources(appName); err != nil {
+		return errors.Trace(err)
+	}
 	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
 		return errors.Trace(err)
 	}
@@ -950,7 +966,7 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
-	// ensure custom resource definitions first.
+	// ensure custom resource definitions.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
 		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, annotations, crds)
@@ -959,6 +975,17 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating custom resource definitions")
 		}
 		logger.Debugf("created/updated custom resource definition for %q.", appName)
+
+	}
+	// ensure custom resources.
+	crs := workloadSpec.CustomResources
+	if len(crs) > 0 {
+		crCleanUps, err := k.ensureCustomResources(appName, annotations, crs)
+		cleanups = append(cleanups, crCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating custom resources")
+		}
+		logger.Debugf("created/updated custom resources for %q.", appName)
 	}
 
 	for _, sa := range workloadSpec.ServiceAccounts {
@@ -986,7 +1013,7 @@ func (k *kubernetesClient) EnsureService(
 		if err := k.ensureOCIImageSecret(imageSecretName, appName, &c.ImageDetails, annotations.Copy()); err != nil {
 			return errors.Annotatef(err, "creating secrets for container: %s", c.Name)
 		}
-		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, nil) })
+		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, "") })
 	}
 
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
@@ -2344,6 +2371,7 @@ type workloadSpec struct {
 	ConfigMaps                map[string]specs.ConfigMap
 	ServiceAccounts           []serviceAccountSpecGetter
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
+	CustomResources           map[string][]unstructured.Unstructured
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2414,6 +2442,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 		if k8sResources != nil {
 			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
+			spec.CustomResources = k8sResources.CustomResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
@@ -2517,6 +2546,9 @@ func labelsToSelector(labels map[string]string) string {
 }
 
 func newUIDPreconditions(uid k8stypes.UID) *v1.Preconditions {
+	if uid == "" {
+		return nil
+	}
 	return &v1.Preconditions{UID: &uid}
 }
 
