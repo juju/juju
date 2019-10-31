@@ -713,12 +713,21 @@ func (i *importer) makeAddress(addr description.Address) address {
 	if addr == nil {
 		return address{}
 	}
-	return address{
+
+	newAddr := address{
 		Value:       addr.Value(),
 		AddressType: addr.Type(),
 		Scope:       addr.Scope(),
 		Origin:      addr.Origin(),
+		SpaceID:     addr.SpaceID(),
 	}
+
+	// Addresses are placed in the default space if no space ID is set.
+	if newAddr.SpaceID == "" {
+		newAddr.SpaceID = "0"
+	}
+
+	return newAddr
 }
 
 func (i *importer) makeAddresses(addrs []description.Address) []address {

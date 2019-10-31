@@ -43,7 +43,7 @@ import (
 // one and each migration step will add itself to that and Run for completion.
 //
 // Whilst we're creating these steps, it is expected to create the unit tests
-// and suppliment all of these tests with existing tests, to ensure that no
+// and supplement all of these tests with existing tests, to ensure that no
 // gaps are missing. In the future the integration tests should be replaced with
 // the new shell tests to ensure a full end to end test is performed.
 
@@ -562,19 +562,20 @@ func (e *exporter) openedPortsArgsForMachine(machineId string, portsData []ports
 }
 
 func (e *exporter) newAddressArgsSlice(a []address) []description.AddressArgs {
-	result := []description.AddressArgs{}
-	for _, addr := range a {
-		result = append(result, e.newAddressArgs(addr))
+	result := make([]description.AddressArgs, len(a))
+	for i, addr := range a {
+		result[i] = e.newAddressArgs(addr)
 	}
 	return result
 }
 
 func (e *exporter) newAddressArgs(a address) description.AddressArgs {
 	return description.AddressArgs{
-		Value:  a.Value,
-		Type:   a.AddressType,
-		Scope:  a.Scope,
-		Origin: a.Origin,
+		Value:   a.Value,
+		Type:    a.AddressType,
+		Scope:   a.Scope,
+		Origin:  a.Origin,
+		SpaceID: a.SpaceID,
 	}
 }
 
@@ -706,7 +707,7 @@ func (e *exporter) readAllStorageConstraints() error {
 	storageConstraints := make(map[string]storageConstraintsDoc)
 	var doc storageConstraintsDoc
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		storageConstraints[e.st.localID(doc.DocID)] = doc
 	}
@@ -1710,7 +1711,7 @@ func (e *exporter) readAllStatusHistory() error {
 	// underconstrained - include document id for deterministic
 	// ordering in those cases.
 	iter := statuses.Find(nil).Sort("-updated", "-_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		history := e.statusHistory[doc.GlobalKey]
 		e.statusHistory[doc.GlobalKey] = append(history, doc)
@@ -2017,7 +2018,7 @@ func (e *exporter) volumes() error {
 
 	var doc volumeDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		vol := &volume{e.st, doc}
 		plan := attachmentPlans[doc.Name]
@@ -2141,7 +2142,7 @@ func (e *exporter) readVolumeAttachments() (map[string][]volumeAttachmentDoc, er
 	var doc volumeAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
@@ -2161,7 +2162,7 @@ func (e *exporter) readVolumeAttachmentPlans() (map[string][]volumeAttachmentPla
 	var doc volumeAttachmentPlanDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		result[doc.Volume] = append(result[doc.Volume], doc)
 		count++
@@ -2183,7 +2184,7 @@ func (e *exporter) filesystems() error {
 	}
 	var doc filesystemDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		fs := &filesystem{e.st, doc}
 		if err := e.addFilesystem(fs, attachments[doc.FilesystemId]); err != nil {
@@ -2263,7 +2264,7 @@ func (e *exporter) readFilesystemAttachments() (map[string][]filesystemAttachmen
 	var doc filesystemAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		result[doc.Filesystem] = append(result[doc.Filesystem], doc)
 		count++
@@ -2289,7 +2290,7 @@ func (e *exporter) storageInstances() error {
 	}
 	var doc storageInstanceDoc
 	iter := coll.Find(nil).Sort("_id").Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		instance := &storageInstance{sb, doc}
 		if err := e.addStorage(instance, attachments[doc.Id]); err != nil {
@@ -2328,7 +2329,7 @@ func (e *exporter) readStorageAttachments() (map[string][]names.UnitTag, error) 
 	var doc storageAttachmentDoc
 	var count int
 	iter := coll.Find(nil).Iter()
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 	for iter.Next(&doc) {
 		unit := names.NewUnitTag(doc.Unit)
 		result[doc.StorageInstance] = append(result[doc.StorageInstance], unit)
