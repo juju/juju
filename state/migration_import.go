@@ -927,6 +927,12 @@ func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, erro
 		}
 	}
 
+	// 2.6 controllers only populate the default space key if set to the
+	// non-default space whereas 2.7 controllers always set it.
+	if _, exists := bindingsMap[defaultEndpointName]; !exists {
+		bindingsMap[defaultEndpointName] = network.DefaultSpaceName
+	}
+
 	return NewBindings(i.st, bindingsMap)
 }
 
