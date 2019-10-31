@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -624,7 +623,7 @@ func (b *BundleAPI) endpointBindings(bindings map[string]string) (map[string]str
 	}
 	names := set.NewStrings()
 	for k, v := range endpointsWithSpaceNames {
-		if v == network.AlphaSpaceName {
+		if v == "" {
 			delete(endpointsWithSpaceNames, k)
 		}
 		names.Add(v)

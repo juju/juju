@@ -103,7 +103,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 		"test": &mockApplication{
 			name:  "test",
 			charm: ch, curl: charm.MustParseURL("db2-2"),
-			bindings: map[string]string{"db2": "1"}, // myspace
+			bindings: map[string]string{"db2": "myspace"}, // myspace
 		},
 	}
 	s.mockState.model = &mockModel{
@@ -127,7 +127,7 @@ func (s *baseSuite) setupOffers(c *gc.C, filterAppName string, filterWithEndpoin
 			relationId:  1,
 		},
 	}
-	s.mockState.spaces["1"] = &mockSpace{
+	s.mockState.spaces["myspace"] = &mockSpace{
 		name:       "myspace",
 		providerId: "juju-space-myspace",
 		subnets: []applicationoffers.Subnet{

@@ -60,7 +60,7 @@ type Backend interface {
 	ApplicationOffer(name string) (*crossmodel.ApplicationOffer, error)
 	Model() (Model, error)
 	OfferConnections(string) ([]OfferConnection, error)
-	Space(string) (Space, error)
+	SpaceByName(string) (Space, error)
 	User(names.UserTag) (User, error)
 
 	CreateOfferAccess(offer names.ApplicationOfferTag, user names.UserTag, access permission.Access) error
@@ -100,8 +100,8 @@ func (s stateShim) GetOfferUsers(offerUUID string) (map[string]permission.Access
 	return s.st.GetOfferUsers(offerUUID)
 }
 
-func (s *stateShim) Space(id string) (Space, error) {
-	sp, err := s.st.Space(id)
+func (s *stateShim) SpaceByName(name string) (Space, error) {
+	sp, err := s.st.SpaceByName(name)
 	return &spaceShim{sp}, err
 }
 

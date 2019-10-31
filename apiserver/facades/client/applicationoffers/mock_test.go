@@ -167,8 +167,8 @@ type mockBindings struct {
 	bMap map[string]string
 }
 
-func (b *mockBindings) Map() map[string]string {
-	return b.bMap
+func (b *mockBindings) MapWithSpaceNames() (map[string]string, error) {
+	return b.bMap, nil
 }
 
 type mockSpace struct {
@@ -333,10 +333,10 @@ func (m *mockState) ApplicationOffer(name string) (*jujucrossmodel.ApplicationOf
 	return &offer, nil
 }
 
-func (m *mockState) Space(id string) (applicationoffers.Space, error) {
-	space, ok := m.spaces[id]
+func (m *mockState) SpaceByName(name string) (applicationoffers.Space, error) {
+	space, ok := m.spaces[name]
 	if !ok {
-		return nil, errors.NotFoundf("space %q", id)
+		return nil, errors.NotFoundf("space %q", name)
 	}
 	return space, nil
 }
