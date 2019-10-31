@@ -227,7 +227,7 @@ func (s *Subnet) setSpace(subnets mongo.Collection) error {
 }
 
 // Update adds new info to the subnet based on input info.
-// Currently no data is changed unless it is the default space from MAAS.
+// Currently no data is changed unless it is the "undefined" space from MAAS.
 // There are restrictions on the additions allowed:
 //   - No change to CIDR; more work is required to determine how to handle.
 //   - No change to ProviderId nor ProviderNetworkID; these are immutable.
