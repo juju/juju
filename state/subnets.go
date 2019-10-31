@@ -20,7 +20,8 @@ import (
 type Subnet struct {
 	st  *State
 	doc subnetDoc
-	// spaceID is the space id from the subnet's FanLocalUnderlay, or this subnet's space id,
+	// spaceID is either the space id from the subnet's FanLocalUnderlay,
+	// or this subnet's space ID.
 	spaceID string
 }
 
@@ -46,7 +47,7 @@ func (s *Subnet) Life() Life {
 	return s.doc.Life
 }
 
-// ID returns the unique id for the subnet, for other entities to reference it.
+// ID returns the unique ID for the subnet.
 func (s *Subnet) ID() string {
 	return s.doc.ID
 }
@@ -74,9 +75,10 @@ func (s *Subnet) IsPublic() bool {
 	return s.doc.IsPublic
 }
 
-// EnsureDead sets the Life of the subnet to Dead, if it's Alive. If the subnet
-// is already Dead, no error is returned. When the subnet is no longer Alive or
-// already removed, errNotAlive is returned.
+// EnsureDead sets the Life of the subnet to Dead if it is Alive.
+// If the subnet is already Dead, no error is returned.
+// When the subnet is no longer Alive or already removed,
+// errNotAlive is returned.
 func (s *Subnet) EnsureDead() (err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot set subnet %q to dead", s)
 
@@ -127,7 +129,7 @@ func (s *Subnet) Remove() (err error) {
 	return onAbort(txnErr, errors.New("not found or not dead"))
 }
 
-// ProviderId returns the provider-specific id of the subnet.
+// ProviderId returns the provider-specific ID of the subnet.
 func (s *Subnet) ProviderId() network.Id {
 	return network.Id(s.doc.ProviderId)
 }
@@ -143,14 +145,15 @@ func (s *Subnet) VLANTag() int {
 	return s.doc.VLANTag
 }
 
-// AvailabilityZones returns the availability zones of the subnet. If the subnet
-// is not associated with an availability zones it will be the empty slice.
+// AvailabilityZones returns the availability zones of the subnet.
+// If the subnet is not associated with an availability zones
+// it will return an the empty slice.
 func (s *Subnet) AvailabilityZones() []string {
 	return s.doc.AvailabilityZones
 }
 
-// SpaceName returns the space the subnet is associated with. If the subnet is
-// not associated with a space it will be the empty string.
+// SpaceName returns the space the subnet is associated with.
+// If the subnet is not associated with a space it will return an empty string.
 func (s *Subnet) SpaceName() string {
 	if s.spaceID == "" {
 		return network.DefaultSpaceName
@@ -163,8 +166,9 @@ func (s *Subnet) SpaceName() string {
 	return sp.Name()
 }
 
-// SpaceID returns the id of the space the subnet is associated with. If the subnet is
-// not associated with a space it will be network.DefaultSpaceId.
+// SpaceID returns the ID of the space the subnet is associated with.
+// If the subnet is not associated with a space it will return
+// network.DefaultSpaceId.
 func (s *Subnet) SpaceID() string {
 	return s.spaceID
 }
@@ -201,8 +205,7 @@ func (s *Subnet) setSpace(subnets mongo.Collection) error {
 		return nil
 	}
 	if subnets == nil {
-		// Some callers have the mongo subnet collection already,
-		// some do not.
+		// Some callers have the mongo subnet collection already; some do not.
 		var closer SessionCloser
 		subnets, closer = s.st.db().GetCollection(subnetsC)
 		defer closer()
@@ -223,12 +226,11 @@ func (s *Subnet) setSpace(subnets mongo.Collection) error {
 	return nil
 }
 
-// Update adds new info to the subnet based on provided info.  Currently no
-// data is changed, unless it is the default space from MAAS.  There are
-// restrictions to the additions allowed:
-//   - no change to CIDR, more work to determine how to handle needs to
-// be done.
-//   - no change to ProviderId nor ProviderNetworkID, these are immutable.
+// Update adds new info to the subnet based on input info.
+// Currently no data is changed unless it is the "undefined" space from MAAS.
+// There are restrictions on the additions allowed:
+//   - No change to CIDR; more work is required to determine how to handle.
+//   - No change to ProviderId nor ProviderNetworkID; these are immutable.
 func (s *Subnet) Update(args network.SubnetInfo) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt != 0 {
@@ -251,17 +253,18 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			bsonSet = append(bsonSet, bson.DocElem{"space-id", sp.Id()})
+			bsonSet = append(bsonSet, bson.DocElem{Name: "space-id", Value: sp.Id()})
 		}
 		if len(args.AvailabilityZones) > 0 {
 			currentAZ := set.NewStrings(args.AvailabilityZones...)
 			newAZ := currentAZ.Difference(set.NewStrings(s.doc.AvailabilityZones...))
 			if !newAZ.IsEmpty() {
-				bsonSet = append(bsonSet, bson.DocElem{"availability-zones", append(s.doc.AvailabilityZones, newAZ.Values()...)})
+				bsonSet = append(bsonSet,
+					bson.DocElem{Name: "availability-zones", Value: append(s.doc.AvailabilityZones, newAZ.Values()...)})
 			}
 		}
 		if s.doc.VLANTag == 0 && args.VLANTag > 0 {
-			bsonSet = append(bsonSet, bson.DocElem{"vlantag", args.VLANTag})
+			bsonSet = append(bsonSet, bson.DocElem{Name: "vlantag", Value: args.VLANTag})
 		}
 		if len(bsonSet) == 0 {
 			return nil, jujutxn.ErrNoOperations
