@@ -1268,6 +1268,9 @@ func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription,
 	runner TransactionRunner,
 ) error {
 	remoteApplications := src.RemoteApplications()
+	if len(remoteApplications) == 0 {
+		return nil
+	}
 	ops := make([]txn.Op, 0)
 	for _, app := range remoteApplications {
 		appDoc := src.MakeRemoteApplicationDoc(app)
@@ -1534,6 +1537,9 @@ type ImportRemoteEntities struct{}
 // the dependencies we have.
 func (ImportRemoteEntities) Execute(src RemoteEntitiesDescription, runner TransactionRunner) error {
 	remoteEntities := src.RemoteEntities()
+	if len(remoteEntities) == 0 {
+		return nil
+	}
 	ops := make([]txn.Op, len(remoteEntities))
 	for i, entity := range remoteEntities {
 		docID := src.DocID(entity.ID())
@@ -1587,6 +1593,9 @@ type ImportRelationNetworks struct{}
 // the dependencies we have.
 func (ImportRelationNetworks) Execute(src RelationNetworksDescription, runner TransactionRunner) error {
 	relationNetworks := src.RelationNetworks()
+	if len(relationNetworks) == 0 {
+		return nil
+	}
 	ops := make([]txn.Op, len(relationNetworks))
 	for i, entity := range relationNetworks {
 		docID := src.DocID(entity.ID())
@@ -1659,8 +1668,10 @@ func (i *importer) linklayerdevices() error {
 		ops = append(ops, incrementDeviceNumChildrenOp(parentDocID))
 
 	}
-	if err := i.st.db().RunTransaction(ops); err != nil {
-		return errors.Trace(err)
+	if len(ops) > 0 {
+		if err := i.st.db().RunTransaction(ops); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	i.logger.Debugf("importing linklayerdevices succeeded")
 	return nil
