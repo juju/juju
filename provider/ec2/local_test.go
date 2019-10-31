@@ -1622,6 +1622,9 @@ func (t *localServerSuite) TestNetworkInterfacesForMultipleInstances(c *gc.C) {
 		ids[i] = inst.Id()
 	}
 
+	// Sort instance list so we always get consistent results
+	sort.Slice(ids, func(l, r int) bool { return ids[l] < ids[r] })
+
 	ifLists, err := env.NetworkInterfaces(t.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
