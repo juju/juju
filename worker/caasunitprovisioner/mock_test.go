@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
 	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
@@ -121,6 +122,9 @@ func (m *mockContainerBroker) Units(appName string) ([]caas.Unit, error) {
 
 func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
 	m.MethodCall(m, "Operator", appName)
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
 	return &caas.Operator{
 		Dying: false,
 		Status: status.StatusInfo{
@@ -134,6 +138,11 @@ func (m *mockContainerBroker) Operator(appName string) (*caas.Operator, error) {
 func (m *mockContainerBroker) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
 	m.MethodCall(m, "WatchOperator", appName)
 	return m.operatorWatcher, m.NextErr()
+}
+
+func (m *mockContainerBroker) AnnotateUnit(appName string, podName string, unit names.UnitTag) error {
+	m.MethodCall(m, "AnnotateUnit", appName, podName, unit)
+	return m.NextErr()
 }
 
 type mockApplicationGetter struct {
@@ -265,14 +274,15 @@ func (m *mockLifeGetter) Life(entityName string) (life.Value, error) {
 
 type mockUnitUpdater struct {
 	testing.Stub
+	unitsInfo *params.UpdateApplicationUnitsInfo
 }
 
-func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) error {
+func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error) {
 	m.MethodCall(m, "UpdateUnits", arg)
 	if err := m.NextErr(); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return m.unitsInfo, nil
 }
 
 type mockProvisioningStatusSetter struct {

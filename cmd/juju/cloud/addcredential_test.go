@@ -98,20 +98,20 @@ func (s *addCredentialSuite) TestBadArgs(c *gc.C) {
 }
 
 func (s *addCredentialSuite) TestBadLocalCloudName(c *gc.C) {
-	ctx, err := s.run(c, nil, "badcloud")
+	ctx, err := s.run(c, nil, "badcloud", "--client")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "To view all available clouds, use 'juju clouds'.\nTo add new cloud, use 'juju add-cloud'.\n")
 	c.Assert(c.GetTestLog(), jc.Contains, "cloud badcloud not valid")
 }
 
 func (s *addCredentialSuite) TestAddFromFileBadFilename(c *gc.C) {
-	_, err := s.run(c, nil, "somecloud", "-f", "somefile.yaml")
+	_, err := s.run(c, nil, "somecloud", "-f", "somefile.yaml", "--client")
 	c.Assert(err, gc.ErrorMatches, ".*open somefile.yaml: .*")
 }
 
 func (s *addCredentialSuite) TestNoCredentialsRequired(c *gc.C) {
 	s.authTypes = nil
-	_, err := s.run(c, nil, "somecloud")
+	_, err := s.run(c, nil, "somecloud", "--client")
 	c.Assert(err, gc.ErrorMatches, `cloud "somecloud" does not require credentials`)
 }
 
@@ -151,13 +151,13 @@ credentials:
 	c.Assert(err, gc.IsNil)
 
 	s.authTypes = []jujucloud.AuthType{jujucloud.InteractiveAuthType}
-	_, err = s.run(c, nil, "somecloud", "-f", sourceFile)
+	_, err = s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
 	c.Assert(err, gc.ErrorMatches, `"credential with spaces" is not a valid credential name`)
 }
 
 func (s *addCredentialSuite) TestAddFromFileNoCredentialsFound(c *gc.C) {
 	sourceFile := s.createTestCredentialData(c)
-	_, err := s.run(c, nil, "anothercloud", "-f", sourceFile)
+	_, err := s.run(c, nil, "anothercloud", "-f", sourceFile, "--client")
 	c.Assert(err, gc.ErrorMatches, `no credentials for cloud anothercloud exist in file.*`)
 }
 
@@ -169,7 +169,7 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
 		},
 	}
 	sourceFile := s.createTestCredentialData(c)
-	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
@@ -185,7 +185,7 @@ func (s *addCredentialSuite) TestAddFromFileExisting(c *gc.C) {
 
 func (s *addCredentialSuite) TestAddInvalidRegionSpecified(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
-	_, err := s.run(c, nil, "somecloud", "--region", "someregion")
+	_, err := s.run(c, nil, "somecloud", "--region", "someregion", "--client")
 	c.Assert(err, gc.ErrorMatches, `provided region "someregion" for cloud "somecloud" not valid`)
 }
 
@@ -225,19 +225,19 @@ credentials:
 
 func (s *addCredentialSuite) TestAddWithFileRegionSpecified(c *gc.C) {
 	s.setupCloudWithRegions(c)
-	args := []string{"somecloud", "-f", s.createFileForAddCredential(c)}
+	args := []string{"somecloud", "-f", s.createFileForAddCredential(c), "--client"}
 	s.assertCredentialAdded(c, "", args, "specialregion", "specialregion")
 }
 
 func (s *addCredentialSuite) TestAddWithFileNoRegionSpecified(c *gc.C) {
 	s.setupCloudWithRegions(c)
-	args := []string{"somecloud", "-f", s.createFileForAddCredential(c)}
+	args := []string{"somecloud", "-f", s.createFileForAddCredential(c), "--client"}
 	s.assertCredentialAdded(c, "", args, "", "")
 }
 
 func (s *addCredentialSuite) TestAddInteractiveNoRegionSpecified(c *gc.C) {
 	s.setupCloudWithRegions(c)
-	args := []string{"somecloud"}
+	args := []string{"somecloud", "--client"}
 
 	ctxt := s.assertCredentialAdded(c, "fred\n\nuser\npassword\n", args, "", "")
 	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, `
@@ -254,12 +254,11 @@ Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "There are no controllers specified - not adding a credential to any controller.\n")
 }
 
 func (s *addCredentialSuite) TestAddInteractiveInvalidRegionEntered(c *gc.C) {
 	s.setupCloudWithRegions(c)
-	args := []string{"somecloud"}
+	args := []string{"somecloud", "--client"}
 
 	ctxt := s.assertCredentialAdded(c, "fred\nnotknownregion\n\nuser\npassword\n", args, "", "")
 	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, `
@@ -278,12 +277,11 @@ Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "There are no controllers specified - not adding a credential to any controller.\n")
 }
 
 func (s *addCredentialSuite) TestAddInteractiveRegionSpecified(c *gc.C) {
 	s.setupCloudWithRegions(c)
-	args := []string{"somecloud"}
+	args := []string{"somecloud", "--client"}
 
 	ctxt := s.assertCredentialAdded(c, "fred\nuser\npassword\n", args, "specialregion", "specialregion")
 	c.Assert(cmdtesting.Stdout(ctxt), gc.Equals, `
@@ -297,7 +295,6 @@ Enter password:
 Credential "fred" added locally for cloud "somecloud".
 
 `[1:])
-	c.Assert(cmdtesting.Stderr(ctxt), gc.Equals, "There are no controllers specified - not adding a credential to any controller.\n")
 }
 
 func (s *addCredentialSuite) assertCredentialAdded(c *gc.C, input string, args []string, specifiedRegion, expectedRegion string) *cmd.Context {
@@ -333,7 +330,7 @@ func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
 		},
 	}
 	sourceFile := s.createTestCredentialData(c)
-	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--replace")
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--replace", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
@@ -350,7 +347,7 @@ func (s *addCredentialSuite) TestAddFromFileExistingReplace(c *gc.C) {
 func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialData(c)
-	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
@@ -366,7 +363,7 @@ func (s *addCredentialSuite) TestAddNewFromFile(c *gc.C) {
 func (s *addCredentialSuite) TestAddInvalidAuth(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialDataWithAuthType(c, "invalid auth")
-	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
 	c.Assert(err, gc.ErrorMatches,
 		regexp.QuoteMeta(`credential "me" contains invalid auth type "invalid auth", valid auth types for cloud "somecloud" are [access-key]`))
 }
@@ -374,7 +371,7 @@ func (s *addCredentialSuite) TestAddInvalidAuth(c *gc.C) {
 func (s *addCredentialSuite) TestAddCloudUnsupportedAuth(c *gc.C) {
 	s.authTypes = []jujucloud.AuthType{jujucloud.AccessKeyAuthType}
 	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
-	_, err := s.run(c, nil, "somecloud", "-f", sourceFile)
+	_, err := s.run(c, nil, "somecloud", "-f", sourceFile, "--client")
 	c.Assert(err, gc.ErrorMatches,
 		regexp.QuoteMeta(`credential "me" contains invalid auth type "jsonfile", valid auth types for cloud "somecloud" are [access-key]`))
 }
@@ -390,7 +387,7 @@ func (s *addCredentialSuite) assertAddUserpassCredential(c *gc.C, input string, 
 		},
 	}
 	stdin := strings.NewReader(input)
-	ctx, err := s.run(c, stdin, "somecloud")
+	ctx, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	var cred jujucloud.Credential
 	if expected == nil {
@@ -464,7 +461,7 @@ func (s *addCredentialSuite) TestAddCredentialInteractive(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("bobscreds\nbob\n")
-	ctx, err := s.run(c, stdin, "somecloud")
+	ctx, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// there's an extra line return after Using auth-type because the rest get a
@@ -501,7 +498,7 @@ func (s *addCredentialSuite) TestAddInvalidCredentialInteractive(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("credential name with spaces\n")
-	ctx, err := s.run(c, stdin, "somecloud")
+	ctx, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, gc.NotNil)
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
@@ -525,7 +522,7 @@ func (s *addCredentialSuite) TestAddCredentialCredSchemaInteractive(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("bobscreds\n\nbob\n")
-	ctx, err := s.run(c, stdin, "somecloud")
+	ctx, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// there's an extra line return after Using auth-type because the rest get a
@@ -605,7 +602,7 @@ func (s *addCredentialSuite) assertAddFileCredential(c *gc.C, input, fileKey str
 
 	stdin := strings.NewReader(fmt.Sprintf(input, filename))
 	addCmd := cloud.NewAddCredentialCommandForTest(s.store, s.cloudByNameFunc, s.credentialAPIFunc)
-	err = cmdtesting.InitCommand(addCmd, []string{"somecloud"})
+	err = cmdtesting.InitCommand(addCmd, []string{"somecloud", "--client"})
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.ContextForDir(c, dir)
 	ctx.Stdin = stdin
@@ -669,7 +666,7 @@ func (s *addCredentialSuite) assertAddCredentialWithOptions(c *gc.C, input strin
 	}
 	// Input includes a bad option
 	stdin := strings.NewReader(input)
-	_, err := s.run(c, stdin, "somecloud")
+	_, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
@@ -701,7 +698,7 @@ func (s *addCredentialSuite) TestAddMAASCredential(c *gc.C) {
 		},
 	}
 	stdin := strings.NewReader("fred\nauth:token\n")
-	_, err := s.run(c, stdin, "somecloud")
+	_, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.store.Credentials, jc.DeepEquals, map[string]jujucloud.CloudCredential{
 		"somecloud": {
@@ -730,7 +727,7 @@ func (s *addCredentialSuite) TestAddGCEFileCredentials(c *gc.C) {
 	}
 	sourceFile := s.createTestCredentialDataWithAuthType(c, fmt.Sprintf("%v", jujucloud.JSONFileAuthType))
 	stdin := strings.NewReader(fmt.Sprintf("blah\n%s\n", sourceFile))
-	ctx, err := s.run(c, stdin, "somecloud")
+	ctx, err := s.run(c, stdin, "somecloud", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := `
 Enter credential name: 
@@ -831,8 +828,6 @@ Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the credential file: 
-Credential "blah" added locally for cloud "somecloud".
-
 `[1:]
 	stderr := `
 Using cloud "somecloud" from the controller to verify credentials.
@@ -840,11 +835,7 @@ Controller credential "blah" for user "admin@local" for cloud "somecloud" on con
 For more information, see ‘juju show-credential somecloud blah’.
 `[1:]
 
-	s.assertAddedCredentialForCloud(c, "somecloud", stdout, stderr, true)
-}
-
-func (s *addCredentialSuite) assertAddedCredentialForCloud(c *gc.C, cloudName, expectedStdout, expectedStderr string, uploaded bool) {
-	s.assertAddedCredentialForCloudWithArgs(c, cloudName, expectedStdout, "", expectedStderr, uploaded, true, "--no-prompt")
+	s.assertAddedCredentialForCloudWithArgs(c, "somecloud", stdout, "", stderr, true, false, "--c", "controller")
 }
 
 func (s *addCredentialSuite) assertAddedCredentialForCloudWithArgs(c *gc.C, cloudName, expectedStdout, expectedStdin, expectedStderr string, uploaded, added bool, args ...string) {
@@ -902,15 +893,13 @@ Using auth-type "jsonfile".
 Enter path to the .json file containing a service account key for your project
 (detailed instructions available at https://discourse.jujucharms.com/t/1508).
 Path: 
-Credential "blah" added locally for cloud "remote".
-
 `[1:]
 	stderr := `
 Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
-	s.assertAddedCredentialForCloud(c, "remote", stdout, stderr, true)
+	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "", stderr, true, false, "--c", "controller")
 }
 
 func (s *addCredentialSuite) TestAddRemoteNoRemoteCloud(c *gc.C) {
@@ -932,13 +921,11 @@ Enter credential name:
 Using auth-type "jsonfile".
 
 Enter path to the credential file: 
-Credential "blah" added locally for cloud "somecloud".
-
 No cloud "somecloud" found on the controller "controller": credentials are not uploaded.
 Use 'juju clouds -c controller' to see what clouds are available on the controller.
 User 'juju add-cloud somecloud -c controller' to add your cloud to the controller.
 `[1:]
-	s.assertAddedCredentialForCloud(c, "somecloud", stdout, "", false)
+	s.assertAddedCredentialForCloudWithArgs(c, "somecloud", stdout, "", "", false, false, "--c", "controller")
 }
 
 func (s *addCredentialSuite) TestAddRemoteCloudPromptForController(c *gc.C) {
@@ -952,8 +939,11 @@ func (s *addCredentialSuite) TestAddRemoteCloudPromptForController(c *gc.C) {
 		}, nil
 	}
 	stdout := `
-Do you want to add a credential to current controller "controller"? (Y/n): 
-Enter credential name: 
+Do you want to add a credential to:
+    1. client only (--client)
+    2. controller "controller" only (--controller controller)
+    3. both (--client --controller controller)
+Enter your choice, or type Q|q to quit: Enter credential name: 
 Using auth-type "jsonfile".
 
 Enter path to the .json file containing a service account key for your project
@@ -963,11 +953,12 @@ Credential "blah" added locally for cloud "remote".
 
 `[1:]
 	stderr := `
+This operation can be applied to both a copy on this client and to the one on a controller.
 Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
-	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "\n", stderr, true, true)
+	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "3\n", stderr, true, true)
 }
 
 func (s *addCredentialSuite) TestAddRemoteCloudControllerOnly(c *gc.C) {
@@ -993,5 +984,5 @@ Using cloud "remote" from the controller to verify credentials.
 Controller credential "blah" for user "admin@local" for cloud "remote" on controller "controller" added.
 For more information, see ‘juju show-credential remote blah’.
 `[1:]
-	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "", stderr, true, false, "--no-prompt", "--controller-only")
+	s.assertAddedCredentialForCloudWithArgs(c, "remote", stdout, "", stderr, true, false, "-c", "controller")
 }

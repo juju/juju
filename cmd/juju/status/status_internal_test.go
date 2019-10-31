@@ -2247,10 +2247,12 @@ var statusTests = []testCase{
 				},
 				"branches": M{
 					"apple": M{
-						"created": "15:04:05+07:00",
+						"created":    "15:04:05+07:00",
+						"created-by": "testuser",
 					},
 					"banana": M{
-						"created": "15:04:05+07:00",
+						"created":    "15:04:05+07:00",
+						"created-by": "testuser",
 					},
 				},
 			},
@@ -2374,10 +2376,12 @@ var statusTests = []testCase{
 				},
 				"branches": M{
 					"apple": M{
-						"created": "15:04:05+07:00",
+						"created":    "15:04:05+07:00",
+						"created-by": "testuser",
 					},
 					"banana": M{
-						"created": "15:04:05+07:00",
+						"created":    "15:04:05+07:00",
+						"created-by": "testuser",
 					},
 				},
 			},
@@ -2452,7 +2456,8 @@ var statusTests = []testCase{
 				},
 				"branches": M{
 					"banana": M{
-						"created": "15:04:05+07:00",
+						"created":    "15:04:05+07:00",
+						"created-by": "testuser",
 					},
 				},
 			},
@@ -6075,6 +6080,41 @@ func (s *StatusSuite) TestNonTabularRelations(c *gc.C) {
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "    relations:"), jc.IsTrue)
 	c.Assert(strings.Contains(string(stdout), "storage:"), jc.IsTrue)
+}
+
+func (s *StatusSuite) PrepareBranchesOutput(c *gc.C) *context {
+	ctx := s.FilteringTestSetup(c)
+	addBranch{"test"}.step(c, ctx)
+	addBranch{"bla"}.step(c, ctx)
+	ct, err := s.ControllerStore.CurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+	md, err := s.ControllerStore.CurrentModel(ct)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.JujuConnSuite.ControllerStore.ModelByName(ct, md)
+	c.Assert(err, jc.ErrorIsNil)
+	m.ActiveBranch = "bla"
+	err = s.ControllerStore.UpdateModel(ct, md, *m)
+	c.Assert(err, jc.ErrorIsNil)
+	return ctx
+}
+
+func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
+	ctx := s.PrepareBranchesOutput(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c)
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "bla*"), jc.IsTrue)
+	c.Assert(strings.Contains(string(stdout), "test*"), jc.IsFalse)
+}
+
+func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
+	ctx := s.PrepareBranchesOutput(c)
+	defer s.resetContext(c, ctx)
+
+	_, stdout, stderr := runStatus(c, "--format=yaml")
+	c.Assert(stderr, gc.IsNil)
+	c.Assert(strings.Contains(string(stdout), "active: true"), jc.IsTrue)
 }
 
 func (s *StatusSuite) TestStatusFormatTabularEmptyModel(c *gc.C) {

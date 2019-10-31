@@ -38,14 +38,17 @@ func (k *kubernetesClient) getCRLabels(appName string) map[string]string {
 
 // ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
 func (k *kubernetesClient) ensureCustomResourceDefinitions(
-	appName string, crdSpecs map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec,
+	appName string,
+	annotations map[string]string,
+	crdSpecs map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec,
 ) (cleanUps []func(), _ error) {
 	for name, spec := range crdSpecs {
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: v1.ObjectMeta{
-				Name:      name,
-				Namespace: k.namespace,
-				Labels:    k.getCRDLabels(appName),
+				Name:        name,
+				Namespace:   k.namespace,
+				Labels:      k.getCRDLabels(appName),
+				Annotations: annotations,
 			},
 			Spec: spec,
 		}
@@ -65,6 +68,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1be
 	if out, err = api.Create(crd); err == nil {
 		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(out.GetName(), out.GetUID()) })
 		return out, cleanUps, nil
+
 	}
 	if !k8serrors.IsAlreadyExists(err) {
 		return nil, cleanUps, errors.Trace(err)

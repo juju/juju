@@ -29,13 +29,13 @@ The add-unit is used to scale out an application for improved performance or
 availability.
 
 The usage of this command differs depending on whether it is being used on a
-Kubernetes or cloud model.
+k8s or cloud model.
 
 Many charms will seamlessly support horizontal scaling while others may need
 an additional application support (e.g. a separate load balancer). See the
 documentation for specific charms to check how scale-out is supported.
 
-For Kubernetes models the only valid argument is -n, --num-units.
+For k8s models the only valid argument is -n, --num-units.
 Anything additional will result in an error.
 
 Example:
@@ -105,7 +105,7 @@ type UnitCommandBase struct {
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
 	f.StringVar(&c.PlacementSpec, "to", "", "The machine and/or container to deploy the unit in (bypasses constraints)")
-	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit (not available on kubernetes models)")
+	f.Var(attachStorageFlag{&c.AttachStorage}, "attach-storage", "Existing storage to attach to the deployed unit (not available on k8s models)")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -171,20 +171,6 @@ func (c *addUnitCommand) Info() *cmd.Info {
 	})
 }
 
-// IncompatibleModel returns an error if the command is being run against
-// a model with which it is not compatible.
-func (c *addUnitCommand) IncompatibleModel(err error) error {
-	if err == nil {
-		return nil
-	}
-	msg := `
-add-unit is not allowed on Kubernetes models.
-Instead, use juju scale-application.
-See juju help scale-application.
-`[1:]
-	return errors.New(msg)
-}
-
 func (c *addUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "Number of units to add")
@@ -217,7 +203,7 @@ func (c *addUnitCommand) validateArgsByModelType() error {
 	}
 	if modelType == model.CAAS {
 		if c.PlacementSpec != "" || len(c.AttachStorage) != 0 {
-			return errors.New("Kubernetes models only support --num-units")
+			return errors.New("k8s models only support --num-units")
 		}
 	}
 	return nil

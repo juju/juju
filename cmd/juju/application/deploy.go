@@ -638,11 +638,11 @@ Deploy to a machine that is in the 'dmz' network space but not in either the
 
     juju deploy haproxy -n 2 --constraints spaces=dmz,^cms,^database
 
-Deploy a Kubernetes charm that requires a single Nvidia GPU:
+Deploy a k8s charm that requires a single Nvidia GPU:
 
     juju deploy mycharm --device miner=1,nvidia.com/gpu
 
-Deploy a Kubernetes charm that requires two Nvidia GPUs that have an
+Deploy a k8s charm that requires two Nvidia GPUs that have an
 attribute of 'gpu=nvidia-tesla-p100':
 
     juju deploy mycharm --device \
@@ -811,7 +811,7 @@ func (c *DeployCommand) validateStorageByModelType() error {
 		return nil
 	}
 	if len(c.AttachStorage) > 0 {
-		return errors.New("--attach-storage cannot be used on kubernetes models")
+		return errors.New("--attach-storage cannot be used on k8s models")
 	}
 	return nil
 }
@@ -825,7 +825,7 @@ func (c *DeployCommand) validatePlacementByModelType() error {
 		return nil
 	}
 	if len(c.Placement) > 0 {
-		return errors.New("--to cannot be used on kubernetes models")
+		return errors.New("--to cannot be used on k8s models")
 	}
 	return nil
 }

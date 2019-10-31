@@ -198,8 +198,10 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 	s.cannedData()
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstance(c, "moana")}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -238,9 +240,130 @@ func (s *environNetSuite) TestNetworkInterfaceInvalidCredentialError(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	_, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Check(err, gc.NotNil)
 	c.Assert(s.InvalidatedCredentials, jc.IsTrue)
+}
+
+func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
+	s.cannedData()
+	baseInst1 := s.NewBaseInstance(c, "i-1")
+
+	// Create a second instance and patch its interface list
+	baseInst2 := s.NewBaseInstance(c, "i-2")
+	b2summary := &baseInst2.InstanceSummary
+	b2summary.NetworkInterfaces = []*compute.NetworkInterface{
+		{
+			Name:       "netif-0",
+			NetworkIP:  "10.0.10.42",
+			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
+			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
+			AccessConfigs: []*compute.AccessConfig{{
+				Type:  "ONE_TO_ONE_NAT",
+				Name:  "ExternalNAT",
+				NatIP: "25.185.142.227",
+			}},
+		},
+		{
+			Name:       "netif-1",
+			NetworkIP:  "10.0.20.42",
+			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
+			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
+			AccessConfigs: []*compute.AccessConfig{{
+				Type:  "ONE_TO_ONE_NAT",
+				Name:  "ExternalNAT",
+				NatIP: "25.185.142.227",
+			}},
+		},
+	}
+	s.FakeEnviron.Insts = []instances.Instance{
+		s.NewInstanceFromBase(baseInst1),
+		s.NewInstanceFromBase(baseInst2),
+	}
+
+	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{
+		instance.Id("i-1"),
+		instance.Id("i-2"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoLists, gc.HasLen, 2)
+
+	// Check interfaces for first instance
+	infos := infoLists[0]
+	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		CIDR:              "10.0.10.0/24",
+		ProviderId:        "i-1/somenetif",
+		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "somenetif",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+	}})
+
+	// Check interfaces for second instance
+	infos = infoLists[1]
+	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		CIDR:              "10.0.10.0/24",
+		ProviderId:        "i-2/netif-0",
+		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "netif-0",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.42", corenetwork.ScopeCloudLocal),
+	}, {
+		DeviceIndex:       1,
+		CIDR:              "10.0.20.0/24",
+		ProviderId:        "i-2/netif-1",
+		ProviderSubnetId:  "shellac",
+		ProviderNetworkId: "albini",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "netif-1",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           corenetwork.NewScopedProviderAddress("10.0.20.42", corenetwork.ScopeCloudLocal),
+	}})
+}
+
+func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
+	s.cannedData()
+	baseInst1 := s.NewBaseInstance(c, "i-1")
+	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst1)}
+
+	infoLists, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("i-1"), instance.Id("bogus")})
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(infoLists, gc.HasLen, 2)
+
+	// Check interfaces for first instance
+	infos := infoLists[0]
+	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
+		DeviceIndex:       0,
+		CIDR:              "10.0.10.0/24",
+		ProviderId:        "i-1/somenetif",
+		ProviderSubnetId:  "go-team",
+		ProviderNetworkId: "go-team1",
+		AvailabilityZones: []string{"a-zone", "b-zone"},
+		InterfaceName:     "somenetif",
+		InterfaceType:     network.EthernetInterface,
+		Disabled:          false,
+		NoAutoStart:       false,
+		ConfigType:        network.ConfigDHCP,
+		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+	}})
+
+	// Check that the slot for the second instance is nil
+	c.Assert(infoLists[1], gc.IsNil, gc.Commentf("expected slot for unknown instance to be nil"))
 }
 
 func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
@@ -262,8 +385,10 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -312,8 +437,10 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 	}}
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -350,8 +477,10 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 	})
 	s.FakeEnviron.Insts = []instances.Instance{s.NewInstanceFromBase(baseInst)}
 
-	infos, err := s.NetEnv.NetworkInterfaces(s.CallCtx, instance.Id("moana"))
+	infoList, err := s.NetEnv.NetworkInterfaces(s.CallCtx, []instance.Id{instance.Id("moana")})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	infos := infoList[0]
 
 	c.Assert(infos, gc.DeepEquals, []network.InterfaceInfo{{
 		DeviceIndex:       0,

@@ -70,7 +70,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 			Stdout:        &bytes.Buffer{},
 			Stderr:        &bytes.Buffer{},
 		}, gomock.Any()).Return(nil),
-		mockExecClient.EXPECT().Copy(exec.CopyParam{
+		mockExecClient.EXPECT().Copy(exec.CopyParams{
 			Src: exec.FileResource{
 				Path: "dir/charm",
 			},
@@ -80,7 +80,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 				ContainerName: "juju-pod-init",
 			},
 		}, gomock.Any()).Return(nil),
-		mockExecClient.EXPECT().Copy(exec.CopyParam{
+		mockExecClient.EXPECT().Copy(exec.CopyParams{
 			Src: exec.FileResource{
 				Path: filepath.Join(os.TempDir(), "unit-gitlab-0-random/ca.crt"),
 			},
@@ -90,7 +90,7 @@ func (s *UnitInitializerSuite) TestInitialize(c *gc.C) {
 				ContainerName: "juju-pod-init",
 			},
 		}, gomock.Any()).Return(nil),
-		mockExecClient.EXPECT().Copy(exec.CopyParam{
+		mockExecClient.EXPECT().Copy(exec.CopyParams{
 			Src: exec.FileResource{
 				Path: "/var/lib/juju/agents/unit-gitlab-0/operator-client-cache.yaml",
 			},
@@ -196,7 +196,7 @@ func (s *UnitInitializerSuite) TestInitializeContainerMissing(c *gc.C) {
 			Stdout:        &bytes.Buffer{},
 			Stderr:        &bytes.Buffer{},
 		}, gomock.Any()).Return(nil),
-		mockExecClient.EXPECT().Copy(exec.CopyParam{
+		mockExecClient.EXPECT().Copy(exec.CopyParams{
 			Src: exec.FileResource{
 				Path: "dir/charm",
 			},

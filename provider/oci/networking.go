@@ -1047,7 +1047,22 @@ func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, er
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+	var (
+		infos = make([][]network.InterfaceInfo, len(ids))
+		err   error
+	)
+
+	for idx, id := range ids {
+		if infos[idx], err = e.networkInterfacesForInstance(ctx, id); err != nil {
+			return nil, err
+		}
+	}
+
+	return infos, nil
+}
+
+func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)

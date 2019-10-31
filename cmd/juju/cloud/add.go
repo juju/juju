@@ -72,16 +72,9 @@ When <cloud definition file> is provided with <cloud name>,
 Juju will validate the content of the file and add this cloud 
 to this client as well as upload it to a controller.
 
-If a current controller can be detected, a user will be prompted to confirm 
-if specified cloud needs to be uploaded to it. 
-If the prompt is not needed and the cloud is always to be uploaded to
-the current controller if that controller is detected, use --no-prompt option.
+Use --controller option to upload a cloud to a controller. 
 
-Use --controller option to upload a cloud to a different controller. 
-
-Use --controller-only option to add cloud to a controller only.
-
-Use --client-only option to add cloud to the current client only.
+Use --client option to add cloud to the current client.
 
 DEPRECATED (use 'update-credential' instead) 
 If <cloud name> already exists on this client, then the `[1:] + "`--replace`" + ` 
@@ -131,9 +124,9 @@ Examples:
     juju add-cloud
     juju add-cloud --force
     juju add-cloud mycloud ~/mycloud.yaml
-    juju add-cloud --controller mycontroller mycloud --controller-only
+    juju add-cloud --controller mycontroller mycloud 
     juju add-cloud --controller mycontroller mycloud --credential mycred
-    juju add-cloud --client-only mycloud ~/mycloud.yaml
+    juju add-cloud --client mycloud ~/mycloud.yaml
 
 See also: 
     clouds
@@ -327,6 +320,9 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("add cloud %q to", newCloud.Name)); err != nil {
+		return errors.Trace(err)
+	}
 
 	// All clouds must have at least one default region - lp#1819409.
 	if len(newCloud.Regions) == 0 {
@@ -334,26 +330,18 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var returnErr error
-	if c.Replace || ((c.BothClientAndController || c.ClientOnly) && !c.existsLocally) {
+	if c.Replace || (c.Client && !c.existsLocally) {
 		returnErr = c.addLocalCloud(ctxt, newCloud)
 	}
-	if !c.Replace && ((c.BothClientAndController || c.ClientOnly) && c.existsLocally) {
-		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client-only` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
+	if !c.Replace && (c.Client && c.existsLocally) {
+		returnErr = errors.AlreadyExistsf("use `update-cloud %s --client` to override known definition: local cloud %q", newCloud.Name, newCloud.Name)
 	}
 
-	if c.BothClientAndController {
+	if c.Client && c.ControllerName != "" {
 		ctxt.Infof("")
 	}
 
-	if c.BothClientAndController || c.ControllerOnly {
-		// At this stage, the user may have specified the controller via a --controller option.
-		// If not, let's see if there is a current controller that can be detected.
-		if c.ControllerName == "" {
-			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("add cloud %q to", newCloud.Name))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
+	if c.ControllerName != "" {
 		if err = c.addRemoteCloud(ctxt, newCloud); err != nil {
 			ctxt.Infof("Could not upload cloud to a controller: %v", err)
 			returnErr = cmd.ErrSilent
@@ -363,11 +351,6 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *AddCloudCommand) addRemoteCloud(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
-	if c.ControllerName == "" {
-		ctxt.Infof("There are no controllers specified - not adding cloud %q to any controller.", newCloud.Name)
-		return nil
-	}
-
 	// A controller has been specified so upload the cloud details
 	// plus a corresponding credential to the controller.
 	api, err := c.addCloudAPIFunc()
@@ -797,14 +780,14 @@ func (p *cloudFileReader) verifyName(name string) error {
 		return err
 	}
 	if _, ok := personal[name]; ok {
-		return errors.AlreadyExistsf("use `update-cloud %s --client-only` to replace this cloud locally: %q", name, name)
+		return errors.AlreadyExistsf("use `update-cloud %s --client` to replace this cloud locally: %q", name, name)
 	}
 	msg, err := nameExists(name, public)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if msg != "" {
-		return errors.AlreadyExistsf(msg + "; use `update-cloud --client-only` to override this definition locally")
+		return errors.AlreadyExistsf(msg + "; use `update-cloud --client` to override this definition locally")
 	}
 	return nil
 }

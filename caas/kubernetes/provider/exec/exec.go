@@ -19,7 +19,6 @@ import (
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
-	"k8s.io/client-go/util/exec"
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
@@ -34,19 +33,10 @@ type client struct {
 	podGetter typedcorev1.PodInterface
 }
 
-// ExitError exposes what we need from k8s exec.ExitError
-type ExitError interface {
-	error
-	String() string
-	ExitStatus() int
-}
-
-var _ ExitError = exec.CodeExitError{}
-
 // Executor provides the API to exec or cp on a pod inside the cluster.
 type Executor interface {
 	Exec(params ExecParams, cancel <-chan struct{}) error
-	Copy(params CopyParam, cancel <-chan struct{}) error
+	Copy(params CopyParams, cancel <-chan struct{}) error
 }
 
 // NewInCluster returns a in-cluster exec client.
@@ -231,16 +221,7 @@ func getValidatedPodContainer(
 		}
 	}
 	if pod == nil {
-		return "", "", errors.NotFoundf("pod %q", podName)
-	}
-
-	switch pod.Status.Phase {
-	case core.PodPending:
-	case core.PodRunning:
-	default:
-		return "", "", errors.New(fmt.Sprintf(
-			"cannot exec into a container within a %s pod", pod.Status.Phase,
-		))
+		return "", "", podNotFoundError(podName)
 	}
 
 	checkContainerExists := func(name string) error {
@@ -257,6 +238,18 @@ func getValidatedPodContainer(
 		return errors.NotFoundf("container %q", name)
 	}
 
+	var containerStatus []core.ContainerStatus
+	switch pod.Status.Phase {
+	case core.PodPending:
+		containerStatus = pod.Status.InitContainerStatuses
+	case core.PodRunning:
+		containerStatus = pod.Status.ContainerStatuses
+	default:
+		return "", "", errors.New(fmt.Sprintf(
+			"cannot exec into a container within a %s pod", pod.Status.Phase,
+		))
+	}
+
 	if containerName != "" {
 		if err = checkContainerExists(containerName); err != nil {
 			return "", "", errors.Trace(err)
@@ -264,6 +257,23 @@ func getValidatedPodContainer(
 	} else {
 		containerName = pod.Spec.Containers[0].Name
 		logger.Debugf("choose first container %q to exec", containerName)
+	}
+
+	matchContainerStatus := func(name string) (*core.ContainerStatus, error) {
+		for _, status := range containerStatus {
+			if status.Name == name {
+				return &status, nil
+			}
+		}
+		return nil, containerNotRunningError(name)
+	}
+
+	status, err := matchContainerStatus(containerName)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	if status.State.Running == nil {
+		return "", "", containerNotRunningError(containerName)
 	}
 
 	return podName, containerName, nil

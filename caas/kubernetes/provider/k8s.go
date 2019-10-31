@@ -20,6 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v3"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -95,6 +96,7 @@ var (
 	annotationModelUUIDKey              = annotationPrefix + "/" + "model"
 	annotationControllerUUIDKey         = annotationPrefix + "/" + "controller"
 	annotationControllerIsControllerKey = annotationPrefix + "/" + "is-controller"
+	annotationUnit                      = annotationPrefix + "/" + "unit"
 )
 
 type kubernetesClient struct {
@@ -537,7 +539,7 @@ func (k *kubernetesClient) maybeGetVolumeClaimSpec(params volumeParams) (*core.P
 	}
 	if !haveStorageClass {
 		params.storageConfig.storageClass = storageClassName
-		sc, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
+		sc, _, err := k.EnsureStorageProvisioner(caas.StorageProvisioner{
 			Name:          params.storageConfig.storageClass,
 			Namespace:     k.namespace,
 			Provisioner:   params.storageConfig.storageProvisioner,
@@ -587,19 +589,19 @@ func (k *kubernetesClient) getStorageClass(name string) (*k8sstorage.StorageClas
 }
 
 // EnsureStorageProvisioner creates a storage class with the specified config, or returns an existing one.
-func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, error) {
+func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error) {
 	// First see if the named storage class exists.
 	sc, err := k.getStorageClass(cfg.Name)
 	if err == nil {
-		return toCaaSStorageProvisioner(*sc), nil
+		return toCaaSStorageProvisioner(*sc), true, nil
 	}
 	if !k8serrors.IsNotFound(err) {
-		return nil, errors.Annotatef(err, "getting storage class %q", cfg.Name)
+		return nil, false, errors.Annotatef(err, "getting storage class %q", cfg.Name)
 	}
 	// If it's not found but there's no provisioner specified, we can't
 	// create it so just return not found.
 	if cfg.Provisioner == "" {
-		return nil, errors.NewNotFound(nil,
+		return nil, false, errors.NewNotFound(nil,
 			fmt.Sprintf("storage class %q doesn't exist, but no storage provisioner has been specified",
 				cfg.Name))
 	}
@@ -625,9 +627,9 @@ func (k *kubernetesClient) EnsureStorageProvisioner(cfg caas.StorageProvisioner)
 	}
 	_, err = k.client().StorageV1().StorageClasses().Create(sc)
 	if err != nil {
-		return nil, errors.Annotatef(err, "creating storage class %q", cfg.Name)
+		return nil, false, errors.Annotatef(err, "creating storage class %q", cfg.Name)
 	}
-	return toCaaSStorageProvisioner(*sc), nil
+	return toCaaSStorageProvisioner(*sc), false, nil
 }
 
 func getLoadBalancerAddress(svc *core.Service) string {
@@ -796,8 +798,8 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 
 func resourceTagsToAnnotations(in map[string]string) k8sannotations.Annotation {
 	tagsAnnotationsMap := map[string]string{
-		tags.JujuController: "juju.io/controller",
-		tags.JujuModel:      "juju.io/model",
+		tags.JujuController: annotationControllerUUIDKey,
+		tags.JujuModel:      annotationModelUUIDKey,
 	}
 
 	out := k8sannotations.New(nil)
@@ -944,9 +946,11 @@ func (k *kubernetesClient) EnsureService(
 		return errors.Annotatef(err, "parsing unit spec for %s", appName)
 	}
 
+	annotations := resourceTagsToAnnotations(params.ResourceTags)
+
 	// ensure configmap.
 	if len(workloadSpec.ConfigMaps) > 0 {
-		cmsCleanUps, err := k.ensureConfigMaps(appName, workloadSpec.ConfigMaps)
+		cmsCleanUps, err := k.ensureConfigMaps(appName, annotations, workloadSpec.ConfigMaps)
 		cleanups = append(cleanups, cmsCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating configmaps")
@@ -955,7 +959,7 @@ func (k *kubernetesClient) EnsureService(
 
 	// ensure secrets.
 	if len(workloadSpec.Secrets) > 0 {
-		secretsCleanUps, err := k.ensureSecrets(appName, workloadSpec.Secrets)
+		secretsCleanUps, err := k.ensureSecrets(appName, annotations, workloadSpec.Secrets)
 		cleanups = append(cleanups, secretsCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating secrets")
@@ -965,7 +969,7 @@ func (k *kubernetesClient) EnsureService(
 	// ensure custom resource definitions.
 	crds := workloadSpec.CustomResourceDefinitions
 	if len(crds) > 0 {
-		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, crds)
+		crdCleanUps, err := k.ensureCustomResourceDefinitions(appName, annotations, crds)
 		cleanups = append(cleanups, crdCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating custom resource definitions")
@@ -985,7 +989,7 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	for _, sa := range workloadSpec.ServiceAccounts {
-		saCleanups, err := k.ensureServiceAccountForApp(appName, sa)
+		saCleanups, err := k.ensureServiceAccountForApp(appName, annotations, sa)
 		cleanups = append(cleanups, saCleanups...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating service account")
@@ -1000,8 +1004,6 @@ func (k *kubernetesClient) EnsureService(
 	if err := processConstraints(&workloadSpec.Pod, appName, params.Constraints); err != nil {
 		return errors.Trace(err)
 	}
-
-	annotations := resourceTagsToAnnotations(params.ResourceTags)
 
 	for _, c := range params.PodSpec.Containers {
 		if c.ImageDetails.Password == "" {
@@ -1313,12 +1315,18 @@ func configureConstraint(pod *core.PodSpec, constraint, value string) error {
 
 type configMapNameFunc func(fileSetName string) string
 
-func (k *kubernetesClient) configurePodFiles(podSpec *core.PodSpec, containers []specs.ContainerSpec, cfgMapName configMapNameFunc) error {
+func (k *kubernetesClient) configurePodFiles(
+	appName string,
+	annotations map[string]string,
+	podSpec *core.PodSpec,
+	containers []specs.ContainerSpec,
+	cfgMapName configMapNameFunc,
+) error {
 	for i, container := range containers {
 		for _, fileSet := range container.Files {
 			cfgName := cfgMapName(fileSet.Name)
 			vol := core.Volume{Name: cfgName}
-			if _, err := k.ensureConfigMap(filesetConfigMap(cfgName, &fileSet)); err != nil {
+			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
 				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
 			}
 			vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -1341,7 +1349,13 @@ func configureInitContainer(podSpec *core.PodSpec, operatorImagePath string) err
 	if err != nil {
 		return errors.Trace(err)
 	}
-	jujudCmd := fmt.Sprintf("$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait")
+	jujudCmd := `
+initCmd=$($JUJU_TOOLS_DIR/jujud help commands | grep caas-unit-init)
+if test -n "$initCmd"; then
+$JUJU_TOOLS_DIR/jujud caas-unit-init --debug --wait;
+else
+exit 0
+fi`[1:]
 	container := core.Container{
 		Name:            caas.InitContainerName,
 		Image:           operatorImagePath,
@@ -1418,7 +1432,7 @@ func (k *kubernetesClient) configureDeployment(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1516,7 +1530,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		},
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(&podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 	existingPodSpec := podSpec
@@ -1814,6 +1828,53 @@ func applicationSelector(appName string) string {
 	return fmt.Sprintf("%v==%v", labelApplication, appName)
 }
 
+// AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
+func (k *kubernetesClient) AnnotateUnit(appName, podName string, unit names.UnitTag) error {
+	pods := k.client().CoreV1().Pods(k.namespace)
+
+	pod, err := pods.Get(podName, v1.GetOptions{
+		IncludeUninitialized: true,
+	})
+	if err != nil {
+		if !k8serrors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		pods, err := pods.List(v1.ListOptions{
+			LabelSelector:        applicationSelector(appName),
+			IncludeUninitialized: true,
+		})
+		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, v := range pods.Items {
+			if string(v.GetUID()) == podName {
+				p := v
+				pod = &p
+				break
+			}
+		}
+	}
+	if pod == nil {
+		return errors.NotFoundf("pod %q", podName)
+	}
+
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	unitID := unit.Id()
+	if pod.Annotations[annotationUnit] == unitID {
+		return nil
+	}
+	pod.Annotations[annotationUnit] = unitID
+
+	_, err = pods.Update(pod)
+	if k8serrors.IsNotFound(err) {
+		return errors.NotFoundf("pod %q", podName)
+	}
+	return errors.Trace(err)
+}
+
 // WatchUnits returns a watcher which notifies when there
 // are changes to units of the specified application.
 func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, error) {
@@ -1830,10 +1891,11 @@ func (k *kubernetesClient) WatchUnits(appName string) (watcher.NotifyWatcher, er
 	return k.newWatcher(w, appName, k.clock)
 }
 
-// WatchUnitStart returns a watcher which notifies when units
-// in an application is starting/restarting. Each string represents
-// the provider id for the unit.
-func (k *kubernetesClient) WatchUnitStart(appName string) (watcher.StringsWatcher, error) {
+// WatchContainerStart returns a watcher which is notified when the specified container
+// for each unit in the application is starting/restarting. Each string represents
+// the provider id for the unit. If containerName is empty, then the first workload container
+// is used.
+func (k *kubernetesClient) WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
 	selector := applicationSelector(appName)
 	logger.Debugf("selecting units %q to watch", selector)
@@ -1855,8 +1917,20 @@ func (k *kubernetesClient) WatchUnitStart(appName string) (watcher.StringsWatche
 	}
 
 	podInInit := func(pod *core.Pod) bool {
+		if _, ok := pod.Annotations[annotationUnit]; !ok {
+			// Ignore pods that aren't annotated as a unit yet.
+			return false
+		}
 		for _, cs := range pod.Status.InitContainerStatuses {
-			if cs.Name == caas.InitContainerName {
+			if cs.Name == containerName {
+				if cs.State.Running != nil {
+					return true
+				}
+			}
+		}
+		for i, cs := range pod.Status.ContainerStatuses {
+			useDefault := i == 0 && containerName == ""
+			if cs.Name == containerName || useDefault {
 				if cs.State.Running != nil {
 					return true
 				}
@@ -2273,10 +2347,12 @@ func (k *kubernetesClient) jujuVolumeStatus(pvPhase core.PersistentVolumePhase) 
 
 // filesetConfigMap returns a *core.ConfigMap for a pod
 // of the specified unit, with the specified files.
-func filesetConfigMap(configMapName string, files *specs.FileSet) *core.ConfigMap {
+func filesetConfigMap(configMapName string, labels, annotations map[string]string, files *specs.FileSet) *core.ConfigMap {
 	result := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name: configMapName,
+			Name:        configMapName,
+			Labels:      labels,
+			Annotations: annotations,
 		},
 		Data: map[string]string{},
 	}

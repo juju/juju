@@ -135,7 +135,7 @@ func (s *AddUnitSuite) TestInitErrorsForCAAS(c *gc.C) {
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m
 	err := cmdtesting.InitCommand(application.NewAddUnitCommandForTest(s.fake, s.store), []string{"some-application-name", "--to", "lxd:1"})
-	c.Check(err, gc.ErrorMatches, "Kubernetes models only support --num-units")
+	c.Check(err, gc.ErrorMatches, "k8s models only support --num-units")
 }
 
 func (s *AddUnitSuite) runAddUnit(c *gc.C, args ...string) error {
@@ -251,7 +251,7 @@ func (s *AddUnitSuite) TestNameChecks(c *gc.C) {
 }
 
 func (s *AddUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
-	expectedError := "Kubernetes models only support --num-units"
+	expectedError := "k8s models only support --num-units"
 	m := s.store.Models["arthur"].Models["king/sword"]
 	m.ModelType = model.CAAS
 	s.store.Models["arthur"].Models["king/sword"] = m

@@ -264,15 +264,22 @@ func (c *Client) SetVersion(appName string, v version.Binary) error {
 	return results.OneError()
 }
 
-// WatchUnitStart watchs for Unit starts via the CAAS provider.
-func (c *Client) WatchUnitStart(application string) (watcher.StringsWatcher, error) {
+// WatchContainerStart watchs for Unit starts via the CAAS provider.
+func (c *Client) WatchContainerStart(application string, containerName string) (watcher.StringsWatcher, error) {
 	applicationTag, err := applicationTag(application)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	args := entities(applicationTag)
+	args := params.WatchContainerStartArgs{
+		Args: []params.WatchContainerStartArg{{
+			Entity: params.Entity{
+				Tag: applicationTag.String(),
+			},
+			Container: containerName,
+		}},
+	}
 	var results params.StringsWatchResults
-	if err := c.facade.FacadeCall("WatchUnitStart", args, &results); err != nil {
+	if err := c.facade.FacadeCall("WatchContainerStart", args, &results); err != nil {
 		return nil, err
 	}
 	if n := len(results.Results); n != 1 {

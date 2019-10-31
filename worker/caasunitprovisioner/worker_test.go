@@ -354,6 +354,12 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 		Message: "working",
 	}
 
+	s.unitUpdater.unitsInfo = &params.UpdateApplicationUnitsInfo{
+		Units: []params.ApplicationUnitInfo{
+			{ProviderId: "u1", UnitTag: "unit-gitlab-0"},
+		},
+	}
+
 	select {
 	case s.caasServiceChanges <- struct{}{}:
 	case <-time.After(coretesting.LongWait):
@@ -388,8 +394,9 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 			break
 		}
 	}
-	s.containerBroker.CheckCallNames(c, "Units")
+	s.containerBroker.CheckCallNames(c, "Units", "AnnotateUnit")
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
+	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab", "u1", names.NewUnitTag("gitlab/0")})
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		if len(s.unitUpdater.Calls()) > 0 {
@@ -682,6 +689,23 @@ func (s *WorkerSuite) TestOperatorChange(c *gc.C) {
 		}
 	}
 	s.containerBroker.CheckCallNames(c, "WatchUnits", "WatchOperator")
+	s.containerBroker.ResetCalls()
+
+	// Initial event
+	s.containerBroker.SetErrors(errors.NotFoundf("gitlab"))
+	select {
+	case s.caasOperatorChanges <- struct{}{}:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out sending applications change")
+	}
+	s.statusSetter.CheckNoCalls(c)
+	for a := coretesting.LongAttempt.Start(); a.Next(); {
+		if len(s.containerBroker.Calls()) > 0 {
+			break
+		}
+	}
+	s.containerBroker.CheckCallNames(c, "Operator")
+	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 	s.containerBroker.ResetCalls()
 
 	select {

@@ -113,6 +113,7 @@ func (aw *applicationWorker) loop() error {
 	// so we only report true changes.
 	lastReportedStatus := make(map[string]status.StatusInfo)
 	lastReportedScale := -1
+	initialOperatorEvent := true
 	logger := aw.logger
 	for {
 		// The caas watcher can just die from underneath so recreate if needed.
@@ -225,6 +226,10 @@ func (aw *applicationWorker) loop() error {
 			logger.Debugf("operator update for %v", aw.application)
 			operator, err := aw.containerBroker.Operator(aw.application)
 			if errors.IsNotFound(err) {
+				if initialOperatorEvent {
+					initialOperatorEvent = false
+					continue
+				}
 				logger.Debugf("pod not found for application %q", aw.application)
 				if err := aw.provisioningStatusSetter.SetOperatorStatus(aw.application, status.Terminated, "", nil); err != nil {
 					return errors.Trace(err)
@@ -319,17 +324,29 @@ func (aw *applicationWorker) clusterChanged(
 		}
 		args.Units = append(args.Units, unitParams)
 	}
-	if err := aw.unitUpdater.UpdateUnits(args); err != nil {
-		if errors.IsForbidden(err) {
-			// ignore errors raised from SetScale because disordered events could happen often.
-			aw.logger.Warningf("%v", err)
-			return nil
-		}
+	appUnitInfo, err := aw.unitUpdater.UpdateUnits(args)
+	if err != nil {
 		// We can ignore not found errors as the worker will get stopped anyway.
-		if !errors.IsNotFound(err) {
+		// We can also ignore Forbidden errors raised from SetScale because disordered events could happen often.
+		if !errors.IsForbidden(err) && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		aw.logger.Warningf("update units %v", err)
+	}
+
+	if appUnitInfo != nil {
+		for _, unitInfo := range appUnitInfo.Units {
+			unit, err := names.ParseUnitTag(unitInfo.UnitTag)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			err = aw.containerBroker.AnnotateUnit(aw.application, unitInfo.ProviderId, unit)
+			if errors.IsNotFound(err) {
+				continue
+			} else if err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 	return nil
 }

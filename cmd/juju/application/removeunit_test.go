@@ -185,10 +185,15 @@ func (s *RemoveUnitSuite) TestCAASAllowsNumUnitsOnly(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "removing 0 units not valid")
 
 	_, err = s.runRemoveUnit(c, "some-application-name", "--destroy-storage")
-	c.Assert(err, gc.ErrorMatches, "Kubernetes models only support --num-units")
+	c.Assert(err, gc.ErrorMatches, "k8s models only support --num-units")
 
-	_, err = s.runRemoveUnit(c, "some-application-name/0", "--num-units", "2")
-	c.Assert(err, gc.ErrorMatches, "application name \"some-application-name/0\" not valid")
+	_, err = s.runRemoveUnit(c, "some-application-name/0")
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "k8s models do not support removing named units.*")
+
+	_, err = s.runRemoveUnit(c, "some-application-name-", "--num-units", "2")
+	c.Assert(err, gc.ErrorMatches, "application name \"some-application-name-\" not valid")
 
 	_, err = s.runRemoveUnit(c, "some-application-name", "another-application", "--num-units", "2")
 	c.Assert(err, gc.ErrorMatches, "only single application supported")

@@ -929,9 +929,9 @@ var caasTests = []struct {
 	message string
 }{
 	{[]string{"-m", "caas-model", "some-application-name", "--attach-storage", "foo/0"},
-		"--attach-storage cannot be used on kubernetes models"},
+		"--attach-storage cannot be used on k8s models"},
 	{[]string{"-m", "caas-model", "some-application-name", "--to", "a=b"},
-		regexp.QuoteMeta(`--to cannot be used on kubernetes models`)},
+		regexp.QuoteMeta(`--to cannot be used on k8s models`)},
 }
 
 func (s *CAASDeploySuite) TestCaasModelValidatedAtRun(c *gc.C) {

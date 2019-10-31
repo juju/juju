@@ -335,13 +335,19 @@ func (s *unitprovisionerSuite) TestUpdateUnits(c *gc.C) {
 				},
 			},
 		})
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{}},
+		c.Assert(result, gc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
+		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
+			Results: []params.UpdateApplicationUnitResult{{
+				Info: &params.UpdateApplicationUnitsInfo{
+					Units: []params.ApplicationUnitInfo{
+						{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
+					},
+				},
+			}},
 		}
 		return nil
 	})
-	err := client.UpdateUnits(params.UpdateApplicationUnits{
+	info, err := client.UpdateUnits(params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		Units: []params.ApplicationUnitParams{
 			{ProviderId: "uuid", UnitTag: "unit-gitlab-0", Address: "address", Ports: []string{"port"},
@@ -350,25 +356,32 @@ func (s *unitprovisionerSuite) TestUpdateUnits(c *gc.C) {
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(called, jc.IsTrue)
+	c.Check(info, jc.DeepEquals, &params.UpdateApplicationUnitsInfo{
+		Units: []params.ApplicationUnitInfo{
+			{ProviderId: "uuid", UnitTag: "unit-gitlab-0"},
+		},
+	})
 }
 
 func (s *unitprovisionerSuite) TestUpdateUnitsCount(c *gc.C) {
 	client := newClient(func(objType string, version int, id, request string, a, result interface{}) error {
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{
+		c.Assert(result, gc.FitsTypeOf, &params.UpdateApplicationUnitResults{})
+		*(result.(*params.UpdateApplicationUnitResults)) = params.UpdateApplicationUnitResults{
+			Results: []params.UpdateApplicationUnitResult{
 				{Error: &params.Error{Message: "FAIL"}},
 				{Error: &params.Error{Message: "FAIL"}},
 			},
 		}
 		return nil
 	})
-	err := client.UpdateUnits(params.UpdateApplicationUnits{
+	info, err := client.UpdateUnits(params.UpdateApplicationUnits{
 		ApplicationTag: names.NewApplicationTag("app").String(),
 		Units: []params.ApplicationUnitParams{
 			{ProviderId: "uuid", Address: "address"},
 		},
 	})
 	c.Check(err, gc.ErrorMatches, `expected 1 result\(s\), got 2`)
+	c.Assert(info, gc.IsNil)
 }
 
 func (s *unitprovisionerSuite) TestUpdateApplicationService(c *gc.C) {

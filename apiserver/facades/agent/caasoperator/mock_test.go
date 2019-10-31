@@ -236,8 +236,8 @@ type mockBroker struct {
 	watcher corewatcher.StringsWatcher
 }
 
-func (b *mockBroker) WatchUnitStart(appName string) (corewatcher.StringsWatcher, error) {
-	b.MethodCall(b, "WatchUnitStart", appName)
+func (b *mockBroker) WatchContainerStart(appName string, containerName string) (corewatcher.StringsWatcher, error) {
+	b.MethodCall(b, "WatchContainerStart", appName, containerName)
 	return b.watcher, b.NextErr()
 }
 

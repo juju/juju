@@ -38,7 +38,8 @@ func NewShowCredentialCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	command := &showCredentialCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 	}
 	command.newAPIFunc = func() (CredentialContentAPI, error) {
@@ -86,8 +87,11 @@ func (c *showCredentialCommand) Info() *cmd.Info {
 }
 
 func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("show credential %q for cloud %q from", c.CredentialName, c.CloudName)); err != nil {
+		return errors.Trace(err)
+	}
 	all := ControllerCredentials{}
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		result, err := c.localCredentials(ctxt)
 		if err != nil {
 			ctxt.Infof("client credential content lookup failed: %v", err)
@@ -95,7 +99,7 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 			all.Client = c.parseContents(ctxt, result)
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
 		remoteContents, err := c.remoteCredentials(ctxt)
 		if err != nil {
 			ctxt.Infof("credential content lookup on the controller failed: %v", err)
@@ -111,19 +115,6 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.CredentialContentResult, error) {
-	if c.ControllerName == "" {
-		// The user may have specified the controller via a --controller option.
-		// If not, let's see if there is a current controller that can be detected.
-		var err error
-		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("show credential %q for cloud %q from", c.CredentialName, c.CloudName))
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	if c.ControllerName == "" {
-		return nil, errors.Errorf("Not showing credential %q for cloud %q from a controller: no controller specified.", c.CredentialName, c.CloudName)
-	}
-
 	client, err := c.newAPIFunc()
 	if err != nil {
 		return nil, err
@@ -265,23 +256,17 @@ To see all credentials stored for you, supply no arguments.
 
 To see secrets, content attributes marked as hidden, use --show-secrets option.
 
-To see only credentials from this client, use "--client-only" option.
+To see credentials from this client, use "--client" option.
 
-To see only credentials from a controller, use "--controller-only" option.
-
-If the current controller can be detected, a user will be prompted to 
-confirm if a credential known to the controller need to be shown as well. 
-If the prompt is not needed and the credential from current controller is
-always to be shown, use --no-prompt option.
-
-Use --controller option to show a credential from a different controller.
+To see credentials from a controller, use "--controller" option.
 
 Examples:
 
     juju show-credential google my-admin-credential
     juju show-credentials 
-    juju show-credentials --controller mycontroller --controller-only 
-    juju show-credentials --client-only
+    juju show-credentials --controller mycontroller --client 
+    juju show-credentials --controller mycontroller 
+    juju show-credentials --client
     juju show-credentials --show-secrets
 
 See also: 

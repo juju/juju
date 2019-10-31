@@ -59,8 +59,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cfg = cfg
 
-	s.controllerUUID = "9bec388c-d264-4cde-8b29-3e675959157a"
-
 	s.controllerCfg = testing.FakeControllerConfig()
 	pcfg, err := podcfg.NewBootstrapControllerPodConfig(
 		s.controllerCfg, controllerName, "bionic", constraints.MustParse("root-disk=10000M mem=4000M"))
@@ -113,14 +111,14 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 	existingNs.SetName("controller-1")
 	existingNs.SetAnnotations(map[string]string{
 		"juju.io/model":         s.cfg.UUID(),
-		"juju.io/controller":    s.controllerUUID,
+		"juju.io/controller":    testing.ControllerTag.Id(),
 		"juju.io/is-controller": "true",
 	})
 
 	c.Assert(s.broker.GetCurrentNamespace(), jc.DeepEquals, "controller")
 	c.Assert(s.broker.GetAnnotations().ToMap(), jc.DeepEquals, map[string]string{
 		"juju.io/model":      s.cfg.UUID(),
-		"juju.io/controller": s.controllerUUID,
+		"juju.io/controller": testing.ControllerTag.Id(),
 	})
 
 	gomock.InOrder(
@@ -136,7 +134,7 @@ func (s *bootstrapSuite) TestControllerCorelation(c *gc.C) {
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
 			"juju.io/model":         s.cfg.UUID(),
-			"juju.io/controller":    s.controllerUUID,
+			"juju.io/controller":    testing.ControllerTag.Id(),
 			"juju.io/is-controller": "true",
 		},
 	)
@@ -204,7 +202,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
 			"juju.io/model":      s.cfg.UUID(),
-			"juju.io/controller": s.controllerUUID,
+			"juju.io/controller": testing.ControllerTag.Id(),
 		},
 	)
 
@@ -222,7 +220,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		s.broker.GetAnnotations().ToMap(), jc.DeepEquals,
 		map[string]string{
 			"juju.io/model":         s.cfg.UUID(),
-			"juju.io/controller":    s.controllerUUID,
+			"juju.io/controller":    testing.ControllerTag.Id(),
 			"juju.io/is-controller": "true",
 		},
 	)
@@ -242,9 +240,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	s.ensureJujuNamespaceAnnotations(true, ns)
 	svcNotProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-service",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-service",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "juju-controller-test"},
@@ -262,9 +261,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	svcPublicIP := "1.1.1.1"
 	svcProvisioned := &core.Service{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-service",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-service",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "juju-controller-test"},
@@ -282,17 +282,19 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptySecret := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-secret",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 	}
 	secretWithSharedSecretAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-secret",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -301,9 +303,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	secretWithServerPEMAdded := &core.Secret{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-secret",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-secret",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Type: core.SecretTypeOpaque,
 		Data: map[string][]byte{
@@ -314,9 +317,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	emptyConfigMap := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-configmap",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-configmap",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 	}
 	bootstrapParamsContent, err := s.pcfg.Bootstrap.StateInitializationParams.Marshal()
@@ -324,9 +328,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 
 	configMapWithBootstrapParamsAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-configmap",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-configmap",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -334,9 +339,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	}
 	configMapWithAgentConfAdded := &core.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test-configmap",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test-configmap",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Data: map[string]string{
 			"bootstrap-params": string(bootstrapParamsContent),
@@ -348,9 +354,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	fileMode := int32(256)
 	statefulSetSpec := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "juju-controller-test",
-			Labels:    map[string]string{"juju-app": "juju-controller-test"},
-			Namespace: s.getNamespace(),
+			Name:        "juju-controller-test",
+			Namespace:   s.getNamespace(),
+			Labels:      map[string]string{"juju-app": "juju-controller-test"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
 		Spec: apps.StatefulSetSpec{
 			ServiceName: "juju-controller-test-service",
@@ -361,8 +368,9 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			VolumeClaimTemplates: []core.PersistentVolumeClaim{
 				{
 					ObjectMeta: v1.ObjectMeta{
-						Name:   "storage",
-						Labels: map[string]string{"juju-app": "juju-controller-test"},
+						Name:        "storage",
+						Labels:      map[string]string{"juju-app": "juju-controller-test"},
+						Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 					},
 					Spec: core.PersistentVolumeClaimSpec{
 						StorageClassName: &scName,
@@ -377,9 +385,10 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 			},
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      "controller-0",
-					Labels:    map[string]string{"juju-app": "juju-controller-test"},
-					Namespace: s.getNamespace(),
+					Name:        "controller-0",
+					Namespace:   s.getNamespace(),
+					Labels:      map[string]string{"juju-app": "juju-controller-test"},
+					Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 				},
 				Spec: core.PodSpec{
 					RestartPolicy: core.RestartPolicyAlways,

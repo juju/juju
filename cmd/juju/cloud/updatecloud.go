@@ -43,24 +43,17 @@ This method can be used for cloud updates on the client side and on a controller
 A cloud on the controller can also be updated just by using a name of a cloud
 from this client.
 
-If a current controller can be detected, a user will be prompted to confirm 
-if specified cloud needs to be updated on it. 
-If the prompt is not needed and the cloud is always to be updated on
-the current controller if that controller is detected, use --no-prompt option.
+Use --controller option to update a cloud on a controller. 
 
-Use --controller option to update a cloud on a different controller. 
-
-Use --controller-only option to only update controller copy of the cloud.
-
-Use --client-only to update cloud definition on this client.
+Use --client to update cloud definition on this client.
 
 Examples:
 
     juju update-cloud mymaas -f path/to/maas.yaml
     juju update-cloud mymaas -f path/to/maas.yaml --controller mycontroller
     juju update-cloud mymaas --controller mycontroller
-    juju update-cloud mymaas --no-prompt --controller-only
-    juju update-cloud mymaas --client-only -f path/to/maas.yaml
+    juju update-cloud mymaas --client --controller mycontroller
+    juju update-cloud mymaas --client -f path/to/maas.yaml
 
 See also:
     add-cloud
@@ -145,20 +138,8 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 		c.Cloud = r.cloudName
 	}
-
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("update cloud %q on", c.Cloud))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
-	}
-	if c.ControllerName == "" && !c.ClientOnly {
-		ctxt.Infof("To update cloud %q on this client, use the --client-only option.", c.Cloud)
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("update cloud %q on", c.Cloud)); err != nil {
+		return errors.Trace(err)
 	}
 	var returnErr error
 	processErr := func(err error, successMsg string) {
@@ -169,7 +150,7 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 		ctxt.Infof(successMsg)
 	}
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if c.CloudFile == "" {
 			ctxt.Infof("To update cloud %q on this client, a cloud definition file is required.", c.Cloud)
 			returnErr = cmd.ErrSilent
@@ -178,17 +159,13 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 			processErr(err, fmt.Sprintf("Cloud %q updated on this client using provided file.", c.Cloud))
 		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName != "" {
-			if c.CloudFile != "" {
-				err := c.updateController(newCloud)
-				processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using provided file.", c.Cloud, c.ControllerName))
-			} else {
-				err := c.updateControllerCacheFromLocalCache()
-				processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using client cloud definition.", c.Cloud, c.ControllerName))
-			}
+	if c.ControllerName != "" {
+		if c.CloudFile != "" {
+			err := c.updateController(newCloud)
+			processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using provided file.", c.Cloud, c.ControllerName))
 		} else {
-			return errors.BadRequestf("To update cloud definition on a controller, a controller name is required.")
+			err := c.updateControllerCacheFromLocalCache()
+			processErr(err, fmt.Sprintf("Cloud %q updated on controller %q using client cloud definition.", c.Cloud, c.ControllerName))
 		}
 	}
 	return returnErr

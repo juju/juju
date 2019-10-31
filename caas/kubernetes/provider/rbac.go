@@ -56,16 +56,17 @@ type serviceAccountSpecGetter interface {
 }
 
 func (k *kubernetesClient) ensureServiceAccountForApp(
-	appName string, rbacDefinition serviceAccountSpecGetter,
+	appName string, annotations map[string]string, rbacDefinition serviceAccountSpecGetter,
 ) (cleanups []func(), err error) {
 
 	rbacStackName := rbacDefinition.GetName()
 	caasSpec := rbacDefinition.GetSpec()
 	saSpec := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      rbacStackName,
-			Namespace: k.namespace,
-			Labels:    k.getRBACLabels(appName, false),
+			Name:        rbacStackName,
+			Namespace:   k.namespace,
+			Labels:      k.getRBACLabels(appName, false),
+			Annotations: annotations,
 		},
 		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
 	}
@@ -81,9 +82,10 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			// ensure Role.
 			r, rCleanups, err := k.ensureRole(&rbacv1.Role{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      rbacStackName,
-					Namespace: k.namespace,
-					Labels:    k.getRBACLabels(appName, false),
+					Name:        rbacStackName,
+					Namespace:   k.namespace,
+					Labels:      k.getRBACLabels(appName, false),
+					Annotations: annotations,
 				},
 				Rules: toK8sRules(caasSpec.Rules),
 			})
@@ -95,9 +97,10 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			// ensure RoleBindings for Role.
 			_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      rbacStackName,
-					Namespace: k.namespace,
-					Labels:    k.getRBACLabels(appName, false),
+					Name:        rbacStackName,
+					Namespace:   k.namespace,
+					Labels:      k.getRBACLabels(appName, false),
+					Annotations: annotations,
 				},
 				RoleRef: rbacv1.RoleRef{
 					Name: r.GetName(),
@@ -120,9 +123,10 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			rbacStackName = fmt.Sprintf("%s-%s", k.namespace, rbacStackName)
 			cR, cRCleanups, err := k.ensureClusterRole(&rbacv1.ClusterRole{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      rbacStackName,
-					Namespace: k.namespace,
-					Labels:    k.getRBACLabels(appName, true),
+					Name:        rbacStackName,
+					Namespace:   k.namespace,
+					Labels:      k.getRBACLabels(appName, true),
+					Annotations: annotations,
 				},
 				Rules: toK8sRules(caasSpec.Rules),
 			})
@@ -133,9 +137,10 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			// ensure ClusterRoleBindings for ClusterRole.
 			_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
 				ObjectMeta: v1.ObjectMeta{
-					Name:      rbacStackName,
-					Namespace: k.namespace,
-					Labels:    k.getRBACLabels(appName, true),
+					Name:        rbacStackName,
+					Namespace:   k.namespace,
+					Labels:      k.getRBACLabels(appName, true),
+					Annotations: annotations,
 				},
 				RoleRef: rbacv1.RoleRef{
 					Name: cR.GetName(),

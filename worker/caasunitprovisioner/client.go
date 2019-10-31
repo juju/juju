@@ -58,7 +58,7 @@ type LifeGetter interface {
 // UnitUpdater provides an interface for updating
 // Juju units from changes in the cloud.
 type UnitUpdater interface {
-	UpdateUnits(arg params.UpdateApplicationUnits) error
+	UpdateUnits(arg params.UpdateApplicationUnits) (*params.UpdateApplicationUnitsInfo, error)
 }
 
 // ProvisioningStatusSetter provides an interface for

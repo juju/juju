@@ -337,4 +337,5 @@ const (
 type BranchStatus struct {
 	AssignedUnits map[string][]string `json:"assigned-units"`
 	Created       int64               `json:"created"`
+	CreatedBy     string              `json:"created-by"`
 }

@@ -158,7 +158,7 @@ func (s *MigrationImportSuite) TestImportRemoteEntitiesWithNoEntities(c *gc.C) {
 	model.EXPECT().RemoteEntities().Return(entities)
 
 	runner := NewMockTransactionRunner(ctrl)
-	runner.EXPECT().RunTransaction([]txn.Op{})
+	// No call to RunTransaction if there are no operations.
 
 	m := ImportRemoteEntities{}
 	err := m.Execute(model, runner)
@@ -260,7 +260,7 @@ func (s *MigrationImportSuite) TestImportRelationNetworksWithNoEntities(c *gc.C)
 	model.EXPECT().RelationNetworks().Return(entities)
 
 	runner := NewMockTransactionRunner(ctrl)
-	runner.EXPECT().RunTransaction([]txn.Op{}).Return(nil)
+	// No call to RunTransaction if there are no operations.
 
 	m := ImportRelationNetworks{}
 	err := m.Execute(model, runner)

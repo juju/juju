@@ -262,10 +262,7 @@
 [[projects]]
   digest = "1:48448440bcf4465b2aedc1fc92c61beaeffcc056932b4afdcb9a75a059b5211d"
   name = "github.com/golang/mock"
-  packages = [
-    "gomock",
-    "mockgen/model",
-  ]
+  packages = ["gomock"]
   pruneopts = ""
   revision = "d74b93584564161b2de771089ee697f07d8bd5b5"
 
@@ -1580,7 +1577,7 @@
   revision = "8d2f241f8a5d0e3a16baf52a5f31be80636ee12d"
 
 [[projects]]
-  digest = "1:5081ff05b4471731df7fa7457083397c2663791cd5809858a899306cdfe29b63"
+  digest = "1:2041c73bbc755e07a90e03f149933b8ecfce5233a5afbe6b04230386a75f8fda"
   name = "gopkg.in/juju/worker.v1"
   packages = [
     ".",
@@ -1590,7 +1587,7 @@
     "workertest",
   ]
   pruneopts = ""
-  revision = "40da96d5fd22ba01076f56ba5fc6aa06315153c5"
+  revision = "19a698a7150fe54ef526b0602069083b4410fc98"
 
 [[projects]]
   digest = "1:01aef8078808543c15a4cc0e669d92d37215564600e19ebabbd694939b727977"

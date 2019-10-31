@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api"
@@ -397,106 +397,115 @@ type OptionalControllerCommand struct {
 	// Local stores whether a client side (aka local) copy is requested.
 	Local bool
 
-	// ClientOnly stores whether the command will ONLY operate on a client copy
-	// without affecting controller copy.
-	ClientOnly bool
-
-	// ControllerOnly stores whether the command will ONLY operate on a controller copy
-	// without affecting client copy.
-	ControllerOnly bool
-
-	// BothClientAndController indicates that the operation need to take place on
-	// both client and controller. This is the default argument, only selected if
-	// neither ClientOnly nor ControllerOnly specified.
-	BothClientAndController bool
+	// Client stores whether the command will operate on a client copy.
+	Client bool
 
 	ControllerName string
 
-	SkipCurrentControllerPrompt bool
+	// ReadOnly read only commands do not require to prompt the user for clarification
+	// on whether the client or current controller is to be used.
+	ReadOnly bool
 }
 
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
-	f.BoolVar(&c.ClientOnly, "client-only", false, "Client operation only; controller not affected")
-	f.BoolVar(&c.ControllerOnly, "controller-only", false, "Controller operation only; client not affected")
-	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
+	f.BoolVar(&c.Client, "client", false, "Client operation")
 	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
 	f.StringVar(&c.ControllerName, "controller", "", "")
-	f.BoolVar(&c.SkipCurrentControllerPrompt, "no-prompt", false, "Skip prompting for confirmation to use current controller, always use it when detected")
+	// TODO (juju3) remove me
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
 }
 
 // Init populates the command with the args from the command line.
 func (c *OptionalControllerCommand) Init(args []string) (err error) {
-	if c.Local && !c.ClientOnly {
-		c.ClientOnly = c.Local
-	}
-	c.BothClientAndController = !c.ClientOnly && !c.ControllerOnly
+	c.Client = c.Client || c.Local
 	return nil
 }
 
-// ControllerNameFromArg returns either a controller name or empty string.
-// A non default controller can be chosen using the --controller option.
-// Use the --local arg to return an empty string, meaning no controller is selected.
-func (c *OptionalControllerCommand) ControllerNameFromArg() (string, error) {
-	requireExplicitController := !featureflag.Enabled(c.EnabledFlag)
-	if c.ClientOnly || (requireExplicitController && c.ControllerName == "") {
-		c.ClientOnly = true
-		return "", nil
+// MaybePrompt checks if the command was give a --client or --controller options.
+// If not, it will prompt user to clarify whether the operation is to take place on
+// a client copy, a controller copy or both.
+// When neither client nor controller is specified on the command,
+// several scenarios need to be catered for when prompting:
+// 1. there is a current controller to prompt user with;
+// 2. there is no current controller but there are other controllers, so inform users how to use -c;
+// 3. there is no current controller and there are no registered controllers, so inform users to bootstrap or register.
+// When there is no current controller, the prompt becomes a Y/N client question instead of a multi-choice
+// client/controller.
+func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string) error {
+	if c.Client || c.ControllerName != "" {
+		return nil
 	}
-	controllerName := c.ControllerName
-	if controllerName == "" {
+
+	currentController, err := DetermineCurrentController(c.Store)
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+
+	if c.ReadOnly {
+		// No need to prompt the user, just assume that both client and a current controller are needed.
+		c.Client = true
+		c.ControllerName = currentController
+		return nil
+	}
+
+	ctxt.Infof("This operation can be applied to both a copy on this client and to the one on a controller.")
+	if currentController == "" {
+		msg := "No current controller was detected"
 		all, err := c.Store.AllControllers()
 		if err != nil {
-			return "", errors.Trace(err)
+			return errors.Trace(err)
 		}
 		if len(all) == 0 {
-			return "", errors.Trace(ErrNoControllersDefined)
+			msg += " and there are no registered controllers on this client: either bootstrap one or register one."
+		} else {
+			msg += " but there are other controllers registered: use -c or --controller to specify a controller if needed."
 		}
-		controllerName, err = DetermineCurrentController(c.Store)
+		ctxt.Infof(msg)
+		pollster := interact.New(ctxt.Stdin, ctxt.Stdout, interact.NewErrWriter(ctxt.Stdout))
+		useClient, err := pollster.YN(fmt.Sprintf("Do you ONLY want to %v this client", action), true)
 		if err != nil {
-			return "", errors.Trace(err)
+			return errors.Trace(err)
+		}
+		if !useClient {
+			ctxt.Infof("Neither client nor controller specified - nothing to do.")
+		}
+		c.Client = useClient
+		return nil
+	}
+
+	fmt.Fprintf(ctxt.Stdout, fmt.Sprintf("Do you want to %v:\n", action))
+	fmt.Fprintf(ctxt.Stdout, "    1. client only (--client)\n")
+	fmt.Fprintf(ctxt.Stdout, fmt.Sprintf("    2. controller %q only (--controller %s)\n", currentController, currentController))
+	fmt.Fprintf(ctxt.Stdout, fmt.Sprintf("    3. both (--client --controller %s)\n", currentController))
+	fmt.Fprint(ctxt.Stdout, "Enter your choice, or type Q|q to quit: ")
+	for {
+		input, err := readLine(ctxt.Stdin)
+		if err != nil {
+			return err
+		}
+		input = strings.ToLower(strings.TrimSpace(input))
+		switch input {
+		case "q":
+			goto quit
+		case "1":
+			c.Client = true
+			return nil
+		case "2":
+			c.ControllerName = currentController
+			return nil
+		case "3":
+			c.ControllerName = currentController
+			c.Client = true
+			return nil
+		default:
+			ctxt.Infof("Invalid choice, enter a number between 1 and 3 or quit Q|q")
 		}
 	}
-	if controllerName == "" {
-		return "", errors.Trace(ErrNoCurrentController)
+quit:
+	if !c.Client && c.ControllerName == "" {
+		ctxt.Infof("Neither client nor controller specified - nothing to do.")
 	}
-	return controllerName, nil
-}
-
-// MaybePromptCurrentController checks if there is a current controller on a client.
-// If there is and the user did not want to be prompted, the current controller will be returned.
-// Otherwise, the user will be prompted if the current controller should be used and
-// based on the answer the current controller may or may not be returned.
-func (c *OptionalControllerCommand) MaybePromptCurrentController(ctxt *cmd.Context, action string) (string, error) {
-	all, err := c.Store.AllControllers()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if len(all) == 0 {
-		// No controllers, so nothing to do.
-		return "", nil
-	}
-	controllerName, err := DetermineCurrentController(c.Store)
-	if err != nil && !errors.IsNotFound(err) {
-		return "", errors.Trace(err)
-	}
-	if controllerName == "" {
-		return "", nil
-	}
-	if c.SkipCurrentControllerPrompt {
-		return controllerName, nil
-	}
-	// Since current controller is detected, user needs to confirm it.
-	errout := interact.NewErrWriter(ctxt.Stdout)
-	pollster := interact.New(ctxt.Stdin, ctxt.Stdout, errout)
-	use, err := pollster.YN(fmt.Sprintf("Do you want to %v current controller %q", action, controllerName), true)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	if use {
-		return controllerName, nil
-	}
-	return "", nil
+	return nil
 }

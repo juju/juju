@@ -1607,18 +1607,78 @@ func (t *localServerSuite) setUpInstanceWithDefaultVpc(c *gc.C) (environs.Networ
 	return env, instanceIds[0]
 }
 
-func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
-	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
+func (t *localServerSuite) TestNetworkInterfacesForMultipleInstances(c *gc.C) {
+	// Start three instances
+	env := t.prepareEnviron(c)
+	testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
+	testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "2")
+	testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "3")
+
+	// Get a list of running instance IDs
+	instances, err := env.AllInstances(t.callCtx)
+	c.Assert(err, jc.ErrorIsNil)
+	var ids = make([]instance.Id, len(instances))
+	for i, inst := range instances {
+		ids[i] = inst.Id()
+	}
+
+	ifLists, err := env.NetworkInterfaces(t.callCtx, ids)
 	c.Assert(err, jc.ErrorIsNil)
 
+	// Check that each entry in the list contains the right set of interfaces
+	for i, id := range ids {
+		c.Logf("comparing entry %d in result list with network interface list for instance %v", i, id)
+
+		list, err := env.NetworkInterfaces(t.callCtx, []instance.Id{id})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(list, gc.HasLen, 1)
+		instIfList := list[0]
+		c.Assert(instIfList, gc.HasLen, 1)
+
+		c.Assert(instIfList, gc.DeepEquals, ifLists[i], gc.Commentf("inconsistent result for entry %d in multi-instance result list", i))
+		for devIdx, iface := range instIfList {
+			t.assertInterfaceLooksValid(c, i+devIdx, devIdx, iface)
+		}
+	}
+}
+
+func (t *localServerSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
+	// Start three instances
+	env := t.prepareEnviron(c)
+	inst, _ := testing.AssertStartInstance(c, env, t.callCtx, t.ControllerUUID, "1")
+
+	infoLists, err := env.NetworkInterfaces(t.callCtx, []instance.Id{inst.Id(), instance.Id("bogus")})
+	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
+	c.Assert(infoLists, gc.HasLen, 2)
+
+	// Check interfaces for first instance
+	list := infoLists[0]
+	c.Assert(list, gc.HasLen, 1)
+	t.assertInterfaceLooksValid(c, 0, 0, list[0])
+
+	// Check that the slot for the second instance is nil
+	c.Assert(infoLists[1], gc.IsNil, gc.Commentf("expected slot for unknown instance to be nil"))
+}
+
+func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
+	env, instId := t.setUpInstanceWithDefaultVpc(c)
+	infoLists, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(infoLists, gc.HasLen, 1)
+
+	list := infoLists[0]
+	c.Assert(list, gc.HasLen, 1)
+
+	t.assertInterfaceLooksValid(c, 0, 0, list[0])
+}
+
+func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDevIndex int, iface network.InterfaceInfo) {
 	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
 	// The subnet ID is in the form "subnet-x", where x matches the same
 	// number from the CIDR. The interfaces address is part of the CIDR.
 	// For these reasons we check that the CIDR is in the expected format
 	// and derive the expected values for ProviderSubnetId and Address.
-	c.Assert(interfaces, gc.HasLen, 1)
-	cidr := interfaces[0].CIDR
+	cidr := iface.CIDR
 	re := regexp.MustCompile(`10\.10\.(\d+)\.0/24`)
 	c.Assert(re.Match([]byte(cidr)), jc.IsTrue)
 	index := re.FindStringSubmatch(cidr)[1]
@@ -1628,16 +1688,16 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	// AvailabilityZones will either contain "test-available",
 	// "test-impaired" or "test-unavailable" depending on which subnet is
 	// picked. Any of these is fine.
-	zones := interfaces[0].AvailabilityZones
+	zones := iface.AvailabilityZones
 	c.Assert(zones, gc.HasLen, 1)
 	re = regexp.MustCompile("test-available|test-unavailable|test-impaired")
 	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
 
-	expectedInterfaces := []network.InterfaceInfo{{
-		DeviceIndex:       0,
-		MACAddress:        "20:01:60:cb:27:37",
+	expectedInterface := network.InterfaceInfo{
+		DeviceIndex:       expDevIndex,
+		MACAddress:        iface.MACAddress,
 		CIDR:              cidr,
-		ProviderId:        "eni-0",
+		ProviderId:        corenetwork.Id(fmt.Sprintf("eni-%d", expIfaceID)),
 		ProviderSubnetId:  subnetId,
 		VLANTag:           0,
 		InterfaceName:     "unsupported0",
@@ -1647,8 +1707,8 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 		InterfaceType:     network.EthernetInterface,
 		Address:           corenetwork.NewScopedProviderAddress(addr, corenetwork.ScopeCloudLocal),
 		AvailabilityZones: zones,
-	}}
-	c.Assert(interfaces, jc.DeepEquals, expectedInterfaces)
+	}
+	c.Assert(iface, gc.DeepEquals, expectedInterface)
 }
 
 func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
@@ -1658,16 +1718,20 @@ func (t *localServerSuite) TestSubnetsWithInstanceId(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 1)
 	validateSubnets(c, subnets, "")
 
-	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
+	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaceList, gc.HasLen, 1)
+	interfaces := interfaceList[0]
 	c.Assert(interfaces, gc.HasLen, 1)
 	c.Assert(interfaces[0].ProviderSubnetId, gc.Equals, subnets[0].ProviderId)
 }
 
 func (t *localServerSuite) TestSubnetsWithInstanceIdAndSubnetId(c *gc.C) {
 	env, instId := t.setUpInstanceWithDefaultVpc(c)
-	interfaces, err := env.NetworkInterfaces(t.callCtx, instId)
+	interfaceList, err := env.NetworkInterfaces(t.callCtx, []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(interfaceList, gc.HasLen, 1)
+	interfaces := interfaceList[0]
 	c.Assert(interfaces, gc.HasLen, 1)
 
 	subnets, err := env.Subnets(t.callCtx, instId, []corenetwork.Id{interfaces[0].ProviderSubnetId})

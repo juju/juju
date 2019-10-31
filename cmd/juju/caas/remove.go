@@ -25,21 +25,11 @@ Removes the specified k8s cloud from this client.
 If --controller is used, also removes the cloud 
 from the specified controller (if it is not in use).
 
-If --controller option was not used and the current controller can be detected, 
-a user will be prompted to confirm if the k8s cloud needs to be removed from it. 
-If the prompt is not needed and the k8s cloud is always to be removed from
-the current controller if that controller is detected, use --no-prompt option.
-
-If you just want to update your controller and not
-your current client, use the --controller-only option.
-
-If you just want to update your current client and not
-a running controller, use the --client-only option.
+Use --client option to update your current client.
 
 Examples:
     juju remove-k8s myk8scloud
-    juju remove-k8s myk8scloud --client-only
-    juju remove-k8s myk8scloud --controller-only --no-prompt
+    juju remove-k8s myk8scloud --client
     juju remove-k8s --controller mycontroller myk8scloud
     
 See also:
@@ -110,30 +100,21 @@ func (c *RemoveCAASCommand) Init(args []string) (err error) {
 
 // Run is defined on the Command interface.
 func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
-	if c.BothClientAndController || c.ControllerOnly {
-		if c.ControllerName == "" {
-			// The user may have specified the controller via a --controller option.
-			// If not, let's see if there is a current controller that can be detected.
-			var err error
-			c.ControllerName, err = c.MaybePromptCurrentController(ctxt, fmt.Sprintf("remove k8s cloud %v from ", c.cloudName))
-			if err != nil {
-				return errors.Trace(err)
-			}
-		}
+	if err := c.MaybePrompt(ctxt, fmt.Sprintf("remove k8s cloud %v from ", c.cloudName)); err != nil {
+		return errors.Trace(err)
 	}
 
-	if c.ControllerName == "" && !c.ClientOnly {
-		ctxt.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client-only option.", c.cloudName)
+	if c.ControllerName == "" {
+		ctxt.Infof("There are no controllers running.\nTo remove cloud %q from the current client, use the --client option.", c.cloudName)
 	}
 
-	if c.BothClientAndController {
-		// TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
+	if c.ControllerName != "" && c.Client { // TODO(caas): only do RBAC cleanup for removing from both client and controller to less complexity.
 		if err := cleanUpCredentialRBACResources(c.cloudName, c.cloudMetadataStore, c.credentialStoreAPI); err != nil {
 			return errors.Trace(err)
 		}
 	}
 
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		if err := removeCloudFromLocal(c.cloudName, c.cloudMetadataStore); err != nil {
 			return errors.Annotatef(err, "cannot remove cloud from current client")
 		}
@@ -141,11 +122,8 @@ func (c *RemoveCAASCommand) Run(ctxt *cmd.Context) error {
 		if err := c.Store.UpdateCredential(c.cloudName, cloud.CloudCredential{}); err != nil {
 			return errors.Annotatef(err, "cannot remove credential from current client")
 		}
-		if c.ClientOnly {
-			return nil
-		}
 	}
-	if c.BothClientAndController || c.ControllerOnly {
+	if c.ControllerName != "" {
 		if err := jujuclient.ValidateControllerName(c.ControllerName); err != nil {
 			return errors.Trace(err)
 		}
@@ -173,7 +151,7 @@ func cleanUpCredentialRBACResources(
 	if personalClouds == nil {
 		return nil
 	}
-	cloud, ok := personalClouds[cloudName]
+	pCloud, ok := personalClouds[cloudName]
 	if !ok {
 		return nil
 	}
@@ -186,7 +164,7 @@ func cleanUpCredentialRBACResources(
 		return nil
 	}
 	for _, credential := range cloudCredentials.AuthCredentials {
-		if err := cleanUpCredentialRBAC(cloud, credential); err != nil {
+		if err := cleanUpCredentialRBAC(pCloud, credential); err != nil {
 			logger.Warningf("unable to remove RBAC resources for credential %q", credential.Label)
 		}
 	}

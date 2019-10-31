@@ -238,8 +238,11 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 
 	n.setupNetworkInterfacesExpectations(vnicID, vcnID)
 
-	info, err := n.env.NetworkInterfaces(nil, instance.Id(n.testInstanceID))
+	infoList, err := n.env.NetworkInterfaces(nil, []instance.Id{instance.Id(n.testInstanceID)})
 	c.Assert(err, gc.IsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	info := infoList[0]
+
 	c.Assert(info, gc.HasLen, 1)
 	c.Assert(info[0].Address, gc.Equals, corenetwork.NewScopedProviderAddress("1.1.1.1", corenetwork.ScopeCloudLocal))
 	c.Assert(info[0].InterfaceName, gc.Equals, "unsupported0")

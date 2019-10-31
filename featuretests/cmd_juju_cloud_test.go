@@ -41,12 +41,12 @@ clouds:
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	ctx, err = s.run(c, "add-cloud", "testdummy", "-c", "kontroll", "--force")
-	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testdummy" added to controller "kontroll".`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 
 	ctx, err = s.run(c, "add-cloud", "testdummy", "-c", "kontroll", "--force")
-	c.Assert(err, gc.DeepEquals, cmd.ErrSilent)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), jc.Contains, `Cloud "testdummy" already exists on the controller "kontroll".`)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 }

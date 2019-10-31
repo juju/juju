@@ -34,7 +34,7 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 }
 
 // Copy mocks base method
-func (m *MockExecutor) Copy(arg0 exec.CopyParam, arg1 <-chan struct{}) error {
+func (m *MockExecutor) Copy(arg0 exec.CopyParams, arg1 <-chan struct{}) error {
 	ret := m.ctrl.Call(m, "Copy", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0

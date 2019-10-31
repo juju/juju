@@ -8,7 +8,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
 	jujutesting "github.com/juju/testing"
@@ -87,7 +86,7 @@ func (s *updateCloudSuite) TestUpdateLocalCacheFromFile(c *gc.C) {
 	command, fileName := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
-	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client-only")
+	_, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 }
@@ -97,7 +96,7 @@ func (s *updateCloudSuite) TestUpdateFromFileDefaultLocal(c *gc.C) {
 	command, fileName := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
 		return nil, errors.New("")
 	})
-	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client-only")
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.api.Calls(), gc.HasLen, 0)
 	out := cmdtesting.Stderr(ctx)
@@ -109,7 +108,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromFile(c *gc.C) {
 	command, fileName := s.setupCloudFileScenario(c, func() (cloud.UpdateCloudAPI, error) {
 		return s.api, nil
 	})
-	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "--no-prompt", "--controller-only")
+	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "-f", fileName, "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
@@ -140,7 +139,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 		return s.api, nil
 	})
 	ctx, err := cmdtesting.RunCommand(c, command, "garage-maas", "--controller", "mycontroller")
-	c.Assert(err, gc.Equals, cmd.ErrSilent)
+	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "UpdateCloud", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
 	s.api.CheckCall(c, 0, "UpdateCloud", jujucloud.Cloud{
@@ -151,10 +150,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 		Endpoint:    "http://garagemaas",
 	})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-To update cloud "garage-maas" on this client, a cloud definition file is required.
-Cloud "garage-maas" updated on controller "mycontroller" using client cloud definition.
-`[1:])
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" updated on controller \"mycontroller\" using client cloud definition.\n")
 }
 
 type fakeUpdateCloudAPI struct {

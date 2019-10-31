@@ -33,7 +33,7 @@ type Facade struct {
 }
 
 type CAASBrokerInterface interface {
-	WatchUnitStart(appName string) (corewatcher.StringsWatcher, error)
+	WatchContainerStart(appName string, containerName string) (corewatcher.StringsWatcher, error)
 }
 
 // NewStateFacade provides the signature required for facade registration.
@@ -245,14 +245,14 @@ func (f *Facade) watchUnits(tagString string) (string, []string, error) {
 	return "", nil, watcher.EnsureErr(w)
 }
 
-// WatchUnitStart starts a StringWatcher to watch for Unit start events
-// on the CAAS api.
-func (f *Facade) WatchUnitStart(args params.Entities) (params.StringsWatchResults, error) {
+// WatchContainerStart starts a StringWatcher to watch for container start events
+// on the CAAS api for a specific application and container.
+func (f *Facade) WatchContainerStart(args params.WatchContainerStartArgs) (params.StringsWatchResults, error) {
 	results := params.StringsWatchResults{
-		Results: make([]params.StringsWatchResult, len(args.Entities)),
+		Results: make([]params.StringsWatchResult, len(args.Args)),
 	}
-	for i, arg := range args.Entities {
-		id, changes, err := f.watchUnitStart(arg.Tag)
+	for i, arg := range args.Args {
+		id, changes, err := f.watchContainerStart(arg.Entity.Tag, arg.Container)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -263,12 +263,12 @@ func (f *Facade) WatchUnitStart(args params.Entities) (params.StringsWatchResult
 	return results, nil
 }
 
-func (f *Facade) watchUnitStart(tagString string) (string, []string, error) {
+func (f *Facade) watchContainerStart(tagString string, containerName string) (string, []string, error) {
 	tag, err := names.ParseApplicationTag(tagString)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
-	w, err := f.broker.WatchUnitStart(tag.Name)
+	w, err := f.broker.WatchContainerStart(tag.Name, containerName)
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}

@@ -171,7 +171,7 @@ func (s *detectCredentialsSuite) assertDetectCredential(c *gc.C, t detectCredent
 	}
 
 	stdin := strings.NewReader(fmt.Sprintf("1\n%s\nQ\n", t.cloudName))
-	ctx, err := s.run(c, stdin, clouds)
+	ctx, err := s.run(c, stdin, clouds, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	if t.expectedStderr == "" {
 		if t.expectedRegion != "" {
@@ -251,7 +251,7 @@ Select a credential to save by number, or type Q to quit:
 
 func (s *detectCredentialsSuite) TestNewDetectCredentialNoneFound(c *gc.C) {
 	stdin := strings.NewReader("")
-	ctx, err := s.run(c, stdin, nil)
+	ctx, err := s.run(c, stdin, nil, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, gc.Matches, ".*No cloud credentials found.*")
@@ -274,7 +274,7 @@ func (s *detectCredentialsSuite) TestNewDetectCredentialFilter(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("")
-	ctx, err := s.run(c, stdin, clouds, "some-provider")
+	ctx, err := s.run(c, stdin, clouds, "some-provider", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, gc.Matches, ".*No cloud credentials found.*")
@@ -290,7 +290,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialInvalidChoice(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("3\nQ\n")
-	ctx, err := s.run(c, stdin, nil)
+	ctx, err := s.run(c, stdin, nil, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	output := strings.Replace(cmdtesting.Stderr(ctx), "\n", "", -1)
 	c.Assert(output, gc.Matches, ".*Invalid choice, enter a number between 1 and 2.*")
@@ -318,7 +318,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialCloudMismatch(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("1\naws\nQ\n")
-	ctx, err := s.run(c, stdin, clouds)
+	ctx, err := s.run(c, stdin, clouds, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 
@@ -344,7 +344,7 @@ func (s *detectCredentialsSuite) TestDetectCredentialQuitOnCloud(c *gc.C) {
 	}
 
 	stdin := strings.NewReader("1\nQ\n")
-	ctx, err := s.run(c, stdin, nil)
+	ctx, err := s.run(c, stdin, nil, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
 
@@ -410,10 +410,11 @@ func (s *detectCredentialsSuite) TestRemoteLoad(c *gc.C) {
 		return &remoteTestCloud, nil
 	}
 
-	stdin := strings.NewReader(fmt.Sprintf("\n1\n%s\nQ\n", cloudName))
+	stdin := strings.NewReader(fmt.Sprintf("3\n1\n%s\nQ\n", cloudName))
 	ctx, err := s.runWithCloudsFunc(c, stdin, nil, cloudByNameFunc)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.DeepEquals, `
+This operation can be applied to both a copy on this client and to the one on a controller.
 
 Looking for cloud and credential information on local client...
 
@@ -431,7 +432,12 @@ Controller credential "blah" for user "admin@local" for cloud "test-cloud" on co
 For more information, see ‘juju show-credential test-cloud blah’.
 `[1:])
 	c.Assert(called, jc.IsTrue)
-	c.Assert(cmdtesting.Stdout(ctx), gc.DeepEquals, "Do you want to add a credential to current controller \"controller\"? (Y/n): \n")
+	c.Assert(cmdtesting.Stdout(ctx), gc.DeepEquals, `
+Do you want to add a credential to:
+    1. client only (--client)
+    2. controller "controller" only (--controller controller)
+    3. both (--client --controller controller)
+Enter your choice, or type Q|q to quit: `[1:])
 }
 
 func (s *detectCredentialsSuite) assertAutoloadCredentials(c *gc.C, expectedStderr string, args ...string) {
@@ -486,15 +492,13 @@ func (s *detectCredentialsSuite) TestRemoteLoadNoRemoteCloud(c *gc.C) {
 1. credential (new)
 Select a credential to save by number, or type Q to quit: 
 Select the cloud it belongs to, or type Q to quit [test-cloud]: 
-Saved credential to cloud test-cloud locally
 
-1. credential (existing, will overwrite)
+1. credential (new)
 Select a credential to save by number, or type Q to quit: 
 
 Cloud "test-cloud" does not exist on the controller: not uploading credentials for it...
 Use 'juju clouds' to view all available clouds and 'juju add-cloud' to add missing ones.
-`[1:],
-		"--no-prompt")
+`[1:], "-c", "controller")
 }
 
 func (s *detectCredentialsSuite) TestDetectCredentialClientOnly(c *gc.C) {
@@ -508,7 +512,7 @@ Saved credential to cloud test-cloud locally
 1. credential (existing, will overwrite)
 Select a credential to save by number, or type Q to quit: 
 `[1:],
-		"--client-only")
+		"--client")
 }
 
 func (s *detectCredentialsSuite) TestAddLoadedCredential(c *gc.C) {

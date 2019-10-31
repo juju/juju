@@ -30,21 +30,21 @@ func (s *execSuite) TestFileResourceValidate(c *gc.C) {
 	c.Assert((&exec.FileResource{}).Validate(), gc.ErrorMatches, `path was missing`)
 }
 
-func (s *execSuite) TestCopyParamValidate(c *gc.C) {
+func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
 	type testcase struct {
-		Params exec.CopyParam
+		Params exec.CopyParams
 		Err    string
 	}
 	for _, tc := range []testcase{
 		{
-			Params: exec.CopyParam{},
+			Params: exec.CopyParams{},
 			Err:    "path was missing",
 		},
 		{
-			Params: exec.CopyParam{
+			Params: exec.CopyParams{
 				Src: exec.FileResource{
 					Path:    "",
 					PodName: "",
@@ -53,7 +53,7 @@ func (s *execSuite) TestCopyParamValidate(c *gc.C) {
 			Err: "path was missing",
 		},
 		{
-			Params: exec.CopyParam{
+			Params: exec.CopyParams{
 				Src: exec.FileResource{
 					Path:    "/var/lib/juju/tools",
 					PodName: "",
@@ -66,7 +66,7 @@ func (s *execSuite) TestCopyParamValidate(c *gc.C) {
 			Err: "path was missing",
 		},
 		{
-			Params: exec.CopyParam{
+			Params: exec.CopyParams{
 				Src: exec.FileResource{
 					Path:    "/var/lib/juju/tools",
 					PodName: "",
@@ -83,7 +83,7 @@ func (s *execSuite) TestCopyParamValidate(c *gc.C) {
 	}
 
 	// failed: can not copy from a pod to another pod.
-	params := exec.CopyParam{
+	params := exec.CopyParams{
 		Src: exec.FileResource{
 			Path:    "/var/lib/juju/tools",
 			PodName: "gitlab-k8s-0",
@@ -102,7 +102,7 @@ func (s *execSuite) TestCopyFromPodNotSupported(c *gc.C) {
 
 	cancel := make(chan struct{}, 1)
 
-	params := exec.CopyParam{
+	params := exec.CopyParams{
 		Src: exec.FileResource{
 			Path:    "/var/lib/juju/tools",
 			PodName: "gitlab-k8s-0",
@@ -124,7 +124,7 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	defer srcPath.Close()
 	defer os.Remove(srcPath.Name())
 
-	params := exec.CopyParam{
+	params := exec.CopyParams{
 		Src: exec.FileResource{
 			Path:    srcPath.Name(),
 			PodName: "",
@@ -142,6 +142,9 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 		},
 		Status: core.PodStatus{
 			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
 		},
 	}
 	pod.SetName("gitlab-k8s-0")

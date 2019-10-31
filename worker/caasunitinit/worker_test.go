@@ -36,7 +36,7 @@ func (s *UnitInitWorkerSuite) TestWorker(c *gc.C) {
 	startChan <- []string{"gitlab/0"}
 	close(startChan)
 	client := &fakeClient{
-		unitStartWatcher: watchertest.NewMockStringsWatcher(startChan),
+		ContainerStartWatcher: watchertest.NewMockStringsWatcher(startChan),
 	}
 
 	st := &testing.Stub{}
@@ -50,7 +50,7 @@ func (s *UnitInitWorkerSuite) TestWorker(c *gc.C) {
 			st.AddCall("InitializeUnit", params.UnitTag)
 			return nil
 		},
-		UnitStartWatcher: client,
+		ContainerStartWatcher: client,
 	}
 
 	w, err := caasunitinit.NewWorker(cfg)
@@ -71,7 +71,7 @@ func (s *UnitInitWorkerSuite) TestUnitDeadGraceful(c *gc.C) {
 	startChan <- []string{"gitlab/0"}
 	close(startChan)
 	client := &fakeClient{
-		unitStartWatcher: watchertest.NewMockStringsWatcher(startChan),
+		ContainerStartWatcher: watchertest.NewMockStringsWatcher(startChan),
 	}
 
 	st := &testing.Stub{}
@@ -85,7 +85,7 @@ func (s *UnitInitWorkerSuite) TestUnitDeadGraceful(c *gc.C) {
 			st.AddCall("InitializeUnit", params.UnitTag)
 			return errors.NotFoundf("unit sadly died")
 		},
-		UnitStartWatcher: client,
+		ContainerStartWatcher: client,
 	}
 
 	w, err := caasunitinit.NewWorker(cfg)
@@ -106,7 +106,7 @@ func (s *UnitInitWorkerSuite) TestInitializeFailed(c *gc.C) {
 	startChan <- []string{"gitlab/0"}
 	close(startChan)
 	client := &fakeClient{
-		unitStartWatcher: watchertest.NewMockStringsWatcher(startChan),
+		ContainerStartWatcher: watchertest.NewMockStringsWatcher(startChan),
 	}
 
 	st := &testing.Stub{}
@@ -120,7 +120,7 @@ func (s *UnitInitWorkerSuite) TestInitializeFailed(c *gc.C) {
 			st.AddCall("InitializeUnit", params.UnitTag)
 			return errors.Errorf("something bad happened")
 		},
-		UnitStartWatcher: client,
+		ContainerStartWatcher: client,
 	}
 
 	w, err := caasunitinit.NewWorker(cfg)

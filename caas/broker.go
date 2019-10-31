@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/version"
+	"gopkg.in/juju/names.v3"
 	core "k8s.io/api/core/v1"
 
 	"github.com/juju/juju/caas/specs"
@@ -162,10 +163,14 @@ type Broker interface {
 	// via volumes bound to the unit.
 	Units(appName string) ([]Unit, error)
 
-	// WatchUnitStart returns a watcher which notifies when units
-	// in an application is starting/restarting. Each string represents
-	// the provider id for the unit.
-	WatchUnitStart(appName string) (watcher.StringsWatcher, error)
+	// AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
+	AnnotateUnit(appName, podName string, unit names.UnitTag) error
+
+	// WatchContainerStart returns a watcher which is notified when the specified container
+	// for each unit in the application is starting/restarting. Each string represents
+	// the provider id for the unit. If containerName is empty, then the first workload container
+	// is used.
+	WatchContainerStart(appName string, containerName string) (watcher.StringsWatcher, error)
 
 	// WatchOperator returns a watcher which notifies when there
 	// are changes to the operator of the specified application.
@@ -268,7 +273,7 @@ type ClusterMetadataChecker interface {
 	CheckDefaultWorkloadStorage(cluster string, storageProvisioner *StorageProvisioner) error
 
 	// EnsureStorageProvisioner creates a storage provisioner with the specified config, or returns an existing one.
-	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, error)
+	EnsureStorageProvisioner(cfg StorageProvisioner) (*StorageProvisioner, bool, error)
 }
 
 // NamespaceWatcher provides the API to watch caas namespace.

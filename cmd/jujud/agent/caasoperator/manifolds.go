@@ -100,6 +100,9 @@ type ManifoldsConfig struct {
 	// NewExecClient provides k8s execframework functionality for juju run commands or actions.
 	NewExecClient func(namespace string) (exec.Executor, error)
 
+	// NewContainerStartWatcherClient provides the container start watcher client.
+	NewContainerStartWatcherClient func(caasoperator.Client) caasoperator.ContainerStartWatcher
+
 	// RunListenerSocket returns a function to create a run listener socket.
 	RunListenerSocket func(*uniter.SocketConfig) (*sockets.Socket, error)
 }
@@ -265,8 +268,9 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewCharmDownloader: func(caller base.APICaller) caasoperator.Downloader {
 				return api.NewCharmDownloader(caller)
 			},
-			NewExecClient:     config.NewExecClient,
-			RunListenerSocket: config.RunListenerSocket,
+			NewExecClient:                  config.NewExecClient,
+			NewContainerStartWatcherClient: config.NewContainerStartWatcherClient,
+			RunListenerSocket:              config.RunListenerSocket,
 		})),
 
 		unitInitWorkerName: ifNotMigrating(caasunitinit.Manifold(caasunitinit.ManifoldConfig{

@@ -325,6 +325,8 @@ type relationStatus struct {
 }
 
 type branchStatus struct {
-	Ref     string `json:"ref,omitempty" yaml:"ref,omitempty"`
-	Created string `json:"created,omitempty" yaml:"created,omitempty"`
+	Ref       string `json:"ref,omitempty" yaml:"ref,omitempty"`
+	Created   string `json:"created,omitempty" yaml:"created,omitempty"`
+	CreatedBy string `json:"created-by,omitempty" yaml:"created-by,omitempty"`
+	Active    bool   `json:"active,omitempty" yaml:"active,omitempty"`
 }

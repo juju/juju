@@ -235,7 +235,7 @@ func (api *fakeK8sClusterMetadataChecker) CheckDefaultWorkloadStorage(cluster st
 	return testing.TypeAssertError(results[0])
 }
 
-func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, error) {
+func (api *fakeK8sClusterMetadataChecker) EnsureStorageProvisioner(cfg caas.StorageProvisioner) (*caas.StorageProvisioner, bool, error) {
 	results := api.MethodCall(api, "EnsureStorageProvisioner")
-	return results[0].(*caas.StorageProvisioner), testing.TypeAssertError(results[1])
+	return results[0].(*caas.StorageProvisioner), false, testing.TypeAssertError(results[1])
 }

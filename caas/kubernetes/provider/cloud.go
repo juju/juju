@@ -213,8 +213,7 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		// no preferred storage class config but nominated storage found.
 		scName = clusterMetadata.NominatedStorageClass.Name
 	}
-	var sp *caas.StorageProvisioner
-	sp, err = storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
+	sp, existing, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
 		Name:              scName,
 		Provisioner:       provisioner,
 		Parameters:        params,
@@ -231,10 +230,14 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	} else {
 		storageMsg = " with storage provisioned"
 	}
-	storageMsg += fmt.Sprintf("\nby the existing %q storage class", scName)
+	scExisting := "existing"
+	if !existing {
+		scExisting = "new"
+	}
+	storageMsg += fmt.Sprintf("\nby the %s %q storage class", scExisting, scName)
 	clusterMetadata.NominatedStorageClass = sp
 	clusterMetadata.OperatorStorageClass = sp
-	return
+	return storageMsg, nil
 }
 
 // BaseKubeCloudOpenParams provides a basic OpenParams for a cluster

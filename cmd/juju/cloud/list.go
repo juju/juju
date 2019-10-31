@@ -41,19 +41,15 @@ var listCloudsDoc = "" +
 	"name, number of regions, number of registered credentials, default region, type, etc...\n" +
 	"\n" +
 	"Clouds known to this client are the clouds known to Juju out of the box \n" +
-	"along with any which have been added with `add-cloud --client-only`. These clouds can be\n" +
-	"used to create a controller and can be exclusively displayed using --client-only option.\n" +
+	"along with any which have been added with `add-cloud --client`. These clouds can be\n" +
+	"used to create a controller and can be displayed using --client option.\n" +
 	"\n" +
 	"Clouds may be listed that are co-hosted with the Juju client.  When the LXD hypervisor\n" +
 	"is detected, the 'localhost' cloud is made available.  When a microk8s installation is\n" +
 	"detected, the 'microk8s' cloud is displayed.\n" +
 	"\n" +
-	"If a current controller is detected, the user is prompted to confirm" +
-	"if the clouds from that controller should be listed as well. " +
-	"If the current controller clouds are always desirable but the prompt is not," +
-	"use --no-prompt option.\n" +
-	"Another controller can specified using the --controller option. \n" +
-	"To list exclusively only clouds known on the controller, use --controller-only option. \n\n" +
+	"Use --controller option to list clouds from a controller. \n" +
+	"Use --client option to list clouds from this client. \n" +
 	"This command's default output format is 'tabular'. Use 'json' and 'yaml' for\n" +
 	"machine-readable output.\n" +
 	"\n" +
@@ -76,9 +72,9 @@ Examples:
 
     juju clouds
     juju clouds --format yaml
-    juju clouds --controller mycontroller --controller-only
-    juju clouds --no-prompt
-    juju clouds --client-only
+    juju clouds --controller mycontroller 
+    juju clouds --controller mycontroller --client
+    juju clouds --client
 
 See also:
     add-cloud
@@ -101,7 +97,8 @@ func NewListCloudsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &listCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 	}
 	c.listCloudsAPIFunc = c.cloudAPI
@@ -144,14 +141,14 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 		returnErr = cmd.ErrSilent
 	}
 	details := newCloudList()
-	if c.BothClientAndController || c.ClientOnly {
+	if c.Client {
 		var err error
 		if details, err = listLocalCloudDetails(c.Store); err != nil {
 			warn(err)
 		}
 	}
 
-	if (c.BothClientAndController || c.ControllerOnly) && c.ControllerName != "" {
+	if c.ControllerName != "" {
 		remotes := func() error {
 			api, err := c.listCloudsAPIFunc()
 			if err != nil {
@@ -183,14 +180,8 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 }
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	if !c.ClientOnly && c.ControllerName == "" {
-		// The user may have specified the controller via a --controller option.
-		// If not, let's see if there is a current controller that can be detected.
-		var err error
-		c.ControllerName, err = c.MaybePromptCurrentController(ctxt, "list clouds from")
-		if err != nil {
-			return errors.Trace(err)
-		}
+	if err := c.MaybePrompt(ctxt, "list clouds from"); err != nil {
+		return errors.Trace(err)
 	}
 	details, err := c.getCloudList(ctxt)
 	if err != nil {
@@ -213,9 +204,6 @@ func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
 		}
 		result = clouds
 	default:
-		if c.ControllerName == "" {
-			ctxt.Infof("No controllers were specified.")
-		}
 		result = details
 	}
 	return c.out.Write(ctxt, result)

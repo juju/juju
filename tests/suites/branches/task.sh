@@ -16,6 +16,7 @@ test_branches() {
     bootstrap "test-branch" "${file}"
 
     test_branch
+    test_active_branch_output
 
     destroy_controller "test-branch"
 }

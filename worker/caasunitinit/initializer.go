@@ -110,7 +110,7 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 	}
 
 	tempCharmDir := filepath.Join(tempDir, "charm")
-	err = params.ExecClient.Copy(exec.CopyParam{
+	err = params.ExecClient.Copy(exec.CopyParams{
 		Src: exec.FileResource{
 			Path: operatorPaths.State.CharmDir,
 		},
@@ -128,7 +128,7 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 	if err := params.WriteFile(tempCACertFile, []byte(params.OperatorInfo.CACert), 0644); err != nil {
 		return errors.Trace(err)
 	}
-	err = params.ExecClient.Copy(exec.CopyParam{
+	err = params.ExecClient.Copy(exec.CopyParams{
 		Src: exec.FileResource{
 			Path: tempCACertFile,
 		},
@@ -161,7 +161,7 @@ func InitializeUnit(params InitializeUnitParams, cancel <-chan struct{}) error {
 		return errors.Trace(err)
 	}
 	tempOperatorCacheFile := filepath.Join(tempDir, caas.OperatorClientInfoCacheFile)
-	err = params.ExecClient.Copy(exec.CopyParam{
+	err = params.ExecClient.Copy(exec.CopyParams{
 		Src: exec.FileResource{
 			Path: operatorCacheFile,
 		},

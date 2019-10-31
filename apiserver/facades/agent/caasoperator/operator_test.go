@@ -338,7 +338,7 @@ func (s *CAASOperatorSuite) TestWatchAPIHostPorts(c *gc.C) {
 	s.st.CheckCallNames(c, "Model", "WatchAPIHostPortsForAgents")
 }
 
-func (s *CAASOperatorSuite) TestWatchUnitStart(c *gc.C) {
+func (s *CAASOperatorSuite) TestWatchContainerStart(c *gc.C) {
 	s.st.app.unitsChanges <- []string{"gitlab/0", "gitlab/1"}
 
 	wc := make(chan []string, 1)
@@ -352,10 +352,10 @@ func (s *CAASOperatorSuite) TestWatchUnitStart(c *gc.C) {
 		},
 	}
 
-	results, err := s.facade.WatchUnitStart(params.Entities{
-		Entities: []params.Entity{
-			{Tag: "application-gitlab"},
-			{Tag: "unit-gitlab-0"},
+	results, err := s.facade.WatchContainerStart(params.WatchContainerStartArgs{
+		Args: []params.WatchContainerStartArg{
+			{Entity: params.Entity{Tag: "application-gitlab"}, Container: "container"},
+			{Entity: params.Entity{Tag: "unit-gitlab-0"}, Container: "container"},
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -365,7 +365,7 @@ func (s *CAASOperatorSuite) TestWatchUnitStart(c *gc.C) {
 		Message: `"unit-gitlab-0" is not a valid application tag`,
 	})
 
-	s.broker.CheckCall(c, 0, "WatchUnitStart", "gitlab")
+	s.broker.CheckCall(c, 0, "WatchContainerStart", "gitlab", "container")
 
 	c.Assert(results.Results[0].StringsWatcherId, gc.Equals, "1")
 	c.Assert(results.Results[0].Changes, jc.DeepEquals, []string{"gitlab/1"})
