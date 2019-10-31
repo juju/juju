@@ -402,18 +402,19 @@ type OptionalControllerCommand struct {
 
 	ControllerName string
 
-	SkipCurrentControllerPrompt bool
+	// ReadOnly read only commands do not require to prompt the user for clarification
+	// on whether the client or current controller is to be used.
+	ReadOnly bool
 }
 
 // SetFlags initializes the flags supported by the command.
 func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.CommandBase.SetFlags(f)
 	f.BoolVar(&c.Client, "client", false, "Client operation")
-	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
 	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
 	f.StringVar(&c.ControllerName, "controller", "", "")
-	f.BoolVar(&c.SkipCurrentControllerPrompt, "no-prompt", false, "Skip prompting for confirmation to use current controller, always use it when detected")
+	// TODO (juju3) remove me
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
 }
 
 // Init populates the command with the args from the command line.
@@ -437,13 +438,19 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 		return nil
 	}
 
-	ctxt.Infof("This operation can be applied to both a copy on this client and to the one on a controller.")
-
 	currentController, err := DetermineCurrentController(c.Store)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
+	if c.ReadOnly {
+		// No need to prompt the user, just assume that both client and a current controller are needed.
+		c.Client = true
+		c.ControllerName = currentController
+		return nil
+	}
+
+	ctxt.Infof("This operation can be applied to both a copy on this client and to the one on a controller.")
 	if currentController == "" {
 		msg := "No current controller was detected"
 		all, err := c.Store.AllControllers()

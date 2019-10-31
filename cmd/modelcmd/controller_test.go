@@ -338,6 +338,29 @@ Enter your choice, or type Q|q to quit: `[1:],
 	})
 }
 
+func (s *OptionalControllerCommandSuite) assertNoPromptForReadOnlyCommands(c *gc.C, store jujuclient.ClientStore, expectedErr, expectedOut, expectedController string) {
+	command := &testOptionalControllerCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store, ReadOnly: true},
+	}
+	ctx, err := cmdtesting.RunCommand(c, command)
+	c.Assert(err, jc.ErrorIsNil)
+	err = command.MaybePrompt(ctx, "add a cloud")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedOut)
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, expectedErr)
+	c.Assert(command.ControllerName, gc.Equals, expectedController)
+	c.Assert(command.Client, jc.IsTrue)
+
+}
+
+func (s *OptionalControllerCommandSuite) TestNoPromptForReadOnlyNoCurrentController(c *gc.C) {
+	s.assertNoPromptForReadOnlyCommands(c, jujuclient.NewMemStore(), "", "", "")
+}
+
+func (s *OptionalControllerCommandSuite) TestNoPromptForReadOnlyWithCurrentController(c *gc.C) {
+	s.assertNoPromptForReadOnlyCommands(c, setupTestStore(), "", "", "fred")
+}
+
 type testOptionalControllerCommand struct {
 	modelcmd.OptionalControllerCommand
 }

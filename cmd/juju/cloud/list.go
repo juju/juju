@@ -97,7 +97,8 @@ func NewListCloudsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
 	c := &listCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
-			Store: store,
+			Store:    store,
+			ReadOnly: true,
 		},
 	}
 	c.listCloudsAPIFunc = c.cloudAPI
