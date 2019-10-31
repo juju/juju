@@ -221,7 +221,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 			"":          s.appsSpace.Id(),
 			"foo1":      s.appsSpace.Id(),
 			"bar1":      s.dbSpace.Id(),
-			"self":      "",
+			"self":      network.DefaultSpaceId,
 			"one-extra": s.barbSpace.Id(),
 		},
 		meta: s.newMeta,
@@ -231,7 +231,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 			"foo2": s.clientSpace.Id(),
 			"bar2": s.clientSpace.Id(),
 			"bar3": s.barbSpace.Id(),
-			"self": "",
+			"self": network.DefaultSpaceId,
 			"me":   s.clientSpace.Id(),
 		},
 		modified: true,
@@ -244,7 +244,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 			"":          s.appsSpace.Id(),
 			"foo1":      s.appsSpace.Id(),
 			"bar1":      s.dbSpace.Id(),
-			"self":      "",
+			"self":      network.DefaultSpaceId,
 			"one-extra": s.clientSpace.Id(),
 		},
 		meta: s.oldMeta,
@@ -262,7 +262,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 		currentMap: map[string]string{
 			"":          s.appsSpace.Id(),
 			"bar1":      s.dbSpace.Id(),
-			"self":      "",
+			"self":      network.DefaultSpaceId,
 			"lost":      s.clientSpace.Id(),
 			"one-extra": s.clientSpace.Id(),
 		},
@@ -271,7 +271,7 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 			"":          s.appsSpace.Id(),
 			"foo1":      s.appsSpace.Id(),
 			"bar1":      s.dbSpace.Id(),
-			"self":      "",
+			"self":      network.DefaultSpaceId,
 			"one-extra": s.clientSpace.Id(),
 		},
 		modified: true,
@@ -320,7 +320,7 @@ func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "5",
-		"empty":   "",
+		"empty":   network.DefaultSpaceId,
 	}
 
 	binding, err := state.NewBindings(s.endpointBinding, initial)
@@ -347,7 +347,7 @@ func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 	expected := map[string]string{
 		"db":      "2",
 		"testing": "5",
-		"empty":   "",
+		"empty":   network.DefaultSpaceId,
 	}
 	c.Logf("%+v", binding.Map())
 	c.Assert(binding.Map(), jc.DeepEquals, expected)
@@ -375,7 +375,7 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "3",
-		"empty":   "",
+		"empty":   network.DefaultSpaceId,
 	}
 
 	binding, err := state.NewBindings(s.endpointBinding, initial)
