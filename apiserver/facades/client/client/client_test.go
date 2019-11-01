@@ -888,12 +888,12 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	mIndex := 0
 	aIndex := 1
 	dMachine, ok0 := deltas[mIndex].Entity.(*params.MachineInfo)
-	dApp, ok1 := deltas[aIndex].Entity.(*params.RemoteApplicationInfo)
+	dApp, ok1 := deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
 	if !ok0 {
 		mIndex = 1
 		aIndex = 0
 		dMachine, ok0 = deltas[mIndex].Entity.(*params.MachineInfo)
-		dApp, ok1 = deltas[aIndex].Entity.(*params.RemoteApplicationInfo)
+		dApp, ok1 = deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
 	}
 	c.Assert(ok0, jc.IsTrue)
 	c.Assert(ok1, jc.IsTrue)
@@ -927,7 +927,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		}
 	}
 	if !c.Check(deltas[aIndex], jc.DeepEquals, params.Delta{
-		Entity: &params.RemoteApplicationInfo{
+		Entity: &params.RemoteApplicationUpdate{
 			Name:      "remote-db2",
 			ModelUUID: s.State.ModelUUID(),
 			OfferUUID: "offer-uuid",

@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
-	"github.com/juju/juju/core/model"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 )
 
@@ -208,7 +208,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	}
 
 	for _, job := range machine.Jobs {
-		if job == model.JobManageModel {
+		if job == coremodel.JobManageModel {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}

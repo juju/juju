@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -5890,7 +5891,7 @@ func (s *StatusSuite) TestFormatProvisioningError(c *gc.C) {
 				InstanceStatus: params.DetailedStatus{},
 				Series:         "trusty",
 				Id:             "1",
-				Jobs:           []model.MachineJob{"JobHostUnits"},
+				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
 		},
 		ControllerTimestamp: &now,
@@ -5940,7 +5941,7 @@ func (s *StatusSuite) TestMissingControllerTimestampInFullStatus(c *gc.C) {
 				InstanceStatus: params.DetailedStatus{},
 				Series:         "trusty",
 				Id:             "1",
-				Jobs:           []model.MachineJob{"JobHostUnits"},
+				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
 		},
 	}
@@ -5987,7 +5988,7 @@ func (s *StatusSuite) TestControllerTimestampInFullStatus(c *gc.C) {
 				InstanceStatus: params.DetailedStatus{},
 				Series:         "trusty",
 				Id:             "1",
-				Jobs:           []model.MachineJob{"JobHostUnits"},
+				Jobs:           []coremodel.MachineJob{"JobHostUnits"},
 			},
 		},
 		ControllerTimestamp: &now,
