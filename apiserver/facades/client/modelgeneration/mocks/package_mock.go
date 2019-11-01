@@ -207,6 +207,18 @@ func (mr *MockGenerationMockRecorder) AssignUnit(arg0 interface{}) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignUnit", reflect.TypeOf((*MockGeneration)(nil).AssignUnit), arg0)
 }
 
+// AssignUnits mocks base method
+func (m *MockGeneration) AssignUnits(arg0 string, arg1 int) error {
+	ret := m.ctrl.Call(m, "AssignUnits", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// AssignUnits indicates an expected call of AssignUnits
+func (mr *MockGenerationMockRecorder) AssignUnits(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignUnits", reflect.TypeOf((*MockGeneration)(nil).AssignUnits), arg0, arg1)
+}
+
 // AssignedUnits mocks base method
 func (m *MockGeneration) AssignedUnits() map[string][]string {
 	ret := m.ctrl.Call(m, "AssignedUnits")

@@ -143,7 +143,7 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 		}
 		switch tag.Kind() {
 		case names.ApplicationTagKind:
-			result.Results[i].Error = common.ServerError(branch.AssignAllUnits(tag.Id()))
+			result.Results[i].Error = common.ServerError(branch.AssignUnits(tag.Id(), arg.NumUnits))
 		case names.UnitTagKind:
 			result.Results[i].Error = common.ServerError(branch.AssignUnit(tag.Id()))
 		default:

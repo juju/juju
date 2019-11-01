@@ -68,7 +68,7 @@ func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
 
 func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
-	s.expectAssignAllUnits("ghost")
+	s.expectAssignUnits("ghost", 0)
 	s.expectAssignUnit("mysql/0")
 	s.expectBranch()
 
@@ -91,7 +91,7 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 
 func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
-	s.expectAssignAllUnits("ghost")
+	s.expectAssignUnits("ghost", 0)
 	s.expectAssignUnit("mysql/0")
 	s.expectBranch()
 
@@ -261,6 +261,10 @@ func (s *modelGenerationSuite) expectHasActiveBranch(err error) {
 
 func (s *modelGenerationSuite) expectAssignAllUnits(appName string) {
 	s.mockGen.EXPECT().AssignAllUnits(appName).Return(nil)
+}
+
+func (s *modelGenerationSuite) expectAssignUnits(appName string, numUnits int) {
+	s.mockGen.EXPECT().AssignUnits(appName, numUnits).Return(nil)
 }
 
 func (s *modelGenerationSuite) expectAssignUnit(unitName string) {

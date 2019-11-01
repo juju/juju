@@ -194,6 +194,10 @@ func assignGenerationAppTxnOps(id, appName string) []txn.Op {
 // designated as tracking the branch, by adding the unit names
 // to the generation.
 func (g *Generation) AssignAllUnits(appName string) error {
+	return g.AssignUnits(appName, 0)
+}
+
+func (g *Generation) AssignUnits(appName string, numUnits int) error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := g.Refresh(); err != nil {
@@ -221,18 +225,27 @@ func (g *Generation) AssignAllUnits(appName string) error {
 				},
 			},
 		}
+		// Ensure we sort the unitNames so that when we ask for the numUnits
+		// to track, they're going to be predictable results.
+		sort.Strings(unitNames)
+
+		var assigned int
 		assignedUnits := set.NewStrings(g.doc.AssignedUnits[appName]...)
 		for _, name := range unitNames {
 			if !assignedUnits.Contains(name) {
+				if numUnits > 0 && numUnits == assigned {
+					break
+				}
 				unit, err := g.st.Unit(name)
 				if err != nil {
 					return nil, errors.Trace(err)
 				}
 				ops = append(ops, assignGenerationUnitTxnOps(g.doc.DocId, appName, unit)...)
+				assigned++
 			}
 		}
 		// If there are no units to add to the generation, quit here.
-		if len(ops) < 2 {
+		if len(ops) == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
 		return ops, nil
