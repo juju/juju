@@ -31,12 +31,16 @@ type API struct {
 	modelCache        ModelCache
 }
 
-type APIV1 struct {
+type APIV2 struct {
 	*API
 }
 
-// NewModelGenerationFacadeV2 provides the signature required for facade registration.
-func NewModelGenerationFacadeV2(ctx facade.Context) (*API, error) {
+type APIV1 struct {
+	*APIV2
+}
+
+// NewModelGenerationFacadeV3 provides the signature required for facade registration.
+func NewModelGenerationFacadeV3(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &stateShim{State: ctx.State()}
 	m, err := st.Model()
@@ -48,6 +52,15 @@ func NewModelGenerationFacadeV2(ctx facade.Context) (*API, error) {
 		return nil, errors.Trace(err)
 	}
 	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
+}
+
+// NewModelGenerationFacadeV2 provides the signature required for facade registration.
+func NewModelGenerationFacadeV2(ctx facade.Context) (*APIV2, error) {
+	v3, err := NewModelGenerationFacadeV3(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &APIV2{v3}, nil
 }
 
 // NewModelGenerationFacade provides the signature required for facade registration.
@@ -118,6 +131,14 @@ func (api *API) AddBranch(arg params.BranchArg) (params.ErrorResult, error) {
 
 // TrackBranch marks the input units and/or applications as tracking the input
 // branch, causing them to realise changes made under that branch.
+func (api *APIV2) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
+	// For backwards compatibility, ensure we always set the NumUnits to 0
+	arg.NumUnits = 0
+	return api.API.TrackBranch(arg)
+}
+
+// TrackBranch marks the input units and/or applications as tracking the input
+// branch, causing them to realise changes made under that branch.
 func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, error) {
 	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
@@ -125,6 +146,13 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 	}
 	if !isModelAdmin && !api.isControllerAdmin {
 		return params.ErrorResults{}, common.ErrPerm
+	}
+	// Ensure we guard against the numUnits being greater than 0 and the number
+	// units/applications greater than 1. This is because we don't know how to
+	// topographically distribute between all the applications and units,
+	// especially if an error occurs whilst assigning the units.
+	if arg.NumUnits > 0 && len(arg.Entities) > 1 {
+		return params.ErrorResults{}, errors.Errorf("num of units allowed when specifying multiple entities")
 	}
 
 	branch, err := api.model.Branch(arg.BranchName)
