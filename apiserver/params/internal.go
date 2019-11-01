@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/tools"
 )
@@ -472,7 +473,7 @@ type AgentGetEntitiesResults struct {
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
 	Life          Life                   `json:"life"`
-	Jobs          []MachineJob           `json:"jobs"`
+	Jobs          []model.MachineJob     `json:"jobs"`
 	ContainerType instance.ContainerType `json:"container-type"`
 	Error         *Error                 `json:"error,omitempty"`
 }
@@ -723,7 +724,7 @@ type ProvisioningInfo struct {
 	Constraints       constraints.Value        `json:"constraints"`
 	Series            string                   `json:"series"`
 	Placement         string                   `json:"placement"`
-	Jobs              []MachineJob             `json:"jobs"`
+	Jobs              []model.MachineJob       `json:"jobs"`
 	Volumes           []VolumeParams           `json:"volumes,omitempty"`
 	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
 	Tags              map[string]string        `json:"tags,omitempty"`

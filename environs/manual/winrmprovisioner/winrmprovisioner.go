@@ -26,8 +26,8 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // detectJujudProcess powershell script to determine
@@ -340,7 +340,7 @@ func gatherMachineParams(hostname string, cli manual.WinrmClientAPI) (*params.Ad
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
 		Addrs:                   params.FromProviderAddresses(addr),
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 	}
 	return machineParams, nil
 }

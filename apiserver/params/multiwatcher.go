@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 )
 
@@ -137,7 +138,7 @@ type MachineInfo struct {
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:"hardware-characteristics,omitempty"`
 	CharmProfiles            []string                          `json:"charm-profiles,omitempty"`
-	Jobs                     []MachineJob                      `json:"jobs"`
+	Jobs                     []model.MachineJob                `json:"jobs"`
 	Addresses                []Address                         `json:"addresses"`
 	HasVote                  bool                              `json:"has-vote"`
 	WantsVote                bool                              `json:"wants-vote"`
@@ -386,31 +387,6 @@ func (i *AnnotationInfo) EntityId() EntityId {
 		ModelUUID: i.ModelUUID,
 		Id:        i.Tag,
 	}
-}
-
-// MachineJob values define responsibilities that machines may be
-// expected to fulfil.
-type MachineJob string
-
-const (
-	JobHostUnits   MachineJob = "JobHostUnits"
-	JobManageModel MachineJob = "JobManageModel"
-)
-
-// NeedsState returns true if the job requires a state connection.
-func (job MachineJob) NeedsState() bool {
-	return job == JobManageModel
-}
-
-// AnyJobNeedsState returns true if any of the provided jobs
-// require a state connection.
-func AnyJobNeedsState(jobs ...MachineJob) bool {
-	for _, j := range jobs {
-		if j.NeedsState() {
-			return true
-		}
-	}
-	return false
 }
 
 // BlockInfo holds the information about a block that is tracked by

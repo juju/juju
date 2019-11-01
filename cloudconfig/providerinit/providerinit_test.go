@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
@@ -154,9 +155,9 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
-	allJobs := []params.MachineJob{
-		params.JobManageModel,
-		params.JobHostUnits,
+	allJobs := []model.MachineJob{
+		model.JobManageModel,
+		model.JobHostUnits,
 	}
 	cfg := &instancecfg.InstanceConfig{
 		ControllerTag: testing.ControllerTag,
@@ -310,7 +311,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 		MachineId:        "10",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		Series:           series,
-		Jobs:             []params.MachineJob{params.JobHostUnits},
+		Jobs:             []model.MachineJob{model.JobHostUnits},
 		MachineNonce:     "FAKE_NONCE",
 		APIInfo: &api.Info{
 			Addrs:    []string{"state-addr.testing.invalid:54321"},

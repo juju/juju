@@ -19,10 +19,10 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
@@ -48,9 +48,9 @@ const (
 )
 
 var (
-	jobNames = map[MachineJob]params.MachineJob{
-		JobHostUnits:   params.JobHostUnits,
-		JobManageModel: params.JobManageModel,
+	jobNames = map[MachineJob]model.MachineJob{
+		JobHostUnits:   model.JobHostUnits,
+		JobManageModel: model.JobManageModel,
 	}
 	jobMigrationValue = map[MachineJob]string{
 		JobHostUnits:   "host-units",
@@ -58,17 +58,17 @@ var (
 	}
 )
 
-// ToParams returns the job as params.MachineJob.
-func (job MachineJob) ToParams() params.MachineJob {
+// ToParams returns the job as model.MachineJob.
+func (job MachineJob) ToParams() model.MachineJob {
 	if jujuJob, ok := jobNames[job]; ok {
 		return jujuJob
 	}
-	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+	return model.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
 // params.JobsFromJobs converts state jobs to juju jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
-	jujuJobs := make([]params.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []MachineJob) []model.MachineJob {
+	jujuJobs := make([]model.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		jujuJobs[i] = machineJob.ToParams()
 	}

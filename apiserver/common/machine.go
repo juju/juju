@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // StateJobs translates a slice of multiwatcher jobs to their equivalents in state.
-func StateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
+func StateJobs(jobs []model.MachineJob) ([]state.MachineJob, error) {
 	newJobs := make([]state.MachineJob, len(jobs))
 	for i, job := range jobs {
 		newJob, err := machineJobFromParams(job)
@@ -28,12 +28,12 @@ func StateJobs(jobs []multiwatcher.MachineJob) ([]state.MachineJob, error) {
 	return newJobs, nil
 }
 
-// machineJobFromParams returns the job corresponding to multiwatcher.MachineJob.
-func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
+// machineJobFromParams returns the job corresponding to model.MachineJob.
+func machineJobFromParams(job model.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case multiwatcher.JobHostUnits:
+	case model.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageModel:
+	case model.JobManageModel:
 		return state.JobManageModel, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)

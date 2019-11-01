@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/machine"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 )
 
@@ -246,7 +246,7 @@ func (s *machinerSuite) TestJobs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.JobsResults{
 		Results: []params.JobsResult{
-			{Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits}},
+			{Jobs: []model.MachineJob{model.JobHostUnits}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

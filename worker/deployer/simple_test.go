@@ -21,9 +21,9 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/core/model"
 	svctesting "github.com/juju/juju/service/common/testing"
 	"github.com/juju/juju/service/upstart"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -295,7 +295,7 @@ type mockConfig struct {
 	datadir           string
 	logdir            string
 	upgradedToVersion version.Number
-	jobs              []multiwatcher.MachineJob
+	jobs              []model.MachineJob
 }
 
 func (mock *mockConfig) Tag() names.Tag {
@@ -310,7 +310,7 @@ func (mock *mockConfig) LogDir() string {
 	return mock.logdir
 }
 
-func (mock *mockConfig) Jobs() []multiwatcher.MachineJob {
+func (mock *mockConfig) Jobs() []model.MachineJob {
 	return mock.jobs
 }
 

@@ -799,7 +799,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	machineParams := params.AddMachineParams{
 		Constraints: cons,
 		Series:      p.Series,
-		Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {
 		// TODO(thumper): move the warning and translation into the bundle reading code.

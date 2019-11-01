@@ -15,10 +15,10 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
@@ -381,7 +381,7 @@ func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config) (e
 
 // PodLabels returns the minimum set of tags that should be set on a
 // pod, if the provider supports them.
-func PodLabels(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []params.MachineJob) map[string]string {
+func PodLabels(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []model.MachineJob) map[string]string {
 	podLabels := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
 		names.NewControllerTag(controllerUUID),

@@ -8,8 +8,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -23,8 +23,8 @@ var _ = gc.Suite(&instancecfgSuite{})
 
 func (*instancecfgSuite) TestInstanceTagsController(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
-	controllerJobs := []params.MachineJob{params.JobManageModel}
-	nonControllerJobs := []params.MachineJob{params.JobHostUnits}
+	controllerJobs := []model.MachineJob{model.JobManageModel}
+	nonControllerJobs := []model.MachineJob{model.JobHostUnits}
 	testInstanceTags(c, cfg, controllerJobs, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -48,7 +48,7 @@ func (*instancecfgSuite) TestInstanceTagsUserSpecified(c *gc.C) {
 	})
 }
 
-func testInstanceTags(c *gc.C, cfg *config.Config, jobs []params.MachineJob, expectTags map[string]string) {
+func testInstanceTags(c *gc.C, cfg *config.Config, jobs []model.MachineJob, expectTags map[string]string) {
 	tags := instancecfg.InstanceTags(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, jobs)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }

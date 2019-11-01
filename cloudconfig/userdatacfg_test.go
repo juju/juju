@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -51,12 +52,12 @@ var (
 	envConstraints       = constraints.MustParse("mem=2G")
 	bootstrapConstraints = constraints.MustParse("mem=4G")
 
-	allMachineJobs = []params.MachineJob{
-		params.JobManageModel,
-		params.JobHostUnits,
+	allMachineJobs = []model.MachineJob{
+		model.JobManageModel,
+		model.JobHostUnits,
 	}
-	normalMachineJobs = []params.MachineJob{
-		params.JobHostUnits,
+	normalMachineJobs = []model.MachineJob{
+		model.JobHostUnits,
 	}
 )
 

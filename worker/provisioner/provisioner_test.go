@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -47,7 +48,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	coretesting "github.com/juju/juju/testing"
@@ -285,7 +285,7 @@ func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 				c.Assert(o.Volumes, jc.DeepEquals, volumes)
 				c.Assert(o.VolumeAttachments, jc.DeepEquals, volumeAttachments)
 
-				var jobs []multiwatcher.MachineJob
+				var jobs []model.MachineJob
 				for _, job := range m.Jobs() {
 					jobs = append(jobs, job.ToParams())
 				}

@@ -18,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/storage"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 type statusFormatter struct {
@@ -208,7 +208,7 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	}
 
 	for _, job := range machine.Jobs {
-		if job == multiwatcher.JobManageModel {
+		if job == model.JobManageModel {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
 			break
 		}

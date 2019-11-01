@@ -17,6 +17,7 @@ import (
 	apiagent "github.com/juju/juju/api/agent"
 	apiserveragent "github.com/juju/juju/apiserver/facades/agent/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -135,7 +136,7 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
-	c.Assert(m.Jobs(), gc.DeepEquals, []params.MachineJob{params.JobHostUnits})
+	c.Assert(m.Jobs(), gc.DeepEquals, []model.MachineJob{model.JobHostUnits})
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

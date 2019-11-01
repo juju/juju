@@ -17,6 +17,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/testing"
 )
 
@@ -46,7 +47,7 @@ func (*format_2_0Suite) TestReadConfWithExisting2_0ConfigFileContents(c *gc.C) {
 	config, err := ReadConfig(configPath)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
-	c.Assert(config.Jobs(), jc.DeepEquals, []params.MachineJob{params.JobManageModel})
+	c.Assert(config.Jobs(), jc.DeepEquals, []params.MachineJob{model.JobManageModel})
 }
 
 func (*format_2_0Suite) TestMarshalUnmarshal(c *gc.C) {

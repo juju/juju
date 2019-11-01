@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -88,7 +89,7 @@ type InstanceConfig struct {
 	MetricsSpoolDir string
 
 	// Jobs holds what machine jobs to run.
-	Jobs []params.MachineJob
+	Jobs []model.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -786,7 +787,7 @@ func NewInstanceConfig(
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
 		MetricsSpoolDir:         metricsSpoolDir,
-		Jobs:                    []params.MachineJob{params.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -829,9 +830,9 @@ func NewBootstrapInstanceConfig(
 			ModelConstraints:            modelCons,
 		},
 	}
-	icfg.Jobs = []params.MachineJob{
-		params.JobManageModel,
-		params.JobHostUnits,
+	icfg.Jobs = []model.MachineJob{
+		model.JobManageModel,
+		model.JobHostUnits,
 	}
 	return icfg, nil
 }
@@ -961,7 +962,7 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
-func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []params.MachineJob) map[string]string {
+func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []model.MachineJob) map[string]string {
 	instanceTags := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
 		names.NewControllerTag(controllerUUID),

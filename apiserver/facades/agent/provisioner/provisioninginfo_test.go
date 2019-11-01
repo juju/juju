@@ -14,12 +14,12 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/storage/provider"
@@ -64,7 +64,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Series:           "quantal",
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -76,7 +76,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 				Series:           "quantal",
 				Constraints:      template.Constraints,
 				Placement:        template.Placement,
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -154,7 +154,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				Series:           "quantal",
 				Constraints:      template.Constraints,
 				Placement:        template.Placement,
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -223,7 +223,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Series:           "quantal",
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController:    coretesting.ControllerTag.Id(),
 					tags.JujuModel:         coretesting.ModelTag.Id(),
@@ -313,7 +313,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 			Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Series:           "quantal",
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController:    coretesting.ControllerTag.Id(),
 					tags.JujuModel:         coretesting.ModelTag.Id(),
@@ -357,7 +357,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 				Series:           "quantal",
 				Constraints:      template.Constraints,
 				Placement:        template.Placement,
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),
@@ -506,7 +506,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				ControllerConfig: controllerCfg,
 				Series:           "quantal",
-				Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:             []model.MachineJob{model.JobHostUnits},
 				Tags: map[string]string{
 					tags.JujuController: coretesting.ControllerTag.Id(),
 					tags.JujuModel:      coretesting.ModelTag.Id(),

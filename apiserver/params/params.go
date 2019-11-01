@@ -185,9 +185,9 @@ type AddCharmWithAuthorization struct {
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Series      string            `json:"series"`
-	Constraints constraints.Value `json:"constraints"`
-	Jobs        []MachineJob      `json:"jobs"`
+	Series      string             `json:"series"`
+	Constraints constraints.Value  `json:"constraints"`
+	Jobs        []model.MachineJob `json:"jobs"`
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
@@ -688,8 +688,8 @@ type DeployerConnectionValues struct {
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
 type JobsResult struct {
-	Jobs  []MachineJob `json:"jobs"`
-	Error *Error       `json:"error,omitempty"`
+	Jobs  []model.MachineJob `json:"jobs"`
+	Error *Error             `json:"error,omitempty"`
 }
 
 // JobsResults holds the result of a call to Jobs.

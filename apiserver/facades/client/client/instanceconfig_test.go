@@ -15,10 +15,10 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/multiwatcher"
 	jujutesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -32,7 +32,7 @@ var _ = gc.Suite(&machineConfigSuite{})
 func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: hc,
@@ -60,7 +60,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 
 func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:       []model.MachineJob{model.JobHostUnits},
 		InstanceId: instance.Id("1234"),
 		Nonce:      "foo",
 	}
@@ -76,7 +76,7 @@ func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Series:                  "quantal",
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: hc,

@@ -55,7 +55,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -507,7 +506,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelAuditsAPI(c *gc.C) {
 		})
 		makeAPIRequest(func(client *api.Client) {
 			_, err = client.AddMachines([]params.AddMachineParams{{
-				Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+				Jobs: []model.MachineJob{"JobHostUnits"},
 			}})
 			c.Assert(err, jc.ErrorIsNil)
 		})

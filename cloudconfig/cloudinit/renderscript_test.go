@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -82,7 +83,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			StatePort:    123,
 			APIPort:      456,
 		}
-		icfg.Jobs = []params.MachineJob{params.JobManageModel, params.JobHostUnits}
+		icfg.Jobs = []model.MachineJob{model.JobManageModel, model.JobHostUnits}
 		icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
@@ -93,7 +94,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	} else {
 		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.Series, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		icfg.Jobs = []params.MachineJob{params.JobHostUnits}
+		icfg.Jobs = []model.MachineJob{model.JobHostUnits}
 	}
 	err = icfg.SetTools(tools.List{
 		&tools.Tools{

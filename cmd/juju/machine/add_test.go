@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/machine"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -123,8 +123,8 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 
 	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
 	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Jobs, jc.DeepEquals, []multiwatcher.MachineJob{
-		multiwatcher.JobHostUnits,
+	c.Assert(param.Jobs, jc.DeepEquals, []model.MachineJob{
+		model.JobHostUnits,
 	})
 }
 

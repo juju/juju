@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -836,7 +837,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []multiwatcher.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
@@ -914,7 +915,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			},
 			Life:                    multiwatcher.Life("alive"),
 			Series:                  "quantal",
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []multiwatcher.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
@@ -1134,7 +1135,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1150,7 +1151,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1166,7 +1167,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	_, err := s.APIState.Client().AddMachines(apiParams)
@@ -1193,7 +1194,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Series: "quantal",
-			Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:   []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1210,7 +1211,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
-		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:          []model.MachineJob{model.JobHostUnits},
 		ContainerType: instance.LXD,
 		ParentId:      "0",
 		Series:        "quantal",
@@ -1224,7 +1225,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	// The last machine has some constraints.
@@ -1242,7 +1243,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 4)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	apiParams[0].Placement = instance.MustParsePlacement("lxd")
@@ -1282,7 +1283,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	// This will cause a add-machine to fail due to an unsupported container.
@@ -1306,7 +1307,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:                    []model.MachineJob{model.JobHostUnits},
 			InstanceId:              instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:                   "foo",
 			HardwareCharacteristics: hc,
@@ -1352,7 +1353,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	// no longer refers to InjectMachine.
 	args := params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:       []model.MachineJob{model.JobHostUnits},
 			InstanceId: "i-foo",
 			Nonce:      "nonce",
 		}},
@@ -1368,7 +1369,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// converting it to a cloudinit.MachineConfig, and disabling
 	// apt_upgrade.
 	apiParams := params.AddMachineParams{
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
@@ -1406,7 +1407,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 
 func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),

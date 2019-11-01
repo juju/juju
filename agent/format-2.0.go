@@ -13,6 +13,7 @@ import (
 	goyaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 var format_2_0 = formatter_2_0{}
@@ -26,13 +27,13 @@ var _ formatter = formatter_2_0{}
 
 // format_2_0Serialization holds information for a given agent.
 type format_2_0Serialization struct {
-	Tag               string              `yaml:"tag,omitempty"`
-	DataDir           string              `yaml:"datadir,omitempty"`
-	LogDir            string              `yaml:"logdir,omitempty"`
-	MetricsSpoolDir   string              `yaml:"metricsspooldir,omitempty"`
-	Nonce             string              `yaml:"nonce,omitempty"`
-	Jobs              []params.MachineJob `yaml:"jobs,omitempty"`
-	UpgradedToVersion *version.Number     `yaml:"upgradedToVersion"`
+	Tag               string             `yaml:"tag,omitempty"`
+	DataDir           string             `yaml:"datadir,omitempty"`
+	LogDir            string             `yaml:"logdir,omitempty"`
+	MetricsSpoolDir   string             `yaml:"metricsspooldir,omitempty"`
+	Nonce             string             `yaml:"nonce,omitempty"`
+	Jobs              []model.MachineJob `yaml:"jobs,omitempty"`
+	UpgradedToVersion *version.Number    `yaml:"upgradedToVersion"`
 
 	CACert         string   `yaml:"cacert,omitempty"`
 	StateAddresses []string `yaml:"stateaddresses,omitempty"`
