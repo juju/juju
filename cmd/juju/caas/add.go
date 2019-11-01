@@ -400,9 +400,6 @@ var noRecommendedStorageErrMsg = `
 
 // Run is defined on the Command interface.
 func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
-	if err := c.MaybePrompt(ctx, fmt.Sprintf("add k8s cloud %v to", c.caasName)); err != nil {
-		return errors.Trace(err)
-	}
 	if err := c.verifyName(c.caasName); err != nil {
 		return errors.Trace(err)
 	}
@@ -440,6 +437,13 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	newcredential, err = ensureCredentialUID(credentialName, credentialUID, newcredential)
 	if err != nil {
+		return errors.Trace(err)
+	}
+	// We need to have c.ControllerName after this, so this si the latest time to
+	// prompt user for client and controller options.
+	// We need to do this later then other commands since
+	// piping is done regularly with add-k8s.
+	if err := c.MaybePrompt(ctx, fmt.Sprintf("add k8s cloud %v to", c.caasName)); err != nil {
 		return errors.Trace(err)
 	}
 
