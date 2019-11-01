@@ -163,7 +163,7 @@ print ("\n".join(j.get("applications", {}).keys()))
 }
 
 # Print (return) all branches
-_JUJU_2_branches_from_status() {
+_JUJU_2_branches_from_status_noflags() {
     local cache_fname=$(_JUJU_2_juju_status_cache_fname)
     [ -n "${cache_fname}" ] || return 0
     ${_juju_cmd_PYTHON?} -c '
@@ -173,6 +173,7 @@ j = json.load(sys.stdin)
 print ("\n".join(j.get("branches", {}).keys()))
 '   < ${cache_fname}
 }
+
 
 # Print (return) all actions IDS from (cached) "juju show-action-status" output
 _JUJU_2_action_ids_from_action_status() {
@@ -214,8 +215,8 @@ _JUJU_2_applications_and_units_from_status() {
 }
 
 # Print (return) both applications and units, currently used for juju status completion
-_JUJU_2_branches_and_application_units_from_status() {
-    _JUJU_2_branches_from_status
+_JUJU_2_branches_and_application_units_from_status_noflags() {
+    _JUJU_2_branches_from_status_noflags
     _JUJU_2_applications_and_units_from_status
 }
 
@@ -270,7 +271,7 @@ _JUJU_2_list_controllers_models_noflags() {
 
     # List all controller:models
     local controllers=$(_JUJU_2_list_controllers_noflags 2>/dev/null)
-    [ -n "${controllers}" ] || { echo "ERROR: no valid controller found (current: ${cur_controller})" >&2; return 0 ;}
+    [[ -n "${controllers}" ]] || { echo "ERROR: no valid controller found (current: ${cur_controller})" >&2; return 0 ;}
     local controller=
     for controller in ${controllers};do
       _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} cat \
@@ -314,6 +315,8 @@ _JUJU_2_completion_func_for_cmd() {
             echo _JUJU_2_units_from_status; return 0;;
         --machine)
             echo _JUJU_2_machines_from_status; return 0;;
+        --branch)
+            echo _JUJU_2_branches_from_status; return 0;;
     esac
     # parse 1st line of juju help <cmd>, to guess the completion function
     # order below is important (more specific matches 1st)
@@ -342,9 +345,9 @@ _JUJU_2_completion_func_for_cmd() {
         *\<controller?name*)
             echo _JUJU_2_list_controllers_noflags;;
         *\<entities*)
-            echo _JUJU_2_branches_and_application_units_from_status;;
+            echo _JUJU_2_branches_and_application_units_from_status_noflags;;
         *\<branch?name*)
-            echo _JUJU_2_branches_from_status;;
+            echo _JUJU_2_branches_from_status_noflags;;
         ?*)
             echo true ;;  # help ok, existing command, no more expansion
         *)
