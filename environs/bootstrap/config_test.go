@@ -44,6 +44,9 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 		"bootstrap-timeout":         1,
 		"bootstrap-retry-delay":     2,
 		"bootstrap-addresses-delay": 3,
+		"controller-service-type":   "external",
+		"controller-external-name":  "externalName",
+		"controller-external-ips":   []string{"10.0.0.1", "10.0.0.2"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -54,6 +57,9 @@ func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
 		BootstrapTimeout:        time.Second * 1,
 		BootstrapRetryDelay:     time.Second * 2,
 		BootstrapAddressesDelay: time.Second * 3,
+		ControllerServiceType:   "external",
+		ControllerExternalName:  "externalName",
+		ControllerExternalIPs:   []string{"10.0.0.1", "10.0.0.2"},
 	})
 }
 
@@ -165,6 +171,12 @@ func (*ConfigSuite) TestValidateBootstrapAddressesDelay(c *gc.C) {
 	c.Assert(cfg.Validate(), gc.ErrorMatches, "bootstrap-addresses-delay of -2m0s not valid")
 }
 
+func (*ConfigSuite) TestValidateExternalIpsAndServiceType(c *gc.C) {
+	cfg := validConfig()
+	cfg.ControllerServiceType = "cluster"
+	c.Assert(cfg.Validate(), gc.ErrorMatches, `external IPs require a service type of "external"`)
+}
+
 func validConfig() bootstrap.Config {
 	return bootstrap.Config{
 		AdminSecret:             "sekrit",
@@ -173,6 +185,8 @@ func validConfig() bootstrap.Config {
 		BootstrapTimeout:        time.Second * 1,
 		BootstrapRetryDelay:     time.Second * 2,
 		BootstrapAddressesDelay: time.Second * 3,
+		ControllerServiceType:   "external",
+		ControllerExternalIPs:   []string{"10.0.0.1", "10.0.0.2"},
 	}
 }
 

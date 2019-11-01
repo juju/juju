@@ -391,6 +391,11 @@ var unknownClusterErrMsg = `
 	Run add-k8s again, using --storage=<name> to specify the storage class to use.
 `[1:]
 
+var noClusterSpecifiedErrMsg = `
+	Juju needs to know what storage class to use to provision workload and operator storage.
+	Run add-k8s again, using --storage=<name> to specify the storage class to use.
+`[1:]
+
 var noRecommendedStorageErrMsg = `
 	No recommended storage configuration is defined on this cluster.
 	Run add-k8s again with --storage=<name> and Juju will use the
@@ -474,19 +479,28 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.Errorf(noRecommendedStorageErrMsg, err.(provider.NoRecommendedStorageError).StorageProvider())
 		}
 		if provider.IsUnknownClusterError(err) {
-			return errors.Errorf(unknownClusterErrMsg, err.(provider.UnknownClusterError).CloudName)
+			cloudName := err.(provider.UnknownClusterError).CloudName
+			if cloudName == "" {
+				return errors.New(noClusterSpecifiedErrMsg)
+			}
+			return errors.Errorf(unknownClusterErrMsg, cloudName)
 		}
 		return errors.Trace(err)
 	}
 
-	newCloud.HostCloudRegion, err = c.validateCloudRegion(ctx, newCloud.HostCloudRegion)
-	if err != nil {
-		return errors.Trace(err)
+	if newCloud.HostCloudRegion != "" {
+		newCloud.HostCloudRegion, err = c.validateCloudRegion(ctx, newCloud.HostCloudRegion)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	// By this stage, we know if cloud name/type and/or region input is needed from the user.
 	// If we could not detect it, check what was provided.
 	if err := checkCloudRegion(c.givenHostCloudRegion, newCloud.HostCloudRegion); err != nil {
 		return errors.Trace(err)
+	}
+	if newCloud.HostCloudRegion == "" {
+		newCloud.HostCloudRegion = caas.K8sCloudOther
 	}
 	if c.Client {
 		if err := addCloudToLocal(c.cloudMetadataStore, newCloud); err != nil {
@@ -497,10 +511,13 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 		}
 	}
 
-	if clusterName == "" {
+	if clusterName == "" && newCloud.HostCloudRegion != caas.K8sCloudOther {
 		clusterName = newCloud.HostCloudRegion
 	}
-	successMsg := fmt.Sprintf("k8s substrate %q added as cloud %q%s", clusterName, c.caasName, storageMsg)
+	if clusterName != "" {
+		clusterName = fmt.Sprintf("%q ", clusterName)
+	}
+	successMsg := fmt.Sprintf("k8s substrate %sadded as cloud %q%s", clusterName, c.caasName, storageMsg)
 	var msgDisplayed bool
 	if c.Client {
 		msgDisplayed = true

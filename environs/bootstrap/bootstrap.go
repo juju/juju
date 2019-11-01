@@ -149,6 +149,15 @@ type BootstrapParams struct {
 	// CAPrivateKey is the controller's CA certificate private key.
 	CAPrivateKey string
 
+	// ControllerServiceType is the service type of a k8s controller.
+	ControllerServiceType string
+
+	// ControllerExternalName is the external name of a k8s controller.
+	ControllerExternalName string
+
+	// ControllerExternalIPs is the list of external ips for a k8s controller.
+	ControllerExternalIPs []string
+
 	// DialOpts contains the bootstrap dial options.
 	DialOpts environs.BootstrapDialOpts
 
@@ -722,6 +731,9 @@ func finalizePodBootstrapConfig(
 	pcfg.Bootstrap.ControllerInheritedConfig = args.ControllerInheritedConfig
 	pcfg.Bootstrap.HostedModelConfig = args.HostedModelConfig
 	pcfg.Bootstrap.Timeout = args.DialOpts.Timeout
+	pcfg.Bootstrap.ControllerServiceType = args.ControllerServiceType
+	pcfg.Bootstrap.ControllerExternalName = args.ControllerExternalName
+	pcfg.Bootstrap.ControllerExternalIPs = append([]string(nil), args.ControllerExternalIPs...)
 	return nil
 }
 

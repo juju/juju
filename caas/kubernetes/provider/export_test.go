@@ -51,7 +51,7 @@ type ControllerStackerForTest interface {
 	GetAgentConfigContent(*gc.C) string
 	GetSharedSecretAndSSLKey(*gc.C) (string, string)
 	GetStorageSize() resource.Quantity
-	GetControllerSvcSpec(string) (*controllerServiceSpec, error)
+	GetControllerSvcSpec(string, *podcfg.BootstrapConfig) (*controllerServiceSpec, error)
 }
 
 func (cs *controllerStack) GetAgentConfigContent(c *gc.C) string {
@@ -70,8 +70,8 @@ func (cs *controllerStack) GetStorageSize() resource.Quantity {
 	return cs.storageSize
 }
 
-func (cs *controllerStack) GetControllerSvcSpec(cloudType string) (*controllerServiceSpec, error) {
-	return cs.getControllerSvcSpec(cloudType)
+func (cs *controllerStack) GetControllerSvcSpec(cloudType string, cfg *podcfg.BootstrapConfig) (*controllerServiceSpec, error) {
+	return cs.getControllerSvcSpec(cloudType, cfg)
 }
 
 func NewcontrollerStackForTest(

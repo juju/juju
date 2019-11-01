@@ -243,6 +243,15 @@ type BootstrapConfig struct {
 	// JujuDbSnapAssertions is a path to a .assert file that will be used
 	// to verify the .snap at JujuDbSnapPath
 	JujuDbSnapAssertionsPath string
+
+	// ControllerServiceType is the service type of a k8s controller.
+	ControllerServiceType string
+
+	// ControllerExternalName is the external name of a k8s controller.
+	ControllerExternalName string
+
+	// ControllerExternalIPs is the list of external ips for a k8s controller.
+	ControllerExternalIPs []string
 }
 
 // SSHHostKeys contains the SSH host keys to configure for a bootstrap host.
