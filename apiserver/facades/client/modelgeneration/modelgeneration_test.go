@@ -110,6 +110,22 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 	})
 }
 
+func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
+	defer s.setupModelGenerationAPI(c).Finish()
+
+	arg := params.BranchTrackArg{
+		BranchName: s.newBranchName,
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/0").String()},
+			{Tag: names.NewApplicationTag("ghost").String()},
+		},
+		NumUnits: 1,
+	}
+	result, err := s.api.TrackBranch(arg)
+	c.Assert(err, gc.ErrorMatches, "num of units allowed when specifying multiple entities")
+	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult(nil))
+}
+
 func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
 	s.expectCommit()
