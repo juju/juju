@@ -986,12 +986,31 @@ func (s *addCAASSuite) TestCorrectParseFromStdIn(c *gc.C) {
 
 	command := s.makeCommand(c, true, true, false)
 	stdIn, err := mockStdinPipe(kubeConfigStr)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdIn, gc.NotNil)
 	defer stdIn.Close()
-	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.runCommand(c, stdIn, command, "myk8s", "-c", "foo", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertStoreClouds(c, "gce/us-east1")
+}
+
+func (s *addCAASSuite) TestCorrectPromptOrderFromStdIn(c *gc.C) {
+	ctrl := s.setupBroker(c)
+	defer ctrl.Finish()
+
+	command := s.makeCommand(c, true, true, false)
+	stdIn, err := mockStdinPipe(kubeConfigStr)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stdIn, gc.NotNil)
+	defer stdIn.Close()
+	ctx, err := s.runCommand(c, stdIn, command, "myk8s")
+	c.Assert(err, gc.ErrorMatches, "EOF")
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you want to add k8s cloud myk8s to:\n"+
+		"    1. client only (--client)\n"+
+		"    2. controller \"foo\" only (--controller foo)\n"+
+		"    3. both (--client --controller foo)\n"+
+		"Enter your choice, or type Q|q to quit: ")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "This operation can be applied to both a copy on this client and to the one on a controller.\n")
 }
 
 func (s *addCAASSuite) TestAddGkeCluster(c *gc.C) {
