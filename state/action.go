@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -331,15 +332,25 @@ func newAction(st *State, adoc actionDoc) Action {
 	}
 }
 
+// MinVersionSupportNewActionID should be un-exposed after 2.7 released.
+// TODO(action): un-expose MinVersionSupportNewActionID and IsNewActionIDSupported and remove those helper functions using these two vars in tests from 2.7.0.
+var MinVersionSupportNewActionID = version.MustParse("2.7.0")
+
+// IsNewActionIDSupported checks if new action ID is supported for the specified version.
+func IsNewActionIDSupported(ver version.Number) bool {
+	return ver.Compare(MinVersionSupportNewActionID) >= 0
+}
+
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	// For actions run on units, we want to use a user friendly action id.
 	// Theoretically, an action receiver could also be a machine, but for
 	// now we'll continue to use a UUID for that case, since I don't think
+
 	// we support machine actions anymore.
 	var actionId string
-	if receiverTag.Kind() == names.UnitTagKind {
+	if receiverTag.Kind() == names.UnitTagKind && IsNewActionIDSupported(modelAgentVersion) {
 		id, err := sequence(mb, "task")
 		if err != nil {
 			return actionDoc{}, actionNotificationDoc{}, err
@@ -462,7 +473,7 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 	return results, errors.Trace(iter.Close())
 }
 
-// EnqueueAction
+// EnqueueAction caches the action doc to the database.
 func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
@@ -472,8 +483,11 @@ func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	doc, ndoc, err := newActionDoc(m.st, receiver, actionName, payload)
+	agentVersion, err := m.AgentVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	doc, ndoc, err := newActionDoc(m.st, receiver, actionName, payload, agentVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

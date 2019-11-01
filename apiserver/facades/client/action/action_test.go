@@ -783,7 +783,19 @@ func stringify(r params.ActionResult) string {
 	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
 }
 
+func (s *actionSuite) toSupportNewActionID(c *gc.C) {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if !state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
+	s.toSupportNewActionID(c)
+
 	unit, err := s.State.Unit("mysql/0")
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
@@ -829,6 +841,8 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 }
 
 func (s *actionSuite) setupTasks(c *gc.C) {
+	s.toSupportNewActionID(c)
+
 	arg := params.Actions{
 		Actions: []params.Action{
 			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
