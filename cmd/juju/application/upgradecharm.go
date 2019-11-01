@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -402,7 +401,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 		}
 
 		curBindings := applicationInfo.EndpointBindings
-		appDefaultSpace := detectDefaultSpace(modelConfig, curBindings)
+		appDefaultSpace := curBindings[""]
 		newCharmEndpoints := allEndpoints(charmInfo)
 		if err := c.validateEndpointNames(newCharmEndpoints, curBindings, c.Bindings); err != nil {
 			return errors.Trace(err)
@@ -745,22 +744,4 @@ func allEndpoints(ci *charms.CharmInfo) set.Strings {
 	}
 
 	return epSet
-}
-
-// detectDefaultSpace returns the current default space for the bindings provided.
-// The default space is determined via the following sequence.
-// 1. the space of the default endpoint in the bindings provided.
-// 2. the "default-space" from the model-config.
-// 3. AlphaSpaceName
-func detectDefaultSpace(modelConfig *config.Config, curBindings map[string]string) string {
-	if curBindings != nil {
-		if defaultSpace, defined := curBindings[""]; defined {
-			return defaultSpace
-		}
-	}
-	configSpaceName := modelConfig.DefaultSpace()
-	if configSpaceName != "" {
-		return configSpaceName
-	}
-	return network.AlphaSpaceName
 }

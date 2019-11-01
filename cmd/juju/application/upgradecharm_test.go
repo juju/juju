@@ -117,12 +117,17 @@ func (s *UpgradeCharmSuite) SetUpTest(c *gc.C) {
 			Meta: &charm.Meta{},
 		},
 	}
-	s.charmAPIClient = mockCharmAPIClient{charmURL: currentCharmURL}
+	s.charmAPIClient = mockCharmAPIClient{
+		charmURL: currentCharmURL,
+		bindings: map[string]string{
+			"": network.AlphaSpaceName,
+		},
+	}
 	s.modelConfigGetter = newMockModelConfigGetter()
 	s.resourceLister = mockResourceLister{}
 	s.spacesClient = mockSpacesClient{
 		spaceList: []params.Space{
-			{Id: "0", Name: ""}, // default
+			{Id: network.AlphaSpaceId, Name: network.AlphaSpaceName}, // default
 			{Id: "1", Name: "sp1"},
 		},
 	}
@@ -268,14 +273,10 @@ type UpgradeCharmErrorsStateSuite struct {
 }
 
 func (s *UpgradeCharmSuite) TestUpgradeWithBindDefaults(c *gc.C) {
-	s.testUpgradeWithBind(c, map[string]string{
-		"ep1": "sp1",
-		"ep2": network.AlphaSpaceName,
-	})
-}
+	s.charmAPIClient.bindings = map[string]string{
+		"": "testing",
+	}
 
-func (s *UpgradeCharmSuite) TestUpgradeWithBindDefaultSpaceConfigured(c *gc.C) {
-	s.modelConfigGetter.SetDefaultSpace("testing")
 	s.testUpgradeWithBind(c, map[string]string{
 		"ep1": "sp1",
 		"ep2": "testing",
@@ -977,6 +978,8 @@ type mockCharmAPIClient struct {
 	CharmAPIClient
 	testing.Stub
 	charmURL *charm.URL
+
+	bindings map[string]string
 }
 
 func (m *mockCharmAPIClient) GetCharmURL(branchName, appName string) (*charm.URL, error) {
@@ -991,7 +994,9 @@ func (m *mockCharmAPIClient) SetCharm(branchName string, cfg application.SetChar
 
 func (m *mockCharmAPIClient) Get(branchName, applicationName string) (*params.ApplicationGetResults, error) {
 	m.MethodCall(m, "Get", applicationName)
-	return &params.ApplicationGetResults{}, m.NextErr()
+	return &params.ApplicationGetResults{
+		EndpointBindings: m.bindings,
+	}, m.NextErr()
 }
 
 func newMockModelConfigGetter() mockModelConfigGetter {
