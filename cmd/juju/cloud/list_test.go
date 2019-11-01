@@ -57,10 +57,10 @@ func (s *listSuite) assertCloudsOutput(c *gc.C, out string) {
 	out = strings.Replace(out, "\n", "", -1)
 
 	// Check that we are producing the expected fields
-	c.Assert(out, gc.Matches, `You can bootstrap a new controller using one of these clouds...Clouds available on the client:Cloud +Regions +Default +Type +Credentials +Description.*`)
+	c.Assert(out, gc.Matches, `You can bootstrap a new controller using one of these clouds...Clouds available on the client:Cloud +Regions +Default +Type +Credentials +Source +Description.*`)
 	// // Just check couple of snippets of the output to make sure it looks ok.
-	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +0 +Amazon Web Services.*`)
-	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +0 +Microsoft Azure.*`)
+	c.Assert(out, gc.Matches, `.*aws +[0-9]+ +[a-z0-9-]+ +ec2 +0 +public +Amazon Web Services.*`)
+	c.Assert(out, gc.Matches, `.*azure +[0-9]+ +[a-z0-9-]+ +azure +0 +public +Microsoft Azure.*`)
 	// LXD should be there too.
 	c.Assert(out, gc.Matches, `.*localhost[ ]*1[ ]*localhost[ ]*lxd.*`)
 }
@@ -238,7 +238,7 @@ clouds:
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `homestack       1        london           openstack   0            Openstack Cloud`)
+	c.Assert(out, jc.Contains, `homestack       1        london           openstack   0            local     Openstack Cloud`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {

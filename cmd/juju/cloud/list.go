@@ -363,7 +363,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 			}
 			w.Print(name, len(info.Regions), defaultRegion, displayCloudType(info.CloudType))
 			if showTail {
-				w.Println(info.CredentialCount, description)
+				w.Println(info.CredentialCount, info.Source, description)
 			} else {
 				w.Println()
 			}
@@ -381,7 +381,7 @@ func formatCloudsTabular(writer io.Writer, value interface{}) error {
 			w.Println("You can bootstrap a new controller using one of these clouds...")
 		}
 		w.Println("\nClouds available on the client:")
-		w.Println("Cloud", "Regions", "Default", "Type", "Credentials", "Description")
+		w.Println("Cloud", "Regions", "Default", "Type", "Credentials", "Source", "Description")
 		printClouds(localClouds, true)
 	}
 	tw.Flush()
