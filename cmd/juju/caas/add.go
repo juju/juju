@@ -439,7 +439,7 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	// We need to have c.ControllerName after this, so this si the latest time to
+	// We need to have c.ControllerName after this, so this is the latest time to
 	// prompt user for client and controller options.
 	// We need to do this later then other commands since
 	// piping is done regularly with add-k8s.
