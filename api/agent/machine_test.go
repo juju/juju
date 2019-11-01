@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -136,7 +135,7 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
-	c.Assert(m.Jobs(), gc.DeepEquals, []multiwatcher.MachineJob{multiwatcher.JobHostUnits})
+	c.Assert(m.Jobs(), gc.DeepEquals, []params.MachineJob{params.JobHostUnits})
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)

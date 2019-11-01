@@ -123,9 +123,9 @@ type CharmMeta struct {
 	MinJujuVersion string                       `json:"min-juju-version,omitempty"`
 }
 
-// CharmInfo holds all the charm data that the client needs.
+// Charm holds all the charm data that the client needs.
 // To be honest, it probably returns way more than what is actually needed.
-type CharmInfo struct {
+type Charm struct {
 	Revision   int                    `json:"revision"`
 	URL        string                 `json:"url"`
 	Config     map[string]CharmOption `json:"config"`

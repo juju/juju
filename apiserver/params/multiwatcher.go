@@ -1,12 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(rogpeppe) move everything in this package to apiserver/params
-// because all the types are part of the public API server interface.
-// Then params would not need to import this package and we would
-// not need to duplicate types like Life and ModelSLAInfo.
-
-package multiwatcher
+package params
 
 import (
 	"bytes"
@@ -25,6 +20,12 @@ import (
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
+
+const (
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
+)
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
@@ -93,13 +94,13 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	}
 	switch entityKind {
 	case "model":
-		d.Entity = new(ModelInfo)
+		d.Entity = new(ModelUpdate)
 	case "machine":
 		d.Entity = new(MachineInfo)
 	case "application":
 		d.Entity = new(ApplicationInfo)
 	case "remoteApplication":
-		d.Entity = new(RemoteApplicationInfo)
+		d.Entity = new(RemoteApplicationUpdate)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
@@ -118,15 +119,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
 	return json.Unmarshal(elements[2], &d.Entity)
-}
-
-// Address describes a network address.
-type Address struct {
-	Value           string `json:"value"`
-	Type            string `json:"type"`
-	Scope           string `json:"scope"`
-	SpaceName       string `json:"space-name,omitempty"`
-	SpaceProviderId string `json:"space-provider-id,omitempty"`
 }
 
 // MachineInfo holds the information about a machine
@@ -240,9 +232,9 @@ func (i *CharmInfo) EntityId() EntityId {
 	}
 }
 
-// RemoteApplicationInfo holds the information about a remote application that is
+// RemoteApplicationUpdate holds the information about a remote application that is
 // tracked by multiwatcherStore.
-type RemoteApplicationInfo struct {
+type RemoteApplicationUpdate struct {
 	ModelUUID string     `json:"model-uuid"`
 	Name      string     `json:"name"`
 	OfferUUID string     `json:"offer-uuid"`
@@ -252,7 +244,7 @@ type RemoteApplicationInfo struct {
 }
 
 // EntityId returns a unique identifier for a remote application across models.
-func (i *RemoteApplicationInfo) EntityId() EntityId {
+func (i *RemoteApplicationUpdate) EntityId() EntityId {
 	return EntityId{
 		Kind:      "remoteApplication",
 		ModelUUID: i.ModelUUID,
@@ -279,19 +271,6 @@ func (i *ApplicationOfferInfo) EntityId() EntityId {
 		ModelUUID: i.ModelUUID,
 		Id:        i.OfferName,
 	}
-}
-
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string `json:"protocol"`
-	Number   int    `json:"number"`
-}
-
-// PortRange represents a single range of ports.
-type PortRange struct {
-	FromPort int    `json:"from-port"`
-	ToPort   int    `json:"to-port"`
-	Protocol string `json:"protocol"`
 }
 
 // UnitInfo holds the information about a unit
@@ -358,16 +337,6 @@ type RelationInfo struct {
 	Key       string     `json:"key"`
 	Id        int        `json:"id"`
 	Endpoints []Endpoint `json:"endpoints"`
-}
-
-// CharmRelation is a mirror struct for charm.Relation.
-type CharmRelation struct {
-	Name      string `json:"name"`
-	Role      string `json:"role"`
-	Interface string `json:"interface"`
-	Optional  bool   `json:"optional"`
-	Limit     int    `json:"limit"`
-	Scope     string `json:"scope"`
 }
 
 // NewCharmRelation creates a new local CharmRelation structure from  the
@@ -478,16 +447,9 @@ const (
 	BlockChange BlockType = "BlockChange"
 )
 
-// ModelSLAInfo describes the SLA info for a model.
-// Note: this replicates the type of the same name in the params package.
-type ModelSLAInfo struct {
-	Level string `json:"level"`
-	Owner string `json:"owner"`
-}
-
-// ModelInfo holds the information about a model that is
+// ModelUpdate holds the information about a model that is
 // tracked by multiwatcherStore.
-type ModelInfo struct {
+type ModelUpdate struct {
 	ModelUUID      string                 `json:"model-uuid"`
 	Name           string                 `json:"name"`
 	Life           Life                   `json:"life"`
@@ -501,7 +463,7 @@ type ModelInfo struct {
 }
 
 // EntityId returns a unique identifier for a model.
-func (i *ModelInfo) EntityId() EntityId {
+func (i *ModelUpdate) EntityId() EntityId {
 	return EntityId{
 		Kind:      "model",
 		ModelUUID: i.ModelUUID,

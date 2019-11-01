@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -52,12 +51,12 @@ var (
 	envConstraints       = constraints.MustParse("mem=2G")
 	bootstrapConstraints = constraints.MustParse("mem=4G")
 
-	allMachineJobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageModel,
-		multiwatcher.JobHostUnits,
+	allMachineJobs = []params.MachineJob{
+		params.JobManageModel,
+		params.JobHostUnits,
 	}
-	normalMachineJobs = []multiwatcher.MachineJob{
-		multiwatcher.JobHostUnits,
+	normalMachineJobs = []params.MachineJob{
+		params.JobHostUnits,
 	}
 )
 

@@ -11,7 +11,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -332,23 +331,23 @@ type RelationResults struct {
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
-	Error            *Error                `json:"error,omitempty"`
-	Life             Life                  `json:"life"`
-	Suspended        bool                  `json:"bool,omitempty"`
-	Id               int                   `json:"id"`
-	Key              string                `json:"key"`
-	Endpoint         multiwatcher.Endpoint `json:"endpoint"`
-	OtherApplication string                `json:"other-application,omitempty"`
+	Error            *Error   `json:"error,omitempty"`
+	Life             Life     `json:"life"`
+	Suspended        bool     `json:"bool,omitempty"`
+	Id               int      `json:"id"`
+	Key              string   `json:"key"`
+	Endpoint         Endpoint `json:"endpoint"`
+	OtherApplication string   `json:"other-application,omitempty"`
 }
 
 // RelationResultV5 returns information about a single relation,
 // or an error, but doesn't include the other application name.
 type RelationResultV5 struct {
-	Error    *Error                `json:"error,omitempty"`
-	Life     Life                  `json:"life"`
-	Id       int                   `json:"id"`
-	Key      string                `json:"key"`
-	Endpoint multiwatcher.Endpoint `json:"endpoint"`
+	Error    *Error   `json:"error,omitempty"`
+	Life     Life     `json:"life"`
+	Id       int      `json:"id"`
+	Key      string   `json:"key"`
+	Endpoint Endpoint `json:"endpoint"`
 }
 
 // RelationResultsV5 holds the result of an API call that returns
@@ -472,10 +471,10 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          Life                      `json:"life"`
-	Jobs          []multiwatcher.MachineJob `json:"jobs"`
-	ContainerType instance.ContainerType    `json:"container-type"`
-	Error         *Error                    `json:"error,omitempty"`
+	Life          Life                   `json:"life"`
+	Jobs          []MachineJob           `json:"jobs"`
+	ContainerType instance.ContainerType `json:"container-type"`
+	Error         *Error                 `json:"error,omitempty"`
 }
 
 // VersionResult holds the version and possibly error for a given
@@ -721,19 +720,19 @@ type AgentVersionResult struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints       constraints.Value         `json:"constraints"`
-	Series            string                    `json:"series"`
-	Placement         string                    `json:"placement"`
-	Jobs              []multiwatcher.MachineJob `json:"jobs"`
-	Volumes           []VolumeParams            `json:"volumes,omitempty"`
-	VolumeAttachments []VolumeAttachmentParams  `json:"volume-attachments,omitempty"`
-	Tags              map[string]string         `json:"tags,omitempty"`
-	SubnetsToZones    map[string][]string       `json:"subnets-to-zones,omitempty"`
-	ImageMetadata     []CloudImageMetadata      `json:"image-metadata,omitempty"`
-	EndpointBindings  map[string]string         `json:"endpoint-bindings,omitempty"`
-	ControllerConfig  map[string]interface{}    `json:"controller-config,omitempty"`
-	CloudInitUserData map[string]interface{}    `json:"cloudinit-userdata,omitempty"`
-	CharmLXDProfiles  []string                  `json:"charm-lxd-profiles,omitempty"`
+	Constraints       constraints.Value        `json:"constraints"`
+	Series            string                   `json:"series"`
+	Placement         string                   `json:"placement"`
+	Jobs              []MachineJob             `json:"jobs"`
+	Volumes           []VolumeParams           `json:"volumes,omitempty"`
+	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
+	Tags              map[string]string        `json:"tags,omitempty"`
+	SubnetsToZones    map[string][]string      `json:"subnets-to-zones,omitempty"`
+	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
+	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
+	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
+	CloudInitUserData map[string]interface{}   `json:"cloudinit-userdata,omitempty"`
+	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

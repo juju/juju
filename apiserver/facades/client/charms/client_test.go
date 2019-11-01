@@ -69,14 +69,14 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 		about    string
 		charm    string
 		url      string
-		expected params.CharmInfo
+		expected params.Charm
 		err      string
 	}{
 		{
 			about: "dummy charm which contains an expectedActions spec",
 			charm: "dummy",
 			url:   "local:quantal/dummy-1",
-			expected: params.CharmInfo{
+			expected: params.Charm{
 				Revision: 1,
 				URL:      "local:quantal/dummy-1",
 				Config: map[string]params.CharmOption{
@@ -127,7 +127,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			about: "dummy charm which contains lxd profile spec",
 			charm: "lxd-profile",
 			url:   "local:quantal/lxd-profile-0",
-			expected: params.CharmInfo{
+			expected: params.Charm{
 				Revision: 0,
 				URL:      "local:quantal/lxd-profile-0",
 				Config:   map[string]params.CharmOption{},
@@ -193,7 +193,7 @@ func (s *charmsSuite) TestClientCharmInfo(c *gc.C) {
 			// Use wordpress for tests so that we can compare Provides and Requires.
 			charm: "wordpress",
 			url:   "local:quantal/wordpress-3",
-			expected: params.CharmInfo{
+			expected: params.Charm{
 				Revision: 3,
 				URL:      "local:quantal/wordpress-3",
 				Config: map[string]params.CharmOption{

@@ -479,6 +479,7 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 }
 
 // RemoteApplicationInfo returns information about the requested remote application.
+// This call currently has no client side API, only there for the GUI at this stage.
 func (api *OffersAPI) RemoteApplicationInfo(args params.OfferURLs) (params.RemoteApplicationInfoResults, error) {
 	results := make([]params.RemoteApplicationInfoResult, len(args.OfferURLs))
 	for i, url := range args.OfferURLs {

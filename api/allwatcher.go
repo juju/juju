@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // AllWatcher holds information allowing us to get Deltas describing
@@ -50,7 +49,7 @@ func newAllWatcher(objType string, caller base.APICaller, id *string) *AllWatche
 // Next returns a new set of deltas from a watcher previously created
 // by the WatchAll or WatchAllModels API calls. It will block until
 // there are deltas to return.
-func (watcher *AllWatcher) Next() ([]multiwatcher.Delta, error) {
+func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	var info params.AllWatcherNextResults
 	err := watcher.caller.APICall(
 		watcher.objType,
@@ -66,7 +65,7 @@ func (watcher *AllWatcher) Next() ([]multiwatcher.Delta, error) {
 	return info.Deltas, err
 }
 
-type orderedDeltas []multiwatcher.Delta
+type orderedDeltas []params.Delta
 
 func (o orderedDeltas) Len() int {
 	return len(o)

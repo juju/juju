@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
-	"github.com/juju/juju/state/multiwatcher"
 	coretools "github.com/juju/juju/tools"
 )
 
@@ -89,7 +88,7 @@ type InstanceConfig struct {
 	MetricsSpoolDir string
 
 	// Jobs holds what machine jobs to run.
-	Jobs []multiwatcher.MachineJob
+	Jobs []params.MachineJob
 
 	// CloudInitOutputLog specifies the path to the output log for cloud-init.
 	// The directory containing the log file must already exist.
@@ -787,7 +786,7 @@ func NewInstanceConfig(
 		DataDir:                 dataDir,
 		LogDir:                  path.Join(logDir, "juju"),
 		MetricsSpoolDir:         metricsSpoolDir,
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      cloudInitOutputLog,
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 		Series:                  series,
@@ -830,9 +829,9 @@ func NewBootstrapInstanceConfig(
 			ModelConstraints:            modelCons,
 		},
 	}
-	icfg.Jobs = []multiwatcher.MachineJob{
-		multiwatcher.JobManageModel,
-		multiwatcher.JobHostUnits,
+	icfg.Jobs = []params.MachineJob{
+		params.JobManageModel,
+		params.JobHostUnits,
 	}
 	return icfg, nil
 }
@@ -962,13 +961,13 @@ func FinishInstanceConfig(icfg *InstanceConfig, cfg *config.Config) (err error) 
 
 // InstanceTags returns the minimum set of tags that should be set on a
 // machine instance, if the provider supports them.
-func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
+func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []params.MachineJob) map[string]string {
 	instanceTags := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
 		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
-	if multiwatcher.AnyJobNeedsState(jobs...) {
+	if params.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags

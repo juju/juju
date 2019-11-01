@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/raft"
 )
@@ -48,7 +47,7 @@ type InitializeStateParams struct {
 
 	// BootstrapMachineJobs holds the jobs that the bootstrap machine
 	// agent will run.
-	BootstrapMachineJobs []multiwatcher.MachineJob
+	BootstrapMachineJobs []params.MachineJob
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	SharedSecret string
@@ -526,11 +525,11 @@ func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, api
 // machineJobFromParams returns the job corresponding to params.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job params.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case multiwatcher.JobHostUnits:
+	case params.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageModel:
+	case params.JobManageModel:
 		return state.JobManageModel, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)

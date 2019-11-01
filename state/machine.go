@@ -19,6 +19,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -26,7 +27,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
@@ -48,9 +48,9 @@ const (
 )
 
 var (
-	jobNames = map[MachineJob]multiwatcher.MachineJob{
-		JobHostUnits:   multiwatcher.JobHostUnits,
-		JobManageModel: multiwatcher.JobManageModel,
+	jobNames = map[MachineJob]params.MachineJob{
+		JobHostUnits:   params.JobHostUnits,
+		JobManageModel: params.JobManageModel,
 	}
 	jobMigrationValue = map[MachineJob]string{
 		JobHostUnits:   "host-units",
@@ -58,17 +58,17 @@ var (
 	}
 )
 
-// ToParams returns the job as multiwatcher.MachineJob.
-func (job MachineJob) ToParams() multiwatcher.MachineJob {
+// ToParams returns the job as params.MachineJob.
+func (job MachineJob) ToParams() params.MachineJob {
 	if jujuJob, ok := jobNames[job]; ok {
 		return jujuJob
 	}
-	return multiwatcher.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+	return params.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
 // params.JobsFromJobs converts state jobs to juju jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []multiwatcher.MachineJob {
-	jujuJobs := make([]multiwatcher.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []MachineJob) []params.MachineJob {
+	jujuJobs := make([]params.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		jujuJobs[i] = machineJob.ToParams()
 	}

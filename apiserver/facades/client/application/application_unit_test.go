@@ -1712,7 +1712,7 @@ func (s *ApplicationSuite) TestApplicationsInfoOne(c *gc.C) {
 	result, err := s.api.ApplicationsInfo(params.Entities{entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
-	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationInfo{
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
 		Series:      "quantal",
@@ -1761,7 +1761,7 @@ func (s *ApplicationSuite) TestApplicationsInfoMany(c *gc.C) {
 	result, err := s.api.ApplicationsInfo(params.Entities{entities})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.Results, gc.HasLen, len(entities))
-	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationInfo{
+	c.Assert(*result.Results[0].Result, gc.DeepEquals, params.ApplicationResult{
 		Tag:         "application-postgresql",
 		Charm:       "charm-postgresql",
 		Series:      "quantal",

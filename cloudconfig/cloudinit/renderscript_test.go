@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -83,7 +82,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 			StatePort:    123,
 			APIPort:      456,
 		}
-		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobManageModel, multiwatcher.JobHostUnits}
+		icfg.Jobs = []params.MachineJob{params.JobManageModel, params.JobHostUnits}
 		icfg.Bootstrap.StateServingInfo = params.StateServingInfo{
 			Cert:         coretesting.ServerCert,
 			PrivateKey:   coretesting.ServerKey,
@@ -94,7 +93,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, controller bool, vers version.B
 	} else {
 		icfg, err = instancecfg.NewInstanceConfig(coretesting.ControllerTag, "0", "ya", imagemetadata.ReleasedStream, vers.Series, nil)
 		c.Assert(err, jc.ErrorIsNil)
-		icfg.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+		icfg.Jobs = []params.MachineJob{params.JobHostUnits}
 	}
 	err = icfg.SetTools(tools.List{
 		&tools.Tools{

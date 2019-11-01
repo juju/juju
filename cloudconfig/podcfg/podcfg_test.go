@@ -8,10 +8,10 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
 
@@ -23,8 +23,8 @@ var _ = gc.Suite(&podcfgSuite{})
 
 func (*podcfgSuite) TestPodLabelsController(c *gc.C) {
 	cfg := testing.CustomModelConfig(c, testing.Attrs{})
-	controllerJobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
-	nonControllerJobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+	controllerJobs := []params.MachineJob{params.JobManageModel}
+	nonControllerJobs := []params.MachineJob{params.JobHostUnits}
 	testPodLabels(c, cfg, controllerJobs, map[string]string{
 		"juju-model-uuid":      testing.ModelTag.Id(),
 		"juju-controller-uuid": testing.ControllerTag.Id(),
@@ -50,7 +50,7 @@ func (*podcfgSuite) TestPodLabelsUserSpecified(c *gc.C) {
 	})
 }
 
-func testPodLabels(c *gc.C, cfg *config.Config, jobs []multiwatcher.MachineJob, expectTags map[string]string) {
+func testPodLabels(c *gc.C, cfg *config.Config, jobs []params.MachineJob, expectTags map[string]string) {
 	tags := podcfg.PodLabels(testing.ModelTag.Id(), testing.ControllerTag.Id(), cfg, jobs)
 	c.Assert(tags, jc.DeepEquals, expectTags)
 }

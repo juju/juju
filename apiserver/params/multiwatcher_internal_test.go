@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package multiwatcher
+package params
 
 import (
 	"testing"
@@ -14,14 +14,14 @@ var (
 	_ EntityInfo = (*MachineInfo)(nil)
 	_ EntityInfo = (*ApplicationInfo)(nil)
 	_ EntityInfo = (*CharmInfo)(nil)
-	_ EntityInfo = (*RemoteApplicationInfo)(nil)
+	_ EntityInfo = (*RemoteApplicationUpdate)(nil)
 	_ EntityInfo = (*ApplicationOfferInfo)(nil)
 	_ EntityInfo = (*UnitInfo)(nil)
 	_ EntityInfo = (*RelationInfo)(nil)
 	_ EntityInfo = (*AnnotationInfo)(nil)
 	_ EntityInfo = (*BlockInfo)(nil)
 	_ EntityInfo = (*ActionInfo)(nil)
-	_ EntityInfo = (*ModelInfo)(nil)
+	_ EntityInfo = (*ModelUpdate)(nil)
 	_ EntityInfo = (*GenerationInfo)(nil)
 )
 

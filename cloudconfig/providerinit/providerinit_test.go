@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/provider/openstack"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 )
@@ -155,9 +154,9 @@ func (*CloudInitSuite) testUserData(c *gc.C, series string, bootstrap bool) {
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, jc.ErrorIsNil)
 
-	allJobs := []multiwatcher.MachineJob{
-		multiwatcher.JobManageModel,
-		multiwatcher.JobHostUnits,
+	allJobs := []params.MachineJob{
+		params.JobManageModel,
+		params.JobHostUnits,
 	}
 	cfg := &instancecfg.InstanceConfig{
 		ControllerTag: testing.ControllerTag,
@@ -311,7 +310,7 @@ func (s *CloudInitSuite) TestWindowsUserdataEncoding(c *gc.C) {
 		MachineId:        "10",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		Series:           series,
-		Jobs:             []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:             []params.MachineJob{params.JobHostUnits},
 		MachineNonce:     "FAKE_NONCE",
 		APIInfo: &api.Info{
 			Addrs:    []string{"state-addr.testing.invalid:54321"},
