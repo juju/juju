@@ -94,13 +94,42 @@ func (c *trackBranchCommand) Init(args []string) error {
 	if c.numUnits < 0 {
 		return errors.Errorf("expected a valid number of units to track")
 	}
-	for _, arg := range args[1:] {
-		if !names.IsValidApplication(arg) && !names.IsValidUnit(arg) {
+
+	var numUnits int
+	var numApplications int
+
+	entities := args[1:]
+	for _, arg := range entities {
+		validApplication := names.IsValidApplication(arg)
+		validUnit := names.IsValidUnit(arg)
+		if !validApplication && !validUnit {
 			return errors.Errorf("invalid application or unit name %q", arg)
+		}
+
+		if validApplication {
+			numApplications++
+		}
+		if validUnit {
+			numUnits++
+		}
+	}
+	// If the number of units the user requested is greater than 0, then we
+	// need to block asking for multiple applications. This is because we don't
+	// know how to topographically distribute between all the applications and
+	// units, especially if an error occurs whilst assigning the units.
+	// To prevent that issue happening, guard against it.
+	if c.numUnits > 0 {
+		if numApplications+numUnits > 1 {
+			return errors.Errorf("-n flag not allowed when specifying multiple units and/or applications")
+		}
+		// If the number of entites is 1, but you've requested a unit, then this
+		// is implicit, but not really required.
+		if numUnits > 0 {
+			return errors.Errorf("-n flag not allowed when specifying units")
 		}
 	}
 	c.branchName = args[0]
-	c.entities = args[1:]
+	c.entities = entities
 	return nil
 }
 
@@ -134,9 +163,8 @@ func (c *trackBranchCommand) Run(ctx *cmd.Context) error {
 		}
 		if !isActiveBranch {
 			return errors.NotFoundf("branch %q", c.branchName)
-		} else {
-			return errors.Errorf("expected unit and/or application names(s)")
 		}
+		return errors.Errorf("expected unit and/or application names(s)")
 	}
 
 	return errors.Trace(client.TrackBranch(c.branchName, c.entities, c.numUnits))
