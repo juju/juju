@@ -286,6 +286,44 @@ func (s *bindingsSuite) TestMergeBindings(c *gc.C) {
 	}
 }
 
+func (s *bindingsSuite) TestMergeWithModelConfigNonDefaultSpace(c *gc.C) {
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.appsSpace.Name()}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	currentMap := map[string]string{
+		"foo1": s.clientSpace.Id(),
+		"self": s.dbSpace.Id(),
+	}
+	updated := map[string]string{
+		"":          s.appsSpace.Id(),
+		"foo1":      s.clientSpace.Id(),
+		"bar1":      s.appsSpace.Id(),
+		"self":      s.dbSpace.Id(),
+		"one-extra": s.appsSpace.Id(),
+	}
+
+	b, err := state.NewBindings(s.State, currentMap)
+	c.Assert(err, jc.ErrorIsNil)
+	isModified, err := b.Merge(nil, s.oldMeta)
+	c.Check(err, jc.ErrorIsNil)
+	c.Check(b.Map(), jc.DeepEquals, updated)
+	c.Check(isModified, gc.Equals, true)
+}
+
+func (s *bindingsSuite) TestDefaultEndpointBindingSpaceNotDefault(c *gc.C) {
+	err := s.Model.UpdateModelConfig(map[string]interface{}{"default-space": s.clientSpace.Name()}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	id, err := s.State.DefaultEndpointBindingSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, s.clientSpace.Id())
+}
+
+func (s *bindingsSuite) TestDefaultEndpointBindingSpaceDefault(c *gc.C) {
+	id, err := s.State.DefaultEndpointBindingSpace()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(id, gc.Equals, network.AlphaSpaceId)
+}
+
 func (s *bindingsSuite) copyMap(input map[string]string) map[string]string {
 	output := make(map[string]string, len(input))
 	for key, value := range input {
@@ -337,7 +375,7 @@ func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 	initial := map[string]string{
 		"db":      "two",
 		"testing": "42",
-		"empty":   "",
+		"empty":   network.AlphaSpaceName,
 	}
 
 	binding, err := state.NewBindings(s.endpointBinding, initial)
@@ -360,7 +398,7 @@ func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "three",
-		"empty":   "",
+		"empty":   network.AlphaSpaceId,
 	}
 
 	binding, err := state.NewBindings(s.endpointBinding, initial)

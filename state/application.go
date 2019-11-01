@@ -2576,7 +2576,7 @@ func (a *Application) defaultEndpointBindings() (map[string]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return DefaultEndpointBindingsForCharm(appCharm.Meta()), nil
+	return DefaultEndpointBindingsForCharm(a.st, appCharm.Meta())
 }
 
 // MetricCredentials returns any metric credentials associated with this application.

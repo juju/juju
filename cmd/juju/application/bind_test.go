@@ -28,7 +28,6 @@ type BindSuite struct {
 
 	apiConnection     mockAPIConnection
 	applicationClient mockApplicationBindClient
-	modelConfigGetter mockModelConfigGetter
 	spacesClient      mockSpacesClient
 	cmd               cmd.Command
 }
@@ -52,11 +51,12 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 		},
 	}
 	s.applicationClient = mockApplicationBindClient{}
-	s.modelConfigGetter = mockModelConfigGetter{}
 	s.spacesClient = mockSpacesClient{
 		spaceList: []params.Space{
-			{Id: "0", Name: ""}, // default
+			{Id: "0", Name: network.AlphaSpaceName},
 			{Id: "1", Name: "sp1"},
+			{Id: "4", Name: "sp4"},
+			{Id: "5", Name: "testing"},
 		},
 	}
 
@@ -80,10 +80,6 @@ func (s *BindSuite) SetUpTest(c *gc.C) {
 		func(conn base.APICallCloser) ApplicationBindClient {
 			s.AddCall("NewApplicationClient", conn)
 			return &s.applicationClient
-		},
-		func(conn base.APICallCloser) ModelConfigGetter {
-			s.AddCall("NewModelConfigGetter", conn)
-			return &s.modelConfigGetter
 		},
 		func(conn base.APICallCloser) SpacesAPI {
 			s.AddCall("NewSpacesClient", conn)

@@ -1127,6 +1127,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		},
 		CloudRegion: "some-region"})
 
+	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	s.st.Spaces["2"] = "some-space"
 	application := s.st.model.AddApplication(description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("magic"),
@@ -1139,6 +1140,7 @@ func (s *bundleSuite) TestExportBundleSubordinateApplication(c *gc.C) {
 		Exposed:              true,
 		EndpointBindings: map[string]string{
 			"rel-name": "2",
+			"magic":    "0",
 		},
 		ApplicationConfig: map[string]interface{}{
 			"config key": "config value",
@@ -1168,11 +1170,92 @@ applications:
     options:
       key: value
     bindings:
+      magic: alpha
       rel-name: some-space
 `[1:]}
 
 	c.Assert(result, gc.Equals, expectedResult)
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(c *gc.C, all, oneOff string) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	args := s.minimalApplicationArgs(description.IAAS)
+	args.EndpointBindings = map[string]string{
+		"rel-name": all,
+		"another":  all,
+	}
+	_ = s.st.model.AddApplication(args)
+
+	_ = s.st.model.AddApplication(description.ApplicationArgs{
+		Tag:                  names.NewApplicationTag("magic"),
+		Series:               "zesty",
+		Subordinate:          true,
+		CharmURL:             "cs:zesty/magic",
+		Channel:              "stable",
+		CharmModifiedVersion: 1,
+		ForceCharm:           true,
+		Exposed:              true,
+		EndpointBindings: map[string]string{
+			"rel-name": all,
+			"another":  oneOff,
+		},
+		ApplicationConfig: map[string]interface{}{
+			"config key": "config value",
+		},
+	})
+}
+
+func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
+	s.setupExportBundleEndpointBindingsPrinted(c, "0", "0")
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{nil, `
+applications:
+  magic:
+    charm: cs:zesty/magic
+    series: zesty
+    expose: true
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    series: trusty
+    options:
+      key: value
+`[1:]}
+	c.Assert(result, gc.Equals, expectedResult)
+}
+
+func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
+	s.setupExportBundleEndpointBindingsPrinted(c, "0", "1")
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedResult := params.StringResult{nil, `
+applications:
+  magic:
+    charm: cs:zesty/magic
+    series: zesty
+    expose: true
+    bindings:
+      another: vlan2
+      rel-name: alpha
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    series: trusty
+    options:
+      key: value
+    bindings:
+      another: alpha
+      rel-name: alpha
+`[1:]}
+	c.Assert(result, gc.Equals, expectedResult)
 }
 
 func (s *bundleSuite) TestExportBundleSubordinateApplicationAndMachine(c *gc.C) {

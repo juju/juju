@@ -5,10 +5,9 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	state "github.com/juju/juju/state"
+	reflect "reflect"
 )
 
 // MockEndpointBinding is a mock of EndpointBinding interface
@@ -32,6 +31,19 @@ func NewMockEndpointBinding(ctrl *gomock.Controller) *MockEndpointBinding {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockEndpointBinding) EXPECT() *MockEndpointBindingMockRecorder {
 	return m.recorder
+}
+
+// DefaultEndpointBindingSpace mocks base method
+func (m *MockEndpointBinding) DefaultEndpointBindingSpace() (string, error) {
+	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace
+func (mr *MockEndpointBindingMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockEndpointBinding)(nil).DefaultEndpointBindingSpace))
 }
 
 // Space mocks base method

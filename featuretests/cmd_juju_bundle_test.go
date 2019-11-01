@@ -78,6 +78,16 @@ applications:
       logging-directory: alpha
   wordpress:
     charm: cs:quantal/wordpress-23
+    bindings:
+      "": alpha
+      admin-api: alpha
+      cache: alpha
+      db: alpha
+      db-client: alpha
+      foo-bar: alpha
+      logging-dir: alpha
+      monitoring-port: alpha
+      url: alpha
 relations:
 - - wordpress:juju-info
   - logging:info

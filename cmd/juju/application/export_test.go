@@ -158,12 +158,10 @@ func NewBindCommandForTest(
 	store jujuclient.ClientStore,
 	apiOpen api.OpenFunc,
 	newApplicationClient func(base.APICallCloser) ApplicationBindClient,
-	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
 ) cmd.Command {
 	cmd := &bindCommand{
 		NewApplicationClient: newApplicationClient,
-		NewModelConfigGetter: newModelConfigGetter,
 		NewSpacesClient:      newSpacesClient,
 	}
 	cmd.SetClientStore(store)

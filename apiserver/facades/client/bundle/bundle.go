@@ -456,13 +456,14 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	if len(model.Applications()) == 0 {
 		return nil, errors.Errorf("nothing to export as there are no applications")
 	}
+	printEndpointBindingSpaceNames := b.printSpaceNamesInEndpointBindings(model.Applications())
 	machineIds := set.NewStrings()
 	usedSeries := set.NewStrings()
 	for _, application := range model.Applications() {
 		var newApplication *charm.ApplicationSpec
 		appSeries := application.Series()
 		usedSeries.Add(appSeries)
-		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings())
+		endpointsWithSpaceNames, err := b.endpointBindings(application.EndpointBindings(), printEndpointBindingSpaceNames)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -612,30 +613,31 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 	return data, nil
 }
 
-func (b *BundleAPI) endpointBindings(bindings map[string]string) (map[string]string, error) {
+func (b *BundleAPI) printSpaceNamesInEndpointBindings(apps []description.Application) bool {
+	// Assumption: if all endpoint bindings in the bundle are in the
+	// same space, spaces aren't really in use and will "muddy the waters"
+	// for export bundle.
+	spaceName := set.NewStrings()
+	for _, app := range apps {
+		for _, v := range app.EndpointBindings() {
+			spaceName.Add(v)
+		}
+		if spaceName.Size() > 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func (b *BundleAPI) endpointBindings(bindings map[string]string, printValue bool) (map[string]string, error) {
+	if !printValue {
+		return nil, nil
+	}
 	endpointBindings, err := state.NewBindings(b.backend, bindings)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	endpointsWithSpaceNames, err := endpointBindings.MapWithSpaceNames()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	names := set.NewStrings()
-	for k, v := range endpointsWithSpaceNames {
-		if v == "" {
-			delete(endpointsWithSpaceNames, k)
-		}
-		names.Add(v)
-	}
-	// Assumption: if all endpoints are in the same space,
-	// spaces aren't really in use and will "muddy the waters"
-	// for export bundle.  If there is only 1 endpoint, we
-	// have no idea, so print it.
-	if names.Size() == 1 && len(endpointsWithSpaceNames) != 1 {
-		return map[string]string{}, nil
-	}
-	return endpointsWithSpaceNames, nil
+	return endpointBindings.MapWithSpaceNames()
 }
 
 // filterOfferACL prunes the input offer ACL to remove internal juju users that
