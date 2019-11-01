@@ -12,7 +12,7 @@ type Block struct {
 	// Tag holds the tag of the entity that is blocked.
 	Tag string `json:"tag"`
 
-	// Type is block type as per state.params.BlockType.
+	// Type is block type as per model.BlockType.
 	// Valid types are "BlockDestroy", "BlockRemove" and "BlockChange".
 	Type string `json:"type"`
 
@@ -24,7 +24,7 @@ type Block struct {
 // BlockSwitchParams holds the parameters for switching
 // a block on/off.
 type BlockSwitchParams struct {
-	// Type is block type as per params.BlockType.
+	// Type is block type as per model.BlockType.
 	// Valid types are "BlockDestroy", "BlockRemove" and "BlockChange".
 	Type string `json:"type"`
 

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 )
 
 // BlockHelper helps manage blocks for apiserver tests.
@@ -34,19 +35,19 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 
 // on switches on desired block and
 // asserts that no errors were encountered.
-func (s BlockHelper) on(c *gc.C, blockType params.BlockType, msg string) {
+func (s BlockHelper) on(c *gc.C, blockType model.BlockType, msg string) {
 	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges blocks all operations that could change the model.
 func (s BlockHelper) BlockAllChanges(c *gc.C, msg string) {
-	s.on(c, params.BlockChange, msg)
+	s.on(c, model.BlockChange, msg)
 }
 
 // BlockRemoveObject blocks all operations that remove
 // machines, services, units or relations.
 func (s BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
-	s.on(c, params.BlockRemove, msg)
+	s.on(c, model.BlockRemove, msg)
 }
 
 func (s BlockHelper) Close() {
@@ -56,7 +57,7 @@ func (s BlockHelper) Close() {
 
 // BlockDestroyModel blocks destroy-model.
 func (s BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
-	s.on(c, params.BlockDestroy, msg)
+	s.on(c, model.BlockDestroy, msg)
 }
 
 // AssertBlocked checks if given error is

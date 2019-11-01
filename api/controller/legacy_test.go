@@ -156,7 +156,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 	select {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
-		modelInfo := deltas[0].Entity.(*params.ModelInfo)
+		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
 
 		model, err := s.State.Model()
 		c.Assert(err, jc.ErrorIsNil)

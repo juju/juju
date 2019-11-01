@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"

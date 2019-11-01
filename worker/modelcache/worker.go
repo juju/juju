@@ -342,7 +342,7 @@ func (c *cacheWorker) translateModel(d params.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*params.ModelInfo)
+	value, ok := e.(*params.ModelUpdate)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -582,7 +582,7 @@ func providerAddresses(delta []params.Address) network.ProviderAddresses {
 				Scope: network.Scope(d.Scope),
 			},
 			SpaceName:       network.SpaceName(d.SpaceName),
-			ProviderSpaceID: network.Id(d.SpaceProviderId),
+			ProviderSpaceID: network.Id(d.ProviderSpaceID),
 		}
 	}
 	return addresses

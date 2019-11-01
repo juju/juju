@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 )
 

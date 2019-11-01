@@ -392,11 +392,11 @@ func (i *AnnotationInfo) EntityId() EntityId {
 // BlockInfo holds the information about a block that is tracked by
 // multiwatcherStore.
 type BlockInfo struct {
-	ModelUUID string    `json:"model-uuid"`
-	Id        string    `json:"id"`
-	Type      BlockType `json:"type"`
-	Message   string    `json:"message"`
-	Tag       string    `json:"tag"`
+	ModelUUID string          `json:"model-uuid"`
+	Id        string          `json:"id"`
+	Type      model.BlockType `json:"type"`
+	Message   string          `json:"message"`
+	Tag       string          `json:"tag"`
 }
 
 // EntityId returns a unique identifier for a block across
@@ -408,20 +408,6 @@ func (i *BlockInfo) EntityId() EntityId {
 		Id:        i.Id,
 	}
 }
-
-// BlockType values define model block type.
-type BlockType string
-
-const (
-	// BlockDestroy type identifies destroy blocks.
-	BlockDestroy BlockType = "BlockDestroy"
-
-	// BlockRemove type identifies remove blocks.
-	BlockRemove BlockType = "BlockRemove"
-
-	// BlockChange type identifies change blocks.
-	BlockChange BlockType = "BlockChange"
-)
 
 // ModelUpdate holds the information about a model that is
 // tracked by multiwatcherStore.

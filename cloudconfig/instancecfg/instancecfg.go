@@ -968,7 +968,7 @@ func InstanceTags(modelUUID, controllerUUID string, tagger tags.ResourceTagger, 
 		names.NewControllerTag(controllerUUID),
 		tagger,
 	)
-	if params.AnyJobNeedsState(jobs...) {
+	if model.AnyJobNeedsState(jobs...) {
 		instanceTags[tags.JujuIsController] = "true"
 	}
 	return instanceTags

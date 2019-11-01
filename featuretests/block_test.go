@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/block"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 )
 
@@ -37,7 +37,7 @@ func (s *blockSuite) TestBlockFacadeCall(c *gc.C) {
 
 func (s *blockSuite) TestBlockedMessage(c *gc.C) {
 	// Block operation
-	s.blockClient.SwitchBlockOn(fmt.Sprintf("%v", params.BlockChange), "TestBlockedMessage")
+	s.blockClient.SwitchBlockOn(fmt.Sprintf("%v", model.BlockChange), "TestBlockedMessage")
 
 	ctx, err := runCommand(c, "resolved", "multi-series/2")
 
