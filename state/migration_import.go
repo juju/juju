@@ -850,7 +850,7 @@ func (i *importer) application(a description.Application) error {
 		return errors.Trace(err)
 	}
 
-	bindings, err := NewBindings(i.st, a.EndpointBindings())
+	bindings, err := i.parseBindings(a.EndpointBindings())
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -907,6 +907,33 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	return nil
+}
+
+// parseBindings converts a bindings map from a 2.6.x or 2.7+ migration export
+// into a Bindings object.
+//
+// When migrating from a 2.6.x controller, the bindings in the description
+// output are encoded as {endpoint name => space name} with "" representing
+// the "default" (now called alpha) space. The empty spaces must be remapped
+// to the correct default space name for the new controller.
+//
+// On the other hand, migration exports from 2.7+ are using space IDs instead
+// of space names as the map values and can safely be passed to the NewBindings
+// c-tor.
+func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, error) {
+	for epName, spNameOrID := range bindingsMap {
+		if spNameOrID == "" {
+			bindingsMap[epName] = network.DefaultSpaceName
+		}
+	}
+
+	// 2.6 controllers only populate the default space key if set to the
+	// non-default space whereas 2.7 controllers always set it.
+	if _, exists := bindingsMap[defaultEndpointName]; !exists {
+		bindingsMap[defaultEndpointName] = network.DefaultSpaceName
+	}
+
+	return NewBindings(i.st, bindingsMap)
 }
 
 func (i *importer) appResourceOps(app description.Application) []txn.Op {

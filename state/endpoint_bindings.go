@@ -464,13 +464,20 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	namesErr := allOfOne(spacesNamesToIDs, givenMap)
+
+	// If givenMap contains space names empty values are allowed (e.g. they
+	// may be present when migrating a model from a 2.6.x controller).
+	namesErr := allOfOne(spacesNamesToIDs, givenMap, true)
 
 	spacesIDsToNames, err := st.SpaceNamesByID()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	idErr := allOfOne(spacesIDsToNames, givenMap)
+
+	// If givenMap contains empty values then the map most probably contains
+	// space names. Therefore, we want allOfOne to be strict and bail out
+	// if it sees any empty values.
+	idErr := allOfOne(spacesIDsToNames, givenMap, false)
 
 	// Ensure the spaces values are all names OR ids in the
 	// given map.
@@ -497,9 +504,9 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 	return &Bindings{st: st, bindingsMap: newMap}, err
 }
 
-func allOfOne(currentSpaces, givenMap map[string]string) error {
+func allOfOne(currentSpaces, givenMap map[string]string, allowEmptyValues bool) error {
 	for k, v := range givenMap {
-		if _, ok := currentSpaces[v]; !ok && v != "" {
+		if _, ok := currentSpaces[v]; !ok && (v != "" || (v == "" && !allowEmptyValues)) {
 			return errors.NotFoundf("endpoint %q, value %q, space name or id", k, v)
 		}
 	}
@@ -509,8 +516,8 @@ func allOfOne(currentSpaces, givenMap map[string]string) error {
 func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[string]string, error) {
 	newMap := make(map[string]string, len(givenMap))
 	for epName, name := range givenMap {
-		if name == "" {
-			newMap[epName] = ""
+		if name == network.DefaultSpaceName {
+			newMap[epName] = network.DefaultSpaceId
 			continue
 		}
 		// check that the name is valid and get id.
@@ -527,15 +534,15 @@ func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string
 	newMap := make(map[string]string, len(givenMap))
 	for epName, id := range givenMap {
 		if id == "" {
-			newMap[epName] = ""
-			continue
+			// This is most probably a set of bindings to space names.
+			return nil, errors.NotValidf("bindings map with empty space ID")
 		}
 		// check that the id is valid.
-		if _, ok := verificationMap[id]; ok || id == "" {
-			newMap[epName] = id
-			continue
+		if _, ok := verificationMap[id]; !ok {
+			return nil, errors.NotFoundf("programming error: epName %q space id value %q", epName, id)
 		}
-		return nil, errors.NotFoundf("programming error: epName %q space id value %q", epName, id)
+
+		newMap[epName] = id
 	}
 	return newMap, nil
 }
