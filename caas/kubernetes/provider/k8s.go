@@ -1621,6 +1621,26 @@ func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]st
 	return deletedClaimVolumes, nil
 }
 
+func caasServiceToK8s(in caas.ServiceType) (core.ServiceType, error) {
+	serviceType := defaultServiceType
+	if in != "" {
+		switch in {
+		case caas.ServiceCluster:
+			serviceType = core.ServiceTypeClusterIP
+		case caas.ServiceLoadBalancer:
+			serviceType = core.ServiceTypeLoadBalancer
+		case caas.ServiceExternal:
+			serviceType = core.ServiceTypeExternalName
+		case caas.ServiceOmit:
+			logger.Debugf("no service to be created because service type is %q", in)
+			return "", nil
+		default:
+			return "", errors.NotSupportedf("service type %q", in)
+		}
+	}
+	return serviceType, nil
+}
+
 func (k *kubernetesClient) configureService(
 	appName, deploymentName string,
 	containerPorts []core.ContainerPort,
@@ -1647,21 +1667,9 @@ func (k *kubernetesClient) configureService(
 		})
 	}
 
-	serviceType := defaultServiceType
-	if params.Deployment.ServiceType != "" {
-		switch params.Deployment.ServiceType {
-		case caas.ServiceCluster:
-			serviceType = core.ServiceTypeClusterIP
-		case caas.ServiceLoadBalancer:
-			serviceType = core.ServiceTypeLoadBalancer
-		case caas.ServiceExternal:
-			serviceType = core.ServiceTypeExternalName
-		case caas.ServiceOmit:
-			logger.Debugf("no service to be created because service type is %q", params.Deployment.ServiceType)
-			return nil
-		default:
-			return errors.NotSupportedf("service type %q", params.Deployment.ServiceType)
-		}
+	serviceType, err := caasServiceToK8s(params.Deployment.ServiceType)
+	if err != nil {
+		return errors.Trace(err)
 	}
 	serviceType = core.ServiceType(config.GetString(ServiceTypeConfigKey, string(serviceType)))
 	annotations, err := config.GetStringMap(serviceAnnotationsKey, nil)

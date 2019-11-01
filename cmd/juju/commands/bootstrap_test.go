@@ -461,6 +461,10 @@ var bootstrapTests = []bootstrapTest{{
 	info: "specifying controller attribute as model-default",
 	args: []string{"--model-default", "api-port=12345"},
 	err:  `"api-port" is a controller attribute, and cannot be set as a model-default`,
+}, {
+	info: "k8s config on iaas controller",
+	args: []string{"--config", "controller-service-type=loadbalancer"},
+	err:  `"controller-service-type", "controller-external-name" and "controller-external-ips"are only allowed for kubernetes controllers`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {

@@ -644,6 +644,14 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
+	if !isCAASController {
+		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
+			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
+			len(bootstrapCfg.bootstrap.ControllerExternalIPs) > 0 {
+			return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
+				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
+		}
+	}
 
 	// Read existing current controller so we can clean up on error.
 	var oldCurrentController string
@@ -709,6 +717,9 @@ to create a new model to deploy k8s workloads.
 		RegionInheritedConfig:     cloud.RegionConfig,
 		AdminSecret:               bootstrapCfg.bootstrap.AdminSecret,
 		CAPrivateKey:              bootstrapCfg.bootstrap.CAPrivateKey,
+		ControllerServiceType:     bootstrapCfg.bootstrap.ControllerServiceType,
+		ControllerExternalName:    bootstrapCfg.bootstrap.ControllerExternalName,
+		ControllerExternalIPs:     append([]string(nil), bootstrapCfg.bootstrap.ControllerExternalIPs...),
 		JujuDbSnapPath:            c.JujuDbSnapPath,
 		JujuDbSnapAssertionsPath:  c.JujuDbSnapAssertionsPath,
 		DialOpts: environs.BootstrapDialOpts{

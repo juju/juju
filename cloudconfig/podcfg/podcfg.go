@@ -57,11 +57,6 @@ type ControllerPodConfig struct {
 	// ControllerName is the controller name.
 	ControllerName string
 
-	// TODO(bootstrap): remove me.
-	// PodNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct instance.
-	PodNonce string
-
 	// JujuVersion is the juju version.
 	JujuVersion version.Number
 
@@ -207,7 +202,7 @@ func (cfg *ControllerPodConfig) verifyBootstrapConfig() (err error) {
 		return errors.New(`
 host cloud region is missing.
 The k8s cloud definition might be stale, please try to re-import the k8s cloud using
-    juju add-k8s <cloud-name> --cluster-name <cluster-name> --local
+    juju add-k8s <cloud-name> --cluster-name <cluster-name> --client
 
 See juju help add-k8s for more information.
 `[1:])

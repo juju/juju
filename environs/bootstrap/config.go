@@ -17,6 +17,7 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -42,6 +43,18 @@ const (
 	// BootstrapAddressesDelayKey is the attribute key for the amount of
 	// time in between refreshing the bootstrap machine addresses.
 	BootstrapAddressesDelayKey = "bootstrap-addresses-delay"
+
+	// ControllerServiceType is for k8s controllers to override
+	// the opinionated service type for a given cluster.
+	ControllerServiceType = "controller-service-type"
+
+	// ControllerExternalName sets the external name
+	// for a k8s controller of type external.
+	ControllerExternalName = "controller-external-name"
+
+	// ControllerExternalIPs is used to specify a comma separated
+	// list of external IPs for a k8s controller of type external.
+	ControllerExternalIPs = "controller-external-ips"
 )
 
 const (
@@ -71,6 +84,9 @@ var BootstrapConfigAttributes = []string{
 	BootstrapTimeoutKey,
 	BootstrapRetryDelayKey,
 	BootstrapAddressesDelayKey,
+	ControllerServiceType,
+	ControllerExternalName,
+	ControllerExternalIPs,
 }
 
 // IsBootstrapAttribute reports whether or not the specified
@@ -89,6 +105,9 @@ type Config struct {
 	AdminSecret             string
 	CACert                  string
 	CAPrivateKey            string
+	ControllerServiceType   string
+	ControllerExternalName  string
+	ControllerExternalIPs   []string
 	BootstrapTimeout        time.Duration
 	BootstrapRetryDelay     time.Duration
 	BootstrapAddressesDelay time.Duration
@@ -110,6 +129,9 @@ func (c Config) Validate() error {
 	}
 	if c.BootstrapAddressesDelay <= 0 {
 		return errors.NotValidf("%s of %s", BootstrapAddressesDelayKey, c.BootstrapAddressesDelay)
+	}
+	if len(c.ControllerExternalIPs) > 0 && c.ControllerServiceType != string(caas.ServiceExternal) {
+		return errors.NewNotValid(nil, fmt.Sprintf("external IPs require a service type of %q", caas.ServiceExternal))
 	}
 	return nil
 }
@@ -133,6 +155,17 @@ func NewConfig(attrs map[string]interface{}) (Config, error) {
 		BootstrapTimeout:        time.Duration(attrs[BootstrapTimeoutKey].(int)) * time.Second,
 		BootstrapRetryDelay:     time.Duration(attrs[BootstrapRetryDelayKey].(int)) * time.Second,
 		BootstrapAddressesDelay: time.Duration(attrs[BootstrapAddressesDelayKey].(int)) * time.Second,
+	}
+	if controllerServiceType, ok := attrs[ControllerServiceType].(string); ok {
+		config.ControllerServiceType = controllerServiceType
+	}
+	if controllerExternalName, ok := attrs[ControllerExternalName].(string); ok {
+		config.ControllerExternalName = controllerExternalName
+	}
+	if externalIps, ok := attrs[ControllerExternalIPs].([]interface{}); ok {
+		for _, ip := range externalIps {
+			config.ControllerExternalIPs = append(config.ControllerExternalIPs, ip.(string))
+		}
 	}
 	if adminSecret, ok := attrs[AdminSecretKey].(string); ok {
 		config.AdminSecret = adminSecret
@@ -214,11 +247,18 @@ func readFileAttr(attrs map[string]interface{}, key, defaultPath string) (conten
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
-	AdminSecretKey:             schema.String(),
-	CACertKey:                  schema.String(),
-	CACertKey + "-path":        schema.String(),
-	CAPrivateKeyKey:            schema.String(),
-	CAPrivateKeyKey + "-path":  schema.String(),
+	AdminSecretKey:            schema.String(),
+	CACertKey:                 schema.String(),
+	CACertKey + "-path":       schema.String(),
+	CAPrivateKeyKey:           schema.String(),
+	CAPrivateKeyKey + "-path": schema.String(),
+	ControllerServiceType: schema.OneOf(
+		schema.Const(string(caas.ServiceCluster)),
+		schema.Const(string(caas.ServiceLoadBalancer)),
+		schema.Const(string(caas.ServiceExternal)),
+	),
+	ControllerExternalName:     schema.String(),
+	ControllerExternalIPs:      schema.List(schema.String()),
 	BootstrapTimeoutKey:        schema.ForceInt(),
 	BootstrapRetryDelayKey:     schema.ForceInt(),
 	BootstrapAddressesDelayKey: schema.ForceInt(),
@@ -228,6 +268,9 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CACertKey + "-path":        schema.Omit,
 	CAPrivateKeyKey:            schema.Omit,
 	CAPrivateKeyKey + "-path":  schema.Omit,
+	ControllerServiceType:      schema.Omit,
+	ControllerExternalName:     schema.Omit,
+	ControllerExternalIPs:      schema.Omit,
 	BootstrapTimeoutKey:        DefaultBootstrapSSHTimeout,
 	BootstrapRetryDelayKey:     DefaultBootstrapSSHRetryDelay,
 	BootstrapAddressesDelayKey: DefaultBootstrapSSHAddressesDelay,

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/instancecfg"
+	"github.com/juju/juju/cloudconfig/podcfg"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
@@ -281,6 +282,41 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedPlacement(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.args.Placement, gc.DeepEquals, placement)
+}
+
+func (s *bootstrapSuite) TestFinalizePodBootstrapConfig(c *gc.C) {
+	s.assertFinalizePodBootstrapConfig(c, "", "", nil)
+}
+
+func (s *bootstrapSuite) TestFinalizePodBootstrapConfigExternalService(c *gc.C) {
+	s.assertFinalizePodBootstrapConfig(c, "external", "externalName", []string{"10.0.0.1"})
+}
+
+func (s *bootstrapSuite) assertFinalizePodBootstrapConfig(c *gc.C, serviceType, externalName string, externalIps []string) {
+	podConfig, err := podcfg.NewBootstrapControllerPodConfig(
+		coretesting.FakeControllerConfig(),
+		"test",
+		"kubernetes",
+		constraints.Value{},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	modelCfg, err := config.New(config.UseDefaults, coretesting.FakeConfig().Merge(coretesting.Attrs{
+		"agent-version": "6.6.6",
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+	params := bootstrap.BootstrapParams{
+		CAPrivateKey:           coretesting.CAKey,
+		ControllerServiceType:  serviceType,
+		ControllerExternalName: externalName,
+		ControllerExternalIPs:  externalIps,
+	}
+	err = bootstrap.FinalizePodBootstrapConfig(podConfig, params, modelCfg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(podConfig.Bootstrap.ControllerModelConfig, jc.DeepEquals, modelCfg)
+	c.Assert(podConfig.Bootstrap.ControllerServiceType, gc.Equals, serviceType)
+	c.Assert(podConfig.Bootstrap.ControllerExternalName, gc.Equals, externalName)
+	c.Assert(podConfig.Bootstrap.ControllerExternalIPs, jc.DeepEquals, externalIps)
 }
 
 func intPtr(i uint64) *uint64 {

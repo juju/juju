@@ -157,16 +157,19 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 	}
 	k8sCloud.HostCloudRegion = storageParams.HostCloudRegion
 
-	cloudType, region, err := cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
-	if err != nil {
-		// Region is optional, but cloudType is required for next step.
-		return "", ClusterQueryError{}
-	}
-	if region != "" {
-		k8sCloud.Regions = []cloud.Region{{
-			Name:     region,
-			Endpoint: k8sCloud.Endpoint,
-		}}
+	var cloudType, region string
+	if k8sCloud.HostCloudRegion != "" {
+		cloudType, region, err = cloud.SplitHostCloudRegion(k8sCloud.HostCloudRegion)
+		if err != nil {
+			// Shouldn't happen as HostCloudRegion is validated earlier.
+			return "", errors.Trace(err)
+		}
+		if region != "" {
+			k8sCloud.Regions = []cloud.Region{{
+				Name:     region,
+				Endpoint: k8sCloud.Endpoint,
+			}}
+		}
 	}
 
 	// If the user has not specified storage and cloudType is usable, check Juju's opinionated defaults.
@@ -210,8 +213,10 @@ func UpdateKubeCloudWithStorage(k8sCloud *cloud.Cloud, storageParams KubeCloudSt
 		volumeBindingMode = nonPreferredStorageErr.VolumeBindingMode
 		params = nonPreferredStorageErr.Parameters
 	} else if clusterMetadata.NominatedStorageClass != nil {
-		// no preferred storage class config but nominated storage found.
-		scName = clusterMetadata.NominatedStorageClass.Name
+		if scName == "" {
+			// no preferred storage class config but nominated storage found.
+			scName = clusterMetadata.NominatedStorageClass.Name
+		}
 	}
 	sp, existing, err := storageParams.MetadataChecker.EnsureStorageProvisioner(caas.StorageProvisioner{
 		Name:              scName,

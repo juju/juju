@@ -171,10 +171,10 @@ func (s *bootstrapSuite) TestGetControllerSvcSpec(c *gc.C) {
 			ServiceType: core.ServiceTypeClusterIP,
 		},
 		"unknown-cloud": {
-			ServiceType: core.ServiceTypeLoadBalancer,
+			ServiceType: core.ServiceTypeClusterIP,
 		},
 	} {
-		spec, _ := s.controllerStackerGetter().GetControllerSvcSpec(cloudType)
+		spec, _ := s.controllerStackerGetter().GetControllerSvcSpec(cloudType, nil)
 		c.Check(spec, jc.DeepEquals, out)
 	}
 }
@@ -211,6 +211,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	s.broker.GetAnnotations().Add("juju.io/is-controller", "true")
 
 	s.pcfg.Bootstrap.Timeout = 10 * time.Minute
+	s.pcfg.Bootstrap.ControllerExternalIPs = []string{"10.0.0.1"}
 
 	controllerStacker := s.controllerStackerGetter()
 	// Broker's namespace should be set to controller name now.
@@ -247,7 +248,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		},
 		Spec: core.ServiceSpec{
 			Selector: map[string]string{"juju-app": "juju-controller-test"},
-			Type:     core.ServiceType("LoadBalancer"),
+			Type:     core.ServiceType("ClusterIP"),
 			Ports: []core.ServicePort{
 				{
 					Name:       "api-server",
@@ -255,6 +256,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 					Port:       int32(APIPort),
 				},
 			},
+			ExternalIPs: []string{"10.0.0.1"},
 		},
 	}
 
