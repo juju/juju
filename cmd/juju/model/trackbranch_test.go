@@ -83,9 +83,19 @@ func (s *trackBranchSuite) TestRunCommand(c *gc.C) {
 	mockController, api := setUpAdvanceMocks(c)
 	defer mockController.Finish()
 
-	api.EXPECT().TrackBranch(s.branchName, []string{"ubuntu/0", "redis"}).Return(nil)
+	api.EXPECT().TrackBranch(s.branchName, []string{"ubuntu/0", "redis"}, 0).Return(nil)
 
 	_, err := s.runCommand(c, api, s.branchName, "ubuntu/0", "redis")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *trackBranchSuite) TestRunCommandNumUnits(c *gc.C) {
+	mockController, api := setUpAdvanceMocks(c)
+	defer mockController.Finish()
+
+	api.EXPECT().TrackBranch(s.branchName, []string{"redis"}, 3).Return(nil)
+
+	_, err := s.runCommand(c, api, s.branchName, "-n", "3", "redis")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -93,10 +103,26 @@ func (s *trackBranchSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpAdvanceMocks(c)
 	defer ctrl.Finish()
 
-	api.EXPECT().TrackBranch(s.branchName, []string{"ubuntu/0"}).Return(errors.Errorf("fail"))
+	api.EXPECT().TrackBranch(s.branchName, []string{"ubuntu/0"}, 0).Return(errors.Errorf("fail"))
 
 	_, err := s.runCommand(c, api, s.branchName, "ubuntu/0")
 	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+func (s *trackBranchSuite) TestRunCommandInValidNumUnitsAndTooManyApplications(c *gc.C) {
+	mockController, api := setUpAdvanceMocksWithoutAPI(c)
+	defer mockController.Finish()
+
+	_, err := s.runCommand(c, api, s.branchName, "-n", "2", "ubuntu/0", "redis")
+	c.Assert(err, gc.ErrorMatches, "-n flag not allowed when specifying multiple units and/or applications")
+}
+
+func (s *trackBranchSuite) TestRunCommandInValidNumUnitsAndTooManyUnits(c *gc.C) {
+	mockController, api := setUpAdvanceMocksWithoutAPI(c)
+	defer mockController.Finish()
+
+	_, err := s.runCommand(c, api, s.branchName, "-n", "1", "ubuntu/0")
+	c.Assert(err, gc.ErrorMatches, "-n flag not allowed when specifying units")
 }
 
 func (s *trackBranchSuite) runInit(args ...string) error {
@@ -108,8 +134,13 @@ func (s *trackBranchSuite) runCommand(c *gc.C, api model.TrackBranchCommandAPI, 
 }
 
 func setUpAdvanceMocks(c *gc.C) (*gomock.Controller, *mocks.MockTrackBranchCommandAPI) {
+	ctrl, api := setUpAdvanceMocksWithoutAPI(c)
+	api.EXPECT().Close()
+	return ctrl, api
+}
+
+func setUpAdvanceMocksWithoutAPI(c *gc.C) (*gomock.Controller, *mocks.MockTrackBranchCommandAPI) {
 	ctrl := gomock.NewController(c)
 	api := mocks.NewMockTrackBranchCommandAPI(ctrl)
-	api.EXPECT().Close()
 	return ctrl, api
 }
