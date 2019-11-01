@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
@@ -27,9 +26,6 @@ func NewBindCommand() cmd.Command {
 	cmd := &bindCommand{
 		NewApplicationClient: func(conn base.APICallCloser) ApplicationBindClient {
 			return application.NewClient(conn)
-		},
-		NewModelConfigGetter: func(conn base.APICallCloser) ModelConfigGetter {
-			return modelconfig.NewClient(conn)
 		},
 		NewSpacesClient: func(conn base.APICallCloser) SpacesAPI {
 			return spaces.NewAPI(conn)
@@ -50,7 +46,6 @@ type bindCommand struct {
 	modelcmd.ModelCommandBase
 
 	NewApplicationClient func(base.APICallCloser) ApplicationBindClient
-	NewModelConfigGetter func(base.APICallCloser) ModelConfigGetter
 	NewSpacesClient      func(base.APICallCloser) SpacesAPI
 
 	ApplicationName string
@@ -131,12 +126,6 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 		return errors.New("no bindings specified")
 	}
 
-	modelConfigGetter := c.NewModelConfigGetter(apiRoot)
-	modelConfig, err := getModelConfig(modelConfigGetter)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
 	generation, err := c.ActiveBranch()
 	if err != nil {
 		return errors.Trace(err)
@@ -163,7 +152,7 @@ func (c *bindCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	appDefaultSpace := detectDefaultSpace(modelConfig, curBindings)
+	appDefaultSpace := curBindings[""]
 
 	var bindingsChangelog []string
 	c.Bindings, bindingsChangelog = mergeBindings(curCharmEndpoints, curBindings, c.Bindings, appDefaultSpace)
