@@ -273,6 +273,8 @@ act:
 }
 
 func (s *ActionSuite) TestActionMessages(c *gc.C) {
+	s.toSupportNewActionID(c)
+
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -309,7 +311,19 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status completed`)
 }
 
+func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if !state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
+	s.toSupportNewActionID(c)
+
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -542,6 +556,8 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
+	s.toSupportNewActionID(c)
+
 	actions := []struct {
 		Name       string
 		Parameters map[string]interface{}
@@ -554,13 +570,13 @@ func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
 
 	for _, action := range actions {
 		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
-		c.Assert(err, gc.Equals, nil)
+		c.Check(err, gc.Equals, nil)
 	}
 
 	tags := s.model.FindActionTagsById("1")
 
 	c.Assert(len(tags), gc.Equals, 1)
-	c.Check(tags[0].Id(), gc.Equals, "1")
+	c.Assert(tags[0].Id(), gc.Equals, "1")
 }
 
 func (s *ActionSuite) TestFindActionsByName(c *gc.C) {

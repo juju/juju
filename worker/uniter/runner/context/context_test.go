@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -373,8 +374,19 @@ func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	c.Check(actionData.ResultsMessage, gc.Equals, "because reasons")
 }
 
+func (s *InterfaceSuite) toSupportNewActionID(c *gc.C) {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if !state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 // TestLogActionMessage ensures LogActionMessage works properly.
 func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
+	s.toSupportNewActionID(c)
 	action, err := s.unit.AddAction("fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action.Begin()

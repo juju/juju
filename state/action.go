@@ -332,10 +332,13 @@ func newAction(st *State, adoc actionDoc) Action {
 	}
 }
 
-var newActionIDFirstSupportedVersion = version.MustParse("2.7.0")
+// MinVersionSupportNewActionID should be un-exposed after 2.7 released.
+// TODO(action): un-expose MinVersionSupportNewActionID and IsNewActionIDSupported and remove those helper functions using these two vars in tests from 2.7.0.
+var MinVersionSupportNewActionID = version.MustParse("2.7.0")
 
-func newActionIDSupported(ver version.Number) bool {
-	return ver.Compare(newActionIDFirstSupportedVersion) >= 0
+// IsNewActionIDSupported checks if new action ID is supported for the specified version.
+func IsNewActionIDSupported(ver version.Number) bool {
+	return ver.Compare(MinVersionSupportNewActionID) >= 0
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
@@ -347,7 +350,7 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 
 	// we support machine actions anymore.
 	var actionId string
-	if receiverTag.Kind() == names.UnitTagKind && newActionIDSupported(modelAgentVersion) {
+	if receiverTag.Kind() == names.UnitTagKind && IsNewActionIDSupported(modelAgentVersion) {
 		id, err := sequence(mb, "task")
 		if err != nil {
 			return actionDoc{}, actionNotificationDoc{}, err
