@@ -749,7 +749,11 @@ func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}
 
-	space, err := w.config.State.Space(config.JujuHASpace())
+	jujuHASpace := config.JujuHASpace()
+	if jujuHASpace == "" {
+		return network.SpaceInfo{}, nil
+	}
+	space, err := w.config.State.Space(jujuHASpace)
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}

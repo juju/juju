@@ -404,7 +404,7 @@ func (s *ipAddressesStateSuite) TestAllSpacesReturnsDefaultSpace(c *gc.C) {
 	s.addTwoDevicesWithTwoAddressesEach(c)
 	spaces, err := s.machine.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{corenetwork.DefaultSpaceId})
+	c.Check(spaces.SortedValues(), gc.DeepEquals, []string{corenetwork.AlphaSpaceId})
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesDoesNothingWithEmptyArgs(c *gc.C) {

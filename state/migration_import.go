@@ -923,14 +923,14 @@ func (i *importer) application(a description.Application) error {
 func (i *importer) parseBindings(bindingsMap map[string]string) (*Bindings, error) {
 	for epName, spNameOrID := range bindingsMap {
 		if spNameOrID == "" {
-			bindingsMap[epName] = network.DefaultSpaceName
+			bindingsMap[epName] = network.AlphaSpaceName
 		}
 	}
 
 	// 2.6 controllers only populate the default space key if set to the
 	// non-default space whereas 2.7 controllers always set it.
 	if _, exists := bindingsMap[defaultEndpointName]; !exists {
-		bindingsMap[defaultEndpointName] = network.DefaultSpaceName
+		bindingsMap[defaultEndpointName] = network.AlphaSpaceName
 	}
 
 	return NewBindings(i.st, bindingsMap)
@@ -1658,7 +1658,7 @@ func (i *importer) spaces() error {
 	for _, s := range i.model.Spaces() {
 		// The default space should not have been exported, but be defensive.
 		// Any subnets added to the space will be imported subsequently.
-		if s.Name() == network.DefaultSpaceName {
+		if s.Name() == network.AlphaSpaceName {
 			continue
 		}
 

@@ -92,18 +92,18 @@ func (s *DeployLocalSuite) TestDeployWithImplicitBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertBindings(c, app, map[string]string{
-		"": network.DefaultSpaceId,
+		"": network.AlphaSpaceId,
 		// relation names
-		"url":             network.DefaultSpaceId,
-		"logging-dir":     network.DefaultSpaceId,
-		"monitoring-port": network.DefaultSpaceId,
-		"db":              network.DefaultSpaceId,
-		"cache":           network.DefaultSpaceId,
-		"cluster":         network.DefaultSpaceId,
+		"url":             network.AlphaSpaceId,
+		"logging-dir":     network.AlphaSpaceId,
+		"monitoring-port": network.AlphaSpaceId,
+		"db":              network.AlphaSpaceId,
+		"cache":           network.AlphaSpaceId,
+		"cluster":         network.AlphaSpaceId,
 		// extra-bindings names
-		"db-client": network.DefaultSpaceId,
-		"admin-api": network.DefaultSpaceId,
-		"foo-bar":   network.DefaultSpaceId,
+		"db-client": network.AlphaSpaceId,
+		"admin-api": network.AlphaSpaceId,
+		"foo-bar":   network.AlphaSpaceId,
 	})
 }
 

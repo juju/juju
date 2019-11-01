@@ -2411,8 +2411,8 @@ func ChangeSubnetSpaceNameToSpaceID(pool *StatePool) (err error) {
 			}
 
 			var id string
-			if sDoc.SpaceName == network.DefaultSpaceName {
-				id = network.DefaultSpaceId
+			if sDoc.SpaceName == network.AlphaSpaceName || sDoc.SpaceName == "" {
+				id = network.AlphaSpaceId
 			} else {
 				space, err := st.SpaceByName(sDoc.SpaceName)
 				if err != nil {
@@ -2699,7 +2699,7 @@ func convertCloudServiceAddressSpaceIDs(db Database) ([]txn.Op, error) {
 		for i := range doc.Addresses {
 			// CAAS addresses at this point in time are space-less.
 			// We just need to ensure that they all have the zero ID.
-			doc.Addresses[i].SpaceID = network.DefaultSpaceId
+			doc.Addresses[i].SpaceID = network.AlphaSpaceId
 		}
 
 		ops = append(ops, txn.Op{
@@ -2737,7 +2737,7 @@ func convertCloudContainerAddressSpaceIDs(db Database) ([]txn.Op, error) {
 
 		// CAAS addresses at this point in time are space-less.
 		// We just need to ensure that they all have the zero ID.
-		doc.Address.SpaceID = network.DefaultSpaceId
+		doc.Address.SpaceID = network.AlphaSpaceId
 
 		ops = append(ops, txn.Op{
 			C:  cloudContainersC,
@@ -2773,7 +2773,7 @@ func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
 			updatedMap := make(map[string]string, len(bindings.Map()))
 			for k, v := range bindings.Map() {
 				if v == "" {
-					v = network.DefaultSpaceId
+					v = network.AlphaSpaceId
 				}
 				updatedMap[k] = v
 			}

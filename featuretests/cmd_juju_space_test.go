@@ -175,9 +175,9 @@ func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := `
-Space  Name       Subnets
-0      (default)         
-                         
+Space  Name   Subnets
+0      alpha         
+                     
 `[1:]
 
 	c.Assert(stdout, gc.Equals, expected)
@@ -187,7 +187,7 @@ func (s *cmdSpaceSuite) TestSpaceListOneResultNoSubnets(c *gc.C) {
 	s.AddSpace(c, "myspace", nil, true)
 
 	// The default space is listed in addition to the one we added.
-	expectedOutput := "{\"spaces\":[{\"id\":\"0\",\"name\":\"\",\"subnets\":{}},{\"id\":\"1\",\"name\":\"myspace\",\"subnets\":{}}]}\n"
+	expectedOutput := "{\"spaces\":[{\"id\":\"0\",\"name\":\"alpha\",\"subnets\":{}},{\"id\":\"1\",\"name\":\"myspace\",\"subnets\":{}}]}\n"
 	stdout, _, err := s.Run(c, "list-spaces", "--format", "json")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(stdout, jc.Contains, expectedOutput)

@@ -335,7 +335,7 @@ func (s *ModelSuite) TestNewModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure the default model was created.
-	_, err = st.SpaceByName(network.DefaultSpaceName)
+	_, err = st.SpaceByName(network.AlphaSpaceName)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -561,14 +561,14 @@ func (s *ModelSuite) TestAllEndpointBindings(c *gc.C) {
 	c.Assert(listBindings, gc.HasLen, 1)
 
 	expected := map[string]string{
-		"":                network.DefaultSpaceId,
-		"cache":           network.DefaultSpaceId,
-		"foo-bar":         network.DefaultSpaceId,
-		"db-client":       network.DefaultSpaceId,
-		"admin-api":       network.DefaultSpaceId,
-		"url":             network.DefaultSpaceId,
-		"logging-dir":     network.DefaultSpaceId,
-		"monitoring-port": network.DefaultSpaceId,
+		"":                network.AlphaSpaceId,
+		"cache":           network.AlphaSpaceId,
+		"foo-bar":         network.AlphaSpaceId,
+		"db-client":       network.AlphaSpaceId,
+		"admin-api":       network.AlphaSpaceId,
+		"url":             network.AlphaSpaceId,
+		"logging-dir":     network.AlphaSpaceId,
+		"monitoring-port": network.AlphaSpaceId,
 		"db":              oneSpace.Id(),
 	}
 	c.Assert(listBindings[0].AppName, gc.Equals, app.Name())

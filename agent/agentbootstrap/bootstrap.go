@@ -177,9 +177,14 @@ func InitializeState(
 		}
 	}
 
+	// Verify model config DefaultSpace exists now that
+	// spaces have been loaded.
+	if err := verifyModelConfigDefaultSpace(st); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	// Convert the provider addresses that we got from the bootstrap instance
 	// to space ID decorated addresses.
-
 	if err = initAPIHostPorts(st, args.BootstrapMachineAddresses, servingInfo.APIPort); err != nil {
 		return nil, err
 	}
@@ -242,6 +247,26 @@ func InitializeState(
 		return nil, errors.Annotate(err, "ensuring hosted model")
 	}
 	return ctrl, nil
+}
+
+func verifyModelConfigDefaultSpace(st *state.State) error {
+	m, err := st.Model()
+	if err != nil {
+		return err
+	}
+	mCfg, err := m.Config()
+	if err != nil {
+		return err
+	}
+
+	name := mCfg.DefaultSpace()
+	if name == "" {
+		// No need to verify if a space isn't defined.
+		return nil
+	}
+
+	_, err = st.SpaceByName(name)
+	return errors.Annotatef(err, "cannot verify %s", config.DefaultSpace)
 }
 
 func getCloudCredentials(

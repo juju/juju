@@ -22,6 +22,7 @@ type Backend interface {
 	Sequences() (map[string]int, error)
 	SetSLA(level, owner string, credentials []byte) error
 	SLALevel() (string, error)
+	SpaceByName(string) error
 }
 
 type stateShim struct {
@@ -44,6 +45,11 @@ func (st stateShim) ModelTag() names.ModelTag {
 	}
 
 	return m.ModelTag()
+}
+
+func (st stateShim) SpaceByName(name string) error {
+	_, err := st.State.SpaceByName(name)
+	return err
 }
 
 // NewStateBackend creates a backend for the facade to use.

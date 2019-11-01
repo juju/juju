@@ -55,13 +55,13 @@ type SubnetInfo struct {
 	AvailabilityZones []string
 
 	// SpaceID is the id of the space the subnet is associated with.
-	// Default value should be DefaultSpaceId. It can be empty if
+	// Default value should be AlphaSpaceId. It can be empty if
 	// the subnet is returned from an networkingEnviron. SpaceID is
 	// preferred over SpaceName in state and non networkingEnviron use.
 	SpaceID string
 
 	// SpaceName is the name of the space the subnet is associated with.
-	// An empty string indicates it is part of the DefaultSpaceName OR
+	// An empty string indicates it is part of the AlphaSpaceName OR
 	// if the SpaceID is set. Should primarily be used in an networkingEnviron.
 	SpaceName string
 

@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/model"
-	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -60,8 +59,6 @@ func (s *cmdExportBundleSuite) setupApplications(c *gc.C) {
 }
 
 func (s *cmdExportBundleSuite) TestExportBundle(c *gc.C) {
-	s.SetFeatureFlags(feature.DeveloperMode)
-
 	s.setupApplications(c)
 
 	ctx, err := cmdtesting.RunCommand(c, model.NewExportBundleCommand())
@@ -75,7 +72,10 @@ applications:
     options:
       foo: bar
     bindings:
+      "": alpha
       info: vlan2
+      logging-client: alpha
+      logging-directory: alpha
   wordpress:
     charm: cs:quantal/wordpress-23
 relations:

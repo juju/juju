@@ -279,10 +279,10 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
-		"":        network.DefaultSpaceId,
-		"server":  network.DefaultSpaceId,
-		"client":  network.DefaultSpaceId,
-		"cluster": network.DefaultSpaceId,
+		"":        network.AlphaSpaceId,
+		"server":  network.AlphaSpaceId,
+		"client":  network.AlphaSpaceId,
+		"cluster": network.AlphaSpaceId,
 		"events":  sp.Id(),
 	}
 
@@ -295,10 +295,10 @@ func (s *ApplicationSuite) TestMergeBindings(c *gc.C) {
 	s.assignUnitOnMachineWithSpaceToApplication(c, s.mysql, "isolated")
 
 	expBindings := map[string]string{
-		"":               network.DefaultSpaceName,
-		"metrics-client": network.DefaultSpaceName,
-		"server":         network.DefaultSpaceName,
-		"server-admin":   network.DefaultSpaceName,
+		"":               network.AlphaSpaceName,
+		"metrics-client": network.AlphaSpaceName,
+		"server":         network.AlphaSpaceName,
+		"server-admin":   network.AlphaSpaceName,
 	}
 	b, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -334,10 +334,10 @@ func (s *ApplicationSuite) TestMergeBindingsWithForce(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	expBindings := map[string]string{
-		"":               network.DefaultSpaceName,
-		"metrics-client": network.DefaultSpaceName,
-		"server":         network.DefaultSpaceName,
-		"server-admin":   network.DefaultSpaceName,
+		"":               network.AlphaSpaceName,
+		"metrics-client": network.AlphaSpaceName,
+		"server":         network.AlphaSpaceName,
+		"server-admin":   network.AlphaSpaceName,
 	}
 	b, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
@@ -378,11 +378,11 @@ func (s *ApplicationSuite) TestSetCharmWithNewBindingsAssigneToDefaultSpace(c *g
 	c.Assert(err, jc.ErrorIsNil)
 
 	expBindings := map[string]string{
-		"":        network.DefaultSpaceId,
-		"server":  network.DefaultSpaceId,
-		"client":  network.DefaultSpaceId,
-		"cluster": network.DefaultSpaceId,
-		"events":  network.DefaultSpaceId,
+		"":        network.AlphaSpaceId,
+		"server":  network.AlphaSpaceId,
+		"client":  network.AlphaSpaceId,
+		"cluster": network.AlphaSpaceId,
+		"events":  network.AlphaSpaceId,
 	}
 
 	updatedBindings, err := s.mysql.EndpointBindings()
@@ -1197,10 +1197,10 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 	oldBindings, err := s.mysql.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(oldBindings.Map(), jc.DeepEquals, map[string]string{
-		"":        network.DefaultSpaceId,
-		"server":  network.DefaultSpaceId,
-		"kludge":  network.DefaultSpaceId,
-		"cluster": network.DefaultSpaceId,
+		"":        network.AlphaSpaceId,
+		"server":  network.AlphaSpaceId,
+		"kludge":  network.AlphaSpaceId,
+		"cluster": network.AlphaSpaceId,
 	})
 	dbSpace, err := s.State.AddSpace("db", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1240,13 +1240,13 @@ func (s *ApplicationSuite) TestSetCharmRetriesWhenOldBindingsChanged(c *gc.C) {
 				newBindings, err := s.mysql.EndpointBindings()
 				c.Assert(err, jc.ErrorIsNil)
 				c.Assert(newBindings.Map(), jc.DeepEquals, map[string]string{
-					"":        network.DefaultSpaceId,
+					"":        network.AlphaSpaceId,
 					"server":  dbSpace.Id(), // from the first change.
-					"foo":     network.DefaultSpaceId,
-					"client":  network.DefaultSpaceId,
-					"baz":     network.DefaultSpaceId,
+					"foo":     network.AlphaSpaceId,
+					"client":  network.AlphaSpaceId,
+					"baz":     network.AlphaSpaceId,
 					"cluster": adminSpace.Id(), // from the second change.
-					"just":    network.DefaultSpaceId,
+					"just":    network.AlphaSpaceId,
 				})
 			},
 		},
@@ -3524,7 +3524,7 @@ func (s *ApplicationSuite) assertApplicationHasOnlyDefaultEndpointBindings(c *gc
 
 	for endpoint, space := range setBindings.Map() {
 		c.Check(knownEndpoints.Contains(endpoint), jc.IsTrue)
-		c.Check(space, gc.Equals, network.DefaultSpaceId, gc.Commentf("expected default space for endpoint %q, got %q", endpoint, space))
+		c.Check(space, gc.Equals, network.AlphaSpaceId, gc.Commentf("expected default space for endpoint %q, got %q", endpoint, space))
 	}
 }
 
@@ -3554,9 +3554,9 @@ func (s *ApplicationSuite) TestEndpointBindingsWithExplictOverrides(c *gc.C) {
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(setBindings.Map(), jc.DeepEquals, map[string]string{
-		"":        network.DefaultSpaceId,
+		"":        network.AlphaSpaceId,
 		"server":  dbSpace.Id(),
-		"client":  network.DefaultSpaceId,
+		"client":  network.AlphaSpaceId,
 		"cluster": haSpace.Id(),
 	})
 
@@ -3576,10 +3576,10 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	setBindings, err := application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveOld := map[string]string{
-		"":        network.DefaultSpaceId,
+		"":        network.AlphaSpaceId,
 		"kludge":  dbSpace.Id(),
 		"client":  dbSpace.Id(),
-		"cluster": network.DefaultSpaceId,
+		"cluster": network.AlphaSpaceId,
 	}
 	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveOld)
 
@@ -3591,16 +3591,16 @@ func (s *ApplicationSuite) TestSetCharmExtraBindingsUseDefaults(c *gc.C) {
 	setBindings, err = application.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
-		"": network.DefaultSpaceId,
+		"": network.AlphaSpaceId,
 		// These two should be preserved from oldCharm.
 		"client":  dbSpace.Id(),
-		"cluster": network.DefaultSpaceId,
+		"cluster": network.AlphaSpaceId,
 		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": network.DefaultSpaceId,
+		"server": network.AlphaSpaceId,
 		// All the remaining are new and use the empty default.
-		"foo":  network.DefaultSpaceId,
-		"baz":  network.DefaultSpaceId,
-		"just": network.DefaultSpaceId,
+		"foo":  network.AlphaSpaceId,
+		"baz":  network.AlphaSpaceId,
+		"just": network.AlphaSpaceId,
 	}
 	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 
@@ -3621,14 +3621,14 @@ func (s *ApplicationSuite) TestSetCharmHandlesMissingBindingsAsDefaults(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 	effectiveNew := map[string]string{
 		// The following two exist for both oldCharm and newCharm.
-		"client":  network.DefaultSpaceId,
-		"cluster": network.DefaultSpaceId,
+		"client":  network.AlphaSpaceId,
+		"cluster": network.AlphaSpaceId,
 		// "kludge" is missing in newMeta, "server" is new and gets the default.
-		"server": network.DefaultSpaceId,
+		"server": network.AlphaSpaceId,
 		// All the remaining are new and use the empty default.
-		"foo":  network.DefaultSpaceId,
-		"baz":  network.DefaultSpaceId,
-		"just": network.DefaultSpaceId,
+		"foo":  network.AlphaSpaceId,
+		"baz":  network.AlphaSpaceId,
+		"just": network.AlphaSpaceId,
 	}
 	c.Assert(setBindings.Map(), jc.DeepEquals, effectiveNew)
 

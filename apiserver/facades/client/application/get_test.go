@@ -131,15 +131,15 @@ func (s *getSuite) TestClientApplicationGetIAASModelSmokeTest(c *gc.C) {
 			}},
 		Series: "quantal",
 		EndpointBindings: map[string]string{
-			"":                network.DefaultSpaceName,
-			"admin-api":       network.DefaultSpaceName,
-			"cache":           network.DefaultSpaceName,
-			"db":              network.DefaultSpaceName,
-			"db-client":       network.DefaultSpaceName,
-			"foo-bar":         network.DefaultSpaceName,
-			"logging-dir":     network.DefaultSpaceName,
-			"monitoring-port": network.DefaultSpaceName,
-			"url":             network.DefaultSpaceName,
+			"":                network.AlphaSpaceName,
+			"admin-api":       network.AlphaSpaceName,
+			"cache":           network.AlphaSpaceName,
+			"db":              network.AlphaSpaceName,
+			"db-client":       network.AlphaSpaceName,
+			"foo-bar":         network.AlphaSpaceName,
+			"logging-dir":     network.AlphaSpaceName,
+			"monitoring-port": network.AlphaSpaceName,
+			"url":             network.AlphaSpaceName,
 		},
 	})
 }
@@ -232,8 +232,8 @@ func (s *getSuite) TestClientApplicationGetCAASModelSmokeTest(c *gc.C) {
 		ApplicationConfig: expectedAppConfig,
 		Series:            "kubernetes",
 		EndpointBindings: map[string]string{
-			"":      network.DefaultSpaceName,
-			"miner": network.DefaultSpaceName,
+			"":      network.AlphaSpaceName,
+			"miner": network.AlphaSpaceName,
 		},
 	})
 }
@@ -300,7 +300,7 @@ var getTests = []struct {
 		},
 		Series: "quantal",
 		EndpointBindings: map[string]string{
-			"": network.DefaultSpaceName,
+			"": network.AlphaSpaceName,
 		},
 	},
 }, {
@@ -361,7 +361,7 @@ var getTests = []struct {
 		},
 		Series: "quantal",
 		EndpointBindings: map[string]string{
-			"": network.DefaultSpaceName,
+			"": network.AlphaSpaceName,
 		},
 	},
 }, {
@@ -380,10 +380,10 @@ var getTests = []struct {
 			},
 		},
 		EndpointBindings: map[string]string{
-			"":                  network.DefaultSpaceName,
-			"info":              network.DefaultSpaceName,
-			"logging-client":    network.DefaultSpaceName,
-			"logging-directory": network.DefaultSpaceName,
+			"":                  network.AlphaSpaceName,
+			"info":              network.AlphaSpaceName,
+			"logging-client":    network.AlphaSpaceName,
+			"logging-directory": network.AlphaSpaceName,
 		},
 	},
 }}

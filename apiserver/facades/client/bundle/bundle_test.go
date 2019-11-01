@@ -680,7 +680,7 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 
 func (s *bundleSuite) minimalApplicationArgs(modelType string) description.ApplicationArgs {
 	s.st.Spaces["1"] = "vlan2"
-	s.st.Spaces[network.DefaultSpaceId] = network.DefaultSpaceName
+	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	result := description.ApplicationArgs{
 		Tag:                  names.NewApplicationTag("ubuntu"),
 		Series:               "trusty",
@@ -764,6 +764,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
 `[1:]}
 
@@ -805,6 +806,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
     trust: true
 `[1:]}
@@ -858,6 +860,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
   ubuntu:
     charm: cs:trusty/ubuntu
@@ -867,6 +870,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
 --- # overlay.yaml
 applications:
@@ -927,6 +931,7 @@ applications:
     options:
       key: value
     bindings:
+      another: alpha
       juju-info: vlan2
 `[1:]}
 

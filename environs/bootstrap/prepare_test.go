@@ -97,6 +97,7 @@ func (*PrepareSuite) TestPrepare(c *gc.C) {
 			"controller":                false,
 			"development":               false,
 			"test-mode":                 true,
+			"default-space":             "",
 		},
 		ControllerModelUUID:   cfg.UUID(),
 		Cloud:                 "dummy",

@@ -128,7 +128,7 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 			// If default binding is not explicitly defined, use the default space.
 			// This should no longer be the case....
 			if endpoint == "" {
-				bindings[endpoint] = corenetwork.DefaultSpaceId
+				bindings[endpoint] = corenetwork.AlphaSpaceId
 			} else {
 				err := errors.NewNotValid(nil, fmt.Sprintf("binding name %q not defined by the unit's charm", endpoint))
 				result.Results[endpoint] = params.NetworkInfoResult{Error: common.ServerError(err)}
@@ -190,7 +190,7 @@ func (n *NetworkInfo) ProcessAPIRequest(args params.NetworkInfoParams) (params.N
 			}
 		}
 		networkInfos = make(map[string]state.MachineNetworkInfoResult)
-		networkInfos[corenetwork.DefaultSpaceId] = state.MachineNetworkInfoResult{
+		networkInfos[corenetwork.AlphaSpaceId] = state.MachineNetworkInfoResult{
 			NetworkInfos: []network.NetworkInfo{{Addresses: interfaceAddr}},
 		}
 	}
@@ -310,7 +310,7 @@ func (n *NetworkInfo) NetworksForRelation(
 	// If the endpoint for this relation is not bound to a space, or
 	// is bound to the default space, we need to look up the ingress
 	// address info which is aware of cross model relations.
-	if boundSpace == corenetwork.DefaultSpaceId || err != nil {
+	if boundSpace == corenetwork.AlphaSpaceId || err != nil {
 		_, crossModel, err := rel.RemoteApplication()
 		if err != nil {
 			return "", nil, nil, errors.Trace(err)
@@ -395,7 +395,7 @@ func (n *NetworkInfo) spaceForBinding(endpoint string) (string, error) {
 		// If default binding is not explicitly defined, use the default space.
 		// This should no longer be the case....
 		if endpoint == "" {
-			return corenetwork.DefaultSpaceId, nil
+			return corenetwork.AlphaSpaceId, nil
 		}
 		return "", errors.NewNotValid(nil, fmt.Sprintf("binding id %q not defined by the unit's charm", endpoint))
 	}

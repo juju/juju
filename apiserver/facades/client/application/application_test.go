@@ -744,10 +744,10 @@ func (s *applicationSuite) TestClientApplicationsDeployWithOldBindings(c *gc.C) 
 	space, err := s.State.AddSpace("a-space", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]string{
-		"":         network.DefaultSpaceId,
+		"":         network.AlphaSpaceId,
 		"endpoint": space.Id(),
-		"ring":     network.DefaultSpaceId,
-		"admin":    network.DefaultSpaceId,
+		"ring":     network.AlphaSpaceId,
+		"admin":    network.AlphaSpaceId,
 	}
 	endpointBindings := map[string]string{
 		"endpoint": space.Name(),
@@ -761,10 +761,10 @@ func (s *applicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 	space, err := s.State.AddSpace("a-space", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
 	expected := map[string]string{
-		"":         network.DefaultSpaceId,
+		"":         network.AlphaSpaceId,
 		"endpoint": space.Id(),
-		"ring":     network.DefaultSpaceId,
-		"admin":    network.DefaultSpaceId,
+		"ring":     network.AlphaSpaceId,
+		"admin":    network.AlphaSpaceId,
 	}
 	endpointBindings := map[string]string{"endpoint": space.Id()}
 	s.testClientApplicationsDeployWithBindings(c, endpointBindings, expected)
@@ -772,10 +772,10 @@ func (s *applicationSuite) TestClientApplicationsDeployWithBindings(c *gc.C) {
 
 func (s *applicationSuite) TestClientApplicationsDeployWithDefaultBindings(c *gc.C) {
 	expected := map[string]string{
-		"":         network.DefaultSpaceId,
-		"endpoint": network.DefaultSpaceId,
-		"ring":     network.DefaultSpaceId,
-		"admin":    network.DefaultSpaceId,
+		"":         network.AlphaSpaceId,
+		"endpoint": network.AlphaSpaceId,
+		"ring":     network.AlphaSpaceId,
+		"admin":    network.AlphaSpaceId,
 	}
 	s.testClientApplicationsDeployWithBindings(c, nil, expected)
 }

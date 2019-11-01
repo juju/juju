@@ -2446,7 +2446,7 @@ func (u *UniterAPIV4) getOneNetworkConfig(canAccess common.AuthFunc, unitTagArg,
 	}
 
 	var results []params.NetworkConfig
-	if boundSpace == corenetwork.DefaultSpaceId {
+	if boundSpace == corenetwork.AlphaSpaceId {
 		logger.Debugf(
 			"endpoint %q not explicitly bound to a space, using preferred private address for machine %q",
 			bindingName, machineID,

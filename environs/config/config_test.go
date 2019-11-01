@@ -572,7 +572,7 @@ var configTests = []configTest{
 			"backup-dir": "/foo/bar",
 		}),
 	}, {
-		about:       "Default-space takes a string as valid value",
+		about:       "Default-space takes a space name as valid value",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
 			"default-space": "bar",

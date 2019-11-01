@@ -3428,21 +3428,21 @@ func (s *upgradesSuite) TestAddSpaceIdToSpaceDocs(c *gc.C) {
 			"model-uuid": uuid1,
 			"spaceid":    "0",
 			"life":       0,
-			"name":       "",
+			"name":       network.AlphaSpaceName,
 			"is-public":  true,
 		}, {
 			"_id":        uuid2 + ":0",
 			"model-uuid": uuid2,
 			"spaceid":    "0",
 			"life":       0,
-			"name":       "",
+			"name":       network.AlphaSpaceName,
 			"is-public":  true,
 		}, {
 			"_id":        uuidc + ":0",
 			"model-uuid": uuidc,
 			"spaceid":    "0",
 			"life":       0,
-			"name":       "",
+			"name":       network.AlphaSpaceName,
 			"is-public":  true,
 		},
 	}
@@ -4033,7 +4033,7 @@ func (s *upgradesSuite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
 		"model-uuid": uuid1,
 		"bindings": bson.M{
 			"one": space1.Name(),
-			"two": network.DefaultSpaceName,
+			"two": network.AlphaSpaceName,
 		},
 	}, bson.M{
 		"_id":        ensureModelUUID(uuid1, "a#ghost"),
@@ -4055,7 +4055,7 @@ func (s *upgradesSuite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
 		{
 			"_id":        uuid1 + ":a#ubuntu",
 			"model-uuid": uuid1,
-			"bindings":   bson.M{"one": space1.Id(), "two": network.DefaultSpaceId},
+			"bindings":   bson.M{"one": space1.Id(), "two": network.AlphaSpaceId},
 		}, {
 			"_id":        uuid1 + ":a#ghost",
 			"model-uuid": uuid1,
@@ -4087,10 +4087,7 @@ func (s *upgradesSuite) TestEnsureDefaultSpaceSetting(c *gc.C) {
 	m2 := s.makeModel(c, "m2", coretesting.Attrs{})
 	defer func() { _ = m2.Close() }()
 
-	// Should be set to "" because it has the old default value "_default".
-	m3 := s.makeModel(c, "m3", coretesting.Attrs{
-		config.DefaultSpace: "_default",
-	})
+	m3 := s.makeModel(c, "m3", coretesting.Attrs{})
 	defer func() { _ = m3.Close() }()
 
 	err = settingsColl.Insert(bson.M{
@@ -4115,6 +4112,17 @@ func (s *upgradesSuite) TestEnsureDefaultSpaceSetting(c *gc.C) {
 	exp2[config.DefaultSpace] = ""
 
 	exp3 := getCfg(m3)
+
+	// Should be set to "" because it has the old default value "_default".
+	// "_default" will no longer pass the config validation for DefaultSpace,
+	// so add the hard way.
+	exp3[config.DefaultSpace] = "_default"
+	err = settingsColl.Update(
+		bson.D{{"_id", m3.ModelUUID() + ":e"}},
+		bson.D{{"$set", bson.D{{"settings", exp3}}}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
 	exp3[config.DefaultSpace] = ""
 
 	expectedSettings := bsonMById{

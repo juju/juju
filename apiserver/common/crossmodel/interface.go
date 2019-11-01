@@ -199,7 +199,7 @@ type Application interface {
 // details on the methods, see the methods on state.Bindings with
 // the same names.
 type Bindings interface {
-	Map() map[string]string
+	MapWithSpaceNames() (map[string]string, error)
 }
 
 type Charm interface {

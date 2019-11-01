@@ -1786,10 +1786,10 @@ func (s *StateSuite) TestAddApplicationWithDefaultBindings(c *gc.C) {
 	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings.Map(), jc.DeepEquals, map[string]string{
-		"":        network.DefaultSpaceId,
-		"server":  network.DefaultSpaceId,
-		"client":  network.DefaultSpaceId,
-		"cluster": network.DefaultSpaceId,
+		"":        network.AlphaSpaceId,
+		"server":  network.AlphaSpaceId,
+		"client":  network.AlphaSpaceId,
+		"cluster": network.AlphaSpaceId,
 	})
 
 	// Removing the application also removes its bindings.
@@ -1824,8 +1824,8 @@ func (s *StateSuite) TestAddApplicationWithSpecifiedBindings(c *gc.C) {
 	bindings, err := app.EndpointBindings()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(bindings.Map(), jc.DeepEquals, map[string]string{
-		"":        network.DefaultSpaceId,
-		"server":  network.DefaultSpaceId, // inherited from defaults.
+		"":        network.AlphaSpaceId,
+		"server":  network.AlphaSpaceId, // inherited from defaults.
 		"client":  clientSpace.Id(),
 		"cluster": dbSpace.Id(),
 	})

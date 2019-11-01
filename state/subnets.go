@@ -152,23 +152,24 @@ func (s *Subnet) AvailabilityZones() []string {
 	return s.doc.AvailabilityZones
 }
 
-// SpaceName returns the space the subnet is associated with.
-// If the subnet is not associated with a space it will return an empty string.
+// SpaceName returns the space the subnet is associated with.  If no
+// space is associated, return the default space and log an error.
 func (s *Subnet) SpaceName() string {
 	if s.spaceID == "" {
-		return network.DefaultSpaceName
+		logger.Errorf("subnet %q has no spaceID", s.spaceID)
+		return network.AlphaSpaceName
 	}
 	sp, err := s.st.Space(s.spaceID)
 	if err != nil {
 		logger.Errorf("error finding space %q: %s", s.spaceID, err)
-		return network.DefaultSpaceName
+		return network.AlphaSpaceName
 	}
 	return sp.Name()
 }
 
 // SpaceID returns the ID of the space the subnet is associated with.
 // If the subnet is not associated with a space it will return
-// network.DefaultSpaceId.
+// network.AlphaSpaceId.
 func (s *Subnet) SpaceID() string {
 	return s.spaceID
 }
@@ -292,7 +293,7 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 		//
 		// The undefined space from MAAS has a providerId of -1.
 		// The juju default space will be 0.
-		spaceNameChange = sp.doc.ProviderId == "-1" || sp.doc.Id == network.DefaultSpaceId
+		spaceNameChange = sp.doc.ProviderId == "-1" || sp.doc.Id == network.AlphaSpaceId
 	}
 	// TODO (hml) 2019-07-25
 	// Update when there is a s.doc.spaceID, which has done the calculation of
@@ -364,10 +365,10 @@ func (st *State) addSubnetOps(id string, args network.SubnetInfo) (subnetDoc, []
 	if !unique {
 		return subnetDoc{}, nil, errors.AlreadyExistsf("subnet %q", args.CIDR)
 	}
-	if args.SpaceID == "" && args.SpaceName == network.DefaultSpaceName {
+	if args.SpaceID == "" {
 		// Ensure the subnet is added to the default space
 		// if none is defined for the subnet.
-		args.SpaceID = network.DefaultSpaceId
+		args.SpaceID = network.AlphaSpaceId
 	}
 	subDoc := subnetDoc{
 		DocID:             st.docID(id),

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -476,28 +475,37 @@ func (api *BaseAPI) spacesAndBindingParams(
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
-	appBindingsMap := appBindings.Map()
+	// We want space names, because space ids are not
+	// persistent outside of the current model.
+	appBindingsMap, err := appBindings.MapWithSpaceNames()
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
 
+	// It's okay if this fails, we'll have an empty string.
+	// Filtered out when used by collectRemoteSpaces
+	defaultBindingValue, _ := appBindingsMap[""]
 	var bindings map[string]string
 
-	spaceIDs := set.NewStrings()
+	spaceNames := set.NewStrings()
 	for _, ep := range offerEndpoints {
-		spaceID, haveID := appBindingsMap[ep.Name]
+		name, haveID := appBindingsMap[ep.Name]
 		if haveID {
-			spaceIDs.Add(spaceID)
+			spaceNames.Add(name)
 			continue
 		}
 		// The offer application may have endpoints the local
-		// application does not.  Add and assume the default space.
+		// application does not.  Add and assume the default
+		// binding for the application.
 		if bindings == nil {
 			bindings = make(map[string]string)
 		}
-		bindings[ep.Name] = network.DefaultSpaceName
-		logger.Warningf("no local binding for %q endpoint on application %q, assume default space", ep.Name, app.Name())
+		bindings[ep.Name] = defaultBindingValue
+		logger.Warningf("no local binding for %q endpoint on application %q, assume default binding", ep.Name, app.Name())
 	}
 
 	// Get provider space info based on space ids.
-	remoteSpaces, err := api.collectRemoteSpaces(backend, spaceIDs.SortedValues())
+	remoteSpaces, err := api.collectRemoteSpaces(backend, spaceNames.SortedValues())
 	if errors.IsNotSupported(err) {
 		// Provider doesn't support ProviderSpaceInfo; continue
 		// without any space information, we shouldn't short-circuit
@@ -511,8 +519,8 @@ func (api *BaseAPI) spacesAndBindingParams(
 	// Ensure bindings only contain entries for which we have remoteSpaces.
 	spaces := make([]params.RemoteSpace, 0)
 
-	for epName, spaceID := range appBindingsMap {
-		space, haveSpace := remoteSpaces[spaceID]
+	for epName, name := range appBindingsMap {
+		space, haveSpace := remoteSpaces[name]
 		if !haveSpace {
 			continue
 		}
@@ -532,7 +540,7 @@ func (api *BaseAPI) spacesAndBindingParams(
 // connection can be made via cloud-local addresses. If the provider
 // doesn't support getting ProviderSpaceInfo the NotSupported error
 // will be returned.
-func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map[string]params.RemoteSpace, error) {
+func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceNames []string) (map[string]params.RemoteSpace, error) {
 	env, err := api.getEnviron(backend.ModelUUID())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -545,10 +553,10 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 	}
 
 	results := make(map[string]params.RemoteSpace)
-	for _, id := range spaceIDs {
+	for _, name := range spaceNames {
 		space := environs.DefaultSpaceInfo
-		if id != network.DefaultSpaceId {
-			dbSpace, err := backend.Space(id)
+		if name != "" {
+			dbSpace, err := backend.SpaceByName(name)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -562,13 +570,13 @@ func (api *BaseAPI) collectRemoteSpaces(backend Backend, spaceIDs []string) (map
 			return nil, errors.Trace(err)
 		}
 		if providerSpace == nil {
-			logger.Warningf("no provider space info for %q", id)
+			logger.Warningf("no provider space info for %q", name)
 			continue
 		}
 		remoteSpace := paramsFromProviderSpaceInfo(providerSpace)
 		// Use the name from state in case provider and state disagree.
 		remoteSpace.Name = string(space.Name)
-		results[id] = remoteSpace
+		results[name] = remoteSpace
 	}
 	return results, nil
 }

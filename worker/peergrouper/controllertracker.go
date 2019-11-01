@@ -87,9 +87,8 @@ func (c *controllerTracker) Addresses() network.SpaceAddresses {
 
 // SelectMongoAddress returns the best address on the controller node for MongoDB peer
 // use, using the input space.
-// An error is returned if the empty space is supplied.
 func (c *controllerTracker) SelectMongoAddressFromSpace(port int, space network.SpaceInfo) (string, error) {
-	if space.Name == network.DefaultSpaceName {
+	if space.ID == "" {
 		return "", fmt.Errorf(
 			"empty space supplied as an argument for selecting Mongo address for controller node %q", c.id)
 	}

@@ -6,13 +6,13 @@ package network
 import "strings"
 
 const (
-	// DefaultSpaceId is the ID of the default network space.
+	// AlphaSpaceId is the ID of the alpha network space.
 	// Application endpoints are bound to this space by default
 	// if no explicit binding is specified.
-	DefaultSpaceId = "0"
+	AlphaSpaceId = "0"
 
-	// DefaultSpaceName is the name of the default network space.
-	DefaultSpaceName = ""
+	// AlphaSpaceName is the name of the alpha network space.
+	AlphaSpaceName = "alpha"
 )
 
 // SpaceLookup describes methods for acquiring lookups that
