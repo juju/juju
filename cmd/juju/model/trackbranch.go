@@ -50,6 +50,11 @@ type trackBranchCommand struct {
 
 	branchName string
 	entities   []string
+
+	// numUnits describes the number of units to track. A strategy will be
+	// picked to track the number of units if there are more than the number
+	// requested.
+	numUnits int
 }
 
 // TrackBranchCommandAPI describes API methods required
@@ -60,7 +65,7 @@ type TrackBranchCommandAPI interface {
 
 	// TrackBranch sets the input units and/or applications
 	// to track changes made under the input branch name.
-	TrackBranch(branchName string, entities []string) error
+	TrackBranch(branchName string, entities []string, numUnits int) error
 	HasActiveBranch(branchName string) (bool, error)
 }
 
@@ -78,6 +83,7 @@ func (c *trackBranchCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *trackBranchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.IntVar(&c.numUnits, "n", 0, "The number of units to track")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -85,7 +91,9 @@ func (c *trackBranchCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("expected a branch name plus unit and/or application names(s)")
 	}
-
+	if c.numUnits < 0 {
+		return errors.Errorf("expected a valid number of units to track")
+	}
 	for _, arg := range args[1:] {
 		if !names.IsValidApplication(arg) && !names.IsValidUnit(arg) {
 			return errors.Errorf("invalid application or unit name %q", arg)
@@ -131,5 +139,5 @@ func (c *trackBranchCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	return errors.Trace(client.TrackBranch(c.branchName, c.entities))
+	return errors.Trace(client.TrackBranch(c.branchName, c.entities, c.numUnits))
 }

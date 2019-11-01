@@ -1198,6 +1198,7 @@ type BranchInfoArgs struct {
 type BranchTrackArg struct {
 	BranchName string   `json:"branch"`
 	Entities   []Entity `json:"entities"`
+	NumUnits   int      `json:"num-units,omitempty"`
 }
 
 // GenerationApplication represents changes to an application
