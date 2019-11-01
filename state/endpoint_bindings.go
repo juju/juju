@@ -516,8 +516,8 @@ func allOfOne(currentSpaces, givenMap map[string]string, allowEmptyValues bool) 
 func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[string]string, error) {
 	newMap := make(map[string]string, len(givenMap))
 	for epName, name := range givenMap {
-		if name == network.DefaultSpaceName {
-			newMap[epName] = network.DefaultSpaceId
+		if name == "" {
+			newMap[epName] = network.AlphaSpaceId
 			continue
 		}
 		// check that the name is valid and get id.
