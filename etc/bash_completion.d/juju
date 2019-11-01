@@ -162,6 +162,18 @@ print ("\n".join(j.get("applications", {}).keys()))
 '   < ${cache_fname}
 }
 
+# Print (return) all branches
+_JUJU_2_branches_from_status() {
+    local cache_fname=$(_JUJU_2_juju_status_cache_fname)
+    [ -n "${cache_fname}" ] || return 0
+    ${_juju_cmd_PYTHON?} -c '
+import json, sys
+sys.stderr.close()
+j = json.load(sys.stdin)
+print ("\n".join(j.get("branches", {}).keys()))
+'   < ${cache_fname}
+}
+
 # Print (return) all actions IDS from (cached) "juju show-action-status" output
 _JUJU_2_action_ids_from_action_status() {
     local model=$(_get_current_model)
@@ -199,6 +211,12 @@ print ("\n".join(json.load(sys.stdin).get("storage", {}).keys()))
 _JUJU_2_applications_and_units_from_status() {
     _JUJU_2_applications_from_status
     _JUJU_2_units_from_status
+}
+
+# Print (return) both applications and units, currently used for juju status completion
+_JUJU_2_branches_and_application_units_from_status() {
+    _JUJU_2_branches_from_status
+    _JUJU_2_applications_and_units_from_status
 }
 
 # Print (return) both units and machines
@@ -323,6 +341,10 @@ _JUJU_2_completion_func_for_cmd() {
             echo _JUJU_2_list_controllers_models_noflags;;
         *\<controller?name*)
             echo _JUJU_2_list_controllers_noflags;;
+        *\<entities*)
+            echo _JUJU_2_branches_and_application_units_from_status;;
+        *\<branch?name*)
+            echo _JUJU_2_branches_from_status;;
         ?*)
             echo true ;;  # help ok, existing command, no more expansion
         *)
@@ -344,6 +366,7 @@ _get_current_model() {
     fi
     echo "$model"
 }
+
 # Generic command cache function: caches cmdline output, called as:
 # _JUJU_2_cache_cmd TTL ACTION cmd args ...
 #   TTL:    cache expiration in mins
