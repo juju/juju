@@ -11,9 +11,9 @@ import (
 	"github.com/juju/utils/arch"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 type environClient struct {
@@ -260,7 +260,7 @@ func (c *environClient) generateSigmaComponents(
 	cc.AttachDrive(1, "0:0", "virtio", drv.UUID())
 	cc.NetworkDHCP4(gosigma.ModelVirtio)
 
-	if multiwatcher.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
+	if model.AnyJobNeedsState(args.InstanceConfig.Jobs...) {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceController)
 	} else {
 		cc.SetMeta(jujuMetaInstance, jujuMetaInstanceServer)

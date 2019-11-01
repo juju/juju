@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -147,7 +146,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 	}()
 
-	deltasC := make(chan []multiwatcher.Delta)
+	deltasC := make(chan []params.Delta)
 	go func() {
 		deltas, err := w.Next()
 		c.Assert(err, jc.ErrorIsNil)
@@ -157,7 +156,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 	select {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
-		modelInfo := deltas[0].Entity.(*multiwatcher.ModelInfo)
+		modelInfo := deltas[0].Entity.(*params.ModelInfo)
 
 		model, err := s.State.Model()
 		c.Assert(err, jc.ErrorIsNil)
@@ -185,14 +184,14 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 			modelInfo.Config[config.NetBondReconfigureDelayKey] = int(val)
 		}
 
-		expectedStatus := multiwatcher.StatusInfo{
+		expectedStatus := params.StatusInfo{
 			Current: status.Status,
 			Message: status.Message,
 		}
 		modelInfo.Status.Since = nil
 		c.Assert(modelInfo.ModelUUID, gc.Equals, model.UUID())
 		c.Assert(modelInfo.Name, gc.Equals, model.Name())
-		c.Assert(modelInfo.Life, gc.Equals, multiwatcher.Life("alive"))
+		c.Assert(modelInfo.Life, gc.Equals, params.Life("alive"))
 		c.Assert(modelInfo.Owner, gc.Equals, model.Owner().Id())
 		c.Assert(modelInfo.ControllerUUID, gc.Equals, model.ControllerUUID())
 		c.Assert(modelInfo.Config, jc.DeepEquals, cfg.AllAttrs())

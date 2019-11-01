@@ -70,7 +70,7 @@ func (s Suite) TestHandle(c *gc.C) {
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
-	// Since machine has multiwatcher.JobManageEnviron, we expect an error
+	// Since machine has model.JobManageModel, we expect an error
 	// which will get agent to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }

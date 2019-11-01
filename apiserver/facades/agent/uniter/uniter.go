@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/state/watcher"
 )
@@ -1960,9 +1959,9 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName s
 		Key:       rel.String(),
 		Life:      params.Life(rel.Life().String()),
 		Suspended: rel.Suspended(),
-		Endpoint: multiwatcher.Endpoint{
+		Endpoint: params.Endpoint{
 			ApplicationName: ep.ApplicationName,
-			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
+			Relation:        params.NewCharmRelation(ep.Relation),
 		},
 		OtherApplication: otherAppName,
 	}, nil

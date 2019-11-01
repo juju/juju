@@ -42,7 +42,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -820,25 +819,25 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(deltas), gc.Equals, 1)
-	d0, ok := deltas[0].Entity.(*multiwatcher.MachineInfo)
+	d0, ok := deltas[0].Entity.(*params.MachineInfo)
 	c.Assert(ok, jc.IsTrue)
 	d0.AgentStatus.Since = nil
 	d0.InstanceStatus.Since = nil
-	if !c.Check(deltas, jc.DeepEquals, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
+	if !c.Check(deltas, jc.DeepEquals, []params.Delta{{
+		Entity: &params.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			AgentStatus: multiwatcher.StatusInfo{
+			AgentStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			InstanceStatus: multiwatcher.StatusInfo{
+			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    multiwatcher.Life("alive"),
+			Life:                    params.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []multiwatcher.Address{},
+			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
 			WantsVote:               true,
@@ -888,13 +887,13 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	c.Assert(len(deltas), gc.Equals, 2)
 	mIndex := 0
 	aIndex := 1
-	dMachine, ok0 := deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
-	dApp, ok1 := deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+	dMachine, ok0 := deltas[mIndex].Entity.(*params.MachineInfo)
+	dApp, ok1 := deltas[aIndex].Entity.(*params.RemoteApplicationInfo)
 	if !ok0 {
 		mIndex = 1
 		aIndex = 0
-		dMachine, ok0 = deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
-		dApp, ok1 = deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+		dMachine, ok0 = deltas[mIndex].Entity.(*params.MachineInfo)
+		dApp, ok1 = deltas[aIndex].Entity.(*params.RemoteApplicationInfo)
 	}
 	c.Assert(ok0, jc.IsTrue)
 	c.Assert(ok1, jc.IsTrue)
@@ -902,21 +901,21 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	dMachine.InstanceStatus.Since = nil
 	dApp.Status.Since = nil
 
-	if !c.Check(deltas[mIndex], jc.DeepEquals, multiwatcher.Delta{
-		Entity: &multiwatcher.MachineInfo{
+	if !c.Check(deltas[mIndex], jc.DeepEquals, params.Delta{
+		Entity: &params.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			AgentStatus: multiwatcher.StatusInfo{
+			AgentStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			InstanceStatus: multiwatcher.StatusInfo{
+			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    multiwatcher.Life("alive"),
+			Life:                    params.Life("alive"),
 			Series:                  "quantal",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []multiwatcher.Address{},
+			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
 			WantsVote:               true,
@@ -927,14 +926,14 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
-	if !c.Check(deltas[aIndex], jc.DeepEquals, multiwatcher.Delta{
-		Entity: &multiwatcher.RemoteApplicationInfo{
+	if !c.Check(deltas[aIndex], jc.DeepEquals, params.Delta{
+		Entity: &params.RemoteApplicationInfo{
 			Name:      "remote-db2",
 			ModelUUID: s.State.ModelUUID(),
 			OfferUUID: "offer-uuid",
 			OfferURL:  "admin/prod.db2",
 			Life:      "alive",
-			Status: multiwatcher.StatusInfo{
+			Status: params.StatusInfo{
 				Current: status.Unknown,
 			},
 		},

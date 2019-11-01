@@ -1845,9 +1845,9 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				Key:       rel.String(),
 				Life:      params.Life(rel.Life().String()),
 				Suspended: rel.Suspended(),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 				OtherApplication: s.mysql.Name(),
 			},
@@ -1884,9 +1884,9 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				Key:       rel.String(),
 				Life:      params.Life(rel.Life().String()),
 				Suspended: rel.Suspended(),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 				OtherApplication: s.mysql.Name(),
 			},
@@ -3429,9 +3429,9 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 			},
 		},
@@ -3454,9 +3454,9 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 			},
 		},

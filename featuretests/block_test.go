@@ -11,8 +11,8 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/api/block"
+	"github.com/juju/juju/apiserver/params"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 type blockSuite struct {
@@ -37,7 +37,7 @@ func (s *blockSuite) TestBlockFacadeCall(c *gc.C) {
 
 func (s *blockSuite) TestBlockedMessage(c *gc.C) {
 	// Block operation
-	s.blockClient.SwitchBlockOn(fmt.Sprintf("%v", multiwatcher.BlockChange), "TestBlockedMessage")
+	s.blockClient.SwitchBlockOn(fmt.Sprintf("%v", params.BlockChange), "TestBlockedMessage")
 
 	ctx, err := runCommand(c, "resolved", "multi-series/2")
 

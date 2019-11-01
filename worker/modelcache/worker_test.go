@@ -17,11 +17,11 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -550,15 +550,15 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	s.config.WatcherFactory = func() modelcache.BackingWatcher {
 		return testingMultiwatcher{
 			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
-			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
+			manipulate: func(deltas []params.Delta) ([]params.Delta, error) {
 				if !fakeModelSent || !errorSent {
 					for _, delta := range deltas {
 						// The first time we see a model, add an extra model delta.
 						// This will be cached even though it does not exist in state.
 						if delta.Entity.EntityId().Kind == "model" && !fakeModelSent {
 							fakeModelSent = true
-							return append(deltas, multiwatcher.Delta{
-								Entity: &multiwatcher.ModelInfo{
+							return append(deltas, params.Delta{
+								Entity: &params.ModelInfo{
 									ModelUUID: "fake-ass-model-uuid",
 									Name:      "evict-this-cat",
 								},
@@ -630,7 +630,7 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	s.config.WatcherFactory = func() modelcache.BackingWatcher {
 		return testingMultiwatcher{
 			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
-			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
+			manipulate: func(deltas []params.Delta) ([]params.Delta, error) {
 				if errCount < maxErrors {
 					errCount++
 					return nil, errors.New("boom")
@@ -678,7 +678,7 @@ func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
 	w, err := modelcache.NewWorker(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Stop the backing multiwatcher.
+	// Stop the backing params.
 	c.Assert(mw.Stop(), jc.ErrorIsNil)
 
 	// Check that the worker is killed.
@@ -739,10 +739,10 @@ type testingMultiwatcher struct {
 
 	// manipulate gives us the opportunity of manipulating the result of a call
 	// to the multi-watcher's "Next" method.
-	manipulate func([]multiwatcher.Delta) ([]multiwatcher.Delta, error)
+	manipulate func([]params.Delta) ([]params.Delta, error)
 }
 
-func (w testingMultiwatcher) Next() ([]multiwatcher.Delta, error) {
+func (w testingMultiwatcher) Next() ([]params.Delta, error) {
 	delta, err := w.Multiwatcher.Next()
 	if err == nil && w.manipulate != nil {
 		return w.manipulate(delta)

@@ -19,12 +19,12 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/api/uniter"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/runner/context"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
@@ -362,26 +362,26 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 
 // on switches on desired block and
 // asserts that no errors were encountered.
-func (s *BlockHelper) on(c *gc.C, blockType multiwatcher.BlockType, msg string) {
+func (s *BlockHelper) on(c *gc.C, blockType params.BlockType, msg string) {
 	c.Assert(s.blockClient.SwitchBlockOn(string(blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges switches changes block on.
 // This prevents all changes to juju environment.
 func (s *BlockHelper) BlockAllChanges(c *gc.C, msg string) {
-	s.on(c, multiwatcher.BlockChange, msg)
+	s.on(c, params.BlockChange, msg)
 }
 
 // BlockRemoveObject switches remove block on.
 // This prevents any object/entity removal on juju environment
 func (s *BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
-	s.on(c, multiwatcher.BlockRemove, msg)
+	s.on(c, params.BlockRemove, msg)
 }
 
 // BlockDestroyModel switches destroy block on.
 // This prevents juju environment destruction.
 func (s *BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
-	s.on(c, multiwatcher.BlockDestroy, msg)
+	s.on(c, params.BlockDestroy, msg)
 }
 
 func (s *BlockHelper) Close() {

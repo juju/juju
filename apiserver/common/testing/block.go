@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/block"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // BlockHelper helps manage blocks for apiserver tests.
@@ -35,19 +34,19 @@ func NewBlockHelper(st api.Connection) BlockHelper {
 
 // on switches on desired block and
 // asserts that no errors were encountered.
-func (s BlockHelper) on(c *gc.C, blockType multiwatcher.BlockType, msg string) {
+func (s BlockHelper) on(c *gc.C, blockType params.BlockType, msg string) {
 	c.Assert(s.client.SwitchBlockOn(fmt.Sprintf("%v", blockType), msg), gc.IsNil)
 }
 
 // BlockAllChanges blocks all operations that could change the model.
 func (s BlockHelper) BlockAllChanges(c *gc.C, msg string) {
-	s.on(c, multiwatcher.BlockChange, msg)
+	s.on(c, params.BlockChange, msg)
 }
 
 // BlockRemoveObject blocks all operations that remove
 // machines, services, units or relations.
 func (s BlockHelper) BlockRemoveObject(c *gc.C, msg string) {
-	s.on(c, multiwatcher.BlockRemove, msg)
+	s.on(c, params.BlockRemove, msg)
 }
 
 func (s BlockHelper) Close() {
@@ -57,7 +56,7 @@ func (s BlockHelper) Close() {
 
 // BlockDestroyModel blocks destroy-model.
 func (s BlockHelper) BlockDestroyModel(c *gc.C, msg string) {
-	s.on(c, multiwatcher.BlockDestroy, msg)
+	s.on(c, params.BlockDestroy, msg)
 }
 
 // AssertBlocked checks if given error is

@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/tools"
 )
 
@@ -1130,7 +1130,7 @@ func (env *maasEnviron) StartInstance(
 }
 
 func (env *maasEnviron) tagInstance1(inst *maas1Instance, instanceConfig *instancecfg.InstanceConfig) {
-	if !multiwatcher.AnyJobNeedsState(instanceConfig.Jobs...) {
+	if !model.AnyJobNeedsState(instanceConfig.Jobs...) {
 		return
 	}
 	err := common.AddStateInstance(env.Storage(), inst.Id())
