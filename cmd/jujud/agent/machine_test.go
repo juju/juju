@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/migration"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -506,7 +507,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelAuditsAPI(c *gc.C) {
 		})
 		makeAPIRequest(func(client *api.Client) {
 			_, err = client.AddMachines([]params.AddMachineParams{{
-				Jobs: []model.MachineJob{"JobHostUnits"},
+				Jobs: []coremodel.MachineJob{"JobHostUnits"},
 			}})
 			c.Assert(err, jc.ErrorIsNil)
 		})

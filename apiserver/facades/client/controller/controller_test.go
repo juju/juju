@@ -363,7 +363,7 @@ func (s *controllerSuite) TestWatchAllModels(c *gc.C) {
 		// Expect to see the initial environment be reported.
 		deltas := result.Deltas
 		c.Assert(deltas, gc.HasLen, 1)
-		modelInfo := deltas[0].Entity.(*params.ModelInfo)
+		modelInfo := deltas[0].Entity.(*params.ModelUpdate)
 		c.Assert(modelInfo.ModelUUID, gc.Equals, s.State.ModelUUID())
 		c.Assert(modelInfo.IsController, gc.Equals, s.State.IsController())
 	case <-time.After(testing.LongWait):
