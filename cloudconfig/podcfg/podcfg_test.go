@@ -31,8 +31,9 @@ func (*podcfgSuite) TestPodLabelsController(c *gc.C) {
 		"juju-is-controller":   "true",
 	})
 	testPodLabels(c, cfg, nonControllerJobs, map[string]string{
-		"juju-model-uuid":    testing.ModelTag.Id(),
-		"juju-is-controller": "true",
+		"juju-model-uuid":      testing.ModelTag.Id(),
+		"juju-controller-uuid": testing.ControllerTag.Id(),
+		"juju-is-controller":   "true",
 	})
 }
 
