@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/testing"
 )
@@ -36,7 +35,6 @@ type ExecSuite struct {
 var _ = gc.Suite(&ExecSuite{})
 
 func (s *ExecSuite) SetUpTest(c *gc.C) {
-	s.SetInitialFeatureFlags(feature.DeveloperMode)
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
 }
 
