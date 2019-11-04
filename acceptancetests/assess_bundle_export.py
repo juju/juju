@@ -32,10 +32,10 @@ export_two = "./bundletwo.yaml"
 log = logging.getLogger("assess_bundle_export")
 
 def assess_bundle_export(client, args):
-    bundle_source = local_charm_path('mediawiki-simple.yaml',
+    bundle_source = local_charm_path('telegraf-bundle.yaml',
                                      repository=os.environ['JUJU_REPOSITORY'],
                                      juju_ver='2')
-    log.info("Deploying {}".format("mediawiki-simple bundle..."))
+    log.info("Deploying {}".format("telegraf-bundle bundle..."))
     client.deploy(bundle_source)
     client.wait_for_started()
 
