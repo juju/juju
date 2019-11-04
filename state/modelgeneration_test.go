@@ -191,6 +191,14 @@ func (s *generationSuite) TestAssignNumUnitsSuccessRemaining(c *gc.C) {
 	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
 }
 
+func (s *generationSuite) TestAssignUnitsNoOperations(c *gc.C) {
+	gen := s.setupAssignUnits(c)
+
+	c.Assert(gen.AssignUnits("riak", 1), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 0)
+}
+
 func (s *generationSuite) TestAssignNumUnitsSelectAll(c *gc.C) {
 	gen := s.setupAssignAllUnits(c)
 
@@ -512,6 +520,18 @@ options:
 		_, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	return s.addBranch(c)
+}
+
+func (s *generationSuite) setupAssignUnits(c *gc.C) *state.Generation {
+	var cfgYAML = `
+options:
+  http_port: {default: 8089, description: HTTP Port, type: int}
+`
+	s.ch = s.AddConfigCharm(c, "riak", cfgYAML, 666)
+
+	s.AddTestingApplication(c, "riak", s.ch)
 
 	return s.addBranch(c)
 }
