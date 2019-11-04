@@ -152,7 +152,7 @@ func (api *API) TrackBranch(arg params.BranchTrackArg) (params.ErrorResults, err
 	// topographically distribute between all the applications and units,
 	// especially if an error occurs whilst assigning the units.
 	if arg.NumUnits > 0 && len(arg.Entities) > 1 {
-		return params.ErrorResults{}, errors.Errorf("num of units allowed when specifying multiple entities")
+		return params.ErrorResults{}, errors.Errorf("number of units and unit IDs can not be specified at the same time")
 	}
 
 	branch, err := api.model.Branch(arg.BranchName)
