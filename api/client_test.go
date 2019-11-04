@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -458,7 +459,8 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 }
 
 func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive) {
-	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
+	path := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
+	charmArchive := testcharms.TempRepo(c, path).CharmArchive(path, name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
 	_, err := client.AddLocalCharm(curl, charmArchive, force)
 	c.Assert(err, jc.ErrorIsNil)

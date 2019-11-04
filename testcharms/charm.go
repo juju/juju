@@ -8,14 +8,18 @@ package testcharms
 import (
 	"archive/zip"
 	"bytes"
+	"github.com/juju/utils/fs"
 	"io"
 	"io/ioutil"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3/csclient"
 	"gopkg.in/juju/charmrepo.v3/csclient/params"
@@ -25,9 +29,28 @@ import (
 )
 
 const defaultSeries = "quantal"
+const localCharmRepo = "charm-repo"
 
 // Repo provides access to the test charm repository.
-var Repo = testing.NewRepo("charm-repo", defaultSeries)
+var Repo = testing.NewRepo(localCharmRepo, defaultSeries)
+
+// TempRepo provides access to the a tmp test charm repository. It copies the content from the charm-repo to the given path.
+// With this we can make sure that we use the proper level of isolation. In this case a charm repo which is not under
+// Juju git versioning.
+// fs.Copy forces to use a path it cannot overwrite existing ones.
+// TODO: problem -> defaultseries is used thus error path
+// SOLUTIONS: own written, copy whole folder. But this would happen each tests...
+func TempRepo(c *gc.C, dst string) *testing.Repo {
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		panic("cannot get caller")
+	}
+	src := filepath.Join(filepath.Dir(file), localCharmRepo, defaultSeries)
+	err := fs.Copy(src, dst)
+	c.Assert(err, jc.ErrorIsNil)
+	newRepo := testing.NewRepoFromFullPath(dst, defaultSeries)
+	return newRepo
+}
 
 // RepoForSeries returns a new charm repository for the specified series.
 // Note: this is a bit weird, as it ignores the series if it's NOT kubernetes
@@ -38,12 +61,12 @@ func RepoForSeries(series string) *testing.Repo {
 	if series != "kubernetes" {
 		series = defaultSeries
 	}
-	return testing.NewRepo("charm-repo", series)
+	return testing.NewRepo(localCharmRepo, series)
 }
 
 // RepoWithSeries returns a new charm repository for the specified series.
 func RepoWithSeries(series string) *testing.Repo {
-	return testing.NewRepo("charm-repo", series)
+	return testing.NewRepo(localCharmRepo, series)
 }
 
 // CharmstoreClient bridges a charmstore and Juju
