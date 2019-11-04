@@ -1,5 +1,5 @@
-test_cmr_bundles() {
-    if [ "$(skip 'test_cmr_bundles')" ]; then
+test_deploy() {
+    if [ "$(skip 'test_deploy')" ]; then
         echo "==> TEST SKIPPED: CMR bundle tests"
         return
     fi
@@ -13,8 +13,9 @@ test_cmr_bundles() {
 
     bootstrap "test-cmr-bundles" "${file}"
 
-    test_deploy
-    test_export_overlay
+    test_deploy_charms
+    test_deploy_bundles
+    test_cmr_bundles_export_overlay
 
     destroy_controller "test-cmr-bundles"
 }

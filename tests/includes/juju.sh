@@ -180,8 +180,8 @@ destroy_model() {
     echo "${name}" | xargs -I % juju destroy-model --force -y % 2>&1 | add_date >"${output}"
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
-        printf "\\nFound some issues"
-        cat "${output}" | xargs echo -I % "\\n%"
+        printf "\\nFound some issues\\n"
+        cat "${output}"
         exit 1
     fi
     echo "====> Destroyed juju model ${name}"
@@ -220,8 +220,8 @@ destroy_controller() {
     echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % 2>&1 | add_date >"${output}"
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
-        printf "\\nFound some issues"
-        cat "${output}" | xargs echo -I % "\\n%"
+        printf "\\nFound some issues\\n"
+        cat "${output}"
         exit 1
     fi
     sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
@@ -240,38 +240,6 @@ cleanup_jujus() {
         done < "${TEST_DIR}/jujus"
         rm -f "${TEST_DIR}/jujus"
     fi
-}
-
-# wait_for defines the ability to wait for a given condition to happen in a
-# juju status output. The output is JSON, so everything that the API server
-# knows about should be valid.
-# The query argument is a jq query.
-#
-# ```
-# wait_for <model name> <query>
-# ```
-wait_for() {
-    local name query
-
-    name=${1}
-    query=${2}
-
-    # shellcheck disable=SC2046,SC2143
-    until [ $(juju status --format=json 2> /dev/null | jq "${query}" | grep "${name}") ]; do
-        juju status --relations
-        sleep 5
-    done
-}
-
-idle_condition() {
-    local name app_index unit_index
-
-    name=${1}
-    app_index=${2:-0}
-    unit_index=${3:-0}
-
-    echo ".applications | select(.$name | .units | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
-    exit 0
 }
 
 introspect_controller() {
