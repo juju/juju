@@ -245,7 +245,7 @@ func (g *Generation) AssignUnits(appName string, numUnits int) error {
 			}
 		}
 		// If there are no units to add to the generation, quit here.
-		if len(ops) == 0 {
+		if assigned == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
 		return ops, nil
