@@ -135,9 +135,7 @@ func (c *execCommand) SetFlags(f *gnuflag.FlagSet) {
 		"default": cmd.FormatYaml,
 	})
 	f.BoolVar(&c.all, "all", false, "Run the commands on all the machines")
-	if featureflag.Enabled(feature.DeveloperMode) {
-		f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
-	}
+	f.BoolVar(&c.operator, "operator", false, "Run the commands on the operator (k8s-only)")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "How long to wait before the remote command is considered to have failed")
 	f.Var(cmd.NewStringsValue(nil, &c.machines), "machine", "One or more machine ids")
 	f.Var(cmd.NewStringsValue(nil, &c.applications), "a", "One or more application names")
@@ -267,10 +265,6 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if modelType == model.CAAS {
-		if !featureflag.Enabled(feature.DeveloperMode) {
-			return errors.New("k8s support is under development, enable the developer-model feature flag and try again")
-		}
-
 		if client.BestAPIVersion() < 4 {
 			return errors.Errorf("k8s controller does not support juju exec" +
 				"\nconsider upgrading your controller")
