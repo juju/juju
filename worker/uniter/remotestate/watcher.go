@@ -109,8 +109,9 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 		// so that we coalesce events while the observer is busy.
 		out: make(chan struct{}, 1),
 		current: Snapshot{
-			Relations: make(map[int]RelationSnapshot),
-			Storage:   make(map[names.StorageTag]StorageSnapshot),
+			Relations:      make(map[int]RelationSnapshot),
+			Storage:        make(map[names.StorageTag]StorageSnapshot),
+			ActionsBlocked: config.RunningStatusFunc != nil,
 		},
 	}
 	err := catacomb.Invoke(catacomb.Plan{

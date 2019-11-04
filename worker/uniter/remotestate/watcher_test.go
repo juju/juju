@@ -142,11 +142,20 @@ func (s *WatcherSuite) TearDownTest(c *gc.C) {
 	}
 }
 
-func (s *WatcherSuite) TestInitialSnapshot(c *gc.C) {
+func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{},
 		Storage:   map[names.StorageTag]remotestate.StorageSnapshot{},
+	})
+}
+
+func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
+	snap := s.watcher.Snapshot()
+	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
+		Relations:      map[int]remotestate.RelationSnapshot{},
+		Storage:        map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionsBlocked: true,
 	})
 }
 
