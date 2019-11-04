@@ -4,6 +4,9 @@
 package model
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -54,7 +57,7 @@ type trackBranchCommand struct {
 	// numUnits describes the number of units to track. A strategy will be
 	// picked to track the number of units if there are more than the number
 	// requested.
-	numUnits int
+	numUnits autoIntValue
 }
 
 // TrackBranchCommandAPI describes API methods required
@@ -83,7 +86,7 @@ func (c *trackBranchCommand) Info() *cmd.Info {
 // SetFlags implements part of the cmd.Command interface.
 func (c *trackBranchCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.IntVar(&c.numUnits, "n", 0, "The number of units to track")
+	f.Var(&c.numUnits, "n", "The number of units to track")
 }
 
 // Init implements part of the cmd.Command interface.
@@ -91,9 +94,20 @@ func (c *trackBranchCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errors.Errorf("expected a branch name plus unit and/or application names(s)")
 	}
-	if c.numUnits < 0 {
-		return errors.Errorf("expected a valid number of units to track")
+	// If the operator suggested that they wanted to track -n 0, or do it via
+	// automated code, then that will attempt to track all units, which is
+	// probably _not_ what they envisaged.
+	// So here we trap the potential error and state that if the operator passes
+	// 0, we report an error and if they pass less than 0, we can assume they
+	// mean all units.
+	var flagNumUnits int
+	if c.numUnits.v != nil {
+		flagNumUnits = *c.numUnits.v
+		if flagNumUnits <= 0 {
+			return errors.Errorf("expected a valid number of units to track")
+		}
 	}
+	c.numUnits.v = &flagNumUnits
 
 	var numUnits int
 	var numApplications int
@@ -118,7 +132,7 @@ func (c *trackBranchCommand) Init(args []string) error {
 	// know how to topographically distribute between all the applications and
 	// units, especially if an error occurs whilst assigning the units.
 	// To prevent that issue happening, guard against it.
-	if c.numUnits > 0 {
+	if *c.numUnits.v > 0 {
 		if numApplications+numUnits > 1 {
 			return errors.Errorf("-n flag not allowed when specifying multiple units and/or applications")
 		}
@@ -167,5 +181,36 @@ func (c *trackBranchCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("expected unit and/or application names(s)")
 	}
 
-	return errors.Trace(client.TrackBranch(c.branchName, c.entities, c.numUnits))
+	return errors.Trace(client.TrackBranch(c.branchName, c.entities, *c.numUnits.v))
+}
+
+// autoIntValue allows the value of nil to mean something when attempting
+// to inspect a flag. The following just ensures that the default value is nil
+// and any new value once set valid for validation.
+type autoIntValue struct {
+	v *int
+}
+
+func (i *autoIntValue) Set(s string) error {
+	v, err := strconv.ParseInt(s, 0, 64)
+	if err != nil {
+		return err
+	}
+	num := int(v)
+	i.v = &num
+	return nil
+}
+
+func (i *autoIntValue) Get() interface{} {
+	if i.v != nil {
+		return *i.v
+	}
+	return i.v // nil
+}
+
+func (i *autoIntValue) String() string {
+	if i.v == nil {
+		return "<auto>"
+	}
+	return fmt.Sprintf("%v", *i.v)
 }

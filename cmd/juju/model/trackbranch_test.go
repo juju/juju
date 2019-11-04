@@ -99,6 +99,17 @@ func (s *trackBranchSuite) TestRunCommandNumUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *trackBranchSuite) TestRunCommandNumUnitsWithInvalidNumber(c *gc.C) {
+	mockController, api := setUpAdvanceMocksWithoutAPI(c)
+	defer mockController.Finish()
+
+	_, err := s.runCommand(c, api, s.branchName, "-n", "0", "redis")
+	c.Assert(err, gc.ErrorMatches, "expected a valid number of units to track")
+
+	_, err = s.runCommand(c, api, s.branchName, "-n", "-1", "redis")
+	c.Assert(err, gc.ErrorMatches, "expected a valid number of units to track")
+}
+
 func (s *trackBranchSuite) TestRunCommandFail(c *gc.C) {
 	ctrl, api := setUpAdvanceMocks(c)
 	defer ctrl.Finish()
