@@ -37,30 +37,36 @@ func (*ConfigSuite) TestDefaultConfig(c *gc.C) {
 }
 
 func (*ConfigSuite) TestConfigValuesSpecified(c *gc.C) {
-	cfg, err := bootstrap.NewConfig(map[string]interface{}{
-		"admin-secret":              "sekrit",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            testing.CAKey,
-		"bootstrap-timeout":         1,
-		"bootstrap-retry-delay":     2,
-		"bootstrap-addresses-delay": 3,
-		"controller-service-type":   "external",
-		"controller-external-name":  "externalName",
-		"controller-external-ips":   []string{"10.0.0.1", "10.0.0.2"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
+	for _, serviceType := range []string{"external", "loadbalancer"} {
+		externalIps := []string{"10.0.0.1", "10.0.0.2"}
+		if serviceType == "loadbalancer" {
+			externalIps = externalIps[:1]
+		}
+		cfg, err := bootstrap.NewConfig(map[string]interface{}{
+			"admin-secret":              "sekrit",
+			"ca-cert":                   testing.CACert,
+			"ca-private-key":            testing.CAKey,
+			"bootstrap-timeout":         1,
+			"bootstrap-retry-delay":     2,
+			"bootstrap-addresses-delay": 3,
+			"controller-service-type":   serviceType,
+			"controller-external-name":  "externalName",
+			"controller-external-ips":   externalIps,
+		})
+		c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(cfg, jc.DeepEquals, bootstrap.Config{
-		AdminSecret:             "sekrit",
-		CACert:                  testing.CACert,
-		CAPrivateKey:            testing.CAKey,
-		BootstrapTimeout:        time.Second * 1,
-		BootstrapRetryDelay:     time.Second * 2,
-		BootstrapAddressesDelay: time.Second * 3,
-		ControllerServiceType:   "external",
-		ControllerExternalName:  "externalName",
-		ControllerExternalIPs:   []string{"10.0.0.1", "10.0.0.2"},
-	})
+		c.Assert(cfg, jc.DeepEquals, bootstrap.Config{
+			AdminSecret:             "sekrit",
+			CACert:                  testing.CACert,
+			CAPrivateKey:            testing.CAKey,
+			BootstrapTimeout:        time.Second * 1,
+			BootstrapRetryDelay:     time.Second * 2,
+			BootstrapAddressesDelay: time.Second * 3,
+			ControllerServiceType:   serviceType,
+			ControllerExternalName:  "externalName",
+			ControllerExternalIPs:   externalIps,
+		})
+	}
 }
 
 func (s *ConfigSuite) addFiles(c *gc.C, files ...gitjujutesting.TestFile) {
@@ -174,7 +180,13 @@ func (*ConfigSuite) TestValidateBootstrapAddressesDelay(c *gc.C) {
 func (*ConfigSuite) TestValidateExternalIpsAndServiceType(c *gc.C) {
 	cfg := validConfig()
 	cfg.ControllerServiceType = "cluster"
-	c.Assert(cfg.Validate(), gc.ErrorMatches, `external IPs require a service type of "external"`)
+	c.Assert(cfg.Validate(), gc.ErrorMatches, `external IPs require a service type of "external" or "loadbalancer"`)
+}
+
+func (*ConfigSuite) TestValidateExternalIpsAndLoadBalancer(c *gc.C) {
+	cfg := validConfig()
+	cfg.ControllerServiceType = "loadbalancer"
+	c.Assert(cfg.Validate(), gc.ErrorMatches, `only 1 external IP is allowed with service type "loadbalancer"`)
 }
 
 func validConfig() bootstrap.Config {
