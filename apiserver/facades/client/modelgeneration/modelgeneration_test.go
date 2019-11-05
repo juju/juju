@@ -122,7 +122,7 @@ func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
 		NumUnits: 1,
 	}
 	result, err := s.api.TrackBranch(arg)
-	c.Assert(err, gc.ErrorMatches, "num of units allowed when specifying multiple entities")
+	c.Assert(err, gc.ErrorMatches, "number of units and unit IDs can not be specified at the same time")
 	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult(nil))
 }
 
