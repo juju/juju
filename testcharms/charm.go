@@ -8,6 +8,7 @@ package testcharms
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"github.com/juju/utils/fs"
 	"io"
 	"io/ioutil"
@@ -34,22 +35,22 @@ const localCharmRepo = "charm-repo"
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo(localCharmRepo, defaultSeries)
 
-// TempRepo provides access to the a tmp test charm repository. It copies the content from the charm-repo to the given path.
-// With this we can make sure that we use the proper level of isolation. In this case a charm repo which is not under
+// TmpRepo provides access to the a tmp repo repository consisting of one charm. Copied from the
+// repository under juju/juju
+// With this we can make sure that we use the proper level of isolation. In this case the charm repo is not under
 // Juju git versioning.
-// fs.Copy forces to use a path it cannot overwrite existing ones.
-// TODO: problem -> defaultseries is used thus error path
-// SOLUTIONS: own written, copy whole folder. But this would happen each tests...
-func TempRepo(c *gc.C, dst string) *testing.Repo {
+func TmpRepo(c *gc.C) *testing.Repo {
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
 		panic("cannot get caller")
 	}
+	dst := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
+
+	// With this we ensure only to copy the charm we need
 	src := filepath.Join(filepath.Dir(file), localCharmRepo, defaultSeries)
 	err := fs.Copy(src, dst)
 	c.Assert(err, jc.ErrorIsNil)
-	newRepo := testing.NewRepoFromFullPath(dst, defaultSeries)
-	return newRepo
+	return testing.NewRepoFromFullPath(dst, "")
 }
 
 // RepoForSeries returns a new charm repository for the specified series.

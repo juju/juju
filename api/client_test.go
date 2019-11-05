@@ -14,7 +14,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -419,7 +418,8 @@ func (s *clientSuite) TestOpenURIError(c *gc.C) {
 
 func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 	client := s.APIState.Client()
-	curl, ch := addLocalCharm(c, client, "dummy", false)
+	curl, ch, repoPath := addLocalCharm(c, client, "dummy", false)
+	defer os.Remove(repoPath)
 	c.Logf("added local charm as %v", curl)
 	expected, err := ioutil.ReadFile(ch.Path)
 	c.Assert(err, jc.ErrorIsNil)
@@ -435,7 +435,8 @@ func (s *clientSuite) TestOpenCharmFound(c *gc.C) {
 
 func (s *clientSuite) TestOpenCharmFoundWithForceStillSucceeds(c *gc.C) {
 	client := s.APIState.Client()
-	curl, ch := addLocalCharm(c, client, "dummy", true)
+	curl, ch, repoPath := addLocalCharm(c, client, "dummy", true)
+	defer os.Remove(repoPath)
 	expected, err := ioutil.ReadFile(ch.Path)
 	c.Logf("force added local charm as %v", curl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -458,13 +459,13 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `.*cannot get charm from state: charm "cs:quantal/spam-3" not found`)
 }
 
-func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive) {
-	path := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
-	charmArchive := testcharms.TempRepo(c, path).CharmArchive(path, name)
+func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive, string) {
+	repo := testcharms.TmpRepo(c)
+	charmArchive := repo.CharmArchive(repo.Path(), name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
 	_, err := client.AddLocalCharm(curl, charmArchive, force)
 	c.Assert(err, jc.ErrorIsNil)
-	return curl, charmArchive
+	return curl, charmArchive, repo.Path()
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
