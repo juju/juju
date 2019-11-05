@@ -131,15 +131,6 @@ const (
 	// session. If the user needs more information, perhaps debug-log isn't the right source.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
-	// TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
-
-	// MaxLogsAge is the maximum age for log entries, eg "72h"
-	MaxLogsAge = "max-logs-age"
-
-	// MaxLogsSize is the maximum size the log collection can grow to
-	// before it is pruned, eg "4M"
-	MaxLogsSize = "max-logs-size"
-
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
 	// controller on behalf of workers running for a model.
 	ModelLogfileMaxSize = "model-logfile-max-size"
@@ -217,15 +208,6 @@ const (
 	// can run before being terminated by the API server.
 	DefaultMaxDebugLogDuration = 24 * time.Hour
 
-	// TODO(thumper): remove DefaultMaxLogsAgeDays and DefaultMaxLogCollectionMB in 2.7 branch.
-
-	// DefaultMaxLogsAgeDays is the maximum age in days of log entries.
-	DefaultMaxLogsAgeDays = 3
-
-	// DefaultMaxLogCollectionMB is the maximum size the log collection can
-	// grow to before being pruned.
-	DefaultMaxLogCollectionMB = 4 * 1024 // 4 GB
-
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
 
@@ -299,9 +281,6 @@ var (
 		StatePort,
 		MongoMemoryProfile,
 		MaxDebugLogDuration,
-		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
-		MaxLogsSize,
-		MaxLogsAge,
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
@@ -337,9 +316,6 @@ var (
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
-		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
-		MaxLogsSize,
-		MaxLogsAge,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
 		ModelLogsSize,
@@ -766,18 +742,6 @@ func Validate(c Config) error {
 			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
 		}
 	}
-	// TODO(thumper): remove MaxLogsAge and MaxLogsSize validation in 2.7 branch.
-	if v, ok := c[MaxLogsAge].(string); ok {
-		if _, err := time.ParseDuration(v); err != nil {
-			return errors.Annotate(err, "invalid logs prune interval in configuration")
-		}
-	}
-
-	if v, ok := c[MaxLogsSize].(string); ok {
-		if _, err := utils.ParseSize(v); err != nil {
-			return errors.Annotate(err, "invalid max logs size in configuration")
-		}
-	}
 
 	if v, ok := c[ModelLogsSize].(string); ok {
 		mb, err := utils.ParseSize(v)
@@ -966,8 +930,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
 	MaxDebugLogDuration:     schema.TimeDuration(),
-	MaxLogsAge:              schema.String(),
-	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
 	MaxPruneTxnBatchSize:    schema.ForceInt(),
 	MaxPruneTxnPasses:       schema.ForceInt(),
@@ -1001,8 +963,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AllowModelAccessKey:     schema.Omit,
 	MongoMemoryProfile:      DefaultMongoMemoryProfile,
 	MaxDebugLogDuration:     DefaultMaxDebugLogDuration,
-	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
-	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
@@ -1099,14 +1059,6 @@ they don't have any access rights to the controller itself`,
 	MaxDebugLogDuration: {
 		Type:        environschema.Tstring,
 		Description: `The maximum amout of time a debug-log session is allowed to run`,
-	},
-	MaxLogsAge: {
-		Type:        environschema.Tstring,
-		Description: `The maximum age for log entries`,
-	},
-	MaxLogsSize: {
-		Type:        environschema.Tstring,
-		Description: `The maximum size the log collection can grow to before it is pruned`,
 	},
 	MaxTxnLogSize: {
 		Type:        environschema.Tstring,

@@ -90,6 +90,13 @@ func stateStepsFor27() []Step {
 				return context.State().EnsureDefaultSpaceSetting()
 			},
 		},
+		&upgradeStep{
+			description: "remove controller config for max-logs-age and max-logs-size if set",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().RemoveControllerConfigMaxLogAgeAndSize()
+			},
+		},
 	}
 }
 

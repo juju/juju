@@ -333,16 +333,10 @@ func (s *ConfigSuite) TestAPIPortDefaults(c *gc.C) {
 func (s *ConfigSuite) TestLogConfigDefaults(c *gc.C) {
 	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, nil)
 	c.Assert(err, jc.ErrorIsNil)
-	// TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
-	c.Assert(cfg["max-logs-age"], gc.Equals, "72h")
-	c.Assert(cfg["max-logs-size"], gc.Equals, "4096M")
 	c.Assert(cfg.ModelLogsSizeMB(), gc.Equals, 20)
 }
 
 func (s *ConfigSuite) TestLogConfigValues(c *gc.C) {
-	// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
-	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.MaxLogsAge), jc.IsTrue)
-	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.MaxLogsSize), jc.IsTrue)
 	c.Assert(controller.AllowedUpdateConfigAttributes.Contains(controller.ModelLogsSize), jc.IsTrue)
 
 	cfg, err := controller.NewConfig(
