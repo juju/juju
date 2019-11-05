@@ -7,12 +7,12 @@ test_machine() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test_machine.txt"
+    file="${TEST_DIR}/test-machine.txt"
 
-    bootstrap "test_machine" "${file}"
+    bootstrap "test-machine" "${file}"
 
     # Test that need to be run are added here!
     test_logs
 
-    destroy_controller "test_machine"
+    destroy_controller "test-machine"
 }
