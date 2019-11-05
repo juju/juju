@@ -75,7 +75,7 @@ var (
 	_ environs.ProviderSchema       = (*EnvironProvider)(nil)
 )
 
-var providerInstance *EnvironProvider = &EnvironProvider{
+var providerInstance = &EnvironProvider{
 	ProviderCredentials: OpenstackCredentials{},
 	Configurator:        &defaultConfigurator{},
 	FirewallerFactory:   &firewallerFactory{},
