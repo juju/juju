@@ -161,12 +161,6 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 			}
 			for _, cloud := range controllerClouds {
 				cloudDetails := makeCloudDetails(c.Store, cloud)
-				if !c.all {
-					if cloudDetails.CredentialCount == 0 {
-						c.showAllMessage = true
-						continue
-					}
-				}
 				details.remote[cloud.Name] = cloudDetails
 			}
 			return nil
