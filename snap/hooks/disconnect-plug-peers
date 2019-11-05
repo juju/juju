@@ -1,0 +1,7 @@
+#!/bin/sh
+peer="$(snapctl get --slot :peers name)"
+(
+    echo "hook $0 $@"
+    echo "disconnected $peer"
+) >> $SNAP_COMMON/hook.log
+rm -f "$SNAP_COMMON/microk8s/$peer" || true

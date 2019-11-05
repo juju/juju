@@ -1,0 +1,9 @@
+#!/bin/sh
+peer="$(snapctl get --slot :peers name)"
+(
+    echo "hook $0 $@"
+    echo "connected to peer $peer"
+    touch "$SNAP_COMMON/microk8s/$peer"
+    echo "connect-plug-peers hook is starting $SNAP_NAME.fetch-oci"
+    snapctl start $SNAP_NAME.fetch-oci
+) >> "$SNAP_COMMON/hook.log"
