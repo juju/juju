@@ -42,7 +42,7 @@ import shutil
 
 import snapcraft
 from snapcraft import common
-
+from snapcraft.internal import errors
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,16 @@ class DepPlugin(snapcraft.BasePlugin):
 
     def _run(self, cmd, **kwargs):
         env = self._build_environment()
-        return self.run(cmd, cwd=self._path_in_gopath, env=env, **kwargs)
+
+        totalRetries = 3
+        for i in range(0, totalRetries):
+            try:
+                return self.run(cmd, cwd=self._path_in_gopath, env=env, **kwargs)
+            except Exception as e:
+                logger.info("Exception attempting to run: {}".format(e))
+                if i < totalRetries-1:
+                    continue
+                raise
 
     def _build_environment(self):
         env = os.environ.copy()
