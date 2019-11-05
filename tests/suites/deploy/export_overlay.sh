@@ -35,6 +35,7 @@ EOT
     echo "${OUT}" | grep "raw: my-include"
 
     destroy_model "cmr-bundles-test-export-overlay"
+    destroy_model "test1"
 }
 
 test_cmr_bundles_export_overlay() {
