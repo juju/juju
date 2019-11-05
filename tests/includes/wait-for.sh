@@ -12,8 +12,8 @@ wait_for() {
     name=${1}
     query=${2}
 
-    # shellcheck disable=SC2046,SC2143
-    until [ $(juju status --format=json 2> /dev/null | jq "${query}" | grep "${name}") ]; do
+    # shellcheck disable=SC2143
+    until [ "$(juju status --format=json 2> /dev/null | jq "${query}" | grep "${name}")" ]; do
         juju status --relations
         sleep 5
     done

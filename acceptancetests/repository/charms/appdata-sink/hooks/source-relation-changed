@@ -19,5 +19,5 @@ if [[ -z "$token" ]]; then
   status-set waiting "Waiting for token" || true
 else
   juju-log -l INFO "Token is $token"
-  status-set active "Token is $(echo $token | cut -c 1-20)" || true
+  status-set active "Token is $(echo "$token" | cut -c 1-30)" || true
 fi
