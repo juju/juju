@@ -153,6 +153,12 @@ func (m *Model) Application(appName string) (Application, error) {
 	return app.copy(), nil
 }
 
+// Metrics returns the metrics of the model
+func (m *Model) Metrics() *ControllerGauges {
+	defer m.doLocked()()
+	return m.metrics
+}
+
 // Units returns all units in the model.
 func (m *Model) Units() map[string]Unit {
 	m.mu.Lock()
