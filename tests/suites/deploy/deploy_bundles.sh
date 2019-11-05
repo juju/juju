@@ -27,12 +27,12 @@ run_deploy_cmr_bundle() {
 
     juju switch other
 
-    bundle=./suites/deploy/bundles/cmr_bundles_test_deploy.yaml
+    bundle=./tests/suites/deploy/bundles/cmr_bundles_test_deploy.yaml
     sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
     juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
     destroy_model "test-cmr-bundles-deploy"
-    destroy_mode "other"
+    destroy_model "other"
 }
 
 run_deploy_exported_bundle() {
@@ -42,13 +42,13 @@ run_deploy_exported_bundle() {
 
     ensure "test-export-bundles-deploy" "${file}"
 
-    bundle=./suites/deploy/bundles/telegraf-bundle.yaml
+    bundle=./tests/suites/deploy/bundles/telegraf-bundle.yaml
     juju deploy ${bundle}
 
     # no need to wait for the bundle to finish deploying to
     # check the export.
-    juju export-bundle --filename ${TEST_DIR}/exported-bundle.yaml
-    diff ${bundle} ${TEST_DIR}/exported-bundle.yaml | wc -l | grep -q "0"
+    juju export-bundle --filename "${TEST_DIR}/exported-bundle.yaml"
+    diff ${bundle} "${TEST_DIR}/exported-bundle.yaml"
 
     destroy_model test-export-bundles-deploy
 }
