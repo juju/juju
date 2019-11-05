@@ -27,11 +27,12 @@ run_deploy_cmr_bundle() {
 
     juju switch other
 
-    bundle=./tests/suites/deploy/bundles/cmr_bundles_test_deploy.yaml
+    bundle=./suites/deploy/bundles/cmr_bundles_test_deploy.yaml
     sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
     juju deploy "${TEST_DIR}/cmr_bundles_test_deploy.yaml"
 
     destroy_model "test-cmr-bundles-deploy"
+    destroy_mode "other"
 }
 
 run_deploy_exported_bundle() {
