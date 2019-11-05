@@ -50,7 +50,7 @@ type CharmInfo struct {
 // CharmInfo returns information about the requested charm.
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmURL{URL: charmURL}
-	var info params.CharmInfo
+	var info params.Charm
 	if err := c.facade.FacadeCall("CharmInfo", args, &info); err != nil {
 		return nil, errors.Trace(err)
 	}

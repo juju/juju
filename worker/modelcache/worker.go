@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
@@ -21,13 +22,12 @@ import (
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // BackingWatcher describes watcher methods that supply deltas from state to
 // this worker. In-theatre it is satisfied by a state.Multiwatcher.
 type BackingWatcher interface {
-	Next() ([]multiwatcher.Delta, error)
+	Next() ([]params.Delta, error)
 	Stop() error
 }
 
@@ -175,7 +175,7 @@ func (c *cacheWorker) loop() error {
 	defer c.config.PrometheusRegisterer.Unregister(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(collector)
 
-	watcherChanges := make(chan []multiwatcher.Delta)
+	watcherChanges := make(chan []params.Delta)
 	// This worker needs to be robust with respect to the multiwatcher errors.
 	// If we get an unexpected error we should get a new allWatcher.
 	// We don't want a weird error in the multiwatcher taking down the apiserver,
@@ -263,7 +263,7 @@ func (c *cacheWorker) loop() error {
 	}
 }
 
-func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta) error {
+func (c *cacheWorker) processWatcher(watcherChanges chan<- []params.Delta) error {
 	for {
 		deltas, err := c.watcher.Next()
 		if err != nil {
@@ -311,7 +311,7 @@ func (c *cacheWorker) handleWatcherErr(err error) {
 	}
 }
 
-func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translate(d params.Delta) interface{} {
 	id := d.Entity.EntityId()
 	switch id.Kind {
 	case "model":
@@ -333,7 +333,7 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translateModel(d params.Delta) interface{} {
 	e := d.Entity
 
 	if d.Removed {
@@ -342,7 +342,7 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.ModelInfo)
+	value, ok := e.(*params.ModelUpdate)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -359,7 +359,7 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translateApplication(d params.Delta) interface{} {
 	e := d.Entity
 	id := e.EntityId()
 
@@ -370,7 +370,7 @@ func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.ApplicationInfo)
+	value, ok := e.(*params.ApplicationInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -391,7 +391,7 @@ func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translateMachine(d params.Delta) interface{} {
 	e := d.Entity
 	id := e.EntityId()
 
@@ -402,7 +402,7 @@ func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.MachineInfo)
+	value, ok := e.(*params.MachineInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -427,7 +427,7 @@ func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translateUnit(d params.Delta) interface{} {
 	e := d.Entity
 	id := e.EntityId()
 
@@ -438,7 +438,7 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.UnitInfo)
+	value, ok := e.(*params.UnitInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -463,7 +463,7 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateCharm(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translateCharm(d params.Delta) interface{} {
 	e := d.Entity
 	id := e.EntityId()
 
@@ -474,7 +474,7 @@ func (c *cacheWorker) translateCharm(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.CharmInfo)
+	value, ok := e.(*params.CharmInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -488,7 +488,7 @@ func (c *cacheWorker) translateCharm(d multiwatcher.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
+func (c *cacheWorker) translateBranch(d params.Delta) interface{} {
 	e := d.Entity
 	id := e.EntityId()
 
@@ -499,7 +499,7 @@ func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.GenerationInfo)
+	value, ok := e.(*params.GenerationInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -540,7 +540,7 @@ func (c *cacheWorker) Wait() error {
 	return c.catacomb.Wait()
 }
 
-func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
+func coreStatus(info params.StatusInfo) status.StatusInfo {
 	return status.StatusInfo{
 		Status:  info.Current,
 		Message: info.Message,
@@ -549,7 +549,7 @@ func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
 	}
 }
 
-func networkPorts(delta []multiwatcher.Port) []network.Port {
+func networkPorts(delta []params.Port) []network.Port {
 	ports := make([]network.Port, len(delta))
 	for i, d := range delta {
 		ports[i] = network.Port{
@@ -560,7 +560,7 @@ func networkPorts(delta []multiwatcher.Port) []network.Port {
 	return ports
 }
 
-func networkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
+func networkPortRanges(delta []params.PortRange) []network.PortRange {
 	ports := make([]network.PortRange, len(delta))
 	for i, d := range delta {
 		ports[i] = network.PortRange{
@@ -572,7 +572,7 @@ func networkPortRanges(delta []multiwatcher.PortRange) []network.PortRange {
 	return ports
 }
 
-func providerAddresses(delta []multiwatcher.Address) network.ProviderAddresses {
+func providerAddresses(delta []params.Address) network.ProviderAddresses {
 	addresses := make(network.ProviderAddresses, len(delta))
 	for i, d := range delta {
 		addresses[i] = network.ProviderAddress{
@@ -582,13 +582,13 @@ func providerAddresses(delta []multiwatcher.Address) network.ProviderAddresses {
 				Scope: network.Scope(d.Scope),
 			},
 			SpaceName:       network.SpaceName(d.SpaceName),
-			ProviderSpaceID: network.Id(d.SpaceProviderId),
+			ProviderSpaceID: network.Id(d.ProviderSpaceID),
 		}
 	}
 	return addresses
 }
 
-func coreLXDProfile(delta *multiwatcher.Profile) lxdprofile.Profile {
+func coreLXDProfile(delta *params.Profile) lxdprofile.Profile {
 	if delta == nil {
 		return lxdprofile.Profile{}
 	}
@@ -599,7 +599,7 @@ func coreLXDProfile(delta *multiwatcher.Profile) lxdprofile.Profile {
 	}
 }
 
-func coreItemChanges(delta map[string][]multiwatcher.ItemChange) map[string]settings.ItemChanges {
+func coreItemChanges(delta map[string][]params.ItemChange) map[string]settings.ItemChanges {
 	if delta == nil {
 		return nil
 	}

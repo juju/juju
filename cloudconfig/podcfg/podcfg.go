@@ -18,11 +18,11 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.cloudconfig.podcfg")
@@ -376,7 +376,7 @@ func FinishControllerPodConfig(pcfg *ControllerPodConfig, cfg *config.Config) (e
 
 // PodLabels returns the minimum set of tags that should be set on a
 // pod, if the provider supports them.
-func PodLabels(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []multiwatcher.MachineJob) map[string]string {
+func PodLabels(modelUUID, controllerUUID string, tagger tags.ResourceTagger, jobs []model.MachineJob) map[string]string {
 	podLabels := tags.ResourceTags(
 		names.NewModelTag(modelUUID),
 		names.NewControllerTag(controllerUUID),

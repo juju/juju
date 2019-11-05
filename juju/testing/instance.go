@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -213,7 +213,7 @@ func FillInStartInstanceParams(env environs.Environ, machineId string, isControl
 				Tag:      names.NewMachineTag(machineId),
 			},
 		}
-		instanceConfig.Jobs = []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
+		instanceConfig.Jobs = []model.MachineJob{model.JobHostUnits, model.JobManageModel}
 	}
 	cfg := env.Config()
 	instanceConfig.Tags = instancecfg.InstanceTags(env.Config().UUID(), params.ControllerUUID, cfg, nil)

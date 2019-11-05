@@ -49,9 +49,9 @@ func (s *charmsMockSuite) TestCharmInfo(c *gc.C) {
 
 	url := "local:quantal/dummy-1"
 	args := params.CharmURL{URL: url}
-	info := new(params.CharmInfo)
+	info := new(params.Charm)
 
-	params := params.CharmInfo{
+	params := params.Charm{
 		Revision: 1,
 		URL:      url,
 		Config: map[string]params.CharmOption{

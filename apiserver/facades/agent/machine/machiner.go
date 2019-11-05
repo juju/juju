@@ -13,8 +13,8 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.machine")
@@ -131,7 +131,7 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 			continue
 		}
 		machineJobs := machine.Jobs()
-		jobs := make([]multiwatcher.MachineJob, len(machineJobs))
+		jobs := make([]model.MachineJob, len(machineJobs))
 		for i, job := range machineJobs {
 			jobs[i] = job.ToParams()
 		}

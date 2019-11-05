@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/loggo"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -873,7 +873,7 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleWatcherTimeout(c *gc.C) {
 	ch := make(chan struct{})
 	defer close(ch)
 	watcher := mockAllWatcher{
-		next: func() []multiwatcher.Delta {
+		next: func() []params.Delta {
 			<-ch
 			return nil
 		},
@@ -1921,10 +1921,10 @@ func (s *BundleDeployCharmStoreSuite) TestDeployBundleExistingMachines(c *gc.C) 
 }
 
 type mockAllWatcher struct {
-	next func() []multiwatcher.Delta
+	next func() []params.Delta
 }
 
-func (w mockAllWatcher) Next() ([]multiwatcher.Delta, error) {
+func (w mockAllWatcher) Next() ([]params.Delta, error) {
 	return w.next(), nil
 }
 

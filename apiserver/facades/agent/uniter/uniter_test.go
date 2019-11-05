@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -1845,9 +1844,9 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 				Key:       rel.String(),
 				Life:      params.Life(rel.Life().String()),
 				Suspended: rel.Suspended(),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 				OtherApplication: s.mysql.Name(),
 			},
@@ -1884,9 +1883,9 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 				Key:       rel.String(),
 				Life:      params.Life(rel.Life().String()),
 				Suspended: rel.Suspended(),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 				OtherApplication: s.mysql.Name(),
 			},
@@ -3429,9 +3428,9 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 			},
 		},
@@ -3454,9 +3453,9 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 				Id:   rel.Id(),
 				Key:  rel.String(),
 				Life: params.Life(rel.Life().String()),
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
-					Relation:        multiwatcher.NewCharmRelation(wpEp.Relation),
+					Relation:        params.NewCharmRelation(wpEp.Relation),
 				},
 			},
 		},

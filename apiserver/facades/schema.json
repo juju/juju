@@ -2283,50 +2283,6 @@
                         "channel"
                     ]
                 },
-                "ApplicationInfo": {
-                    "type": "object",
-                    "properties": {
-                        "channel": {
-                            "type": "string"
-                        },
-                        "charm": {
-                            "type": "string"
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "endpoint-bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "exposed": {
-                            "type": "boolean"
-                        },
-                        "principal": {
-                            "type": "boolean"
-                        },
-                        "remote": {
-                            "type": "boolean"
-                        },
-                        "series": {
-                            "type": "string"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "principal",
-                        "exposed",
-                        "remote"
-                    ]
-                },
                 "ApplicationInfoResult": {
                     "type": "object",
                     "properties": {
@@ -2334,7 +2290,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "result": {
-                            "$ref": "#/definitions/ApplicationInfo"
+                            "$ref": "#/definitions/ApplicationResult"
                         }
                     },
                     "additionalProperties": false
@@ -2480,6 +2436,50 @@
                         "offer-url",
                         "offer-name",
                         "application-description"
+                    ]
+                },
+                "ApplicationResult": {
+                    "type": "object",
+                    "properties": {
+                        "channel": {
+                            "type": "string"
+                        },
+                        "charm": {
+                            "type": "string"
+                        },
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        },
+                        "endpoint-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "exposed": {
+                            "type": "boolean"
+                        },
+                        "principal": {
+                            "type": "boolean"
+                        },
+                        "remote": {
+                            "type": "boolean"
+                        },
+                        "series": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "principal",
+                        "exposed",
+                        "remote"
                     ]
                 },
                 "ApplicationSet": {
@@ -8208,7 +8208,7 @@
                             "$ref": "#/definitions/CharmURL"
                         },
                         "Result": {
-                            "$ref": "#/definitions/CharmInfo"
+                            "$ref": "#/definitions/Charm"
                         }
                     }
                 },
@@ -8236,6 +8236,43 @@
                 }
             },
             "definitions": {
+                "Charm": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "$ref": "#/definitions/CharmActions"
+                        },
+                        "config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/CharmOption"
+                                }
+                            }
+                        },
+                        "lxd-profile": {
+                            "$ref": "#/definitions/CharmLXDProfile"
+                        },
+                        "meta": {
+                            "$ref": "#/definitions/CharmMeta"
+                        },
+                        "metrics": {
+                            "$ref": "#/definitions/CharmMetrics"
+                        },
+                        "revision": {
+                            "type": "integer"
+                        },
+                        "url": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "revision",
+                        "url",
+                        "config"
+                    ]
+                },
                 "CharmActionSpec": {
                     "type": "object",
                     "properties": {
@@ -8298,43 +8335,6 @@
                         "Type",
                         "CountMin",
                         "CountMax"
-                    ]
-                },
-                "CharmInfo": {
-                    "type": "object",
-                    "properties": {
-                        "actions": {
-                            "$ref": "#/definitions/CharmActions"
-                        },
-                        "config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/CharmOption"
-                                }
-                            }
-                        },
-                        "lxd-profile": {
-                            "$ref": "#/definitions/CharmLXDProfile"
-                        },
-                        "meta": {
-                            "$ref": "#/definitions/CharmMeta"
-                        },
-                        "metrics": {
-                            "$ref": "#/definitions/CharmMetrics"
-                        },
-                        "revision": {
-                            "type": "integer"
-                        },
-                        "url": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "revision",
-                        "url",
-                        "config"
                     ]
                 },
                 "CharmLXDProfile": {

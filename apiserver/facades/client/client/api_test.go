@@ -19,12 +19,12 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -126,7 +126,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 			Series:     "quantal",
 			Containers: map[string]params.MachineStatus{},
-			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+			Jobs:       []model.MachineJob{model.JobManageModel},
 			HasVote:    false,
 			WantsVote:  true,
 		},
@@ -144,7 +144,7 @@ var scenarioStatus = &params.FullStatus{
 			},
 			Series:     "quantal",
 			Containers: map[string]params.MachineStatus{},
-			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:       []model.MachineJob{model.JobHostUnits},
 			HasVote:    false,
 			WantsVote:  false,
 		},
@@ -163,7 +163,7 @@ var scenarioStatus = &params.FullStatus{
 			Series:      "quantal",
 			Constraints: "mem=1024M",
 			Containers:  map[string]params.MachineStatus{},
-			Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:        []model.MachineJob{model.JobHostUnits},
 			HasVote:     false,
 			WantsVote:   false,
 		},

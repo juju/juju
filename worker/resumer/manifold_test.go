@@ -20,7 +20,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/testing"
 	resumer "github.com/juju/juju/worker/resumer"
 )
@@ -121,7 +121,7 @@ func (s *ManifoldSuite) TestAgentEntity_NotModelManager(c *gc.C) {
 
 	worker, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      &fakeAgent{},
-		"api-caller": newFakeAPICaller(multiwatcher.JobHostUnits),
+		"api-caller": newFakeAPICaller(model.JobHostUnits),
 	}))
 	workertest.CheckNilOrKill(c, worker)
 	c.Check(err, gc.Equals, dependency.ErrMissing)
@@ -135,14 +135,14 @@ func (s *ManifoldSuite) TestNewFacade_Missing(c *gc.C) {
 
 	worker, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      &fakeAgent{},
-		"api-caller": newFakeAPICaller(multiwatcher.JobManageModel),
+		"api-caller": newFakeAPICaller(model.JobManageModel),
 	}))
 	workertest.CheckNilOrKill(c, worker)
 	c.Check(err, gc.Equals, dependency.ErrUninstall)
 }
 
 func (s *ManifoldSuite) TestNewFacade_Error(c *gc.C) {
-	apiCaller := newFakeAPICaller(multiwatcher.JobManageModel)
+	apiCaller := newFakeAPICaller(model.JobManageModel)
 	manifold := resumer.Manifold(resumer.ManifoldConfig{
 		AgentName:     "agent",
 		APICallerName: "api-caller",
@@ -171,7 +171,7 @@ func (s *ManifoldSuite) TestNewWorker_Missing(c *gc.C) {
 
 	worker, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      &fakeAgent{},
-		"api-caller": newFakeAPICaller(multiwatcher.JobManageModel),
+		"api-caller": newFakeAPICaller(model.JobManageModel),
 	}))
 	workertest.CheckNilOrKill(c, worker)
 	c.Check(err, gc.Equals, dependency.ErrUninstall)
@@ -200,7 +200,7 @@ func (s *ManifoldSuite) TestNewWorker_Error(c *gc.C) {
 
 	worker, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      &fakeAgent{},
-		"api-caller": newFakeAPICaller(multiwatcher.JobManageModel),
+		"api-caller": newFakeAPICaller(model.JobManageModel),
 	}))
 	workertest.CheckNilOrKill(c, worker)
 	c.Check(err, gc.ErrorMatches, "blam")
@@ -221,7 +221,7 @@ func (s *ManifoldSuite) TestNewWorker_Success(c *gc.C) {
 
 	actual, err := manifold.Start(dt.StubContext(nil, map[string]interface{}{
 		"agent":      &fakeAgent{},
-		"api-caller": newFakeAPICaller(multiwatcher.JobManageModel),
+		"api-caller": newFakeAPICaller(model.JobManageModel),
 	}))
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(actual, gc.Equals, expect)
@@ -262,7 +262,7 @@ func (c *fakeConfig) Tag() names.Tag {
 	return names.NewMachineTag("123")
 }
 
-func newFakeAPICaller(jobs ...multiwatcher.MachineJob) *fakeAPICaller {
+func newFakeAPICaller(jobs ...model.MachineJob) *fakeAPICaller {
 	return &fakeAPICaller{jobs: jobs}
 }
 
@@ -272,7 +272,7 @@ func newFakeAPICaller(jobs ...multiwatcher.MachineJob) *fakeAPICaller {
 type fakeAPICaller struct {
 	base.APICaller
 	stub *testing.Stub
-	jobs []multiwatcher.MachineJob
+	jobs []model.MachineJob
 }
 
 // APICall is part of the base.APICaller interface.
@@ -291,7 +291,7 @@ func (f *fakeAPICaller) APICall(objType string, version int, id, request string,
 	}
 
 	if res, ok := response.(*params.AgentGetEntitiesResults); ok {
-		jobs := make([]multiwatcher.MachineJob, 0, len(f.jobs))
+		jobs := make([]model.MachineJob, 0, len(f.jobs))
 		jobs = append(jobs, f.jobs...)
 		res.Entities = []params.AgentGetEntitiesResult{
 			{Jobs: jobs},

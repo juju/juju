@@ -13,10 +13,10 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -143,15 +143,15 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info := &multiwatcher.ModelInfo{
+	info := &params.ModelUpdate{
 		ModelUUID:      e.UUID,
 		Name:           e.Name,
-		Life:           multiwatcher.Life(e.Life.String()),
+		Life:           params.Life(e.Life.String()),
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
 		IsController:   st.IsController(),
 		Config:         cfg.AllAttrs(),
-		SLA: multiwatcher.ModelSLAInfo{
+		SLA: params.ModelSLAInfo{
 			Level: e.SLA.Level.String(),
 			Owner: e.SLA.Owner,
 		},
@@ -173,7 +173,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 	if err != nil {
 		return errors.Trace(err)
 	}
-	info.Status = multiwatcher.StatusInfo{
+	info.Status = params.StatusInfo{
 		Current: modelStatus.Status,
 		Message: modelStatus.Message,
 		Data:    normaliseStatusData(modelStatus.Data),
@@ -184,7 +184,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 }
 
 func (e *backingModel) removed(store *multiwatcherStore, modelUUID, _ string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "model",
 		ModelUUID: modelUUID,
 		Id:        modelUUID,
@@ -198,7 +198,7 @@ func (e *backingModel) mongoId() string {
 
 type backingMachine machineDoc
 
-func (m *backingMachine) updateAgentVersion(entity Entity, info *multiwatcher.MachineInfo) error {
+func (m *backingMachine) updateAgentVersion(entity Entity, info *params.MachineInfo) error {
 	if agentTooler, ok := entity.(AgentTooler); ok {
 		t, err := agentTooler.AgentTools()
 		if err != nil && !errors.IsNotFound(err) {
@@ -211,7 +211,7 @@ func (m *backingMachine) updateAgentVersion(entity Entity, info *multiwatcher.Ma
 	return nil
 }
 
-func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher.MachineInfo) error {
+func (m *backingMachine) machineAndAgentStatus(entity Entity, info *params.MachineInfo) error {
 	machine, ok := entity.(status.StatusGetter)
 	if !ok {
 		return errors.Errorf("the given entity does not support Status %v", entity)
@@ -221,7 +221,7 @@ func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher
 	if err != nil {
 		return errors.Annotatef(err, "retrieving agent status for machine %q", m.Id)
 	}
-	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatus, nil)
+	info.AgentStatus = params.NewStatusInfo(agentStatus, nil)
 
 	inst, ok := machine.(status.InstanceStatusGetter)
 	if !ok {
@@ -231,7 +231,7 @@ func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher
 	if err != nil {
 		return errors.Annotatef(err, "retrieving instance status for machine %q", m.Id)
 	}
-	info.InstanceStatus = multiwatcher.NewStatusInfo(instanceStatusResult, nil)
+	info.InstanceStatus = params.NewStatusInfo(instanceStatusResult, nil)
 	return nil
 }
 
@@ -242,10 +242,10 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	}
 	wantsVote := err == nil && node.WantsVote()
 	hasVote := err == nil && node.HasVote()
-	info := &multiwatcher.MachineInfo{
+	info := &params.MachineInfo{
 		ModelUUID:                st.ModelUUID(),
 		Id:                       m.Id,
-		Life:                     multiwatcher.Life(m.Life.String()),
+		Life:                     params.Life(m.Life.String()),
 		Series:                   m.Series,
 		ContainerType:            m.ContainerType,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
@@ -256,7 +256,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	}
 	addresses := network.MergedAddresses(networkAddresses(m.MachineAddresses), networkAddresses(m.Addresses))
 	for _, addr := range addresses {
-		mAddr := multiwatcher.Address{
+		mAddr := params.Address{
 			Value: addr.Value,
 			Type:  string(addr.Type),
 			Scope: string(addr.Scope),
@@ -269,7 +269,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 				return errors.Annotatef(err, "retrieving space for ID %q", spaceID)
 			}
 			mAddr.SpaceName = space.Name()
-			mAddr.SpaceProviderId = string(space.ProviderId())
+			mAddr.ProviderSpaceID = string(space.ProviderId())
 		}
 
 		info.Addresses = append(info.Addresses, mAddr)
@@ -288,7 +288,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	} else {
 		// The entry already exists, so preserve the current status and
 		// instance data.
-		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
+		oldInfo := oldInfo.(*params.MachineInfo)
 		info.AgentStatus = oldInfo.AgentStatus
 		info.InstanceStatus = oldInfo.InstanceStatus
 		info.InstanceId = oldInfo.InstanceId
@@ -320,7 +320,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 }
 
 func (m *backingMachine) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "machine",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -345,7 +345,7 @@ func (i *backingInstanceData) updated(st *State, store *multiwatcherStore, id st
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *multiwatcher.MachineInfo:
+	case *params.MachineInfo:
 		newInfo := *info
 		instanceData, err := getInstanceData(st, newInfo.Id)
 		if err != nil {
@@ -412,7 +412,7 @@ func getUnitPortRangesAndPorts(st *State, unitName string) ([]network.PortRange,
 	return portRanges, compatiblePorts, nil
 }
 
-func (u *backingUnit) unitAndAgentStatus(unit *Unit, info *multiwatcher.UnitInfo) error {
+func (u *backingUnit) unitAndAgentStatus(unit *Unit, info *params.UnitInfo) error {
 	unitStatusResult, err := unit.Status()
 	if err != nil {
 		return errors.Trace(err)
@@ -422,12 +422,12 @@ func (u *backingUnit) unitAndAgentStatus(unit *Unit, info *multiwatcher.UnitInfo
 		return errors.Trace(err)
 	}
 	// Unit and workload status.
-	info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatusResult, nil)
-	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatusResult, nil)
+	info.WorkloadStatus = params.NewStatusInfo(unitStatusResult, nil)
+	info.AgentStatus = params.NewStatusInfo(agentStatusResult, nil)
 	return nil
 }
 
-func (u *backingUnit) updateAgentVersion(unit *Unit, info *multiwatcher.UnitInfo) error {
+func (u *backingUnit) updateAgentVersion(unit *Unit, info *params.UnitInfo) error {
 	t, err := unit.AgentTools()
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Annotatef(err, "retrieving agent tools for unit %q", u.Name)
@@ -439,12 +439,12 @@ func (u *backingUnit) updateAgentVersion(unit *Unit, info *multiwatcher.UnitInfo
 }
 
 func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) error {
-	info := &multiwatcher.UnitInfo{
+	info := &params.UnitInfo{
 		ModelUUID:   st.ModelUUID(),
 		Name:        u.Name,
 		Application: u.Application,
 		Series:      u.Series,
-		Life:        multiwatcher.Life(u.Life.String()),
+		Life:        params.Life(u.Life.String()),
 		MachineId:   u.MachineId,
 		Principal:   u.Principal,
 		Subordinate: u.Principal != "",
@@ -476,7 +476,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		info.Ports = toMultiwatcherPorts(compatiblePorts)
 	} else {
 		// The entry already exists, so preserve the current status and ports.
-		oldInfo := oldInfo.(*multiwatcher.UnitInfo)
+		oldInfo := oldInfo.(*params.UnitInfo)
 		// Unit and workload status.
 		info.AgentStatus = oldInfo.AgentStatus
 		info.WorkloadStatus = oldInfo.WorkloadStatus
@@ -516,7 +516,7 @@ func getUnitAddresses(u *Unit) (string, string, error) {
 }
 
 func (u *backingUnit) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "unit",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -534,12 +534,12 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 	if app.CharmURL == nil {
 		return errors.Errorf("charm url is nil")
 	}
-	info := &multiwatcher.ApplicationInfo{
+	info := &params.ApplicationInfo{
 		ModelUUID:   st.ModelUUID(),
 		Name:        app.Name,
 		Exposed:     app.Exposed,
 		CharmURL:    app.CharmURL.String(),
-		Life:        multiwatcher.Life(app.Life.String()),
+		Life:        params.Life(app.Life.String()),
 		MinUnits:    app.MinUnits,
 		Subordinate: app.Subordinate,
 	}
@@ -561,7 +561,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 			return errors.Annotatef(err, "reading application status for key %s", key)
 		}
 
-		info.Status = multiwatcher.StatusInfo{
+		info.Status = params.StatusInfo{
 			Current: applicationStatus.Status,
 			Message: applicationStatus.Message,
 			Data:    normaliseStatusData(applicationStatus.Data),
@@ -569,7 +569,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		}
 	} else {
 		// The entry already exists, so preserve the current status.
-		appInfo := oldInfo.(*multiwatcher.ApplicationInfo)
+		appInfo := oldInfo.(*params.ApplicationInfo)
 		info.Constraints = appInfo.Constraints
 		info.WorkloadVersion = appInfo.WorkloadVersion
 		if info.CharmURL == appInfo.CharmURL {
@@ -595,7 +595,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 }
 
 func (app *backingApplication) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "application",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -610,11 +610,11 @@ func (app *backingApplication) mongoId() string {
 type backingCharm charmDoc
 
 func (ch *backingCharm) updated(st *State, store *multiwatcherStore, id string) error {
-	info := &multiwatcher.CharmInfo{
+	info := &params.CharmInfo{
 		ModelUUID:    st.ModelUUID(),
 		CharmURL:     ch.URL.String(),
 		CharmVersion: ch.CharmVersion,
-		Life:         multiwatcher.Life(ch.Life.String()),
+		Life:         params.Life(ch.Life.String()),
 	}
 
 	if ch.LXDProfile != nil && !ch.LXDProfile.Empty() {
@@ -632,7 +632,7 @@ func (ch *backingCharm) updated(st *State, store *multiwatcherStore, id string) 
 }
 
 func (ch *backingCharm) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "charm",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -644,9 +644,9 @@ func (ch *backingCharm) mongoId() string {
 	return ch.DocID
 }
 
-func toMultiwatcherProfile(profile *charm.LXDProfile) *multiwatcher.Profile {
+func toMultiwatcherProfile(profile *charm.LXDProfile) *params.Profile {
 	unescapedProfile := unescapeLXDProfile(profile)
-	return &multiwatcher.Profile{
+	return &params.Profile{
 		Config:      unescapedProfile.Config,
 		Description: unescapedProfile.Description,
 		Devices:     unescapedProfile.Devices,
@@ -664,12 +664,12 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		// info in this (the offering) model.
 		return app.updateOfferInfo(st, store)
 	}
-	info := &multiwatcher.RemoteApplicationInfo{
+	info := &params.RemoteApplicationUpdate{
 		ModelUUID: st.ModelUUID(),
 		Name:      app.Name,
 		OfferUUID: app.OfferUUID,
 		OfferURL:  app.URL,
-		Life:      multiwatcher.Life(app.Life.String()),
+		Life:      params.Life(app.Life.String()),
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
@@ -680,7 +680,7 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		if err != nil {
 			return errors.Annotatef(err, "reading remote application status for key %s", key)
 		}
-		info.Status = multiwatcher.StatusInfo{
+		info.Status = params.StatusInfo{
 			Current: appStatus.Status,
 			Message: appStatus.Message,
 			Data:    normaliseStatusData(appStatus.Data),
@@ -690,7 +690,7 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 	} else {
 		logger.Debugf("use status from existing app")
 		switch t := oldInfo.(type) {
-		case *multiwatcher.RemoteApplicationInfo:
+		case *params.RemoteApplicationUpdate:
 			info.Status = t.Status
 		default:
 			logger.Debugf("unexpected type %t", t)
@@ -704,11 +704,11 @@ func (app *backingRemoteApplication) updateOfferInfo(st *State, store *multiwatc
 	// Remote Applications reference an offer using the offer UUID.
 	// Offers in the store use offer name as the id key, so we need
 	// to look through the store entities to find any matching offer.
-	var offerInfo *multiwatcher.ApplicationOfferInfo
+	var offerInfo *params.ApplicationOfferInfo
 	entities := store.All()
 	for _, e := range entities {
 		var ok bool
-		if offerInfo, ok = e.(*multiwatcher.ApplicationOfferInfo); ok {
+		if offerInfo, ok = e.(*params.ApplicationOfferInfo); ok {
 			if offerInfo.OfferUUID != app.OfferUUID {
 				offerInfo = nil
 				continue
@@ -737,7 +737,7 @@ func (app *backingRemoteApplication) removed(store *multiwatcherStore, modelUUID
 		// We log the error but don't prevent the remote app removal.
 		logger.Errorf("updating application offer info: %v", err)
 	}
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "remoteApplication",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -752,7 +752,7 @@ func (app *backingRemoteApplication) mongoId() string {
 type backingApplicationOffer applicationOfferDoc
 
 func (offer *backingApplicationOffer) updated(st *State, store *multiwatcherStore, id string) error {
-	info := &multiwatcher.ApplicationOfferInfo{
+	info := &params.ApplicationOfferInfo{
 		ModelUUID:       st.ModelUUID(),
 		OfferName:       offer.OfferName,
 		OfferUUID:       offer.OfferUUID,
@@ -766,7 +766,7 @@ func (offer *backingApplicationOffer) updated(st *State, store *multiwatcherStor
 	return nil
 }
 
-func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) error {
+func updateOfferInfo(st *State, offerInfo *params.ApplicationOfferInfo) error {
 	offers := NewApplicationOffers(st)
 	offer, err := offers.ApplicationOfferForUUID(offerInfo.OfferUUID)
 	if err != nil {
@@ -790,7 +790,7 @@ func updateOfferInfo(st *State, offerInfo *multiwatcher.ApplicationOfferInfo) er
 }
 
 func (offer *backingApplicationOffer) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "applicationOffer",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -809,7 +809,7 @@ func (a *backingAction) mongoId() string {
 }
 
 func (a *backingAction) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "action",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -818,7 +818,7 @@ func (a *backingAction) removed(store *multiwatcherStore, modelUUID, id string, 
 }
 
 func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) error {
-	info := &multiwatcher.ActionInfo{
+	info := &params.ActionInfo{
 		ModelUUID:  st.ModelUUID(),
 		Id:         id,
 		Receiver:   a.Receiver,
@@ -838,14 +838,14 @@ func (a *backingAction) updated(st *State, store *multiwatcherStore, id string) 
 type backingRelation relationDoc
 
 func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string) error {
-	eps := make([]multiwatcher.Endpoint, len(r.Endpoints))
+	eps := make([]params.Endpoint, len(r.Endpoints))
 	for i, ep := range r.Endpoints {
-		eps[i] = multiwatcher.Endpoint{
+		eps[i] = params.Endpoint{
 			ApplicationName: ep.ApplicationName,
-			Relation:        multiwatcher.NewCharmRelation(ep.Relation),
+			Relation:        params.NewCharmRelation(ep.Relation),
 		}
 	}
-	info := &multiwatcher.RelationInfo{
+	info := &params.RelationInfo{
 		ModelUUID: st.ModelUUID(),
 		Key:       r.Key,
 		Id:        r.Id,
@@ -856,7 +856,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcherStore, id string
 }
 
 func (r *backingRelation) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "relation",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -871,7 +871,7 @@ func (r *backingRelation) mongoId() string {
 type backingAnnotation annotatorDoc
 
 func (a *backingAnnotation) updated(st *State, store *multiwatcherStore, id string) error {
-	info := &multiwatcher.AnnotationInfo{
+	info := &params.AnnotationInfo{
 		ModelUUID:   st.ModelUUID(),
 		Tag:         a.Tag,
 		Annotations: a.Annotations,
@@ -885,7 +885,7 @@ func (a *backingAnnotation) removed(store *multiwatcherStore, modelUUID, id stri
 	if !ok {
 		return errors.Errorf("could not parse global key: %q", id)
 	}
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "annotation",
 		ModelUUID: modelUUID,
 		Id:        tag,
@@ -900,7 +900,7 @@ func (a *backingAnnotation) mongoId() string {
 type backingBlock blockDoc
 
 func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) error {
-	info := &multiwatcher.BlockInfo{
+	info := &params.BlockInfo{
 		ModelUUID: st.ModelUUID(),
 		Id:        id,
 		Tag:       a.Tag,
@@ -912,7 +912,7 @@ func (a *backingBlock) updated(st *State, store *multiwatcherStore, id string) e
 }
 
 func (a *backingBlock) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "block",
 		ModelUUID: modelUUID,
 		Id:        id,
@@ -926,8 +926,8 @@ func (a *backingBlock) mongoId() string {
 
 type backingStatus statusDoc
 
-func (s *backingStatus) toStatusInfo() multiwatcher.StatusInfo {
-	return multiwatcher.StatusInfo{
+func (s *backingStatus) toStatusInfo() params.StatusInfo {
+	return params.StatusInfo{
 		Current: s.Status,
 		Message: s.StatusInfo,
 		Data:    s.StatusData,
@@ -945,7 +945,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *multiwatcher.UnitInfo:
+	case *params.UnitInfo:
 		newInfo := *info
 		// Get the unit's current recorded status from state.
 		// It's needed to reset the unit status when a unit comes off error.
@@ -957,19 +957,19 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 			return err
 		}
 		info0 = &newInfo
-	case *multiwatcher.ModelInfo:
+	case *params.ModelUpdate:
 		newInfo := *info
 		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
-	case *multiwatcher.ApplicationInfo:
+	case *params.ApplicationInfo:
 		newInfo := *info
 		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
-	case *multiwatcher.RemoteApplicationInfo:
+	case *params.RemoteApplicationUpdate:
 		newInfo := *info
 		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
-	case *multiwatcher.MachineInfo:
+	case *params.MachineInfo:
 		newInfo := *info
 		// lets disambiguate between juju machine agent and provider instance statuses.
 		if strings.HasSuffix(id, "#instance") {
@@ -985,7 +985,7 @@ func (s *backingStatus) updated(st *State, store *multiwatcherStore, id string) 
 	return nil
 }
 
-func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus status.StatusInfo, newInfo *multiwatcher.UnitInfo) error {
+func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, id string, unitStatus status.StatusInfo, newInfo *params.UnitInfo) error {
 	// Unit or workload status - display the agent status or any error.
 	// NOTE: thumper 2016-06-27, this is truly horrible, and we are lying to our users.
 	// however, this is explicitly what has been asked for as much as we dislike it.
@@ -1037,8 +1037,8 @@ func (s *backingStatus) updatedUnitStatus(st *State, store *multiwatcherStore, i
 	if err != nil {
 		return errors.Trace(err)
 	}
-	newApplicationInfo := *applicationInfo.(*multiwatcher.ApplicationInfo)
-	newApplicationInfo.Status = multiwatcher.NewStatusInfo(status, nil)
+	newApplicationInfo := *applicationInfo.(*params.ApplicationInfo)
+	newApplicationInfo.Status = params.NewStatusInfo(status, nil)
 	workloadVersion, err := unit.WorkloadVersion()
 	if err != nil {
 		return errors.Annotatef(err, "cannot retrieve workload version for %q", unit.Name())
@@ -1071,14 +1071,14 @@ func (c *backingConstraints) updated(st *State, store *multiwatcherStore, id str
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
+	case *params.UnitInfo, *params.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
 		return nil
-	case *multiwatcher.ModelInfo:
+	case *params.ModelUpdate:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
-	case *multiwatcher.ApplicationInfo:
+	case *params.ApplicationInfo:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
@@ -1109,7 +1109,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *multiwatcher.ModelInfo:
+	case *params.ModelUpdate:
 		// We need to construct a model config so that coercion
 		// of raw settings values occurs.
 		cfg, err := config.New(config.NoDefaults, s.Settings)
@@ -1119,7 +1119,7 @@ func (s *backingSettings) updated(st *State, store *multiwatcherStore, id string
 		newInfo := *info
 		newInfo.Config = cfg.AllAttrs()
 		info0 = &newInfo
-	case *multiwatcher.ApplicationInfo:
+	case *params.ApplicationInfo:
 		// If we're seeing settings for the application with a different
 		// charm URL, we ignore them - we will fetch
 		// them again when the application charm changes.
@@ -1145,7 +1145,7 @@ func (s *backingSettings) removed(store *multiwatcherStore, modelUUID, id string
 		return nil
 	}
 	parent := store.Get(parentID)
-	if info, ok := parent.(*multiwatcher.ApplicationInfo); ok {
+	if info, ok := parent.(*params.ApplicationInfo); ok {
 		if info.CharmURL != url {
 			return nil
 		}
@@ -1164,7 +1164,7 @@ func (s *backingSettings) mongoId() string {
 // backingEntityIdForSettingsKey returns the entity id for the given
 // settings key. Any extra information in the key is returned in
 // extra.
-func backingEntityIdForSettingsKey(modelUUID, key string) (eid multiwatcher.EntityId, extra string, ok bool) {
+func backingEntityIdForSettingsKey(modelUUID, key string) (eid params.EntityId, extra string, ok bool) {
 	if !strings.HasPrefix(key, "a#") {
 		eid, ok = backingEntityIdForGlobalKey(modelUUID, key)
 		return
@@ -1172,9 +1172,9 @@ func backingEntityIdForSettingsKey(modelUUID, key string) (eid multiwatcher.Enti
 	key = key[2:]
 	i := strings.Index(key, "#")
 	if i == -1 {
-		return multiwatcher.EntityId{}, "", false
+		return params.EntityId{}, "", false
 	}
-	eid = (&multiwatcher.ApplicationInfo{
+	eid = (&params.ApplicationInfo{
 		ModelUUID: modelUUID,
 		Name:      key[0:i],
 	}).EntityId()
@@ -1195,7 +1195,7 @@ func (p *backingOpenedPorts) updated(st *State, store *multiwatcherStore, id str
 		// The parent info doesn't exist. This is unexpected because the port
 		// always refers to a machine. Anyway, ignore the ports for now.
 		return nil
-	case *multiwatcher.MachineInfo:
+	case *params.MachineInfo:
 		// Retrieve the units placed in the machine.
 		units, err := st.UnitsFor(info.Id)
 		if err != nil {
@@ -1224,7 +1224,7 @@ func (p *backingOpenedPorts) removed(store *multiwatcherStore, modelUUID, id str
 		// The parent info doesn't exist. This is unexpected because the port
 		// always refers to a machine. Anyway, ignore the ports for now.
 		return nil
-	case *multiwatcher.MachineInfo:
+	case *params.MachineInfo:
 		// Retrieve the units placed in the machine.
 		units, err := st.UnitsFor(info.Id)
 		if err != nil {
@@ -1249,10 +1249,10 @@ func (p *backingOpenedPorts) mongoId() string {
 	panic("cannot find mongo id from openedPorts document")
 }
 
-func toMultiwatcherPortRanges(portRanges []network.PortRange) []multiwatcher.PortRange {
-	result := make([]multiwatcher.PortRange, len(portRanges))
+func toMultiwatcherPortRanges(portRanges []network.PortRange) []params.PortRange {
+	result := make([]params.PortRange, len(portRanges))
 	for i, pr := range portRanges {
-		result[i] = multiwatcher.PortRange{
+		result[i] = params.PortRange{
 			FromPort: pr.FromPort,
 			ToPort:   pr.ToPort,
 			Protocol: pr.Protocol,
@@ -1261,10 +1261,10 @@ func toMultiwatcherPortRanges(portRanges []network.PortRange) []multiwatcher.Por
 	return result
 }
 
-func toMultiwatcherPorts(ports []network.Port) []multiwatcher.Port {
-	result := make([]multiwatcher.Port, len(ports))
+func toMultiwatcherPorts(ports []network.Port) []params.Port {
+	result := make([]params.Port, len(ports))
 	for i, p := range ports {
-		result[i] = multiwatcher.Port{
+		result[i] = params.Port{
 			Number:   p.Number,
 			Protocol: p.Protocol,
 		}
@@ -1284,7 +1284,7 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 		// The unit info doesn't exist. This is unlikely to happen, but ignore
 		// the status until a unitInfo is included in the store.
 		return nil
-	case *multiwatcher.UnitInfo:
+	case *params.UnitInfo:
 		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(st, oldInfo.Name)
 		if err != nil {
 			return errors.Trace(err)
@@ -1301,51 +1301,51 @@ func updateUnitPorts(st *State, store *multiwatcherStore, u *Unit) error {
 
 // backingEntityIdForOpenedPortsKey returns the entity id for the given
 // openedPorts key. Any extra information in the key is discarded.
-func backingEntityIdForOpenedPortsKey(modelUUID, key string) (multiwatcher.EntityId, bool) {
+func backingEntityIdForOpenedPortsKey(modelUUID, key string) (params.EntityId, bool) {
 	parts, err := extractPortsIDParts(key)
 	if err != nil {
 		logger.Debugf("cannot parse ports key %q: %v", key, err)
-		return multiwatcher.EntityId{}, false
+		return params.EntityId{}, false
 	}
 	return backingEntityIdForGlobalKey(modelUUID, machineGlobalKey(parts[1]))
 }
 
 // backingEntityIdForGlobalKey returns the entity id for the given global key.
 // It returns false if the key is not recognized.
-func backingEntityIdForGlobalKey(modelUUID, key string) (multiwatcher.EntityId, bool) {
+func backingEntityIdForGlobalKey(modelUUID, key string) (params.EntityId, bool) {
 	if key == modelGlobalKey {
-		return (&multiwatcher.ModelInfo{
+		return (&params.ModelUpdate{
 			ModelUUID: modelUUID,
 		}).EntityId(), true
 	} else if len(key) < 3 || key[1] != '#' {
-		return multiwatcher.EntityId{}, false
+		return params.EntityId{}, false
 	}
 	id := key[2:]
 	switch key[0] {
 	case 'm':
 		id = strings.TrimSuffix(id, "#instance")
-		return (&multiwatcher.MachineInfo{
+		return (&params.MachineInfo{
 			ModelUUID: modelUUID,
 			Id:        id,
 		}).EntityId(), true
 	case 'u':
 		id = strings.TrimSuffix(id, "#charm")
-		return (&multiwatcher.UnitInfo{
+		return (&params.UnitInfo{
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
 	case 'a':
-		return (&multiwatcher.ApplicationInfo{
+		return (&params.ApplicationInfo{
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
 	case 'c':
-		return (&multiwatcher.RemoteApplicationInfo{
+		return (&params.RemoteApplicationUpdate{
 			ModelUUID: modelUUID,
 			Name:      id,
 		}).EntityId(), true
 	default:
-		return multiwatcher.EntityId{}, false
+		return params.EntityId{}, false
 	}
 }
 
@@ -1354,13 +1354,13 @@ type backingGeneration generationDoc
 func (g *backingGeneration) updated(st *State, store *multiwatcherStore, id string) error {
 	// Convert the state representation of config deltas
 	// to the multiwatcher representation.
-	var cfg map[string][]multiwatcher.ItemChange
+	var cfg map[string][]params.ItemChange
 	if len(g.Config) > 0 {
-		cfg = make(map[string][]multiwatcher.ItemChange, len(g.Config))
+		cfg = make(map[string][]params.ItemChange, len(g.Config))
 		for app, deltas := range g.Config {
-			d := make([]multiwatcher.ItemChange, len(deltas))
+			d := make([]params.ItemChange, len(deltas))
 			for i, delta := range deltas {
-				d[i] = multiwatcher.ItemChange{
+				d[i] = params.ItemChange{
 					Type:     delta.Type,
 					Key:      delta.Key,
 					OldValue: delta.OldValue,
@@ -1379,7 +1379,7 @@ func (g *backingGeneration) updated(st *State, store *multiwatcherStore, id stri
 		assigned[k] = units
 	}
 
-	info := &multiwatcher.GenerationInfo{
+	info := &params.GenerationInfo{
 		ModelUUID:     st.ModelUUID(),
 		Id:            st.localID(id),
 		Name:          g.Name,
@@ -1397,7 +1397,7 @@ func (g *backingGeneration) updated(st *State, store *multiwatcherStore, id stri
 }
 
 func (g *backingGeneration) removed(store *multiwatcherStore, modelUUID, id string, _ *State) error {
-	store.Remove(multiwatcher.EntityId{
+	store.Remove(params.EntityId{
 		Kind:      "generation",
 		ModelUUID: modelUUID,
 		Id:        id,

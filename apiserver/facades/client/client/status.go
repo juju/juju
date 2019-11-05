@@ -20,10 +20,10 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 func agentStatusFromStatusInfo(s []status.StatusInfo, kind status.HistoryKind) []params.DetailedStatus {
@@ -1087,8 +1087,8 @@ func isSubordinate(ep *state.Endpoint, application *state.Application) bool {
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
-func paramsJobsFromJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
-	paramsJobs := make([]multiwatcher.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []state.MachineJob) []model.MachineJob {
+	paramsJobs := make([]model.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		paramsJobs[i] = machineJob.ToParams()
 	}

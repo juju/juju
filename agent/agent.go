@@ -25,10 +25,10 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.agent")
@@ -198,7 +198,7 @@ type Config interface {
 	SystemIdentityPath() string
 
 	// Jobs returns a list of MachineJobs that need to run.
-	Jobs() []multiwatcher.MachineJob
+	Jobs() []model.MachineJob
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
@@ -378,7 +378,7 @@ type configInternal struct {
 	nonce              string
 	controller         names.ControllerTag
 	model              names.ModelTag
-	jobs               []multiwatcher.MachineJob
+	jobs               []model.MachineJob
 	upgradedToVersion  version.Number
 	caCert             string
 	apiDetails         *apiDetails
@@ -395,7 +395,7 @@ type configInternal struct {
 // a new AgentConfig.
 type AgentConfigParams struct {
 	Paths              Paths
-	Jobs               []multiwatcher.MachineJob
+	Jobs               []model.MachineJob
 	UpgradedToVersion  version.Number
 	Tag                names.Tag
 	Password           string
@@ -552,7 +552,7 @@ func (c0 *configInternal) Clone() Config {
 	// Deep copy only fields which may be affected
 	// by ConfigSetter methods.
 	c1.apiDetails = c0.apiDetails.clone()
-	c1.jobs = append([]multiwatcher.MachineJob{}, c0.jobs...)
+	c1.jobs = append([]model.MachineJob{}, c0.jobs...)
 	c1.values = make(map[string]string, len(c0.values))
 	for key, val := range c0.values {
 		c1.values[key] = val
@@ -653,7 +653,7 @@ func (c *configInternal) SystemIdentityPath() string {
 	return filepath.Join(c.paths.DataDir, SystemIdentity)
 }
 
-func (c *configInternal) Jobs() []multiwatcher.MachineJob {
+func (c *configInternal) Jobs() []model.MachineJob {
 	return c.jobs
 }
 

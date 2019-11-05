@@ -2403,7 +2403,7 @@ func (api *APIBase) ApplicationsInfo(in params.Entities) (params.ApplicationInfo
 			continue
 		}
 
-		out[i].Result = &params.ApplicationInfo{
+		out[i].Result = &params.ApplicationResult{
 			Tag:              tag.String(),
 			Charm:            details.Charm,
 			Series:           details.Series,

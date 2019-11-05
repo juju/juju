@@ -127,7 +127,7 @@ func (c *showApplicationCommand) Run(ctx *cmd.Context) error {
 	}
 
 	var errs params.ErrorResults
-	var valid []params.ApplicationInfo
+	var valid []params.ApplicationResult
 	for _, result := range results {
 		if result.Error != nil {
 			errs.Results = append(errs.Results, params.ErrorResult{result.Error})
@@ -159,7 +159,7 @@ func (c *showApplicationCommand) getApplicationTags() ([]names.ApplicationTag, e
 
 // formatApplicationInfos takes a set of params.ApplicationInfo and
 // creates a mapping from storage ID application name to application info.
-func formatApplicationInfos(all []params.ApplicationInfo) (map[string]ApplicationInfo, error) {
+func formatApplicationInfos(all []params.ApplicationResult) (map[string]ApplicationInfo, error) {
 	if len(all) == 0 {
 		return nil, nil
 	}
@@ -186,7 +186,7 @@ type ApplicationInfo struct {
 	EndpointBindings map[string]string `yaml:"endpoint-bindings,omitempty" json:"endpoint-bindings,omitempty"`
 }
 
-func createApplicationInfo(details params.ApplicationInfo) (names.ApplicationTag, ApplicationInfo, error) {
+func createApplicationInfo(details params.ApplicationResult) (names.ApplicationTag, ApplicationInfo, error) {
 	tag, err := names.ParseApplicationTag(details.Tag)
 	if err != nil {
 		return names.ApplicationTag{}, ApplicationInfo{}, errors.Trace(err)

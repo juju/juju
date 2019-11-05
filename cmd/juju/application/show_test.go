@@ -138,9 +138,9 @@ func (s *ShowSuite) TestShowApiError(c *gc.C) {
 	})
 }
 
-func (s *ShowSuite) createTestApplicationInfo(name string, suffix string) *params.ApplicationInfo {
+func (s *ShowSuite) createTestApplicationInfo(name string, suffix string) *params.ApplicationResult {
 	app := fmt.Sprintf("%v%v", name, suffix)
-	return &params.ApplicationInfo{
+	return &params.ApplicationResult{
 		Tag:         fmt.Sprintf("application-%v", app),
 		Charm:       fmt.Sprintf("charm-%v", app),
 		Series:      "quantal",

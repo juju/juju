@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 )
@@ -48,9 +48,9 @@ const (
 )
 
 var (
-	jobNames = map[MachineJob]multiwatcher.MachineJob{
-		JobHostUnits:   multiwatcher.JobHostUnits,
-		JobManageModel: multiwatcher.JobManageModel,
+	jobNames = map[MachineJob]model.MachineJob{
+		JobHostUnits:   model.JobHostUnits,
+		JobManageModel: model.JobManageModel,
 	}
 	jobMigrationValue = map[MachineJob]string{
 		JobHostUnits:   "host-units",
@@ -58,17 +58,17 @@ var (
 	}
 )
 
-// ToParams returns the job as multiwatcher.MachineJob.
-func (job MachineJob) ToParams() multiwatcher.MachineJob {
+// ToParams returns the job as model.MachineJob.
+func (job MachineJob) ToParams() model.MachineJob {
 	if jujuJob, ok := jobNames[job]; ok {
 		return jujuJob
 	}
-	return multiwatcher.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
+	return model.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
 // params.JobsFromJobs converts state jobs to juju jobs.
-func paramsJobsFromJobs(jobs []MachineJob) []multiwatcher.MachineJob {
-	jujuJobs := make([]multiwatcher.MachineJob, len(jobs))
+func paramsJobsFromJobs(jobs []MachineJob) []model.MachineJob {
+	jujuJobs := make([]model.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
 		jujuJobs[i] = machineJob.ToParams()
 	}

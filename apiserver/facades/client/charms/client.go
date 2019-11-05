@@ -73,20 +73,20 @@ var getState = func(st *state.State, m *state.Model) backend {
 
 // CharmInfo returns information about the requested charm.
 // NOTE: thumper 2016-06-29, this is not a bulk call and probably should be.
-func (a *API) CharmInfo(args params.CharmURL) (params.CharmInfo, error) {
+func (a *API) CharmInfo(args params.CharmURL) (params.Charm, error) {
 	if err := a.checkCanRead(); err != nil {
-		return params.CharmInfo{}, errors.Trace(err)
+		return params.Charm{}, errors.Trace(err)
 	}
 
 	curl, err := charm.ParseURL(args.URL)
 	if err != nil {
-		return params.CharmInfo{}, errors.Trace(err)
+		return params.Charm{}, errors.Trace(err)
 	}
 	aCharm, err := a.backend.Charm(curl)
 	if err != nil {
-		return params.CharmInfo{}, errors.Trace(err)
+		return params.Charm{}, errors.Trace(err)
 	}
-	info := params.CharmInfo{
+	info := params.Charm{
 		Revision: aCharm.Revision(),
 		URL:      curl.String(),
 		Config:   convertCharmConfig(aCharm.Config()),

@@ -68,7 +68,7 @@ func allCollections() CollectionSchema {
 			// This collection is used by mgo/txn to record the set of documents
 			// affected by each successful transaction; and by state/watcher to
 			// generate a stream of document-resolution events that are delivered
-			// to, and interpreted by, both state and state/multiwatcher.
+			// to, and interpreted by, both state and the multiwatcher.
 			global:    true,
 			rawAccess: true,
 			explicitCreate: &mgo.CollectionInfo{

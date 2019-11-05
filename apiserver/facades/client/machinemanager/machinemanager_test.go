@@ -21,10 +21,10 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -75,7 +75,7 @@ func (s *MachineManagerSuite) TestAddMachines(c *gc.C) {
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
 			Series: "trusty",
-			Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:   []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	apiParams[0].Disks = []storage.Constraints{{Size: 1, Count: 2}, {Size: 2, Count: 1}}

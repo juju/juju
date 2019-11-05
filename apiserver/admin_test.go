@@ -36,12 +36,12 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -1203,7 +1203,7 @@ func (s *loginSuite) TestLoginAddsAuditConversationEventually(c *gc.C) {
 	var addResults params.AddMachinesResults
 	addReq := &params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
 	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
@@ -1273,7 +1273,7 @@ func (s *loginSuite) TestAuditLoggingFailureOnInterestingRequest(c *gc.C) {
 	var addResults params.AddMachinesResults
 	addReq := &params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
 	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)
@@ -1316,7 +1316,7 @@ func (s *loginSuite) TestAuditLoggingUsesExcludeMethods(c *gc.C) {
 	var addResults params.AddMachinesResults
 	addReq := &params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs: []multiwatcher.MachineJob{"JobHostUnits"},
+			Jobs: []model.MachineJob{"JobHostUnits"},
 		}},
 	}
 	err = conn.APICall("Client", 1, "", "AddMachines", addReq, &addResults)

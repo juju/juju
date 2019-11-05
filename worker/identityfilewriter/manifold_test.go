@@ -15,7 +15,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/identityfilewriter"
 )
 
@@ -41,7 +41,7 @@ func (s *ManifoldSuite) TestMachine(c *gc.C) {
 	_, err := enginetest.RunAgentAPIManifold(
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
-		mockAPICaller(multiwatcher.JobManageModel))
+		mockAPICaller(model.JobManageModel))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.newCalled, jc.IsTrue)
 }
@@ -51,7 +51,7 @@ func (s *ManifoldSuite) TestMachineNotModelManagerErrors(c *gc.C) {
 	_, err := enginetest.RunAgentAPIManifold(
 		identityfilewriter.Manifold(config),
 		&fakeAgent{tag: names.NewMachineTag("42")},
-		mockAPICaller(multiwatcher.JobHostUnits))
+		mockAPICaller(model.JobHostUnits))
 	c.Assert(err, gc.Equals, dependency.ErrMissing)
 	c.Assert(s.newCalled, jc.IsFalse)
 }
@@ -84,11 +84,11 @@ func (c *fakeConfig) Tag() names.Tag {
 	return c.tag
 }
 
-func mockAPICaller(job multiwatcher.MachineJob) apitesting.APICallerFunc {
+func mockAPICaller(job model.MachineJob) apitesting.APICallerFunc {
 	return apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		if res, ok := result.(*params.AgentGetEntitiesResults); ok {
 			res.Entities = []params.AgentGetEntitiesResult{
-				{Jobs: []multiwatcher.MachineJob{
+				{Jobs: []model.MachineJob{
 					job,
 				}}}
 		}

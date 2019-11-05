@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/agent/engine/enginetest"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/common"
 	"github.com/juju/juju/worker/storageprovisioner"
 )
@@ -117,13 +117,13 @@ func (_ fakeConfig) DataDir() string {
 
 type fakeAPIConn struct {
 	api.Connection
-	machineJob multiwatcher.MachineJob
+	machineJob model.MachineJob
 }
 
 func (f *fakeAPIConn) APICall(objType string, version int, id, request string, args interface{}, response interface{}) error {
 	if res, ok := response.(*params.AgentGetEntitiesResults); ok {
 		res.Entities = []params.AgentGetEntitiesResult{
-			{Jobs: []multiwatcher.MachineJob{f.machineJob}},
+			{Jobs: []model.MachineJob{f.machineJob}},
 		}
 	}
 

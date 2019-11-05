@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // This module implements a subset of the interface provided by
@@ -90,7 +89,7 @@ func (r *Relation) SetStatus(status relation.Status) error {
 	return r.st.setRelationStatus(r.id, status)
 }
 
-func (r *Relation) toCharmRelation(cr multiwatcher.CharmRelation) charm.Relation {
+func (r *Relation) toCharmRelation(cr params.CharmRelation) charm.Relation {
 	return charm.Relation{
 		Name:      cr.Name,
 		Role:      charm.RelationRole(cr.Role),

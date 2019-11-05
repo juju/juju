@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage/provider"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -183,7 +183,7 @@ LXC_BRIDGE="ignored"`[1:])
 			HostedModelConfig:             hostedModelConfigAttrs,
 		},
 		BootstrapMachineAddresses: initialAddrs,
-		BootstrapMachineJobs:      []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		BootstrapMachineJobs:      []model.MachineJob{model.JobManageModel},
 		SharedSecret:              "abc123",
 		Provider: func(t string) (environs.EnvironProvider, error) {
 			c.Assert(t, gc.Equals, "dummy")
@@ -424,7 +424,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 			ControllerModelConfig: modelCfg,
 			HostedModelConfig:     hostedModelConfigAttrs,
 		},
-		BootstrapMachineJobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+		BootstrapMachineJobs: []model.MachineJob{model.JobManageModel},
 		SharedSecret:         "abc123",
 		Provider: func(t string) (environs.EnvironProvider, error) {
 			return &fakeProvider{}, nil
@@ -450,14 +450,14 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (s *bootstrapSuite) TestMachineJobFromParams(c *gc.C) {
 	var tests = []struct {
-		name multiwatcher.MachineJob
+		name model.MachineJob
 		want state.MachineJob
 		err  string
 	}{{
-		name: multiwatcher.JobHostUnits,
+		name: model.JobHostUnits,
 		want: state.JobHostUnits,
 	}, {
-		name: multiwatcher.JobManageModel,
+		name: model.JobManageModel,
 		want: state.JobManageModel,
 	}, {
 		name: "invalid",

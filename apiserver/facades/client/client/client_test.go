@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -41,7 +42,6 @@ import (
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -819,25 +819,25 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(len(deltas), gc.Equals, 1)
-	d0, ok := deltas[0].Entity.(*multiwatcher.MachineInfo)
+	d0, ok := deltas[0].Entity.(*params.MachineInfo)
 	c.Assert(ok, jc.IsTrue)
 	d0.AgentStatus.Since = nil
 	d0.InstanceStatus.Since = nil
-	if !c.Check(deltas, jc.DeepEquals, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
+	if !c.Check(deltas, jc.DeepEquals, []params.Delta{{
+		Entity: &params.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			AgentStatus: multiwatcher.StatusInfo{
+			AgentStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			InstanceStatus: multiwatcher.StatusInfo{
+			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    multiwatcher.Life("alive"),
+			Life:                    params.Life("alive"),
 			Series:                  "quantal",
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []multiwatcher.Address{},
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
 			WantsVote:               true,
@@ -887,13 +887,13 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	c.Assert(len(deltas), gc.Equals, 2)
 	mIndex := 0
 	aIndex := 1
-	dMachine, ok0 := deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
-	dApp, ok1 := deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+	dMachine, ok0 := deltas[mIndex].Entity.(*params.MachineInfo)
+	dApp, ok1 := deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
 	if !ok0 {
 		mIndex = 1
 		aIndex = 0
-		dMachine, ok0 = deltas[mIndex].Entity.(*multiwatcher.MachineInfo)
-		dApp, ok1 = deltas[aIndex].Entity.(*multiwatcher.RemoteApplicationInfo)
+		dMachine, ok0 = deltas[mIndex].Entity.(*params.MachineInfo)
+		dApp, ok1 = deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
 	}
 	c.Assert(ok0, jc.IsTrue)
 	c.Assert(ok1, jc.IsTrue)
@@ -901,21 +901,21 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	dMachine.InstanceStatus.Since = nil
 	dApp.Status.Since = nil
 
-	if !c.Check(deltas[mIndex], jc.DeepEquals, multiwatcher.Delta{
-		Entity: &multiwatcher.MachineInfo{
+	if !c.Check(deltas[mIndex], jc.DeepEquals, params.Delta{
+		Entity: &params.MachineInfo{
 			ModelUUID:  s.State.ModelUUID(),
 			Id:         m.Id(),
 			InstanceId: "i-0",
-			AgentStatus: multiwatcher.StatusInfo{
+			AgentStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			InstanceStatus: multiwatcher.StatusInfo{
+			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    multiwatcher.Life("alive"),
+			Life:                    params.Life("alive"),
 			Series:                  "quantal",
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []multiwatcher.Address{},
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 			HasVote:                 false,
 			WantsVote:               true,
@@ -926,14 +926,14 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
-	if !c.Check(deltas[aIndex], jc.DeepEquals, multiwatcher.Delta{
-		Entity: &multiwatcher.RemoteApplicationInfo{
+	if !c.Check(deltas[aIndex], jc.DeepEquals, params.Delta{
+		Entity: &params.RemoteApplicationUpdate{
 			Name:      "remote-db2",
 			ModelUUID: s.State.ModelUUID(),
 			OfferUUID: "offer-uuid",
 			OfferURL:  "admin/prod.db2",
 			Life:      "alive",
-			Status: multiwatcher.StatusInfo{
+			Status: params.StatusInfo{
 				Current: status.Unknown,
 			},
 		},
@@ -1134,7 +1134,7 @@ func (s *clientSuite) TestClientAddMachinesDefaultSeries(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1150,7 +1150,7 @@ func (s *clientSuite) assertAddMachines(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1166,7 +1166,7 @@ func (s *clientSuite) assertAddMachinesBlocked(c *gc.C, msg string) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	_, err := s.APIState.Client().AddMachines(apiParams)
@@ -1193,7 +1193,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
 			Series: "quantal",
-			Jobs:   []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:   []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	machines, err := s.APIState.Client().AddMachines(apiParams)
@@ -1210,7 +1210,7 @@ func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
-		Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:          []model.MachineJob{model.JobHostUnits},
 		ContainerType: instance.LXD,
 		ParentId:      "0",
 		Series:        "quantal",
@@ -1224,7 +1224,7 @@ func (s *clientSuite) TestClientAddMachinesWithConstraints(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	// The last machine has some constraints.
@@ -1242,7 +1242,7 @@ func (s *clientSuite) TestClientAddMachinesWithPlacement(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 4)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	apiParams[0].Placement = instance.MustParsePlacement("lxd")
@@ -1282,7 +1282,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
 	for i := range apiParams {
 		apiParams[i] = params.AddMachineParams{
-			Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs: []model.MachineJob{model.JobHostUnits},
 		}
 	}
 	// This will cause a add-machine to fail due to an unsupported container.
@@ -1306,7 +1306,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
-			Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:                    []model.MachineJob{model.JobHostUnits},
 			InstanceId:              instance.Id(fmt.Sprintf("1234-%d", i)),
 			Nonce:                   "foo",
 			HardwareCharacteristics: hc,
@@ -1352,7 +1352,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 	// no longer refers to InjectMachine.
 	args := params.AddMachines{
 		MachineParams: []params.AddMachineParams{{
-			Jobs:       []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+			Jobs:       []model.MachineJob{model.JobHostUnits},
 			InstanceId: "i-foo",
 			Nonce:      "nonce",
 		}},
@@ -1368,7 +1368,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// converting it to a cloudinit.MachineConfig, and disabling
 	// apt_upgrade.
 	apiParams := params.AddMachineParams{
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),
@@ -1406,7 +1406,7 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 
 func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	apiParams := params.AddMachineParams{
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 		InstanceId:              instance.Id("1234"),
 		Nonce:                   "foo",
 		HardwareCharacteristics: instance.MustParseHardware("arch=amd64"),

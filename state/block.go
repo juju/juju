@@ -12,7 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/core/model"
 )
 
 // Customers and stakeholders want to be able to prevent accidental damage to their Juju deployments.
@@ -53,10 +53,10 @@ const (
 )
 
 var (
-	typeNames = map[BlockType]multiwatcher.BlockType{
-		DestroyBlock: multiwatcher.BlockDestroy,
-		RemoveBlock:  multiwatcher.BlockRemove,
-		ChangeBlock:  multiwatcher.BlockChange,
+	typeNames = map[BlockType]model.BlockType{
+		DestroyBlock: model.BlockDestroy,
+		RemoveBlock:  model.BlockRemove,
+		ChangeBlock:  model.BlockChange,
 	}
 	blockMigrationValue = map[BlockType]string{
 		DestroyBlock: "destroy-model",
@@ -74,8 +74,8 @@ func AllTypes() []BlockType {
 	}
 }
 
-// ToParams returns the type as multiwatcher.BlockType.
-func (t BlockType) ToParams() multiwatcher.BlockType {
+// ToParams returns the type as model.BlockType.
+func (t BlockType) ToParams() model.BlockType {
 	if jujuBlock, ok := typeNames[t]; ok {
 		return jujuBlock
 	}

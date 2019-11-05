@@ -18,8 +18,8 @@ import (
 	basetesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	jworker "github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/agentconfigupdater"
@@ -125,7 +125,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissing(c *gc.C) {
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+					Jobs: []model.MachineJob{model.JobManageModel},
 				}}
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
@@ -168,7 +168,7 @@ func (s *AgentConfigUpdaterSuite) TestCentralHubMissingFirstPass(c *gc.C) {
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+					Jobs: []model.MachineJob{model.JobManageModel},
 				}}
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
@@ -209,7 +209,7 @@ func (s *AgentConfigUpdaterSuite) startManifold(c *gc.C, a agent.Agent, mockAPIP
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{multiwatcher.JobManageModel},
+					Jobs: []model.MachineJob{model.JobManageModel},
 				}}
 			case "StateServingInfo":
 				result := response.(*params.StateServingInfo)
@@ -295,10 +295,10 @@ func (s *AgentConfigUpdaterSuite) TestJobManageEnvironNotOverwriteCert(c *gc.C) 
 
 func (s *AgentConfigUpdaterSuite) TestJobHostUnits(c *gc.C) {
 	// State serving info should not be set for JobHostUnits.
-	s.checkNotController(c, multiwatcher.JobHostUnits)
+	s.checkNotController(c, model.JobHostUnits)
 }
 
-func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job multiwatcher.MachineJob) {
+func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job model.MachineJob) {
 	a := &mockAgent{}
 	apiCaller := basetesting.APICallerFunc(
 		func(objType string, version int, id, request string, args, response interface{}) error {
@@ -308,7 +308,7 @@ func (s *AgentConfigUpdaterSuite) checkNotController(c *gc.C, job multiwatcher.M
 				c.Assert(args.(params.Entities).Entities, gc.HasLen, 1)
 				result := response.(*params.AgentGetEntitiesResults)
 				result.Entities = []params.AgentGetEntitiesResult{{
-					Jobs: []multiwatcher.MachineJob{job},
+					Jobs: []model.MachineJob{job},
 				}}
 			default:
 				c.Fatalf("not sure how to handle: %q", request)

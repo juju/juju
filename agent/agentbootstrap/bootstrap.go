@@ -25,13 +25,13 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/modelmanager"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/raft"
 )
@@ -48,7 +48,7 @@ type InitializeStateParams struct {
 
 	// BootstrapMachineJobs holds the jobs that the bootstrap machine
 	// agent will run.
-	BootstrapMachineJobs []multiwatcher.MachineJob
+	BootstrapMachineJobs []model.MachineJob
 
 	// SharedSecret is the Mongo replica set shared secret (keyfile).
 	SharedSecret string
@@ -548,14 +548,14 @@ func initAPIHostPorts(st *state.State, pAddrs corenetwork.ProviderAddresses, api
 	return st.SetAPIHostPorts([]corenetwork.SpaceHostPorts{hostPorts})
 }
 
-// machineJobFromParams returns the job corresponding to params.MachineJob.
+// machineJobFromParams returns the job corresponding to model.MachineJob.
 // TODO(dfc) this function should live in apiserver/params, move there once
 // state does not depend on apiserver/params
-func machineJobFromParams(job multiwatcher.MachineJob) (state.MachineJob, error) {
+func machineJobFromParams(job model.MachineJob) (state.MachineJob, error) {
 	switch job {
-	case multiwatcher.JobHostUnits:
+	case model.JobHostUnits:
 		return state.JobHostUnits, nil
-	case multiwatcher.JobManageModel:
+	case model.JobManageModel:
 		return state.JobManageModel, nil
 	default:
 		return -1, errors.Errorf("invalid machine job %q", job)

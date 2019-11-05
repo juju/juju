@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/cloudinit"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -31,7 +31,7 @@ var _ = gc.Suite(&formatSuite{})
 var agentParams = AgentConfigParams{
 	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: jujuversion.Current,
-	Jobs:              []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+	Jobs:              []model.MachineJob{model.JobHostUnits},
 	Password:          "sekrit",
 	CACert:            "ca cert",
 	APIAddresses:      []string{"localhost:1235"},

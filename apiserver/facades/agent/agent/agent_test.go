@@ -16,9 +16,9 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -101,7 +101,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 		Entities: []params.AgentGetEntitiesResult{
 			{
 				Life: "alive",
-				Jobs: []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs: []model.MachineJob{model.JobHostUnits},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -133,7 +133,7 @@ func (s *agentSuite) TestGetEntitiesContainer(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{
 				Life:          "dying",
-				Jobs:          []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+				Jobs:          []model.MachineJob{model.JobHostUnits},
 				ContainerType: instance.LXD,
 			},
 			{Error: apiservertesting.ErrUnauthorized},

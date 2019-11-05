@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/wrench"
@@ -585,7 +585,7 @@ func (task *provisionerTask) constructInstanceConfig(
 		instanceConfig.Jobs = pInfo.Jobs
 	}
 
-	if multiwatcher.AnyJobNeedsState(instanceConfig.Jobs...) {
+	if model.AnyJobNeedsState(instanceConfig.Jobs...) {
 		publicKey, err := simplestreams.UserPublicSigningKey()
 		if err != nil {
 			return nil, err

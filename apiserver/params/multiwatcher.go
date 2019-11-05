@@ -1,12 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// TODO(rogpeppe) move everything in this package to apiserver/params
-// because all the types are part of the public API server interface.
-// Then params would not need to import this package and we would
-// not need to duplicate types like Life and ModelSLAInfo.
-
-package multiwatcher
+package params
 
 import (
 	"bytes"
@@ -19,12 +14,19 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 )
 
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
+
+const (
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
+)
 
 // EntityInfo is implemented by all entity Info types.
 type EntityInfo interface {
@@ -93,13 +95,13 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	}
 	switch entityKind {
 	case "model":
-		d.Entity = new(ModelInfo)
+		d.Entity = new(ModelUpdate)
 	case "machine":
 		d.Entity = new(MachineInfo)
 	case "application":
 		d.Entity = new(ApplicationInfo)
 	case "remoteApplication":
-		d.Entity = new(RemoteApplicationInfo)
+		d.Entity = new(RemoteApplicationUpdate)
 	case "unit":
 		d.Entity = new(UnitInfo)
 	case "relation":
@@ -120,15 +122,6 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 	return json.Unmarshal(elements[2], &d.Entity)
 }
 
-// Address describes a network address.
-type Address struct {
-	Value           string `json:"value"`
-	Type            string `json:"type"`
-	Scope           string `json:"scope"`
-	SpaceName       string `json:"space-name,omitempty"`
-	SpaceProviderId string `json:"space-provider-id,omitempty"`
-}
-
 // MachineInfo holds the information about a machine
 // that is tracked by multiwatcherStore.
 type MachineInfo struct {
@@ -145,7 +138,7 @@ type MachineInfo struct {
 	SupportedContainersKnown bool                              `json:"supported-containers-known"`
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:"hardware-characteristics,omitempty"`
 	CharmProfiles            []string                          `json:"charm-profiles,omitempty"`
-	Jobs                     []MachineJob                      `json:"jobs"`
+	Jobs                     []model.MachineJob                `json:"jobs"`
 	Addresses                []Address                         `json:"addresses"`
 	HasVote                  bool                              `json:"has-vote"`
 	WantsVote                bool                              `json:"wants-vote"`
@@ -240,9 +233,9 @@ func (i *CharmInfo) EntityId() EntityId {
 	}
 }
 
-// RemoteApplicationInfo holds the information about a remote application that is
+// RemoteApplicationUpdate holds the information about a remote application that is
 // tracked by multiwatcherStore.
-type RemoteApplicationInfo struct {
+type RemoteApplicationUpdate struct {
 	ModelUUID string     `json:"model-uuid"`
 	Name      string     `json:"name"`
 	OfferUUID string     `json:"offer-uuid"`
@@ -252,7 +245,7 @@ type RemoteApplicationInfo struct {
 }
 
 // EntityId returns a unique identifier for a remote application across models.
-func (i *RemoteApplicationInfo) EntityId() EntityId {
+func (i *RemoteApplicationUpdate) EntityId() EntityId {
 	return EntityId{
 		Kind:      "remoteApplication",
 		ModelUUID: i.ModelUUID,
@@ -279,19 +272,6 @@ func (i *ApplicationOfferInfo) EntityId() EntityId {
 		ModelUUID: i.ModelUUID,
 		Id:        i.OfferName,
 	}
-}
-
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string `json:"protocol"`
-	Number   int    `json:"number"`
-}
-
-// PortRange represents a single range of ports.
-type PortRange struct {
-	FromPort int    `json:"from-port"`
-	ToPort   int    `json:"to-port"`
-	Protocol string `json:"protocol"`
 }
 
 // UnitInfo holds the information about a unit
@@ -360,16 +340,6 @@ type RelationInfo struct {
 	Endpoints []Endpoint `json:"endpoints"`
 }
 
-// CharmRelation is a mirror struct for charm.Relation.
-type CharmRelation struct {
-	Name      string `json:"name"`
-	Role      string `json:"role"`
-	Interface string `json:"interface"`
-	Optional  bool   `json:"optional"`
-	Limit     int    `json:"limit"`
-	Scope     string `json:"scope"`
-}
-
 // NewCharmRelation creates a new local CharmRelation structure from  the
 // charm.Relation structure. NOTE: when we update the database to not store a
 // charm.Relation directly in the database, this method should take the state
@@ -419,39 +389,14 @@ func (i *AnnotationInfo) EntityId() EntityId {
 	}
 }
 
-// MachineJob values define responsibilities that machines may be
-// expected to fulfil.
-type MachineJob string
-
-const (
-	JobHostUnits   MachineJob = "JobHostUnits"
-	JobManageModel MachineJob = "JobManageModel"
-)
-
-// NeedsState returns true if the job requires a state connection.
-func (job MachineJob) NeedsState() bool {
-	return job == JobManageModel
-}
-
-// AnyJobNeedsState returns true if any of the provided jobs
-// require a state connection.
-func AnyJobNeedsState(jobs ...MachineJob) bool {
-	for _, j := range jobs {
-		if j.NeedsState() {
-			return true
-		}
-	}
-	return false
-}
-
 // BlockInfo holds the information about a block that is tracked by
 // multiwatcherStore.
 type BlockInfo struct {
-	ModelUUID string    `json:"model-uuid"`
-	Id        string    `json:"id"`
-	Type      BlockType `json:"type"`
-	Message   string    `json:"message"`
-	Tag       string    `json:"tag"`
+	ModelUUID string          `json:"model-uuid"`
+	Id        string          `json:"id"`
+	Type      model.BlockType `json:"type"`
+	Message   string          `json:"message"`
+	Tag       string          `json:"tag"`
 }
 
 // EntityId returns a unique identifier for a block across
@@ -464,30 +409,9 @@ func (i *BlockInfo) EntityId() EntityId {
 	}
 }
 
-// BlockType values define model block type.
-type BlockType string
-
-const (
-	// BlockDestroy type identifies destroy blocks.
-	BlockDestroy BlockType = "BlockDestroy"
-
-	// BlockRemove type identifies remove blocks.
-	BlockRemove BlockType = "BlockRemove"
-
-	// BlockChange type identifies change blocks.
-	BlockChange BlockType = "BlockChange"
-)
-
-// ModelSLAInfo describes the SLA info for a model.
-// Note: this replicates the type of the same name in the params package.
-type ModelSLAInfo struct {
-	Level string `json:"level"`
-	Owner string `json:"owner"`
-}
-
-// ModelInfo holds the information about a model that is
+// ModelUpdate holds the information about a model that is
 // tracked by multiwatcherStore.
-type ModelInfo struct {
+type ModelUpdate struct {
 	ModelUUID      string                 `json:"model-uuid"`
 	Name           string                 `json:"name"`
 	Life           Life                   `json:"life"`
@@ -501,7 +425,7 @@ type ModelInfo struct {
 }
 
 // EntityId returns a unique identifier for a model.
-func (i *ModelInfo) EntityId() EntityId {
+func (i *ModelUpdate) EntityId() EntityId {
 	return EntityId{
 		Kind:      "model",
 		ModelUUID: i.ModelUUID,

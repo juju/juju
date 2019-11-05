@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -186,9 +185,9 @@ type AddCharmWithAuthorization struct {
 type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
-	Series      string                    `json:"series"`
-	Constraints constraints.Value         `json:"constraints"`
-	Jobs        []multiwatcher.MachineJob `json:"jobs"`
+	Series      string             `json:"series"`
+	Constraints constraints.Value  `json:"constraints"`
+	Jobs        []model.MachineJob `json:"jobs"`
 
 	// Disks describes constraints for disks that must be attached to
 	// the machine when it is provisioned.
@@ -567,7 +566,7 @@ type AllWatcherId struct {
 
 // AllWatcherNextResults holds deltas returned from calling AllWatcher.Next().
 type AllWatcherNextResults struct {
-	Deltas []multiwatcher.Delta `json:"deltas"`
+	Deltas []Delta `json:"deltas"`
 }
 
 // ListSSHKeys stores parameters used for a KeyManager.ListKeys call.
@@ -689,8 +688,8 @@ type DeployerConnectionValues struct {
 
 // JobsResult holds the jobs for a machine that are returned by a call to Jobs.
 type JobsResult struct {
-	Jobs  []multiwatcher.MachineJob `json:"jobs"`
-	Error *Error                    `json:"error,omitempty"`
+	Jobs  []model.MachineJob `json:"jobs"`
+	Error *Error             `json:"error,omitempty"`
 }
 
 // JobsResults holds the result of a call to Jobs.

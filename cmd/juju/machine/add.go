@@ -24,12 +24,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 )
 
@@ -282,7 +282,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		return errors.Errorf("machine-id cannot be specified when adding machines")
 	}
 
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+	jobs := []model.MachineJob{model.JobHostUnits}
 
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,

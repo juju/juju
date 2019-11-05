@@ -10,8 +10,8 @@ import (
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/jujud/util"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // New returns a new notify watch handler that will convert the given machine &
@@ -77,7 +77,7 @@ func (c *converter) Handle(_ <-chan struct{}) error {
 	if err != nil {
 		return errors.Annotate(err, "can't get jobs for machine")
 	}
-	if !multiwatcher.AnyJobNeedsState(results.Jobs...) {
+	if !model.AnyJobNeedsState(results.Jobs...) {
 		return nil
 	}
 

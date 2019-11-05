@@ -64,6 +64,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -77,7 +78,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -202,7 +202,7 @@ type OpStartInstance struct {
 	Volumes           []storage.Volume
 	VolumeAttachments []storage.VolumeAttachment
 	Info              *mongo.MongoInfo
-	Jobs              []multiwatcher.MachineJob
+	Jobs              []model.MachineJob
 	APIInfo           *api.Info
 	Secret            string
 	AgentEnvironment  map[string]string

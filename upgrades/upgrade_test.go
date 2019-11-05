@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	jujuversion "github.com/juju/juju/version"
@@ -146,7 +146,7 @@ type mockAgentConfig struct {
 	dataDir      string
 	logDir       string
 	tag          names.Tag
-	jobs         []multiwatcher.MachineJob
+	jobs         []model.MachineJob
 	apiAddresses []string
 	values       map[string]string
 	mongoInfo    *mongo.MongoInfo
@@ -170,7 +170,7 @@ func (mock *mockAgentConfig) SystemIdentityPath() string {
 	return filepath.Join(mock.dataDir, agent.SystemIdentity)
 }
 
-func (mock *mockAgentConfig) Jobs() []multiwatcher.MachineJob {
+func (mock *mockAgentConfig) Jobs() []model.MachineJob {
 	return mock.jobs
 }
 

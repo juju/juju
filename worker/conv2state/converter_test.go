@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/core/model"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -61,7 +61,7 @@ func (Suite) TestSetupWatchErr(c *gc.C) {
 
 func (s Suite) TestHandle(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
+	jobs := []model.MachineJob{model.JobHostUnits, model.JobManageModel}
 	m := &fakeMachine{
 		jobs: &params.JobsResult{Jobs: jobs},
 	}
@@ -70,14 +70,14 @@ func (s Suite) TestHandle(c *gc.C) {
 	_, err := conv.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = conv.Handle(nil)
-	// Since machine has multiwatcher.JobManageEnviron, we expect an error
+	// Since machine has model.JobManageModel, we expect an error
 	// which will get agent to restart.
 	c.Assert(err.Error(), gc.Equals, "bounce agent to pick up new jobs")
 }
 
 func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits}
+	jobs := []model.MachineJob{model.JobHostUnits}
 	m := &fakeMachine{
 		jobs: &params.JobsResult{Jobs: jobs},
 	}
@@ -91,7 +91,7 @@ func (s Suite) TestHandleNoManageEnviron(c *gc.C) {
 
 func (Suite) TestHandleJobsError(c *gc.C) {
 	a := &fakeAgent{tag: names.NewMachineTag("1")}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
+	jobs := []model.MachineJob{model.JobHostUnits, model.JobManageModel}
 	m := &fakeMachine{
 		jobs:    &params.JobsResult{Jobs: jobs},
 		jobsErr: errors.New("foo"),
@@ -108,7 +108,7 @@ func (s Suite) TestHandleRestartError(c *gc.C) {
 	a := &fakeAgent{
 		tag: names.NewMachineTag("1"),
 	}
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobHostUnits, multiwatcher.JobManageModel}
+	jobs := []model.MachineJob{model.JobHostUnits, model.JobManageModel}
 	m := &fakeMachine{
 		jobs: &params.JobsResult{Jobs: jobs},
 	}

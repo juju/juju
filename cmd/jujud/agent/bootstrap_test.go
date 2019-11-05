@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -59,7 +60,6 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -288,12 +288,12 @@ func (s *BootstrapSuite) TestGUIArchiveSuccess(c *gc.C) {
 
 var testPassword = "my-admin-secret"
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []multiwatcher.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, args ...string) (machineConf agent.ConfigSetterWriter, cmd *BootstrapCommand, err error) {
 	if len(jobs) == 0 {
 		// Add default jobs.
-		jobs = []multiwatcher.MachineJob{
-			multiwatcher.JobManageModel,
-			multiwatcher.JobHostUnits,
+		jobs = []model.MachineJob{
+			model.JobManageModel,
+			model.JobHostUnits,
 		}
 	}
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
@@ -483,7 +483,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
-	jobs := []multiwatcher.MachineJob{multiwatcher.JobManageModel}
+	jobs := []model.MachineJob{model.JobManageModel}
 	_, cmd, err := s.initBootstrapCommand(c, jobs)
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmd.Run(nil)

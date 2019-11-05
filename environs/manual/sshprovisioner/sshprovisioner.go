@@ -23,9 +23,9 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/sshinit"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/service"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // InitUbuntuUser adds the ubuntu user if it doesn't
@@ -249,7 +249,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		InstanceId:              instanceId,
 		Nonce:                   nonce,
 		Addrs:                   params.FromProviderAddresses(addr),
-		Jobs:                    []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:                    []model.MachineJob{model.JobHostUnits},
 	}
 	return machineParams, nil
 }

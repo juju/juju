@@ -57,6 +57,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/machinelock"
+	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -68,7 +69,6 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/storage/looputil"
 	"github.com/juju/juju/upgrades"
@@ -718,7 +718,7 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 	var isController bool
 	for _, job := range entity.Jobs() {
 		switch job {
-		case multiwatcher.JobManageModel:
+		case coremodel.JobManageModel:
 			isController = true
 		default:
 			// TODO(dimitern): Once all workers moved over to using

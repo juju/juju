@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
-	"github.com/juju/juju/state/multiwatcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -181,9 +180,9 @@ func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLead
 				Id:   1,
 				Key:  "wordpress:db mysql:db",
 				Life: params.Alive,
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        multiwatcher.CharmRelation{Name: "mysql", Role: string(charm.RoleProvider), Interface: "db"},
+					Relation:        params.CharmRelation{Name: "mysql", Role: string(charm.RoleProvider), Interface: "db"},
 				}},
 		},
 	}
@@ -283,9 +282,9 @@ func relationJoinedAPICalls() []apiCall {
 				Id:   1,
 				Key:  "wordpress:db mysql:db",
 				Life: params.Alive,
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        multiwatcher.CharmRelation{Name: "mysql", Role: string(charm.RoleRequirer), Interface: "db", Scope: "global"},
+					Relation:        params.CharmRelation{Name: "mysql", Role: string(charm.RoleRequirer), Interface: "db", Scope: "global"},
 				}},
 		},
 	}
@@ -692,9 +691,9 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 				Id:   1,
 				Key:  "wordpress:juju-info juju-info:juju-info",
 				Life: params.Alive,
-				Endpoint: multiwatcher.Endpoint{
+				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
-					Relation:        multiwatcher.CharmRelation{Name: "juju-info", Role: string(charm.RoleProvider), Interface: "juju-info", Scope: "global"},
+					Relation:        params.CharmRelation{Name: "juju-info", Role: string(charm.RoleProvider), Interface: "juju-info", Scope: "global"},
 				}},
 		},
 	}
@@ -777,9 +776,9 @@ func subSubRelationAPICalls() []apiCall {
 			Key:              "wordpress:juju-info nrpe:general-info",
 			Life:             params.Alive,
 			OtherApplication: "wordpress",
-			Endpoint: multiwatcher.Endpoint{
+			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
-				Relation: multiwatcher.CharmRelation{
+				Relation: params.CharmRelation{
 					Name:      "general-info",
 					Role:      string(charm.RoleRequirer),
 					Interface: "juju-info",
@@ -797,9 +796,9 @@ func subSubRelationAPICalls() []apiCall {
 			Key:              "ntp:nrpe-external-master nrpe:external-master",
 			Life:             params.Alive,
 			OtherApplication: "ntp",
-			Endpoint: multiwatcher.Endpoint{
+			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
-				Relation: multiwatcher.CharmRelation{
+				Relation: params.CharmRelation{
 					Name:      "external-master",
 					Role:      string(charm.RoleRequirer),
 					Interface: "nrpe-external-master",

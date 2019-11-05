@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/storage"
 )
 
@@ -68,7 +68,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.En
 		return nil, errors.Trace(err)
 	}
 
-	var jobs []multiwatcher.MachineJob
+	var jobs []model.MachineJob
 	for _, job := range m.Jobs() {
 		jobs = append(jobs, job.ToParams())
 	}
@@ -212,7 +212,7 @@ func (api *ProvisionerAPI) machineVolumeParams(
 }
 
 // machineTags returns machine-specific tags to set on the instance.
-func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []multiwatcher.MachineJob) (map[string]string, error) {
+func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob) (map[string]string, error) {
 	// Names of all units deployed to the machine.
 	//
 	// TODO(axw) 2015-06-02 #1461358

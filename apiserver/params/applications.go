@@ -422,8 +422,9 @@ type ScaleApplicationInfo struct {
 	Scale int `json:"num-units"`
 }
 
-// ApplicationInfo holds an application info.
-type ApplicationInfo struct {
+// ApplicationResult holds an application info.
+// NOTE: we should look to combine ApplicationResult and ApplicationInfo.
+type ApplicationResult struct {
 	Tag              string            `json:"tag"`
 	Charm            string            `json:"charm,omitempty"`
 	Series           string            `json:"series,omitempty"`
@@ -437,8 +438,8 @@ type ApplicationInfo struct {
 
 // ApplicationInfoResults holds an application info result or a retrieval error.
 type ApplicationInfoResult struct {
-	Result *ApplicationInfo `json:"result,omitempty"`
-	Error  *Error           `json:"error,omitempty"`
+	Result *ApplicationResult `json:"result,omitempty"`
+	Error  *Error             `json:"error,omitempty"`
 }
 
 // ApplicationInfoResults holds applications associated with entities.

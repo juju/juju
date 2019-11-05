@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -161,10 +161,10 @@ func (api *AgentAPIV2) IsMaster() (params.IsMasterResult, error) {
 	}
 }
 
-func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []multiwatcher.MachineJob {
-	pjobs := make([]multiwatcher.MachineJob, len(jobs))
+func stateJobsToAPIParamsJobs(jobs []state.MachineJob) []model.MachineJob {
+	pjobs := make([]model.MachineJob, len(jobs))
 	for i, job := range jobs {
-		pjobs[i] = multiwatcher.MachineJob(job.String())
+		pjobs[i] = model.MachineJob(job.String())
 	}
 	return pjobs
 }

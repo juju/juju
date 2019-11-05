@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/state/multiwatcher"
 )
 
 // StatusParams holds parameters for the Status call.
@@ -116,9 +116,9 @@ type MachineStatus struct {
 	// hardware specification datum.
 	Hardware string `json:"hardware"`
 
-	Jobs      []multiwatcher.MachineJob `json:"jobs"`
-	HasVote   bool                      `json:"has-vote"`
-	WantsVote bool                      `json:"wants-vote"`
+	Jobs      []model.MachineJob `json:"jobs"`
+	HasVote   bool               `json:"has-vote"`
+	WantsVote bool               `json:"wants-vote"`
 
 	// LXDProfiles holds all the machines current LXD profiles that have
 	// been applied to the machine
@@ -314,15 +314,6 @@ type ApplicationStatusResult struct {
 type ApplicationStatusResults struct {
 	Results []ApplicationStatusResult `json:"results"`
 }
-
-// Life describes the lifecycle state of an entity ("alive", "dying" or "dead").
-type Life multiwatcher.Life
-
-const (
-	Alive Life = "alive"
-	Dying Life = "dying"
-	Dead  Life = "dead"
-)
 
 // RelationStatusValue describes the status of a relation.
 type RelationStatusValue relation.Status

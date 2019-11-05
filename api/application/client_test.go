@@ -1489,7 +1489,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 			c.Assert(ok, jc.IsTrue)
 			result.Results = []params.ApplicationInfoResult{
 				{Error: &params.Error{Message: "boom"}},
-				{Result: &params.ApplicationInfo{
+				{Result: &params.ApplicationResult{
 					Tag:       "application-bar",
 					Charm:     "charm-bar",
 					Series:    "bionic",
@@ -1517,7 +1517,7 @@ func (s *applicationSuite) TestApplicationsInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, []params.ApplicationInfoResult{
 		{Error: &params.Error{Message: "boom"}},
-		{Result: &params.ApplicationInfo{
+		{Result: &params.ApplicationResult{
 			Tag:       "application-bar",
 			Charm:     "charm-bar",
 			Series:    "bionic",
@@ -1543,7 +1543,7 @@ func (s *applicationSuite) TestApplicationsInfoResultMismatch(c *gc.C) {
 			result.Results = []params.ApplicationInfoResult{
 				{Error: &params.Error{Message: "boom"}},
 				{Error: &params.Error{Message: "boom again"}},
-				{Result: &params.ApplicationInfo{Tag: "application-bar"}},
+				{Result: &params.ApplicationResult{Tag: "application-bar"}},
 			}
 			return nil
 		},

@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
 
@@ -32,41 +32,41 @@ var _ = gc.Suite(&MarshalSuite{})
 var marshalTestCases = []struct {
 	about string
 	// Value holds a real Go struct.
-	value multiwatcher.Delta
+	value params.Delta
 	// JSON document.
 	json string
 }{{
 	about: "MachineInfo Delta",
-	value: multiwatcher.Delta{
-		Entity: &multiwatcher.MachineInfo{
+	value: params.Delta{
+		Entity: &params.MachineInfo{
 			ModelUUID:  "uuid",
 			Id:         "Benji",
 			InstanceId: "Shazam",
-			AgentStatus: multiwatcher.StatusInfo{
+			AgentStatus: params.StatusInfo{
 				Current: status.Error,
 				Message: "foo",
 			},
-			InstanceStatus: multiwatcher.StatusInfo{
+			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    multiwatcher.Life("alive"),
+			Life:                    params.Life("alive"),
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXD},
-			Jobs:                    []multiwatcher.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []multiwatcher.Address{},
+			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+			Addresses:               []params.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
 	json: `["machine","change",{"model-uuid":"uuid","id":"Benji","instance-id":"Shazam","container-type":"","agent-status":{"current":"error","message":"foo","version":""},"instance-status":{"current":"pending","message":"","version":""},"life":"alive","series":"trusty","supported-containers":["lxd"],"supported-containers-known":false,"hardware-characteristics":{},"jobs":["JobManageModel"],"addresses":[],"has-vote":false,"wants-vote":false}]`,
 }, {
 	about: "ApplicationInfo Delta",
-	value: multiwatcher.Delta{
-		Entity: &multiwatcher.ApplicationInfo{
+	value: params.Delta{
+		Entity: &params.ApplicationInfo{
 			ModelUUID:   "uuid",
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:quantal/name",
-			Life:        multiwatcher.Life("dying"),
+			Life:        params.Life("dying"),
 			OwnerTag:    "test-owner",
 			MinUnits:    42,
 			Constraints: constraints.MustParse("arch=armhf mem=1024M"),
@@ -74,7 +74,7 @@ var marshalTestCases = []struct {
 				"hello": "goodbye",
 				"foo":   false,
 			},
-			Status: multiwatcher.StatusInfo{
+			Status: params.StatusInfo{
 				Current: status.Active,
 				Message: "all good",
 			},
@@ -84,31 +84,31 @@ var marshalTestCases = []struct {
 	json: `["application","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name","name":"Benji","exposed":true,"life":"dying","owner-tag":"test-owner","workload-version":"42.47","min-units":42,"constraints":{"arch":"armhf", "mem": 1024},"config": {"hello":"goodbye","foo":false},"subordinate":false,"status":{"current":"active", "message":"all good", "version": ""}}]`,
 }, {
 	about: "CharmInfo Delta",
-	value: multiwatcher.Delta{
-		Entity: &multiwatcher.CharmInfo{
+	value: params.Delta{
+		Entity: &params.CharmInfo{
 			ModelUUID:    "uuid",
 			CharmURL:     "cs:quantal/name",
-			Life:         multiwatcher.Life("dying"),
+			Life:         params.Life("dying"),
 			CharmVersion: "3",
-			LXDProfile:   &multiwatcher.Profile{},
+			LXDProfile:   &params.Profile{},
 		},
 	},
 	json: `["charm","change",{"model-uuid": "uuid", "charm-url": "cs:quantal/name", "charm-version":"3", "life":"dying","profile":{}}]`,
 }, {
 	about: "UnitInfo Delta",
-	value: multiwatcher.Delta{
-		Entity: &multiwatcher.UnitInfo{
+	value: params.Delta{
+		Entity: &params.UnitInfo{
 			ModelUUID:   "uuid",
 			Name:        "Benji",
 			Application: "Shazam",
 			Series:      "precise",
 			CharmURL:    "cs:~user/precise/wordpress-42",
-			Life:        multiwatcher.Life("alive"),
-			Ports: []multiwatcher.Port{{
+			Life:        params.Life("alive"),
+			Ports: []params.Port{{
 				Protocol: "http",
 				Number:   80,
 			}},
-			PortRanges: []multiwatcher.PortRange{{
+			PortRanges: []params.PortRange{{
 				FromPort: 80,
 				ToPort:   80,
 				Protocol: "http",
@@ -116,11 +116,11 @@ var marshalTestCases = []struct {
 			PublicAddress:  "testing.invalid",
 			PrivateAddress: "10.0.0.1",
 			MachineId:      "1",
-			WorkloadStatus: multiwatcher.StatusInfo{
+			WorkloadStatus: params.StatusInfo{
 				Current: status.Active,
 				Message: "all good",
 			},
-			AgentStatus: multiwatcher.StatusInfo{
+			AgentStatus: params.StatusInfo{
 				Current: status.Idle,
 			},
 		},
@@ -128,15 +128,15 @@ var marshalTestCases = []struct {
 	json: `["unit","change",{"model-uuid":"uuid","name":"Benji","application":"Shazam","series":"precise","charm-url":"cs:~user/precise/wordpress-42","life":"alive","public-address":"testing.invalid","private-address":"10.0.0.1","machine-id":"1","principal":"","ports":[{"protocol":"http","number":80}],"port-ranges":[{"from-port":80,"to-port":80,"protocol":"http"}],"subordinate":false,"workload-status":{"current":"active","message":"all good","version":""},"agent-status":{"current":"idle","message":"","version":""}}]`,
 }, {
 	about: "RelationInfo Delta",
-	value: multiwatcher.Delta{
-		Entity: &multiwatcher.RelationInfo{
+	value: params.Delta{
+		Entity: &params.RelationInfo{
 			ModelUUID: "uuid",
 			Key:       "Benji",
 			Id:        4711,
-			Endpoints: []multiwatcher.Endpoint{
+			Endpoints: []params.Endpoint{
 				{
 					ApplicationName: "logging",
-					Relation: multiwatcher.CharmRelation{
+					Relation: params.CharmRelation{
 						Name:      "logging-directory",
 						Role:      "requirer",
 						Interface: "logging",
@@ -146,7 +146,7 @@ var marshalTestCases = []struct {
 				},
 				{
 					ApplicationName: "wordpress",
-					Relation: multiwatcher.CharmRelation{
+					Relation: params.CharmRelation{
 						Name:      "logging-dir",
 						Role:      "provider",
 						Interface: "logging",
@@ -160,8 +160,8 @@ var marshalTestCases = []struct {
 	json: `["relation","change",{"model-uuid": "uuid", "key":"Benji", "id": 4711, "endpoints": [{"application-name":"logging", "relation":{"name":"logging-directory", "role":"requirer", "interface":"logging", "optional":false, "limit":1, "scope":"container"}}, {"application-name":"wordpress", "relation":{"name":"logging-dir", "role":"provider", "interface":"logging", "optional":false, "limit":0, "scope":"container"}}]}]`,
 }, {
 	about: "AnnotationInfo Delta",
-	value: multiwatcher.Delta{
-		Entity: &multiwatcher.AnnotationInfo{
+	value: params.Delta{
+		Entity: &params.AnnotationInfo{
 			ModelUUID: "uuid",
 			Tag:       "machine-0",
 			Annotations: map[string]string{
@@ -173,9 +173,9 @@ var marshalTestCases = []struct {
 	json: `["annotation","change",{"model-uuid": "uuid", "tag":"machine-0","annotations":{"foo":"bar","arble":"2 4"}}]`,
 }, {
 	about: "Delta Removed True",
-	value: multiwatcher.Delta{
+	value: params.Delta{
 		Removed: true,
-		Entity: &multiwatcher.RelationInfo{
+		Entity: &params.RelationInfo{
 			ModelUUID: "uuid",
 			Key:       "Benji",
 		},
@@ -204,7 +204,7 @@ func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 	for i, t := range marshalTestCases {
 		c.Logf("test %d. %s", i, t.about)
-		var unmarshalled multiwatcher.Delta
+		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(unmarshalled, jc.DeepEquals, t.value)
@@ -212,17 +212,17 @@ func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *gc.C) {
-	err := json.Unmarshal([]byte(`[1,2]`), new(multiwatcher.Delta))
+	err := json.Unmarshal([]byte(`[1,2]`), new(params.Delta))
 	c.Check(err, gc.ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *gc.C) {
-	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(multiwatcher.Delta))
+	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(params.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected operation "masticate"`)
 }
 
 func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
-	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(multiwatcher.Delta))
+	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta))
 	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
 }
 

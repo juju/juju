@@ -30,6 +30,7 @@ import (
 	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
@@ -42,7 +43,6 @@ import (
 	"github.com/juju/juju/mongo/mongotest"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/multiwatcher"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -246,7 +246,7 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	select {
 	case deltas := <-deltasC:
 		c.Assert(deltas, gc.HasLen, 1)
-		info := deltas[0].Entity.(*multiwatcher.MachineInfo)
+		info := deltas[0].Entity.(*params.MachineInfo)
 		c.Assert(info.ModelUUID, gc.Equals, s.State.ModelUUID())
 		c.Assert(info.Id, gc.Equals, m.Id())
 	case <-time.After(testing.LongWait):
@@ -254,8 +254,8 @@ func (s *StateSuite) TestWatch(c *gc.C) {
 	}
 }
 
-func makeMultiwatcherOutput(w *state.Multiwatcher) chan []multiwatcher.Delta {
-	deltasC := make(chan []multiwatcher.Delta)
+func makeMultiwatcherOutput(w *state.Multiwatcher) chan []params.Delta {
+	deltasC := make(chan []params.Delta)
 	go func() {
 		for {
 			deltas, err := w.Next()
@@ -286,10 +286,10 @@ func (s *StateSuite) TestWatchAllModels(c *gc.C) {
 		case deltas := <-deltasC:
 			for _, delta := range deltas {
 				switch e := delta.Entity.(type) {
-				case *multiwatcher.ModelInfo:
+				case *params.ModelUpdate:
 					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
 					modelSeen = true
-				case *multiwatcher.MachineInfo:
+				case *params.MachineInfo:
 					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
 					c.Assert(e.Id, gc.Equals, m.Id())
 					machineSeen = true

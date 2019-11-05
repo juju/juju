@@ -38,7 +38,6 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -48,7 +47,7 @@ var watchAll = func(c *api.Client) (allWatcher, error) {
 }
 
 type allWatcher interface {
-	Next() ([]multiwatcher.Delta, error)
+	Next() ([]params.Delta, error)
 	Stop() error
 }
 
@@ -799,7 +798,7 @@ func (h *bundleHandler) addMachine(change *bundlechanges.AddMachineChange) error
 	machineParams := params.AddMachineParams{
 		Constraints: cons,
 		Series:      p.Series,
-		Jobs:        []multiwatcher.MachineJob{multiwatcher.JobHostUnits},
+		Jobs:        []model.MachineJob{model.JobHostUnits},
 	}
 	if ct := p.ContainerType; ct != "" {
 		// TODO(thumper): move the warning and translation into the bundle reading code.
@@ -1242,7 +1241,7 @@ var updateUnitStatusPeriod = watcher.Period + 5*time.Second
 // will be available within the watcher time period. Otherwise, the function
 // unblocks and an error is returned.
 func (h *bundleHandler) updateUnitStatus() error {
-	var delta []multiwatcher.Delta
+	var delta []params.Delta
 	var err error
 	ch := make(chan struct{})
 	go func() {
@@ -1256,7 +1255,7 @@ func (h *bundleHandler) updateUnitStatus() error {
 		}
 		for _, d := range delta {
 			switch entityInfo := d.Entity.(type) {
-			case *multiwatcher.UnitInfo:
+			case *params.UnitInfo:
 				h.unitStatus[entityInfo.Name] = entityInfo.MachineId
 			}
 		}
