@@ -5,11 +5,11 @@ test_appdata_int() {
   fi
 
   (
-    set_verbosity
+      set_verbosity
 
-    cd .. || exit
+      cd suites/appdata || exit
 
-    run "run_appdata_basic"
+      run "run_appdata_basic"
   )
 }
 
@@ -20,8 +20,8 @@ run_appdata_basic() {
 
     ensure "appdata-basic" "${file}"
 
-    juju deploy ./acceptancetests/repository/charms/appdata-source
-    juju deploy -n 2 ./acceptancetests/repository/charms/appdata-sink
+    juju deploy ./charms/appdata-source
+    juju deploy -n 2 ./charms/appdata-sink
     juju relate appdata-source appdata-sink
 
     wait_for "maintenance" "$(unit_status appdata-source 0).current"
