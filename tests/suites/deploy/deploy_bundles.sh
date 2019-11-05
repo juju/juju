@@ -34,6 +34,24 @@ run_deploy_cmr_bundle() {
     destroy_model "test-cmr-bundles-deploy"
 }
 
+run_deploy_exported_bundle() {
+    echo
+
+    file="${TEST_DIR}/test-export-bundles-deploy.txt"
+
+    ensure "test-export-bundles-deploy" "${file}"
+
+    bundle=./suites/deploy/bundles/telegraf-bundle.yaml
+    juju deploy ${bundle}
+
+    # no need to wait for the bundle to finish deploying to
+    # check the export.
+    juju export-bundle --filename ${TEST_DIR}/exported-bundle.yaml
+    diff ${bundle} ${TEST_DIR}/exported-bundle.yaml | wc -l | grep -q "0"
+
+    destroy_model test-export-bundles-deploy
+}
+
 test_deploy_bundles() {
     if [ "$(skip 'test_deploy_bundles')" ]; then
         echo "==> TEST SKIPPED: deploy bundles"
@@ -47,5 +65,6 @@ test_deploy_bundles() {
 
         run "run_deploy_bundle"
         run "run_deploy_cmr_bundle"
+        run "run_deploy_exported_bundle"
     )
 }
