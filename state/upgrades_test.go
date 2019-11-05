@@ -8,8 +8,6 @@ import (
 	"sort"
 	"time"
 
-	"gopkg.in/mgo.v2/txn"
-
 	"github.com/juju/clock/testclock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -22,6 +20,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
@@ -4146,6 +4145,32 @@ func (s *upgradesSuite) TestEnsureDefaultSpaceSetting(c *gc.C) {
 	sort.Sort(expectedSettings)
 
 	s.assertUpgradedData(c, EnsureDefaultSpaceSetting, upgradedData(settingsColl, expectedSettings))
+}
+
+func (s *upgradesSuite) TestRemoveControllerConfigMaxLogAgeAndSize(c *gc.C) {
+	settingsColl, settingsCloser := s.state.db().GetRawCollection(controllersC)
+	defer settingsCloser()
+	_, err := settingsColl.RemoveAll(nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = settingsColl.Insert(bson.M{
+		"_id": "controllerSettings",
+		"settings": bson.M{
+			"key":           "value",
+			"max-logs-age":  "72h",
+			"max-logs-size": "4096M",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expectedSettings := []bson.M{
+		{
+			"_id": "controllerSettings",
+			"settings": bson.M{
+				"key": "value",
+			},
+		},
+	}
+	s.assertUpgradedData(c, RemoveControllerConfigMaxLogAgeAndSize, upgradedData(settingsColl, expectedSettings))
 }
 
 func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
