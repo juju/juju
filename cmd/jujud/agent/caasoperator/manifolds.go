@@ -6,10 +6,9 @@ package caasoperator
 import (
 	"time"
 
-	"github.com/juju/loggo"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/agent"
 	"github.com/juju/juju/worker/apiaddressupdater"
 	"github.com/juju/juju/worker/apicaller"
@@ -40,6 +40,7 @@ import (
 	"github.com/juju/juju/worker/logsender"
 	"github.com/juju/juju/worker/migrationflag"
 	"github.com/juju/juju/worker/migrationminion"
+	"github.com/juju/juju/worker/proxyupdater"
 	"github.com/juju/juju/worker/retrystrategy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/upgradesteps"
@@ -211,6 +212,17 @@ func Manifolds(config ManifoldsConfig) dependency.Manifolds {
 			NewWorker:         migrationminion.NewWorker,
 		}),
 
+		// The proxy config updater is a leaf worker that sets http/https/apt/etc
+		// proxy settings.
+		proxyConfigUpdaterName: ifNotMigrating(proxyupdater.Manifold(proxyupdater.ManifoldConfig{
+			AgentName:           agentName,
+			APICallerName:       apiCallerName,
+			Logger:              loggo.GetLogger("juju.worker.proxyupdater"),
+			WorkerFunc:          proxyupdater.NewWorker,
+			InProcessUpdate:     proxy.DefaultConfig.Set,
+			SupportLegacyValues: false,
+		})),
+
 		// The logging config updater is a leaf worker that indirectly
 		// controls the messages sent via the log sender according to
 		// changes in environment config. We should only need one of
@@ -331,6 +343,7 @@ const (
 	migrationInactiveFlagName = "migration-inactive-flag"
 	migrationMinionName       = "migration-minion"
 
+	proxyConfigUpdaterName   = "proxy-config-updater"
 	loggingConfigUpdaterName = "logging-config-updater"
 	apiAddressUpdaterName    = "api-address-updater"
 )
