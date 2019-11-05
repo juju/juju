@@ -2,10 +2,14 @@
 
 PATH=/snap/bin:$PATH
 
+# microk8s is required.
 if ! which microk8s.kubectl; then
     echo "microk8s is not installed."
     exit 0
 fi
+
+# current user is required in microk8s group.
+id -nG "$USER" | grep -qw "microk8s" || exit 0
 
 container_cmd=microk8s.ctr
 image_arg="-n k8s.io images"
