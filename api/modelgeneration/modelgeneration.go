@@ -71,10 +71,11 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 
 // TrackBranch sets the input units and/or applications
 // to track changes made under the input branch name.
-func (c *Client) TrackBranch(branchName string, entities []string) error {
+func (c *Client) TrackBranch(branchName string, entities []string, numUnits int) error {
 	var result params.ErrorResults
 	arg := params.BranchTrackArg{
 		BranchName: branchName,
+		NumUnits:   numUnits,
 	}
 	if len(entities) == 0 {
 		return errors.New("no units or applications specified")
