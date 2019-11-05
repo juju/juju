@@ -97,6 +97,7 @@ func (env *Environ) cinderProvider() (*cinderProvider, error) {
 		envName:        env.name,
 		modelUUID:      env.uuid,
 		namespace:      env.namespace,
+		zonedEnv:       env,
 	}, nil
 }
 
@@ -140,6 +141,7 @@ type cinderProvider struct {
 	envName        string
 	modelUUID      string
 	namespace      instance.Namespace
+	zonedEnv       common.ZonedEnviron
 }
 
 var _ storage.Provider = (*cinderProvider)(nil)
@@ -159,6 +161,7 @@ func (p *cinderProvider) VolumeSource(providerConfig *storage.Config) (storage.V
 		envName:        p.envName,
 		modelUUID:      p.modelUUID,
 		namespace:      p.namespace,
+		zonedEnv:       p.zonedEnv,
 	}
 	return source, nil
 }
@@ -210,15 +213,18 @@ type cinderVolumeSource struct {
 	envName        string // non unique, informational only
 	modelUUID      string
 	namespace      instance.Namespace
+	zonedEnv       common.ZonedEnviron
 }
 
 var _ storage.VolumeSource = (*cinderVolumeSource)(nil)
 
 // CreateVolumes implements storage.VolumeSource.
-func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args []storage.VolumeParams) ([]storage.CreateVolumesResult, error) {
+func (s *cinderVolumeSource) CreateVolumes(
+	ctx context.ProviderCallContext, args []storage.VolumeParams,
+) ([]storage.CreateVolumesResult, error) {
 	results := make([]storage.CreateVolumesResult, len(args))
 	for i, arg := range args {
-		volume, err := s.createVolume(arg)
+		volume, err := s.createVolume(ctx, arg)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			if denied := common.MaybeHandleCredentialError(IsAuthorisationFailure, err, ctx); denied {
@@ -232,24 +238,44 @@ func (s *cinderVolumeSource) CreateVolumes(ctx context.ProviderCallContext, args
 	return results, nil
 }
 
-func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Volume, error) {
+func (s *cinderVolumeSource) createVolume(
+	ctx context.ProviderCallContext, arg storage.VolumeParams) (*storage.Volume, error) {
 	cinderConfig, err := newCinderConfig(arg.Attributes)
 	if err != nil {
 		return nil, errors.Trace(err)
+	}
+
+	// If this volume is being attached to an instance, attempt to provision
+	// the storage in the same availability zone.
+	// This helps to avoid a situation with all storage residing in a single
+	// AZ that upon failure would effectively take down attached instances
+	// whatever zone they were in.
+	az := ""
+	if arg.Attachment != nil {
+		instanceID := arg.Attachment.InstanceId
+		if instanceID != "" {
+			aZones, err := s.zonedEnv.InstanceAvailabilityZoneNames(ctx, []instance.Id{instanceID})
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			if len(aZones) > 0 {
+				az = aZones[0]
+			}
+		}
 	}
 
 	var metadata interface{}
 	if len(arg.ResourceTags) > 0 {
 		metadata = arg.ResourceTags
 	}
+
 	cinderVolume, err := s.storageAdapter.CreateVolume(cinder.CreateVolumeVolumeParams{
 		// The Cinder documentation incorrectly states the
 		// size parameter is in GB. It is actually GiB.
-		Size:       int(math.Ceil(float64(arg.Size / 1024))),
-		Name:       resourceName(s.namespace, s.envName, arg.Tag.String()),
-		VolumeType: cinderConfig.volumeType,
-		// TODO(axw) use the AZ of the initially attached machine.
-		AvailabilityZone: "",
+		Size:             int(math.Ceil(float64(arg.Size / 1024))),
+		Name:             resourceName(s.namespace, s.envName, arg.Tag.String()),
+		VolumeType:       cinderConfig.volumeType,
+		AvailabilityZone: az,
 		Metadata:         metadata,
 	})
 	if err != nil {
@@ -257,8 +283,8 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 	}
 
 	// The response may (will?) come back before the volume transitions to
-	// "creating", in which case it will not have a size or status. Wait for
-	// the volume to transition, so we can record its actual size.
+	// "creating", in which case it will not have a size or status.
+	// Wait for the volume to transition, so we can record its actual size.
 	volumeId := cinderVolume.ID
 	cinderVolume, err = waitVolume(s.storageAdapter, volumeId, func(v *cinder.Volume) (bool, error) {
 		return v.Status != "", nil
@@ -270,7 +296,7 @@ func (s *cinderVolumeSource) createVolume(arg storage.VolumeParams) (*storage.Vo
 		return nil, errors.Errorf("waiting for volume to be provisioned: %s", err)
 	}
 	logger.Debugf("created volume: %+v", cinderVolume)
-	return &storage.Volume{arg.Tag, cinderToJujuVolumeInfo(cinderVolume)}, nil
+	return &storage.Volume{Tag: arg.Tag, VolumeInfo: cinderToJujuVolumeInfo(cinderVolume)}, nil
 }
 
 // ListVolumes is specified on the storage.VolumeSource interface.
@@ -505,9 +531,9 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 		return nil, errors.Errorf("device not assigned to volume attachment")
 	}
 	return &storage.VolumeAttachment{
-		arg.Volume,
-		arg.Machine,
-		storage.VolumeAttachmentInfo{
+		Volume:  arg.Volume,
+		Machine: arg.Machine,
+		VolumeAttachmentInfo: storage.VolumeAttachmentInfo{
 			DeviceName: (*novaAttachment.Device)[len("/dev/"):],
 		},
 	}, nil
