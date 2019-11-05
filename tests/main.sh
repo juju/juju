@@ -6,6 +6,7 @@ export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005"
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
+export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 OPTIND=1
 VERBOSE=1
@@ -61,7 +62,7 @@ show_help() {
     echo ""
     echo "Usage:"
     echo "¯¯¯¯¯¯"
-    echo "cmd [-h] [-vV] [-s test] [-a file] [-x file] [-r reuse] [-p provider type <lxd|aws>]"
+    echo "cmd [-h] [-vV] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws>]"
     echo ""
     echo "    $(green 'cmd -h')        Display this help message"
     echo "    $(green 'cmd -v')        Verbose and debug messages"
@@ -69,7 +70,8 @@ show_help() {
     echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
     echo "    $(green 'cmd -a')        Create an atifact file"
     echo "    $(green 'cmd -x')        Output file from streaming the output"
-    echo "    $(green 'cmd -r')        Reuse bootstrapped controller"
+    echo "    $(green 'cmd -r')        Reuse bootstrapped controller between testing suites"
+    echo "    $(green 'cmd -l')        Local bootstrapped controller name to reuse"
     echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws>"
     echo ""
     echo "Tests:"
@@ -105,7 +107,7 @@ show_help() {
     exit 1
 }
 
-while getopts "hH?:vVsaxrp" opt; do
+while getopts "hH?:vVsaxrlp" opt; do
     case "${opt}" in
     h|\?)
         show_help
@@ -137,6 +139,11 @@ while getopts "hH?:vVsaxrp" opt; do
     r)
         export BOOTSTRAP_REUSE="true"
         shift
+        ;;
+    l)
+        export BOOTSTRAP_REUSE_LOCAL="${2}"
+        export BOOTSTRAP_REUSE="true"
+        shift 2
         ;;
     p)
         export BOOTSTRAP_PROVIDER="${2}"
@@ -242,6 +249,21 @@ run_test() {
 
 # allow for running a specific set of tests
 if [ "$#" -gt 0 ]; then
+    if [ "$(echo "${2}" | grep -E "^run_")" ]; then
+        TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs sed -rn 's/.*(test_\w+)\s+?\(\)\s+?\{/\1/p')"
+        if [ -z "${TEST}" ]; then
+            echo "==> Unable to find parent test for ${2}."
+            echo "    Try and run the parent test directly."
+            exit 1
+        fi
+
+        export RUN_SUBTEST="${2}"
+        echo "==> Running subtest: ${2}"
+        run_test "test_${1}" "" "" "${TEST}"
+        TEST_RESULT=success
+        exit
+    fi
+
     run_test "test_${1}" "" "$@"
     TEST_RESULT=success
     exit
