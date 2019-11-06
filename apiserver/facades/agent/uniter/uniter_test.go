@@ -2226,7 +2226,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 
 	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
 
-	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2284,7 +2284,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 
 	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/1")
 
-	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2308,7 +2308,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
 		"deerhoof": "little hollywood",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2476,7 +2476,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 
 	// Set some application settings for mysql and check that we can
 	// see them.
-	err = rel.UpdateApplicationSettings(s.mysql, &fakeToken{}, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("mysql", &fakeToken{}, map[string]interface{}{
 		"problem thinker": "fireproof",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2542,7 +2542,7 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
 		"black midi": "ducter",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2695,7 +2695,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
 		"black midi": "ducter",
 		"battles":    "the yabba",
 	}
-	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	err = rel.UpdateApplicationSettings("wordpress", token, appSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newAppSettings := params.Settings{
@@ -2739,7 +2739,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 		"black midi": "ducter",
 		"battles":    "the yabba",
 	}
-	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	err = rel.UpdateApplicationSettings("wordpress", token, appSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newAppSettings := params.Settings{

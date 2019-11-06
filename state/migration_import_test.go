@@ -2270,8 +2270,8 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2280,12 +2280,12 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 	wordpressSettings := map[string]interface{}{
 		"venusian": "superbug",
 	}
-	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressSettings)
+	err = rel.UpdateApplicationSettings("wordpress", &fakeToken{}, wordpressSettings)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlSettings := map[string]interface{}{
 		"planet b": "perihelion",
 	}
-	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlSettings)
+	err = rel.UpdateApplicationSettings("mysql", &fakeToken{}, mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)

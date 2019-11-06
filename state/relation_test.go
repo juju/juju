@@ -855,7 +855,7 @@ func (s *RelationSuite) TestApplicationSettingsErrors(c *gc.C) {
 
 func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
@@ -863,7 +863,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
 
 	// fakeToken always succeeds.
 	err = relation.UpdateApplicationSettings(
-		mysql, &fakeToken{}, map[string]interface{}{
+		"mysql", &fakeToken{}, map[string]interface{}{
 			"rendezvouse": "rendezvous",
 			"olden":       "yolk",
 		},
@@ -879,7 +879,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
 
 	// Check that updates only overwrite existing keys.
 	err = relation.UpdateApplicationSettings(
-		mysql, &fakeToken{}, map[string]interface{}{
+		"mysql", &fakeToken{}, map[string]interface{}{
 			"olden": "times",
 		},
 	)
@@ -894,14 +894,14 @@ func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
 
 func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = relation.UpdateApplicationSettings(
-		mysql,
+		"mysql",
 		&fakeToken{errors.New("not the leader")},
 		map[string]interface{}{
 			"rendezvouse": "rendezvous",
@@ -916,7 +916,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
 
 func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
@@ -927,7 +927,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
 	// second attempt indicating that leadership was lost.
 	var token raceToken
 	err = relation.UpdateApplicationSettings(
-		mysql,
+		"mysql",
 		&token,
 		map[string]interface{}{
 			"rendezvouse": "rendezvous",
@@ -958,7 +958,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 	wc.AssertOneChange()
 
 	err = relation.UpdateApplicationSettings(
-		mysql, &fakeToken{}, map[string]interface{}{
+		"mysql", &fakeToken{}, map[string]interface{}{
 			"castor": "pollux",
 		},
 	)
@@ -967,7 +967,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 
 	// No notify for a null change.
 	err = relation.UpdateApplicationSettings(
-		mysql, &fakeToken{}, map[string]interface{}{
+		"mysql", &fakeToken{}, map[string]interface{}{
 			"castor": "pollux",
 		},
 	)
@@ -976,7 +976,7 @@ func (s *RelationSuite) TestWatchApplicationSettings(c *gc.C) {
 }
 
 func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
-	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
@@ -993,7 +993,7 @@ func (s *RelationSuite) TestWatchApplicationSettingsOtherEnd(c *gc.C) {
 
 	// No notify if the other application's settings are changed.
 	err = relation.UpdateApplicationSettings(
-		wordpress, &fakeToken{}, map[string]interface{}{
+		"wordpress", &fakeToken{}, map[string]interface{}{
 			"grand": "palais",
 		},
 	)
