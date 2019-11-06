@@ -1,14 +1,3 @@
-run_func_vet() {
-  OUT=$(grep -Rrn --include=\*.go --exclude-dir=vendor "^$" -B1 . | \
-      grep "func " | grep -v "}$" | \
-      sed -E "s/^(.+\\.go)-([0-9]+)-(.+)$/\1:\2 \3/" \
-      || true)
-  if [ -n "${OUT}" ]; then
-    printf "\\nERROR: Functions must not start with an empty line: \\n%s\\n" "${OUT}"
-    exit 1
-  fi
-}
-
 run_dep_check() {
   OUT=$(dep check 2>&1 || true)
   if [ -n "${OUT}" ]; then

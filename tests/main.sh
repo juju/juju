@@ -151,7 +151,8 @@ while getopts "hH?:vVAsaxrlp" opt; do
     l)
         export BOOTSTRAP_REUSE_LOCAL="${2}"
         export BOOTSTRAP_REUSE="true"
-        export BOOTSTRAP_PROVIDER=$(juju show-controller "${2}" --format=json | jq -r ".[\"${2}\"] | .details | .cloud")
+        CLOUD=$(juju show-controller "${2}" --format=json | jq -r ".[\"${2}\"] | .details | .cloud")
+        export BOOTSTRAP_PROVIDER="${CLOUD}"
         shift 2
         ;;
     p)
@@ -269,6 +270,7 @@ run_test() {
 
 # allow for running a specific set of tests
 if [ "$#" -gt 0 ]; then
+    # shellcheck disable=SC2143
     if [ "$(echo "${2}" | grep -E "^run_")" ]; then
         TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs sed -rn 's/.*(test_\w+)\s+?\(\)\s+?\{/\1/p')"
         if [ -z "${TEST}" ]; then
