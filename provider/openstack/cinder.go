@@ -260,6 +260,11 @@ func (s *cinderVolumeSource) createVolume(
 			}
 			if len(aZones) > 0 {
 				az = aZones[0]
+			} else {
+				// All instances should have an availability zone.
+				// The default is "nova" so something is wrong if nothing
+				// is returned from this call.
+				logger.Warningf("no availability zone detected for instance %q", instanceID)
 			}
 		}
 	}
