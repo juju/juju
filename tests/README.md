@@ -47,14 +47,14 @@ echo "failed" | grep -q "passes"   # fails
 To get started, it's best to quickly look at the help command from the runner.
 
 ```sh
-./main.sh -h
+cd tests && ./main.sh -h
 ```
 
 Running a full sweep of the integration tests (which will take a long time), can
 be done by running:
 
 ```sh
-./main.sh
+cd test && ./main.sh
 ```
 
 ### Running tests

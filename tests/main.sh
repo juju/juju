@@ -62,6 +62,8 @@ show_help() {
     echo ""
     echo "Usage:"
     echo "¯¯¯¯¯¯"
+    echo "Flags should appear $(red 'before') arguments."
+    echo ""
     echo "cmd [-h] [-vV] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws>]"
     echo ""
     echo "    $(green 'cmd -h')        Display this help message"
