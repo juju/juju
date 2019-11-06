@@ -1076,23 +1076,19 @@ func (*Environ) MaintainInstance(ctx context.ProviderCallContext, args environs.
 }
 
 // StartInstance is specified in the InstanceBroker interface.
-func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) (_ *environs.StartInstanceResult, err error) {
-	if args.AvailabilityZone != "" {
-		// args.AvailabilityZone should only be set if this OpenStack
-		// supports zones; validate the zone.
-		volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
-		if err != nil {
-			handleCredentialError(err, ctx)
-			return nil, common.ZoneIndependentError(err)
-		}
-		if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
-			handleCredentialError(err, ctx)
-			return nil, common.ZoneIndependentError(err)
-		}
-		if err := common.ValidateAvailabilityZone(e, ctx, args.AvailabilityZone); err != nil {
-			handleCredentialError(err, ctx)
-			return nil, errors.Trace(err)
-		}
+func (e *Environ) StartInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (*environs.StartInstanceResult, error) {
+	res, err := e.startInstance(ctx, args)
+	handleCredentialError(err, ctx)
+	return res, errors.Trace(err)
+}
+
+func (e *Environ) startInstance(
+	ctx context.ProviderCallContext, args environs.StartInstanceParams,
+) (_ *environs.StartInstanceResult, err error) {
+	if err := e.validateAvailabilityZone(ctx, args); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	series := args.Tools.OneSeries()
@@ -1104,61 +1100,36 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Constraints: args.Constraints,
 	}, args.ImageMetadata)
 	if err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(err)
 	}
 	tools, err := args.Tools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(
 			errors.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches),
 		)
 	}
 
 	if err := args.InstanceConfig.SetTools(tools); err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(err)
 	}
 
 	if err := instancecfg.FinishInstanceConfig(args.InstanceConfig, e.Config()); err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(err)
 	}
-	cloudcfg, err := e.configurator.GetCloudConfig(args)
+
+	cloudCfg, err := e.configurator.GetCloudConfig(args)
 	if err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(err)
 	}
-	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudcfg, OpenstackRenderer{})
+	userData, err := providerinit.ComposeUserData(args.InstanceConfig, cloudCfg, OpenstackRenderer{})
 	if err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot make user data"))
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	networks, err := e.networking.DefaultNetworks()
+	networks, err := e.networksForInstance()
 	if err != nil {
-		handleCredentialError(err, ctx)
-		return nil, common.ZoneIndependentError(errors.Annotate(err, "getting initial networks"))
-	}
-	usingNetwork := e.ecfg().network()
-	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
-	if err != nil {
-		handleCredentialError(err, ctx)
-		if usingNetwork == "" {
-			// If there is no network configured, we only throw out when the
-			// error reports multiple Openstack networks.
-			// If there are no Openstack networks at all (such as Canonistack),
-			// having no network config is not an error condition.
-			if strings.HasPrefix(err.Error(), "multiple networks") {
-				return nil, common.ZoneIndependentError(errors.New(noNetConfigMsg(err)))
-			}
-		} else {
-			return nil, common.ZoneIndependentError(err)
-		}
-	} else {
-		logger.Debugf("using network id %q", networkId)
-		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
+		return nil, common.ZoneIndependentError(err)
 	}
 
 	machineName := resourceName(
@@ -1175,7 +1146,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		pt, err := client.CreatePolicyTargetV2(ptArg)
 		if err != nil {
-			handleCredentialError(err, ctx)
 			return nil, errors.Trace(err)
 		}
 		networks = append(networks, nova.ServerNetworks{PortId: pt.PortId})
@@ -1195,7 +1165,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			}
 			net, err := client.GetNetworkV2(n.NetworkId)
 			if err != nil {
-				handleCredentialError(err, ctx)
 				return nil, common.ZoneIndependentError(err)
 			}
 			if net.PortSecurityEnabled != nil &&
@@ -1218,7 +1187,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		groupNames, err := e.firewaller.SetUpGroups(ctx, args.ControllerUUID, args.InstanceConfig.MachineId, apiPort)
 		if err != nil {
-			handleCredentialError(err, ctx)
 			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot set up groups"))
 		}
 		novaGroupNames = make([]nova.SecurityGroupName, len(groupNames))
@@ -1249,14 +1217,14 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 				return nil
 			},
 			NotifyFunc: func(lastError error, attempt int) {
-				args.StatusCallback(status.Provisioning, fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
+				_ = args.StatusCallback(status.Provisioning,
+					fmt.Sprintf("%s, wait 10 seconds before retry, attempt %d", lastError, attempt), nil)
 			},
 			IsFatalError: func(err error) bool {
 				return err != errStillBuilding
 			},
 		})
 		if err != nil {
-			handleCredentialError(err, ctx)
 			return nil, err
 		}
 		return server, nil
@@ -1270,7 +1238,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		for a := attempts.Start(); a.Next(); {
 			server, err = client.RunServer(instanceOpts)
 			if err != nil {
-				handleCredentialError(err, ctx)
 				break
 			}
 			if server == nil {
@@ -1322,7 +1289,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 	server, err := tryStartNovaInstance(shortAttempt, e.nova(), opts)
 	if err != nil || server == nil {
-		handleCredentialError(err, ctx)
 		// 'No valid host available' is typically a resource error,
 		// let the provisioner know it is a good idea to try another
 		// AZ if available.
@@ -1336,7 +1302,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		handleCredentialError(err, ctx)
 		return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot get started instance"))
 	}
 
@@ -1358,7 +1323,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		var publicIP *string
 		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.networking.AllocatePublicIP(inst.Id()); err != nil {
-			handleCredentialError(err, ctx)
 			return nil, common.ZoneIndependentError(errors.Annotate(err, "cannot allocate a public IP as needed"))
 		} else {
 			publicIP = fip
@@ -1366,7 +1330,6 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances(ctx, []instance.Id{inst.Id()}); err != nil {
-				handleCredentialError(err, ctx)
 				// ignore the failure at this stage, just log it
 				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
@@ -1382,6 +1345,55 @@ func (e *Environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		Instance: inst,
 		Hardware: inst.hardwareCharacteristics(),
 	}, nil
+}
+
+// validateAvailabilityZone validates AZs supplied in StartInstanceParams.
+// args.AvailabilityZone should only be set if this OpenStack supports zones.
+// We need to validate it if supplied.
+func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
+	if args.AvailabilityZone == "" {
+		return nil
+	}
+
+	volumeAttachmentsZone, err := e.volumeAttachmentsZone(args.VolumeAttachments)
+	if err != nil {
+		return common.ZoneIndependentError(err)
+	}
+	if err := validateAvailabilityZoneConsistency(args.AvailabilityZone, volumeAttachmentsZone); err != nil {
+		return common.ZoneIndependentError(err)
+	}
+
+	return errors.Trace(common.ValidateAvailabilityZone(e, ctx, args.AvailabilityZone))
+}
+
+// networksForInstance returns networks that will be attached
+// to a new Openstack instance.
+func (e *Environ) networksForInstance() ([]nova.ServerNetworks, error) {
+	networks, err := e.networking.DefaultNetworks()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting initial networks")
+	}
+
+	usingNetwork := e.ecfg().network()
+	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
+	if err != nil {
+		if usingNetwork == "" {
+			// If there is no network configured, we only throw out when the
+			// error reports multiple Openstack networks.
+			// If there are no Openstack networks at all (such as Canonistack),
+			// having no network config is not an error condition.
+			if strings.HasPrefix(err.Error(), "multiple networks") {
+				return nil, errors.New(noNetConfigMsg(err))
+			}
+		} else {
+			return nil, errors.Trace(err)
+		}
+	} else {
+		logger.Debugf("using network id %q", networkId)
+		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
+	}
+
+	return networks, nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,

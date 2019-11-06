@@ -17,11 +17,9 @@ func handleCredentialError(err error, ctx context.ProviderCallContext) {
 	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
 }
 
-// IsAuthorisationFailure determines if the given error has an authorisation failure.
+// IsAuthorisationFailure determines if the given error has an
+// authorisation failure.
 func IsAuthorisationFailure(err error) bool {
 	// This should cover most cases.
-	if gooseerrors.IsUnauthorised(errors.Cause(err)) {
-		return true
-	}
-	return false
+	return gooseerrors.IsUnauthorised(errors.Cause(err))
 }
