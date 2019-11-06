@@ -5,4 +5,4 @@ peer="$(snapctl get --slot :peers name)"
     echo "connected to peer $peer"
     echo "$0 is starting $SNAP_NAME.fetch-oci"
     snapctl start $SNAP_NAME.fetch-oci
-) >> "$SNAP_COMMON/hook.log"
+) >> $SNAP_COMMON/hook.log
