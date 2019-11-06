@@ -14,7 +14,7 @@ wait_for() {
 
     attempt=0
     # shellcheck disable=SC2046,SC2143
-    until [ "$(juju status --format=json 2> /dev/null | jq "${query}" | grep "${name}")" ]; do
+    until [ "$(juju status --format=json 2> /dev/null | jq -S "${query}" | grep "${name}")" ]; do
         echo "[+] (attempt ${attempt}) polling status"
         juju status --relations 2>&1 | sed 's/^/    | /g'
         sleep 5
