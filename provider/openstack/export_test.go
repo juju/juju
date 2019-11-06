@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
 	envstorage "github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
 )
@@ -35,22 +36,22 @@ func InstanceFloatingIP(inst instances.Instance) *string {
 }
 
 var (
-	NovaListAvailabilityZones   = &novaListAvailabilityZones
-	AvailabilityZoneAllocations = &availabilityZoneAllocations
-	NewOpenstackStorage         = &newOpenstackStorage
+	NovaListAvailabilityZones = &novaListAvailabilityZones
+	NewOpenstackStorage       = &newOpenstackStorage
 )
 
-func NewCinderVolumeSource(s OpenstackStorage) storage.VolumeSource {
-	return NewCinderVolumeSourceForModel(s, testing.ModelTag.Id())
+func NewCinderVolumeSource(s OpenstackStorage, env common.ZonedEnviron) storage.VolumeSource {
+	return NewCinderVolumeSourceForModel(s, testing.ModelTag.Id(), env)
 }
 
-func NewCinderVolumeSourceForModel(s OpenstackStorage, modelUUID string) storage.VolumeSource {
+func NewCinderVolumeSourceForModel(s OpenstackStorage, modelUUID string, env common.ZonedEnviron) storage.VolumeSource {
 	const envName = "testmodel"
 	return &cinderVolumeSource{
 		storageAdapter: s,
 		envName:        envName,
 		modelUUID:      modelUUID,
 		namespace:      fakeNamespace{},
+		zonedEnv:       env,
 	}
 }
 
