@@ -76,7 +76,7 @@ func (s *ShowCredentialSuite) TestShowCredentialAPIVersion(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-credential content lookup on the controller failed: credential content lookup on the controller in Juju v1 not supported
+ERROR credential content lookup on the controller failed: credential content lookup on the controller in Juju v1 not supported
 No credentials from this client or from a controller to display.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)
@@ -89,7 +89,7 @@ func (s *ShowCredentialSuite) TestShowCredentialAPICallError(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, cmd, "-c", "controller")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-credential content lookup on the controller failed: boom
+ERROR credential content lookup on the controller failed: boom
 No credentials from this client or from a controller to display.
 `[1:])
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, ``)

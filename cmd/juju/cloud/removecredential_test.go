@@ -193,7 +193,7 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialFail(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Found remote cloud \"somecloud\" from the controller.\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Found remote cloud \"somecloud\" from the controller.\nERROR could not remove remote credential: kaboom\n")
 }
 
 type fakeRemoveCredentialAPI struct {

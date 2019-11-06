@@ -133,21 +133,20 @@ func (c *listRegionsCommand) Run(ctxt *cmd.Context) error {
 	var returnErr error
 	if c.Client {
 		if err := c.findLocalRegions(ctxt); err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
 
 	if c.ControllerName != "" {
 		if err := c.findRemoteRegions(ctxt); err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
 	if !c.found.IsEmpty() {
 		if err := c.out.Write(ctxt, *c.found); err != nil {
-			ctxt.Warningf("%v", err)
-			returnErr = cmd.ErrSilent
+			return err
 		}
 	}
 	return returnErr
