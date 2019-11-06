@@ -158,7 +158,7 @@ export SKIP_LIST="${SKIP_LIST}"
 echo ""
 
 echo "==> Checking for dependencies"
-check_dependencies curl jq shellcheck
+check_dependencies curl jq shellcheck let
 
 if [ "${USER:-'root'}" = "root" ]; then
     echo "The testsuite must not be run as root." >&2
