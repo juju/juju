@@ -3,7 +3,6 @@ peer="$(snapctl get --slot :peers name)"
 (
     echo "hook $0 $@"
     echo "disconnected $peer"
-    echo "$SNAP_NAME.fetch-oci is stopping"
+    echo "$0 is stopping $SNAP_NAME.fetch-oci"
     snapctl stop --disable $SNAP_NAME.fetch-oci
 ) >> $SNAP_COMMON/hook.log
-rm -f "$SNAP_COMMON/microk8s/$peer" || true

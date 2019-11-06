@@ -1,10 +1,8 @@
 #!/bin/sh
 (
     echo "hook $0 $@" 
-    mkdir -vp "$SNAP_COMMON/microk8s" || true
-    echo "install hook $SNAP_NAME.fetch-oci is starting"
+    echo "$0 is starting $SNAP_NAME.fetch-oci"
     snapctl start $SNAP_NAME.fetch-oci
-    echo "image fetched successfully"
-    echo "install hook $SNAP_NAME.fetch-oci is stopping"
+    echo "$0 is stopping $SNAP_NAME.fetch-oci"
     snapctl stop --disable $SNAP_NAME.fetch-oci
 ) >> $SNAP_COMMON/hook.log
