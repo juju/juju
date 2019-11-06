@@ -119,7 +119,18 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		logger.Infof("no remote application found for %v", relationTag.Id())
 		return nil
 	}
-	logger.Debugf("remote application for changed relation %v is %v in model %v", relationTag.Id(), applicationTag.Id(), backend.ModelUUID())
+	logger.Debugf("remote application for changed relation %v is %v in model %v",
+		relationTag.Id(), applicationTag.Id(), backend.ModelUUID())
+
+	// Allow sending an empty non-nil map to clear all the settings.
+	if change.Settings != nil {
+		logger.Debugf("remote application %v in %v settings changed to %v",
+			applicationTag.Id(), relationTag.Id(), change.Settings)
+		err := rel.ReplaceSettings(applicationTag.Id(), change.Settings)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 
 	for _, id := range change.DepartedUnits {
 		unitTag := names.NewUnitTag(fmt.Sprintf("%s/%v", applicationTag.Id(), id))

@@ -367,6 +367,10 @@ type RemoteRelationChangeEvent struct {
 
 	SuspendedReason string `json:"suspended-reason,omitempty"`
 
+	// Settings represent the updated application-level settings in
+	// this relation.
+	Settings map[string]interface{} `json:"settings,omitempty"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 

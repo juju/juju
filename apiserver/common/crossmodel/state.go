@@ -211,6 +211,31 @@ func (r relationShim) Unit(unitId string) (RelationUnit, error) {
 	return relationUnitShim{ru}, nil
 }
 
+func (r relationShim) ReplaceSettings(appName string, values map[string]interface{}) error {
+	currentSettings, err := r.ApplicationSettings(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// This is a replace rather than an update so make the update
+	// remove any settings missing from the new values.
+	for key := range currentSettings {
+		if _, found := values[key]; !found {
+			values[key] = ""
+		}
+	}
+	// We're replicating changes from another controller so we need to
+	// trust them that the leadership was managed correctly - we can't
+	// check it here.
+	return errors.Trace(r.UpdateApplicationSettings(appName, &successfulToken{}, values))
+}
+
+type successfulToken struct{}
+
+// Check is all of the lease.Token interface.
+func (t successfulToken) Check(attempt int, key interface{}) error {
+	return nil
+}
+
 type relationUnitShim struct {
 	*state.RelationUnit
 }

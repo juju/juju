@@ -14289,6 +14289,15 @@
                         "relation-token": {
                             "type": "string"
                         },
+                        "settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
                         "suspended": {
                             "type": "boolean"
                         },
@@ -28942,6 +28951,15 @@
                         },
                         "relation-token": {
                             "type": "string"
+                        },
+                        "settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
                         },
                         "suspended": {
                             "type": "boolean"
