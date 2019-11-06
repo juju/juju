@@ -260,5 +260,5 @@ func (s *restoreSuite) TestRestoreFromBackupHAFail(c *gc.C) {
 		modelStatusClient.EXPECT().Close(),
 	)
 	_, err := cmdtesting.RunCommand(c, s.wrappedCommand, "restore", "--id", "an_id")
-	c.Assert(err, gc.ErrorMatches, "unable to restore backup in HA configuration.  For help see https://docs.jujucharms.com/stable/controllers-backup")
+	c.Assert(err, gc.ErrorMatches, "unable to restore backup in HA configuration.  For help see https://jaas.ai/docs/controller-backups")
 }

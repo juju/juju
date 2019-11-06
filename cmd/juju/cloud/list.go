@@ -62,7 +62,7 @@ var listCloudsDoc = "" +
 	"\n" +
 	"Further reading:\n " +
 	"\n" +
-	"    Documentation:   https://docs.jujucharms.com/stable/clouds\n" +
+	"    Documentation:   https://jaas.ai/docs/clouds\n" +
 	"    microk8s:        https://microk8s.io/\n" +
 	"    LXD hypervisor:  https://linuxcontainers.org/lxd/\n" +
 	listCloudsDocExamples
