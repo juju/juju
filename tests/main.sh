@@ -10,6 +10,7 @@ export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 OPTIND=1
 VERBOSE=1
+RUN_ALL="false"
 SKIP_LIST=""
 ARITFACT_FILE=""
 OUTPUT_FILE=""
@@ -64,11 +65,12 @@ show_help() {
     echo "¯¯¯¯¯¯"
     echo "Flags should appear $(red 'before') arguments."
     echo ""
-    echo "cmd [-h] [-vV] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws>]"
+    echo "cmd [-h] [-vV] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws>]"
     echo ""
     echo "    $(green 'cmd -h')        Display this help message"
     echo "    $(green 'cmd -v')        Verbose and debug messages"
     echo "    $(green 'cmd -V')        Very verbose and debug messages"
+    echo "    $(green 'cmd -A')        Run all the test suites"
     echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
     echo "    $(green 'cmd -a')        Create an atifact file"
     echo "    $(green 'cmd -x')        Output file from streaming the output"
@@ -109,7 +111,7 @@ show_help() {
     exit 1
 }
 
-while getopts "hH?:vVsaxrlp" opt; do
+while getopts "hH?:vVAsaxrlp" opt; do
     case "${opt}" in
     h|\?)
         show_help
@@ -125,6 +127,10 @@ while getopts "hH?:vVsaxrlp" opt; do
         VERBOSE=3
         shift
         alias juju="juju --debug"
+        ;;
+    A)
+        RUN_ALL="true"
+        shift
         ;;
     s)
         SKIP_LIST="${2}"
@@ -164,6 +170,17 @@ shift $((OPTIND-1))
 
 export VERBOSE="${VERBOSE}"
 export SKIP_LIST="${SKIP_LIST}"
+
+if [ "$#" -eq 0 ]; then
+    if [ "${RUN_ALL}" != "true" ]; then
+        echo "$(red '---------------------------------------')"
+        echo "$(red 'Run with -A to run all the test suites.')"
+        echo "$(red '---------------------------------------')"
+        echo ""
+        show_help
+        exit 1
+    fi
+fi
 
 echo ""
 
@@ -274,7 +291,7 @@ fi
 
 for test in ${TEST_NAMES}; do
     name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
-    run_test "${test}" "${name}"
+    run_test "test_${test}" "${name}"
 done
 
 TEST_RESULT=success
