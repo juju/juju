@@ -294,17 +294,22 @@ func (api *API) ListCommits() (params.GenerationResults, error) {
 	if branches, err = api.model.Branches(); err != nil {
 		return generationResultsError(err)
 	}
+	logger.Errorf("branches found %q", branches)
 
+	//TODO: check whether branches usage is correct
 	results := make([]params.Generation, len(branches))
 	for i, b := range branches {
-		generation, err := api.oneBranchInfo(b, false)
-		if err != nil {
-			return generationResultsError(err)
-		}
-		if generation.GenerationId > 0 {
-			results[i] = generation
+		if b.GenerationId() > 0 {
+			gen := params.Generation{
+				BranchName:   b.BranchName(),
+				Created:      b.Created(),
+				CreatedBy:    b.CreatedBy(),
+				GenerationId: b.GenerationId(),
+			}
+			results[i] = gen
 		}
 	}
+	logger.Errorf("results found %q", results)
 
 	result.Generations = results
 	return result, nil

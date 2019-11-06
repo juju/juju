@@ -69,9 +69,7 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 	return result.Result, nil
 }
 
-// CommitBranch commits the branch with the input name to the model,
-// effectively completing it and applying all branch changes across the model.
-// The new generation ID of the model is returned.
+// ListCommits lists the committed branches commits,
 func (c *Client) ListCommits(formatTime func(time.Time) string) (model.GenerationCommits, error) {
 	var result params.GenerationResults
 	err := c.facade.FacadeCall("ListCommits", nil, &result)

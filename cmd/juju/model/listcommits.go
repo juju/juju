@@ -4,12 +4,15 @@
 package model
 
 import (
+	"fmt"
+	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/juju/osenv"
+	"io"
 	"os"
 	"strconv"
 	"time"
@@ -82,6 +85,11 @@ func (c *CommitsCommand) Info() *cmd.Info {
 func (c *CommitsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
 	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": c.printTabular,
+	})
 }
 
 // Init implements part of the cmd.Command interface.
@@ -134,5 +142,50 @@ func (c *CommitsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return errors.Trace(c.out.Write(ctx, commits))
+	tabular := constructYaml(commits)
+	return errors.Trace(c.out.Write(ctx, tabular))
+}
+
+// printTabular prints the list of actions in tabular format
+func (c *CommitsCommand) printTabular(writer io.Writer, value interface{}) error {
+	list, ok := value.(formattedCommitList)
+	if !ok {
+		return errors.New("unexpected value")
+	}
+
+	table := uitable.New()
+	table.MaxColWidth = 50
+	table.Wrap = true
+
+	table.AddRow("Commit", "Committed at", "Committed by", "Branch name")
+	for _, c := range list.Commits {
+		table.AddRow(c.CommitId, c.CommittedAt, c.CommittedBy, c.BranchName)
+	}
+	_, _ = fmt.Fprint(writer, table)
+	return nil
+}
+
+func constructYaml(gen model.GenerationCommits) formattedCommitList {
+	result := formattedCommitList{}
+	for _, gen := range gen {
+		fmc := formattedCommit{
+			CommitId:    gen.CommitNumber,
+			BranchName:  gen.BranchName,
+			CommittedAt: gen.Created,
+			CommittedBy: gen.CreatedBy,
+		}
+		result.Commits = append(result.Commits, fmc)
+	}
+	return result
+}
+
+type formattedCommit struct {
+	CommitId    int    `json:"id" yaml:"id"`
+	BranchName  string `json:"branch-name" yaml:"branch-name"`
+	CommittedAt string `json:"committed-at" yaml:"committed-at"`
+	CommittedBy string `json:"committed-by" yaml:"committed-by"`
+}
+
+type formattedCommitList struct {
+	Commits []formattedCommit `json:"commits" yaml:"commits"`
 }
