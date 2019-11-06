@@ -244,19 +244,6 @@ func (mr *MockApplicationMockRecorder) Charm() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Charm", reflect.TypeOf((*MockApplication)(nil).Charm))
 }
 
-// EndpointBindings mocks base method
-func (m *MockApplication) EndpointBindings() (containerizer.Bindings, error) {
-	ret := m.ctrl.Call(m, "EndpointBindings")
-	ret0, _ := ret[0].(containerizer.Bindings)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// EndpointBindings indicates an expected call of EndpointBindings
-func (mr *MockApplicationMockRecorder) EndpointBindings() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointBindings", reflect.TypeOf((*MockApplication)(nil).EndpointBindings))
-}
-
 // Name mocks base method
 func (m *MockApplication) Name() string {
 	ret := m.ctrl.Call(m, "Name")
