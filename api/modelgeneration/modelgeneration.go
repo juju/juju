@@ -69,6 +69,36 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 	return result.Result, nil
 }
 
+// CommitBranch commits the branch with the input name to the model,
+// effectively completing it and applying all branch changes across the model.
+// The new generation ID of the model is returned.
+func (c *Client) ListCommits() (int, error) {
+	var result params.IntResult
+	err := c.facade.FacadeCall("ListCommits", nil, &result)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return 0, errors.Trace(result.Error)
+	}
+	return result.Result, nil
+}
+
+// CommitBranch commits the branch with the input name to the model,
+// effectively completing it and applying all branch changes across the model.
+// The new generation ID of the model is returned.
+func (c *Client) ShowCommit() (int, error) {
+	var result params.IntResult
+	err := c.facade.FacadeCall("ShowCommit", nil, &result)
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	if result.Error != nil {
+		return 0, errors.Trace(result.Error)
+	}
+	return result.Result, nil
+}
+
 // TrackBranch sets the input units and/or applications
 // to track changes made under the input branch name.
 func (c *Client) TrackBranch(branchName string, entities []string, numUnits int) error {
