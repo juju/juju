@@ -145,6 +145,7 @@ while getopts "hH?:vVsaxrlp" opt; do
     l)
         export BOOTSTRAP_REUSE_LOCAL="${2}"
         export BOOTSTRAP_REUSE="true"
+        export BOOTSTRAP_PROVIDER=$(juju show-controller "${2}" --format=json | jq -r ".[\"${2}\"] | .details | .cloud")
         shift 2
         ;;
     p)
