@@ -26,6 +26,7 @@ import_subdir_files includes
 
 # If adding a test suite, then ensure to add it here to be picked up!
 TEST_NAMES="static_analysis \
+            appdata \
             branches \
             cli \
             controller \
