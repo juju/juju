@@ -15,18 +15,12 @@ run_model_migration() {
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
     juju migrate "model-migration" "alt-model-migration"
-
     juju switch "alt-model-migration"
 
-    attempt=0
-    # shellcheck disable=SC2046,SC2143
-    until [ $(juju models --format=json | jq -r ".models | .[] | select(.[\"short-name\"] == \"model-migration\") | .[\"short-name\"]" | grep "model-migration") ]; do
-        echo "[+] (attempt ${attempt}) polling models"
-        juju models | sed 's/^/    | /g'
-        sleep 5
-        attempt=$((attempt+1))
-    done
+    # Wait for the new model migration to appear in the alt controller.
+    wait_for_model "model-migration"
 
+    # Once the model has appeared, switch to it.
     juju switch "alt-model-migration:model-migration"
 
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
