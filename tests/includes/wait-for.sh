@@ -18,7 +18,7 @@ wait_for() {
         echo "[+] (attempt ${attempt}) polling status"
         juju status --relations 2>&1 | sed 's/^/    | /g'
         sleep 5
-        let attempt=attempt+1
+        attempt=$((attempt+1))
     done
 }
 
@@ -75,7 +75,7 @@ wait_for_machine_agent_status() {
         echo "[+] (attempt ${attempt}) polling status"
         juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
         sleep 5
-        let attempt=attempt+1
+        attempt=$((attempt+1))
     done
 }
 
@@ -101,6 +101,6 @@ wait_for_machine_netif_count() {
         # shellcheck disable=SC2046,SC2143
         echo "[+] (attempt ${attempt}) network interface count for instance ${inst_id} = "$(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length")
         sleep 5
-        let attempt=attempt+1
+        attempt=$((attempt+1))
     done
 }
