@@ -10,7 +10,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -20,7 +19,6 @@ import (
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testcharms"
 )
 
 // bridgePolicyStateSuite includes tests that are backed by Mongo.
@@ -32,41 +30,6 @@ type bridgePolicyStateSuite struct {
 }
 
 var _ = gc.Suite(&bridgePolicyStateSuite{})
-
-func addApplication(
-	c *gc.C, st *state.State, series, name string, ch *state.Charm, bindings map[string]string,
-) *state.Application {
-	c.Assert(ch, gc.NotNil)
-	service, err := st.AddApplication(state.AddApplicationArgs{
-		Name:             name,
-		Series:           series,
-		Charm:            ch,
-		EndpointBindings: bindings,
-		Storage:          nil,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	return service
-}
-
-func addCharm(c *gc.C, st *state.State, series string, name string) *state.Charm {
-	ch := testcharms.Repo.CharmDir(name)
-	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
-	url := "local:" + series + "/" + ident
-	if series == "" {
-		ident = fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
-		url = "local:" + ident
-	}
-	curl := charm.MustParseURL(url)
-	info := state.CharmInfo{
-		Charm:       ch,
-		ID:          curl,
-		StoragePath: "dummy-path",
-		SHA256:      ident + "-sha256",
-	}
-	sch, err := st.AddCharm(info)
-	c.Assert(err, jc.ErrorIsNil)
-	return sch
-}
 
 func (s *bridgePolicyStateSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
@@ -345,38 +308,6 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesConstraint
 	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens0p10`)
 }
 
-func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesUnitBindingBindOnlyOne(c *gc.C) {
-	s.setupMachineInTwoSpaces(c)
-	s.addContainerMachine(c)
-	s.assertNoDevicesOnMachine(c, s.containerMachine)
-	app := addApplication(c, s.State, "", "mysql",
-		addCharm(c, s.State, "quantal", "mysql"), map[string]string{"server": "somespace"})
-	unit, err := app.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = unit.AssignToMachine(s.containerMachine.Raw())
-	c.Assert(err, jc.ErrorIsNil)
-
-	bridgePolicy, err := containerizer.NewBridgePolicy(cfg(c, 13, "provider"), s.State)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
-	c.Assert(err, jc.ErrorIsNil)
-
-	containerDevices, err := s.containerMachine.AllLinkLayerDevices()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(containerDevices, gc.HasLen, 1)
-
-	containerDevice := containerDevices[0]
-	c.Check(containerDevice.Name(), gc.Matches, "eth0")
-	c.Check(containerDevice.Type(), gc.Equals, corenetwork.EthernetDevice)
-	c.Check(containerDevice.MTU(), gc.Equals, uint(0)) // inherited from the parent device.
-	c.Check(containerDevice.MACAddress(), gc.Matches, "00:16:3e(:[0-9a-f]{2}){3}")
-	c.Check(containerDevice.IsUp(), jc.IsTrue)
-	c.Check(containerDevice.IsAutoStart(), jc.IsTrue)
-	// br-ens0p10 on the host machine is in space dmz, while br-ens33 is in space somespace
-	c.Check(containerDevice.ParentName(), gc.Equals, `m#0#d#br-ens33`)
-}
-
 func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesHostOneSpace(c *gc.C) {
 	s.setupTwoSpaces(c)
 	// Is put into the 'somespace' space
@@ -478,7 +409,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMismatchCo
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "2" for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -499,7 +430,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMissingBri
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "2" for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -641,7 +572,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "0" for container "0/lxd/0"`)
+	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "alpha" for container "0/lxd/0"`)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
 
@@ -722,7 +653,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoHostDevices
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "2", "3"`)
+	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "dmz", "third"`)
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
 
@@ -740,7 +671,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneM
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	// both somespace and dmz are needed, but somespace is missing
-	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "1"`)
+	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "somespace"`)
 }
 
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoSpaces(c *gc.C) {
@@ -869,7 +800,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithCo
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
 	c.Assert(err.Error(), gc.Equals,
-		`host machine "0" has no available device in space(s) "1"`)
+		`host machine "0" has no available device in space(s) "somespace"`)
 }
 
 func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownAndDefault(c *gc.C) {
@@ -1232,7 +1163,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNetworkingMet
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
-	c.Assert(err, gc.ErrorMatches, `host machine "0" has no available FAN devices in space\(s\) "1"`)
+	c.Assert(err, gc.ErrorMatches, `host machine "0" has no available FAN devices in space\(s\) "somespace"`)
 }
 
 var bridgeNames = map[string]string{
