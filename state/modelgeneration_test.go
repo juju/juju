@@ -164,6 +164,58 @@ func (s *generationSuite) TestAssignAllUnitsSuccessRemaining(c *gc.C) {
 	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
 }
 
+func (s *generationSuite) TestAssignNumUnitsSuccessRemaining(c *gc.C) {
+	gen := s.setupAssignAllUnits(c)
+
+	expected := []string{"riak/0", "riak/1", "riak/2", "riak/3"}
+
+	c.Assert(gen.AssignUnits("riak", 1), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 1)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected[:1])
+
+	c.Assert(gen.AssignUnits("riak", 2), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 1)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected[:3])
+
+	c.Assert(gen.AssignUnits("riak", 1), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 1)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
+
+	// Idempotent.
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 1)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
+}
+
+func (s *generationSuite) TestAssignUnitsNoOperations(c *gc.C) {
+	gen := s.setupAssignUnits(c)
+
+	c.Assert(gen.AssignUnits("riak", 1), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 0)
+}
+
+func (s *generationSuite) TestAssignNumUnitsSelectAll(c *gc.C) {
+	gen := s.setupAssignAllUnits(c)
+
+	expected := []string{"riak/0", "riak/1", "riak/2", "riak/3"}
+
+	c.Assert(gen.AssignUnits("riak", 100), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 1)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
+
+	// Idempotent.
+	c.Assert(gen.AssignAllUnits("riak"), jc.ErrorIsNil)
+	c.Assert(gen.Refresh(), jc.ErrorIsNil)
+	c.Check(gen.AssignedUnits(), gc.HasLen, 1)
+	c.Check(gen.AssignedUnits()["riak"], jc.SameContents, expected)
+}
+
 func (s *generationSuite) TestAssignAllUnitsCompletedError(c *gc.C) {
 	s.setupTestingClock(c)
 	gen := s.setupAssignAllUnits(c)
@@ -468,6 +520,18 @@ options:
 		_, err := riak.AddUnit(state.AddUnitParams{})
 		c.Assert(err, jc.ErrorIsNil)
 	}
+
+	return s.addBranch(c)
+}
+
+func (s *generationSuite) setupAssignUnits(c *gc.C) *state.Generation {
+	var cfgYAML = `
+options:
+  http_port: {default: 8089, description: HTTP Port, type: int}
+`
+	s.ch = s.AddConfigCharm(c, "riak", cfgYAML, 666)
+
+	s.AddTestingApplication(c, "riak", s.ch)
 
 	return s.addBranch(c)
 }

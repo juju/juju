@@ -251,6 +251,7 @@ func AllFacades() *facade.Registry {
 	reg("ModelConfig", 2, modelconfig.NewFacadeV2)
 	reg("ModelGeneration", 1, modelgeneration.NewModelGenerationFacade)
 	reg("ModelGeneration", 2, modelgeneration.NewModelGenerationFacadeV2)
+	reg("ModelGeneration", 3, modelgeneration.NewModelGenerationFacadeV3)
 	reg("ModelManager", 2, modelmanager.NewFacadeV2)
 	reg("ModelManager", 3, modelmanager.NewFacadeV3)
 	reg("ModelManager", 4, modelmanager.NewFacadeV4)

@@ -23037,7 +23037,7 @@
     },
     {
         "Name": "ModelGeneration",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
@@ -23166,6 +23166,9 @@
                             "items": {
                                 "$ref": "#/definitions/Entity"
                             }
+                        },
+                        "num-units": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,

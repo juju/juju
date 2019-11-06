@@ -68,7 +68,7 @@ func (s *modelGenerationSuite) TestAddBranchSuccess(c *gc.C) {
 
 func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
-	s.expectAssignAllUnits("ghost")
+	s.expectAssignUnits("ghost", 0)
 	s.expectAssignUnit("mysql/0")
 	s.expectBranch()
 
@@ -91,7 +91,7 @@ func (s *modelGenerationSuite) TestTrackBranchEntityTypeError(c *gc.C) {
 
 func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 	defer s.setupModelGenerationAPI(c).Finish()
-	s.expectAssignAllUnits("ghost")
+	s.expectAssignUnits("ghost", 0)
 	s.expectAssignUnit("mysql/0")
 	s.expectBranch()
 
@@ -108,6 +108,22 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 		{Error: nil},
 		{Error: nil},
 	})
+}
+
+func (s *modelGenerationSuite) TestTrackBranchWithTooManyNumUnits(c *gc.C) {
+	defer s.setupModelGenerationAPI(c).Finish()
+
+	arg := params.BranchTrackArg{
+		BranchName: s.newBranchName,
+		Entities: []params.Entity{
+			{Tag: names.NewUnitTag("mysql/0").String()},
+			{Tag: names.NewApplicationTag("ghost").String()},
+		},
+		NumUnits: 1,
+	}
+	result, err := s.api.TrackBranch(arg)
+	c.Assert(err, gc.ErrorMatches, "number of units and unit IDs can not be specified at the same time")
+	c.Check(result.Results, gc.DeepEquals, []params.ErrorResult(nil))
 }
 
 func (s *modelGenerationSuite) TestCommitBranchSuccess(c *gc.C) {
@@ -261,6 +277,10 @@ func (s *modelGenerationSuite) expectHasActiveBranch(err error) {
 
 func (s *modelGenerationSuite) expectAssignAllUnits(appName string) {
 	s.mockGen.EXPECT().AssignAllUnits(appName).Return(nil)
+}
+
+func (s *modelGenerationSuite) expectAssignUnits(appName string, numUnits int) {
+	s.mockGen.EXPECT().AssignUnits(appName, numUnits).Return(nil)
 }
 
 func (s *modelGenerationSuite) expectAssignUnit(unitName string) {
