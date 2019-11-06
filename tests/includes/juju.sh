@@ -50,8 +50,11 @@ bootstrap() {
         "lxd")
             provider="lxd"
             ;;
+        "localhost")
+            provider="lxd"
+            ;;
         *)
-            echo "Unexpected bootstrap provider."
+            echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
             exit 1
     esac
 
