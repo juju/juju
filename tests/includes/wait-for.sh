@@ -104,3 +104,28 @@ wait_for_machine_netif_count() {
         attempt=$((attempt+1))
     done
 }
+
+# wait_for_model blocks until a model appears
+# interfaces for the requested machine instance ID becomes equal to the desired
+# value.
+#
+# ```
+# wait_for_model <name>
+#
+# example:
+# wait_for_model "default"
+# ```
+wait_for_model() {
+    local name
+
+    name=${1}
+
+    attempt=0
+    # shellcheck disable=SC2046,SC2143
+    until [ $(juju models --format=json | jq -r ".models | .[] | select(.[\"short-name\"] == \"${name}\") | .[\"short-name\"]" | grep "${name}") ]; do
+        echo "[+] (attempt ${attempt}) polling models"
+        juju models | sed 's/^/    | /g'
+        sleep 5
+        attempt=$((attempt+1))
+    done
+}
