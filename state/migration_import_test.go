@@ -2299,14 +2299,11 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 
 	newRel := rels[0]
 
-	newWpSettings, err := newRel.ApplicationSettings(newWordpress)
+	newWpSettings, err := newRel.ApplicationSettings("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newWpSettings, gc.DeepEquals, wordpressSettings)
 
-	newMysql, err := newSt.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
-
-	newMysqlSettings, err := newRel.ApplicationSettings(newMysql)
+	newMysqlSettings, err := newRel.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newMysqlSettings, gc.DeepEquals, mysqlSettings)
 }

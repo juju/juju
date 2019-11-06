@@ -2715,7 +2715,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	readSettings, err := rel.ApplicationSettings("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"black midi": "of schlagenheim",
@@ -2758,7 +2758,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	readSettings, err := rel.ApplicationSettings("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"black midi": "of schlagenheim",

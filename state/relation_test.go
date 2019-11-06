@@ -794,13 +794,13 @@ func (s *RelationSuite) TestResumeRelationNoConsumeAccessRace(c *gc.C) {
 
 func (s *RelationSuite) TestApplicationSettings(c *gc.C) {
 	s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
-	mysql := s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.AddTestingApplication(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	relation, err := s.State.AddRelation(eps...)
 	c.Assert(err, jc.ErrorIsNil)
 
-	settingsMap, err := relation.ApplicationSettings(mysql)
+	settingsMap, err := relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.HasLen, 0)
 
@@ -811,7 +811,7 @@ func (s *RelationSuite) TestApplicationSettings(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settingsMap, err = relation.ApplicationSettings(mysql)
+	settingsMap, err = relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
 		"bailterspace": "blammo",
@@ -832,7 +832,7 @@ func (s *RelationSuite) TestApplicationSettingsPeer(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	settingsMap, err := rel.ApplicationSettings(app)
+	settingsMap, err := rel.ApplicationSettings("riak")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
 		"mermaidens": "disappear",
@@ -846,9 +846,9 @@ func (s *RelationSuite) TestApplicationSettingsErrors(c *gc.C) {
 	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	unrelated := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 
-	settings, err := rel.ApplicationSettings(unrelated)
+	settings, err := rel.ApplicationSettings("wordpress")
 	c.Assert(err, gc.ErrorMatches, `application "wordpress" is not a member of "riak:ring"`)
 	c.Assert(settings, gc.HasLen, 0)
 }
@@ -870,7 +870,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
 	)
 	c.Assert(err, jc.ErrorIsNil)
 
-	settingsMap, err := relation.ApplicationSettings(mysql)
+	settingsMap, err := relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
 		"rendezvouse": "rendezvous",
@@ -884,7 +884,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsSuccess(c *gc.C) {
 		},
 	)
 	c.Assert(err, jc.ErrorIsNil)
-	settingsMap, err = relation.ApplicationSettings(mysql)
+	settingsMap, err = relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.DeepEquals, map[string]interface{}{
 		"rendezvouse": "rendezvous",
@@ -909,7 +909,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsNotLeader(c *gc.C) {
 	)
 	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: not the leader`)
 
-	settingsMap, err := relation.ApplicationSettings(mysql)
+	settingsMap, err := relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.HasLen, 0)
 }
@@ -936,7 +936,7 @@ func (s *RelationSuite) TestUpdateApplicationSettingsRace(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" application "mysql": prerequisites failed: too late`)
 
 	c.Assert(token.checkedOnce, gc.Equals, true)
-	settingsMap, err := relation.ApplicationSettings(mysql)
+	settingsMap, err := relation.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(settingsMap, gc.HasLen, 0)
 }

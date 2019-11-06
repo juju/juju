@@ -792,15 +792,15 @@ func relationApplicationSettingsKey(id int, application string) string {
 
 // ApplicationSettings returns the application-level settings for the
 // specified application in this relation.
-func (r *Relation) ApplicationSettings(app *Application) (map[string]interface{}, error) {
-	ep, err := r.Endpoint(app.Name())
+func (r *Relation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	applicationKey := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
 	s, err := readSettings(r.st.db(), settingsC, applicationKey)
 	if err != nil {
-		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), app.Name())
+		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), appName)
 	}
 	return s.Map(), nil
 }

@@ -2008,14 +2008,15 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 		return nil, common.ErrPerm
 	}
 
-	app, err := u.st.Application(appTag.Id())
+	appName := appTag.Id()
+	_, err = rel.Endpoint(appName)
 	if errors.IsNotFound(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	return rel.ApplicationSettings(app)
+	return rel.ApplicationSettings(appName)
 }
 
 func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag names.ApplicationTag) (map[string]interface{}, error) {
@@ -2048,12 +2049,7 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 		return nil, common.ErrPerm
 	}
 
-	app, err := u.st.Application(appTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return rel.ApplicationSettings(app)
+	return rel.ApplicationSettings(appTag.Id())
 }
 
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
