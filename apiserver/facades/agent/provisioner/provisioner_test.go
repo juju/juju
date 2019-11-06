@@ -2031,7 +2031,7 @@ func (s *provisionerMockSuite) expectCharmLXDProfiles(ctrl *gomock.Controller) {
 	s.application = mocks.NewMockApplication(ctrl)
 	s.charm = mocks.NewMockCharm(ctrl)
 
-	s.container.EXPECT().Units().Return([]containerizer.Unit{s.unit}, nil)
+	s.container.EXPECT().Units().Return([]provisioner.Unit{s.unit}, nil)
 	s.unit.EXPECT().Application().Return(s.application, nil)
 	s.application.EXPECT().Charm().Return(s.charm, false, nil)
 }
