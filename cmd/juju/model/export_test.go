@@ -228,3 +228,11 @@ func NewDiffCommandForTest(api DiffCommandAPI, store jujuclient.ClientStore) cmd
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+func NewListCommitsCommandForTest(api CommitsCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &CommitsCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

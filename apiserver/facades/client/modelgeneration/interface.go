@@ -45,6 +45,7 @@ type Generation interface {
 	Commit(string) (int, error)
 	Abort(string) error
 	Config() map[string]settings.ItemChanges
+	GenerationId() int
 }
 
 // Application describes application state used by the model generation API.

@@ -1233,15 +1233,27 @@ type Generation struct {
 	// Created is the user who created the generation.
 	CreatedBy string `json:"created-by"`
 
+	// GenerationId is the id .
+	GenerationId int `json:"generation-id"`
+
 	// Applications holds the collection of application changes
 	// made under this generation.
-	Applications []GenerationApplication `json:"applications"`
+	Applications []GenerationApplication `json:"applications,omitempty"`
 }
 
 // GenerationResults transports a collection of generation details.
 type GenerationResults struct {
 	// Generations holds the details of the requested generations.
 	Generations []Generation `json:"generations"`
+
+	// Error holds the value of any error that occurred processing the request.
+	Error *Error `json:"error,omitempty"`
+}
+
+// GenerationResult transports a generation detail.
+type GenerationResult struct {
+	// Generation holds the details of the requested generation.
+	Generation Generation `json:"generation"`
 
 	// Error holds the value of any error that occurred processing the request.
 	Error *Error `json:"error,omitempty"`

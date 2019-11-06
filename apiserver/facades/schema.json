@@ -23096,6 +23096,14 @@
                         }
                     }
                 },
+                "ListCommits": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/GenerationResults"
+                        }
+                    }
+                },
                 "TrackBranch": {
                     "type": "object",
                     "properties": {
@@ -23255,6 +23263,9 @@
                         },
                         "created-by": {
                             "type": "string"
+                        },
+                        "generation-id": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -23262,7 +23273,7 @@
                         "branch",
                         "created",
                         "created-by",
-                        "applications"
+                        "generation-id"
                     ]
                 },
                 "GenerationApplication": {

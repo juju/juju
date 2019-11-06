@@ -7,6 +7,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/cmd/juju/common"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
+	"os"
+	"strconv"
+	"time"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -16,11 +22,11 @@ import (
 const (
 	listCommitsSummary = "Lists commits history"
 	listCommitsDoc     = `
-List commits shows the timeline of changes to the model that occurred through branching.
+commits shows the timeline of changes to the model that occurred through branching.
 It does not take into account other changes to the model that did not occur through a managed branch.
 
 Examples:
-    juju list-commits
+    juju commits
 
 See also:
 	commits
@@ -33,57 +39,74 @@ See also:
 `
 )
 
-//TODO: instead of diffing, i just show the content of config
-//gen-id is unique corresponds to commit it to show
-
-// NewCommitCommand wraps listCommitsCommand with sane model settings.
-func NewListCommitCommand() cmd.Command {
-	return modelcmd.Wrap(&listCommitsCommand{})
-}
-
-// listCommitsCommand supplies the "commit" CLI command used to commit changes made
+// CommitsCommand supplies the "commit" CLI command used to commit changes made
 // under a branch, to the model.
-type listCommitsCommand struct {
+type CommitsCommand struct {
 	modelcmd.ModelCommandBase
 
-	api ListCommitsCommandAPI
+	api CommitsCommandAPI
+	out cmd.Output
+
+	isoTime bool
 }
 
-// ListCommitsCommandAPI defines an API interface to be used during testing.
-//go:generate mockgen -package mocks -destination ./mocks/commit_mock.go github.com/juju/juju/cmd/juju/model ListCommitsCommandAPI
-type ListCommitsCommandAPI interface {
+// CommitsCommandAPI defines an API interface to be used during testing.
+//go:generate mockgen -package mocks -destination ./mocks/commits_mock.go github.com/juju/juju/cmd/juju/model CommitsCommandAPI
+type CommitsCommandAPI interface {
 	Close() error
 
 	// ListCommitsBranch commits the branch with the input name to the model,
 	// effectively completing it and applying
 	// all branch changes across the model.
 	// The new generation ID of the model is returned.
-	ListCommits() (int, error)
+	ListCommits(func(time.Time) string) (model.GenerationCommits, error)
+}
+
+// NewCommitCommand wraps CommitsCommand with sane model settings.
+func NewCommitsCommand() cmd.Command {
+	return modelcmd.Wrap(&CommitsCommand{})
 }
 
 // Info implements part of the cmd.Command interface.
-func (c *listCommitsCommand) Info() *cmd.Info {
+func (c *CommitsCommand) Info() *cmd.Info {
 	info := &cmd.Info{
-		Name:    "list-commits",
+		Name:    "commits",
 		Purpose: listCommitsSummary,
 		Doc:     listCommitsDoc,
+		Aliases: []string{"list-commits"},
 	}
 	return jujucmd.Info(info)
 }
 
 // SetFlags implements part of the cmd.Command interface.
-func (c *listCommitsCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *CommitsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
+	f.BoolVar(&c.isoTime, "utc", false, "Display time as UTC in RFC3339 format")
 }
 
 // Init implements part of the cmd.Command interface.
-func (c *listCommitsCommand) Init(args []string) error {
+func (c *CommitsCommand) Init(args []string) error {
+	lArgs := len(args)
+	if lArgs > 0 {
+		return errors.Errorf("expected no arguments, but got %v", lArgs)
+	}
+
+	// If use of ISO time not specified on command line, check env var.
+	if !c.isoTime {
+		var err error
+		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
+		if envVarValue != "" {
+			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
+				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
+			}
+		}
+	}
 	return nil
 }
 
 // getAPI returns the API. This allows passing in a test CommitCommandAPI
 // implementation.
-func (c *listCommitsCommand) getAPI() (ListCommitsCommandAPI, error) {
+func (c *CommitsCommand) getAPI() (CommitsCommandAPI, error) {
 	if c.api != nil {
 		return c.api, nil
 	}
@@ -96,16 +119,20 @@ func (c *listCommitsCommand) getAPI() (ListCommitsCommandAPI, error) {
 }
 
 // Run implements the meaty part of the cmd.Command interface.
-func (c *listCommitsCommand) Run(ctx *cmd.Context) error {
+func (c *CommitsCommand) Run(ctx *cmd.Context) error {
 	client, err := c.getAPI()
 	if err != nil {
 		return err
 	}
 	defer func() { _ = client.Close() }()
-
-	_, err = client.ListCommits()
-	if err != nil {
-		return err
+	// Partially apply our time format
+	formatTime := func(t time.Time) string {
+		return common.FormatTime(&t, c.isoTime)
 	}
-	return err
+
+	commits, err := client.ListCommits(formatTime)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return errors.Trace(c.out.Write(ctx, commits))
 }

@@ -70,6 +70,24 @@ type Generation struct {
 	Applications []GenerationApplication `yaml:"applications"`
 }
 
+// Generation represents detail of a model generation including config changes.
+type GenerationCommit struct {
+	// Created is the formatted time at generation creation.
+	Created string `yaml:"created"`
+
+	// Created is the user who created the generation.
+	CreatedBy string `yaml:"created-by"`
+
+	BranchName string `yaml:"branch-name"`
+
+	// CommitNumber is the generation-id
+	CommitNumber int `yaml:"generation-id"`
+}
+
 // GenerationSummaries is a type alias for a representation
 // of changes-by-generation.
 type GenerationSummaries = map[string]Generation
+
+// GenerationCommits is a type alias for a representation of each commit.
+// Keyed by the generation id
+type GenerationCommits = []GenerationCommit

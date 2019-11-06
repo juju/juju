@@ -72,16 +72,16 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 // CommitBranch commits the branch with the input name to the model,
 // effectively completing it and applying all branch changes across the model.
 // The new generation ID of the model is returned.
-func (c *Client) ListCommits() (int, error) {
-	var result params.IntResult
+func (c *Client) ListCommits(formatTime func(time.Time) string) (model.GenerationCommits, error) {
+	var result params.GenerationResults
 	err := c.facade.FacadeCall("ListCommits", nil, &result)
 	if err != nil {
-		return 0, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	if result.Error != nil {
-		return 0, errors.Trace(result.Error)
+		return nil, errors.Trace(result.Error)
 	}
-	return result.Result, nil
+	return generationCommitsFromResult(result, formatTime), nil
 }
 
 // CommitBranch commits the branch with the input name to the model,
@@ -203,4 +203,17 @@ func generationInfoFromResult(
 		}
 	}
 	return summaries
+}
+
+func generationCommitsFromResult(results params.GenerationResults, formatTime func(time.Time) string) model.GenerationCommits {
+	commits := make(model.GenerationCommits, len(results.Generations))
+	for i, gen := range results.Generations {
+		commits[i] = model.GenerationCommit{
+			CommitNumber: gen.GenerationId,
+			Created:      formatTime(time.Unix(gen.Created, 0)),
+			CreatedBy:    gen.CreatedBy,
+			BranchName:   gen.BranchName,
+		}
+	}
+	return commits
 }
