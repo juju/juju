@@ -19,6 +19,7 @@ import (
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {
 	SpaceIDsByName() (map[string]string, error)
+	SpaceNamesByID() (map[string]string, error)
 }
 
 // LinkLayerDevice is an indirection for state.LinkLayerDevice.
