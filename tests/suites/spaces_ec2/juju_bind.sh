@@ -9,10 +9,10 @@ run_juju_bind() {
     juju reload-spaces
     juju add-space isolated 172.31.254.0/24
 
-    ## Create machine 
+    ## Create machine
     add_multi_nic_machine
     juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
-    
+
     # Deploy test charm to dual-nic machine
     juju deploy cs:~juju-qa/bionic/space-defender-1 --bind "defend-a=alpha defend-b=isolated" --to "${juju_machine_id}"
     unit_index=$(get_unit_index "space-defender")
