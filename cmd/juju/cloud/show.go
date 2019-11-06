@@ -142,12 +142,12 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 		if remoteCloud != nil {
 			if err := c.displayCloud(ctxt, remoteCloud, fmt.Sprintf("Cloud %q from controller %q:\n", c.CloudName, c.ControllerName), showRemoteConfig, remoteErr); err != nil {
-				ctxt.Warningf("%v", err)
+				ctxt.Infof("ERROR %v", err)
 				displayErr = cmd.ErrSilent
 			}
 		} else {
 			if remoteErr != nil {
-				ctxt.Warningf("%v", remoteErr)
+				ctxt.Infof("ERROR %v", remoteErr)
 				displayErr = cmd.ErrSilent
 			} else {
 				ctxt.Infof("No cloud %q exists on the controller.", c.CloudName)
@@ -157,12 +157,12 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.Client {
 		if localCloud != nil {
 			if err := c.displayCloud(ctxt, localCloud, fmt.Sprintf("\nClient cloud %q:\n", c.CloudName), c.includeConfig, localErr); err != nil {
-				ctxt.Warningf("%v", err)
+				ctxt.Infof("ERROR %v", err)
 				displayErr = cmd.ErrSilent
 			}
 		} else {
 			if localErr != nil {
-				ctxt.Warningf("%v", localErr)
+				ctxt.Infof("ERROR %v", localErr)
 				displayErr = cmd.ErrSilent
 			} else {
 				ctxt.Infof("No cloud %q exists on this client.", c.CloudName)
@@ -174,8 +174,7 @@ func (c *showCloudCommand) Run(ctxt *cmd.Context) error {
 	// remote cloud erred out.
 	if c.includeConfig && !c.configDisplayed && localErr == nil {
 		if err := c.displayConfig(ctxt, localCloud.CloudType); err != nil {
-			ctxt.Warningf("%v", err)
-			displayErr = cmd.ErrSilent
+			return err
 		}
 	}
 
