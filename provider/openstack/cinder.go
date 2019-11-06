@@ -308,7 +308,7 @@ func (s *cinderVolumeSource) createVolume(
 func (s *cinderVolumeSource) ListVolumes(ctx context.ProviderCallContext) ([]string, error) {
 	cinderVolumes, err := modelCinderVolumes(s.storageAdapter, s.modelUUID)
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 	return volumeInfoToVolumeIds(cinderToJujuVolumeInfos(cinderVolumes)), nil
@@ -357,7 +357,7 @@ func (s *cinderVolumeSource) DescribeVolumes(ctx context.ProviderCallContext, vo
 	// locally than to make several round-trips to the provider.
 	cinderVolumes, err := s.storageAdapter.GetVolumesDetail()
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 	volumesById := make(map[string]*cinder.Volume)
@@ -443,7 +443,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 			// to destroy, so we're done.
 			return nil
 		}
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
 	if volume.Status == volumeStatusDeleting {
@@ -451,7 +451,7 @@ func destroyVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		return nil
 	}
 	if err := storageAdapter.DeleteVolume(volumeId); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
 	return nil
@@ -472,7 +472,7 @@ func releaseVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		return false, nil
 	})
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return errors.Annotatef(err, "cannot release volume %q", volumeId)
 	}
 	// Drop the model and controller tags from the volume.
@@ -481,7 +481,7 @@ func releaseVolume(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 		tags.JujuController: "",
 	}
 	_, err = storageAdapter.SetVolumeMetadata(volumeId, tags)
-	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	handleCredentialError(err, ctx)
 	return errors.Annotate(err, "tagging volume")
 }
 
@@ -548,7 +548,7 @@ func (s *cinderVolumeSource) attachVolume(arg storage.VolumeAttachmentParams) (*
 func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volumeId string, resourceTags map[string]string) (storage.VolumeInfo, error) {
 	volume, err := s.storageAdapter.GetVolume(volumeId)
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return storage.VolumeInfo{}, errors.Annotate(err, "getting volume")
 	}
 	if volume.Status != volumeStatusAvailable {
@@ -557,7 +557,7 @@ func (s *cinderVolumeSource) ImportVolume(ctx context.ProviderCallContext, volum
 		)
 	}
 	if _, err := s.storageAdapter.SetVolumeMetadata(volumeId, resourceTags); err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return storage.VolumeInfo{}, errors.Annotatef(err, "tagging volume %q", volumeId)
 	}
 	return cinderToJujuVolumeInfo(volume), nil
@@ -597,7 +597,7 @@ func detachVolumes(ctx context.ProviderCallContext, storageAdapter OpenstackStor
 			arg.VolumeId,
 			storageAdapter,
 		); err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			handleCredentialError(err, ctx)
 			results[i] = errors.Annotatef(
 				err, "detaching volume %s from server %s",
 				arg.VolumeId, arg.InstanceId,
