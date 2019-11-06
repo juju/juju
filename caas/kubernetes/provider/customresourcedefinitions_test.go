@@ -1107,9 +1107,9 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 	mockCRDGetter := mocks.NewMockCRDGetterInterface(ctrl)
 	unExpectedErr := errors.New("a non not found error")
 
-	// round 1. crd1 un expected error - will not retry and abort the whole wg.
-	mockCRDGetter.EXPECT().Get("tfjobs.kubeflow.org").Times(1).Return(nil, errors.NotFoundf(""))
-	// round 1. crd2 not found.
+	// round 1. crd1 not found.
+	mockCRDGetter.EXPECT().Get("tfjobs.kubeflow.org").AnyTimes().Return(nil, errors.NotFoundf(""))
+	// round 1. crd2 un expected error - will not retry and abort the whole wg.
 	mockCRDGetter.EXPECT().Get("scheduledworkflows.kubeflow.org").Times(1).Return(nil, unExpectedErr)
 
 	resultChan := make(chan map[string]*apiextensionsv1beta1.CustomResourceDefinition)
@@ -1126,9 +1126,6 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 	}(s.broker)
 
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
