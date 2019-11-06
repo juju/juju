@@ -4,17 +4,25 @@
 package cloud
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
+	"net/http"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/clearsign"
 	"gopkg.in/juju/names.v3"
 
 	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -31,6 +39,8 @@ type updateCloudCommand struct {
 
 	// Used when updating controllers' cloud details
 	updateCloudAPIFunc func() (updateCloudAPI, error)
+
+	publicCloudFetchConfig publicCloudsConfig
 }
 
 var updateCloudDoc = `
@@ -46,6 +56,25 @@ from this client.
 Use --controller option to update a cloud on a controller. 
 
 Use --client to update cloud definition on this client.
+
+Definitions of 'public' clouds such as aws, azure, etc are stored in a 
+central, Juju accessible location on https://streams.canonical.com/.
+
+However, for convenience, each Juju client has a copy of these definitions.
+Thus, when public cloud definitions change, for example a new region gets added,
+a client copy might become outdated. If this client copy was used on 
+a controller, than a controller copy will also become outdated.
+
+Both client and controller copies of public clouds can be updated using this command.
+However, how the command runs in each case is slightly different:
+
+* when updating 'public' clouds on a client (--client), Juju will use central location from above;
+
+* when updating 'public' clouds on a controller (-c/--controller), Juju will use local client copy.
+
+You can combine these options together to update controller copy
+from central location 'juju update-cloud aws --client -c mycontroller' since in this combination
+client copy will get updated first.
 
 Examples:
 
@@ -77,11 +106,24 @@ func newUpdateCloudCommand(cloudMetadataStore CloudMetadataStore) cmd.Command {
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store: store,
 		},
-		cloudMetadataStore: cloudMetadataStore,
+		cloudMetadataStore:     cloudMetadataStore,
+		publicCloudFetchConfig: newPublicCloudsConfig(),
 	}
 	c.updateCloudAPIFunc = c.updateCloudAPI
 
 	return modelcmd.WrapBase(c)
+}
+
+type publicCloudsConfig struct {
+	publicSigningKey string
+	publicCloudURL   string
+}
+
+func newPublicCloudsConfig() publicCloudsConfig {
+	return publicCloudsConfig{
+		publicSigningKey: keys.JujuPublicKey,
+		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
+	}
 }
 
 func (c *updateCloudCommand) updateCloudAPI() (updateCloudAPI, error) {
@@ -144,19 +186,21 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 	var returnErr error
 	processErr := func(err error, successMsg string) {
 		if err != nil {
-			ctxt.Infof("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 			return
 		}
 		ctxt.Infof(successMsg)
 	}
 	if c.Client {
-		if c.CloudFile == "" {
-			ctxt.Infof("To update cloud %q on this client, a cloud definition file is required.", c.Cloud)
-			returnErr = cmd.ErrSilent
-		} else {
+		if c.CloudFile != "" {
 			err := addLocalCloud(c.cloudMetadataStore, *newCloud)
 			processErr(err, fmt.Sprintf("Cloud %q updated on this client using provided file.", c.Cloud))
+		} else {
+			if err := c.maybeUpdatePublicCloud(ctxt); err != nil {
+				ctxt.Infof("ERROR %v", err)
+				returnErr = cmd.ErrSilent
+			}
 		}
 	}
 	if c.ControllerName != "" {
@@ -169,6 +213,101 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	return returnErr
+}
+
+func getPublishedPublicClouds(ctxt *cmd.Context, cfg publicCloudsConfig) (map[string]jujucloud.Cloud, error) {
+	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
+	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
+	resp, err := client.Get(cfg.publicCloudURL)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		switch resp.StatusCode {
+		case http.StatusNotFound:
+			fmt.Fprintln(ctxt.Stderr, "Public cloud list is unavailable right now.")
+			return nil, cmd.ErrSilent
+		case http.StatusUnauthorized:
+			return nil, errors.Unauthorizedf("unauthorised access to URL %q", cfg.publicCloudURL)
+		}
+		return nil, errors.Errorf("cannot read public cloud information at URL %q, %q", cfg.publicCloudURL, resp.Status)
+	}
+
+	cloudData, err := decodeCheckSignature(resp.Body, cfg.publicSigningKey)
+	if err != nil {
+		return nil, errors.Annotate(err, "error receiving updated cloud data")
+	}
+	newPublicClouds, err := jujucloud.ParseCloudMetadata(cloudData)
+	if err != nil {
+		return nil, errors.Annotate(err, "invalid cloud data received when updating clouds")
+	}
+	return newPublicClouds, nil
+}
+
+func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {
+	data, err := ioutil.ReadAll(r)
+	if err != nil {
+		return nil, err
+	}
+	b, _ := clearsign.Decode(data)
+	if b == nil {
+		return nil, errors.New("no PGP signature embedded in plain text data")
+	}
+	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(publicKey))
+	if err != nil {
+		return nil, errors.Errorf("failed to parse public key: %v", err)
+	}
+
+	_, err = openpgp.CheckDetachedSignature(keyring, bytes.NewBuffer(b.Bytes), b.ArmoredSignature.Body)
+	if err != nil {
+		return nil, err
+	}
+	return b.Plaintext, nil
+}
+
+func (c *updateCloudCommand) maybeUpdatePublicCloud(ctxt *cmd.Context) error {
+	// Public clouds get special treatment - they need to be fetched from streams.
+	currentPublicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	currentCloud, ok := currentPublicClouds[c.Cloud]
+	if !ok {
+		ctxt.Infof("To update cloud %q on this client, a cloud definition file is required.", c.Cloud)
+		return nil
+	}
+	publishedPublic, err := getPublishedPublicClouds(ctxt, c.publicCloudFetchConfig)
+	if err != nil {
+		return errors.Annotate(err, "invalid cloud data received when updating clouds")
+	}
+	publishedCloud, ok := publishedPublic[c.Cloud]
+	if !ok {
+		// Highly unlikely that 'it will ever happen', but clouds may become decommissioned...
+		return errors.Errorf("published clouds no longer have a definition for cloud %q", c.Cloud)
+	}
+	if !cloudChanged(c.Cloud, publishedCloud, currentCloud) {
+		ctxt.Infof("No new details for cloud %q have been published.", c.Cloud)
+		return nil
+	}
+	currentPublicClouds[c.Cloud] = publishedCloud
+	if err := jujucloud.WritePublicCloudMetadata(currentPublicClouds); err != nil {
+		return errors.Annotatef(err, "error writing new published defintion for cloud %q", c.Cloud)
+	}
+	diff := newChanges()
+	diffCloudDetails(c.Cloud, publishedCloud, currentCloud, diff)
+	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated public cloud %q on this client, %s", c.Cloud, diff.summary()))
+	return nil
+}
+
+func cloudChanged(cloudName string, new, old jujucloud.Cloud) bool {
+	same, _ := jujucloud.IsSameCloudMetadata(
+		map[string]jujucloud.Cloud{cloudName: new},
+		map[string]jujucloud.Cloud{cloudName: old},
+	)
+	// If both old and new version are the same the cloud has not changed.
+	return !same
 }
 
 func (c *updateCloudCommand) updateLocalCache(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {

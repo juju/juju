@@ -10,42 +10,42 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type cloudChangesSuite struct {
+type cloudDiffSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&cloudChangesSuite{})
+var _ = gc.Suite(&cloudDiffSuite{})
 
-func (s *cloudChangesSuite) TestPluralityNone(c *gc.C) {
+func (s *cloudDiffSuite) TestPluralityNone(c *gc.C) {
 	c.Assert(adjustPlurality("item", 0), gc.Equals, "")
 }
 
-func (s *cloudChangesSuite) TestPluralitySingular(c *gc.C) {
+func (s *cloudDiffSuite) TestPluralitySingular(c *gc.C) {
 	c.Assert(adjustPlurality("item", 1), gc.Equals, "1 item")
 }
 
-func (s *cloudChangesSuite) TestPluralityPlural(c *gc.C) {
+func (s *cloudDiffSuite) TestPluralityPlural(c *gc.C) {
 	c.Assert(adjustPlurality("item", 2), gc.Equals, "2 items")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceEmpty(c *gc.C) {
+func (s *cloudDiffSuite) TestFormatSliceEmpty(c *gc.C) {
 	c.Assert(formatSlice(nil, "", ""), gc.Equals, "")
 	c.Assert(formatSlice([]string{}, "", ""), gc.Equals, "")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceOne(c *gc.C) {
+func (s *cloudDiffSuite) TestFormatSliceOne(c *gc.C) {
 	c.Assert(formatSlice([]string{"one"}, "", ""), gc.Equals, "one")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceTwo(c *gc.C) {
+func (s *cloudDiffSuite) TestFormatSliceTwo(c *gc.C) {
 	c.Assert(formatSlice([]string{"one", "two"}, "", " and "), gc.Equals, "one and two")
 }
 
-func (s *cloudChangesSuite) TestFormatSliceMany(c *gc.C) {
+func (s *cloudDiffSuite) TestFormatSliceMany(c *gc.C) {
 	c.Assert(formatSlice([]string{"one", "two", "three"}, ", ", " and "), gc.Equals, "one, two and three")
 }
 
-func (s *cloudChangesSuite) TestFormatSlices(c *gc.C) {
+func (s *cloudDiffSuite) TestFormatSlices(c *gc.C) {
 	c.Assert(formatSlice(
 		[]string{"one add", "two and three updates", "four, five and seven deletes"}, "; ", " as well as "),
 		gc.Equals,
@@ -426,7 +426,7 @@ var diffCloudsTests = []struct {
 	},
 }
 
-func (s *cloudChangesSuite) TestDiffClouds(c *gc.C) {
+func (s *cloudDiffSuite) TestDiffClouds(c *gc.C) {
 	for i, test := range diffCloudsTests {
 		c.Logf("%d: %v", i, test.description)
 		c.Check(diffClouds(test.new, test.old), gc.Equals, test.expected)

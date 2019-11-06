@@ -71,9 +71,11 @@ func NewRemoveCloudCommandForTest(store jujuclient.ClientStore, cloudAPI func() 
 
 func NewUpdatePublicCloudsCommandForTest(publicCloudURL string) *updatePublicCloudsCommand {
 	return &updatePublicCloudsCommand{
-		// TODO(wallyworld) - move testing key elsewhere
-		publicSigningKey: sstesting.SignedMetadataPublicKey,
-		publicCloudURL:   publicCloudURL,
+		config: publicCloudsConfig{
+			// TODO(wallyworld) - move testing key elsewhere
+			publicSigningKey: sstesting.SignedMetadataPublicKey,
+			publicCloudURL:   publicCloudURL,
+		},
 	}
 }
 
@@ -81,11 +83,17 @@ func NewUpdateCloudCommandForTest(
 	cloudMetadataStore CloudMetadataStore,
 	store jujuclient.ClientStore,
 	cloudAPI func() (UpdateCloudAPI, error),
+	publicCloudURL string,
 ) *updateCloudCommand {
 	return &updateCloudCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
 		cloudMetadataStore:        cloudMetadataStore,
 		updateCloudAPIFunc:        cloudAPI,
+		publicCloudFetchConfig: publicCloudsConfig{
+			// TODO(wallyworld) - move testing key elsewhere
+			publicSigningKey: sstesting.SignedMetadataPublicKey,
+			publicCloudURL:   publicCloudURL,
+		},
 	}
 }
 

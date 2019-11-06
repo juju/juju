@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/crypto/openpgp"
@@ -47,7 +48,7 @@ func encodeCloudYAML(c *gc.C, yaml string) string {
 	return string(buf.Bytes())
 }
 
-func (s *updatePublicCloudsSuite) setupTestServer(c *gc.C, serverContent string) *httptest.Server {
+func setupTestServer(c *gc.C, serverContent string) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch serverContent {
 		case "404":
@@ -75,6 +76,7 @@ func (s *updatePublicCloudsSuite) run(c *gc.C, url, errMsg string) string {
 	if errMsg == "" {
 		c.Assert(err, jc.ErrorIsNil)
 	} else {
+		c.Assert(err, gc.NotNil)
 		errString := strings.Replace(err.Error(), "\n", "", -1)
 		c.Assert(errString, gc.Matches, errMsg)
 	}
@@ -82,29 +84,29 @@ func (s *updatePublicCloudsSuite) run(c *gc.C, url, errMsg string) string {
 }
 
 func (s *updatePublicCloudsSuite) Test404(c *gc.C) {
-	ts := s.setupTestServer(c, "404")
+	ts := setupTestServer(c, "404")
 	defer ts.Close()
 
-	msg := s.run(c, ts.URL, "")
+	msg := s.run(c, ts.URL, cmd.ErrSilent.Error())
 	c.Assert(strings.Replace(msg, "\n", "", -1), gc.Matches, "Fetching latest public cloud list...Public cloud list is unavailable right now.")
 }
 
 func (s *updatePublicCloudsSuite) Test401(c *gc.C) {
-	ts := s.setupTestServer(c, "401")
+	ts := setupTestServer(c, "401")
 	defer ts.Close()
 
 	s.run(c, ts.URL, "unauthorised access to URL .*")
 }
 
 func (s *updatePublicCloudsSuite) TestUnsignedData(c *gc.C) {
-	ts := s.setupTestServer(c, "unsigned")
+	ts := setupTestServer(c, "unsigned")
 	defer ts.Close()
 
 	s.run(c, ts.URL, "error receiving updated cloud data: no PGP signature embedded in plain text data")
 }
 
 func (s *updatePublicCloudsSuite) TestBadDataOnServer(c *gc.C) {
-	ts := s.setupTestServer(c, "bad data")
+	ts := setupTestServer(c, "bad data")
 	defer ts.Close()
 
 	s.run(c, ts.URL, ".*invalid cloud data received when updating clouds.*")
@@ -127,7 +129,7 @@ func (s *updatePublicCloudsSuite) TestNoNewData(c *gc.C) {
 	err = jujucloud.WritePublicCloudMetadata(clouds)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ts := s.setupTestServer(c, sampleUpdateCloudData)
+	ts := setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "")
@@ -139,7 +141,7 @@ func (s *updatePublicCloudsSuite) TestFirstRun(c *gc.C) {
 	err := jujucloud.WritePublicCloudMetadata(nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ts := s.setupTestServer(c, sampleUpdateCloudData)
+	ts := setupTestServer(c, sampleUpdateCloudData)
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "")
@@ -168,7 +170,7 @@ func (s *updatePublicCloudsSuite) TestNewData(c *gc.C) {
       anotherregion:
         endpoint: http://anotherregion/1.0
 `[1:]
-	ts := s.setupTestServer(c, newUpdateCloudData)
+	ts := setupTestServer(c, newUpdateCloudData)
 	defer ts.Close()
 
 	msg := s.run(c, ts.URL, "")
