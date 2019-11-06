@@ -48,6 +48,7 @@ func (s *ManifoldsSuite) TestManifoldNames(c *gc.C) {
 		"migration-fortress",
 		"migration-minion",
 		"migration-inactive-flag",
+		"proxy-config-updater",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
 		"upgrade-steps-runner",
@@ -177,6 +178,15 @@ var expectedOperatorManifoldsWithDependencies = map[string][]string{
 		"api-caller",
 		"api-config-watcher",
 		"migration-fortress",
+		"upgrade-steps-flag",
+		"upgrade-steps-gate"},
+
+	"proxy-config-updater": {
+		"agent",
+		"api-caller",
+		"api-config-watcher",
+		"migration-fortress",
+		"migration-inactive-flag",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate"},
 

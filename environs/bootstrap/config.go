@@ -130,8 +130,13 @@ func (c Config) Validate() error {
 	if c.BootstrapAddressesDelay <= 0 {
 		return errors.NotValidf("%s of %s", BootstrapAddressesDelayKey, c.BootstrapAddressesDelay)
 	}
-	if len(c.ControllerExternalIPs) > 0 && c.ControllerServiceType != string(caas.ServiceExternal) {
-		return errors.NewNotValid(nil, fmt.Sprintf("external IPs require a service type of %q", caas.ServiceExternal))
+	if len(c.ControllerExternalIPs) > 0 &&
+		c.ControllerServiceType != string(caas.ServiceExternal) &&
+		c.ControllerServiceType != string(caas.ServiceLoadBalancer) {
+		return errors.NewNotValid(nil, fmt.Sprintf("external IPs require a service type of %q or %q", caas.ServiceExternal, caas.ServiceLoadBalancer))
+	}
+	if len(c.ControllerExternalIPs) > 1 && c.ControllerServiceType == string(caas.ServiceLoadBalancer) {
+		return errors.NewNotValid(nil, fmt.Sprintf("only 1 external IP is allowed with service type %q", caas.ServiceLoadBalancer))
 	}
 	return nil
 }

@@ -76,6 +76,11 @@ func (s *steps27Suite) TestReplaceSpaceNameWithIDEndpointBindings(c *gc.C) {
 	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
 }
 
+func (s *steps27Suite) TestRemoveControllerConfigMaxLogAgeAndSize(c *gc.C) {
+	step := findStateStep(c, v27, `remove controller config for max-logs-age and max-logs-size if set`)
+	c.Assert(step.Targets(), jc.DeepEquals, []upgrades.Target{upgrades.DatabaseMaster})
+}
+
 func (s *steps27Suite) TestLogfilePermissions(c *gc.C) {
 	// This test is to primarily test the walking of the log directory and the
 	// calling of the SetOwnership call. Skipped on windows because this will
