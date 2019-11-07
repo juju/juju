@@ -314,6 +314,34 @@ func (mr *MockGenerationMockRecorder) Commit(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockGeneration)(nil).Commit), arg0)
 }
 
+// Completed mocks base method
+func (m *MockGeneration) Completed() int64 {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Completed")
+	ret0, _ := ret[0].(int64)
+	return ret0
+}
+
+// Completed indicates an expected call of Completed
+func (mr *MockGenerationMockRecorder) Completed() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Completed", reflect.TypeOf((*MockGeneration)(nil).Completed))
+}
+
+// CompletedBy mocks base method
+func (m *MockGeneration) CompletedBy() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompletedBy")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CompletedBy indicates an expected call of CompletedBy
+func (mr *MockGenerationMockRecorder) CompletedBy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompletedBy", reflect.TypeOf((*MockGeneration)(nil).CompletedBy))
+}
+
 // Config mocks base method
 func (m *MockGeneration) Config() map[string]settings.ItemChanges {
 	m.ctrl.T.Helper()

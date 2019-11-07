@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	showCommitsSummary = "Displays details of the commit"
-	showCommitsDoc     = `
+	showCommitSummary = "Displays details of the commit"
+	showCommitDoc     = `
 Show-commit shows the committed branches to the model.
 Details displayed include:
 - user who committed the branch 
@@ -34,8 +34,8 @@ Details displayed include:
 - a summary of how many units are tracking the branch
 
 Examples:
-    juju show-commits 3
-    juju show-commits 3 --utc
+    juju show-commit 3
+    juju show-commit 3 --utc
 
 See also:
 	list-commits
@@ -65,14 +65,11 @@ type ShowCommitCommand struct {
 type ShowCommitCommandAPI interface {
 	Close() error
 
-	// ListCommitsBranch commits the branch with the input name to the model,
-	// effectively completing it and applying
-	// all branch changes across the model.
-	// The new generation ID of the model is returned.
-	ShowCommit(func(time.Time) string) (model.GenerationCommit, error)
+	// ShowCommit shows the branches which were committed
+	ShowCommit(func(time.Time) string, int) (model.GenerationCommit, error)
 }
 
-// NewCommitCommand wraps listCommitsCommand with sane model settings.
+// NewShowCommitCommand wraps NewShowCommitCommand with sane model settings.
 func NewShowCommitCommand() cmd.Command {
 	return modelcmd.Wrap(&ShowCommitCommand{})
 }
@@ -81,8 +78,8 @@ func NewShowCommitCommand() cmd.Command {
 func (c *ShowCommitCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "show-commit",
-		Purpose: showCommitsDoc,
-		Doc:     showCommitsSummary,
+		Purpose: showCommitDoc,
+		Doc:     showCommitSummary,
 	}
 	return jujucmd.Info(info)
 }
@@ -144,9 +141,34 @@ func (c *ShowCommitCommand) Run(ctx *cmd.Context) error {
 	formatTime := func(t time.Time) string {
 		return common.FormatTime(&t, c.isoTime)
 	}
-	cmt, err := client.ShowCommit(formatTime)
+	cmt, err := client.ShowCommit(formatTime, c.generationId)
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctx, cmt)
+	return errors.Trace(c.out.Write(ctx, c.getFormattedOutput(cmt)))
+}
+
+// Run implements the meaty part of the cmd.Command interface.
+func (c *ShowCommitCommand) getFormattedOutput(gcm model.GenerationCommit) formattedShowCommit {
+	applications := map[string]formattedShowCommitApplications{gcm.BranchName: {gcm.Applications}}
+	commit := formattedShowCommit{
+		Branch:      applications,
+		CommittedAt: gcm.Completed,
+		CommittedBy: gcm.CompletedBy,
+		Created:     gcm.Created,
+		CreatedBy:   gcm.CreatedBy,
+	}
+	return commit
+}
+
+type formattedShowCommit struct {
+	Branch      map[string]formattedShowCommitApplications `json:"branch" yaml:"branch"`
+	CommittedAt string                                     `json:"committed-at" yaml:"committed-at"`
+	CommittedBy string                                     `json:"committed-by" yaml:"committed-by"`
+	Created     string                                     `json:"created" yaml:"created"`
+	CreatedBy   string                                     `json:"created-by" yaml:"created-by"`
+}
+
+type formattedShowCommitApplications struct {
+	Applications []model.GenerationApplication `json:"applications" yaml:"applications"`
 }

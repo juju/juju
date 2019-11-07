@@ -290,7 +290,8 @@ func (api *API) BranchInfo(
 }
 
 // ShowCommit will return details a commit given by its generationId
-// An error is returned if no commit can be found corresponding to a branch.
+// An error is returned if either no branch can be found corresponding to the generation id.
+// Or the generation id given is below 1.
 func (api *APIV3) ShowCommit(arg params.GenerationId) (params.GenerationCommitResult, error) {
 	result := params.GenerationCommitResult{}
 
@@ -312,13 +313,12 @@ func (api *APIV3) ShowCommit(arg params.GenerationId) (params.GenerationCommitRe
 		return result, nil
 	}
 
-	//TODO: convert them
-	_, err = api.oneBranchInfo(branch, true)
+	generationCommit, err := api.getGenerationCommit(branch)
 	if err != nil {
 		return generationCommitResultError(err)
 	}
 
-	//result.GenerationCommit. = generation.Applications
+	result.GenerationCommit = generationCommit
 
 	return result, nil
 }
@@ -403,6 +403,23 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 	}, nil
 }
 
+func (api *APIV3) getGenerationCommit(branch Generation) (params.GenerationCommit, error) {
+
+	generation, err := api.oneBranchInfo(branch, true)
+	if err != nil {
+		return params.GenerationCommit{}, errors.Trace(err)
+	}
+	return params.GenerationCommit{
+		BranchName:   branch.BranchName(),
+		Completed:    branch.Completed(),
+		CompletedBy:  branch.CompletedBy(),
+		GenerationId: branch.GenerationId(),
+		Created:      branch.Created(),
+		CreatedBy:    branch.CreatedBy(),
+		Applications: generation.Applications,
+	}, nil
+}
+
 // HasActiveBranch returns a true result if the input model has an "in-flight"
 // branch matching the input name.
 func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
@@ -425,10 +442,6 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 		result.Result = true
 	}
 	return result, nil
-}
-
-func convertGenerationsToGenerationsCommit(generation Generation) params.GenerationCommit {
-	return params.GenerationCommit{}
 }
 
 func generationResultsError(err error) (params.GenerationResults, error) {

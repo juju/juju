@@ -236,3 +236,11 @@ func NewListCommitsCommandForTest(api CommitsCommandAPI, store jujuclient.Client
 	cmd.SetClientStore(store)
 	return modelcmd.Wrap(cmd)
 }
+
+func NewShowCommitCommandForTest(api ShowCommitCommandAPI, store jujuclient.ClientStore) cmd.Command {
+	cmd := &ShowCommitCommand{
+		api: api,
+	}
+	cmd.SetClientStore(store)
+	return modelcmd.Wrap(cmd)
+}

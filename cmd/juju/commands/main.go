@@ -373,6 +373,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(model.NewDiffCommand())
 		r.Register(model.NewAbortCommand())
 		r.Register(model.NewCommitsCommand())
+		r.Register(model.NewShowCommitCommand())
 	}
 
 	r.Register(newMigrateCommand())
