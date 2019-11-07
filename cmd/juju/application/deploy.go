@@ -589,7 +589,7 @@ for security purposes by allowing only certain configurations and devices. Use
 the '--force' option to bypass this check. Doing so is not recommended as it
 can lead to unexpected behaviour.
 
-Further reading: https://docs.jujucharms.com/stable/charms-deploying
+Further reading: https://jaas.ai/docs/deploying-applications
 
 Examples:
 
