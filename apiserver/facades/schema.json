@@ -23100,7 +23100,18 @@
                     "type": "object",
                     "properties": {
                         "Result": {
-                            "$ref": "#/definitions/GenerationResults"
+                            "$ref": "#/definitions/GenerationCommitResults"
+                        }
+                    }
+                },
+                "ShowCommit": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GenerationId"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/GenerationCommitResult"
                         }
                     }
                 },
@@ -23263,17 +23274,13 @@
                         },
                         "created-by": {
                             "type": "string"
-                        },
-                        "generation-id": {
-                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "branch",
                         "created",
-                        "created-by",
-                        "generation-id"
+                        "created-by"
                     ]
                 },
                 "GenerationApplication": {
@@ -23312,6 +23319,87 @@
                         "application",
                         "progress",
                         "config"
+                    ]
+                },
+                "GenerationCommit": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GenerationApplication"
+                            }
+                        },
+                        "branch": {
+                            "type": "string"
+                        },
+                        "completed": {
+                            "type": "integer"
+                        },
+                        "completed-by": {
+                            "type": "string"
+                        },
+                        "created": {
+                            "type": "integer"
+                        },
+                        "created-by": {
+                            "type": "string"
+                        },
+                        "generation-id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "branch",
+                        "completed",
+                        "completed-by",
+                        "generation-id"
+                    ]
+                },
+                "GenerationCommitResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "generation-commit": {
+                            "$ref": "#/definitions/GenerationCommit"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "generation-commit"
+                    ]
+                },
+                "GenerationCommitResults": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "generation-commit": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/GenerationCommit"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "generation-commit"
+                    ]
+                },
+                "GenerationId": {
+                    "type": "object",
+                    "properties": {
+                        "generation-id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "generation-id"
                     ]
                 },
                 "GenerationResults": {

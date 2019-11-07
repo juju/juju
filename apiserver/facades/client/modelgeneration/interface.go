@@ -26,6 +26,8 @@ type Model interface {
 	AddBranch(string, string) error
 	Branch(string) (Generation, error)
 	Branches() ([]Generation, error)
+	CommittedBranch(int) (Generation, error)
+	CommittedBranches() ([]Generation, error)
 }
 
 // ModelCache describes a cached model used by the model generation API.
@@ -38,6 +40,8 @@ type Generation interface {
 	BranchName() string
 	Created() int64
 	CreatedBy() string
+	Completed() int64
+	CompletedBy() string
 	AssignAllUnits(string) error
 	AssignUnits(string, int) error
 	AssignUnit(string) error

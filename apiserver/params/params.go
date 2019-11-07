@@ -1182,6 +1182,11 @@ type BranchArg struct {
 	BranchName string `json:"branch"`
 }
 
+// GenerationId represents an in-flight branch via its model and branch name.
+type GenerationId struct {
+	GenerationId int `json:"generation-id"`
+}
+
 // BranchInfoArgs transports arguments to the BranchInfo method
 type BranchInfoArgs struct {
 	// BranchNames is the names of branches for which info is being requested.
@@ -1233,8 +1238,30 @@ type Generation struct {
 	// Created is the user who created the generation.
 	CreatedBy string `json:"created-by"`
 
+	// Applications holds the collection of application changes
+	// made under this generation.
+	Applications []GenerationApplication `json:"applications,omitempty"`
+}
+
+// GenerationCommits represents a model generation's commit details.
+type GenerationCommit struct {
+	// BranchName uniquely identifies a branch *amongst in-flight branches*.
+	BranchName string `json:"branch"`
+
+	// Created is the Unix timestamp at generation creation.
+	Completed int64 `json:"completed"`
+
+	// Created is the user who created the generation.
+	CompletedBy string `json:"completed-by"`
+
 	// GenerationId is the id .
 	GenerationId int `json:"generation-id"`
+
+	// Created is the Unix timestamp at generation creation.
+	Created int64 `json:"created,omitempty"`
+
+	// Created is the user who created the generation.
+	CreatedBy string `json:"created-by,omitempty"`
 
 	// Applications holds the collection of application changes
 	// made under this generation.
@@ -1254,6 +1281,24 @@ type GenerationResults struct {
 type GenerationResult struct {
 	// Generation holds the details of the requested generation.
 	Generation Generation `json:"generation"`
+
+	// Error holds the value of any error that occurred processing the request.
+	Error *Error `json:"error,omitempty"`
+}
+
+// GenerationResult transports a generation detail.
+type GenerationCommitResults struct {
+	// Generation holds the details of the requested generation.
+	GenerationCommits []GenerationCommit `json:"generation-commit"`
+
+	// Error holds the value of any error that occurred processing the request.
+	Error *Error `json:"error,omitempty"`
+}
+
+// GenerationResult transports a generation detail.
+type GenerationCommitResult struct {
+	// Generation holds the details of the requested generation.
+	GenerationCommit GenerationCommit `json:"generation-commit"`
 
 	// Error holds the value of any error that occurred processing the request.
 	Error *Error `json:"error,omitempty"`

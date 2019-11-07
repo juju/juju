@@ -70,18 +70,29 @@ type Generation struct {
 	Applications []GenerationApplication `yaml:"applications"`
 }
 
-// Generation represents detail of a model generation including config changes.
+// GenerationCommits represents a model generation's commit details.
 type GenerationCommit struct {
-	// Created is the formatted time at generation creation.
-	Created string `yaml:"created"`
+	// BranchName uniquely identifies a branch *amongst in-flight branches*.
+	BranchName string `json:"branch"`
+
+	// Created is the Unix timestamp at generation creation.
+	Completed string `json:"completed"`
 
 	// Created is the user who created the generation.
-	CreatedBy string `yaml:"created-by"`
+	CompletedBy string `json:"completed-by"`
 
-	BranchName string `yaml:"branch-name"`
+	// Created is the Unix timestamp at generation creation.
+	Created string `json:"created,omitempty"`
 
-	// CommitNumber is the generation-id
-	CommitNumber int `yaml:"generation-id"`
+	// Created is the user who created the generation.
+	CreatedBy string `json:"created-by,omitempty"`
+
+	// GenerationId is the id .
+	GenerationId int `json:"generation-id,omitempty"`
+
+	// Applications holds the collection of application changes
+	// made under this generation.
+	Applications []GenerationApplication `json:"applications,omitempty"`
 }
 
 // GenerationSummaries is a type alias for a representation

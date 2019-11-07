@@ -38,15 +38,15 @@ func (s *commitsSuite) TestInitOneArg(c *gc.C) {
 func (s *commitsSuite) getMockValues() []coremodel.GenerationCommit {
 	values := []coremodel.GenerationCommit{
 		{
-			Created:      "0001-01-01",
-			CreatedBy:    "test-user",
-			CommitNumber: 1,
+			Completed:    "0001-01-01",
+			CompletedBy:  "test-user",
+			GenerationId: 1,
 			BranchName:   "bla",
 		},
 		{
-			Created:      "0001-02-02",
-			CreatedBy:    "test-user",
-			CommitNumber: 2,
+			Completed:    "0001-02-02",
+			CompletedBy:  "test-user",
+			GenerationId: 2,
 			BranchName:   "test",
 		},
 	}
@@ -57,9 +57,10 @@ func (s *commitsSuite) TestRunCommandTabularOutput(c *gc.C) {
 	defer s.setup(c).Finish()
 	result := s.getMockValues()
 	expected :=
-		"Commit\tCommitted at        \tCommitted by\tBranch name" +
-			"\n1     \t0001-01-01\ttest-user   \tbla        " +
-			"\n2     \t0001-02-02\ttest-user   \ttest       \n"
+		`Commit	Committed at	Committed by	Branch name
+1     	0001-01-01  	test-user   	bla        
+2     	0001-02-02  	test-user   	test       
+`
 	s.api.EXPECT().ListCommits(gomock.Any()).Return(result, nil)
 
 	ctx, err := s.runCommand(c)
@@ -94,7 +95,7 @@ func (s *commitsSuite) TestRunCommandJsonOutput(c *gc.C) {
 
 	ctx, err := s.runCommand(c, "--format=json")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, expected)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }
 
 func (s *commitsSuite) TestRunCommandYamlOutput(c *gc.C) {

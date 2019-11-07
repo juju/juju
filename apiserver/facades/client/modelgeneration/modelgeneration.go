@@ -277,10 +277,43 @@ func (api *API) BranchInfo(
 	return result, nil
 }
 
+// ShowCommit will return details a commit given by its generationId
+// An error is returned if no commit can be found corresponding to a branch.
+func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationCommitResult, error) {
+	result := params.GenerationCommitResult{}
+
+	isModelAdmin, err := api.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !api.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+	if arg.GenerationId < 1 {
+		err := errors.Errorf("supplied generation id has to be higher than 0")
+		return generationCommitResultError(err)
+	}
+
+	branch, err := api.model.CommittedBranch(arg.GenerationId)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
+	}
+
+	//TODO: convert them
+	_, err = api.oneBranchInfo(branch, true)
+	if err != nil {
+		return generationCommitResultError(err)
+	}
+
+	//result.GenerationCommit. = generation.Applications
+
+	return result, nil
+}
+
 // ListCommits will return the commits, hence only branches with generation_id higher than 0
-// Keyed by the generation_id
-func (api *API) ListCommits() (params.GenerationResults, error) {
-	result := params.GenerationResults{}
+func (api *API) ListCommits() (params.GenerationCommitResults, error) {
+	result := params.GenerationCommitResults{}
 
 	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
@@ -291,68 +324,24 @@ func (api *API) ListCommits() (params.GenerationResults, error) {
 	}
 
 	var branches []Generation
-	if branches, err = api.model.Branches(); err != nil {
-		return generationResultsError(err)
+	if branches, err = api.model.CommittedBranches(); err != nil {
+		return generationCommitResultsError(err)
 	}
 	logger.Errorf("branches found %q", branches)
 
-	//TODO: check whether branches usage is correct
-	results := make([]params.Generation, len(branches))
+	results := make([]params.GenerationCommit, len(branches))
 	for i, b := range branches {
-		if b.GenerationId() > 0 {
-			gen := params.Generation{
-				BranchName:   b.BranchName(),
-				Created:      b.Created(),
-				CreatedBy:    b.CreatedBy(),
-				GenerationId: b.GenerationId(),
-			}
-			results[i] = gen
+		gen := params.GenerationCommit{
+			BranchName:   b.BranchName(),
+			Completed:    b.Completed(),
+			CompletedBy:  b.CompletedBy(),
+			GenerationId: b.GenerationId(),
 		}
+		results[i] = gen
 	}
 	logger.Errorf("results found %q", results)
 
-	result.Generations = results
-	return result, nil
-}
-
-// ShowCommit will return details a commit given by its generationId
-// An error is returned if no commit can be found corresponding to a branch.
-func (api *API) ShowCommit(generationId int) (params.GenerationResult, error) {
-	result := params.GenerationResult{}
-
-	isModelAdmin, err := api.hasAdminAccess()
-	if err != nil {
-		return result, errors.Trace(err)
-	}
-	if !isModelAdmin && !api.isControllerAdmin {
-		return result, common.ErrPerm
-	}
-	if generationId < 1 {
-		err := errors.Errorf("supplied generation id has to be higher than 0")
-		return generationResultError(err)
-	}
-
-	branches, err := api.model.Branches()
-	if err != nil {
-		return generationResultError(err)
-	}
-
-	found := false
-	for _, b := range branches {
-		// TODO: needs to be of type GenerationApplication
-		generation, err := api.oneBranchInfo(b, false)
-		if err != nil {
-			return generationResultError(err)
-		}
-		if generation.GenerationId > 0 && generation.GenerationId == generationId {
-			result.Generation = generation
-			found = true
-		}
-	}
-	if !found {
-		err := errors.Errorf("did not find the given generationid %q", generationId)
-		return generationResultError(err)
-	}
+	result.GenerationCommits = results
 	return result, nil
 }
 
@@ -400,7 +389,6 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 		BranchName:   branch.BranchName(),
 		Created:      branch.Created(),
 		CreatedBy:    branch.CreatedBy(),
-		GenerationId: branch.GenerationId(),
 		Applications: apps,
 	}, nil
 }
@@ -429,12 +417,20 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 	return result, nil
 }
 
+func convertGenerationsToGenerationsCommit(generation Generation) params.GenerationCommit {
+	return params.GenerationCommit{}
+}
+
 func generationResultsError(err error) (params.GenerationResults, error) {
 	return params.GenerationResults{Error: common.ServerError(err)}, nil
 }
 
-func generationResultError(err error) (params.GenerationResult, error) {
-	return params.GenerationResult{Error: common.ServerError(err)}, nil
+func generationCommitResultsError(err error) (params.GenerationCommitResults, error) {
+	return params.GenerationCommitResults{Error: common.ServerError(err)}, nil
+}
+
+func generationCommitResultError(err error) (params.GenerationCommitResult, error) {
+	return params.GenerationCommitResult{Error: common.ServerError(err)}, nil
 }
 
 func intResultsError(err error) (params.IntResult, error) {

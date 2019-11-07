@@ -39,6 +39,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 
 // Application mocks base method
 func (m *MockState) Application(arg0 string) (modelgeneration.Application, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Application", arg0)
 	ret0, _ := ret[0].(modelgeneration.Application)
 	ret1, _ := ret[1].(error)
@@ -47,11 +48,13 @@ func (m *MockState) Application(arg0 string) (modelgeneration.Application, error
 
 // Application indicates an expected call of Application
 func (mr *MockStateMockRecorder) Application(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Application", reflect.TypeOf((*MockState)(nil).Application), arg0)
 }
 
 // ControllerTag mocks base method
 func (m *MockState) ControllerTag() names_v3.ControllerTag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerTag")
 	ret0, _ := ret[0].(names_v3.ControllerTag)
 	return ret0
@@ -59,11 +62,13 @@ func (m *MockState) ControllerTag() names_v3.ControllerTag {
 
 // ControllerTag indicates an expected call of ControllerTag
 func (mr *MockStateMockRecorder) ControllerTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerTag", reflect.TypeOf((*MockState)(nil).ControllerTag))
 }
 
 // Model mocks base method
 func (m *MockState) Model() (modelgeneration.Model, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
 	ret0, _ := ret[0].(modelgeneration.Model)
 	ret1, _ := ret[1].(error)
@@ -72,6 +77,7 @@ func (m *MockState) Model() (modelgeneration.Model, error) {
 
 // Model indicates an expected call of Model
 func (mr *MockStateMockRecorder) Model() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Model", reflect.TypeOf((*MockState)(nil).Model))
 }
 
@@ -100,6 +106,7 @@ func (m *MockModel) EXPECT() *MockModelMockRecorder {
 
 // AddBranch mocks base method
 func (m *MockModel) AddBranch(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddBranch", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -107,11 +114,13 @@ func (m *MockModel) AddBranch(arg0, arg1 string) error {
 
 // AddBranch indicates an expected call of AddBranch
 func (mr *MockModelMockRecorder) AddBranch(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBranch", reflect.TypeOf((*MockModel)(nil).AddBranch), arg0, arg1)
 }
 
 // Branch mocks base method
 func (m *MockModel) Branch(arg0 string) (modelgeneration.Generation, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Branch", arg0)
 	ret0, _ := ret[0].(modelgeneration.Generation)
 	ret1, _ := ret[1].(error)
@@ -120,11 +129,13 @@ func (m *MockModel) Branch(arg0 string) (modelgeneration.Generation, error) {
 
 // Branch indicates an expected call of Branch
 func (mr *MockModelMockRecorder) Branch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Branch", reflect.TypeOf((*MockModel)(nil).Branch), arg0)
 }
 
 // Branches mocks base method
 func (m *MockModel) Branches() ([]modelgeneration.Generation, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Branches")
 	ret0, _ := ret[0].([]modelgeneration.Generation)
 	ret1, _ := ret[1].(error)
@@ -133,11 +144,43 @@ func (m *MockModel) Branches() ([]modelgeneration.Generation, error) {
 
 // Branches indicates an expected call of Branches
 func (mr *MockModelMockRecorder) Branches() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Branches", reflect.TypeOf((*MockModel)(nil).Branches))
+}
+
+// CommittedBranch mocks base method
+func (m *MockModel) CommittedBranch(arg0 int) (modelgeneration.Generation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommittedBranch", arg0)
+	ret0, _ := ret[0].(modelgeneration.Generation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommittedBranch indicates an expected call of CommittedBranch
+func (mr *MockModelMockRecorder) CommittedBranch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommittedBranch", reflect.TypeOf((*MockModel)(nil).CommittedBranch), arg0)
+}
+
+// CommittedBranches mocks base method
+func (m *MockModel) CommittedBranches() ([]modelgeneration.Generation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommittedBranches")
+	ret0, _ := ret[0].([]modelgeneration.Generation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommittedBranches indicates an expected call of CommittedBranches
+func (mr *MockModelMockRecorder) CommittedBranches() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommittedBranches", reflect.TypeOf((*MockModel)(nil).CommittedBranches))
 }
 
 // ModelTag mocks base method
 func (m *MockModel) ModelTag() names_v3.ModelTag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
 	ret0, _ := ret[0].(names_v3.ModelTag)
 	return ret0
@@ -145,6 +188,7 @@ func (m *MockModel) ModelTag() names_v3.ModelTag {
 
 // ModelTag indicates an expected call of ModelTag
 func (mr *MockModelMockRecorder) ModelTag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockModel)(nil).ModelTag))
 }
 
@@ -173,6 +217,7 @@ func (m *MockGeneration) EXPECT() *MockGenerationMockRecorder {
 
 // Abort mocks base method
 func (m *MockGeneration) Abort(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Abort", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -180,11 +225,13 @@ func (m *MockGeneration) Abort(arg0 string) error {
 
 // Abort indicates an expected call of Abort
 func (mr *MockGenerationMockRecorder) Abort(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockGeneration)(nil).Abort), arg0)
 }
 
 // AssignAllUnits mocks base method
 func (m *MockGeneration) AssignAllUnits(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignAllUnits", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -192,11 +239,13 @@ func (m *MockGeneration) AssignAllUnits(arg0 string) error {
 
 // AssignAllUnits indicates an expected call of AssignAllUnits
 func (mr *MockGenerationMockRecorder) AssignAllUnits(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignAllUnits", reflect.TypeOf((*MockGeneration)(nil).AssignAllUnits), arg0)
 }
 
 // AssignUnit mocks base method
 func (m *MockGeneration) AssignUnit(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignUnit", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -204,11 +253,13 @@ func (m *MockGeneration) AssignUnit(arg0 string) error {
 
 // AssignUnit indicates an expected call of AssignUnit
 func (mr *MockGenerationMockRecorder) AssignUnit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignUnit", reflect.TypeOf((*MockGeneration)(nil).AssignUnit), arg0)
 }
 
 // AssignUnits mocks base method
 func (m *MockGeneration) AssignUnits(arg0 string, arg1 int) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignUnits", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -216,11 +267,13 @@ func (m *MockGeneration) AssignUnits(arg0 string, arg1 int) error {
 
 // AssignUnits indicates an expected call of AssignUnits
 func (mr *MockGenerationMockRecorder) AssignUnits(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignUnits", reflect.TypeOf((*MockGeneration)(nil).AssignUnits), arg0, arg1)
 }
 
 // AssignedUnits mocks base method
 func (m *MockGeneration) AssignedUnits() map[string][]string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AssignedUnits")
 	ret0, _ := ret[0].(map[string][]string)
 	return ret0
@@ -228,11 +281,13 @@ func (m *MockGeneration) AssignedUnits() map[string][]string {
 
 // AssignedUnits indicates an expected call of AssignedUnits
 func (mr *MockGenerationMockRecorder) AssignedUnits() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AssignedUnits", reflect.TypeOf((*MockGeneration)(nil).AssignedUnits))
 }
 
 // BranchName mocks base method
 func (m *MockGeneration) BranchName() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BranchName")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -240,11 +295,13 @@ func (m *MockGeneration) BranchName() string {
 
 // BranchName indicates an expected call of BranchName
 func (mr *MockGenerationMockRecorder) BranchName() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BranchName", reflect.TypeOf((*MockGeneration)(nil).BranchName))
 }
 
 // Commit mocks base method
 func (m *MockGeneration) Commit(arg0 string) (int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Commit", arg0)
 	ret0, _ := ret[0].(int)
 	ret1, _ := ret[1].(error)
@@ -253,11 +310,13 @@ func (m *MockGeneration) Commit(arg0 string) (int, error) {
 
 // Commit indicates an expected call of Commit
 func (mr *MockGenerationMockRecorder) Commit(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockGeneration)(nil).Commit), arg0)
 }
 
 // Config mocks base method
 func (m *MockGeneration) Config() map[string]settings.ItemChanges {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Config")
 	ret0, _ := ret[0].(map[string]settings.ItemChanges)
 	return ret0
@@ -265,11 +324,13 @@ func (m *MockGeneration) Config() map[string]settings.ItemChanges {
 
 // Config indicates an expected call of Config
 func (mr *MockGenerationMockRecorder) Config() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Config", reflect.TypeOf((*MockGeneration)(nil).Config))
 }
 
 // Created mocks base method
 func (m *MockGeneration) Created() int64 {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Created")
 	ret0, _ := ret[0].(int64)
 	return ret0
@@ -277,11 +338,13 @@ func (m *MockGeneration) Created() int64 {
 
 // Created indicates an expected call of Created
 func (mr *MockGenerationMockRecorder) Created() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Created", reflect.TypeOf((*MockGeneration)(nil).Created))
 }
 
 // CreatedBy mocks base method
 func (m *MockGeneration) CreatedBy() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreatedBy")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -289,7 +352,22 @@ func (m *MockGeneration) CreatedBy() string {
 
 // CreatedBy indicates an expected call of CreatedBy
 func (mr *MockGenerationMockRecorder) CreatedBy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatedBy", reflect.TypeOf((*MockGeneration)(nil).CreatedBy))
+}
+
+// GenerationId mocks base method
+func (m *MockGeneration) GenerationId() int {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerationId")
+	ret0, _ := ret[0].(int)
+	return ret0
+}
+
+// GenerationId indicates an expected call of GenerationId
+func (mr *MockGenerationMockRecorder) GenerationId() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerationId", reflect.TypeOf((*MockGeneration)(nil).GenerationId))
 }
 
 // MockApplication is a mock of Application interface
@@ -317,6 +395,7 @@ func (m *MockApplication) EXPECT() *MockApplicationMockRecorder {
 
 // DefaultCharmConfig mocks base method
 func (m *MockApplication) DefaultCharmConfig() (charm_v6.Settings, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultCharmConfig")
 	ret0, _ := ret[0].(charm_v6.Settings)
 	ret1, _ := ret[1].(error)
@@ -325,11 +404,13 @@ func (m *MockApplication) DefaultCharmConfig() (charm_v6.Settings, error) {
 
 // DefaultCharmConfig indicates an expected call of DefaultCharmConfig
 func (mr *MockApplicationMockRecorder) DefaultCharmConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultCharmConfig", reflect.TypeOf((*MockApplication)(nil).DefaultCharmConfig))
 }
 
 // UnitNames mocks base method
 func (m *MockApplication) UnitNames() ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UnitNames")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -338,6 +419,7 @@ func (m *MockApplication) UnitNames() ([]string, error) {
 
 // UnitNames indicates an expected call of UnitNames
 func (mr *MockApplicationMockRecorder) UnitNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnitNames", reflect.TypeOf((*MockApplication)(nil).UnitNames))
 }
 
@@ -366,6 +448,7 @@ func (m *MockModelCache) EXPECT() *MockModelCacheMockRecorder {
 
 // Branch mocks base method
 func (m *MockModelCache) Branch(arg0 string) (cache.Branch, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Branch", arg0)
 	ret0, _ := ret[0].(cache.Branch)
 	ret1, _ := ret[1].(error)
@@ -374,5 +457,6 @@ func (m *MockModelCache) Branch(arg0 string) (cache.Branch, error) {
 
 // Branch indicates an expected call of Branch
 func (mr *MockModelCacheMockRecorder) Branch(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Branch", reflect.TypeOf((*MockModelCache)(nil).Branch), arg0)
 }

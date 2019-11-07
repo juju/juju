@@ -142,7 +142,7 @@ func (c *CommitsCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	tabular := constructYaml(commits)
+	tabular := constructYamlJson(commits)
 	return errors.Trace(c.out.Write(ctx, tabular))
 }
 
@@ -165,14 +165,14 @@ func (c *CommitsCommand) printTabular(writer io.Writer, value interface{}) error
 	return nil
 }
 
-func constructYaml(gen model.GenerationCommits) formattedCommitList {
+func constructYamlJson(gen model.GenerationCommits) formattedCommitList {
 	result := formattedCommitList{}
 	for _, gen := range gen {
 		fmc := formattedCommit{
-			CommitId:    gen.CommitNumber,
+			CommitId:    gen.GenerationId,
 			BranchName:  gen.BranchName,
-			CommittedAt: gen.Created,
-			CommittedBy: gen.CreatedBy,
+			CommittedAt: gen.Completed,
+			CommittedBy: gen.CompletedBy,
 		}
 		result.Commits = append(result.Commits, fmc)
 	}
