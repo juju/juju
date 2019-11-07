@@ -5,9 +5,12 @@ description: |
   This simply deploys Ubuntu Server.
 categories:
      - misc
+requires:
+  sink:
+    interface: dummy-token
 series:
   - trusty
   - xenial
-  - artful
   - bionic
   - disco
+  - eoan

@@ -1,5 +1,5 @@
-test_models() {
-    if [ "$(skip 'test_models')" ]; then
+test_model() {
+    if [ "$(skip 'test_model')" ]; then
         echo "==> TEST SKIPPED: model tests"
         return
     fi
