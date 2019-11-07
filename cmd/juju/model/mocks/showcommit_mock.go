@@ -49,16 +49,16 @@ func (mr *MockShowCommitCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ShowCommit mocks base method
-func (m *MockShowCommitCommandAPI) ShowCommit(arg0 func(time.Time) string) (model.GenerationCommit, error) {
+func (m *MockShowCommitCommandAPI) ShowCommit(arg0 func(time.Time) string, arg1 int) (model.GenerationCommit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ShowCommit", arg0)
+	ret := m.ctrl.Call(m, "ShowCommit", arg0, arg1)
 	ret0, _ := ret[0].(model.GenerationCommit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ShowCommit indicates an expected call of ShowCommit
-func (mr *MockShowCommitCommandAPIMockRecorder) ShowCommit(arg0 interface{}) *gomock.Call {
+func (mr *MockShowCommitCommandAPIMockRecorder) ShowCommit(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowCommit", reflect.TypeOf((*MockShowCommitCommandAPI)(nil).ShowCommit), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowCommit", reflect.TypeOf((*MockShowCommitCommandAPI)(nil).ShowCommit), arg0, arg1)
 }

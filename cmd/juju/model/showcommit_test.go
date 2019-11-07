@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -101,11 +100,10 @@ func (s *showCommitsSuite) TestRunCommandJsonOutput(c *gc.C) {
 }
 `, "")
 	expected = expected + "\n"
-	s.api.EXPECT().ShowCommit(gomock.Any()).Return(result, nil)
+	s.api.EXPECT().ShowCommit(gomock.Any(), 1).Return(result, nil)
 	ctx, err := s.runCommand(c, "1", "--format=json")
 	c.Assert(err, jc.ErrorIsNil)
 	output := cmdtesting.Stdout(ctx)
-	fmt.Println(output)
 	c.Assert(output, gc.Equals, expected)
 }
 
@@ -130,8 +128,7 @@ committed-by: test-user
 created: 0001-01-00
 created-by: test-user
 `[1:]
-	s.api.EXPECT().ShowCommit(gomock.Any()).Return(result, nil)
-
+	s.api.EXPECT().ShowCommit(gomock.Any(), 1).Return(result, nil)
 	ctx, err := s.runCommand(c, "1", "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, expected)
@@ -140,7 +137,7 @@ created-by: test-user
 func (s *showCommitsSuite) TestRunCommandAPIError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().ShowCommit(gomock.Any()).Return(nil, errors.New("boom"))
+	s.api.EXPECT().ShowCommit(gomock.Any(), gomock.Any()).Return(nil, errors.New("boom"))
 
 	_, err := s.runCommand(c)
 	c.Assert(err, gc.ErrorMatches, "boom")
