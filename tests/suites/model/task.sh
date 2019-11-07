@@ -11,6 +11,8 @@ test_model() {
 
     file="${TEST_DIR}/test-models.txt"
 
+    export JUJU_DEV_FEATURE_FLAGS=cmr-migrations
+
     bootstrap "test-models" "${file}"
 
     # Test that need to be run are added here!
