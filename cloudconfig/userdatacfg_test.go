@@ -351,6 +351,8 @@ install -D -m 600 /dev/null '/var/lib/juju/bootstrap-params'
 printf '%s\\n' '.*' > '/var/lib/juju/bootstrap-params'
 echo 'Installing Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --timeout 10m0s --data-dir '/var/lib/juju' --debug '/var/lib/juju/bootstrap-params'
+install -D -m 755 /dev/null '/sbin/remove-juju-services'
+printf '%s\\n' '.*' > '/sbin/remove-juju-services'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(service jujud-machine-0\)'.*
 cat > /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju agent for machine-0"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:adm /var/log/juju/machine-0\.log\\n  chmod 0640 /var/log/juju/machine-0\.log\\n\\n  exec '/var/lib/juju/tools/machine-0/jujud' machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
@@ -404,6 +406,8 @@ printf %s '{"version":"1\.2\.3-quantal-amd64","url":"https://state-addr\.testing
 mkdir -p '/var/lib/juju/agents/machine-99'
 cat > '/var/lib/juju/agents/machine-99/agent\.conf' << 'EOF'\\n.*\\nEOF
 chmod 0600 '/var/lib/juju/agents/machine-99/agent\.conf'
+install -D -m 755 /dev/null '/sbin/remove-juju-services'
+printf '%s\\n' '.*' > '/sbin/remove-juju-services'
 ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(service jujud-machine-99\)'.*
 cat > /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju agent for machine-99"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit .*\\n\\nscript\\n\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:adm /var/log/juju/machine-99\.log\\n  chmod 0640 /var/log/juju/machine-99\.log\\n\\n  exec '/var/lib/juju/tools/machine-99/jujud' machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
