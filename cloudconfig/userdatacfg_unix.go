@@ -58,6 +58,32 @@ while true; do
     sleep {{.ToolsDownloadWaitTime}}
     n=$((n+1))
 done`
+
+	// removeServicesScript is written to /sbin and can be used to remove
+	// all Juju services from a machine.
+	// Once this script is run, logic to check whether such a machine is already
+	// provisioned should return false and the machine can be reused as a target
+	// for either bootstrap or add-machine.
+	removeServicesScript = `#!/bin/bash
+
+# WARNING
+# This script will clean a host previously used to run a Juju controller/machine.
+# Running this on a live installation will render Juju inoperable.
+
+for path_to_unit in $(ls /etc/systemd/system/juju*); do
+  echo "removing juju service: $path_to_unit"
+  unit=$(basename "$path_to_unit")
+  systemctl stop "$unit"
+  systemctl disable "$unit"
+  systemctl daemon-reload
+done
+
+echo "removing /var/lib/juju/db/*"
+rm -rf /var/lib/juju/db/*
+
+echo "removing /var/lib/juju/raft/*"
+rm -rf /var/lib/juju/raft/*
+`
 )
 
 var (
@@ -372,6 +398,8 @@ func (w *unixConfigure) ConfigureJuju() error {
 		}
 	}
 
+	w.conf.AddRunTextFile("/sbin/remove-juju-services", removeServicesScript, 0755)
+
 	return w.addMachineAgentToBoot()
 }
 
@@ -610,7 +638,6 @@ func (w *unixConfigure) setUpGUI() (func(), error) {
 		// so it has a chance to add it to its catalogue.
 		w.conf.AddRunCmd("rm -f $gui/gui.tar.bz2 $gui/jujugui.sha256 $gui/downloaded-gui.txt")
 	}, nil
-
 }
 
 // toolsDownloadCommand takes a curl command minus the source URL,
