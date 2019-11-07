@@ -34,7 +34,8 @@ TEST_NAMES="static_analysis \
             controller \
             deploy \
             machine \
-            smoke"
+            smoke \
+            model"
 
 # Show test suites, can be used to test if a test suite is available or not.
 show_test_suites() {

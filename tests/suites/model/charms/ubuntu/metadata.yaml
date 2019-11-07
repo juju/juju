@@ -1,0 +1,16 @@
+name: ubuntu
+summary: A pristine Ubuntu Server
+maintainer: Charmers <juju@lists.ubuntu.com>
+description: |
+  This simply deploys Ubuntu Server.
+categories:
+     - misc
+requires:
+  sink:
+    interface: dummy-token
+series:
+  - trusty
+  - xenial
+  - bionic
+  - disco
+  - eoan
