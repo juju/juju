@@ -203,9 +203,19 @@ destroy_controller() {
     shift
 
     # shellcheck disable=SC2034
-    OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "${name}" || true)
+    OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "^${name}$" || true)
     # shellcheck disable=SC2181
     if [ -z "${OUT}" ]; then
+        OUT=$(juju models --format=json | jq -r ".models | .[] | .[\"short-name\"]" | grep "^${name}$" || true)
+        if [ -z "${OUT}" ]; then
+            return
+        fi
+        echo "====> Destroying model ($(green "${name}"))"
+
+        output="${TEST_DIR}/${name}-destroy-model.txt"
+        echo "${name}" | xargs -I % juju destroy-model -y % 2>&1 | add_date >"${output}"
+
+        echo "====> Destroyed model ($(green "${name}"))"
         return
     fi
 

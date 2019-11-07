@@ -15,7 +15,5 @@ test_appdata() {
 
     test_appdata_int
 
-    destroy_model "test-appdata"
-
     destroy_controller "test-appdata"
 }
