@@ -98,7 +98,7 @@ func (c *legacyNovaFirewaller) ensureGroup(ctx context.ProviderCallContext, name
 	// First attempt to look up an existing group by name.
 	group, err := novaClient.SecurityGroupByName(name)
 	if err == nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		// Group exists, so assume it is correctly set up and return it.
 		// TODO(jam): 2013-09-18 http://pad.lv/121795
 		// We really should verify the group is set up correctly,
@@ -115,7 +115,7 @@ func (c *legacyNovaFirewaller) ensureGroup(ctx context.ProviderCallContext, name
 			// We just tried to create a duplicate group, so load the existing group.
 			group, err = novaClient.SecurityGroupByName(name)
 			if err != nil {
-				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+				handleCredentialError(err, ctx)
 				return legacyZeroGroup, err
 			}
 			return *group, nil
@@ -134,7 +134,7 @@ func (c *legacyNovaFirewaller) ensureGroup(ctx context.ProviderCallContext, name
 		}
 		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			handleCredentialError(err, ctx)
 			return legacyZeroGroup, err
 		}
 		group.Rules[i] = *groupRule
@@ -146,7 +146,7 @@ func (c *legacyNovaFirewaller) deleteSecurityGroups(ctx context.ProviderCallCont
 	novaclient := c.environ.nova()
 	securityGroups, err := novaclient.ListSecurityGroups()
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return errors.Annotate(err, "cannot list security groups")
 	}
 	for _, group := range securityGroups {
@@ -182,7 +182,7 @@ func (c *legacyNovaFirewaller) UpdateGroupController(ctx context.ProviderCallCon
 	novaClient := c.environ.nova()
 	groups, err := novaClient.ListSecurityGroups()
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return errors.Trace(err)
 	}
 	re, err := regexp.Compile(c.jujuGroupRegexp())
@@ -218,7 +218,7 @@ func (c *legacyNovaFirewaller) updateGroupControllerUUID(ctx context.ProviderCal
 	}
 	client := c.environ.nova()
 	_, err = client.UpdateSecurityGroup(group.Id, newName, group.Description)
-	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	handleCredentialError(err, ctx)
 	return errors.Trace(err)
 }
 
@@ -260,7 +260,7 @@ func (c *legacyNovaFirewaller) matchingGroup(ctx context.ProviderCallContext, na
 	novaclient := c.environ.nova()
 	allGroups, err := novaclient.ListSecurityGroups()
 	if err != nil {
-		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+		handleCredentialError(err, ctx)
 		return nova.SecurityGroup{}, err
 	}
 	var matchingGroups []nova.SecurityGroup
@@ -288,7 +288,7 @@ func (c *legacyNovaFirewaller) openPortsInGroup(ctx context.ProviderCallContext,
 	for _, rule := range ruleInfo {
 		_, err := novaclient.CreateSecurityGroupRule(legacyRuleInfo(rule))
 		if err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			handleCredentialError(err, ctx)
 			// TODO: if err is not rule already exists, raise?
 			logger.Debugf("error creating security group rule: %v", err.Error())
 		}
@@ -332,7 +332,7 @@ func (c *legacyNovaFirewaller) closePortsInGroup(ctx context.ProviderCallContext
 			}
 			err := novaclient.DeleteSecurityGroupRule(p.Id)
 			if err != nil {
-				common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+				handleCredentialError(err, ctx)
 				return errors.Trace(err)
 			}
 			break
@@ -370,7 +370,7 @@ func (c *legacyNovaFirewaller) ingressRulesInGroup(ctx context.ProviderCallConte
 			portRange.ToPort,
 			*sourceCIDRs...)
 		if err != nil {
-			common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+			handleCredentialError(err, ctx)
 			return nil, errors.Trace(err)
 		}
 		rules = append(rules, rule)
