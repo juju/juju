@@ -63,7 +63,9 @@ func (m *Machine) AllLinkLayerDevices() ([]*LinkLayerDevice, error) {
 	return allDevices, nil
 }
 
-func (m *Machine) forEachLinkLayerDeviceDoc(docFieldsToSelect bson.D, callbackFunc func(resultDoc *linkLayerDeviceDoc)) error {
+func (m *Machine) forEachLinkLayerDeviceDoc(
+	docFieldsToSelect bson.D, callbackFunc func(resultDoc *linkLayerDeviceDoc),
+) error {
 	linkLayerDevices, closer := m.st.db().GetCollection(linkLayerDevicesC)
 	defer closer()
 
@@ -192,25 +194,16 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
 		}
 		if attempt > 0 {
-			if err := m.isStillAlive(); err != nil {
-				return nil, errors.Trace(err)
-			}
 			allIds, err := m.st.allProviderIDsForLinkLayerDevices()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
 			for _, args := range devicesArgs {
 				if allIds.Contains(string(args.ProviderID)) {
-					err := NewProviderIDNotUniqueError(args.ProviderID)
-					return nil, errors.Annotatef(err, "invalid device %q", args.Name)
+					return nil, errors.Annotatef(
+						NewProviderIDNotUniqueError(args.ProviderID), "invalid device %q", args.Name)
 				}
 			}
-		}
-
-		// We've checked the model is alive directly, and we assert the machine is alive, we don't need to also
-		// assert the model is alive, because then the machine would be dying as well.
-		ops := []txn.Op{
-			m.assertAliveOp(),
 		}
 
 		setDevicesOps, err := m.setDevicesFromDocsOps(newDocs)
@@ -218,11 +211,10 @@ func (m *Machine) SetLinkLayerDevices(devicesArgs ...LinkLayerDeviceArgs) (err e
 			return nil, errors.Trace(err)
 		}
 		if len(setDevicesOps) == 0 {
-			// No need to assert only that the machine is alive
 			logger.Debugf("no changes to LinkLayerDevices for machine %q", m.Id())
 			return nil, jujutxn.ErrNoOperations
 		}
-		return append(ops, setDevicesOps...), nil
+		return append([]txn.Op{m.assertAliveOp()}, setDevicesOps...), nil
 	}
 	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -275,7 +267,9 @@ func (m *Machine) prepareToSetLinkLayerDevices(devicesArgs []LinkLayerDeviceArgs
 	return pendingDocs, nil
 }
 
-func (m *Machine) prepareOneSetLinkLayerDeviceArgs(args *LinkLayerDeviceArgs, pendingNames set.Strings) (_ *linkLayerDeviceDoc, err error) {
+func (m *Machine) prepareOneSetLinkLayerDeviceArgs(
+	args *LinkLayerDeviceArgs, pendingNames set.Strings,
+) (_ *linkLayerDeviceDoc, err error) {
 	defer errors.DeferredAnnotatef(&err, "invalid device %q", args.Name)
 
 	if err := m.validateSetLinkLayerDeviceArgs(args); err != nil {
@@ -509,7 +503,8 @@ func (m *Machine) parentDocIDFromDeviceDoc(doc *linkLayerDeviceDoc) (string, err
 }
 
 func (m *Machine) updateLinkLayerDeviceOps(existingDoc, newDoc *linkLayerDeviceDoc) (ops []txn.Op, err error) {
-	// none of the ops in this function are assert-only, so callers can know if there are any changes by just checking len(ops)
+	// None of the ops in this function are assert-only,
+	// so callers can know if there are any changes by just checking len(ops).
 	var newParentDocID string
 	if newDoc.ParentName != "" {
 		newParentDocID, err = m.parentDocIDFromDeviceDoc(newDoc)
@@ -623,8 +618,8 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			return nil, errors.Trace(err)
 		}
 
-		if err := m.isStillAlive(); err != nil {
-			return nil, errors.Trace(err)
+		if m.doc.Life != Alive {
+			return nil, errors.Errorf("machine %q not alive", m.doc.Id)
 		}
 		if attempt > 0 {
 			allIds, err := m.st.allProviderIDsForAddresses()
@@ -633,16 +628,10 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			}
 			for _, args := range devicesAddresses {
 				if allIds.Contains(string(args.ProviderID)) {
-					err := NewProviderIDNotUniqueError(args.ProviderID)
-					return nil, errors.Annotatef(err, "invalid address %q", args.CIDRAddress)
+					return nil, errors.Annotatef(
+						NewProviderIDNotUniqueError(args.ProviderID), "invalid address %q", args.CIDRAddress)
 				}
 			}
-		}
-
-		// we checked the model is active, but we only assert the machine is alive, because it will be dying if
-		// the model is dying.
-		ops := []txn.Op{
-			m.assertAliveOp(),
 		}
 
 		setAddressesOps, err := m.setDevicesAddressesFromDocsOps(newDocs)
@@ -650,12 +639,10 @@ func (m *Machine) SetDevicesAddresses(devicesAddresses ...LinkLayerDeviceAddress
 			return nil, errors.Trace(err)
 		}
 		if len(setAddressesOps) == 0 {
-			// no actual address changes to be queued, so no need to create an op that just asserts
-			// the machine is alive
 			logger.Debugf("no changes to DevicesAddresses for machine %q", m.Id())
 			return nil, jujutxn.ErrNoOperations
 		}
-		return append(ops, setAddressesOps...), nil
+		return append([]txn.Op{m.assertAliveOp()}, setAddressesOps...), nil
 	}
 	if err := m.st.db().Run(buildTxn); err != nil {
 		return errors.Trace(err)
@@ -784,8 +771,9 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 	addresses, closer := m.st.db().GetCollection(ipAddressesC)
 	defer closer()
 
-	var ops []txn.Op
+	providerIDAddrs := make(map[string]string)
 
+	var ops []txn.Op
 	for _, newDoc := range newDocs {
 		var thisDeviceOps []txn.Op
 		hasChanges := false
@@ -793,36 +781,38 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 		thisDeviceOps = append(thisDeviceOps, assertLinkLayerDeviceExistsOp(deviceDocID))
 
 		var existingDoc ipAddressDoc
-		err := addresses.FindId(newDoc.DocID).One(&existingDoc)
-		if err == mgo.ErrNotFound {
+		switch err := addresses.FindId(newDoc.DocID).One(&existingDoc); err {
+		case mgo.ErrNotFound:
 			// Address does not exist yet - insert it.
 			hasChanges = true
 			thisDeviceOps = append(thisDeviceOps, insertIPAddressDocOp(&newDoc))
-			if newDoc.ProviderID != "" {
-				id := corenetwork.Id(newDoc.ProviderID)
-				thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
+
+			pIDOps, err := m.maybeAddAddressProviderIDOps(providerIDAddrs, newDoc, "")
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-		} else if err == nil {
+			thisDeviceOps = append(thisDeviceOps, pIDOps...)
+
+		case nil:
 			// Address already exists - update what's possible.
 			var ipOp txn.Op
 			ipOp, hasChanges = updateIPAddressDocOp(&existingDoc, &newDoc)
 			thisDeviceOps = append(thisDeviceOps, ipOp)
-			if newDoc.ProviderID != "" {
-				if existingDoc.ProviderID != "" && existingDoc.ProviderID != newDoc.ProviderID {
-					return nil, errors.Errorf("cannot change ProviderID of link address %q", existingDoc.Value)
-				}
-				if existingDoc.ProviderID != newDoc.ProviderID {
-					// Need to insert the new provider id in providerIDsC
-					id := corenetwork.Id(newDoc.ProviderID)
-					thisDeviceOps = append(thisDeviceOps, m.st.networkEntityGlobalKeyOp("address", id))
-					hasChanges = true
-				}
+
+			pIDOps, err := m.maybeAddAddressProviderIDOps(providerIDAddrs, newDoc, existingDoc.ProviderID)
+			if err != nil {
+				return nil, errors.Trace(err)
 			}
-		} else {
+			if len(pIDOps) > 0 {
+				hasChanges = true
+				thisDeviceOps = append(thisDeviceOps, pIDOps...)
+			}
+
+		default:
 			return nil, errors.Trace(err)
 		}
 
-		thisDeviceOps, err = m.maybeAssertSubnetAliveOps(&newDoc, thisDeviceOps)
+		thisDeviceOps, err := m.maybeAssertSubnetAliveOps(&newDoc, thisDeviceOps)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -831,6 +821,39 @@ func (m *Machine) setDevicesAddressesFromDocsOps(newDocs []ipAddressDoc) ([]txn.
 		}
 	}
 	return ops, nil
+}
+
+// maybeAddAddressProviderIDOps ensures that the address provider ID is valid
+// and that we only accrue a transaction operation to add the ID if we have
+// not already.
+func (m *Machine) maybeAddAddressProviderIDOps(
+	providerIDAddrs map[string]string, doc ipAddressDoc, oldProviderID string,
+) ([]txn.Op, error) {
+	if doc.ProviderID == "" {
+		return nil, nil
+	}
+	if doc.ProviderID == oldProviderID {
+		return nil, nil
+	}
+	if oldProviderID != "" {
+		return nil, errors.Errorf("cannot change provider ID of link address %q", doc.Value)
+	}
+
+	// If this provider ID has been added for the same address,
+	// it is valid, but do not attempt to add the ID again.
+	// If we have different addresses with the same provider ID,
+	// return an error.
+	addr, ok := providerIDAddrs[doc.ProviderID]
+	if ok {
+		if addr == doc.Value {
+			return nil, nil
+		}
+		return nil, errors.Annotatef(
+			NewProviderIDNotUniqueError(corenetwork.Id(doc.ProviderID)), "multiple addresses %q, %q", addr, doc.Value)
+	}
+
+	providerIDAddrs[doc.ProviderID] = doc.Value
+	return []txn.Op{m.st.networkEntityGlobalKeyOp("address", corenetwork.Id(doc.ProviderID))}, nil
 }
 
 func (m *Machine) maybeAssertSubnetAliveOps(newDoc *ipAddressDoc, opsSoFar []txn.Op) ([]txn.Op, error) {

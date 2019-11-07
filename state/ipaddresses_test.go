@@ -72,7 +72,9 @@ func (s *ipAddressesStateSuite) TestMachineMethodReturnsMachine(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, s.machine)
 }
 
-func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(c *gc.C, name string, addresses ...string) (*state.LinkLayerDevice, []*state.Address) {
+func (s *ipAddressesStateSuite) addNamedDeviceWithAddresses(
+	c *gc.C, name string, addresses ...string,
+) (*state.LinkLayerDevice, []*state.Address) {
 	device := s.addNamedDevice(c, name)
 
 	addressesArgs := make([]state.LinkLayerDeviceAddress, len(addresses))
@@ -95,7 +97,9 @@ func (s *ipAddressesStateSuite) addNamedDevice(c *gc.C, name string) *state.Link
 	return s.addNamedDeviceForMachine(c, name, s.machine)
 }
 
-func (s *ipAddressesStateSuite) addNamedDeviceForMachine(c *gc.C, name string, machine *state.Machine) *state.LinkLayerDevice {
+func (s *ipAddressesStateSuite) addNamedDeviceForMachine(
+	c *gc.C, name string, machine *state.Machine,
+) *state.LinkLayerDevice {
 	deviceArgs := state.LinkLayerDeviceArgs{
 		Name: name,
 		Type: corenetwork.EthernetDevice,
@@ -204,10 +208,13 @@ func (s *ipAddressesStateSuite) assertNoAddressesOnMachine(c *gc.C, machine *sta
 	s.assertAllAddressesOnMachineMatchCount(c, machine, 0)
 }
 
-func (s *ipAddressesStateSuite) assertAllAddressesOnMachineMatchCount(c *gc.C, machine *state.Machine, expectedCount int) {
+func (s *ipAddressesStateSuite) assertAllAddressesOnMachineMatchCount(
+	c *gc.C, machine *state.Machine, expectedCount int,
+) {
 	results, err := machine.AllAddresses()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(results, gc.HasLen, expectedCount, gc.Commentf("expected %d, got %d: %+v", expectedCount, len(results), results))
+	c.Assert(results, gc.HasLen, expectedCount, gc.Commentf(
+		"expected %d, got %d: %+v", expectedCount, len(results), results))
 }
 
 func (s *ipAddressesStateSuite) TestRemoveTwiceStillSucceeds(c *gc.C) {
@@ -231,10 +238,12 @@ func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAddressesSuccess(c *gc.
 	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
 
-	s.removeDeviceAddressesAndAssertNoneRemainOnMacine(c, device)
+	s.removeDeviceAddressesAndAssertNoneRemainOnMachine(c, device)
 }
 
-func (s *ipAddressesStateSuite) removeDeviceAddressesAndAssertNoneRemainOnMacine(c *gc.C, device *state.LinkLayerDevice) {
+func (s *ipAddressesStateSuite) removeDeviceAddressesAndAssertNoneRemainOnMachine(
+	c *gc.C, device *state.LinkLayerDevice,
+) {
 	err := device.RemoveAddresses()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertNoAddressesOnMachine(c, s.machine)
@@ -244,8 +253,8 @@ func (s *ipAddressesStateSuite) TestLinkLayerDeviceRemoveAddressesTwiceStillSucc
 	device, _ := s.addNamedDeviceWithAddresses(c, "eth0", "10.20.30.40/16", "fc00::/64")
 	s.assertAllAddressesOnMachineMatchCount(c, s.machine, 2)
 
-	s.removeDeviceAddressesAndAssertNoneRemainOnMacine(c, device)
-	s.removeDeviceAddressesAndAssertNoneRemainOnMacine(c, device)
+	s.removeDeviceAddressesAndAssertNoneRemainOnMachine(c, device)
+	s.removeDeviceAddressesAndAssertNoneRemainOnMachine(c, device)
 }
 
 func (s *ipAddressesStateSuite) TestMachineRemoveAllAddressesSuccess(c *gc.C) {
@@ -417,15 +426,20 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWithEmptyCIDRAddress
 	s.assertSetDevicesAddressesFailsValidationForArgs(c, args, "empty CIDRAddress not valid")
 }
 
-func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsValidationForArgs(c *gc.C, args state.LinkLayerDeviceAddress, errorCauseMatches string) {
+func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsValidationForArgs(
+	c *gc.C, args state.LinkLayerDeviceAddress, errorCauseMatches string,
+) {
 	invalidAddressPrefix := fmt.Sprintf("invalid address %q: ", args.CIDRAddress)
 	err := s.assertSetDevicesAddressesFailsForArgs(c, args, invalidAddressPrefix+errorCauseMatches)
 	c.Assert(err, jc.Satisfies, errors.IsNotValid)
 }
 
-func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsForArgs(c *gc.C, args state.LinkLayerDeviceAddress, errorCauseMatches string) error {
+func (s *ipAddressesStateSuite) assertSetDevicesAddressesFailsForArgs(
+	c *gc.C, args state.LinkLayerDeviceAddress, errorCauseMatches string,
+) error {
 	err := s.machine.SetDevicesAddresses(args)
-	expectedError := fmt.Sprintf("cannot set link-layer device addresses of machine %q: %s", s.machine.Id(), errorCauseMatches)
+	expectedError := fmt.Sprintf(
+		"cannot set link-layer device addresses of machine %q: %s", s.machine.Id(), errorCauseMatches)
 	c.Assert(err, gc.ErrorMatches, expectedError)
 	return err
 }
@@ -528,7 +542,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenCIDRAddressMatch
 		"invalid address %q: subnet %q is not alive",
 		args.CIDRAddress, subnetCIDR,
 	)
-	s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
+	_ = s.assertSetDevicesAddressesFailsForArgs(c, args, expectedError)
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveOrGone(c *gc.C) {
@@ -542,7 +556,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesFailsWhenMachineNotAliveO
 		ConfigMethod: state.StaticAddress,
 	}
 	err = s.otherStateMachine.SetDevicesAddresses(args)
-	c.Assert(err, gc.ErrorMatches, `.*: machine not found or not alive`)
+	c.Assert(err, gc.ErrorMatches, `.*: machine "0" not alive`)
 
 	err = s.otherStateMachine.Remove()
 	c.Assert(err, jc.ErrorIsNil)
@@ -619,7 +633,7 @@ func (s *ipAddressesStateSuite) TestUpdateAddressFailsToChangeProviderID(c *gc.C
 	c.Assert(err, jc.ErrorIsNil)
 	addrArgs.ProviderID = "id-0124"
 	err = s.machine.SetDevicesAddresses(addrArgs)
-	c.Assert(err, gc.ErrorMatches, `.*cannot change ProviderID of link address "0.1.2.3"`)
+	c.Assert(err, gc.ErrorMatches, `.*cannot change provider ID of link address "0.1.2.3"`)
 }
 
 func (s *ipAddressesStateSuite) TestUpdateAddressPreventsDuplicateProviderID(c *gc.C) {
@@ -640,10 +654,12 @@ func (s *ipAddressesStateSuite) TestUpdateAddressPreventsDuplicateProviderID(c *
 	// Adding a new address with the same provider id should now fail.
 	addrArgs.CIDRAddress = "0.1.2.4/24"
 	err = s.machine.SetDevicesAddresses(addrArgs)
-	c.Assert(err, gc.ErrorMatches, `.*invalid address "0.1.2.4/24": ProviderID\(s\) not unique: id-0123`)
+	c.Assert(err, gc.ErrorMatches, `.*invalid address "0.1.2.4/24": provider IDs not unique: id-0123`)
 }
 
-func (s *ipAddressesStateSuite) checkAddressMatchesArgs(c *gc.C, address *state.Address, args state.LinkLayerDeviceAddress) {
+func (s *ipAddressesStateSuite) checkAddressMatchesArgs(
+	c *gc.C, address *state.Address, args state.LinkLayerDeviceAddress,
+) {
 	c.Check(address.DeviceName(), gc.Equals, args.DeviceName)
 	c.Check(address.MachineID(), gc.Equals, s.machine.Id())
 	c.Check(args.CIDRAddress, jc.HasPrefix, address.Value())
@@ -702,6 +718,64 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithMultipleUpdatesOfSame
 	})
 }
 
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAddress(c *gc.C) {
+	_ = s.addNamedDeviceForMachine(c, "eth2", s.machine)
+	_ = s.addNamedDeviceForMachine(c, "br0", s.machine)
+
+	// This is a valid scenario that was observed with a MAAS machine.
+	// eth2 had an address and provider ID managed by MAAS.
+	// eth2 and eth4 were bonded to form bond0.
+	// bond0 was bridged by br0.
+
+	providerID := "42"
+	addressArgs := []state.LinkLayerDeviceAddress{
+		{
+			DeviceName:   "eth2",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  "0.1.2.3/24",
+			ProviderID:   corenetwork.Id(providerID),
+		},
+		{
+			DeviceName:   "br0",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  "0.1.2.3/24",
+			ProviderID:   corenetwork.Id(providerID),
+		},
+	}
+
+	err := s.machine.SetDevicesAddresses(addressArgs...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Check that we can still change one of the addresses.
+	addressArgs[0].ConfigMethod = state.DynamicAddress
+	err = s.machine.SetDevicesAddresses(addressArgs[0])
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ipAddressesStateSuite) TestSetDevicesAddressesMultipleDevicesWithSameAddressDifferentProviderIDFails(c *gc.C) {
+	_ = s.addNamedDeviceForMachine(c, "eth2", s.machine)
+	_ = s.addNamedDeviceForMachine(c, "br0", s.machine)
+
+	providerID := "42"
+	addressArgs := []state.LinkLayerDeviceAddress{
+		{
+			DeviceName:   "eth2",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  "0.1.2.3/24",
+			ProviderID:   corenetwork.Id(providerID),
+		},
+		{
+			DeviceName:   "br0",
+			ConfigMethod: state.StaticAddress,
+			CIDRAddress:  "0.1.2.4/24",
+			ProviderID:   corenetwork.Id(providerID),
+		},
+	}
+
+	err := s.machine.SetDevicesAddresses(addressArgs...)
+	c.Assert(err, gc.ErrorMatches, `.*multiple addresses "0.1.2.3", "0.1.2.4": provider IDs not unique: 42`)
+}
+
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDFailsInSameModel(c *gc.C) {
 	_, firstAddressArgs := s.addDeviceWithAddressAndProviderIDForMachine(c, "42", s.machine)
 	secondAddressArgs := firstAddressArgs
@@ -709,23 +783,7 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDFa
 
 	err := s.machine.SetDevicesAddresses(secondAddressArgs)
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
-	c.Assert(err, gc.ErrorMatches, `.*invalid address "10.20.30.40/16": ProviderID\(s\) not unique: 42`)
-}
-
-func (s *ipAddressesStateSuite) addDeviceWithAddressAndProviderIDForMachine(c *gc.C, providerID string, machine *state.Machine) (
-	*state.LinkLayerDevice,
-	state.LinkLayerDeviceAddress,
-) {
-	device := s.addNamedDeviceForMachine(c, "eth0", machine)
-	addressArgs := state.LinkLayerDeviceAddress{
-		DeviceName:   "eth0",
-		ConfigMethod: state.StaticAddress,
-		CIDRAddress:  "0.1.2.3/24",
-		ProviderID:   corenetwork.Id(providerID),
-	}
-	err := machine.SetDevicesAddresses(addressArgs)
-	c.Assert(err, jc.ErrorIsNil)
-	return device, addressArgs
+	c.Assert(err, gc.ErrorMatches, `.*invalid address "10.20.30.40/16": provider IDs not unique: 42`)
 }
 
 func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDSucceedsInDifferentModel(c *gc.C) {
@@ -736,6 +794,21 @@ func (s *ipAddressesStateSuite) TestSetDevicesAddressesWithDuplicateProviderIDSu
 	s.addNamedDevice(c, firstAddressArgs.DeviceName) // for s.machine
 	err := s.machine.SetDevicesAddresses(secondAddressArgs)
 	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ipAddressesStateSuite) addDeviceWithAddressAndProviderIDForMachine(
+	c *gc.C, providerID string, machine *state.Machine,
+) (*state.LinkLayerDevice, state.LinkLayerDeviceAddress) {
+	device := s.addNamedDeviceForMachine(c, "eth0", machine)
+	addressArgs := state.LinkLayerDeviceAddress{
+		DeviceName:   "eth0",
+		ConfigMethod: state.StaticAddress,
+		CIDRAddress:  "0.1.2.3/24",
+		ProviderID:   corenetwork.Id(providerID),
+	}
+	err := machine.SetDevicesAddresses(addressArgs)
+	c.Assert(err, jc.ErrorIsNil)
+	return device, addressArgs
 }
 
 func (s *ipAddressesStateSuite) TestMachineSetDevicesAddressesIdempotentlyOnce(c *gc.C) {

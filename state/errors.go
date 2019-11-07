@@ -90,7 +90,7 @@ type ErrProviderIDNotUnique struct {
 
 func (e *ErrProviderIDNotUnique) Error() string {
 	idList := strings.Join(e.duplicateIDs, ", ")
-	return fmt.Sprintf("ProviderID(s) not unique: %s", idList)
+	return fmt.Sprintf("provider IDs not unique: %s", idList)
 }
 
 // NewProviderIDNotUniqueError returns an instance of ErrProviderIDNotUnique
