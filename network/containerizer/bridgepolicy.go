@@ -32,9 +32,9 @@ var skippedDeviceNames = set.NewStrings(
 // for guests inside of a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
 type BridgePolicy struct {
-	// spaces is a cache of the model's space IDs by name.
-	spaces map[string]string
-	// spaces is a cache of the model's space names by ID.
+	// spaceIDs is a cache of the model's space IDs by name.
+	spaceIDs map[string]string
+	// spaceNames is a cache of the model's space names by ID.
 	spaceNames map[string]string
 
 	// netBondReconfigureDelay is how much of a delay to inject if we see that
@@ -66,7 +66,7 @@ func NewBridgePolicy(cfgGetter environs.ConfigGetter, st SpaceBacking) (*BridgeP
 	}
 
 	return &BridgePolicy{
-		spaces:                    spaces,
+		spaceIDs:                  spaces,
 		spaceNames:                spacesNames,
 		netBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
 		containerNetworkingMethod: cfg.ContainerNetworkingMethod(),
@@ -347,7 +347,7 @@ func (p *BridgePolicy) determineContainerSpaces(
 	// Constraints have been left in space name form,
 	// as they are human readable and can be changed.
 	for _, spaceName := range cons.IncludeSpaces() {
-		if id, ok := p.spaces[spaceName]; ok {
+		if id, ok := p.spaceIDs[spaceName]; ok {
 			spaces.Add(id)
 		}
 	}
@@ -376,11 +376,11 @@ func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
 	names := set.NewStrings()
 	for _, id := range ids.Values() {
 		if name, ok := p.spaceNames[id]; ok {
-			names.Add("\"" + name + "\"")
+			names.Add(fmt.Sprintf("%q", name))
 		} else {
 			// fallback, in case we do not have a name for the given
 			// id.
-			names.Add("\"" + id + "\"")
+			names.Add(fmt.Sprintf("%q", id))
 		}
 	}
 	return strings.Join(names.SortedValues(), ", ")
