@@ -16,3 +16,26 @@ be done by running:
 ```sh
 ./main.sh
 ```
+
+Note: running subtests, will also invoke the parent test to ensure that it has
+everything setup correctly.
+
+Running `./main.sh deploy run_deploy_bundle` will also run `test_deploy_bundles`,
+but no other subtests, just `run_deploy_bundle`.
+
+### Using local controllers
+
+The use of local controllers whilst development is advantagous because you don't
+have to rebootstrap a controller, or you can test a particular setup that has
+been manually created.
+
+To do so, just specify a controller name and pass it though.
+
+```sh
+./main.sh -l <local-controller-name> deploy
+```
+
+Note: because you're using a local controller, you don't get the same guarantees
+of setup and cleanup that you can with letting the test suite do that for you.
+So if you expect everything to be cleaned up and leave no trace, then don't use
+this method of bootstrapping.
