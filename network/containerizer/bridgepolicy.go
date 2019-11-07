@@ -32,8 +32,10 @@ var skippedDeviceNames = set.NewStrings(
 // for guests inside of a host machine, along with the creation of network
 // devices on those bridges for the containers to use.
 type BridgePolicy struct {
-	// spaces is a cache of the model's spaces.
-	spaces map[string]string
+	// spaceIDs is a cache of the model's space IDs by name.
+	spaceIDs map[string]string
+	// spaceNames is a cache of the model's space names by ID.
+	spaceNames map[string]string
 
 	// netBondReconfigureDelay is how much of a delay to inject if we see that
 	// one of the devices being bridged is a BondDevice. This exists because of
@@ -58,8 +60,14 @@ func NewBridgePolicy(cfgGetter environs.ConfigGetter, st SpaceBacking) (*BridgeP
 		return nil, errors.Annotate(err, "getting space name to space ID map")
 	}
 
+	spacesNames, err := st.SpaceNamesByID()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting space name to space ID map")
+	}
+
 	return &BridgePolicy{
-		spaces:                    spaces,
+		spaceIDs:                  spaces,
+		spaceNames:                spacesNames,
 		netBondReconfigureDelay:   cfg.NetBondReconfigureDelay(),
 		containerNetworkingMethod: cfg.ContainerNetworkingMethod(),
 	}, nil
@@ -100,7 +108,6 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 	// TODO (manadart 2019-09-27): This is ugly, but once everything is
 	// consistently reasoning about spaces in terms of IDs, we should implement
 	// this kind of diffing on SpaceInfos.
-	// network.QuoteSpaceSet can be removed at that time too.
 	guestSpaceSet := set.NewStrings(guestSpaces...)
 	notFound := guestSpaceSet.Difference(spacesFound)
 	fanNotFound := guestSpaceSet.Difference(fanSpacesFound)
@@ -111,7 +118,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 			return nil, 0, nil
 		}
 		return nil, 0, errors.Errorf("host machine %q has no available FAN devices in space(s) %s",
-			host.Id(), network.QuoteSpaceSet(fanNotFound))
+			host.Id(), p.spaceNamesForPrinting(fanNotFound))
 	}
 
 	if notFound.IsEmpty() {
@@ -171,11 +178,12 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 			logger.Warningf("got error looking for spaces for host machine %q: %v",
 				host.Id(), err)
 		}
+		notFoundNames := p.spaceNamesForPrinting(notFound)
 		logger.Warningf("container %q wants spaces %s, but host machine %q has %s missing %s",
-			guest.Id(), network.QuoteSpaceSet(guestSpaceSet),
-			host.Id(), network.QuoteSpaceSet(hostSpaces), network.QuoteSpaceSet(notFound))
+			guest.Id(), p.spaceNamesForPrinting(guestSpaceSet),
+			host.Id(), p.spaceNamesForPrinting(hostSpaces), notFoundNames)
 		return nil, 0, errors.Errorf("host machine %q has no available device in space(s) %s",
-			host.Id(), network.QuoteSpaceSet(notFound))
+			host.Id(), notFoundNames)
 	}
 
 	hostToBridge := make([]network.DeviceToBridge, 0, len(hostDeviceNamesToBridge))
@@ -339,46 +347,12 @@ func (p *BridgePolicy) determineContainerSpaces(
 	// Constraints have been left in space name form,
 	// as they are human readable and can be changed.
 	for _, spaceName := range cons.IncludeSpaces() {
-		if id, ok := p.spaces[spaceName]; ok {
+		if id, ok := p.spaceIDs[spaceName]; ok {
 			spaces.Add(id)
 		}
 	}
 
-	// Gather any space bindings for application endpoints
-	// that apply to units that the container will host.
-	// TODO (manadart 2019-10-08): This is not necessary now that we convert
-	// endpoint bindings into machine space constraints when placing units.
-	// However it remains in case we fix that logic properly to do machine
-	// creation and assignment in a single transaction.
-	// See `state.AssignUnitWithPlacement`.
-	units, err := guest.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	bindings := set.NewStrings()
-	for _, unit := range units {
-		app, err := unit.Application()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		endpointBindings, err := app.EndpointBindings()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		for epName, space := range endpointBindings.Map() {
-			// don't keep the default endpoint space.
-			if epName == "" {
-				continue
-			}
-			bindings.Add(space)
-		}
-	}
-
-	logger.Tracef("machine %q found constraints %s and bindings %s",
-		guest.Id(), network.QuoteSpaceSet(spaces), network.QuoteSpaceSet(bindings))
-
-	spaces = spaces.Union(bindings)
-	logger.Debugf("for container %q, found desired spaces: %s", guest.Id(), network.QuoteSpaceSet(spaces))
+	logger.Debugf("for container %q, found desired spaces: %s", guest.Id(), p.spaceNamesForPrinting(spaces))
 
 	if len(spaces) == 0 {
 		// We have determined that the container doesn't have any useful
@@ -391,6 +365,25 @@ func (p *BridgePolicy) determineContainerSpaces(
 	}
 
 	return spaces.Values(), nil
+}
+
+// spaceNamesForPrinting return a sorted, comma delimited, string containing
+// the space names for each of the given space ids.
+func (p *BridgePolicy) spaceNamesForPrinting(ids set.Strings) string {
+	if ids.Size() == 0 {
+		return "<none>"
+	}
+	names := set.NewStrings()
+	for _, id := range ids.Values() {
+		if name, ok := p.spaceNames[id]; ok {
+			names.Add(fmt.Sprintf("%q", name))
+		} else {
+			// fallback, in case we do not have a name for the given
+			// id.
+			names.Add(fmt.Sprintf("%q", id))
+		}
+	}
+	return strings.Join(names.SortedValues(), ", ")
 }
 
 // inferContainerSpaces tries to find a valid space for the container to be
@@ -409,8 +402,9 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (s
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	namesHostSpaces := p.spaceNamesForPrinting(hostSpaces)
 	logger.Debugf("container %q not qualified to a space, host machine %q is using spaces %s",
-		containerId, host.Id(), network.QuoteSpaceSet(hostSpaces))
+		containerId, host.Id(), namesHostSpaces)
 	// Note: if a machine can be in more than 1 space, this needs
 	// updating with choice criteria.
 	if len(hostSpaces) == 1 {
@@ -423,7 +417,7 @@ func (p *BridgePolicy) inferContainerSpaces(host Machine, containerId string) (s
 		return set.NewStrings(corenetwork.AlphaSpaceId), nil
 	}
 	return nil, errors.Errorf("no obvious space for container %q, host machine has spaces: %s",
-		containerId, network.QuoteSpaceSet(hostSpaces))
+		containerId, namesHostSpaces)
 }
 
 func possibleBridgeTarget(dev LinkLayerDevice) (bool, error) {
@@ -538,11 +532,12 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 	}
 
 	if len(missingSpaces) > 0 && len(bridgeDeviceNames) == 0 {
+		missingSpacesNames := p.spaceNamesForPrinting(missingSpaces)
 		logger.Warningf("container %q wants spaces %s could not find host %q bridges for %s, found bridges %s",
-			guest.Id(), network.QuoteSpaceSet(guestSpaceSet),
-			host.Id(), network.QuoteSpaceSet(missingSpaces), bridgeDeviceNames)
+			guest.Id(), p.spaceNamesForPrinting(guestSpaceSet),
+			host.Id(), missingSpacesNames, bridgeDeviceNames)
 		return errors.Errorf("unable to find host bridge for space(s) %s for container %q",
-			network.QuoteSpaceSet(missingSpaces), guest.Id())
+			missingSpacesNames, guest.Id())
 	}
 
 	sortedBridgeDeviceNames := network.NaturallySortDeviceNames(bridgeDeviceNames...)
