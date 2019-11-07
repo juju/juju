@@ -21,9 +21,9 @@ type bridgePolicySuite struct {
 	netBondReconfigureDelay   int
 	containerNetworkingMethod string
 
-	spaces map[string]string
-	host   *MockContainer
-	guest  *MockContainer
+	spaceIDs map[string]string
+	host     *MockContainer
+	guest    *MockContainer
 }
 
 var _ = gc.Suite(&bridgePolicySuite{})
@@ -33,7 +33,7 @@ func (s *bridgePolicySuite) SetUpTest(c *gc.C) {
 
 	s.netBondReconfigureDelay = 13
 	s.containerNetworkingMethod = "local"
-	s.spaces = make(map[string]string)
+	s.spaceIDs = make(map[string]string)
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
@@ -69,7 +69,7 @@ func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 	for i, space := range []string{network.AlphaSpaceName, "foo", "bar", "fizz"} {
 		// 0 is the AlphaSpaceId
 		id := strconv.Itoa(i)
-		s.spaces[space] = id
+		s.spaceIDs[space] = id
 	}
 
 	return ctrl
@@ -77,7 +77,7 @@ func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 
 func (s *bridgePolicySuite) policy() *BridgePolicy {
 	return &BridgePolicy{
-		spaces:                    s.spaces,
+		spaceIDs:                  s.spaceIDs,
 		netBondReconfigureDelay:   s.netBondReconfigureDelay,
 		containerNetworkingMethod: s.containerNetworkingMethod,
 	}
