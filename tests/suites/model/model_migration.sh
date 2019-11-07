@@ -26,8 +26,10 @@ run_model_migration() {
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
     # Clean up!
-    destroy_model "model-migration"
     destroy_controller "alt-model-migration"
+
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    destroy_model "model-migration"
 }
 
 test_model_migration() {

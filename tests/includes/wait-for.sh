@@ -20,6 +20,11 @@ wait_for() {
         sleep 5
         attempt=$((attempt+1))
     done
+
+    if [ "${attempt}" -gt 0 ]; then
+        echo "[+] $(green 'Completed polling status')"
+        juju status --relations 2>&1 | sed 's/^/    | /g'
+    fi
 }
 
 idle_condition() {
@@ -72,11 +77,16 @@ wait_for_machine_agent_status() {
     attempt=0
     # shellcheck disable=SC2046,SC2143
     until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
-        echo "[+] (attempt ${attempt}) polling status"
+        echo "[+] (attempt ${attempt}) polling machines"
         juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
         sleep 5
         attempt=$((attempt+1))
     done
+
+    if [ "${attempt}" -gt 0 ]; then
+        echo "[+] $(green 'Completed polling machines')"
+        juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+    fi
 }
 
 # wait_for_machine_netif_count blocks until the number of detected network
@@ -128,4 +138,9 @@ wait_for_model() {
         sleep 5
         attempt=$((attempt+1))
     done
+
+    if [ "${attempt}" -gt 0 ]; then
+        echo "[+] $(green 'Completed polling models')"
+        juju models | sed 's/^/    | /g'
+    fi
 }
