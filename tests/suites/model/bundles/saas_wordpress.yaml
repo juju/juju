@@ -1,0 +1,11 @@
+series: bionic
+saas:
+  mysql:
+    url: {{BOOTSTRAPPED_JUJU_CTRL_NAME}}:admin/model-migration-saas.mysql
+applications:
+  wordpress:
+    charm: wordpress
+    num_units: 1
+relations:
+- - wordpress:db
+  - mysql:db
