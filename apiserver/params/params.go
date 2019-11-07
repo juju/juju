@@ -1240,7 +1240,7 @@ type Generation struct {
 
 	// Applications holds the collection of application changes
 	// made under this generation.
-	Applications []GenerationApplication `json:"applications,omitempty"`
+	Applications []GenerationApplication `json:"applications"`
 }
 
 // GenerationCommits represents a model generation's commit details.

@@ -5,31 +5,38 @@ package model
 
 import (
 	"fmt"
-	"github.com/gosuri/uitable"
-	"github.com/juju/cmd"
-	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
-	"github.com/juju/juju/cmd/juju/common"
-	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/juju/osenv"
 	"io"
 	"os"
 	"strconv"
 	"time"
 
+	"github.com/gosuri/uitable"
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
+
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 )
 
 const (
 	listCommitsSummary = "Lists commits history"
 	listCommitsDoc     = `
-commits shows the timeline of changes to the model that occurred through branching.
+Commits shows the timeline of changes to the model that occurred through branching.
 It does not take into account other changes to the model that did not occur through a managed branch.
+Lists consists of:
+- the commit number 
+- user who committed the branch 
+- when the branch was committed 
+- the branch name
 
 Examples:
     juju commits
+    juju commits --utc
 
 See also:
 	commits

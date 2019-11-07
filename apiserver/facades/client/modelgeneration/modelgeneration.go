@@ -31,16 +31,20 @@ type API struct {
 	modelCache        ModelCache
 }
 
-type APIV2 struct {
+type APIV3 struct {
 	*API
+}
+
+type APIV2 struct {
+	*APIV3
 }
 
 type APIV1 struct {
 	*APIV2
 }
 
-// NewModelGenerationFacadeV3 provides the signature required for facade registration.
-func NewModelGenerationFacadeV3(ctx facade.Context) (*API, error) {
+// NewModelGenerationFacadeV4 provides the signature required for facade registration.
+func NewModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &stateShim{State: ctx.State()}
 	m, err := st.Model()
@@ -54,7 +58,15 @@ func NewModelGenerationFacadeV3(ctx facade.Context) (*API, error) {
 	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
 }
 
-// NewModelGenerationFacadeV2 provides the signature required for facade registration.
+// NewModelGenerationFacadeV3 provides the signature required for facade registration.
+func NewModelGenerationFacadeV3(ctx facade.Context) (*APIV3, error) {
+	v4, err := NewModelGenerationFacadeV4(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &APIV3{v4}, nil
+
+} // NewModelGenerationFacadeV2 provides the signature required for facade registration.
 func NewModelGenerationFacadeV2(ctx facade.Context) (*APIV2, error) {
 	v3, err := NewModelGenerationFacadeV3(ctx)
 	if err != nil {
@@ -279,7 +291,7 @@ func (api *API) BranchInfo(
 
 // ShowCommit will return details a commit given by its generationId
 // An error is returned if no commit can be found corresponding to a branch.
-func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationCommitResult, error) {
+func (api *APIV3) ShowCommit(arg params.GenerationId) (params.GenerationCommitResult, error) {
 	result := params.GenerationCommitResult{}
 
 	isModelAdmin, err := api.hasAdminAccess()
@@ -312,7 +324,7 @@ func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationCommitResu
 }
 
 // ListCommits will return the commits, hence only branches with generation_id higher than 0
-func (api *API) ListCommits() (params.GenerationCommitResults, error) {
+func (api *APIV3) ListCommits() (params.GenerationCommitResults, error) {
 	result := params.GenerationCommitResults{}
 
 	isModelAdmin, err := api.hasAdminAccess()
@@ -327,7 +339,6 @@ func (api *API) ListCommits() (params.GenerationCommitResults, error) {
 	if branches, err = api.model.CommittedBranches(); err != nil {
 		return generationCommitResultsError(err)
 	}
-	logger.Errorf("branches found %q", branches)
 
 	results := make([]params.GenerationCommit, len(branches))
 	for i, b := range branches {
@@ -339,7 +350,6 @@ func (api *API) ListCommits() (params.GenerationCommitResults, error) {
 		}
 		results[i] = gen
 	}
-	logger.Errorf("results found %q", results)
 
 	result.GenerationCommits = results
 	return result, nil
