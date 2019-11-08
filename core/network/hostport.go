@@ -16,9 +16,8 @@ import (
 // HostPort describes methods on an object that
 // represents a network connection endpoint.
 type HostPort interface {
-	Host() string
+	Address
 	Port() int
-	AddressScope() Scope
 }
 
 // HostPorts derives from a slice of HostPort
