@@ -8,13 +8,14 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
 	st   *Client
 	tag  names.UnitTag
-	life params.Life
+	life life.Value
 }
 
 // Name returns the name of the unit.
@@ -28,7 +29,7 @@ func (u *Unit) Tag() names.UnitTag {
 }
 
 // Life returns the unit's life cycle value.
-func (u *Unit) Life() params.Life {
+func (u *Unit) Life() life.Value {
 	return u.life
 }
 

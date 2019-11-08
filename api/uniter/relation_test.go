@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/status"
 )
@@ -54,7 +55,7 @@ func (s *relationSuite) TestOtherApplication(c *gc.C) {
 }
 
 func (s *relationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Life(), gc.Equals, life.Alive)
 	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)
 
 	// EnterScope with mysqlUnit, so the relation will be set to dying
@@ -71,19 +72,19 @@ func (s *relationSuite) TestRefresh(c *gc.C) {
 	// Update suspended as well.
 	err = s.stateRelation.SetSuspended(false, "")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Life(), gc.Equals, life.Alive)
 	c.Assert(s.apiRelation.Suspended(), jc.IsTrue)
 
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiRelation.Life(), gc.Equals, life.Dying)
 	c.Assert(s.apiRelation.Suspended(), jc.IsFalse)
 
 	// Leave scope with mysqlUnit, so the relation will be removed.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(s.apiRelation.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiRelation.Life(), gc.Equals, life.Dying)
 	c.Assert(s.apiRelation.Suspended(), jc.IsFalse)
 	err = s.apiRelation.Refresh()
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)

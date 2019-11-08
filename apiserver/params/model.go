@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/version"
+
+	"github.com/juju/juju/core/life"
 )
 
 // ConfigValue encapsulates a configuration
@@ -154,7 +156,7 @@ type ModelInfo struct {
 	OwnerTag string `json:"owner-tag"`
 
 	// Life is the current lifecycle state of the model.
-	Life Life `json:"life"`
+	Life life.Value `json:"life"`
 
 	// Status is the current status of the model.
 	Status EntityStatus `json:"status,omitempty"`
@@ -197,7 +199,7 @@ type ModelSummary struct {
 	OwnerTag string `json:"owner-tag"`
 
 	// Life is the current lifecycle state of the model.
-	Life Life `json:"life"`
+	Life life.Value `json:"life"`
 
 	// Status is the current status of the model.
 	Status EntityStatus `json:"status,omitempty"`

@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -865,7 +866,7 @@ type MachineClassifySuite struct {
 var _ = gc.Suite(&MachineClassifySuite{})
 
 type MockMachine struct {
-	life          params.Life
+	life          life.Value
 	status        status.Status
 	id            string
 	idErr         error
@@ -873,7 +874,7 @@ type MockMachine struct {
 	statusErr     error
 }
 
-func (m *MockMachine) Life() params.Life {
+func (m *MockMachine) Life() life.Value {
 	return m.life
 }
 
@@ -904,7 +905,7 @@ func (m *MockMachine) Id() string {
 
 type machineClassificationTest struct {
 	description    string
-	life           params.Life
+	life           life.Value
 	status         status.Status
 	idErr          string
 	ensureDeadErr  string
@@ -916,23 +917,23 @@ type machineClassificationTest struct {
 
 var machineClassificationTests = []machineClassificationTest{{
 	description:    "Dead machine is dead",
-	life:           params.Dead,
+	life:           life.Dead,
 	status:         status.Started,
 	classification: provisioner.Dead,
 }, {
 	description:    "Dying machine can carry on dying",
-	life:           params.Dying,
+	life:           life.Dying,
 	status:         status.Started,
 	classification: provisioner.None,
 }, {
 	description:    "Dying unprovisioned machine is ensured dead",
-	life:           params.Dying,
+	life:           life.Dying,
 	status:         status.Started,
 	classification: provisioner.Dead,
 	idErr:          params.CodeNotProvisioned,
 }, {
 	description:    "Can't load provisioned dying machine",
-	life:           params.Dying,
+	life:           life.Dying,
 	status:         status.Started,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
@@ -940,14 +941,14 @@ var machineClassificationTests = []machineClassificationTest{{
 	expectErrFmt:   "failed to load dying machine id:%s.*",
 }, {
 	description:    "Alive machine is not provisioned - pending",
-	life:           params.Alive,
+	life:           life.Alive,
 	status:         status.Pending,
 	classification: provisioner.Pending,
 	idErr:          params.CodeNotProvisioned,
 	expectErrFmt:   "found machine pending provisioning id:%s.*",
 }, {
 	description:    "Alive, pending machine not found",
-	life:           params.Alive,
+	life:           life.Alive,
 	status:         status.Pending,
 	classification: provisioner.None,
 	idErr:          params.CodeNotFound,
@@ -955,13 +956,13 @@ var machineClassificationTests = []machineClassificationTest{{
 	expectErrFmt:   "failed to load machine id:%s.*",
 }, {
 	description:    "Cannot get unprovisioned machine status",
-	life:           params.Alive,
+	life:           life.Alive,
 	classification: provisioner.None,
 	statusErr:      params.CodeNotFound,
 	idErr:          params.CodeNotProvisioned,
 }, {
 	description:    "Dying machine fails to ensure dead",
-	life:           params.Dying,
+	life:           life.Dying,
 	status:         status.Started,
 	classification: provisioner.None,
 	idErr:          params.CodeNotProvisioned,
@@ -972,14 +973,14 @@ var machineClassificationTests = []machineClassificationTest{{
 
 var machineClassificationTestsRequireMaintenance = machineClassificationTest{
 	description:    "Machine needs maintaining",
-	life:           params.Alive,
+	life:           life.Alive,
 	status:         status.Started,
 	classification: provisioner.Maintain,
 }
 
 var machineClassificationTestsNoMaintenance = machineClassificationTest{
 	description:    "Machine doesn't need maintaining",
-	life:           params.Alive,
+	life:           life.Alive,
 	status:         status.Started,
 	classification: provisioner.None,
 }

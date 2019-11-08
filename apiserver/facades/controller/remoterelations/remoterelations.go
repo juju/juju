@@ -11,6 +11,7 @@ import (
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/watcher"
 )
@@ -192,7 +193,7 @@ func (api *RemoteRelationsAPI) remoteRelation(entity params.Entity) (*params.Rem
 	}
 	result := &params.RemoteRelation{
 		Id:        rel.Id(),
-		Life:      params.Life(rel.Life().String()),
+		Life:      life.Value(rel.Life().String()),
 		Suspended: rel.Suspended(),
 		Key:       tag.Id(),
 	}
@@ -263,7 +264,7 @@ func (api *RemoteRelationsAPI) RemoteApplications(entities params.Entities) (par
 		return &params.RemoteApplication{
 			Name:            remoteApp.Name(),
 			OfferUUID:       remoteApp.OfferUUID(),
-			Life:            params.Life(remoteApp.Life().String()),
+			Life:            life.Value(remoteApp.Life().String()),
 			ModelUUID:       remoteApp.SourceModel().Id(),
 			IsConsumerProxy: remoteApp.IsConsumerProxy(),
 			Macaroon:        mac,

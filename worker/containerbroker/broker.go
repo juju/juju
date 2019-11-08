@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/environs"
 )
@@ -96,7 +97,7 @@ func NewTracker(config Config) (*Tracker, error) {
 	if len(result) != 1 {
 		return nil, errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
+	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return nil, dependency.ErrUninstall
 	}
 	machine := result[0].Machine

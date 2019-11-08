@@ -7,12 +7,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/juju/core/model"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -197,7 +198,7 @@ func (st *mockState) WatchUpdateStatusHookInterval() (watcher.NotifyWatcher, err
 
 type mockUnit struct {
 	tag                              names.UnitTag
-	life                             params.Life
+	life                             life.Value
 	providerID                       string
 	resolved                         params.ResolvedMode
 	application                      mockApplication
@@ -211,7 +212,7 @@ type mockUnit struct {
 	relationsWatcher                 *mockStringsWatcher
 }
 
-func (u *mockUnit) Life() params.Life {
+func (u *mockUnit) Life() life.Value {
 	return u.life
 }
 
@@ -277,7 +278,7 @@ func (u *mockUnit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus) erro
 
 type mockApplication struct {
 	tag                   names.ApplicationTag
-	life                  params.Life
+	life                  life.Value
 	curl                  *charm.URL
 	charmModifiedVersion  int
 	forceUpgrade          bool
@@ -293,7 +294,7 @@ func (s *mockApplication) CharmURL() (*charm.URL, bool, error) {
 	return s.curl, s.forceUpgrade, nil
 }
 
-func (s *mockApplication) Life() params.Life {
+func (s *mockApplication) Life() life.Value {
 	return s.life
 }
 
@@ -316,7 +317,7 @@ func (s *mockApplication) WatchLeadershipSettings() (watcher.NotifyWatcher, erro
 type mockRelation struct {
 	tag       names.RelationTag
 	id        int
-	life      params.Life
+	life      life.Value
 	suspended bool
 }
 
@@ -328,7 +329,7 @@ func (r *mockRelation) Id() int {
 	return r.id
 }
 
-func (r *mockRelation) Life() params.Life {
+func (r *mockRelation) Life() life.Value {
 	return r.life
 }
 

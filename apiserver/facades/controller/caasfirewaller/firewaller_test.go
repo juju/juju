@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/caasfirewaller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -133,7 +134,7 @@ func (s *CAASFirewallerSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{
-			Life: params.Alive,
+			Life: life.Alive,
 		}, {
 			Error: &params.Error{
 				Code:    "unauthorized access",

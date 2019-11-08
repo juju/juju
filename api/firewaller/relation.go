@@ -6,13 +6,13 @@ package firewaller
 import (
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 // Relation represents a juju relation as seen by the firewaller worker.
 type Relation struct {
 	tag  names.RelationTag
-	life params.Life
+	life life.Value
 }
 
 // Tag returns the relation tag.
@@ -21,6 +21,6 @@ func (r *Relation) Tag() names.RelationTag {
 }
 
 // Life returns the relation's life cycle value.
-func (r *Relation) Life() params.Life {
+func (r *Relation) Life() life.Value {
 	return r.life
 }

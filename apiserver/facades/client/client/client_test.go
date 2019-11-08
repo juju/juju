@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -126,7 +127,7 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info.Type, gc.Equals, string(model.Type()))
 	c.Assert(info.UUID, gc.Equals, model.UUID())
 	c.Assert(info.OwnerTag, gc.Equals, model.Owner().String())
-	c.Assert(info.Life, gc.Equals, params.Alive)
+	c.Assert(info.Life, gc.Equals, life.Alive)
 	expectedAgentVersion, _ := conf.AgentVersion()
 	c.Assert(info.AgentVersion, gc.DeepEquals, &expectedAgentVersion)
 	c.Assert(info.SLA, gc.DeepEquals, &params.ModelSLAInfo{
@@ -834,7 +835,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "quantal",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
@@ -912,7 +913,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "quantal",
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
 			Addresses:               []params.Address{},

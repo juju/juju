@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/machiner"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -121,15 +122,15 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 func (s *machinerSuite) TestRefresh(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Alive)
+	c.Assert(machine.Life(), gc.Equals, life.Alive)
 
 	err = machine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Alive)
+	c.Assert(machine.Life(), gc.Equals, life.Alive)
 
 	err = machine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Dead)
+	c.Assert(machine.Life(), gc.Equals, life.Dead)
 }
 
 func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
@@ -184,7 +185,7 @@ func (s *machinerSuite) TestSetEmptyMachineAddresses(c *gc.C) {
 func (s *machinerSuite) TestWatch(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(machine.Life(), gc.Equals, params.Alive)
+	c.Assert(machine.Life(), gc.Equals, life.Alive)
 
 	w, err := machine.Watch()
 	c.Assert(err, jc.ErrorIsNil)

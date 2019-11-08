@@ -6,6 +6,8 @@ package params
 import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/macaroon.v2-unstable"
+
+	"github.com/juju/juju/core/life"
 )
 
 // ExternalControllerInfoResults contains the results of querying
@@ -203,7 +205,7 @@ type TokenResults struct {
 // RemoteRelation describes the current state of a cross-model relation from
 // the perspective of the local model.
 type RemoteRelation struct {
-	Life                  Life           `json:"life"`
+	Life                  life.Value     `json:"life"`
 	Suspended             bool           `json:"suspended"`
 	Id                    int            `json:"id"`
 	Key                   string         `json:"key"`
@@ -236,7 +238,7 @@ type RemoteApplication struct {
 	OfferUUID string `json:"offer-uuid"`
 
 	// Life is the current lifecycle state of the application.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 
 	// Status is the current status of the application.
 	Status string `json:"status,omitempty"`
@@ -320,7 +322,7 @@ type RemoteApplicationChange struct {
 	ApplicationTag string `json:"application-tag"`
 
 	// Life is the current lifecycle state of the application.
-	Life Life `json:"life"`
+	Life life.Value `json:"life"`
 
 	// TODO(wallyworld) - status etc
 }
@@ -356,7 +358,7 @@ type RemoteRelationChangeEvent struct {
 	ApplicationToken string `json:"application-token"`
 
 	// Life is the current lifecycle state of the relation.
-	Life Life `json:"life"`
+	Life life.Value `json:"life"`
 
 	// ForceCleanup is true if the offering side should forcibly
 	// ensure that all relation units have left scope.
@@ -385,7 +387,7 @@ type RelationLifeSuspendedStatusChange struct {
 	Key string `json:"key"`
 
 	// Life is the life of the relation.
-	Life Life `json:"life"`
+	Life life.Value `json:"life"`
 
 	// Suspended is the suspended status of the relation.
 	Suspended bool `json:"suspended"`

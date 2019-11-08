@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/instancepoller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -243,8 +244,8 @@ func (s *InstancePollerSuite) TestLifeSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: params.Alive},
-			{Life: params.Dying},
+			{Life: life.Alive},
+			{Life: life.Dying},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -277,7 +278,7 @@ func (s *InstancePollerSuite) TestLifeFailure(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Error: apiservertesting.ServerError("pow!")},
-			{Life: params.Dead},
+			{Life: life.Dead},
 			{Error: apiservertesting.NotProvisionedError("42")},
 		}},
 	)

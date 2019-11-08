@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/storageprovisioner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/storage"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -1021,7 +1022,7 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "volume-100"}}})
 		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
-			Results: []params.LifeResult{{Life: params.Alive}},
+			Results: []params.LifeResult{{Life: life.Alive}},
 		}
 		callCount++
 		return nil
@@ -1033,7 +1034,7 @@ func (s *provisionerSuite) TestLife(c *gc.C) {
 	lifeResults, err := st.Life(volumes)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(callCount, gc.Equals, 1)
-	c.Assert(lifeResults, jc.DeepEquals, []params.LifeResult{{Life: params.Alive}})
+	c.Assert(lifeResults, jc.DeepEquals, []params.LifeResult{{Life: life.Alive}})
 }
 
 func (s *provisionerSuite) testClientError(c *gc.C, apiCall func(*storageprovisioner.State) error) {

@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/api/leadership"
 	"github.com/juju/juju/api/uniter"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
@@ -41,7 +41,7 @@ func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
 
 	w, err := s.apiApplication.Watch()
 	c.Assert(err, jc.ErrorIsNil)
@@ -63,15 +63,15 @@ func (s *applicationSuite) TestWatch(c *gc.C) {
 }
 
 func (s *applicationSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
 
 	err := s.wordpressApplication.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
 
 	err = s.apiApplication.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiApplication.Life(), gc.Equals, params.Dying)
+	c.Assert(s.apiApplication.Life(), gc.Equals, life.Dying)
 }
 
 func (s *applicationSuite) TestCharmURL(c *gc.C) {

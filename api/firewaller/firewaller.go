@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/api/common/cloudspec"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
 	"gopkg.in/macaroon.v2-unstable"
@@ -53,7 +54,7 @@ func (c *Client) ModelTag() (names.ModelTag, bool) {
 }
 
 // life requests the life cycle of the given entity from the server.
-func (c *Client) life(tag names.Tag) (params.Life, error) {
+func (c *Client) life(tag names.Tag) (life.Value, error) {
 	return common.OneLife(c.facade, tag)
 }
 

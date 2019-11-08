@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -370,7 +371,7 @@ func (s *remoteRelationsSuite) TestConsumeRemoteRelationChange(c *gc.C) {
 	change := params.RemoteRelationChangeEvent{
 		RelationToken:    "rel-token",
 		ApplicationToken: "app-token",
-		Life:             params.Alive,
+		Life:             life.Alive,
 		ChangedUnits: []params.RemoteRelationUnitChange{{
 			UnitId:   0,
 			Settings: map[string]interface{}{"foo": "bar"},

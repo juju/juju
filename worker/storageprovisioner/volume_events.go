@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/plans"
@@ -64,11 +65,11 @@ func sortVolumeAttachmentPlans(ctx *context, ids []params.MachineStorageId) (
 	ctx.config.Logger.Debugf("Found plans: %v", plans)
 	for _, plan := range plans {
 		switch plan.Result.Life {
-		case params.Alive:
+		case life.Alive:
 			alive = append(alive, plan)
-		case params.Dying:
+		case life.Dying:
 			dying = append(dying, plan)
-		case params.Dead:
+		case life.Dead:
 			dead = append(dead, plan)
 		}
 	}

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -214,7 +215,7 @@ func (s *modelInfoSuite) expectedModelInfo(c *gc.C, credentialValidity *bool) pa
 		CloudRegion:        "some-region",
 		CloudCredentialTag: "cloudcred-some-cloud_bob_some-credential",
 		DefaultSeries:      series.DefaultSupportedLTS(),
-		Life:               params.Dying,
+		Life:               life.Dying,
 		Status: params.EntityStatus{
 			Status: status.Destroying,
 			Since:  &time.Time{},
@@ -418,7 +419,7 @@ func (s *modelInfoSuite) TestNoMigration(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestAliveModelGetsAllInfo(c *gc.C) {
-	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, params.Alive)
+	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
 func (s *modelInfoSuite) TestAliveModelWithConfigFailure(c *gc.C) {
@@ -440,14 +441,14 @@ func (s *modelInfoSuite) TestAliveModelWithUsersFailure(c *gc.C) {
 }
 
 func (s *modelInfoSuite) TestDeadModelGetsAllInfo(c *gc.C) {
-	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Dead, params.Dead)
+	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Dead, life.Dead)
 }
 
 func (s *modelInfoSuite) TestDeadModelWithConfigFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dead,
-		expectedLife: params.Dead,
+		expectedLife: life.Dead,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -456,7 +457,7 @@ func (s *modelInfoSuite) TestDeadModelWithStatusFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dead,
-		expectedLife: params.Dead,
+		expectedLife: life.Dead,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -465,7 +466,7 @@ func (s *modelInfoSuite) TestDeadModelWithUsersFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Dead,
-		expectedLife: params.Dead,
+		expectedLife: life.Dead,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -474,7 +475,7 @@ func (s *modelInfoSuite) TestDyingModelWithConfigFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Dying,
-		expectedLife: params.Dying,
+		expectedLife: life.Dying,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -483,7 +484,7 @@ func (s *modelInfoSuite) TestDyingModelWithStatusFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Dying,
-		expectedLife: params.Dying,
+		expectedLife: life.Dying,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -492,14 +493,14 @@ func (s *modelInfoSuite) TestDyingModelWithUsersFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Dying,
-		expectedLife: params.Dying,
+		expectedLife: life.Dying,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
 
 func (s *modelInfoSuite) TestImportingModelGetsAllInfo(c *gc.C) {
 	s.st.model.migrationStatus = state.MigrationModeImporting
-	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, params.Alive)
+	s.assertSuccess(c, s.st.model.cfg.UUID(), state.Alive, life.Alive)
 }
 
 func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
@@ -507,7 +508,7 @@ func (s *modelInfoSuite) TestImportingModelWithConfigFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelConfigError,
 		desiredLife:  state.Alive,
-		expectedLife: params.Alive,
+		expectedLife: life.Alive,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -517,7 +518,7 @@ func (s *modelInfoSuite) TestImportingModelWithStatusFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelStatusError,
 		desiredLife:  state.Alive,
-		expectedLife: params.Alive,
+		expectedLife: life.Alive,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -527,7 +528,7 @@ func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 	testData := incompleteModelInfoTest{
 		failModel:    s.setModelUsersError,
 		desiredLife:  state.Alive,
-		expectedLife: params.Alive,
+		expectedLife: life.Alive,
 	}
 	s.assertSuccessWithMissingData(c, testData)
 }
@@ -535,7 +536,7 @@ func (s *modelInfoSuite) TestImportingModelWithUsersFailure(c *gc.C) {
 type incompleteModelInfoTest struct {
 	failModel    func()
 	desiredLife  state.Life
-	expectedLife params.Life
+	expectedLife life.Value
 }
 
 func (s *modelInfoSuite) setModelConfigError() {
@@ -563,7 +564,7 @@ func (s *modelInfoSuite) assertSuccessWithMissingData(c *gc.C, test incompleteMo
 	s.assertSuccess(c, s.st.model.cfg.UUID(), test.desiredLife, test.expectedLife)
 }
 
-func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife params.Life) {
+func (s *modelInfoSuite) assertSuccess(c *gc.C, modelUUID string, desiredLife state.Life, expectedLife life.Value) {
 	s.st.model.life = desiredLife
 	// should get no errors
 	info := s.getModelInfo(c, modelUUID)

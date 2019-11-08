@@ -13,6 +13,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -38,7 +39,7 @@ type MachineProvisioner interface {
 	String() string
 
 	// Life returns the machine's lifecycle value.
-	Life() params.Life
+	Life() life.Value
 
 	// Refresh updates the cached local copy of the machine's data.
 	Refresh() error
@@ -127,7 +128,7 @@ type MachineProvisioner interface {
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
 	tag  names.MachineTag
-	life params.Life
+	life life.Value
 	st   *State
 }
 
@@ -166,7 +167,7 @@ func (m *Machine) String() string {
 }
 
 // Life implements MachineProvisioner..
-func (m *Machine) Life() params.Life {
+func (m *Machine) Life() life.Value {
 	return m.life
 }
 

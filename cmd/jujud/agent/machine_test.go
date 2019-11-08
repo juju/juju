@@ -48,6 +48,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -471,7 +472,7 @@ func (s *MachineLegacyLeasesSuite) TestManageModelServesAPI(c *gc.C) {
 		defer st.Close()
 		m, err := apimachiner.NewState(st).Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(m.Life(), gc.Equals, params.Alive)
+		c.Assert(m.Life(), gc.Equals, life.Alive)
 	})
 }
 

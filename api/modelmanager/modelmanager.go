@@ -112,7 +112,7 @@ func convertParamsModelInfo(modelInfo params.ModelInfo) (base.ModelInfo, error) 
 		CloudRegion:     modelInfo.CloudRegion,
 		CloudCredential: credential,
 		Owner:           ownerTag.Id(),
-		Life:            string(modelInfo.Life),
+		Life:            modelInfo.Life,
 		AgentVersion:    modelInfo.AgentVersion,
 	}
 	modelType := modelInfo.Type
@@ -230,7 +230,7 @@ func (c *Client) ListModelSummaries(user string, all bool) ([]base.UserModelSumm
 			ProviderType:       summary.ProviderType,
 			DefaultSeries:      summary.DefaultSeries,
 			CloudRegion:        summary.CloudRegion,
-			Life:               string(summary.Life),
+			Life:               summary.Life,
 			ModelUserAccess:    string(summary.UserAccess),
 			UserLastConnection: summary.UserLastConnection,
 			Counts:             make([]base.EntityCount, len(summary.Counts)),

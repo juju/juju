@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -17,7 +18,7 @@ import (
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
 	tag  names.MachineTag
-	life params.Life
+	life life.Value
 	st   *State
 }
 
@@ -27,7 +28,7 @@ func (m *Machine) Tag() names.Tag {
 }
 
 // Life returns the machine's lifecycle value.
-func (m *Machine) Life() params.Life {
+func (m *Machine) Life() life.Value {
 	return m.life
 }
 

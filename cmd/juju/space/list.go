@@ -15,10 +15,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/life"
 )
 
 // NewListCommand returns a command used to list spaces.
@@ -139,9 +139,9 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 				// do the same for params.Space, so in case of an
 				// error it can be displayed.
 				switch subnet.Life {
-				case params.Alive:
+				case life.Alive:
 					subResult.Status = statusInUse
-				case params.Dying, params.Dead:
+				case life.Dying, life.Dead:
 					subResult.Status = statusTerminating
 				}
 

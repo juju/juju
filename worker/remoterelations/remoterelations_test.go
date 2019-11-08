@@ -398,7 +398,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.relationsFacade.updateRelationLife("db2:db django:db", params.Dying)
+	unitsWatcher, _ := s.relationsFacade.updateRelationLife("db2:db django:db", life.Dying)
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
@@ -445,7 +445,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life:             params.Dying,
+				Life:             life.Dying,
 				ApplicationToken: "token-django",
 				RelationToken:    "token-db2:db django:db",
 				Macaroons:        macaroon.Slice{apiMac},
@@ -599,7 +599,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDyingConsumes(c *gc.C) {
 	expected := []jujutesting.StubCall{
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
-				Life:             params.Dying,
+				Life:             life.Dying,
 				ApplicationToken: "token-offer-db2-uuid",
 				RelationToken:    "token-db2:db django:db",
 				Suspended:        &suspended,
@@ -693,7 +693,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	// If a relation is dying and there's been an error, when processing resumes
 	// a cleanup is forced on the remote side.
 	if dying {
-		s.relationsFacade.updateRelationLife("db2:db django:db", params.Dying)
+		s.relationsFacade.updateRelationLife("db2:db django:db", life.Dying)
 		forceCleanup := true
 		expected = append(expected, jujutesting.StubCall{
 			FuncName: "PublishRelationChange",
@@ -701,7 +701,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 				params.RemoteRelationChangeEvent{
 					ApplicationToken: "token-django",
 					RelationToken:    "token-db2:db django:db",
-					Life:             params.Dying,
+					Life:             life.Dying,
 					Macaroons:        macaroon.Slice{apiMac},
 					ForceCleanup:     &forceCleanup,
 				},

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -18,7 +19,7 @@ import (
 type Application struct {
 	st   *Client
 	tag  names.ApplicationTag
-	life params.Life
+	life life.Value
 }
 
 // Name returns the application name.

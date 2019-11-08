@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/tools"
@@ -332,23 +333,23 @@ type RelationResults struct {
 // RelationResult returns information about a single relation,
 // or an error.
 type RelationResult struct {
-	Error            *Error   `json:"error,omitempty"`
-	Life             Life     `json:"life"`
-	Suspended        bool     `json:"bool,omitempty"`
-	Id               int      `json:"id"`
-	Key              string   `json:"key"`
-	Endpoint         Endpoint `json:"endpoint"`
-	OtherApplication string   `json:"other-application,omitempty"`
+	Error            *Error     `json:"error,omitempty"`
+	Life             life.Value `json:"life"`
+	Suspended        bool       `json:"bool,omitempty"`
+	Id               int        `json:"id"`
+	Key              string     `json:"key"`
+	Endpoint         Endpoint   `json:"endpoint"`
+	OtherApplication string     `json:"other-application,omitempty"`
 }
 
 // RelationResultV5 returns information about a single relation,
 // or an error, but doesn't include the other application name.
 type RelationResultV5 struct {
-	Error    *Error   `json:"error,omitempty"`
-	Life     Life     `json:"life"`
-	Id       int      `json:"id"`
-	Key      string   `json:"key"`
-	Endpoint Endpoint `json:"endpoint"`
+	Error    *Error     `json:"error,omitempty"`
+	Life     life.Value `json:"life"`
+	Id       int        `json:"id"`
+	Key      string     `json:"key"`
+	Endpoint Endpoint   `json:"endpoint"`
 }
 
 // RelationResultsV5 holds the result of an API call that returns
@@ -390,8 +391,8 @@ type BytesResult struct {
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {
-	Life  Life   `json:"life"`
-	Error *Error `json:"error,omitempty"`
+	Life  life.Value `json:"life"`
+	Error *Error     `json:"error,omitempty"`
 }
 
 // LifeResults holds the life or error status of multiple entities.
@@ -472,7 +473,7 @@ type AgentGetEntitiesResults struct {
 // AgentGetEntitiesResult holds the results of a
 // machineagent.API.GetEntities call for a single entity.
 type AgentGetEntitiesResult struct {
-	Life          Life                   `json:"life"`
+	Life          life.Value             `json:"life"`
 	Jobs          []model.MachineJob     `json:"jobs"`
 	ContainerType instance.ContainerType `json:"container-type"`
 	Error         *Error                 `json:"error,omitempty"`
@@ -858,7 +859,7 @@ type ResourceUploadResult struct {
 // UnitRefreshResult is used to return the latest values for attributes
 // on a unit.
 type UnitRefreshResult struct {
-	Life       Life
+	Life       life.Value
 	Resolved   ResolvedMode
 	Error      *Error
 	ProviderID string `json:"provider-id,omitempty"`

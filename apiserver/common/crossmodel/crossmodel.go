@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -24,7 +25,7 @@ var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
 func PublishRelationChange(backend Backend, relationTag names.Tag, change params.RemoteRelationChangeEvent) error {
 	logger.Debugf("publish into model %v change for %v: %+v", backend.ModelUUID(), relationTag, change)
 
-	dyingOrDead := change.Life != "" && change.Life != params.Alive
+	dyingOrDead := change.Life != "" && change.Life != life.Alive
 	// Ensure the relation exists.
 	rel, err := backend.KeyRelation(relationTag.Id())
 	if errors.IsNotFound(err) {
@@ -297,7 +298,7 @@ func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*param
 	if errors.IsNotFound(err) {
 		return &params.RelationLifeSuspendedStatusChange{
 			Key:  key,
-			Life: params.Dead,
+			Life: life.Dead,
 		}, nil
 	}
 	if err != nil {
@@ -305,7 +306,7 @@ func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*param
 	}
 	return &params.RelationLifeSuspendedStatusChange{
 		Key:             key,
-		Life:            params.Life(rel.Life().String()),
+		Life:            life.Value(rel.Life().String()),
 		Suspended:       rel.Suspended(),
 		SuspendedReason: rel.SuspendedReason(),
 	}, nil

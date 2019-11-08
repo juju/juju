@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
@@ -166,9 +167,9 @@ func (s *CAASOperatorSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{
-			Life: params.Dying,
+			Life: life.Dying,
 		}, {
-			Life: params.Alive,
+			Life: life.Alive,
 		}, {
 			Error: &params.Error{
 				Code:    "unauthorized access",

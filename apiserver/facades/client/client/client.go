@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -576,7 +577,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 		Type:           string(model.Type()),
 		UUID:           model.UUID(),
 		OwnerTag:       model.Owner().String(),
-		Life:           params.Life(model.Life().String()),
+		Life:           life.Value(model.Life().String()),
 		ControllerUUID: state.ControllerTag().String(),
 		IsController:   state.IsController(),
 	}

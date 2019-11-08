@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -49,7 +50,7 @@ var marshalTestCases = []struct {
 			InstanceStatus: params.StatusInfo{
 				Current: status.Pending,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXD},
 			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
@@ -66,7 +67,7 @@ var marshalTestCases = []struct {
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:quantal/name",
-			Life:        params.Life("dying"),
+			Life:        life.Dying,
 			OwnerTag:    "test-owner",
 			MinUnits:    42,
 			Constraints: constraints.MustParse("arch=armhf mem=1024M"),
@@ -88,7 +89,7 @@ var marshalTestCases = []struct {
 		Entity: &params.CharmInfo{
 			ModelUUID:    "uuid",
 			CharmURL:     "cs:quantal/name",
-			Life:         params.Life("dying"),
+			Life:         life.Dying,
 			CharmVersion: "3",
 			LXDProfile:   &params.Profile{},
 		},
@@ -103,7 +104,7 @@ var marshalTestCases = []struct {
 			Application: "Shazam",
 			Series:      "precise",
 			CharmURL:    "cs:~user/precise/wordpress-42",
-			Life:        params.Life("alive"),
+			Life:        life.Alive,
 			Ports: []params.Port{{
 				Protocol: "http",
 				Number:   80,

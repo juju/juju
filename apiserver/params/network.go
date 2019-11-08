@@ -4,6 +4,7 @@
 package params
 
 import (
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 )
 
@@ -37,7 +38,7 @@ type Subnet struct {
 	// Life is the subnet's life cycle value - Alive means the subnet
 	// is in use by one or more machines, Dying or Dead means the
 	// subnet is about to be removed.
-	Life Life `json:"life"`
+	Life life.Value `json:"life"`
 
 	// SpaceTag is the Juju network space this subnet is associated
 	// with.

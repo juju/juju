@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	commontesting "github.com/juju/juju/apiserver/common/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -191,7 +192,7 @@ func (s *legacySuite) TestWatchAllModels(c *gc.C) {
 		modelInfo.Status.Since = nil
 		c.Assert(modelInfo.ModelUUID, gc.Equals, model.UUID())
 		c.Assert(modelInfo.Name, gc.Equals, model.Name())
-		c.Assert(modelInfo.Life, gc.Equals, params.Life("alive"))
+		c.Assert(modelInfo.Life, gc.Equals, life.Alive)
 		c.Assert(modelInfo.Owner, gc.Equals, model.Owner().Id())
 		c.Assert(modelInfo.ControllerUUID, gc.Equals, model.ControllerUUID())
 		c.Assert(modelInfo.Config, jc.DeepEquals, cfg.AllAttrs())

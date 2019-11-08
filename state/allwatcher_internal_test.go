@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -134,7 +135,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Data:    map[string]interface{}{},
 			Since:   &now,
 		},
-		Life:                    params.Life("alive"),
+		Life:                    life.Alive,
 		Series:                  "quantal",
 		Jobs:                    jobs,
 		Addresses:               addresses,
@@ -157,7 +158,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    applicationCharmURL(wordpress).String(),
-		Life:        params.Life("alive"),
+		Life:        life.Alive,
 		MinUnits:    units,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
@@ -181,7 +182,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	add(&params.CharmInfo{
 		ModelUUID:     modelUUID,
 		CharmURL:      applicationCharmURL(wordpress).String(),
-		Life:          params.Life("alive"),
+		Life:          life.Alive,
 		DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 	})
 
@@ -190,7 +191,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		ModelUUID:   modelUUID,
 		Name:        "logging",
 		CharmURL:    applicationCharmURL(logging).String(),
-		Life:        params.Life("alive"),
+		Life:        life.Alive,
 		Config:      charm.Settings{},
 		Subordinate: true,
 		Status: params.StatusInfo{
@@ -204,7 +205,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	add(&params.CharmInfo{
 		ModelUUID: modelUUID,
 		CharmURL:  applicationCharmURL(logging).String(),
-		Life:      params.Life("alive"),
+		Life:      life.Alive,
 	})
 
 	eps, err := st.InferEndpoints("logging", "wordpress")
@@ -234,7 +235,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Name:        fmt.Sprintf("wordpress/%d", i),
 			Application: wordpress.Name(),
 			Series:      m.Series(),
-			Life:        params.Life("alive"),
+			Life:        life.Alive,
 			MachineId:   m.Id(),
 			Ports:       []params.Port{},
 			Subordinate: false,
@@ -287,7 +288,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "quantal",
 			Jobs:                    []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses:               []params.Address{},
@@ -323,7 +324,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			Name:        fmt.Sprintf("logging/%d", i),
 			Application: "logging",
 			Series:      "quantal",
-			Life:        params.Life("alive"),
+			Life:        life.Alive,
 			Ports:       []params.Port{},
 			Principal:   unitName,
 			Subordinate: true,
@@ -353,7 +354,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 		ModelUUID: modelUUID,
 		Name:      "mysql",
 		CharmURL:  curl.String(),
-		Life:      params.Life("alive"),
+		Life:      life.Alive,
 		Config:    charm.Settings{},
 		Status: params.StatusInfo{
 			Current: "waiting",
@@ -366,7 +367,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 	add(&params.CharmInfo{
 		ModelUUID: modelUUID,
 		CharmURL:  applicationCharmURL(mysql).String(),
-		Life:      params.Life("alive"),
+		Life:      life.Alive,
 	})
 
 	// Set up a remote application related to the offer.
@@ -459,7 +460,7 @@ func addTestingRemoteApplication(
 		Name:      name,
 		OfferUUID: offerUUID,
 		OfferURL:  url,
-		Life:      params.Life(rs.Life().String()),
+		Life:      life.Value(rs.Life().String()),
 		Status:    appStatus,
 	}
 }
@@ -805,7 +806,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Name:           "wordpress/0",
 			Application:    "wordpress",
 			Series:         "quantal",
-			Life:           params.Life("alive"),
+			Life:           life.Alive,
 			MachineId:      "0",
 			PublicAddress:  "1.2.3.4",
 			PrivateAddress: "4.3.2.1",
@@ -844,7 +845,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 			Application:    "wordpress",
 			Series:         "quantal",
 			MachineId:      "0",
-			Life:           params.Life("alive"),
+			Life:           life.Alive,
 			PublicAddress:  "1.2.3.4",
 			PrivateAddress: "4.3.2.1",
 			Ports:          []params.Port{},
@@ -945,7 +946,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "trusty",
 			Jobs:      []coremodel.MachineJob{JobManageModel.ToParams()},
 			Addresses: []params.Address{},
@@ -966,7 +967,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "saucy",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -994,7 +995,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("dying"),
+			Life:      life.Dying,
 			Series:    "saucy",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -1021,7 +1022,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("dead"),
+			Life:      life.Dead,
 			Series:    "saucy",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -1097,7 +1098,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "trusty",
 			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
@@ -1121,7 +1122,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "trusty",
 			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
@@ -1147,7 +1148,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &wpTime,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "quantal",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -1158,7 +1159,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		Entity: &params.CharmInfo{
 			ModelUUID:     s.state.ModelUUID(),
 			CharmURL:      "local:quantal/quantal-wordpress-3",
-			Life:          params.Life("alive"),
+			Life:          life.Alive,
 			DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 		},
 	}, {
@@ -1181,7 +1182,7 @@ func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Name:        "wordpress/0",
 			Application: "wordpress",
 			Series:      "quantal",
-			Life:        params.Life("alive"),
+			Life:        life.Alive,
 			MachineId:   "2",
 			WorkloadStatus: params.StatusInfo{
 				Current: "waiting",
@@ -1548,7 +1549,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					&params.ModelUpdate{
 						ModelUUID:      model.UUID(),
 						Name:           model.Name(),
-						Life:           params.Life("alive"),
+						Life:           life.Alive,
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
 						IsController:   model.IsControllerModel(),
@@ -1579,7 +1580,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					&params.ModelUpdate{
 						ModelUUID:      model.UUID(),
 						Name:           "",
-						Life:           params.Life("alive"),
+						Life:           life.Alive,
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
 						IsController:   model.IsControllerModel(),
@@ -1603,7 +1604,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					&params.ModelUpdate{
 						ModelUUID:      model.UUID(),
 						Name:           model.Name(),
-						Life:           params.Life("alive"),
+						Life:           life.Alive,
 						Owner:          model.Owner().Id(),
 						ControllerUUID: model.ControllerUUID(),
 						IsController:   model.IsControllerModel(),
@@ -1696,7 +1697,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 		&params.ModelUpdate{
 			ModelUUID:      model.UUID(),
 			Name:           model.Name(),
-			Life:           params.Life("alive"),
+			Life:           life.Alive,
 			Owner:          model.Owner().Id(),
 			ControllerUUID: model.ControllerUUID(),
 			IsController:   model.IsControllerModel(),
@@ -1714,7 +1715,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 		&params.ModelUpdate{
 			ModelUUID:      model1.UUID(),
 			Name:           model1.Name(),
-			Life:           params.Life("alive"),
+			Life:           life.Alive,
 			Owner:          model1.Owner().Id(),
 			ControllerUUID: model1.ControllerUUID(),
 			IsController:   model1.IsControllerModel(),
@@ -1911,7 +1912,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "trusty",
 			Jobs:      []coremodel.MachineJob{JobManageModel.ToParams()},
 			Addresses: []params.Address{},
@@ -1932,7 +1933,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "saucy",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -1968,7 +1969,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("dying"),
+			Life:      life.Dying,
 			Series:    "saucy",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -1995,7 +1996,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:      params.Life("dead"),
+			Life:      life.Dead,
 			Series:    "saucy",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -2074,7 +2075,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "trusty",
 			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
@@ -2098,7 +2099,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &now,
 			},
-			Life:                    params.Life("alive"),
+			Life:                    life.Alive,
 			Series:                  "trusty",
 			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
 			Addresses:               []params.Address{},
@@ -2121,7 +2122,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &later,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "quantal",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -2132,7 +2133,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 		Entity: &params.CharmInfo{
 			ModelUUID:     st1.ModelUUID(),
 			CharmURL:      "local:quantal/quantal-wordpress-3",
-			Life:          params.Life("alive"),
+			Life:          life.Alive,
 			DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 		},
 	}, {
@@ -2158,7 +2159,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 			Name:        "wordpress/0",
 			Application: "wordpress",
 			Series:      "quantal",
-			Life:        params.Life("alive"),
+			Life:        life.Alive,
 			MachineId:   "1",
 			WorkloadStatus: params.StatusInfo{
 				Current: "waiting",
@@ -2206,7 +2207,7 @@ func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
 				Data:    map[string]interface{}{},
 				Since:   &later,
 			},
-			Life:      params.Life("alive"),
+			Life:      life.Alive,
 			Series:    "trusty",
 			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 			Addresses: []params.Address{},
@@ -2375,7 +2376,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
-						Life:      params.Life("alive"),
+						Life:      life.Alive,
 						Series:    "quantal",
 						Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
 						Addresses: []params.Address{},
@@ -2434,7 +2435,7 @@ func testChangeMachines(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 							Data:    map[string]interface{}{},
 							Since:   &now,
 						},
-						Life:                     params.Life("alive"),
+						Life:                     life.Alive,
 						Series:                   "trusty",
 						Jobs:                     []coremodel.MachineJob{JobHostUnits.ToParams()},
 						Addresses:                []params.Address{},
@@ -2658,7 +2659,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						Name:      "wordpress",
 						Exposed:   true,
 						CharmURL:  "local:quantal/quantal-wordpress-3",
-						Life:      params.Life("alive"),
+						Life:      life.Alive,
 						MinUnits:  42,
 						Config:    charm.Settings{},
 						Status: params.StatusInfo{
@@ -2693,7 +2694,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						ModelUUID:   st.ModelUUID(),
 						Name:        "wordpress",
 						CharmURL:    "local:quantal/quantal-wordpress-3",
-						Life:        params.Life("alive"),
+						Life:        life.Alive,
 						Constraints: constraints.MustParse("mem=99M"),
 						Config:      charm.Settings{"blog-title": "boring"},
 					}}}
@@ -2822,7 +2823,7 @@ func testChangeApplications(c *gc.C, owner names.UserTag, runChangeTests func(*g
 						ModelUUID: st.ModelUUID(),
 						Name:      "wordpress",
 						CharmURL:  "local:quantal/quantal-wordpress-3",
-						Life:      params.Life("alive"),
+						Life:      life.Alive,
 						Config:    charm.Settings{"blog-title": "boring"},
 					}}}
 		},
@@ -3011,7 +3012,7 @@ func testChangeCharms(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, [
 					&params.CharmInfo{
 						ModelUUID:     st.ModelUUID(),
 						CharmURL:      ch.URL().String(),
-						Life:          params.Life("alive"),
+						Life:          life.Alive,
 						DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
 					}}}
 		},
@@ -3091,7 +3092,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 					&params.UnitInfo{
 						ModelUUID: st.ModelUUID(),
 						Name:      "wordpress/1",
-						Life:      params.Life("alive"),
+						Life:      life.Alive,
 					},
 				},
 				change: watcher.Change{
@@ -3134,7 +3135,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Name:        "wordpress/0",
 						Application: "wordpress",
 						Series:      "quantal",
-						Life:        params.Life("alive"),
+						Life:        life.Alive,
 						MachineId:   "0",
 						Ports: []params.Port{
 							{"tcp", 5555},
@@ -3207,7 +3208,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Name:        "wordpress/0",
 						Application: "wordpress",
 						Series:      "quantal",
-						Life:        params.Life("alive"),
+						Life:        life.Alive,
 						MachineId:   "0",
 						Ports:       []params.Port{{"udp", 17070}},
 						PortRanges:  []params.PortRange{{17070, 17070, "udp"}},
@@ -3295,7 +3296,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Name:        "wordpress/0",
 						Application: "wordpress",
 						Series:      "quantal",
-						Life:        params.Life("alive"),
+						Life:        life.Alive,
 						MachineId:   "0",
 						WorkloadStatus: params.StatusInfo{
 							Current: "waiting",
@@ -3352,7 +3353,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 						Name:           "wordpress/0",
 						Application:    "wordpress",
 						Series:         "quantal",
-						Life:           params.Life("alive"),
+						Life:           life.Alive,
 						PublicAddress:  "public",
 						PrivateAddress: "private",
 						MachineId:      "0",
@@ -3749,7 +3750,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Name:        "wordpress/0",
 						Application: "wordpress",
 						Series:      "quantal",
-						Life:        params.Life("alive"),
+						Life:        life.Alive,
 						MachineId:   "0",
 						Ports:       []params.Port{},
 						PortRanges:  []params.PortRange{},
@@ -3783,7 +3784,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Name:           "wordpress/0",
 						Application:    "wordpress",
 						Series:         "quantal",
-						Life:           params.Life("alive"),
+						Life:           life.Alive,
 						MachineId:      "0",
 						PublicAddress:  "1.2.3.4",
 						PrivateAddress: "4.3.2.1",
@@ -3819,7 +3820,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Name:           "wordpress/0",
 						Application:    "wordpress",
 						Series:         "quantal",
-						Life:           params.Life("alive"),
+						Life:           life.Alive,
 						MachineId:      "0",
 						PublicAddress:  "1.2.3.4",
 						PrivateAddress: "4.3.2.1",
@@ -3855,7 +3856,7 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 						Name:        "wordpress/0",
 						Application: "wordpress",
 						Series:      "quantal",
-						Life:        params.Life("alive"),
+						Life:        life.Alive,
 						Ports:       []params.Port{},
 						PortRanges:  []params.PortRange{},
 						WorkloadStatus: params.StatusInfo{

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
@@ -41,12 +42,12 @@ func (s *MachineSuite) TestNonFacadeMethods(c *gc.C) {
 			return nil
 		},
 	)
-	machine := instancepoller.NewMachine(nopCaller, s.tag, params.Dying)
+	machine := instancepoller.NewMachine(nopCaller, s.tag, life.Dying)
 
 	c.Assert(machine.Id(), gc.Equals, "42")
 	c.Assert(machine.Tag(), jc.DeepEquals, s.tag)
 	c.Assert(machine.String(), gc.Equals, "42")
-	c.Assert(machine.Life(), gc.Equals, params.Dying)
+	c.Assert(machine.Life(), gc.Equals, life.Dying)
 }
 
 // methodWrapper wraps a Machine method call and returns the error,
@@ -143,12 +144,12 @@ func (s *MachineSuite) TestTooManyResultsServerError(c *gc.C) {
 
 func (s *MachineSuite) TestRefreshSuccess(c *gc.C) {
 	results := params.LifeResults{
-		Results: []params.LifeResult{{Life: params.Dying}},
+		Results: []params.LifeResult{{Life: life.Dying}},
 	}
 	apiCaller := successAPICaller(c, "Life", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	c.Check(machine.Refresh(), jc.ErrorIsNil)
-	c.Check(machine.Life(), gc.Equals, params.Dying)
+	c.Check(machine.Life(), gc.Equals, life.Dying)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
@@ -169,7 +170,7 @@ func (s *MachineSuite) TestStatusSuccess(c *gc.C) {
 	}
 	results := params.StatusResults{Results: []params.StatusResult{expectStatus}}
 	apiCaller := successAPICaller(c, "Status", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	status, err := machine.Status()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(status, jc.DeepEquals, expectStatus)
@@ -181,7 +182,7 @@ func (s *MachineSuite) TestIsManualSuccess(c *gc.C) {
 		Results: []params.BoolResult{{Result: true}},
 	}
 	apiCaller := successAPICaller(c, "AreManuallyProvisioned", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	isManual, err := machine.IsManual()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(isManual, jc.IsTrue)
@@ -193,7 +194,7 @@ func (s *MachineSuite) TestInstanceIdSuccess(c *gc.C) {
 		Results: []params.StringResult{{Result: "i-foo"}},
 	}
 	apiCaller := successAPICaller(c, "InstanceId", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	instId, err := machine.InstanceId()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(instId, gc.Equals, instance.Id("i-foo"))
@@ -207,7 +208,7 @@ func (s *MachineSuite) TestInstanceStatusSuccess(c *gc.C) {
 		}},
 	}
 	apiCaller := successAPICaller(c, "InstanceStatus", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	statusResult, err := machine.InstanceStatus()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(statusResult.Status, gc.DeepEquals, status.Provisioning.String())
@@ -224,7 +225,7 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	}
 	apiCaller := successAPICaller(c, "SetInstanceStatus", expectArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	err := machine.SetInstanceStatus("RUNNING", "", nil)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
@@ -237,7 +238,7 @@ func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
 			Addresses: params.FromProviderAddresses(addresses...),
 		}}}
 	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	addrs, err := machine.ProviderAddresses()
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(addrs, jc.DeepEquals, addresses)
@@ -255,7 +256,7 @@ func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 		Results: []params.ErrorResult{{Error: nil}},
 	}
 	apiCaller := successAPICaller(c, "SetProviderAddresses", expectArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	err := machine.SetProviderAddresses(addresses...)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
@@ -263,14 +264,14 @@ func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 
 func (s *MachineSuite) CheckClientError(c *gc.C, wf methodWrapper) {
 	apiCaller := clientErrorAPICaller(c, "", nil)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	c.Check(wf(machine), gc.ErrorMatches, "client error!")
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
 func (s *MachineSuite) CheckServerError(c *gc.C, wf methodWrapper, expectErr string, serverResults interface{}) {
 	apiCaller := successAPICaller(c, "", nil, serverResults)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, params.Alive)
+	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
 	c.Check(wf(machine), gc.ErrorMatches, expectErr)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }

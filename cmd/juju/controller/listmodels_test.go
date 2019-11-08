@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/jujuclient"
@@ -118,7 +119,7 @@ func (f *fakeModelMgrAPIClient) ListModelSummaries(user string, all bool) ([]bas
 			CloudRegion:     info.Result.CloudRegion,
 			CloudCredential: cred.Id(),
 			Owner:           owner.Id(),
-			Life:            string(info.Result.Life),
+			Life:            info.Result.Life,
 			Status: base.Status{
 				Status: info.Result.Status.Status,
 				Info:   info.Result.Status.Info,
@@ -522,7 +523,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		ControllerUUID: testing.ControllerTag.Id(),
 		IsController:   false,
 		OwnerTag:       names.NewUserTag("owner").String(),
-		Life:           params.Dead,
+		Life:           life.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",
 		AgentVersion:   &agentVersion,

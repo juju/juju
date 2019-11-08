@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 )
 
@@ -26,7 +27,7 @@ func NewLifeGetter(st state.EntityFinder, getCanRead GetAuthFunc) *LifeGetter {
 	}
 }
 
-func (lg *LifeGetter) oneLife(tag names.Tag) (params.Life, error) {
+func (lg *LifeGetter) oneLife(tag names.Tag) (life.Value, error) {
 	entity0, err := lg.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -35,7 +36,7 @@ func (lg *LifeGetter) oneLife(tag names.Tag) (params.Life, error) {
 	if !ok {
 		return "", NotSupportedError(tag, "life cycles")
 	}
-	return params.Life(entity.Life().String()), nil
+	return life.Value(entity.Life().String()), nil
 }
 
 // Life returns the life status of every supplied entity, where available.

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -453,7 +454,7 @@ func (s *modelmanagerSuite) TestModelStatus(c *gc.C) {
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
 		Owner:              "glenda",
-		Life:               string(params.Alive),
+		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
 	c.Assert(results[1].Error, gc.ErrorMatches, "model error")
@@ -498,7 +499,7 @@ func createModelSummary() *params.ModelSummary {
 		CloudRegion:        "us-east-1",
 		CloudCredentialTag: "cloudcred-foo_bob_one",
 		OwnerTag:           "user-admin",
-		Life:               params.Alive,
+		Life:               life.Alive,
 		Status:             params.EntityStatus{Status: status.Status("active")},
 		UserAccess:         params.ModelAdminAccess,
 		Counts:             []params.ModelEntityCount{},

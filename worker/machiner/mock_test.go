@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -32,7 +33,7 @@ type mockMachine struct {
 	machiner.Machine
 	gitjujutesting.Stub
 	watcher mockWatcher
-	life    params.Life
+	life    life.Value
 }
 
 func (m *mockMachine) Refresh() error {
@@ -40,7 +41,7 @@ func (m *mockMachine) Refresh() error {
 	return m.NextErr()
 }
 
-func (m *mockMachine) Life() params.Life {
+func (m *mockMachine) Life() life.Value {
 	m.MethodCall(m, "Life")
 	return m.life
 }

@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/storage"
 )
@@ -23,7 +24,7 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 		return nil, nil, nil, errors.Annotate(err, "getting storage entity life")
 	}
 	for i, result := range lifeResults {
-		life := result.Life
+		value := result.Life
 		if result.Error != nil {
 			if !params.IsCodeNotFound(result.Error) {
 				return nil, nil, nil, errors.Annotatef(
@@ -31,14 +32,14 @@ func storageEntityLife(ctx *context, tags []names.Tag) (alive, dying, dead []nam
 					names.ReadableString(tags[i]),
 				)
 			}
-			life = params.Dead
+			value = life.Dead
 		}
-		switch life {
-		case params.Alive:
+		switch value {
+		case life.Alive:
 			alive = append(alive, tags[i])
-		case params.Dying:
+		case life.Dying:
 			dying = append(dying, tags[i])
-		case params.Dead:
+		case life.Dead:
 			dead = append(dead, tags[i])
 		}
 	}
@@ -55,7 +56,7 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 		return nil, nil, nil, errors.Annotate(err, "getting machine attachment life")
 	}
 	for i, result := range lifeResults {
-		life := result.Life
+		value := result.Life
 		if result.Error != nil {
 			if !params.IsCodeNotFound(result.Error) {
 				return nil, nil, nil, errors.Annotatef(
@@ -63,14 +64,14 @@ func attachmentLife(ctx *context, ids []params.MachineStorageId) (
 					ids[i].AttachmentTag, ids[i].MachineTag,
 				)
 			}
-			life = params.Dead
+			value = life.Dead
 		}
-		switch life {
-		case params.Alive:
+		switch value {
+		case life.Alive:
 			alive = append(alive, ids[i])
-		case params.Dying:
+		case life.Dying:
 			dying = append(dying, ids[i])
-		case params.Dead:
+		case life.Dead:
 			dead = append(dead, ids[i])
 		}
 	}

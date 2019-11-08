@@ -19,6 +19,7 @@ import (
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -1545,12 +1546,12 @@ func filterStatusData(status map[string]interface{}) map[string]interface{} {
 	return out
 }
 
-func processLife(entity lifer) string {
+func processLife(entity lifer) life.Value {
 	if life := entity.Life(); life != state.Alive {
 		// alive is the usual state so omit it by default.
-		return life.String()
+		return life.Value()
 	}
-	return ""
+	return life.Value("")
 }
 
 type bySinceDescending []status.StatusInfo

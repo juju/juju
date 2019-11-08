@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/undertaker"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -81,7 +82,7 @@ func (s *undertakerSuite) TestModelInfo(c *gc.C) {
 		c.Assert(info.GlobalName, gc.Equals, "user-admin/"+test.modelName)
 		c.Assert(info.Name, gc.Equals, test.modelName)
 		c.Assert(info.IsSystem, gc.Equals, test.isSystem)
-		c.Assert(info.Life, gc.Equals, params.Dying)
+		c.Assert(info.Life, gc.Equals, life.Dying)
 		c.Assert(info.ForceDestroyed, gc.Equals, true)
 	}
 }

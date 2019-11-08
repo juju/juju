@@ -13,6 +13,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -50,10 +51,10 @@ func (s *WatcherSuite) SetUpTest(c *gc.C) {
 		modelType: s.modelType,
 		unit: mockUnit{
 			tag:  names.NewUnitTag("mysql/0"),
-			life: params.Alive,
+			life: life.Alive,
 			application: mockApplication{
 				tag:                   names.NewApplicationTag("mysql"),
-				life:                  params.Alive,
+				life:                  life.Alive,
 				curl:                  charm.MustParseURL("cs:trusty/mysql"),
 				charmModifiedVersion:  5,
 				leaderSettingsWatcher: newMockNotifyWatcher(),
@@ -280,10 +281,10 @@ func (s *WatcherSuite) TestRemoteStateChanged(c *gc.C) {
 	assertOneChange()
 	initial := s.watcher.Snapshot()
 
-	s.st.unit.life = params.Dying
+	s.st.unit.life = life.Dying
 	s.st.unit.unitWatcher.changes <- struct{}{}
 	assertOneChange()
-	c.Assert(s.watcher.Snapshot().Life, gc.Equals, params.Dying)
+	c.Assert(s.watcher.Snapshot().Life, gc.Equals, life.Dying)
 
 	s.st.unit.resolved = params.ResolvedRetryHooks
 	s.st.unit.unitWatcher.changes <- struct{}{}
@@ -395,7 +396,7 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
-		Life:       params.Alive,
+		Life:       life.Alive,
 		Kind:       params.StorageKindUnknown, // unprovisioned
 		Location:   "nowhere",
 	}
@@ -410,7 +411,7 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	s.st.storageAttachment[storageAttachmentId1] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId1.UnitTag,
 		StorageTag: storageAttachmentId1.StorageTag,
-		Life:       params.Dying,
+		Life:       life.Dying,
 		Kind:       params.StorageKindBlock,
 		Location:   "malta",
 	}
@@ -425,10 +426,10 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
-			Life: params.Alive,
+			Life: life.Alive,
 		},
 		storageTag1: {
-			Life:     params.Dying,
+			Life:     life.Dying,
 			Kind:     params.StorageKindBlock,
 			Attached: true,
 			Location: "malta",
@@ -438,7 +439,7 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
-		Life:       params.Dying,
+		Life:       life.Dying,
 		Kind:       params.StorageKindFilesystem,
 		Location:   "somewhere",
 	}
@@ -449,7 +450,7 @@ func (s *WatcherSuite) TestStorageChanged(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
-			Life:     params.Dying,
+			Life:     life.Dying,
 			Attached: true,
 			Kind:     params.StorageKindFilesystem,
 			Location: "somewhere",
@@ -471,7 +472,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
-		Life:       params.Alive,
+		Life:       life.Alive,
 		Kind:       params.StorageKindUnknown, // unprovisioned
 	}
 
@@ -481,14 +482,14 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
-			Life: params.Alive,
+			Life: life.Alive,
 		},
 	})
 
 	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
-		Life:       params.Dying,
+		Life:       life.Dying,
 	}
 	// The storage is still unattached; triggering the storage-specific
 	// watcher should not cause any event to be emitted.
@@ -498,7 +499,7 @@ func (s *WatcherSuite) TestStorageUnattachedChanged(c *gc.C) {
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
-			Life: params.Dying,
+			Life: life.Dying,
 		},
 	})
 }
@@ -517,7 +518,7 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 	s.st.storageAttachment[storageAttachmentId0] = params.StorageAttachment{
 		UnitTag:    storageAttachmentId0.UnitTag,
 		StorageTag: storageAttachmentId0.StorageTag,
-		Life:       params.Dying,
+		Life:       life.Dying,
 		Kind:       params.StorageKindUnknown, // unprovisioned
 	}
 
@@ -527,7 +528,7 @@ func (s *WatcherSuite) TestStorageAttachmentRemoved(c *gc.C) {
 
 	c.Assert(s.watcher.Snapshot().Storage, jc.DeepEquals, map[names.StorageTag]remotestate.StorageSnapshot{
 		storageTag0: {
-			Life: params.Dying,
+			Life: life.Dying,
 		},
 	})
 
@@ -562,7 +563,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		tag: relationTag, id: 123, life: params.Alive, suspended: false,
+		tag: relationTag, id: 123, life: life.Alive, suspended: false,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
@@ -581,7 +582,7 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 		jc.DeepEquals,
 		map[int]remotestate.RelationSnapshot{
 			123: {
-				Life:               params.Alive,
+				Life:               life.Alive,
 				Suspended:          false,
 				Members:            map[string]int64{"mysql/1": 1, "mysql/2": 2},
 				ApplicationMembers: map[string]int64{"mysql": 1},
@@ -591,10 +592,10 @@ func (s *WatcherSuite) TestRelationsChanged(c *gc.C) {
 
 	// If a relation is known, then updating it does not require any input
 	// from the relation units watcher.
-	s.st.relations[relationTag].life = params.Dying
+	s.st.relations[relationTag].life = life.Dying
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Relations[123].Life, gc.Equals, params.Dying)
+	c.Assert(s.watcher.Snapshot().Relations[123].Life, gc.Equals, life.Dying)
 
 	// If a relation is not found, then it should be removed from the
 	// snapshot and its relation units watcher stopped.
@@ -611,7 +612,7 @@ func (s *WatcherSuite) TestRelationsSuspended(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:db wordpress:db")
 	s.st.relations[relationTag] = &mockRelation{
-		tag: relationTag, id: 123, life: params.Alive, suspended: false,
+		tag: relationTag, id: 123, life: life.Alive, suspended: false,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 	s.st.unit.relationsWatcher.changes <- []string{relationTag.Id()}
@@ -635,7 +636,7 @@ func (s *WatcherSuite) TestRelationUnitsChanged(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		tag: relationTag, id: 123, life: params.Alive,
+		tag: relationTag, id: 123, life: life.Alive,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 
@@ -693,7 +694,7 @@ func (s *WatcherSuite) TestRelationUnitsDontLeakReferences(c *gc.C) {
 
 	relationTag := names.NewRelationTag("mysql:peer")
 	s.st.relations[relationTag] = &mockRelation{
-		tag: relationTag, id: 123, life: params.Alive,
+		tag: relationTag, id: 123, life: life.Alive,
 	}
 	s.st.relationUnitsWatchers[relationTag] = newMockRelationUnitsWatcher()
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 type relationSuite struct {
@@ -47,5 +48,5 @@ func (s *relationSuite) TestTag(c *gc.C) {
 }
 
 func (s *relationSuite) TestLife(c *gc.C) {
-	c.Assert(s.apiRelation.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiRelation.Life(), gc.Equals, life.Alive)
 }

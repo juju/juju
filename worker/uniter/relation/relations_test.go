@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -137,7 +138,7 @@ func (s *relationsSuite) setupRelations(c *gc.C) relation.Relations {
 	var numCalls int32
 	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
-		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}, nil),
+		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
@@ -179,7 +180,7 @@ func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLead
 			{
 				Id:   1,
 				Key:  "wordpress:db mysql:db",
-				Life: params.Alive,
+				Life: life.Alive,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
 					Relation:        params.CharmRelation{Name: "mysql", Role: string(charm.RoleProvider), Interface: "db"},
@@ -193,7 +194,7 @@ func (s *relationsSuite) assertNewRelationsWithExistingRelations(c *gc.C, isLead
 	}}}
 
 	apiCalls := []apiCall{
-		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}, nil),
+		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{
 			{RelationResults: []params.RelationUnitStatus{{RelationTag: "relation-wordpress:db mysql:db", InScope: true}}}}}, nil),
@@ -246,7 +247,7 @@ func (s *relationsSuite) TestNextOpNothing(c *gc.C) {
 	var numCalls int32
 	unitEntity := params.Entities{Entities: []params.Entity{{Tag: "unit-wordpress-0"}}}
 	apiCaller := mockAPICaller(c, &numCalls,
-		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}, nil),
+		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 	)
@@ -281,7 +282,7 @@ func relationJoinedAPICalls() []apiCall {
 			{
 				Id:   1,
 				Key:  "wordpress:db mysql:db",
-				Life: params.Alive,
+				Life: life.Alive,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
 					Relation:        params.CharmRelation{Name: "mysql", Role: string(charm.RoleRequirer), Interface: "db", Scope: "global"},
@@ -297,7 +298,7 @@ func relationJoinedAPICalls() []apiCall {
 		Status:     params.Joined,
 	}}}
 	apiCalls := []apiCall{
-		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}, nil),
+		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
@@ -336,7 +337,7 @@ func (s *relationsSuite) assertHookRelationJoined(c *gc.C, numCalls *int32, apiC
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:      params.Alive,
+				Life:      life.Alive,
 				Suspended: false,
 				Members: map[string]int64{
 					"wordpress/0": 1,
@@ -403,14 +404,14 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	// members, due to the "changed pending" local persistent
 	// state.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:      params.Alive,
+		Life:      life.Alive,
 		Suspended: false,
 	}, &numCalls)
 
 	// wordpress starts at 1, changing to 2 should trigger a
 	// relation-changed hook.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:      params.Alive,
+		Life:      life.Alive,
 		Suspended: false,
 		Members: map[string]int64{
 			"wordpress/0": 2,
@@ -424,7 +425,7 @@ func (s *relationsSuite) TestHookRelationChanged(c *gc.C) {
 	// where the relation settings document is removed and
 	// recreated, thus resetting the txn-revno.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life: params.Alive,
+		Life: life.Alive,
 		Members: map[string]int64{
 			"wordpress/0": 1,
 		},
@@ -440,7 +441,7 @@ func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
 	// members, due to the "changed pending" local persistent
 	// state.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:      params.Alive,
+		Life:      life.Alive,
 		Suspended: false,
 	}, &numCalls)
 
@@ -456,7 +457,7 @@ func (s *relationsSuite) TestHookRelationChangedApplication(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:      params.Alive,
+				Life:      life.Alive,
 				Suspended: false,
 				Members: map[string]int64{
 					"wordpress/0": 1,
@@ -484,7 +485,7 @@ func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	// members, due to the "changed pending" local persistent
 	// state.
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:      params.Alive,
+		Life:      life.Alive,
 		Suspended: true,
 	}, &numCalls)
 	c.Assert(r.GetInfo()[1].RelationUnit.Relation().Suspended(), jc.IsTrue)
@@ -499,7 +500,7 @@ func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:      params.Alive,
+				Life:      life.Alive,
 				Suspended: true,
 			},
 		},
@@ -515,7 +516,7 @@ func (s *relationsSuite) TestHookRelationChangedSuspended(c *gc.C) {
 func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, apiCalls ...apiCall) relation.Relations {
 	r := s.assertHookRelationJoined(c, numCalls, apiCalls...)
 	s.assertHookRelationChanged(c, r, remotestate.RelationSnapshot{
-		Life:      params.Alive,
+		Life:      life.Alive,
 		Suspended: false,
 	}, numCalls)
 	numCallsBefore := *numCalls
@@ -528,7 +529,7 @@ func (s *relationsSuite) assertHookRelationDeparted(c *gc.C, numCalls *int32, ap
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life: params.Dying,
+				Life: life.Dying,
 				Members: map[string]int64{
 					"wordpress/0": 1,
 				},
@@ -570,7 +571,7 @@ func (s *relationsSuite) TestHookRelationBroken(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life: params.Dying,
+				Life: life.Dying,
 			},
 		},
 	}
@@ -595,7 +596,7 @@ func (s *relationsSuite) TestHookRelationBrokenWhenSuspended(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:      params.Alive,
+				Life:      life.Alive,
 				Suspended: true,
 			},
 		},
@@ -627,7 +628,7 @@ func (s *relationsSuite) TestHookRelationBrokenOnlyOnce(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life:      params.Alive,
+				Life:      life.Alive,
 				Suspended: true,
 			},
 		},
@@ -690,7 +691,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 			{
 				Id:   1,
 				Key:  "wordpress:juju-info juju-info:juju-info",
-				Life: params.Alive,
+				Life: life.Alive,
 				Endpoint: params.Endpoint{
 					ApplicationName: "wordpress",
 					Relation:        params.CharmRelation{Name: "juju-info", Role: string(charm.RoleProvider), Interface: "juju-info", Scope: "global"},
@@ -706,7 +707,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 		Status:     params.Joined,
 	}}}
 	apiCalls := []apiCall{
-		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}, nil),
+		uniterAPICall("Refresh", unitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", unitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "", Ok: false}}}, nil),
 		uniterAPICall("RelationsStatus", unitEntity, params.RelationUnitStatusResults{Results: []params.RelationUnitStatusResult{{RelationResults: []params.RelationUnitStatus{}}}}, nil),
 		uniterAPICall("RelationById", params.RelationIds{RelationIds: []int{1}}, relationResults, nil),
@@ -739,7 +740,7 @@ func (s *relationsSuite) TestImplicitRelationNoHooks(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life: params.Alive,
+				Life: life.Alive,
 				Members: map[string]int64{
 					"wordpress": 1,
 				},
@@ -774,7 +775,7 @@ func subSubRelationAPICalls() []apiCall {
 		Results: []params.RelationResult{{
 			Id:               1,
 			Key:              "wordpress:juju-info nrpe:general-info",
-			Life:             params.Alive,
+			Life:             life.Alive,
 			OtherApplication: "wordpress",
 			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
@@ -794,7 +795,7 @@ func subSubRelationAPICalls() []apiCall {
 		Results: []params.RelationResult{{
 			Id:               2,
 			Key:              "ntp:nrpe-external-master nrpe:external-master",
-			Life:             params.Alive,
+			Life:             life.Alive,
 			OtherApplication: "ntp",
 			Endpoint: params.Endpoint{
 				ApplicationName: "nrpe",
@@ -819,7 +820,7 @@ func subSubRelationAPICalls() []apiCall {
 	}}}
 
 	return []apiCall{
-		uniterAPICall("Refresh", nrpeUnitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}, nil),
+		uniterAPICall("Refresh", nrpeUnitEntity, params.UnitRefreshResults{Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}, nil),
 		uniterAPICall("GetPrincipal", nrpeUnitEntity, params.StringBoolResults{Results: []params.StringBoolResult{{Result: "unit-wordpress-0", Ok: true}}}, nil),
 		uniterAPICall("RelationsStatus", nrpeUnitEntity, relationStatusResults, nil),
 		uniterAPICall("Relation", relationUnits1, relationResults1, nil),
@@ -874,13 +875,13 @@ func (s *relationsSuite) TestSubSubPrincipalRelationDyingDestroysUnit(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life: params.Dying,
+				Life: life.Dying,
 				Members: map[string]int64{
 					"wordpress/0": 1,
 				},
 			},
 			2: {
-				Life: params.Alive,
+				Life: life.Alive,
 				Members: map[string]int64{
 					"ntp/0": 1,
 				},
@@ -931,13 +932,13 @@ func (s *relationsSuite) TestSubSubOtherRelationDyingNotDestroyed(c *gc.C) {
 	remoteState := remotestate.Snapshot{
 		Relations: map[int]remotestate.RelationSnapshot{
 			1: {
-				Life: params.Alive,
+				Life: life.Alive,
 				Members: map[string]int64{
 					"wordpress/0": 1,
 				},
 			},
 			2: {
-				Life: params.Dying,
+				Life: life.Dying,
 				Members: map[string]int64{
 					"ntp/0": 1,
 				},

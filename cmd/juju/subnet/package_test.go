@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/subnet"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
@@ -139,7 +140,7 @@ func NewStubAPI() *StubAPI {
 		// IPv4 subnet.
 		CIDR:       "10.20.0.0/24",
 		ProviderId: "subnet-foo",
-		Life:       params.Alive,
+		Life:       life.Alive,
 		SpaceTag:   "space-public",
 		Zones:      []string{"zone1", "zone2"},
 	}, {
@@ -147,13 +148,13 @@ func NewStubAPI() *StubAPI {
 		CIDR:              "2001:db8::/32",
 		ProviderId:        "subnet-bar",
 		ProviderNetworkId: "network-yay",
-		Life:              params.Dying,
+		Life:              life.Dying,
 		SpaceTag:          "space-dmz",
 		Zones:             []string{"zone2"},
 	}, {
 		// IPv4 VLAN subnet.
 		CIDR:     "10.10.0.0/16",
-		Life:     params.Dead,
+		Life:     life.Dead,
 		SpaceTag: "space-vlan-42",
 		Zones:    []string{"zone1"},
 		VLANTag:  42,

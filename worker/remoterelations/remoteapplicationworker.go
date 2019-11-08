@@ -11,6 +11,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -220,7 +221,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 	if !w.isConsumerProxy {
 		change := params.RemoteRelationChangeEvent{
 			RelationToken:    r.relationToken,
-			Life:             params.Dying,
+			Life:             life.Dying,
 			ApplicationToken: r.applicationToken,
 			Macaroons:        macaroon.Slice{r.macaroon},
 		}
@@ -315,7 +316,7 @@ func (w *remoteApplicationWorker) relationChanged(
 		if remoteRelation.Suspended {
 			return w.processRelationSuspended(key, relations)
 		}
-		if !wasSuspended && remoteRelation.Life == params.Alive {
+		if !wasSuspended && remoteRelation.Life == life.Alive {
 			// Nothing to do, we have previously started the watcher.
 			return nil
 		}
@@ -490,7 +491,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	}
 
 	// If the relation is dying, stop the watcher.
-	if remoteRelation.Life != params.Alive {
+	if remoteRelation.Life != life.Alive {
 		return w.processRelationDying(key, r, !relationKnown)
 	}
 

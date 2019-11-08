@@ -12,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 type ctrData struct {
@@ -31,7 +31,7 @@ type modelData struct {
 	UUID  string
 	Owner string
 	Name  string
-	Life  string
+	Life  life.Value
 
 	HostedMachineCount        int
 	ApplicationCount          int
@@ -136,7 +136,7 @@ func newData(api destroyControllerAPI, controllerModelUUID string) (ctrData, []m
 		if model.UUID == controllerModelUUID {
 			ctrModelData = modelData
 		} else {
-			if model.Life == string(params.Dead) {
+			if model.Life == life.Dead {
 				// Filter out dead, non-controller models.
 				continue
 			}
@@ -169,7 +169,7 @@ func hasUnreclaimedResources(env environmentStatus) bool {
 
 func hasUnDeadModels(models []modelData) bool {
 	for _, model := range models {
-		if model.Life != string(params.Dead) {
+		if model.Life != life.Dead {
 			return true
 		}
 	}
@@ -178,7 +178,7 @@ func hasUnDeadModels(models []modelData) bool {
 
 func hasAliveModels(models []modelData) bool {
 	for _, model := range models {
-		if model.Life == string(params.Alive) {
+		if model.Life == life.Alive {
 			return true
 		}
 	}

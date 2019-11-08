@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -170,7 +171,7 @@ func (m MutaterMachine) watchProfileChangesLoop(removed <-chan struct{}, profile
 			if err := m.machineApi.Refresh(); err != nil {
 				return errors.Trace(err)
 			}
-			if m.machineApi.Life() == params.Dead {
+			if m.machineApi.Life() == life.Dead {
 				return nil
 			}
 		}
@@ -186,7 +187,7 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 	if err := m.machineApi.Refresh(); err != nil {
 		return err
 	}
-	if m.machineApi.Life() == params.Dead {
+	if m.machineApi.Life() == life.Dead {
 		return errors.NotValidf("machine %q", m.id)
 	}
 

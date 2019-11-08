@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/api/firewaller"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 type unitSuite struct {
@@ -46,15 +47,15 @@ func (s *unitSuite) TestUnit(c *gc.C) {
 }
 
 func (s *unitSuite) TestRefresh(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
 
 	err := s.units[0].EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
 
 	err = s.apiUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Dead)
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {

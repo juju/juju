@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 )
@@ -238,7 +239,7 @@ type ModelSummary struct {
 	CloudRegion        string                  `json:"region,omitempty" yaml:"region,omitempty"`
 	CloudCredential    *common.ModelCredential `json:"credential,omitempty" yaml:"credential,omitempty"`
 	ProviderType       string                  `json:"type,omitempty" yaml:"type,omitempty"`
-	Life               string                  `json:"life" yaml:"life"`
+	Life               life.Value              `json:"life" yaml:"life"`
 	Status             *common.ModelStatus     `json:"status,omitempty" yaml:"status,omitempty"`
 	UserAccess         string                  `yaml:"access" json:"access"`
 	UserLastConnection string                  `yaml:"last-connection" json:"last-connection"`

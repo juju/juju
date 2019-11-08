@@ -18,6 +18,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/tags"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -1379,8 +1380,8 @@ func (s *iaasProvisionerSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: params.Alive},
-			{Life: params.Alive},
+			{Life: life.Alive},
+			{Life: life.Alive},
 			{Error: common.ServerError(errors.NotFoundf(`volume "42"`))},
 		},
 	})
@@ -1411,9 +1412,9 @@ func (s *iaasProvisionerSuite) TestAttachmentLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: params.Alive},
-			{Life: params.Alive},
-			{Life: params.Alive},
+			{Life: life.Alive},
+			{Life: life.Alive},
+			{Life: life.Alive},
 			{Error: &params.Error{Message: `volume "42" on "machine 0" not found`, Code: "not found"}},
 		},
 	})
@@ -1746,8 +1747,8 @@ func (s *caasProvisionerSuite) TestFilesystemLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: params.Alive},
-			{Life: params.Alive},
+			{Life: life.Alive},
+			{Life: life.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -1771,8 +1772,8 @@ func (s caasProvisionerSuite) TestFilesystemAttachmentLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: params.Alive},
-			{Life: params.Alive},
+			{Life: life.Alive},
+			{Life: life.Alive},
 			{Error: &params.Error{Message: `filesystem "42" on "unit mariadb/0" not found`, Code: "not found"}},
 		},
 	})

@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -405,7 +406,7 @@ func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dea
 }
 
 type ClassifiableMachine interface {
-	Life() params.Life
+	Life() life.Value
 	InstanceId() (instance.Id, error)
 	EnsureDead() error
 	Status() (status.Status, string, error)
@@ -425,7 +426,7 @@ const (
 func classifyMachine(logger Logger, machine ClassifiableMachine) (
 	MachineClassification, error) {
 	switch machine.Life() {
-	case params.Dying:
+	case life.Dying:
 		if _, err := machine.InstanceId(); err == nil {
 			return None, nil
 		} else if !params.IsCodeNotProvisioned(err) {
@@ -436,7 +437,7 @@ func classifyMachine(logger Logger, machine ClassifiableMachine) (
 			return None, errors.Annotatef(err, "failed to ensure machine dead id:%s, details:%v", machine.Id(), machine)
 		}
 		fallthrough
-	case params.Dead:
+	case life.Dead:
 		return Dead, nil
 	}
 	instId, err := machine.InstanceId()

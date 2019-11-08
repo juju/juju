@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -134,7 +135,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLife(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{
-				Life: params.Alive,
+				Life: life.Alive,
 			},
 		},
 	})
@@ -187,7 +188,7 @@ func (s *InstanceMutaterAPILifeSuite) TestLifeWithParentId(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{
-				Life: params.Alive,
+				Life: life.Alive,
 			},
 		},
 	})

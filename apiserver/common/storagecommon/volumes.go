@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
@@ -152,7 +153,7 @@ func VolumeAttachmentPlanFromState(v state.VolumeAttachmentPlan) (params.VolumeA
 	return params.VolumeAttachmentPlan{
 		VolumeTag:   v.Volume().String(),
 		MachineTag:  v.Machine().String(),
-		Life:        params.Life(v.Life().String()),
+		Life:        life.Value(v.Life().String()),
 		PlanInfo:    VolumeAttachmentPlanInfoFromState(planInfo),
 		BlockDevice: VolumeAttachmentPlanBlockInfoFromState(blockInfo),
 	}, nil

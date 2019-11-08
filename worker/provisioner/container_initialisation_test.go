@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/container/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -244,7 +245,7 @@ func (s *containerSetupSuite) stubOutProvisioner(ctrl *gomock.Controller) {
 	uuidSource := params.StringResult{Result: s.modelUUID.String()}
 	fExp.FacadeCall("ModelUUID", nil, gomock.Any()).SetArg(2, uuidSource).Return(nil).AnyTimes()
 
-	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: params.Alive}}}
+	lifeSource := params.LifeResults{Results: []params.LifeResult{{Life: life.Alive}}}
 	fExp.FacadeCall("Life", gomock.Any(), gomock.Any()).SetArg(2, lifeSource).Return(nil).AnyTimes()
 
 	watchSource := params.StringsWatchResults{Results: []params.StringsWatchResult{{

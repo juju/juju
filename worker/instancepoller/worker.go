@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -61,7 +62,7 @@ type Machine interface {
 	String() string
 	Refresh() error
 	Status() (params.StatusResult, error)
-	Life() params.Life
+	Life() life.Value
 	IsManual() (bool, error)
 }
 
@@ -238,7 +239,7 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 		if err := entry.m.Refresh(); err != nil {
 			return errors.Trace(err)
 		}
-		if entry.m.Life() == params.Dead {
+		if entry.m.Life() == life.Dead {
 			u.config.Logger.Debugf("removing dead machine %q (instance ID %q)", entry.m, entry.instanceID)
 			delete(u.pollGroup[groupType], tag)
 			delete(u.instanceIDToGroupEntry, entry.instanceID)
@@ -423,7 +424,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 
 	// We don't care about dead machines; they will be cleaned up when we
 	// process the following machine watcher events.
-	if entry.m.Life() == params.Dead {
+	if entry.m.Life() == life.Dead {
 		return status.Unknown, nil
 	}
 

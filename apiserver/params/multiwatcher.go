@@ -14,18 +14,9 @@ import (
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
-)
-
-// Life describes the lifecycle state of an entity ("alive", "dying"
-// or "dead").
-type Life string
-
-const (
-	Alive Life = "alive"
-	Dying Life = "dying"
-	Dead  Life = "dead"
 )
 
 // EntityInfo is implemented by all entity Info types.
@@ -130,7 +121,7 @@ type MachineInfo struct {
 	InstanceId               string                            `json:"instance-id"`
 	AgentStatus              StatusInfo                        `json:"agent-status"`
 	InstanceStatus           StatusInfo                        `json:"instance-status"`
-	Life                     Life                              `json:"life"`
+	Life                     life.Value                        `json:"life"`
 	Config                   map[string]interface{}            `json:"config,omitempty"`
 	Series                   string                            `json:"series"`
 	ContainerType            string                            `json:"container-type"`
@@ -185,7 +176,7 @@ type ApplicationInfo struct {
 	Exposed         bool                   `json:"exposed"`
 	CharmURL        string                 `json:"charm-url"`
 	OwnerTag        string                 `json:"owner-tag"`
-	Life            Life                   `json:"life"`
+	Life            life.Value             `json:"life"`
 	MinUnits        int                    `json:"min-units"`
 	Constraints     constraints.Value      `json:"constraints"`
 	Config          map[string]interface{} `json:"config,omitempty"`
@@ -214,11 +205,11 @@ type Profile struct {
 // CharmInfo holds the information about a charm that is tracked by the
 // multiwatcher.
 type CharmInfo struct {
-	ModelUUID    string   `json:"model-uuid"`
-	CharmURL     string   `json:"charm-url"`
-	CharmVersion string   `json:"charm-version"`
-	Life         Life     `json:"life"`
-	LXDProfile   *Profile `json:"profile"`
+	ModelUUID    string     `json:"model-uuid"`
+	CharmURL     string     `json:"charm-url"`
+	CharmVersion string     `json:"charm-version"`
+	Life         life.Value `json:"life"`
+	LXDProfile   *Profile   `json:"profile"`
 	// DefaultConfig is derived from state-stored *charm.Config.
 	DefaultConfig map[string]interface{} `json:"config,omitempty"`
 }
@@ -240,7 +231,7 @@ type RemoteApplicationUpdate struct {
 	Name      string     `json:"name"`
 	OfferUUID string     `json:"offer-uuid"`
 	OfferURL  string     `json:"offer-url"`
-	Life      Life       `json:"life"`
+	Life      life.Value `json:"life"`
 	Status    StatusInfo `json:"status"`
 }
 
@@ -282,7 +273,7 @@ type UnitInfo struct {
 	Application    string      `json:"application"`
 	Series         string      `json:"series"`
 	CharmURL       string      `json:"charm-url"`
-	Life           Life        `json:"life"`
+	Life           life.Value  `json:"life"`
 	PublicAddress  string      `json:"public-address"`
 	PrivateAddress string      `json:"private-address"`
 	MachineId      string      `json:"machine-id"`
@@ -414,7 +405,7 @@ func (i *BlockInfo) EntityId() EntityId {
 type ModelUpdate struct {
 	ModelUUID      string                 `json:"model-uuid"`
 	Name           string                 `json:"name"`
-	Life           Life                   `json:"life"`
+	Life           life.Value             `json:"life"`
 	Owner          string                 `json:"owner"`
 	ControllerUUID string                 `json:"controller-uuid"`
 	IsController   bool                   `json:"is-controller"`

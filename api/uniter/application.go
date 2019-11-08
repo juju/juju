@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -23,7 +24,7 @@ import (
 type Application struct {
 	st   *State
 	tag  names.ApplicationTag
-	life params.Life
+	life life.Value
 }
 
 // Tag returns the application's tag.
@@ -47,7 +48,7 @@ func (s *Application) Watch() (watcher.NotifyWatcher, error) {
 }
 
 // Life returns the application's current life state.
-func (s *Application) Life() params.Life {
+func (s *Application) Life() life.Value {
 	return s.life
 }
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 )
@@ -33,7 +34,7 @@ type State interface {
 }
 
 type Unit interface {
-	Life() params.Life
+	Life() life.Value
 	Refresh() error
 	ProviderID() string
 	Resolved() params.ResolvedMode
@@ -59,7 +60,7 @@ type Application interface {
 	// CharmURL returns the url for the charm for this application.
 	CharmURL() (*charm.URL, bool, error)
 	// Life returns whether the application is alive.
-	Life() params.Life
+	Life() life.Value
 	// Refresh syncs this value with the api server.
 	Refresh() error
 	// Tag returns the tag for this application.
@@ -74,7 +75,7 @@ type Application interface {
 type Relation interface {
 	Id() int
 	Tag() names.RelationTag
-	Life() params.Life
+	Life() life.Value
 	Suspended() bool
 	UpdateSuspended(bool)
 }

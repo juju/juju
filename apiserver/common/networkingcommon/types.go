@@ -80,7 +80,7 @@ type BackingSubnetInfo struct {
 	Status string
 
 	// Live holds the life of the subnet
-	Life params.Life
+	Life life.Value
 }
 
 // BackingSpace defines the methods supported by a Space entity stored
@@ -151,7 +151,7 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 		Zones:             zones,
 		Status:            status,
 		SpaceTag:          spaceTag,
-		Life:              params.Life(subnet.Life()),
+		Life:              subnet.Life(),
 	}
 }
 

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
@@ -514,7 +515,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	if err != nil {
 		return err
 	}
-	if u.unit.Life() == params.Dead {
+	if u.unit.Life() == life.Dead {
 		// If we started up already dead, we should not progress further. If we
 		// become Dead immediately after starting up, we may well complete any
 		// operations in progress before detecting it; but that race is fundamental

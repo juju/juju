@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 )
@@ -21,7 +22,7 @@ type Machine struct {
 	facade base.FacadeCaller
 
 	tag  names.MachineTag
-	life params.Life
+	life life.Value
 }
 
 // Id returns the machine's id.
@@ -40,7 +41,7 @@ func (m *Machine) String() string {
 }
 
 // Life returns the machine's lifecycle value.
-func (m *Machine) Life() params.Life {
+func (m *Machine) Life() life.Value {
 	return m.life
 }
 

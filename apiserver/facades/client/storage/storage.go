@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -296,7 +297,7 @@ func createStorageDetails(
 				StorageTag: a.StorageInstance().String(),
 				UnitTag:    a.Unit().String(),
 				Location:   location,
-				Life:       params.Life(a.Life().String()),
+				Life:       life.Value(a.Life().String()),
 			}
 			if machineTag.Id() != "" {
 				details.MachineTag = machineTag.String()
@@ -314,7 +315,7 @@ func createStorageDetails(
 		StorageTag:  si.Tag().String(),
 		OwnerTag:    ownerTag,
 		Kind:        params.StorageKind(si.Kind()),
-		Life:        params.Life(si.Life().String()),
+		Life:        life.Value(si.Life().String()),
 		Status:      common.EntityStatusFromState(aStatus),
 		Persistent:  persistent,
 		Attachments: storageAttachmentDetails,
@@ -623,7 +624,7 @@ func createVolumeDetails(
 
 	details := &params.VolumeDetails{
 		VolumeTag: v.VolumeTag().String(),
-		Life:      params.Life(v.Life().String()),
+		Life:      life.Value(v.Life().String()),
 	}
 
 	if info, err := v.Info(); err == nil {
@@ -635,7 +636,7 @@ func createVolumeDetails(
 		details.UnitAttachments = make(map[string]params.VolumeAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
 			attDetails := params.VolumeAttachmentDetails{
-				Life: params.Life(attachment.Life().String()),
+				Life: life.Value(attachment.Life().String()),
 			}
 			if stateInfo, err := attachment.Info(); err == nil {
 				attDetails.VolumeAttachmentInfo = storagecommon.VolumeAttachmentInfoFromState(
@@ -785,7 +786,7 @@ func createFilesystemDetails(
 
 	details := &params.FilesystemDetails{
 		FilesystemTag: f.FilesystemTag().String(),
-		Life:          params.Life(f.Life().String()),
+		Life:          life.Value(f.Life().String()),
 	}
 
 	if volumeTag, err := f.Volume(); err == nil {
@@ -801,7 +802,7 @@ func createFilesystemDetails(
 		details.UnitAttachments = make(map[string]params.FilesystemAttachmentDetails, len(attachments))
 		for _, attachment := range attachments {
 			attDetails := params.FilesystemAttachmentDetails{
-				Life: params.Life(attachment.Life().String()),
+				Life: life.Value(attachment.Life().String()),
 			}
 			if stateInfo, err := attachment.Info(); err == nil {
 				attDetails.FilesystemAttachmentInfo = storagecommon.FilesystemAttachmentInfoFromState(

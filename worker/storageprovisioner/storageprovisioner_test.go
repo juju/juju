@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
@@ -540,9 +541,9 @@ func (s *storageProvisionerSuite) TestValidateVolumeParams(c *gc.C) {
 		for i := range results {
 			switch tags[i].String() {
 			case "volume-3":
-				results[i].Life = params.Dead
+				results[i].Life = life.Dead
 			default:
-				results[i].Life = params.Alive
+				results[i].Life = life.Alive
 			}
 		}
 		return results, nil
@@ -634,9 +635,9 @@ func (s *storageProvisionerSuite) TestValidateFilesystemParams(c *gc.C) {
 		for i := range results {
 			switch tags[i].String() {
 			case "filesystem-3":
-				results[i].Life = params.Dead
+				results[i].Life = life.Dead
 			default:
-				results[i].Life = params.Alive
+				results[i].Life = life.Alive
 			}
 		}
 		return results, nil
@@ -1281,11 +1282,11 @@ func (s *storageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
 		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
-		life := params.Alive
+		value := life.Alive
 		if attached {
-			life = params.Dying
+			value = life.Dying
 		}
-		return []params.LifeResult{{Life: life}}, nil
+		return []params.LifeResult{{Life: value}}, nil
 	}
 
 	detached := make(chan interface{})
@@ -1358,7 +1359,7 @@ func (s *storageProvisionerSuite) TestDetachVolumesRetry(c *gc.C) {
 	volumeAccessor.provisionedMachines[machine.String()] = instance.Id("already-provisioned-1")
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dying}}, nil
+		return []params.LifeResult{{Life: life.Dying}}, nil
 	}
 
 	// mockFunc's After will progress the current time by the specified
@@ -1482,11 +1483,11 @@ func (s *storageProvisionerSuite) TestDetachFilesystems(c *gc.C) {
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
 		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
-		life := params.Alive
+		value := life.Alive
 		if attached {
-			life = params.Dying
+			value = life.Dying
 		}
-		return []params.LifeResult{{Life: life}}, nil
+		return []params.LifeResult{{Life: value}}, nil
 	}
 
 	detached := make(chan interface{})
@@ -1550,7 +1551,7 @@ func (s *storageProvisionerSuite) TestDestroyVolumes(c *gc.C) {
 	life := func(tags []names.Tag) ([]params.LifeResult, error) {
 		results := make([]params.LifeResult, len(tags))
 		for i := range results {
-			results[i].Life = params.Dead
+			results[i].Life = life.Dead
 		}
 		return results, nil
 	}
@@ -1621,7 +1622,7 @@ func (s *storageProvisionerSuite) TestDestroyVolumesRetry(c *gc.C) {
 	volumeAccessor.provisionVolume(volume)
 
 	life := func(tags []names.Tag) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dead}}, nil
+		return []params.LifeResult{{Life: life.Dead}}, nil
 	}
 
 	// mockFunc's After will progress the current time by the specified
@@ -1704,7 +1705,7 @@ func (s *storageProvisionerSuite) TestDestroyFilesystems(c *gc.C) {
 	life := func(tags []names.Tag) ([]params.LifeResult, error) {
 		results := make([]params.LifeResult, len(tags))
 		for i := range results {
-			results[i].Life = params.Dead
+			results[i].Life = life.Dead
 		}
 		return results, nil
 	}
@@ -1776,7 +1777,7 @@ func (s *storageProvisionerSuite) TestDestroyFilesystemsRetry(c *gc.C) {
 	filesystemAccessor.provisionFilesystem(provisionedDestroyFilesystem)
 
 	life := func(tags []names.Tag) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dead}}, nil
+		return []params.LifeResult{{Life: life.Dead}}, nil
 	}
 
 	// mockFunc's After will progress the current time by the specified
@@ -1900,7 +1901,7 @@ func (s *caasStorageProvisionerSuite) TestDetachVolumes(c *gc.C) {
 	}}
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dying}}, nil
+		return []params.LifeResult{{Life: life.Dying}}, nil
 	}
 
 	detached := make(chan interface{})
@@ -1941,7 +1942,7 @@ func (s *caasStorageProvisionerSuite) TestRemoveVolumes(c *gc.C) {
 	}}
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
-		return []params.LifeResult{{Life: params.Dying}}, nil
+		return []params.LifeResult{{Life: life.Dying}}, nil
 	}
 
 	removed := make(chan interface{})
@@ -2003,7 +2004,7 @@ func (s *caasStorageProvisionerSuite) TestRemoveFilesystems(c *gc.C) {
 
 	attachmentLife := func(ids []params.MachineStorageId) ([]params.LifeResult, error) {
 		c.Assert(ids, gc.DeepEquals, expectedAttachmentIds)
-		return []params.LifeResult{{Life: params.Dying}}, nil
+		return []params.LifeResult{{Life: life.Dying}}, nil
 	}
 
 	removed := make(chan interface{})

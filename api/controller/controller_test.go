@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -336,7 +337,7 @@ func (s *Suite) TestModelStatus(c *gc.C) {
 		HostedMachineCount: 2,
 		ApplicationCount:   3,
 		Owner:              "glenda",
-		Life:               string(params.Alive),
+		Life:               life.Alive,
 		Machines:           []base.Machine{{Id: "0", InstanceId: "inst-ance", Status: "pending"}},
 	})
 	c.Assert(results[1].Error, gc.ErrorMatches, "model error")

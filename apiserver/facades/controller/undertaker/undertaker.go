@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -73,7 +74,7 @@ func (u *UndertakerAPI) ModelInfo() (params.UndertakerModelInfoResult, error) {
 		GlobalName:     model.Owner().String() + "/" + model.Name(),
 		Name:           model.Name(),
 		IsSystem:       u.st.IsController(),
-		Life:           params.Life(model.Life().String()),
+		Life:           life.Value(model.Life().String()),
 		ForceDestroyed: model.ForceDestroyed(),
 	}
 

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/undertaker"
 	apiwatcher "github.com/juju/juju/api/watcher"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
@@ -62,7 +62,7 @@ func (s *undertakerSuite) TestStateEnvironInfo(c *gc.C) {
 	c.Assert(info.Name, gc.Equals, "controller")
 	c.Assert(info.GlobalName, gc.Equals, "user-admin/controller")
 	c.Assert(info.IsSystem, jc.IsTrue)
-	c.Assert(info.Life, gc.Equals, params.Alive)
+	c.Assert(info.Life, gc.Equals, life.Alive)
 }
 
 func (s *undertakerSuite) TestStateProcessDyingEnviron(c *gc.C) {
@@ -105,7 +105,7 @@ func (s *undertakerSuite) TestHostedEnvironInfo(c *gc.C) {
 	c.Assert(envInfo.Name, gc.Equals, "hosted-env")
 	c.Assert(envInfo.GlobalName, gc.Equals, "user-admin/hosted-env")
 	c.Assert(envInfo.IsSystem, jc.IsFalse)
-	c.Assert(envInfo.Life, gc.Equals, params.Alive)
+	c.Assert(envInfo.Life, gc.Equals, life.Alive)
 }
 
 func (s *undertakerSuite) TestHostedProcessDyingEnviron(c *gc.C) {

@@ -13,8 +13,8 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	apiinstancemutater "github.com/juju/juju/api/instancemutater"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/instancemutater"
@@ -228,14 +228,14 @@ func (s *mutaterSuite) expectLXDProfileNames(profiles []string, err error) {
 func (s *mutaterSuite) expectRefreshLifeAliveStatusIdle() {
 	mExp := s.machine.EXPECT()
 	mExp.Refresh().Return(nil)
-	mExp.Life().Return(params.Alive)
+	mExp.Life().Return(life.Alive)
 	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 }
 
 func (s *mutaterSuite) expectRefreshLifeDead() {
 	mExp := s.machine.EXPECT()
 	mExp.Refresh().Return(nil)
-	mExp.Life().Return(params.Dead)
+	mExp.Life().Return(life.Dead)
 }
 
 func (s *mutaterSuite) expectModificationStatusApplied() {

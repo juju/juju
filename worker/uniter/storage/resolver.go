@@ -8,7 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -27,7 +27,7 @@ type StorageResolverOperations interface {
 type storageResolver struct {
 	storage   *Attachments
 	dying     bool
-	life      map[names.StorageTag]params.Life
+	life      map[names.StorageTag]life.Value
 	modelType model.ModelType
 }
 
@@ -36,7 +36,7 @@ func NewResolver(storage *Attachments, modelType model.ModelType) resolver.Resol
 	return &storageResolver{
 		storage:   storage,
 		modelType: modelType,
-		life:      make(map[names.StorageTag]params.Life),
+		life:      make(map[names.StorageTag]life.Value),
 	}
 }
 
@@ -52,7 +52,7 @@ func (s *storageResolver) NextOp(
 	// and mounted as the pod in started.
 	blockedWaitingForInstall := !localState.Installed && s.modelType == model.IAAS
 
-	if remoteState.Life == params.Dying {
+	if remoteState.Life == life.Dying {
 		// The unit is dying, so destroy all of its storage.
 		if !s.dying {
 			if err := s.storage.SetDying(); err != nil {
@@ -61,7 +61,7 @@ func (s *storageResolver) NextOp(
 			s.dying = true
 		}
 		for tag, snap := range remoteState.Storage {
-			snap.Life = params.Dying
+			snap.Life = life.Dying
 			remoteState.Storage[tag] = snap
 		}
 	}
@@ -113,7 +113,7 @@ func (s *storageResolver) NextOp(
 func (s *storageResolver) maybeShortCircuitRemoval(remote map[names.StorageTag]remotestate.StorageSnapshot) error {
 	for tag, snap := range remote {
 		local, ok := s.storage.storageAttachments[tag]
-		if (ok && local.attached) || snap.Life == params.Alive {
+		if (ok && local.attached) || snap.Life == life.Alive {
 			continue
 		}
 		if err := s.storage.removeStorageAttachment(tag); err != nil {
@@ -132,7 +132,7 @@ func (s *storageResolver) nextHookOp(
 
 	logger.Debugf("next hook op for %v: %+v", tag, snap)
 
-	if snap.Life == params.Dead {
+	if snap.Life == life.Dead {
 		// Storage must have been Dying to become Dead;
 		// no further action is required.
 		return nil, resolver.ErrNoOperation
@@ -140,7 +140,7 @@ func (s *storageResolver) nextHookOp(
 
 	hookInfo := hook.Info{StorageId: tag.Id()}
 	switch snap.Life {
-	case params.Alive:
+	case life.Alive:
 		storageAttachment, ok := s.storage.storageAttachments[tag]
 		if ok && storageAttachment.attached {
 			// Once the storage is attached, we only care about
@@ -159,7 +159,7 @@ func (s *storageResolver) nextHookOp(
 		// The storage is alive, but we haven't previously run the
 		// "storage-attached" hook. Do so now.
 		hookInfo.Kind = hooks.StorageAttached
-	case params.Dying:
+	case life.Dying:
 		storageAttachment, ok := s.storage.storageAttachments[tag]
 		if !ok || !storageAttachment.attached {
 			// Nothing to do: attachment is dying, but

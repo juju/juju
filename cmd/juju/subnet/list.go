@@ -12,10 +12,10 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/life"
 )
 
 // NewListCommand returns a cammin used to list all subnets
@@ -141,9 +141,9 @@ func (c *ListCommand) Run(ctx *cmd.Context) error {
 
 			// Display correct status according to the life cycle value.
 			switch sub.Life {
-			case params.Alive:
+			case life.Alive:
 				subResult.Status = statusInUse
-			case params.Dying, params.Dead:
+			case life.Dying, life.Dead:
 				subResult.Status = statusTerminating
 			}
 

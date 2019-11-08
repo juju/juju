@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -245,7 +246,7 @@ func (s *baseDestroySuite) SetUpTest(c *gc.C) {
 		})
 		s.api.envStatus[model.modelUUID] = base.ModelStatus{
 			UUID:               uuid,
-			Life:               string(params.Dead),
+			Life:               life.Dead,
 			HostedMachineCount: 0,
 			ApplicationCount:   0,
 			Owner:              owner.Id(),
@@ -361,7 +362,7 @@ func (s *DestroySuite) TestDestroyWithDestroyDestroyReleaseStorageFlagsMutuallyE
 func (s *DestroySuite) TestDestroyWithDestroyDestroyStorageFlagUnspecified(c *gc.C) {
 	var haveFilesystem bool
 	for uuid, status := range s.api.envStatus {
-		status.Life = string(params.Alive)
+		status.Life = life.Alive
 		status.Volumes = append(status.Volumes, base.Volume{Detachable: true})
 		if !haveFilesystem {
 			haveFilesystem = true
@@ -436,7 +437,7 @@ func (s *DestroySuite) TestFailedDestroyController(c *gc.C) {
 
 func (s *DestroySuite) TestDestroyControllerAliveModels(c *gc.C) {
 	for uuid, status := range s.api.envStatus {
-		status.Life = string(params.Alive)
+		status.Life = life.Alive
 		s.api.envStatus[uuid] = status
 	}
 	s.api.SetErrors(&params.Error{Code: params.CodeHasHostedModels})

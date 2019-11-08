@@ -9,6 +9,7 @@ import (
 	"github.com/juju/version"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 )
@@ -27,7 +28,7 @@ type UserModel struct {
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
 	UUID               string
-	Life               string
+	Life               life.Value
 	ModelType          model.ModelType
 	Owner              string
 	TotalMachineCount  int
@@ -66,7 +67,7 @@ type ModelInfo struct {
 	CloudRegion     string
 	CloudCredential string
 	Owner           string
-	Life            string
+	Life            life.Value
 	Status          Status
 	Users           []UserInfo
 	Machines        []Machine
@@ -120,7 +121,7 @@ type UserModelSummary struct {
 	CloudRegion        string
 	CloudCredential    string
 	Owner              string
-	Life               string
+	Life               life.Value
 	Status             Status
 	ModelUserAccess    string
 	UserLastConnection *time.Time

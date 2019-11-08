@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/api/base"
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/apiserver/common"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/cmdtest"
 	"github.com/juju/juju/cmd/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	_ "github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
@@ -115,7 +115,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 	s.resetAPIModels(c)
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
@@ -134,7 +134,7 @@ func (s *KillSuite) TestKillWaitForModels_ActuallyWaits(c *gc.C) {
 	s.syncClockAlarm(c)
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test2UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 1,
 	})
@@ -163,7 +163,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 	s.api.envStatus = map[string]base.ModelStatus{}
 	s.addModel("controller", base.ModelStatus{
 		UUID:               test1UUID,
-		Life:               string(params.Alive),
+		Life:               life.Alive,
 		Owner:              "admin",
 		TotalMachineCount:  3,
 		HostedMachineCount: 2,
@@ -184,7 +184,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 	s.syncClockAlarm(c)
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 1,
 	})
@@ -193,7 +193,7 @@ func (s *KillSuite) TestKillWaitForModels_WaitsForControllerMachines(c *gc.C) {
 	s.syncClockAlarm(c)
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test1UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 0,
 	})
@@ -217,7 +217,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 	s.resetAPIModels(c)
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
@@ -239,7 +239,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutResetsWithChange(c *gc.C) {
 	s.syncClockAlarm(c)
 	s.setModelStatus(base.ModelStatus{
 		UUID:               test2UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 1,
 	})
@@ -268,7 +268,7 @@ func (s *KillSuite) TestKillWaitForModels_TimeoutWithNoChange(c *gc.C) {
 	s.resetAPIModels(c)
 	s.addModel("model-1", base.ModelStatus{
 		UUID:               test2UUID,
-		Life:               string(params.Dying),
+		Life:               life.Dying,
 		Owner:              "admin",
 		HostedMachineCount: 2,
 		ApplicationCount:   2,
@@ -317,7 +317,7 @@ func (s *KillSuite) resetAPIModels(c *gc.C) {
 	s.api.envStatus = map[string]base.ModelStatus{}
 	s.addModel("controller", base.ModelStatus{
 		UUID:              test1UUID,
-		Life:              string(params.Alive),
+		Life:              life.Alive,
 		Owner:             "admin",
 		TotalMachineCount: 1,
 	})
@@ -503,7 +503,7 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		s.api.envStatus[env.UUID] = base.ModelStatus{
 			UUID:               env.UUID,
-			Life:               string(params.Dying),
+			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 			Owner:              owner.Id(),
@@ -520,27 +520,27 @@ func (s *KillSuite) TestControllerStatus(c *gc.C) {
 	for i, expected := range []struct {
 		Owner              string
 		Name               string
-		Life               params.Life
+		Life               life.Value
 		HostedMachineCount int
 		ApplicationCount   int
 	}{
 		{
 			Owner:              "bob",
 			Name:               "env1",
-			Life:               params.Dying,
+			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 		}, {
 			Owner:              "jo",
 			Name:               "env2",
-			Life:               params.Dying,
+			Life:               life.Dying,
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 		},
 	} {
 		c.Assert(envsStatus[i].Owner, gc.Equals, expected.Owner)
 		c.Assert(envsStatus[i].Name, gc.Equals, expected.Name)
-		c.Assert(envsStatus[i].Life, gc.Equals, string(expected.Life))
+		c.Assert(envsStatus[i].Life, gc.Equals, expected.Life)
 		c.Assert(envsStatus[i].HostedMachineCount, gc.Equals, expected.HostedMachineCount)
 		c.Assert(envsStatus[i].ApplicationCount, gc.Equals, expected.ApplicationCount)
 	}
@@ -563,7 +563,7 @@ func (s *KillSuite) TestFmtEnvironStatus(c *gc.C) {
 		"uuid",
 		"owner",
 		"envname",
-		string(params.Dying),
+		life.Dying,
 		8,
 		1,
 		2,
