@@ -16,8 +16,6 @@ import (
 // CAASOperatorState provides the subset of global state
 // required by the CAAS operator facade.
 type CAASOperatorState interface {
-	network.SpaceLookup
-
 	Application(string) (Application, error)
 	Model() (Model, error)
 	ModelUUID() string

@@ -99,13 +99,13 @@ func (c *removeCloudCommand) Run(ctxt *cmd.Context) error {
 	var returnErr error
 	if c.Client {
 		if err := c.removeLocalCloud(ctxt); err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
 	if c.ControllerName != "" {
 		if err := c.removeControllerCloud(ctxt); err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}

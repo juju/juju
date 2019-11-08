@@ -401,7 +401,8 @@ func (c *ModelCommandBase) NewAPIRoot() (api.Connection, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.newAPIRoot(modelName)
+	conn, err := c.newAPIRoot(modelName)
+	return conn, errors.Trace(err)
 }
 
 // NewControllerAPIRoot returns a new connection to the API server for the environment
@@ -419,7 +420,8 @@ func (c *ModelCommandBase) newAPIRoot(modelName string) (api.Connection, error) 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
+	conn, err := c.CommandBase.NewAPIRoot(c.store, controllerName, modelName)
+	return conn, errors.Trace(err)
 }
 
 // ModelUUIDs returns the model UUIDs for the given model names.
