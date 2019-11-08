@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/environs"
@@ -134,7 +135,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 		values      map[string]interface{}
 	}{
 		{
-			err: "model name is required",
+			err: common.MissingModelNameError("add-model").Error(),
 		}, {
 			args: []string{"new-model"},
 			name: "new-model",

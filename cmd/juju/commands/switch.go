@@ -11,6 +11,7 @@ import (
 	"github.com/juju/errors"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -37,8 +38,8 @@ var usageSummary = `
 Selects or identifies the current controller and model.`[1:]
 
 var usageDetails = `
-When used without an argument, the command shows the current controller 
-and its active model. 
+When used without an argument, the command shows the current controller
+and its active model.
 When a single argument without a colon is provided juju first looks for a
 controller by that name and switches to it, and if it's not found it tries
 to switch to a model within current controller. mycontroller: switches to
@@ -55,7 +56,7 @@ Examples:
     juju switch mycontroller:
     juju switch :mymodel
 
-See also: 
+See also:
     controllers
     models
     show-controller`
@@ -92,7 +93,7 @@ func (c *switchCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return errors.Trace(err)
 		}
 		if currentName == "" {
-			return errors.New("no currently specified model")
+			return common.MissingModelNameError("switch")
 		}
 		fmt.Fprintf(ctx.Stdout, "%s\n", currentName)
 		return nil

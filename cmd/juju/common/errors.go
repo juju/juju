@@ -58,3 +58,15 @@ func (e *TermsRequiredError) UserErr() error {
 	return errors.Wrap(e,
 		errors.Errorf(`Declined: some terms require agreement. Try: "juju agree %s"`, terms))
 }
+
+const missingModelNameMessage = `
+juju: no model name was passed. See "juju %[1]s --help".
+
+Did you mean:
+	juju %[1]s <model name>`
+
+// MissingModelNameError returns an error stating that the model name is missing
+// and provides a better UX experience to the user.
+func MissingModelNameError(cmdName string) error {
+	return errors.Errorf(missingModelNameMessage[1:], cmdName)
+}

@@ -13,6 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
@@ -56,7 +57,7 @@ func (s *SwitchSimpleSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *SwitchSimpleSuite) TestNoArgs(c *gc.C) {
 	_, err := s.run(c)
-	c.Assert(err, gc.ErrorMatches, "no currently specified model")
+	c.Assert(err, gc.ErrorMatches, common.MissingModelNameError("switch").Error())
 }
 
 func (s *SwitchSimpleSuite) TestNoArgsCurrentController(c *gc.C) {
