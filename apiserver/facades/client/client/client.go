@@ -780,14 +780,12 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 		return result, err
 	}
 
-	pServers := make([]network.ProviderHostPorts, len(servers))
+	pServers := make([]network.HostPorts, len(servers))
 	for i, hps := range servers {
-		if pServers[i], err = hps.ToProviderHostPorts(c.api.stateAccessor); err != nil {
-			return result, err
-		}
+		pServers[i] = hps.HostPorts()
 	}
 
-	result.Servers = params.FromProviderHostsPorts(pServers)
+	result.Servers = params.FromHostsPorts(pServers)
 	return result, nil
 }
 

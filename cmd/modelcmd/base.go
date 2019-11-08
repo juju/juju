@@ -211,7 +211,7 @@ func (c *CommandBase) NewAPIRoot(
 	if redirErr, ok := errors.Cause(err).(*api.RedirectError); ok {
 		return nil, newModelMigratedError(store, modelName, redirErr)
 	}
-	return conn, err
+	return conn, errors.Trace(err)
 }
 
 // RemoveModelFromClientStore removes given model from client cache, store,
