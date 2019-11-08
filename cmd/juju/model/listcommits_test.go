@@ -4,14 +4,14 @@
 package model_test
 
 import (
-	"fmt"
 	"github.com/golang/mock/gomock"
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
-	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 	"regexp"
+
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
@@ -116,7 +116,6 @@ commits:
 
 	ctx, err := s.runCommand(c, "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	fmt.Println(cmdtesting.Stdout(ctx))
 	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, expected)
 }
 

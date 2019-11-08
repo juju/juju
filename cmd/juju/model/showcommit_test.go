@@ -5,12 +5,13 @@ package model_test
 
 import (
 	"github.com/golang/mock/gomock"
-	"github.com/juju/cmd"
-	"github.com/juju/cmd/cmdtesting"
-	jc "github.com/juju/testing/checkers"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
 	"regexp"
+
+	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/cmd/juju/model/mocks"
@@ -53,14 +54,10 @@ func (s *showCommitsSuite) getMockValues() coremodel.GenerationCommit {
 		CreatedBy:    "test-user",
 		GenerationId: 1,
 		BranchName:   "bla",
-		Applications: []coremodel.GenerationApplication{{
+		Applications: []coremodel.GenerationCommitApplication{{
 			ApplicationName: "redis",
-			UnitProgress:    "1/2",
-			UnitDetail: &coremodel.GenerationUnits{
-				UnitsTracking: []string{"redis/0"},
-				UnitsPending:  []string{"redis/1"},
-			},
-			ConfigChanges: map[string]interface{}{"databases": 8},
+			UnitsTracking:   []string{"redis/0"},
+			ConfigChanges:   map[string]interface{}{"databases": 8},
 		}},
 	}
 	return values
@@ -77,15 +74,9 @@ func (s *showCommitsSuite) TestRunCommandJsonOutput(c *gc.C) {
       "applications": [
         {
           "ApplicationName": "redis",
-          "UnitProgress": "1/2",
-          "UnitDetail": {
-            "UnitsTracking": [
-              "redis/0"
-            ],
-            "UnitsPending": [
-              "redis/1"
-            ]
-          },
+          "UnitsTracking": [
+            "redis/0"
+          ],
           "ConfigChanges": {
             "databases": 8
           }
@@ -115,12 +106,8 @@ branch:
   bla:
     applications:
     - application: redis
-      progress: 1/2
       units:
-        tracking:
-        - redis/0
-        incomplete:
-        - redis/1
+      - redis/0
       config:
         databases: 8
 committed-at: "0001-01-01"
@@ -131,15 +118,16 @@ created-by: test-user
 	s.api.EXPECT().ShowCommit(gomock.Any(), 1).Return(result, nil)
 	ctx, err := s.runCommand(c, "1", "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(cmdtesting.Stdout(ctx), gc.Matches, expected)
+	output := cmdtesting.Stdout(ctx)
+	c.Assert(output, gc.Matches, expected)
 }
 
 func (s *showCommitsSuite) TestRunCommandAPIError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().ShowCommit(gomock.Any(), gomock.Any()).Return(nil, errors.New("boom"))
+	s.api.EXPECT().ShowCommit(gomock.Any(), gomock.Any()).Return(coremodel.GenerationCommit{}, errors.New("boom"))
 
-	_, err := s.runCommand(c)
+	_, err := s.runCommand(c, "1")
 	c.Assert(err, gc.ErrorMatches, "boom")
 }
 

@@ -292,7 +292,7 @@ func (api *API) BranchInfo(
 // ShowCommit will return details a commit given by its generationId
 // An error is returned if either no branch can be found corresponding to the generation id.
 // Or the generation id given is below 1.
-func (api *APIV3) ShowCommit(arg params.GenerationId) (params.GenerationCommitResult, error) {
+func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationCommitResult, error) {
 	result := params.GenerationCommitResult{}
 
 	isModelAdmin, err := api.hasAdminAccess()
@@ -324,7 +324,7 @@ func (api *APIV3) ShowCommit(arg params.GenerationId) (params.GenerationCommitRe
 }
 
 // ListCommits will return the commits, hence only branches with generation_id higher than 0
-func (api *APIV3) ListCommits() (params.GenerationCommitResults, error) {
+func (api *API) ListCommits() (params.GenerationCommitResults, error) {
 	result := params.GenerationCommitResults{}
 
 	isModelAdmin, err := api.hasAdminAccess()
@@ -403,7 +403,7 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 	}, nil
 }
 
-func (api *APIV3) getGenerationCommit(branch Generation) (params.GenerationCommit, error) {
+func (api *API) getGenerationCommit(branch Generation) (params.GenerationCommit, error) {
 
 	generation, err := api.oneBranchInfo(branch, true)
 	if err != nil {

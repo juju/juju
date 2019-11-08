@@ -170,5 +170,5 @@ type formattedShowCommit struct {
 }
 
 type formattedShowCommitApplications struct {
-	Applications []model.GenerationApplication `json:"applications" yaml:"applications"`
+	Applications []model.GenerationCommitApplication `json:"applications" yaml:"applications"`
 }

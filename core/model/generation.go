@@ -57,6 +57,19 @@ type GenerationApplication struct {
 	ConfigChanges map[string]interface{} `yaml:"config"`
 }
 
+// GenerationCommitApplication represents committed changes to an application
+// made under a generation.
+type GenerationCommitApplication struct {
+	// ApplicationsName is the name of the application.
+	ApplicationName string `yaml:"application"`
+
+	// UnitDetail specifies which units are and are not tracking the branch.
+	UnitsTracking []string `yaml:"units,omitempty"`
+
+	// Config changes are the committed changes from the generation
+	ConfigChanges map[string]interface{} `yaml:"config"`
+}
+
 // Generation represents detail of a model generation including config changes.
 type Generation struct {
 	// Created is the formatted time at generation creation.
@@ -73,26 +86,26 @@ type Generation struct {
 // GenerationCommits represents a model generation's commit details.
 type GenerationCommit struct {
 	// BranchName uniquely identifies a branch *amongst in-flight branches*.
-	BranchName string `json:"branch"`
+	BranchName string `yaml:"branch"`
 
 	// Created is the Unix timestamp at generation creation.
-	Completed string `json:"completed"`
+	Completed string `yaml:"completed"`
 
 	// Created is the user who created the generation.
-	CompletedBy string `json:"completed-by"`
+	CompletedBy string `yaml:"completed-by"`
 
 	// Created is the Unix timestamp at generation creation.
-	Created string `json:"created,omitempty"`
+	Created string `yaml:"created,omitempty"`
 
 	// Created is the user who created the generation.
-	CreatedBy string `json:"created-by,omitempty"`
+	CreatedBy string `yaml:"created-by,omitempty"`
 
 	// GenerationId is the id .
-	GenerationId int `json:"generation-id,omitempty"`
+	GenerationId int `yaml:"generation-id,omitempty"`
 
 	// Applications holds the collection of application changes
 	// made under this generation.
-	Applications []GenerationApplication `json:"applications,omitempty"`
+	Applications []GenerationCommitApplication `yaml:"applications,omitempty"`
 }
 
 // GenerationSummaries is a type alias for a representation

@@ -219,12 +219,12 @@ func generationCommitsFromResults(results params.GenerationCommitResults, format
 
 func generationCommitFromResult(result params.GenerationCommitResult, formatTime func(time.Time) string) model.GenerationCommit {
 	genCommit := result.GenerationCommit
-	appChanges := make([]model.GenerationApplication, len(genCommit.Applications))
+	appChanges := make([]model.GenerationCommitApplication, len(genCommit.Applications))
 	for i, a := range genCommit.Applications {
-		app := model.GenerationApplication{
+		app := model.GenerationCommitApplication{
 			ApplicationName: a.ApplicationName,
-			UnitProgress:    a.UnitProgress,
 			ConfigChanges:   a.ConfigChanges,
+			UnitsTracking:   a.UnitsTracking,
 		}
 		appChanges[i] = app
 	}
