@@ -1182,7 +1182,7 @@ type BranchArg struct {
 	BranchName string `json:"branch"`
 }
 
-// GenerationId represents an in-flight branch via its model and branch name.
+// GenerationId represents an GenerationId from a branch.
 type GenerationId struct {
 	GenerationId int `json:"generation-id"`
 }
@@ -1248,10 +1248,10 @@ type GenerationCommit struct {
 	// BranchName uniquely identifies a branch *amongst in-flight branches*.
 	BranchName string `json:"branch"`
 
-	// Created is the Unix timestamp at generation creation.
+	// Completed is the Unix timestamp at generation completion/commit.
 	Completed int64 `json:"completed"`
 
-	// Created is the user who created the generation.
+	// CompletedBy is the user who committed/completed the generation.
 	CompletedBy string `json:"completed-by"`
 
 	// GenerationId is the id .
@@ -1260,7 +1260,7 @@ type GenerationCommit struct {
 	// Created is the Unix timestamp at generation creation.
 	Created int64 `json:"created,omitempty"`
 
-	// Created is the user who created the generation.
+	// CreatedBy is the user who created the generation.
 	CreatedBy string `json:"created-by,omitempty"`
 
 	// Applications holds the collection of application changes
@@ -1286,7 +1286,7 @@ type GenerationResult struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// GenerationResult transports a generation detail.
+// GenerationCommitResults transports a collection of GenerationCommit detail.
 type GenerationCommitResults struct {
 	// Generation holds the details of the requested generation.
 	GenerationCommits []GenerationCommit `json:"generation-commit"`
@@ -1295,7 +1295,7 @@ type GenerationCommitResults struct {
 	Error *Error `json:"error,omitempty"`
 }
 
-// GenerationResult transports a generation detail.
+// GenerationCommitResult transports a GenerationCommit detail.
 type GenerationCommitResult struct {
 	// Generation holds the details of the requested generation.
 	GenerationCommit GenerationCommit `json:"generation-commit"`

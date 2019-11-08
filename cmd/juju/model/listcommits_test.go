@@ -35,7 +35,7 @@ func (s *commitsSuite) TestInitOneArg(c *gc.C) {
 	err := s.runInit(s.branchName)
 	c.Assert(err, gc.ErrorMatches, `expected no arguments, but got 1`)
 }
-func (s *commitsSuite) getMockValues() []coremodel.GenerationCommit {
+func (s *commitsSuite) getGenerationCommitValues() []coremodel.GenerationCommit {
 	values := []coremodel.GenerationCommit{
 		{
 			Completed:    "0001-01-01",
@@ -55,7 +55,7 @@ func (s *commitsSuite) getMockValues() []coremodel.GenerationCommit {
 
 func (s *commitsSuite) TestRunCommandTabularOutput(c *gc.C) {
 	defer s.setup(c).Finish()
-	result := s.getMockValues()
+	result := s.getGenerationCommitValues()
 	expected :=
 		`Commit	Committed at	Committed by	Branch name
 1     	0001-01-01  	test-user   	bla        
@@ -70,7 +70,7 @@ func (s *commitsSuite) TestRunCommandTabularOutput(c *gc.C) {
 
 func (s *commitsSuite) TestRunCommandJsonOutput(c *gc.C) {
 	defer s.setup(c).Finish()
-	result := s.getMockValues()
+	result := s.getGenerationCommitValues()
 	unwrap := regexp.MustCompile(`[\s+\n]`)
 	expected := unwrap.ReplaceAllLiteralString(`
 {
@@ -100,7 +100,7 @@ func (s *commitsSuite) TestRunCommandJsonOutput(c *gc.C) {
 
 func (s *commitsSuite) TestRunCommandYamlOutput(c *gc.C) {
 	defer s.setup(c).Finish()
-	result := s.getMockValues()
+	result := s.getGenerationCommitValues()
 	expected := `
 commits:
 - id: 1

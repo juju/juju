@@ -719,7 +719,6 @@ func (st *State) Branches() ([]*Generation, error) {
 		branches[i] = newGeneration(st, &d)
 	}
 	return branches, nil
-
 }
 
 // CommittedBranches returns all committed branches.

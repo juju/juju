@@ -39,15 +39,13 @@ Examples:
 
 See also:
 	list-commits
-    add-branch
+	add-branch
     track
     branch
     abort
     diff
 `
 )
-
-//TODO: instead of diffing, i just show the content of config
 
 // ShowCommitCommand supplies the "show-commit" CLI command used to show commits
 type ShowCommitCommand struct {

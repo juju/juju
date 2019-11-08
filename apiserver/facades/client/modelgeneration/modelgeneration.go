@@ -325,7 +325,7 @@ func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationCommitResu
 
 // ListCommits will return the commits, hence only branches with generation_id higher than 0
 func (api *API) ListCommits() (params.GenerationCommitResults, error) {
-	result := params.GenerationCommitResults{}
+	var result params.GenerationCommitResults
 
 	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
@@ -404,7 +404,6 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 }
 
 func (api *API) getGenerationCommit(branch Generation) (params.GenerationCommit, error) {
-
 	generation, err := api.oneBranchInfo(branch, true)
 	if err != nil {
 		return params.GenerationCommit{}, errors.Trace(err)

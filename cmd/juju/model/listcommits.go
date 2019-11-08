@@ -108,9 +108,9 @@ func (c *CommitsCommand) Init(args []string) error {
 
 	// If use of ISO time not specified on command line, check env var.
 	if !c.isoTime {
-		var err error
 		envVarValue := os.Getenv(osenv.JujuStatusIsoTimeEnvKey)
 		if envVarValue != "" {
+			var err error
 			if c.isoTime, err = strconv.ParseBool(envVarValue); err != nil {
 				return errors.Annotatef(err, "invalid %s env var, expected true|false", osenv.JujuStatusIsoTimeEnvKey)
 			}
@@ -173,7 +173,7 @@ func (c *CommitsCommand) printTabular(writer io.Writer, value interface{}) error
 }
 
 func constructYamlJson(gen model.GenerationCommits) formattedCommitList {
-	result := formattedCommitList{}
+	var result formattedCommitList
 	for _, gen := range gen {
 		fmc := formattedCommit{
 			CommitId:    gen.GenerationId,

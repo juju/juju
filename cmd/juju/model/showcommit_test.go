@@ -46,7 +46,7 @@ func (s *showCommitsSuite) TestInitMoreArgs(c *gc.C) {
 	err := s.runInit(args...)
 	c.Assert(err, gc.ErrorMatches, "expected exactly 1 commit id, got 3 arguments")
 }
-func (s *showCommitsSuite) getMockValues() coremodel.GenerationCommit {
+func (s *showCommitsSuite) getGenerationCommitValue() coremodel.GenerationCommit {
 	values := coremodel.GenerationCommit{
 		Completed:    "0001-01-01",
 		CompletedBy:  "test-user",
@@ -65,7 +65,7 @@ func (s *showCommitsSuite) getMockValues() coremodel.GenerationCommit {
 
 func (s *showCommitsSuite) TestRunCommandJsonOutput(c *gc.C) {
 	defer s.setup(c).Finish()
-	result := s.getMockValues()
+	result := s.getGenerationCommitValue()
 	unwrap := regexp.MustCompile(`[\s+\n]`)
 	expected := unwrap.ReplaceAllLiteralString(`
 {
@@ -100,7 +100,7 @@ func (s *showCommitsSuite) TestRunCommandJsonOutput(c *gc.C) {
 
 func (s *showCommitsSuite) TestRunCommandYamlOutput(c *gc.C) {
 	defer s.setup(c).Finish()
-	result := s.getMockValues()
+	result := s.getGenerationCommitValue()
 	expected := `
 branch:
   bla:
