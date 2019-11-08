@@ -6,6 +6,7 @@ package mocks
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	network "github.com/juju/juju/core/network"
 	state "github.com/juju/juju/state"
 	reflect "reflect"
 )
@@ -33,6 +34,19 @@ func (m *MockEndpointBinding) EXPECT() *MockEndpointBindingMockRecorder {
 	return m.recorder
 }
 
+// AllSpaceInfos mocks base method
+func (m *MockEndpointBinding) AllSpaceInfos() (network.SpaceInfos, error) {
+	ret := m.ctrl.Call(m, "AllSpaceInfos")
+	ret0, _ := ret[0].(network.SpaceInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSpaceInfos indicates an expected call of AllSpaceInfos
+func (mr *MockEndpointBindingMockRecorder) AllSpaceInfos() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockEndpointBinding)(nil).AllSpaceInfos))
+}
+
 // DefaultEndpointBindingSpace mocks base method
 func (m *MockEndpointBinding) DefaultEndpointBindingSpace() (string, error) {
 	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
@@ -57,30 +71,4 @@ func (m *MockEndpointBinding) Space(arg0 string) (*state.Space, error) {
 // Space indicates an expected call of Space
 func (mr *MockEndpointBindingMockRecorder) Space(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockEndpointBinding)(nil).Space), arg0)
-}
-
-// SpaceIDsByName mocks base method
-func (m *MockEndpointBinding) SpaceIDsByName() (map[string]string, error) {
-	ret := m.ctrl.Call(m, "SpaceIDsByName")
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SpaceIDsByName indicates an expected call of SpaceIDsByName
-func (mr *MockEndpointBindingMockRecorder) SpaceIDsByName() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceIDsByName", reflect.TypeOf((*MockEndpointBinding)(nil).SpaceIDsByName))
-}
-
-// SpaceNamesByID mocks base method
-func (m *MockEndpointBinding) SpaceNamesByID() (map[string]string, error) {
-	ret := m.ctrl.Call(m, "SpaceNamesByID")
-	ret0, _ := ret[0].(map[string]string)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SpaceNamesByID indicates an expected call of SpaceNamesByID
-func (mr *MockEndpointBindingMockRecorder) SpaceNamesByID() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceNamesByID", reflect.TypeOf((*MockEndpointBinding)(nil).SpaceNamesByID))
 }

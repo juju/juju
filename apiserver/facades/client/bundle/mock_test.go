@@ -8,6 +8,7 @@ import (
 	"github.com/juju/testing"
 
 	"github.com/juju/juju/apiserver/facades/client/bundle"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -39,16 +40,14 @@ func (m *mockState) GetExportConfig() state.ExportConfig {
 	}
 }
 
-func (m *mockState) SpaceNamesByID() (map[string]string, error) {
-	return m.Spaces, nil
-}
-
-func (m *mockState) SpaceIDsByName() (map[string]string, error) {
-	idsByName := make(map[string]string, len(m.Spaces))
-	for k, v := range m.Spaces {
-		idsByName[v] = k
+func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
+	result := make(network.SpaceInfos, len(m.Spaces))
+	i := 0
+	for id, name := range m.Spaces {
+		result[i] = network.SpaceInfo{ID: id, Name: network.SpaceName(name)}
+		i += 1
 	}
-	return idsByName, nil
+	return result, nil
 }
 
 func (m *mockState) Space(_ string) (*state.Space, error) {

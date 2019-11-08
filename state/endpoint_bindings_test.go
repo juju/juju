@@ -342,8 +342,7 @@ type bindingsMockSuite struct {
 
 func (s *bindingsMockSuite) TestNewBindingsNilMap(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectIDsByName()
-	s.expectNamesByID()
+	s.expectAllSpaceInfos()
 
 	binding, err := state.NewBindings(s.endpointBinding, nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -353,8 +352,7 @@ func (s *bindingsMockSuite) TestNewBindingsNilMap(c *gc.C) {
 
 func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectIDsByName()
-	s.expectNamesByID()
+	s.expectAllSpaceInfos()
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "5",
@@ -370,8 +368,7 @@ func (s *bindingsMockSuite) TestNewBindingsByID(c *gc.C) {
 
 func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectIDsByName()
-	s.expectNamesByID()
+	s.expectAllSpaceInfos()
 	initial := map[string]string{
 		"db":      "two",
 		"testing": "42",
@@ -393,8 +390,7 @@ func (s *bindingsMockSuite) TestNewBindingsByName(c *gc.C) {
 
 func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectIDsByName()
-	s.expectNamesByID()
+	s.expectAllSpaceInfos()
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "three",
@@ -408,8 +404,7 @@ func (s *bindingsMockSuite) TestNewBindingsNotFound(c *gc.C) {
 
 func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	defer s.setup(c).Finish()
-	s.expectIDsByName()
-	s.expectNamesByID()
+	s.expectAllSpaceInfos()
 	initial := map[string]string{
 		"db":      "2",
 		"testing": "3",
@@ -430,30 +425,17 @@ func (s *bindingsMockSuite) TestMapWithSpaceNames(c *gc.C) {
 	c.Assert(withSpaceNames, jc.DeepEquals, expected)
 }
 
-func (s *bindingsMockSuite) expectNamesByID() {
-	n2i := map[string]string{
-		network.AlphaSpaceId: network.AlphaSpaceName,
-		"1":                  "one",
-		"2":                  "two",
-		"3":                  "three",
-		"4":                  "four",
-		"5":                  "42",
+func (s *bindingsMockSuite) expectAllSpaceInfos() {
+	infos := network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
+		{ID: "1", Name: "one"},
+		{ID: "2", Name: "two"},
+		{ID: "3", Name: "three"},
+		{ID: "4", Name: "four"},
+		{ID: "5", Name: "42"},
 	}
-	s.endpointBinding.EXPECT().SpaceNamesByID().Return(n2i, nil).AnyTimes()
+	s.endpointBinding.EXPECT().AllSpaceInfos().Return(infos, nil).AnyTimes()
 }
-
-func (s *bindingsMockSuite) expectIDsByName() {
-	i2n := map[string]string{
-		network.AlphaSpaceName: network.AlphaSpaceId,
-		"one":                  "1",
-		"two":                  "2",
-		"three":                "3",
-		"four":                 "4",
-		"42":                   "5",
-	}
-	s.endpointBinding.EXPECT().SpaceIDsByName().Return(i2n, nil).AnyTimes()
-}
-
 func (s *bindingsMockSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.endpointBinding = mocks.NewMockEndpointBinding(ctrl)

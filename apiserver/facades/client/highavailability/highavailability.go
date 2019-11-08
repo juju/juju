@@ -248,20 +248,20 @@ func validatePlacementForSpaces(st *state.State, spaceNames *[]string, placement
 			return errors.Annotate(err, "retrieving machine")
 		}
 
-		spaceLookup, err := st.SpaceIDsByName()
+		spaceInfos, err := st.AllSpaceInfos()
 		if err != nil {
 			return errors.Trace(err)
 		}
 
 		for _, name := range *spaceNames {
-			spaceID, ok := spaceLookup[name]
-			if !ok {
+			spaceInfo := spaceInfos.GetByName(name)
+			if spaceInfo == nil {
 				return errors.NotFoundf("space with name %q", name)
 			}
 
 			inSpace := false
 			for _, addr := range m.Addresses() {
-				if addr.SpaceID == spaceID {
+				if addr.SpaceID == spaceInfo.ID {
 					inSpace = true
 					break
 				}

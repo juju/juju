@@ -85,14 +85,9 @@ func (st *mockState) ResolveConstraints(cons constraints.Value) (constraints.Val
 	return cons, nil
 }
 
-func (st *mockState) SpaceIDsByName() (map[string]string, error) {
-	st.MethodCall(st, "SpaceIDsByName")
-	return map[string]string{}, nil
-}
-
-func (st *mockState) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
-	st.MethodCall(st, "SpaceInfosByID")
-	return map[string]network.SpaceInfo{}, nil
+func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
+	m.MethodCall(m, "AllSpaceInfos")
+	return network.SpaceInfos{}, nil
 }
 
 type mockModel struct {

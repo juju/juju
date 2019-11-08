@@ -2596,7 +2596,7 @@ func EnsureRelationApplicationSettings(pool *StatePool) error {
 // The space is retrieved and these fields are removed in favour of space's ID.
 func ConvertAddressSpaceIDs(pool *StatePool) error {
 	return errors.Trace(runForAllModelStates(pool, func(st *State) error {
-		lookup, err := st.SpaceIDsByName()
+		lookup, err := st.AllSpaceInfos()
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -2626,7 +2626,7 @@ func ConvertAddressSpaceIDs(pool *StatePool) error {
 	}))
 }
 
-func convertMachineAddressSpaceIDs(db Database, lookup map[string]string) ([]txn.Op, error) {
+func convertMachineAddressSpaceIDs(db Database, lookup network.SpaceInfos) ([]txn.Op, error) {
 	// machine is a subset of machine document fields that we care about
 	// for updating the address fields.
 	type machine struct {

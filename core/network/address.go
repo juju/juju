@@ -374,10 +374,10 @@ func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresse
 		return nil, nil
 	}
 
-	var idFor map[string]string
+	var spaceInfos SpaceInfos
 	if len(pas) > 0 {
 		var err error
-		if idFor, err = lookup.SpaceIDsByName(); err != nil {
+		if spaceInfos, err = lookup.AllSpaceInfos(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -386,11 +386,11 @@ func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresse
 	for i, pa := range pas {
 		sas[i] = SpaceAddress{MachineAddress: pa.MachineAddress}
 		if pa.SpaceName != "" {
-			id, ok := idFor[string(pa.SpaceName)]
-			if !ok {
+			info := spaceInfos.GetByName(string(pa.SpaceName))
+			if info == nil {
 				return nil, errors.NotFoundf("space with name %q", pa.SpaceName)
 			}
-			sas[i].SpaceID = id
+			sas[i].SpaceID = info.ID
 		}
 	}
 	return sas, nil
@@ -477,10 +477,10 @@ func (sas SpaceAddresses) ToProviderAddresses(lookup SpaceLookup) (ProviderAddre
 		return nil, nil
 	}
 
-	var infoFor map[string]SpaceInfo
+	var infoFor SpaceInfos
 	if len(sas) > 0 {
 		var err error
-		if infoFor, err = lookup.SpaceInfosByID(); err != nil {
+		if infoFor, err = lookup.AllSpaceInfos(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -489,8 +489,8 @@ func (sas SpaceAddresses) ToProviderAddresses(lookup SpaceLookup) (ProviderAddre
 	for i, sa := range sas {
 		pas[i] = ProviderAddress{MachineAddress: sa.MachineAddress}
 		if sa.SpaceID != "" {
-			info, ok := infoFor[sa.SpaceID]
-			if !ok {
+			info := infoFor.GetByID(sa.SpaceID)
+			if info == nil {
 				return nil, errors.NotFoundf("space with ID %q", sa.SpaceID)
 			}
 			pas[i].SpaceName = info.Name

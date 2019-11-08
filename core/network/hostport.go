@@ -325,10 +325,10 @@ func (hps SpaceHostPorts) ToProviderHostPorts(lookup SpaceLookup) (ProviderHostP
 		return nil, nil
 	}
 
-	var infoFor map[string]SpaceInfo
+	var infoFor SpaceInfos
 	if len(hps) > 0 {
 		var err error
-		if infoFor, err = lookup.SpaceInfosByID(); err != nil {
+		if infoFor, err = lookup.AllSpaceInfos(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
@@ -341,8 +341,8 @@ func (hps SpaceHostPorts) ToProviderHostPorts(lookup SpaceLookup) (ProviderHostP
 		}
 
 		if hp.SpaceID != "" {
-			info, ok := infoFor[hp.SpaceID]
-			if !ok {
+			info := infoFor.GetByID(hp.SpaceID)
+			if info == nil {
 				return nil, errors.NotFoundf("space with ID %q", hp.SpaceID)
 			}
 			pHPs[i].SpaceName = info.Name

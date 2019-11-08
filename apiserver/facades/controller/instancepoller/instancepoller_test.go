@@ -431,7 +431,7 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "ProviderAddresses")
-	s.st.CheckCall(c, 2, "SpaceInfosByName")
+	s.st.CheckCall(c, 2, "AllSpaceInfos")
 	s.st.CheckFindEntityCall(c, 3, "2")
 	s.st.CheckCall(c, 4, "ProviderAddresses")
 	s.st.CheckFindEntityCall(c, 5, "42")
@@ -487,7 +487,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
 	s.st.CheckFindEntityCall(c, 2, "2")
-	s.st.CheckCall(c, 3, "SpaceIDsByName")
+	s.st.CheckCall(c, 3, "AllSpaceInfos")
 	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
 	s.st.CheckFindEntityCall(c, 5, "42")
 
@@ -525,7 +525,7 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 
 	s.st.CheckFindEntityCall(c, 0, "1")
 	s.st.CheckFindEntityCall(c, 1, "2")
-	s.st.CheckCall(c, 2, "SpaceIDsByName")
+	s.st.CheckCall(c, 2, "AllSpaceInfos")
 	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
 	s.st.CheckFindEntityCall(c, 4, "3")
 
