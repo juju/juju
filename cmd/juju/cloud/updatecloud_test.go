@@ -151,7 +151,7 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 	})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
-To update public clouds from a canonical source, use `[1:]+"`juju update-public-clouds`"+`.
+To ensure this client's copy or any controller copies of public cloud information is up to date with the latest region information, use `[1:]+"`juju update-public-clouds`"+`.
 Cloud "garage-maas" updated on controller "mycontroller" using client cloud definition.
 `)
 }

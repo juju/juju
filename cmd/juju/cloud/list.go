@@ -55,7 +55,7 @@ var listCloudsDoc = "" +
 	"\n" +
 	"Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-public-clouds`\n" +
 	"command to update public clouds from a central location or `update-cloud` to" +
-	"update your customised clouds.\n" +
+	"update other clouds.\n" +
 	"\n" +
 	"Use the `regions` command to list a cloud's regions.\n" +
 	"\n" +
