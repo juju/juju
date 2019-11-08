@@ -14,8 +14,6 @@ import (
 // AddressAndCertGetter can be used to find out controller addresses
 // and the CA public certificate.
 type AddressAndCertGetter interface {
-	network.SpaceLookup
-
 	Addresses() ([]string, error)
 	ModelUUID() string
 	APIHostPortsForAgents() ([]network.SpaceHostPorts, error)

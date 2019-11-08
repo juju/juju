@@ -122,11 +122,3 @@ func (f fakeAddresses) APIHostPortsForAgents() ([]network.SpaceHostPorts, error)
 func (fakeAddresses) WatchAPIHostPortsForAgents() state.NotifyWatcher {
 	panic("should never be called")
 }
-
-func (fakeAddresses) SpaceIDsByName() (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
-func (fakeAddresses) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
-	return map[string]network.SpaceInfo{}, nil
-}
