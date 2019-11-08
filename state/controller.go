@@ -173,7 +173,12 @@ func (st *State) checkSpaceIsAvailableToAllControllers(spaceName string) error {
 		if err != nil {
 			return errors.Annotate(err, "cannot get machine")
 		}
-		if _, ok := m.Addresses().InSpaces(space.NetworkSpace()); !ok {
+		netSpace, err := space.NetworkSpace()
+		if err != nil {
+			return errors.Annotate(err, "cannot get network space")
+		}
+
+		if _, ok := m.Addresses().InSpaces(netSpace); !ok {
 			missing = append(missing, id)
 		}
 	}
