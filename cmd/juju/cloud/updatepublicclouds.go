@@ -18,17 +18,23 @@ import (
 	"github.com/juju/utils"
 	"golang.org/x/crypto/openpgp"
 	"golang.org/x/crypto/openpgp/clearsign"
+	"gopkg.in/juju/names.v3"
 
+	cloudapi "github.com/juju/juju/api/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju/keys"
+	"github.com/juju/juju/jujuclient"
 )
 
 type updatePublicCloudsCommand struct {
-	cmd.CommandBase
+	modelcmd.OptionalControllerCommand
 
 	publicSigningKey string
 	publicCloudURL   string
+
+	addCloudAPIFunc func() (updatePublicCloudAPI, error)
 }
 
 var updatePublicCloudsDoc = `
@@ -36,9 +42,16 @@ If any new information for public clouds (such as regions and connection
 endpoints) are available this command will update Juju accordingly. It is
 suggested to run this command periodically.
 
+Use --controller option to update public cloud(s) on a controller. The command
+will only update the clouds that a controller knows about. 
+
+Use --client to update a definition of public cloud(s) on this client.
+
 Examples:
 
     juju update-public-clouds
+    juju update-public-clouds --client
+    juju update-public-clouds --controller mycontroller
 
 See also:
     clouds
@@ -50,68 +63,160 @@ var NewUpdatePublicCloudsCommand = func() cmd.Command {
 }
 
 func newUpdatePublicCloudsCommand() cmd.Command {
-	return &updatePublicCloudsCommand{
+	store := jujuclient.NewFileClientStore()
+	c := &updatePublicCloudsCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
+			Store: store,
+		},
 		publicSigningKey: keys.JujuPublicKey,
 		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
 	}
+	c.addCloudAPIFunc = c.cloudAPI
+	return modelcmd.WrapBase(c)
 }
 
 func (c *updatePublicCloudsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "update-public-clouds",
-		Aliases: []string{"update-clouds"},
 		Purpose: "Updates public cloud information available to Juju.",
 		Doc:     updatePublicCloudsDoc,
 	})
 }
 
-func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
-	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
-	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
-	resp, err := client.Get(c.publicCloudURL)
-	if err != nil {
+// Init populates the command with the args from the command line.
+func (c *updatePublicCloudsCommand) Init(args []string) error {
+	if err := c.OptionalControllerCommand.Init(args); err != nil {
 		return err
+	}
+	return cmd.CheckEmpty(args)
+}
+
+func PublishedPublicClouds(url, key string) (map[string]jujucloud.Cloud, error) {
+	client := utils.GetHTTPClient(utils.VerifySSLHostnames)
+	resp, err := client.Get(url)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		switch resp.StatusCode {
 		case http.StatusNotFound:
-			fmt.Fprintln(ctxt.Stderr, "Public cloud list is unavailable right now.")
-			return nil
+			return nil, errors.Errorf("public cloud list is unavailable right now")
 		case http.StatusUnauthorized:
-			return errors.Unauthorizedf("unauthorised access to URL %q", c.publicCloudURL)
+			return nil, errors.Unauthorizedf("unauthorised access to URL %q", url)
 		}
-		return errors.Errorf("cannot read public cloud information at URL %q, %q", c.publicCloudURL, resp.Status)
+		return nil, errors.Errorf("cannot read public cloud information at URL %q, %q", url, resp.Status)
 	}
 
-	cloudData, err := decodeCheckSignature(resp.Body, c.publicSigningKey)
+	cloudData, err := decodeCheckSignature(resp.Body, key)
 	if err != nil {
-		return errors.Annotate(err, "error receiving updated cloud data")
+		return nil, errors.Annotate(err, "receiving updated cloud data")
 	}
-	newPublicClouds, err := jujucloud.ParseCloudMetadata(cloudData)
+	clouds, err := jujucloud.ParseCloudMetadata(cloudData)
 	if err != nil {
-		return errors.Annotate(err, "invalid cloud data received when updating clouds")
+		return nil, errors.Annotate(err, "invalid cloud data received when updating clouds")
 	}
+	return clouds, nil
+}
+
+func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
+	if err := c.MaybePrompt(ctxt, "update public clouds on"); err != nil {
+		return errors.Trace(err)
+	}
+	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
+	publishedClouds, err := PublishedPublicClouds(c.publicCloudURL, c.publicSigningKey)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var returnedErr error
+	if c.Client {
+		if err := c.updateClientCopy(ctxt, publishedClouds); err != nil {
+			ctxt.Infof("ERROR %v", err)
+			returnedErr = cmd.ErrSilent
+		}
+	}
+	if c.ControllerName != "" {
+		if err := c.updateControllerCopy(ctxt, publishedClouds); err != nil {
+			ctxt.Infof("ERROR %v", err)
+			returnedErr = cmd.ErrSilent
+		}
+	}
+	return returnedErr
+}
+
+func (c *updatePublicCloudsCommand) updateClientCopy(ctxt *cmd.Context, publishedClouds map[string]jujucloud.Cloud) error {
 	currentPublicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
 		return errors.Annotate(err, "invalid local public cloud data")
 	}
-	sameCloudInfo, err := jujucloud.IsSameCloudMetadata(newPublicClouds, currentPublicClouds)
+	sameCloudInfo, err := jujucloud.IsSameCloudMetadata(publishedClouds, currentPublicClouds)
 	if err != nil {
 		// Should never happen.
 		return err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stderr, "This client's list of public clouds is up to date, see `juju clouds --client-only`.")
+		fmt.Fprintln(ctxt.Stderr, "List of public clouds on this client is up to date, see `juju clouds --client`.")
 		return nil
 	}
-	if err := jujucloud.WritePublicCloudMetadata(newPublicClouds); err != nil {
+	if err := jujucloud.WritePublicCloudMetadata(publishedClouds); err != nil {
 		return errors.Annotate(err, "error writing new local public cloud data")
 	}
-	updateDetails := diffClouds(newPublicClouds, currentPublicClouds)
-	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated your list of public clouds with %s", updateDetails))
+	updateDetails := diffClouds(publishedClouds, currentPublicClouds)
+	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated list of public clouds on this client, %s", updateDetails))
 	return nil
+}
+
+func (c *updatePublicCloudsCommand) updateControllerCopy(ctxt *cmd.Context, publishedClouds map[string]jujucloud.Cloud) error {
+	api, err := c.addCloudAPIFunc()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer api.Close()
+
+	allClouds, err := api.Clouds()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	oldCopies, newCopies := map[string]jujucloud.Cloud{}, map[string]jujucloud.Cloud{}
+	var updatedAny bool
+	for cloudTag, currentCopy := range allClouds {
+		cloudName := cloudTag.Id()
+		updatedCopy, ok := publishedClouds[cloudName]
+		if !ok {
+			continue
+		}
+		if !cloudChanged(cloudName, updatedCopy, currentCopy) {
+			continue
+		}
+		oldCopies[cloudName] = currentCopy
+		newCopies[cloudName] = updatedCopy
+		if err := api.UpdateCloud(updatedCopy); err != nil {
+			fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("ERROR updating public cloud data on controller %q: %v", c.ControllerName, err))
+			continue
+		}
+		updatedAny = true
+	}
+	if !updatedAny {
+		fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("List of public clouds on controller %q is up to date, see `juju clouds --controller %v`.", c.ControllerName, c.ControllerName))
+		return nil
+	}
+	updateDetails := diffClouds(newCopies, oldCopies)
+	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated list of public clouds on controller %q, %s", c.ControllerName, updateDetails))
+	return nil
+}
+
+type updatePublicCloudAPI interface {
+	updateCloudAPI
+	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
+}
+
+func (c *updatePublicCloudsCommand) cloudAPI() (updatePublicCloudAPI, error) {
+	root, err := c.NewAPIRoot(c.Store, c.ControllerName, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cloudapi.NewClient(root), nil
 }
 
 func decodeCheckSignature(r io.Reader, publicKey string) ([]byte, error) {

@@ -150,7 +150,10 @@ func (s *updateCloudSuite) TestUpdateControllerFromLocalCache(c *gc.C) {
 		Endpoint:    "http://garagemaas",
 	})
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Cloud \"garage-maas\" updated on controller \"mycontroller\" using client cloud definition.\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, `
+To ensure this client's copy or any controller copies of public cloud information is up to date with the latest region information, use `[1:]+"`juju update-public-clouds`"+`.
+Cloud "garage-maas" updated on controller "mycontroller" using client cloud definition.
+`)
 }
 
 type fakeUpdateCloudAPI struct {

@@ -150,6 +150,9 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 		ctxt.Infof(successMsg)
 	}
+	if c.isPublicCloud(c.Cloud) {
+		ctxt.Infof("To ensure this client's copy or any controller copies of public cloud information is up to date with the latest region information, use `juju update-public-clouds`.")
+	}
 	if c.Client {
 		if c.CloudFile == "" {
 			ctxt.Infof("To update cloud %q on this client, a cloud definition file is required.", c.Cloud)
@@ -169,6 +172,16 @@ func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	return returnErr
+}
+
+func (c *updateCloudCommand) isPublicCloud(cloudName string) bool {
+	all, _ := clientPublicClouds()
+	for oneName := range all {
+		if oneName == cloudName {
+			return true
+		}
+	}
+	return false
 }
 
 func (c *updateCloudCommand) updateLocalCache(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {

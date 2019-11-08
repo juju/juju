@@ -606,7 +606,6 @@ var commandNames = []string{
 	"unexpose",
 	"unregister",
 	"update-cloud",
-	"update-clouds",
 	"update-public-clouds",
 	"update-credential",
 	"update-credentials",
@@ -779,9 +778,9 @@ func (s *MainSuite) TestModelCommands(c *gc.C) {
 	registerCommands(&commands, cmdtesting.Context(c))
 	// There should not be any ModelCommands registered.
 	// ModelCommands must be wrapped using modelcmd.Wrap.
-	for _, cmd := range commands {
-		c.Logf("%v", cmd.Info().Name)
-		c.Check(cmd, gc.Not(gc.FitsTypeOf), modelcmd.ModelCommand(&bootstrapCommand{}))
+	for _, command := range commands {
+		c.Logf("%v", command.Info().Name)
+		c.Check(command, gc.Not(gc.FitsTypeOf), modelcmd.ModelCommand(&bootstrapCommand{}))
 	}
 }
 
@@ -800,8 +799,8 @@ func (s *MainSuite) TestAllCommandsPurpose(c *gc.C) {
 	//   godoc-like by using the command's name in lowercase.
 	var commands commands
 	registerCommands(&commands, cmdtesting.Context(c))
-	for _, cmd := range commands {
-		info := cmd.Info()
+	for _, command := range commands {
+		info := command.Info()
 		purpose := strings.TrimSpace(info.Purpose)
 		doc := strings.TrimSpace(info.Doc)
 		comment := func(message string) interface{} {

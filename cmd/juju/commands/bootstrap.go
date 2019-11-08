@@ -1031,7 +1031,7 @@ func (c *bootstrapCommand) detectCloud(
 	ctx.Verbosef("cloud %q not found, trying as a provider name", c.Cloud)
 	provider, err := environs.Provider(c.Cloud)
 	if errors.IsNotFound(err) {
-		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds")))
+		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	} else if err != nil {
 		return fail(errors.Trace(err))
 	}
@@ -1041,7 +1041,7 @@ func (c *bootstrapCommand) detectCloud(
 			"provider %q does not support detecting regions",
 			c.Cloud,
 		)
-		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-clouds")))
+		return fail(errors.NewNotFound(nil, fmt.Sprintf("unknown cloud %q, please try %q", c.Cloud, "juju update-public-clouds")))
 	}
 
 	var cloudEndpoint string
@@ -1433,7 +1433,7 @@ func handleChooseCloudRegionError(ctx *cmd.Context, err error) error {
 	}
 	_, _ = fmt.Fprintf(ctx.GetStderr(),
 		"%s\n\nSpecify an alternative region, or try %q.\n",
-		err, "juju update-clouds",
+		err, "juju update-public-clouds",
 	)
 	return cmd.ErrSilent
 }

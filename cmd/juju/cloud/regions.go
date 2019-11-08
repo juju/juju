@@ -51,7 +51,8 @@ See also:
     add-cloud
     clouds
     show-cloud
-    update-clouds
+    update-cloud
+    update-public-clouds
 `
 
 type CloudRegionsAPI interface {
