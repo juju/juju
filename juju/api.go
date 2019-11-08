@@ -93,7 +93,7 @@ func NewAPIConnection(args NewAPIConnectionParams) (_ api.Connection, err error)
 	}
 	defer func() {
 		if err != nil {
-			st.Close()
+			_ = st.Close()
 		}
 	}()
 
