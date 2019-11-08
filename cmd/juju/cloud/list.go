@@ -53,8 +53,9 @@ var listCloudsDoc = "" +
 	"This command's default output format is 'tabular'. Use 'json' and 'yaml' for\n" +
 	"machine-readable output.\n" +
 	"\n" +
-	"Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-clouds`\n" +
-	"command to update the current Juju client.\n" +
+	"Cloud metadata sometimes changes, e.g. providers add regions. Use the `update-public-clouds`\n" +
+	"command to update public clouds from a central location or `update-cloud` to" +
+	"update your customised clouds.\n" +
 	"\n" +
 	"Use the `regions` command to list a cloud's regions.\n" +
 	"\n" +
@@ -84,7 +85,8 @@ See also:
     default-credential
     default-region
     show-cloud
-    update-clouds
+    update-cloud
+    update-public-clouds
 `
 
 type ListCloudsAPI interface {
@@ -282,8 +284,16 @@ func (c *cloudList) filter(all bool) bool {
 	return result
 }
 
-func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
+func clientPublicClouds() (map[string]jujucloud.Cloud, error) {
 	clouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return clouds, nil
+}
+
+func listLocalCloudDetails(store jujuclient.CredentialGetter) (*cloudList, error) {
+	clouds, err := clientPublicClouds()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
