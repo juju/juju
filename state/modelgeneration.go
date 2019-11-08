@@ -728,7 +728,7 @@ func (st *State) CommittedBranches() ([]*Generation, error) {
 	defer closer()
 
 	var docs []generationDoc
-	query := bson.M{"completed": bson.M{"$gte": 1}}
+	query := bson.M{"generation-id": bson.M{"$gte": 1}}
 	if err := col.Find(query).All(&docs); err != nil {
 		return nil, errors.Trace(err)
 	}
