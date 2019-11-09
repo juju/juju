@@ -420,7 +420,7 @@ func ToProviderHostPorts(hps []HostPort) network.ProviderHostPorts {
 	return pHps
 }
 
-// FromNetworkHostsPorts is a helper to create a parameter
+// FromProviderHostsPorts is a helper to create a parameter
 // out of the network type, here for a nested slice of HostPort.
 func FromProviderHostsPorts(nhpm []network.ProviderHostPorts) [][]HostPort {
 	hpm := make([][]HostPort, len(nhpm))
@@ -430,7 +430,7 @@ func FromProviderHostsPorts(nhpm []network.ProviderHostPorts) [][]HostPort {
 	return hpm
 }
 
-// FromNetworkHostPorts is a helper to create a parameter
+// FromProviderHostPorts is a helper to create a parameter
 // out of the network type, here for a slice of HostPort.
 func FromProviderHostPorts(nhps network.ProviderHostPorts) []HostPort {
 	hps := make([]HostPort, len(nhps))
@@ -444,6 +444,39 @@ func FromProviderHostPorts(nhps network.ProviderHostPorts) []HostPort {
 // out of the network type, here for ProviderHostPort.
 func FromProviderHostPort(nhp network.ProviderHostPort) HostPort {
 	return HostPort{FromProviderAddress(nhp.ProviderAddress), nhp.Port()}
+}
+
+// FromHostsPorts is a helper to create a parameter
+// out of the network type, here for a nested slice of HostPort.
+func FromHostsPorts(nhpm []network.HostPorts) [][]HostPort {
+	hpm := make([][]HostPort, len(nhpm))
+	for i, nhps := range nhpm {
+		hpm[i] = FromHostPorts(nhps)
+	}
+	return hpm
+}
+
+// FromHostPorts is a helper to create a parameter
+// out of the network type, here for a slice of HostPort.
+func FromHostPorts(nhps network.HostPorts) []HostPort {
+	hps := make([]HostPort, len(nhps))
+	for i, nhp := range nhps {
+		hps[i] = FromHostPort(nhp)
+	}
+	return hps
+}
+
+// FromHostPort is a convenience helper to create a parameter
+// out of the network type, here for HostPort.
+func FromHostPort(nhp network.HostPort) HostPort {
+	return HostPort{
+		Address: Address{
+			Value: nhp.Host(),
+			Type:  string(nhp.AddressType()),
+			Scope: string(nhp.AddressScope()),
+		},
+		Port: nhp.Port(),
+	}
 }
 
 // TODO (wpk) Uniter.NetworkConfig API is obsolete, use NetworkInfo instead

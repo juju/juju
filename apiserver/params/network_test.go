@@ -371,3 +371,32 @@ func (s *NetworkSuite) TestMachineHostPortConversion(c *gc.C) {
 
 	c.Assert(params.ToMachineHostsPorts(hps), jc.DeepEquals, exp)
 }
+
+func (s *NetworkSuite) TestHostPortConversion(c *gc.C) {
+	mHPs := []network.MachineHostPorts{
+		{
+			{
+				MachineAddress: network.NewScopedMachineAddress("1.2.3.4", network.ScopeCloudLocal),
+				NetPort:        1234,
+			},
+			{
+				MachineAddress: network.NewScopedMachineAddress("2.3.4.5", network.ScopePublic),
+				NetPort:        2345,
+			},
+		},
+		{
+			{
+				MachineAddress: network.NewScopedMachineAddress("3.4.5.6", network.ScopeCloudLocal),
+				NetPort:        3456,
+			},
+		},
+	}
+
+	hps := make([]network.HostPorts, len(mHPs))
+	for i, mHP := range mHPs {
+		hps[i] = mHP.HostPorts()
+	}
+
+	pHPs := params.FromHostsPorts(hps)
+	c.Assert(params.ToMachineHostsPorts(pHPs), jc.DeepEquals, mHPs)
+}

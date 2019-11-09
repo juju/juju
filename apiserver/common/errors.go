@@ -91,6 +91,10 @@ func IsUpgradeInProgressError(err error) bool {
 // the user) has been migrated to a different controller.
 type RedirectError struct {
 	// Servers holds the sets of addresses of the redirected servers.
+	// TODO (manadart 2019-11-08): Change this to be either MachineHostPorts
+	// or the HostPorts indirection. We don't care about space info here.
+	// We can then delete the API params helpers for conversion for this type
+	// as it will no longer be used.
 	Servers []network.ProviderHostPorts `json:"servers"`
 
 	// CACert holds the certificate of the remote server.

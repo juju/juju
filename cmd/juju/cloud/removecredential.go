@@ -137,13 +137,13 @@ func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
 	var returnErr error
 	if c.Client {
 		if err := c.removeFromLocal(ctxt); err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
 	if c.ControllerName != "" {
 		if err := c.removeFromController(ctxt, client); err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
 			returnErr = cmd.ErrSilent
 		}
 	}
