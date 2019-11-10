@@ -155,12 +155,12 @@ func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext
 	_, err := env.client.EnsureVMFolder(env.ctx, path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
-	))
+	), env.ecfg.VMFolder())
 	HandleCredentialError(err, ctx)
 	return errors.Trace(err)
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+// this variable is exported, because it has to be rewritten in external unit tests
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.

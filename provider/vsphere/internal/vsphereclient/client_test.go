@@ -633,7 +633,7 @@ func (s *clientSuite) TestDestroyVMFolderRace(c *gc.C) {
 
 func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	folder, err := client.EnsureVMFolder(context.Background(), "foo/bar")
+	folder, err := client.EnsureVMFolder(context.Background(), "foo/bar", "juju-folder")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(folder, gc.NotNil)
 

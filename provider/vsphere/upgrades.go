@@ -102,7 +102,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 			controllerFolderName(step.controllerUUID),
 			env.modelFolderName(),
 		)
-		if _, err := env.client.EnsureVMFolder(env.ctx, modelFolderPath); err != nil {
+		if _, err := env.client.EnsureVMFolder(env.ctx, modelFolderPath, env.ecfg.VMFolder()); err != nil {
 			HandleCredentialError(err, ctx)
 			return errors.Annotate(err, "creating model folder")
 		}

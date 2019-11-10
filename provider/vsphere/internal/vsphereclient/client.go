@@ -88,6 +88,26 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 	}
 }
 
+// findFolder should be able to search for both entire filepaths
+// or relative (.) filepaths. Only ".." not supported as per:
+// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
+func (c *Client) findFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+	finder := find.NewFinder(c.client.Client, true)
+	datacenter, err := finder.Datacenter(ctx, c.datacenter)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	finder.SetDatacenter(datacenter)
+
+	vmFolder, err = finder.Folder(ctx, folderPath)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Waiting for Folder
+	return vmFolder, nil
+}
+
 func (c *Client) finder(ctx context.Context) (*find.Finder, *object.Datacenter, error) {
 	finder := find.NewFinder(c.client.Client, true)
 	datacenter, err := finder.Datacenter(ctx, c.datacenter)
@@ -259,13 +279,10 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 }
 
 // EnsureVMFolder creates the a VM folder with the given path if it doesn't
-// already exist.
-func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object.Folder, error) {
+// already exists.
+func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string, parentFolderStr string) (*object.Folder, error) {
+
 	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -281,7 +298,23 @@ func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object
 		return folder, err
 	}
 
-	parentFolder := folders.VmFolder
+	var parentFolder *object.Folder
+
+	// if parentFolderStr was not defined, create models on
+	// root folder, search for parent folder str otherwise
+	if parentFolderStr == "" {
+		folders, err := datacenter.Folders(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		parentFolder = folders.VmFolder
+	} else {
+		parentFolder, err = c.findFolder(ctx, parentFolderStr)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+
 	for _, name := range strings.Split(folderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
