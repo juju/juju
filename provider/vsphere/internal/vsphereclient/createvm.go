@@ -165,6 +165,7 @@ func (c *Client) ensureTemplateVM(
 	ctx context.Context,
 	datastore *object.Datastore,
 	args CreateVirtualMachineParams,
+	vmFolderName string,
 ) (vm *object.VirtualMachine, err error) {
 	finder, _, err := c.finder(ctx)
 	if err != nil {
@@ -183,7 +184,7 @@ func (c *Client) ensureTemplateVM(
 		return nil, errors.Annotate(err, "creating import spec")
 	}
 
-	vmFolder, err := c.EnsureVMFolder(ctx, vmTemplatePath(args))
+	vmFolder, err := c.EnsureVMFolder(ctx, vmTemplatePath(args), vmFolderName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -298,6 +299,7 @@ func (c *Client) ensureTemplateVM(
 func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
+	vmFolderName string,
 ) (_ *mo.VirtualMachine, err error) {
 	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
@@ -318,7 +320,7 @@ func (c *Client) CreateVirtualMachine(
 		return nil, errors.Trace(err)
 	}
 
-	templateVM, err := c.ensureTemplateVM(ctx, datastore, args)
+	templateVM, err := c.ensureTemplateVM(ctx, datastore, args, vmFolderName)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating template VM")
 	}
