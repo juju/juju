@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -414,7 +415,7 @@ func (c *OptionalControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.ControllerName, "c", "", "Controller to operate in")
 	f.StringVar(&c.ControllerName, "controller", "", "")
 	// TODO (juju3) remove me
-	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client-only): Local operation only; controller not affected")
+	f.BoolVar(&c.Local, "local", false, "DEPRECATED (use --client): Local operation only; controller not affected")
 }
 
 // Init populates the command with the args from the command line.
@@ -451,6 +452,10 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 	}
 
 	ctxt.Infof("This operation can be applied to both a copy on this client and to the one on a controller.")
+	if jujucmd.IsPiped(ctxt) {
+		return errors.Errorf("The command is piped and Juju cannot prompt to clarify whether the --client or a --controller is to be used.\n" +
+			"Please clarify by re-running the command with the desired option(s).")
+	}
 	if currentController == "" {
 		msg := "No current controller was detected"
 		all, err := c.Store.AllControllers()
