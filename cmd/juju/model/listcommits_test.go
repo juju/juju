@@ -53,6 +53,25 @@ func (s *commitsSuite) getGenerationCommitValues() []coremodel.GenerationCommit 
 	return values
 }
 
+func (s *commitsSuite) getGenerationEmptyCommitValues() []coremodel.GenerationCommit {
+	values := []coremodel.GenerationCommit{
+		{
+			Completed:    "0001-01-01",
+			CompletedBy:  "test-user",
+			GenerationId: 1,
+			BranchName:   "bla",
+		},
+		{
+			Completed:    "0001-02-02",
+			CompletedBy:  "test-user",
+			GenerationId: 2,
+			BranchName:   "test",
+		},
+	}
+	return values
+}
+
+
 func (s *commitsSuite) TestRunCommandTabularOutput(c *gc.C) {
 	defer s.setup(c).Finish()
 	result := s.getGenerationCommitValues()
