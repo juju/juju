@@ -47,7 +47,7 @@ assert_net_iface_for_endpoint_matches() {
 
     # shellcheck disable=SC2086,SC2016
     got_if=$(juju run -a ${app_name} "network-get ${endpoint_name}" | grep "interfacename: ens" | awk '{print $2}')
-    if [[ "$got_if" != "$exp_if_name" ]]; then
+    if [ "$got_if" != "$exp_if_name" ]; then
         # shellcheck disable=SC2086,SC2016,SC2046
         echo $(red "Expected network interface for ${app_name}:${endpoint_name} to be ${exp_if_name}; got ${got_if}")
         exit 1
@@ -67,7 +67,7 @@ assert_endpoint_binding_matches() {
 
     # shellcheck disable=SC2086,SC2016
     got=$(juju show-application ${app_name} --format json | jq -r ".[\"${app_name}\"] | .[\"endpoint-bindings\"] | .[\"${endpoint_name}\"]")
-    if [[ "$got" != "$exp_space_name" ]]; then
+    if [ "$got" != "$exp_space_name" ]; then
         # shellcheck disable=SC2086,SC2016,SC2046
         echo $(red "Expected endpoint \"${endpoint_name}\" in juju show-application ${app_name} to be ${exp_space_name}; got ${got}")
         exit 1
