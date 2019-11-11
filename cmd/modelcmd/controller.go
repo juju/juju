@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/api/usermanager"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/interact"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
@@ -451,8 +452,7 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 	}
 
 	ctxt.Infof("This operation can be applied to both a copy on this client and to the one on a controller.")
-	fi, _ := os.Stdin.Stat()
-	if (fi.Mode() & os.ModeCharDevice) == 0 {
+	if jujucmd.IsPiped(ctxt) {
 		return errors.Errorf("The command is piped and Juju cannot prompt to clarify whether the --client or a --controller is to be used.\n" +
 			"Please clarify by re-running the command with the desired option(s).")
 		return cmd.ErrSilent
