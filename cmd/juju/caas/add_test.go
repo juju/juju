@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/golang/mock/gomock"
@@ -1044,12 +1045,10 @@ func (s *addCAASSuite) TestCorrectPromptOrderFromStdIn(c *gc.C) {
 	c.Assert(stdIn, gc.NotNil)
 	defer stdIn.Close()
 	ctx, err := s.runCommand(c, stdIn, command, "myk8s")
-	c.Assert(err, gc.ErrorMatches, "EOF")
-	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "Do you want to add k8s cloud myk8s to:\n"+
-		"    1. client only (--client)\n"+
-		"    2. controller \"foo\" only (--controller foo)\n"+
-		"    3. both (--client --controller foo)\n"+
-		"Enter your choice, or type Q|q to quit: ")
+	c.Assert(errors.Cause(err), gc.ErrorMatches, regexp.QuoteMeta(`
+The command is piped and Juju cannot prompt to clarify whether the --client or a --controller is to be used.
+Please clarify by re-running the command with the desired option(s).`[1:]))
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "This operation can be applied to both a copy on this client and to the one on a controller.\n")
 }
 

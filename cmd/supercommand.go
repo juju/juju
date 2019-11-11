@@ -13,6 +13,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
@@ -85,4 +86,11 @@ func Info(i *cmd.Info) *cmd.Info {
 	info.FlagKnownAs = "option"
 	info.ShowSuperFlags = []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"}
 	return &info
+}
+
+// IsPiped determines if the command was used in a pipe and,
+// hence, it's stdin is not usable for user input.
+func IsPiped(ctx *cmd.Context) bool {
+	stdIn, ok := ctx.Stdin.(*os.File)
+	return ok && !terminal.IsTerminal(int(stdIn.Fd()))
 }
