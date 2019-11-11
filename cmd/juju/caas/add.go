@@ -449,11 +449,6 @@ func (c *AddCAASCommand) Run(ctx *cmd.Context) (err error) {
 	// We need to do this later then other commands since
 	// piping is done regularly with add-k8s.
 	if err := c.MaybePrompt(ctx, fmt.Sprintf("add k8s cloud %v to", c.caasName)); err != nil {
-		if errors.Cause(err) == io.EOF {
-			ctx.Infof("The command is piped and Juju cannot prompt to clarify whether the --client or a --controller is to be used.\n" +
-				"Please clarify by re-running the command with the desired option(s).")
-			return cmd.ErrSilent
-		}
 		return errors.Trace(err)
 	}
 

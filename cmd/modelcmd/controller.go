@@ -451,6 +451,12 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 	}
 
 	ctxt.Infof("This operation can be applied to both a copy on this client and to the one on a controller.")
+	fi, _ := os.Stdin.Stat()
+	if (fi.Mode() & os.ModeCharDevice) == 0 {
+		return errors.Errorf("The command is piped and Juju cannot prompt to clarify whether the --client or a --controller is to be used.\n" +
+			"Please clarify by re-running the command with the desired option(s).")
+		return cmd.ErrSilent
+	}
 	if currentController == "" {
 		msg := "No current controller was detected"
 		all, err := c.Store.AllControllers()
