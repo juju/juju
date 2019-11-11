@@ -455,7 +455,6 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 	if jujucmd.IsPiped(ctxt) {
 		return errors.Errorf("The command is piped and Juju cannot prompt to clarify whether the --client or a --controller is to be used.\n" +
 			"Please clarify by re-running the command with the desired option(s).")
-		return cmd.ErrSilent
 	}
 	if currentController == "" {
 		msg := "No current controller was detected"
