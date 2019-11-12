@@ -134,6 +134,11 @@ func (cs *k8sContainers) Validate() error {
 	if len(cs.Containers) == 0 {
 		return errors.New("require at least one container spec")
 	}
+	for _, c := range cs.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
 }
 

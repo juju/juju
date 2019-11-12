@@ -156,6 +156,23 @@ type PodSpecVersion struct {
 // ConfigMap describes the format of configmap resource.
 type ConfigMap map[string]string
 
+type caasContainers struct {
+	Containers []ContainerSpec
+}
+
+// Validate is defined on ProviderContainer.
+func (cs *caasContainers) Validate() error {
+	if len(cs.Containers) == 0 {
+		return errors.New("require at least one container spec")
+	}
+	for _, c := range cs.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 // podSpecBase defines the data values used to configure a pod on the CAAS substrate.
 type podSpecBase struct {
 	PodSpecVersion `json:",inline" yaml:",inline"`
@@ -167,7 +184,7 @@ type podSpecBase struct {
 	Service    *ServiceSpec         `json:"service,omitempty" yaml:"service,omitempty"`
 	ConfigMaps map[string]ConfigMap `json:"configmaps,omitempty" yaml:"configmaps,omitempty"`
 
-	Containers []ContainerSpec `json:"containers" yaml:"containers"`
+	caasContainers // containers field is decoded in provider spec level.
 
 	// ProviderPod defines config which is specific to a substrate, eg k8s
 	ProviderPod `json:"-" yaml:"-"`
@@ -190,11 +207,9 @@ func (spec *podSpecBase) Validate(ver Version) error {
 		}
 	}
 
-	for _, c := range spec.Containers {
-		if err := c.Validate(); err != nil {
-			return errors.Trace(err)
-		}
-	}
+	// if err := spec.Containers.Validate(); err != nil {
+	// 	return errors.Trace(err)
+	// }
 
 	if spec.ProviderPod != nil {
 		return spec.ProviderPod.Validate()
