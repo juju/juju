@@ -918,30 +918,6 @@ func (api *ProvisionerAPI) GetContainerInterfaceInfo(args params.Entities) (
 	return api.prepareOrGetContainerInterfaceInfo(args, true)
 }
 
-// Machine is an indirection for use in container provisioning.
-//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/agent/provisioner Machine,BridgePolicy
-//go:generate mockgen -package mocks -destination mocks/containerizer_mock.go github.com/juju/juju/network/containerizer LinkLayerDevice,Unit,Application,Charm
-type Machine interface {
-	containerizer.Container
-
-	InstanceId() (instance.Id, error)
-	IsManual() (bool, error)
-	MachineTag() names.MachineTag
-}
-
-// BridgePolicy is an indirection for containerizer.BridgePolicy.
-type BridgePolicy interface {
-	// FindMissingBridgesForContainer looks at the spaces that the container should
-	// have access to, and returns any host devices need to be bridged for use as
-	// the container network.
-	FindMissingBridgesForContainer(containerizer.Machine, containerizer.Container) ([]network.DeviceToBridge, int, error)
-
-	// PopulateContainerLinkLayerDevices sets the link-layer devices of the input
-	// guest, setting each device to be a child of the corresponding bridge on the
-	// host machine.
-	PopulateContainerLinkLayerDevices(containerizer.Machine, containerizer.Container) error
-}
-
 // perContainerHandler is the interface we need to trigger processing on
 // every container passed in as a list of things to process.
 type perContainerHandler interface {
@@ -1008,8 +984,8 @@ func (api *ProvisionerAPI) processEachContainer(args params.Entities, handler pe
 
 		if err := handler.ProcessOneContainer(
 			env, api.providerCallContext, policy, i,
-			containerizer.NewMachine(hostMachine),
-			containerizer.NewMachine(guest),
+			NewMachine(hostMachine),
+			NewMachine(guest),
 		); err != nil {
 			handler.SetError(i, err)
 			continue

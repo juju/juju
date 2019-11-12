@@ -6,7 +6,6 @@ package containerizer
 import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	jujucharm "gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -14,7 +13,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Unit,Application,Address,Subnet,LinkLayerDevice
+//go:generate mockgen -package containerizer -destination bridgepolicy_mock_test.go github.com/juju/juju/network/containerizer Container,Address,Subnet,LinkLayerDevice
 
 // SpaceBacking describes the retrieval of all spaces from the DB.
 type SpaceBacking interface {
@@ -54,7 +53,13 @@ func (l *linkLayerDevice) ParentDevice() (LinkLayerDevice, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &linkLayerDevice{dev}, nil
+	return NewLinkLayerDevice(dev), nil
+}
+
+// NewLinkLayerDevice wraps the given state.LinkLayerDevice
+// in a linkLayerDevice.
+func NewLinkLayerDevice(dev *state.LinkLayerDevice) LinkLayerDevice {
+	return &linkLayerDevice{dev}
 }
 
 var _ LinkLayerDevice = (*linkLayerDevice)(nil)
@@ -87,8 +92,9 @@ type MachineShim struct {
 	*state.Machine
 }
 
+// NewMachine wraps the given state.machine in a MachineShim.
 func NewMachine(m *state.Machine) *MachineShim {
-	return &MachineShim{m}
+	return &MachineShim{Machine: m}
 }
 
 // AllLinkLayerDevices implements Machine by wrapping each
@@ -102,11 +108,13 @@ func (m *MachineShim) AllLinkLayerDevices() ([]LinkLayerDevice, error) {
 
 	wrapped := make([]LinkLayerDevice, len(devs))
 	for i, d := range devs {
-		wrapped[i] = &linkLayerDevice{d}
+		wrapped[i] = NewLinkLayerDevice(d)
 	}
 	return wrapped, nil
 }
 
+// AllAddresses implements Machine by wrapping each state.Address reference
+// in returned collection with the local Address implementation.
 func (m *MachineShim) AllAddresses() ([]Address, error) {
 	addrs, err := m.Machine.AllAddresses()
 	if err != nil {
@@ -115,7 +123,7 @@ func (m *MachineShim) AllAddresses() ([]Address, error) {
 
 	wrapped := make([]Address, len(addrs))
 	for i, a := range addrs {
-		wrapped[i] = &addressShim{a}
+		wrapped[i] = NewAddress(a)
 	}
 	return wrapped, nil
 }
@@ -125,91 +133,36 @@ func (m *MachineShim) Raw() *state.Machine {
 	return m.Machine
 }
 
-// Address is an indirection for state.Address
+// Address is an indirection for state.Address.
 type Address interface {
 	Subnet() (Subnet, error)
 	DeviceName() string
 }
 
+// addressShim implements Address.
 type addressShim struct {
 	*state.Address
+}
+
+// NewAddress wraps the given state.Address in an addressShim.
+func NewAddress(a *state.Address) Address {
+	return &addressShim{Address: a}
 }
 
 func (a *addressShim) Subnet() (Subnet, error) {
 	return a.Address.Subnet()
 }
 
-// Subnet is an indirection for state.Subnet
+// Subnet is an indirection for state.Subnet.
 type Subnet interface {
 	SpaceID() string
 }
 
-// Container is an indirection for state.Machine,
-// describing a container.
+// Container is an indirection for state.Machine, describing a container.
 type Container interface {
 	Machine
 	ContainerType() instance.ContainerType
-	Units() ([]Unit, error)
 	Constraints() (constraints.Value, error)
 }
 
 var _ Container = (*MachineShim)(nil)
-
-func (m *MachineShim) Units() ([]Unit, error) {
-	units, err := m.Machine.Units()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	wrapped := make([]Unit, len(units))
-	for i, u := range units {
-		wrapped[i] = &unitShim{u}
-	}
-	return wrapped, nil
-}
-
-// Unit, Application & Charm are used to facilitate mocks
-// for testing in apiserver/.../agent/provisioner.  This is a
-// by product of bad design.
-
-// unitShim implements Unit.
-// It is required to mock the return of Units from MachineShim.
-type unitShim struct {
-	*state.Unit
-}
-
-var _ Unit = (*unitShim)(nil)
-
-type Unit interface {
-	Application() (Application, error)
-	Name() string
-}
-
-func (u *unitShim) Application() (Application, error) {
-	app, err := u.Unit.Application()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &applicationShim{app}, nil
-}
-
-// applicationShim implements Application.
-// It is required to mock the return an Application from unitShim.
-type applicationShim struct {
-	*state.Application
-}
-
-var _ Application = (*applicationShim)(nil)
-
-type Application interface {
-	Charm() (Charm, bool, error)
-	Name() string
-}
-
-func (a *applicationShim) Charm() (Charm, bool, error) {
-	return a.Application.Charm()
-}
-
-type Charm interface {
-	LXDProfile() *jujucharm.LXDProfile
-	Revision() int
-}
