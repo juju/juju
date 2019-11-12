@@ -5,15 +5,15 @@ package model
 
 import (
 	"fmt"
-	"io"
-	"os"
-	"strconv"
-	"time"
-
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"io"
+	"os"
+	"sort"
+	"strconv"
+	"time"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -69,7 +69,7 @@ type CommitsCommandAPI interface {
 	// effectively completing it and applying
 	// all branch changes across the model.
 	// The new generation ID of the model is returned.
-	ListCommits(func(time.Time) string) (model.GenerationCommits, error)
+	ListCommits() (model.GenerationCommits, error)
 }
 
 // NewCommitCommand wraps CommitsCommand with sane model settings.
@@ -140,20 +140,16 @@ func (c *CommitsCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer func() { _ = client.Close() }()
-	// Partially apply our time format
-	formatTime := func(t time.Time) string {
-		return common.FormatTime(&t, c.isoTime)
-	}
 
-	commits, err := client.ListCommits(formatTime)
+	commits, err := client.ListCommits()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if len(commits) == 0 && c.out.Name() == "tabular" {
-		ctx.Infof("no commits to display")
+		ctx.Infof("No commits to list")
 		return nil
 	}
-	tabular := constructYamlJson(commits)
+	tabular := c.constructYamlJson(commits)
 	return errors.Trace(c.out.Write(ctx, tabular))
 }
 
@@ -176,13 +172,24 @@ func (c *CommitsCommand) printTabular(writer io.Writer, value interface{}) error
 	return nil
 }
 
-func constructYamlJson(gen model.GenerationCommits) formattedCommitList {
+func (c *CommitsCommand) constructYamlJson(generations model.GenerationCommits) formattedCommitList {
+
+	sort.Slice(generations, func(i, j int) bool {
+		return generations[i].GenerationId > generations[j].GenerationId
+	})
+
 	var result formattedCommitList
-	for _, gen := range gen {
+	for _, gen := range generations {
+		var formattedDate string
+		if c.out.Name() == "tabular" {
+			formattedDate = common.UserFriendlyDuration(gen.Completed, time.Now())
+		} else {
+			formattedDate = common.FormatTime(&gen.Completed, c.isoTime)
+		}
 		fmc := formattedCommit{
 			CommitId:    gen.GenerationId,
 			BranchName:  gen.BranchName,
-			CommittedAt: gen.Completed,
+			CommittedAt: formattedDate,
 			CommittedBy: gen.CompletedBy,
 		}
 		result.Commits = append(result.Commits, fmc)

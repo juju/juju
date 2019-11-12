@@ -70,7 +70,7 @@ func (c *Client) CommitBranch(branchName string) (int, error) {
 }
 
 // ListCommits lists the committed branches commits,
-func (c *Client) ListCommits(formatTime func(time.Time) string) (model.GenerationCommits, error) {
+func (c *Client) ListCommits() (model.GenerationCommits, error) {
 	var result params.GenerationCommitResults
 	err := c.facade.FacadeCall("ListCommits", nil, &result)
 	if err != nil {
@@ -79,13 +79,13 @@ func (c *Client) ListCommits(formatTime func(time.Time) string) (model.Generatio
 	if result.Error != nil {
 		return nil, errors.Trace(result.Error)
 	}
-	return generationCommitsFromResults(result, formatTime), nil
+	return generationCommitsFromResults(result), nil
 }
 
 // CommitBranch commits the branch with the input name to the model,
 // effectively completing it and applying all branch changes across the model.
 // The new generation ID of the model is returned.
-func (c *Client) ShowCommit(formatTime func(time.Time) string, generationId int) (model.GenerationCommit, error) {
+func (c *Client) ShowCommit(generationId int) (model.GenerationCommit, error) {
 	var result params.GenerationCommitResult
 	arg := params.GenerationId{GenerationId: generationId}
 	err := c.facade.FacadeCall("ShowCommit", arg, &result)
@@ -95,7 +95,7 @@ func (c *Client) ShowCommit(formatTime func(time.Time) string, generationId int)
 	if result.Error != nil {
 		return model.GenerationCommit{}, errors.Trace(result.Error)
 	}
-	return generationCommitFromResult(result, formatTime), nil
+	return generationCommitFromResult(result), nil
 }
 
 // TrackBranch sets the input units and/or applications
@@ -204,12 +204,12 @@ func generationInfoFromResult(
 	return summaries
 }
 
-func generationCommitsFromResults(results params.GenerationCommitResults, formatTime func(time.Time) string) model.GenerationCommits {
+func generationCommitsFromResults(results params.GenerationCommitResults) model.GenerationCommits {
 	commits := make(model.GenerationCommits, len(results.GenerationCommits))
 	for i, gen := range results.GenerationCommits {
 		commits[i] = model.GenerationCommit{
 			GenerationId: gen.GenerationId,
-			Completed:    formatTime(time.Unix(gen.Completed, 0)),
+			Completed:    time.Unix(gen.Completed, 0),
 			CompletedBy:  gen.CompletedBy,
 			BranchName:   gen.BranchName,
 		}
@@ -217,7 +217,7 @@ func generationCommitsFromResults(results params.GenerationCommitResults, format
 	return commits
 }
 
-func generationCommitFromResult(result params.GenerationCommitResult, formatTime func(time.Time) string) model.GenerationCommit {
+func generationCommitFromResult(result params.GenerationCommitResult) model.GenerationCommit {
 	genCommit := result.GenerationCommit
 	appChanges := make([]model.GenerationCommitApplication, len(genCommit.Applications))
 	for i, a := range genCommit.Applications {
@@ -230,9 +230,9 @@ func generationCommitFromResult(result params.GenerationCommitResult, formatTime
 	}
 	modelCommit := model.GenerationCommit{
 		BranchName:   genCommit.BranchName,
-		Completed:    formatTime(time.Unix(genCommit.Completed, 0)),
+		Completed:    time.Unix(genCommit.Completed, 0),
 		CompletedBy:  genCommit.CompletedBy,
-		Created:      formatTime(time.Unix(genCommit.Created, 0)),
+		Created:      time.Unix(genCommit.Created, 0),
 		CreatedBy:    genCommit.CreatedBy,
 		GenerationId: genCommit.GenerationId,
 		Applications: appChanges,

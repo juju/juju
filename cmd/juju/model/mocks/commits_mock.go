@@ -8,7 +8,6 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
 	reflect "reflect"
-	time "time"
 )
 
 // MockCommitsCommandAPI is a mock of CommitsCommandAPI interface
@@ -49,16 +48,16 @@ func (mr *MockCommitsCommandAPIMockRecorder) Close() *gomock.Call {
 }
 
 // ListCommits mocks base method
-func (m *MockCommitsCommandAPI) ListCommits(arg0 func(time.Time) string) ([]model.GenerationCommit, error) {
+func (m *MockCommitsCommandAPI) ListCommits() ([]model.GenerationCommit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ListCommits", arg0)
+	ret := m.ctrl.Call(m, "ListCommits")
 	ret0, _ := ret[0].([]model.GenerationCommit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // ListCommits indicates an expected call of ListCommits
-func (mr *MockCommitsCommandAPIMockRecorder) ListCommits(arg0 interface{}) *gomock.Call {
+func (mr *MockCommitsCommandAPIMockRecorder) ListCommits() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCommits", reflect.TypeOf((*MockCommitsCommandAPI)(nil).ListCommits), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListCommits", reflect.TypeOf((*MockCommitsCommandAPI)(nil).ListCommits))
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
-	"regexp"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -48,9 +48,9 @@ func (s *showCommitsSuite) TestInitMoreArgs(c *gc.C) {
 }
 func (s *showCommitsSuite) getGenerationCommitValue() coremodel.GenerationCommit {
 	values := coremodel.GenerationCommit{
-		Completed:    "0001-01-01",
+		Completed:    time.Unix(12345, 0),
 		CompletedBy:  "test-user",
-		Created:      "0001-01-00",
+		Created:      time.Unix(12345, 0),
 		CreatedBy:    "test-user",
 		GenerationId: 1,
 		BranchName:   "bla",
@@ -63,42 +63,7 @@ func (s *showCommitsSuite) getGenerationCommitValue() coremodel.GenerationCommit
 	return values
 }
 
-func (s *showCommitsSuite) TestRunCommandJsonOutput(c *gc.C) {
-	defer s.setup(c).Finish()
-	result := s.getGenerationCommitValue()
-	unwrap := regexp.MustCompile(`[\s+\n]`)
-	expected := unwrap.ReplaceAllLiteralString(`
-{
-  "branch": {
-    "bla": {
-      "applications": [
-        {
-          "ApplicationName": "redis",
-          "UnitsTracking": [
-            "redis/0"
-          ],
-          "ConfigChanges": {
-            "databases": 8
-          }
-        }
-      ]
-    }
-  },
-  "committed-at": "0001-01-01",
-  "committed-by": "test-user",
-  "created": "0001-01-00",
-  "created-by": "test-user"
-}
-`, "")
-	expected = expected + "\n"
-	s.api.EXPECT().ShowCommit(gomock.Any(), 1).Return(result, nil)
-	ctx, err := s.runCommand(c, "1", "--format=json")
-	c.Assert(err, jc.ErrorIsNil)
-	output := cmdtesting.Stdout(ctx)
-	c.Assert(output, gc.Equals, expected)
-}
-
-func (s *showCommitsSuite) TestRunCommandYamlOutput(c *gc.C) {
+func (s *showCommitsSuite) TestYamlOutput(c *gc.C) {
 	defer s.setup(c).Finish()
 	result := s.getGenerationCommitValue()
 	expected := `
@@ -110,22 +75,21 @@ branch:
       - redis/0
       config:
         databases: 8
-committed-at: "0001-01-01"
+committed-at: 01 Jan 1970 04:25:45+01:00
 committed-by: test-user
-created: 0001-01-00
+created: 01 Jan 1970 04:25:45+01:00
 created-by: test-user
 `[1:]
-	s.api.EXPECT().ShowCommit(gomock.Any(), 1).Return(result, nil)
+	s.api.EXPECT().ShowCommit(1).Return(result, nil)
 	ctx, err := s.runCommand(c, "1", "--format=yaml")
 	c.Assert(err, jc.ErrorIsNil)
-	output := cmdtesting.Stdout(ctx)
-	c.Assert(output, gc.Matches, expected)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }
 
 func (s *showCommitsSuite) TestRunCommandAPIError(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	s.api.EXPECT().ShowCommit(gomock.Any(), gomock.Any()).Return(coremodel.GenerationCommit{}, errors.New("boom"))
+	s.api.EXPECT().ShowCommit(gomock.Any()).Return(coremodel.GenerationCommit{}, errors.New("boom"))
 
 	_, err := s.runCommand(c, "1")
 	c.Assert(err, gc.ErrorMatches, "boom")

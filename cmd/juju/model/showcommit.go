@@ -4,13 +4,11 @@
 package model
 
 import (
-	"os"
-	"strconv"
-	"time"
-
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"os"
+	"strconv"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -64,7 +62,7 @@ type ShowCommitCommandAPI interface {
 	Close() error
 
 	// ShowCommit shows the branches which were committed
-	ShowCommit(func(time.Time) string, int) (model.GenerationCommit, error)
+	ShowCommit(int) (model.GenerationCommit, error)
 }
 
 // NewShowCommitCommand wraps NewShowCommitCommand with sane model settings.
@@ -136,10 +134,7 @@ func (c *ShowCommitCommand) Run(ctx *cmd.Context) error {
 	}
 	defer func() { _ = client.Close() }()
 
-	formatTime := func(t time.Time) string {
-		return common.FormatTime(&t, c.isoTime)
-	}
-	cmt, err := client.ShowCommit(formatTime, c.generationId)
+	cmt, err := client.ShowCommit(c.generationId)
 	if err != nil {
 		return err
 	}
@@ -149,11 +144,12 @@ func (c *ShowCommitCommand) Run(ctx *cmd.Context) error {
 // Run implements the meaty part of the cmd.Command interface.
 func (c *ShowCommitCommand) getFormattedOutput(gcm model.GenerationCommit) formattedShowCommit {
 	applications := map[string]formattedShowCommitApplications{gcm.BranchName: {gcm.Applications}}
+
 	commit := formattedShowCommit{
 		Branch:      applications,
-		CommittedAt: gcm.Completed,
+		CommittedAt: common.FormatTime(&gcm.Completed, c.isoTime),
 		CommittedBy: gcm.CompletedBy,
-		Created:     gcm.Created,
+		Created:     common.FormatTime(&gcm.Created, c.isoTime),
 		CreatedBy:   gcm.CreatedBy,
 	}
 	return commit

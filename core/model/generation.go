@@ -5,6 +5,7 @@ package model
 
 import (
 	"github.com/juju/errors"
+	"time"
 )
 
 // TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
@@ -89,13 +90,13 @@ type GenerationCommit struct {
 	BranchName string `yaml:"branch"`
 
 	// Created is the Unix timestamp at generation creation.
-	Completed string `yaml:"completed"`
+	Completed time.Time `yaml:"completed"`
 
 	// Created is the user who created the generation.
 	CompletedBy string `yaml:"completed-by"`
 
 	// Created is the Unix timestamp at generation creation.
-	Created string `yaml:"created,omitempty"`
+	Created time.Time `yaml:"created,omitempty"`
 
 	// Created is the user who created the generation.
 	CreatedBy string `yaml:"created-by,omitempty"`
