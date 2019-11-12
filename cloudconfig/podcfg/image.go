@@ -66,7 +66,6 @@ func tagImagePath(path string, ver version.Number) string {
 		verString = splittedPath[1]
 	}
 	if ver != version.Zero {
-		ver.Build = 0
 		verString = ver.String()
 	}
 	if verString != "" {

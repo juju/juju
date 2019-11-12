@@ -39,13 +39,17 @@ GIT_TREE_STATE = $(if $(shell test -d .git || echo missing),archive,$(if $(shell
 # Example: BUILD_TAGS="minimal provider_kubernetes"
 BUILD_TAGS ?= 
 
+# Build number passed in must be a monotonic int representing
+# the build.
+JUJU_BUILD_NUMBER ?= 
+
 # Compile with debug flags if requested.
 ifeq ($(DEBUG_JUJU), 1)
     COMPILE_FLAGS = -gcflags "all=-N -l"
-    LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE)"
+    LINK_FLAGS = -ldflags "-X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 else
     COMPILE_FLAGS =
-    LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE)"
+    LINK_FLAGS = -ldflags "-s -w -X $(PROJECT)/version.GitCommit=$(GIT_COMMIT) -X $(PROJECT)/version.GitTreeState=$(GIT_TREE_STATE) -X $(PROJECT)/version.build=$(JUJU_BUILD_NUMBER)"
 endif
 
 define DEPENDENCIES
@@ -184,29 +188,41 @@ check-deps:
 	@echo "$(GOCHECK_COUNT) instances of gocheck not in test code"
 
 # CAAS related targets
-DOCKER_USERNAME          ?= jujusolutions
-JUJUD_STAGING_DIR        ?= /tmp/jujud-operator
-JUJUD_BIN_DIR            ?= ${GOPATH}/bin
-OPERATOR_IMAGE_BUILD_SRC ?= true
-OPERATOR_IMAGE_TAG       ?= $(shell jujud version | rev | cut -d- -f3- | rev)
-OPERATOR_IMAGE_PATH      = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+DOCKER_USERNAME            ?= jujusolutions
+JUJUD_STAGING_DIR          ?= /tmp/jujud-operator
+JUJUD_BIN_DIR              ?= ${GOPATH}/bin
+OPERATOR_IMAGE_BUILD_SRC   ?= true
+# By default the image tag is the full version number, including the build number.
+OPERATOR_IMAGE_TAG         ?= $(shell jujud version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}(\.[[:digit:]]{1,9})?")
+# Legacy tags never have a build number.
+OPERATOR_IMAGE_TAG_LEGACY  ?= $(shell jujud version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}")
+OPERATOR_IMAGE_PATH         = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+OPERATOR_IMAGE_PATH_LEGACY  = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG_LEGACY}
 
-operator-image:
-    ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
-		make install
-    else
-		@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/jujud."
-    endif
+operator-check-build:
+ifeq ($(OPERATOR_IMAGE_BUILD_SRC),true)
+	make install
+else
+	@echo "skipping to build jujud bin, use existing one at ${JUJUD_BIN_DIR}/jujud."
+endif
+
+operator-image: operator-check-build
 	rm -rf ${JUJUD_STAGING_DIR}
 	mkdir ${JUJUD_STAGING_DIR}
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
 	docker build -f ${JUJUD_STAGING_DIR}/jujud-operator-dockerfile -t ${OPERATOR_IMAGE_PATH} ${JUJUD_STAGING_DIR}
+ifneq ($(OPERATOR_IMAGE_PATH),$(OPERATOR_IMAGE_PATH_LEGACY))
+	docker tag ${OPERATOR_IMAGE_PATH} ${OPERATOR_IMAGE_PATH_LEGACY}
+endif
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
 	docker push ${OPERATOR_IMAGE_PATH}
+ifneq ($(OPERATOR_IMAGE_PATH),$(OPERATOR_IMAGE_PATH_LEGACY))
+	docker push ${OPERATOR_IMAGE_PATH_LEGACY}
+endif
 
 microk8s-operator-update: operator-image
 	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr --namespace k8s.io image import -
