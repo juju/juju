@@ -31,16 +31,20 @@ type API struct {
 	modelCache        ModelCache
 }
 
-type APIV2 struct {
+type APIV3 struct {
 	*API
+}
+
+type APIV2 struct {
+	*APIV3
 }
 
 type APIV1 struct {
 	*APIV2
 }
 
-// NewModelGenerationFacadeV3 provides the signature required for facade registration.
-func NewModelGenerationFacadeV3(ctx facade.Context) (*API, error) {
+// NewModelGenerationFacadeV4 provides the signature required for facade registration.
+func NewModelGenerationFacadeV4(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	st := &stateShim{State: ctx.State()}
 	m, err := st.Model()
@@ -54,7 +58,15 @@ func NewModelGenerationFacadeV3(ctx facade.Context) (*API, error) {
 	return NewModelGenerationAPI(st, authorizer, m, &modelCacheShim{Model: mc})
 }
 
-// NewModelGenerationFacadeV2 provides the signature required for facade registration.
+// NewModelGenerationFacadeV3 provides the signature required for facade registration.
+func NewModelGenerationFacadeV3(ctx facade.Context) (*APIV3, error) {
+	v4, err := NewModelGenerationFacadeV4(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &APIV3{v4}, nil
+
+} // NewModelGenerationFacadeV2 provides the signature required for facade registration.
 func NewModelGenerationFacadeV2(ctx facade.Context) (*APIV2, error) {
 	v3, err := NewModelGenerationFacadeV3(ctx)
 	if err != nil {
@@ -238,8 +250,9 @@ func (api *API) AbortBranch(arg params.BranchArg) (params.ErrorResult, error) {
 // including units on the branch and the configuration disjoint with the
 // master generation.
 // An error is returned if no in-flight branch matching in input is found.
-func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults, error) {
-	result := params.GenerationResults{}
+func (api *API) BranchInfo(
+	args params.BranchInfoArgs) (params.BranchResults, error) {
+	result := params.BranchResults{}
 
 	isModelAdmin, err := api.hasAdminAccess()
 	if err != nil {
@@ -257,21 +270,87 @@ func (api *API) BranchInfo(args params.BranchInfoArgs) (params.GenerationResults
 		branches = make([]Generation, len(args.BranchNames))
 		for i, name := range args.BranchNames {
 			if branches[i], err = api.model.Branch(name); err != nil {
-				return generationResultsError(err)
+				return branchResultsError(err)
 			}
 		}
 	} else {
 		if branches, err = api.model.Branches(); err != nil {
-			return generationResultsError(err)
+			return branchResultsError(err)
 		}
 	}
 
 	results := make([]params.Generation, len(branches))
 	for i, b := range branches {
 		if results[i], err = api.oneBranchInfo(b, args.Detailed); err != nil {
-			return generationResultsError(err)
+			return branchResultsError(err)
 		}
 	}
+	result.Generations = results
+	return result, nil
+}
+
+// ShowCommit will return details a commit given by its generationId
+// An error is returned if either no branch can be found corresponding to the generation id.
+// Or the generation id given is below 1.
+func (api *API) ShowCommit(arg params.GenerationId) (params.GenerationResult, error) {
+	result := params.GenerationResult{}
+
+	isModelAdmin, err := api.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !api.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+	if arg.GenerationId < 1 {
+		err := errors.Errorf("supplied generation id has to be higher than 0")
+		return generationResultError(err)
+	}
+
+	branch, err := api.model.Generation(arg.GenerationId)
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
+	}
+
+	generationCommit, err := api.getGenerationCommit(branch)
+	if err != nil {
+		return generationResultError(err)
+	}
+
+	result.Generation = generationCommit
+
+	return result, nil
+}
+
+// ListCommits will return the commits, hence only branches with generation_id higher than 0
+func (api *API) ListCommits() (params.BranchResults, error) {
+	var result params.BranchResults
+
+	isModelAdmin, err := api.hasAdminAccess()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	if !isModelAdmin && !api.isControllerAdmin {
+		return result, common.ErrPerm
+	}
+
+	var branches []Generation
+	if branches, err = api.model.Generations(); err != nil {
+		return branchResultsError(err)
+	}
+
+	results := make([]params.Generation, len(branches))
+	for i, b := range branches {
+		gen := params.Generation{
+			BranchName:   b.BranchName(),
+			Completed:    b.Completed(),
+			CompletedBy:  b.CompletedBy(),
+			GenerationId: b.GenerationId(),
+		}
+		results[i] = gen
+	}
+
 	result.Generations = results
 	return result, nil
 }
@@ -324,6 +403,22 @@ func (api *API) oneBranchInfo(branch Generation, detailed bool) (params.Generati
 	}, nil
 }
 
+func (api *API) getGenerationCommit(branch Generation) (params.Generation, error) {
+	generation, err := api.oneBranchInfo(branch, true)
+	if err != nil {
+		return params.Generation{}, errors.Trace(err)
+	}
+	return params.Generation{
+		BranchName:   branch.BranchName(),
+		Completed:    branch.Completed(),
+		CompletedBy:  branch.CompletedBy(),
+		GenerationId: branch.GenerationId(),
+		Created:      branch.Created(),
+		CreatedBy:    branch.CreatedBy(),
+		Applications: generation.Applications,
+	}, nil
+}
+
 // HasActiveBranch returns a true result if the input model has an "in-flight"
 // branch matching the input name.
 func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error) {
@@ -348,8 +443,12 @@ func (api *API) HasActiveBranch(arg params.BranchArg) (params.BoolResult, error)
 	return result, nil
 }
 
-func generationResultsError(err error) (params.GenerationResults, error) {
-	return params.GenerationResults{Error: common.ServerError(err)}, nil
+func branchResultsError(err error) (params.BranchResults, error) {
+	return params.BranchResults{Error: common.ServerError(err)}, nil
+}
+
+func generationResultError(err error) (params.GenerationResult, error) {
+	return params.GenerationResult{Error: common.ServerError(err)}, nil
 }
 
 func intResultsError(err error) (params.IntResult, error) {

@@ -23037,7 +23037,7 @@
     },
     {
         "Name": "ModelGeneration",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -23070,7 +23070,7 @@
                             "$ref": "#/definitions/BranchInfoArgs"
                         },
                         "Result": {
-                            "$ref": "#/definitions/GenerationResults"
+                            "$ref": "#/definitions/BranchResults"
                         }
                     }
                 },
@@ -23093,6 +23093,25 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/BoolResult"
+                        }
+                    }
+                },
+                "ListCommits": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/BranchResults"
+                        }
+                    }
+                },
+                "ShowCommit": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/GenerationId"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/GenerationResult"
                         }
                     }
                 },
@@ -23153,6 +23172,24 @@
                     "required": [
                         "branches",
                         "detailed"
+                    ]
+                },
+                "BranchResults": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "generations": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Generation"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "generations"
                     ]
                 },
                 "BranchTrackArg": {
@@ -23250,11 +23287,20 @@
                         "branch": {
                             "type": "string"
                         },
+                        "completed": {
+                            "type": "integer"
+                        },
+                        "completed-by": {
+                            "type": "string"
+                        },
                         "created": {
                             "type": "integer"
                         },
                         "created-by": {
                             "type": "string"
+                        },
+                        "generation-id": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -23303,22 +23349,31 @@
                         "config"
                     ]
                 },
-                "GenerationResults": {
+                "GenerationId": {
+                    "type": "object",
+                    "properties": {
+                        "generation-id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "generation-id"
+                    ]
+                },
+                "GenerationResult": {
                     "type": "object",
                     "properties": {
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
-                        "generations": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Generation"
-                            }
+                        "generation": {
+                            "$ref": "#/definitions/Generation"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "generations"
+                        "generation"
                     ]
                 },
                 "IntResult": {

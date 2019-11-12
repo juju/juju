@@ -144,6 +144,11 @@ func (g *Generation) IsCompleted() bool {
 	return g.doc.Completed > 0
 }
 
+// Completed returns the Unix timestamp at generation completion.
+func (g *Generation) Completed() int64 {
+	return g.doc.Completed
+}
+
 // CompletedBy returns the user who committed the generation.
 func (g *Generation) CompletedBy() string {
 	return g.doc.CompletedBy
@@ -687,6 +692,12 @@ func insertGenerationTxnOps(id, branchName, userName string, now *time.Time) []t
 	}
 }
 
+// Generations returns all committed  branches.
+func (m *Model) Generations() ([]*Generation, error) {
+	b, err := m.st.CommittedBranches()
+	return b, errors.Trace(err)
+}
+
 // Branches returns all "in-flight" branches for the model.
 func (m *Model) Branches() ([]*Generation, error) {
 	b, err := m.st.Branches()
@@ -710,10 +721,35 @@ func (st *State) Branches() ([]*Generation, error) {
 	return branches, nil
 }
 
+// Generations returns all committed branches.
+func (st *State) CommittedBranches() ([]*Generation, error) {
+	col, closer := st.db().GetCollection(generationsC)
+	defer closer()
+
+	var docs []generationDoc
+	query := bson.M{"generation-id": bson.M{"$gte": 1}}
+	if err := col.Find(query).All(&docs); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	branches := make([]*Generation, len(docs))
+	for i, d := range docs {
+		branches[i] = newGeneration(st, &d)
+	}
+	return branches, nil
+}
+
 // Branch retrieves the generation with the the input branch name from the
 // collection of not-yet-completed generations.
 func (m *Model) Branch(name string) (*Generation, error) {
 	gen, err := m.st.Branch(name)
+	return gen, errors.Trace(err)
+}
+
+// Generation retrieves the generation with the the input generation_id from the
+// collection of completed generations.
+func (m *Model) Generation(id int) (*Generation, error) {
+	gen, err := m.st.CommittedBranch(id)
 	return gen, errors.Trace(err)
 }
 
@@ -745,6 +781,16 @@ func (st *State) Branch(name string) (*Generation, error) {
 	return newGeneration(st, doc), nil
 }
 
+// Generation retrieves the generation with the the input id from the
+// collection of completed generations.
+func (st *State) CommittedBranch(id int) (*Generation, error) {
+	doc, err := st.getCommittedBranchDoc(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newGeneration(st, doc), nil
+}
+
 func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 	col, closer := st.db().GetCollection(generationsC)
 	defer closer()
@@ -764,6 +810,27 @@ func (st *State) getBranchDoc(name string) (*generationDoc, error) {
 	default:
 		mod, _ := st.modelName()
 		return nil, errors.Annotatef(err, "retrieving branch %q in model %q", name, mod)
+	}
+}
+
+func (st *State) getCommittedBranchDoc(id int) (*generationDoc, error) {
+	col, closer := st.db().GetCollection(generationsC)
+	defer closer()
+
+	doc := &generationDoc{}
+	err := col.Find(bson.M{
+		"generation-id": id,
+	}).One(doc)
+
+	switch err {
+	case nil:
+		return doc, nil
+	case mgo.ErrNotFound:
+		mod, _ := st.modelName()
+		return nil, errors.NotFoundf("generation_id %d in model %q", id, mod)
+	default:
+		mod, _ := st.modelName()
+		return nil, errors.Annotatef(err, "retrieving generation_id %q in model %q", id, mod)
 	}
 }
 

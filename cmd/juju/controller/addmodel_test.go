@@ -197,7 +197,7 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	// If there's any model details existing, we just overwrite them. The
 	// controller will error out if the model already exists. Overwriting
 	// means we'll replace any stale details from an previously existing
@@ -601,7 +601,7 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	const controllerName = "test-master"
 
 	_, err := s.run(c, "test")
@@ -622,7 +622,7 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	const controllerName = "test-master"
 	checkNoModelSelected := func() {
 		_, err := s.store.CurrentModel(controllerName)

@@ -36,6 +36,7 @@ func (m *MockDiffCommandAPI) EXPECT() *MockDiffCommandAPIMockRecorder {
 
 // BranchInfo mocks base method
 func (m *MockDiffCommandAPI) BranchInfo(arg0 string, arg1 bool, arg2 func(time.Time) string) (map[string]model.Generation, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BranchInfo", arg0, arg1, arg2)
 	ret0, _ := ret[0].(map[string]model.Generation)
 	ret1, _ := ret[1].(error)
@@ -44,11 +45,13 @@ func (m *MockDiffCommandAPI) BranchInfo(arg0 string, arg1 bool, arg2 func(time.T
 
 // BranchInfo indicates an expected call of BranchInfo
 func (mr *MockDiffCommandAPIMockRecorder) BranchInfo(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BranchInfo", reflect.TypeOf((*MockDiffCommandAPI)(nil).BranchInfo), arg0, arg1, arg2)
 }
 
 // Close mocks base method
 func (m *MockDiffCommandAPI) Close() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,5 +59,6 @@ func (m *MockDiffCommandAPI) Close() error {
 
 // Close indicates an expected call of Close
 func (mr *MockDiffCommandAPIMockRecorder) Close() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockDiffCommandAPI)(nil).Close))
 }

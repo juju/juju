@@ -1032,7 +1032,7 @@ func (m mockLeadershipReader) Leaders() (map[string]string, error) {
 
 func setGenerationsControllerConfig(c *gc.C, st *state.State) {
 	err := st.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.Generations},
+		"features": []interface{}{feature.Branches},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }

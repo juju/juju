@@ -31,7 +31,7 @@ type generationBaseSuite struct {
 
 func (s *generationBaseSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	s.store = jujuclient.NewMemStore()
 	s.store.CurrentControllerName = "testing"
 	s.store.Controllers["testing"] = jujuclient.ControllerDetails{}

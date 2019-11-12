@@ -1182,6 +1182,11 @@ type BranchArg struct {
 	BranchName string `json:"branch"`
 }
 
+// GenerationId represents an GenerationId from a branch.
+type GenerationId struct {
+	GenerationId int `json:"generation-id"`
+}
+
 // BranchInfoArgs transports arguments to the BranchInfo method
 type BranchInfoArgs struct {
 	// BranchNames is the names of branches for which info is being requested.
@@ -1233,15 +1238,33 @@ type Generation struct {
 	// Created is the user who created the generation.
 	CreatedBy string `json:"created-by"`
 
+	// Completed is the Unix timestamp at generation completion/commit.
+	Completed int64 `json:"completed,omitempty"`
+
+	// CompletedBy is the user who committed/completed the generation.
+	CompletedBy string `json:"completed-by,omitempty"`
+
+	// GenerationId is the id .
+	GenerationId int `json:"generation-id,omitempty"`
+
 	// Applications holds the collection of application changes
 	// made under this generation.
 	Applications []GenerationApplication `json:"applications"`
 }
 
-// GenerationResults transports a collection of generation details.
-type GenerationResults struct {
+// BranchResults transports a collection of generation details.
+type BranchResults struct {
 	// Generations holds the details of the requested generations.
 	Generations []Generation `json:"generations"`
+
+	// Error holds the value of any error that occurred processing the request.
+	Error *Error `json:"error,omitempty"`
+}
+
+// GenerationResult transports a generation detail.
+type GenerationResult struct {
+	// Generation holds the details of the requested generation.
+	Generation Generation `json:"generation"`
 
 	// Error holds the value of any error that occurred processing the request.
 	Error *Error `json:"error,omitempty"`

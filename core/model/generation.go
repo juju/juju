@@ -5,6 +5,7 @@ package model
 
 import (
 	"github.com/juju/errors"
+	"time"
 )
 
 // TODO (manadart 2019-04-21) Change the nomenclature here to indicate "branch"
@@ -45,7 +46,7 @@ type GenerationApplication struct {
 	ApplicationName string `yaml:"application"`
 
 	// UnitProgress is summary information about units tracking the branch.
-	UnitProgress string `yaml:"progress"`
+	UnitProgress string `yaml:"progress,omitempty"`
 
 	// UnitDetail specifies which units are and are not tracking the branch.
 	UnitDetail *GenerationUnits `yaml:"units,omitempty"`
@@ -70,6 +71,35 @@ type Generation struct {
 	Applications []GenerationApplication `yaml:"applications"`
 }
 
+// GenerationCommit represents a model generation's commit details.
+type GenerationCommit struct {
+	// BranchName uniquely identifies a branch *amongst in-flight branches*.
+	BranchName string `yaml:"branch"`
+
+	// Created is the Unix timestamp at generation creation.
+	Completed time.Time `yaml:"completed"`
+
+	// Created is the user who created the generation.
+	CompletedBy string `yaml:"completed-by"`
+
+	// Created is the Unix timestamp at generation creation.
+	Created time.Time `yaml:"created,omitempty"`
+
+	// Created is the user who created the generation.
+	CreatedBy string `yaml:"created-by,omitempty"`
+
+	// GenerationId is the id .
+	GenerationId int `yaml:"generation-id,omitempty"`
+
+	// Applications holds the collection of application changes
+	// made under this generation.
+	Applications []GenerationApplication `yaml:"applications,omitempty"`
+}
+
 // GenerationSummaries is a type alias for a representation
 // of changes-by-generation.
 type GenerationSummaries = map[string]Generation
+
+// GenerationCommits is a type alias for a representation of each commit.
+// Keyed by the generation id
+type GenerationCommits = []GenerationCommit
