@@ -150,7 +150,7 @@ func (c *listTasksCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		out[tag.Id()] = FormatActionResult(result, c.utc)
+		out[tag.Id()] = FormatActionResult(result, c.utc, false)
 	}
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, out)

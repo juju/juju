@@ -390,7 +390,7 @@ hello
 world`[1:],
 	}, {
 		should:   "call a basic function with no params with yaml output including stdout, stderr",
-		withArgs: []string{validUnitId, "some-function", "--format", "yaml"},
+		withArgs: []string{validUnitId, "some-function", "--format", "yaml", "--utc"},
 		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withFunctionResults: []params.ActionResult{{
 			Action: &params.Action{
@@ -433,9 +433,9 @@ mysql/0:
       message: hello
   status: completed
   timing:
-    completed: 2015-02-14 08:17:00 +0000 UTC
-    enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC
+    completed: "2015-02-14 08:17:00"
+    enqueued: "2015-02-14 08:13:00"
+    started: "2015-02-14 08:15:00"
   unit: mysql/0`[1:],
 	}, {
 		should:   "call a basic function with progress logs",
@@ -534,13 +534,13 @@ mysql/0:
       message: hello
   status: completed
   timing:
-    completed: 2015-02-14 08:17:00 +0000 UTC
-    enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC
+    completed: "2015-02-14 08:17:00"
+    enqueued: "2015-02-14 08:13:00"
+    started: "2015-02-14 08:15:00"
   unit: mysql/0`[1:],
 	}, {
 		should:   "call action on multiple units with stdout for each action",
-		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "yaml"},
+		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "yaml", "--utc"},
 		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
 			validActionId:  {{Tag: validActionTagString}},
 			validActionId2: {{Tag: validActionTagString2}},
@@ -596,9 +596,9 @@ mysql/0:
       message: hello
   status: completed
   timing:
-    completed: 2015-02-14 08:17:00 +0000 UTC
-    enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC
+    completed: "2015-02-14 08:17:00"
+    enqueued: "2015-02-14 08:13:00"
+    started: "2015-02-14 08:15:00"
   unit: mysql/0
 mysql/1:
   id: f47ac10b-58cc-4372-a567-0e02b2c3d478
@@ -608,9 +608,9 @@ mysql/1:
       message: hello2
   status: completed
   timing:
-    completed: 2015-02-14 08:17:00 +0000 UTC
-    enqueued: 2015-02-14 08:13:00 +0000 UTC
-    started: 2015-02-14 08:15:00 +0000 UTC
+    completed: "2015-02-14 08:17:00"
+    enqueued: "2015-02-14 08:13:00"
+    started: "2015-02-14 08:15:00"
   unit: mysql/1`[1:],
 	}, {
 		should:   "call function on multiple units with plain output selected",

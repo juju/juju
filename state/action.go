@@ -334,7 +334,7 @@ func newAction(st *State, adoc actionDoc) Action {
 
 // MinVersionSupportNewActionID should be un-exposed after 2.7 released.
 // TODO(action): un-expose MinVersionSupportNewActionID and IsNewActionIDSupported and remove those helper functions using these two vars in tests from 2.7.0.
-var MinVersionSupportNewActionID = version.MustParse("2.7.0")
+var MinVersionSupportNewActionID = version.MustParse("2.6.999")
 
 // IsNewActionIDSupported checks if new action ID is supported for the specified version.
 func IsNewActionIDSupported(ver version.Number) bool {
