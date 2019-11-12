@@ -54,10 +54,16 @@ func (s *showCommitsSuite) getGenerationCommitValue() coremodel.GenerationCommit
 		CreatedBy:    "test-user",
 		GenerationId: 1,
 		BranchName:   "bla",
-		Applications: []coremodel.GenerationCommitApplication{{
+		Applications: []coremodel.GenerationApplication{{
 			ApplicationName: "redis",
-			UnitsTracking:   []string{"redis/0"},
-			ConfigChanges:   map[string]interface{}{"databases": 8},
+			UnitDetail: &coremodel.GenerationUnits{
+				UnitsTracking: []string{"redis/0", "redis/1", "redis/2"}},
+			ConfigChanges: map[string]interface{}{"databases": 8},
+		}, {
+			ApplicationName: "mysql",
+			UnitDetail: &coremodel.GenerationUnits{
+				UnitsTracking: []string{"mysql/0", "mysql/1", "mysql/2"}},
+			ConfigChanges: map[string]interface{}{"connection": "localhost"},
 		}},
 	}
 	return values
@@ -72,16 +78,27 @@ branch:
     applications:
     - application: redis
       units:
-      - redis/0
+        tracking:
+        - redis/0
+        - redis/1
+        - redis/2
       config:
         databases: 8
-committed-at: 01 Jan 1970 04:25:45+01:00
+    - application: mysql
+      units:
+        tracking:
+        - mysql/0
+        - mysql/1
+        - mysql/2
+      config:
+        connection: localhost
+committed-at: 1970-01-01 03:25:45Z
 committed-by: test-user
-created: 01 Jan 1970 04:25:45+01:00
+created: 1970-01-01 03:25:45Z
 created-by: test-user
 `[1:]
 	s.api.EXPECT().ShowCommit(1).Return(result, nil)
-	ctx, err := s.runCommand(c, "1", "--format=yaml")
+	ctx, err := s.runCommand(c, "1", "--format=yaml", "--utc")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expected)
 }

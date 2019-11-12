@@ -127,7 +127,7 @@ func (s *modelGenerationSuite) TestHasActiveBranch(c *gc.C) {
 func (s *modelGenerationSuite) TestBranchInfo(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
-	resultSource := params.GenerationResults{Generations: []params.Generation{{
+	resultSource := params.BranchResults{Generations: []params.Generation{{
 		BranchName: "new-branch",
 		Created:    time.Time{}.Unix(),
 		CreatedBy:  "test-user",

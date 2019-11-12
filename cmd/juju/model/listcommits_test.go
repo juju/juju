@@ -4,7 +4,6 @@
 package model_test
 
 import (
-	"fmt"
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"

@@ -26,8 +26,8 @@ type Model interface {
 	AddBranch(string, string) error
 	Branch(string) (Generation, error)
 	Branches() ([]Generation, error)
-	CommittedBranch(int) (Generation, error)
-	CommittedBranches() ([]Generation, error)
+	Generation(int) (Generation, error)
+	Generations() ([]Generation, error)
 }
 
 // ModelCache describes a cached model used by the model generation API.

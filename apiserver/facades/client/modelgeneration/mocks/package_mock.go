@@ -148,34 +148,34 @@ func (mr *MockModelMockRecorder) Branches() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Branches", reflect.TypeOf((*MockModel)(nil).Branches))
 }
 
-// CommittedBranch mocks base method
-func (m *MockModel) CommittedBranch(arg0 int) (modelgeneration.Generation, error) {
+// Generation mocks base method
+func (m *MockModel) Generation(arg0 int) (modelgeneration.Generation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommittedBranch", arg0)
+	ret := m.ctrl.Call(m, "Generation", arg0)
 	ret0, _ := ret[0].(modelgeneration.Generation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CommittedBranch indicates an expected call of CommittedBranch
+// Generation indicates an expected call of Generation
 func (mr *MockModelMockRecorder) CommittedBranch(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommittedBranch", reflect.TypeOf((*MockModel)(nil).CommittedBranch), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generation", reflect.TypeOf((*MockModel)(nil).Generation), arg0)
 }
 
-// CommittedBranches mocks base method
-func (m *MockModel) CommittedBranches() ([]modelgeneration.Generation, error) {
+// Generations mocks base method
+func (m *MockModel) Generations() ([]modelgeneration.Generation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommittedBranches")
+	ret := m.ctrl.Call(m, "Generations")
 	ret0, _ := ret[0].([]modelgeneration.Generation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CommittedBranches indicates an expected call of CommittedBranches
+// Generations indicates an expected call of Generations
 func (mr *MockModelMockRecorder) CommittedBranches() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommittedBranches", reflect.TypeOf((*MockModel)(nil).CommittedBranches))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generations", reflect.TypeOf((*MockModel)(nil).Generations))
 }
 
 // ModelTag mocks base method

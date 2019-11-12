@@ -692,8 +692,8 @@ func insertGenerationTxnOps(id, branchName, userName string, now *time.Time) []t
 	}
 }
 
-// CommittedBranches returns all committed  branches.
-func (m *Model) CommittedBranches() ([]*Generation, error) {
+// Generations returns all committed  branches.
+func (m *Model) Generations() ([]*Generation, error) {
 	b, err := m.st.CommittedBranches()
 	return b, errors.Trace(err)
 }
@@ -721,7 +721,7 @@ func (st *State) Branches() ([]*Generation, error) {
 	return branches, nil
 }
 
-// CommittedBranches returns all committed branches.
+// Generations returns all committed branches.
 func (st *State) CommittedBranches() ([]*Generation, error) {
 	col, closer := st.db().GetCollection(generationsC)
 	defer closer()
@@ -746,9 +746,9 @@ func (m *Model) Branch(name string) (*Generation, error) {
 	return gen, errors.Trace(err)
 }
 
-// CommittedBranch retrieves the generation with the the input generation_id from the
+// Generation retrieves the generation with the the input generation_id from the
 // collection of completed generations.
-func (m *Model) CommittedBranch(id int) (*Generation, error) {
+func (m *Model) Generation(id int) (*Generation, error) {
 	gen, err := m.st.CommittedBranch(id)
 	return gen, errors.Trace(err)
 }
@@ -781,7 +781,7 @@ func (st *State) Branch(name string) (*Generation, error) {
 	return newGeneration(st, doc), nil
 }
 
-// CommittedBranch retrieves the generation with the the input id from the
+// Generation retrieves the generation with the the input id from the
 // collection of completed generations.
 func (st *State) CommittedBranch(id int) (*Generation, error) {
 	doc, err := st.getCommittedBranchDoc(id)

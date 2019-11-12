@@ -46,7 +46,7 @@ type GenerationApplication struct {
 	ApplicationName string `yaml:"application"`
 
 	// UnitProgress is summary information about units tracking the branch.
-	UnitProgress string `yaml:"progress"`
+	UnitProgress string `yaml:"progress,omitempty"`
 
 	// UnitDetail specifies which units are and are not tracking the branch.
 	UnitDetail *GenerationUnits `yaml:"units,omitempty"`
@@ -55,19 +55,6 @@ type GenerationApplication struct {
 	// generation and the current.
 	// TODO (manadart 2018-02-22) This data-type will evolve as more aspects
 	// of the application are made generational.
-	ConfigChanges map[string]interface{} `yaml:"config"`
-}
-
-// GenerationCommitApplication represents committed changes to an application
-// made under a generation.
-type GenerationCommitApplication struct {
-	// ApplicationsName is the name of the application.
-	ApplicationName string `yaml:"application"`
-
-	// UnitDetail specifies which units are and are not tracking the branch.
-	UnitsTracking []string `yaml:"units,omitempty"`
-
-	// Config changes are the committed changes from the generation
 	ConfigChanges map[string]interface{} `yaml:"config"`
 }
 
@@ -84,7 +71,7 @@ type Generation struct {
 	Applications []GenerationApplication `yaml:"applications"`
 }
 
-// GenerationCommits represents a model generation's commit details.
+// GenerationCommit represents a model generation's commit details.
 type GenerationCommit struct {
 	// BranchName uniquely identifies a branch *amongst in-flight branches*.
 	BranchName string `yaml:"branch"`
@@ -106,7 +93,7 @@ type GenerationCommit struct {
 
 	// Applications holds the collection of application changes
 	// made under this generation.
-	Applications []GenerationCommitApplication `yaml:"applications,omitempty"`
+	Applications []GenerationApplication `yaml:"applications,omitempty"`
 }
 
 // GenerationSummaries is a type alias for a representation

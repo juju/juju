@@ -141,28 +141,27 @@ func (c *ShowCommitCommand) Run(ctx *cmd.Context) error {
 	return errors.Trace(c.out.Write(ctx, c.getFormattedOutput(cmt)))
 }
 
-// Run implements the meaty part of the cmd.Command interface.
 func (c *ShowCommitCommand) getFormattedOutput(gcm model.GenerationCommit) formattedShowCommit {
 	applications := map[string]formattedShowCommitApplications{gcm.BranchName: {gcm.Applications}}
 
 	commit := formattedShowCommit{
-		Branch:      applications,
-		CommittedAt: common.FormatTime(&gcm.Completed, c.isoTime),
-		CommittedBy: gcm.CompletedBy,
-		Created:     common.FormatTime(&gcm.Created, c.isoTime),
-		CreatedBy:   gcm.CreatedBy,
+		BranchApplication: applications,
+		CommittedAt:       common.FormatTime(&gcm.Completed, c.isoTime),
+		CommittedBy:       gcm.CompletedBy,
+		Created:           common.FormatTime(&gcm.Created, c.isoTime),
+		CreatedBy:         gcm.CreatedBy,
 	}
 	return commit
 }
 
 type formattedShowCommit struct {
-	Branch      map[string]formattedShowCommitApplications `json:"branch" yaml:"branch"`
-	CommittedAt string                                     `json:"committed-at" yaml:"committed-at"`
-	CommittedBy string                                     `json:"committed-by" yaml:"committed-by"`
-	Created     string                                     `json:"created" yaml:"created"`
-	CreatedBy   string                                     `json:"created-by" yaml:"created-by"`
+	BranchApplication map[string]formattedShowCommitApplications `json:"branch" yaml:"branch"`
+	CommittedAt       string                                     `json:"committed-at" yaml:"committed-at"`
+	CommittedBy       string                                     `json:"committed-by" yaml:"committed-by"`
+	Created           string                                     `json:"created" yaml:"created"`
+	CreatedBy         string                                     `json:"created-by" yaml:"created-by"`
 }
 
 type formattedShowCommitApplications struct {
-	Applications []model.GenerationCommitApplication `json:"applications" yaml:"applications"`
+	Applications []model.GenerationApplication `json:"applications" yaml:"applications"`
 }

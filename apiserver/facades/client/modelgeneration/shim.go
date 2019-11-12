@@ -37,17 +37,17 @@ func (g *modelShim) Branches() ([]Generation, error) {
 	return res, nil
 }
 
-// CommittedBranch wraps the state model CommittedBranch method,
+// Generation wraps the state model Generation method,
 // returning the locally defined Generation interface.
-func (g *modelShim) CommittedBranch(id int) (Generation, error) {
-	m, err := g.Model.CommittedBranch(id)
+func (g *modelShim) Generation(id int) (Generation, error) {
+	m, err := g.Model.Generation(id)
 	return m, errors.Trace(err)
 }
 
-// Branches wraps the state model CommittedBranches method,
+// Branches wraps the state model Generations method,
 // returning a collection of the Generation interface.
-func (g *modelShim) CommittedBranches() ([]Generation, error) {
-	branches, err := g.Model.CommittedBranches()
+func (g *modelShim) Generations() ([]Generation, error) {
+	branches, err := g.Model.Generations()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
