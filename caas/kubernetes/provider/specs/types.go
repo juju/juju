@@ -4,6 +4,8 @@
 package specs
 
 import (
+	"bufio"
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +15,6 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
@@ -203,18 +204,12 @@ func getParser(specVersion specs.Version) (parserType, error) {
 	}
 }
 
-type decoder interface {
-	Decode(into interface{}) error
-}
-
 // YAMLOrJSONDecoder attempts to decode a stream of JSON documents or
 // YAML documents by sniffing for a leading { character.
 type YAMLOrJSONDecoder struct {
-	r          io.Reader
 	bufferSize int
-
-	decoder decoder
-	rawData []byte
+	r          io.Reader
+	rawData    []byte
 
 	strict bool
 }
@@ -231,38 +226,23 @@ func newYAMLOrJSONDecoder(r io.Reader, bufferSize int, strict bool) *YAMLOrJSOND
 	}
 }
 
-func (d *YAMLOrJSONDecoder) getDecoder() decoder {
-	if d.decoder != nil {
-		return d.decoder
+func (d *YAMLOrJSONDecoder) jsonify() (err error) {
+	buffer := bufio.NewReaderSize(d.r, d.bufferSize)
+	rawData, _ := buffer.Peek(d.bufferSize)
+	if rawData, err = k8syaml.ToJSON(rawData); err != nil {
+		return errors.Trace(err)
 	}
-	buffer, origData, isJSON := k8syaml.GuessJSONStream(d.r, d.bufferSize)
-	if isJSON {
-		logger.Debugf("decoding stream as JSON")
-		jsonDecoder := json.NewDecoder(buffer)
-		if d.strict {
-			jsonDecoder.DisallowUnknownFields()
-		}
-		d.decoder = jsonDecoder
-		d.rawData = origData
-	} else {
-		logger.Debugf("decoding stream as YAML")
-		yamlDecoder := yaml.NewDecoder(buffer)
-		yamlDecoder.SetStrict(d.strict)
-		d.decoder = yamlDecoder
-	}
-	return d.decoder
+	d.r = bytes.NewReader(rawData)
+	d.rawData = rawData
+	return nil
 }
 
-func (d *YAMLOrJSONDecoder) processError(err error) error {
-	jsonDecoder, ok := d.decoder.(*json.Decoder)
-	if !ok {
-		return err
-	}
+func (d *YAMLOrJSONDecoder) processError(err error, decoder *json.Decoder) error {
 	syntax, ok := err.(*json.SyntaxError)
 	if !ok {
 		return err
 	}
-	data, readErr := ioutil.ReadAll(jsonDecoder.Buffered())
+	data, readErr := ioutil.ReadAll(decoder.Buffered())
 	if readErr != nil {
 		logger.Debugf("reading stream failed: %v", readErr)
 	}
@@ -285,6 +265,13 @@ func (d *YAMLOrJSONDecoder) processError(err error) error {
 // Decode unmarshals the next object from the underlying stream into the
 // provide object, or returns an error.
 func (d *YAMLOrJSONDecoder) Decode(into interface{}) error {
-	decoder := d.getDecoder()
-	return d.processError(decoder.Decode(into))
+	if err := d.jsonify(); err != nil {
+		return errors.Trace(err)
+	}
+	logger.Debugf("decoding stream as JSON")
+	decoder := json.NewDecoder(d.r)
+	if d.strict {
+		decoder.DisallowUnknownFields()
+	}
+	return d.processError(decoder.Decode(into), decoder)
 }

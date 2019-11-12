@@ -19,9 +19,9 @@ type PodSpec = PodSpecV2
 // FileSet defines a set of files to mount
 // into the container.
 type FileSet struct {
-	Name      string            `yaml:"name" json:"name"`
-	MountPath string            `yaml:"mountPath" json:"mountPath"`
-	Files     map[string]string `yaml:"files" json:"files"`
+	Name      string            `json:"name" yaml:"name"`
+	MountPath string            `json:"mountPath" yaml:"mountPath"`
+	Files     map[string]string `json:"files" yaml:"files"`
 }
 
 // Validate validates FileSet.
@@ -150,7 +150,7 @@ type Version int32
 
 // PodSpecVersion indicates the version of the podspec.
 type PodSpecVersion struct {
-	Version Version `json:"version,omitempty"`
+	Version Version `json:"version,omitempty" yaml:"version,omitempty"`
 }
 
 // ConfigMap describes the format of configmap resource.

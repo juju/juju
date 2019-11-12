@@ -14,18 +14,20 @@ import (
 	"github.com/juju/juju/caas/specs"
 )
 
+type caaSSpec = specs.PodSpecV2
+
 type podSpecV2 struct {
-	CaaSSpec      specs.PodSpecV2 `json:",inline" yaml:",inline"`
-	K8sSpec       K8sPodSpecV2    `json:",inline" yaml:",inline"`
+	caaSSpec      `json:",inline" yaml:",inline"`
+	K8sPodSpecV2  `json:",inline" yaml:",inline"`
 	k8sContainers `json:",inline" yaml:",inline"`
 }
 
 // Validate is defined on ProviderPod.
 func (p podSpecV2) Validate() error {
-	if err := p.CaaSSpec.Validate(); err != nil {
+	if err := p.caaSSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.K8sSpec.Validate(); err != nil {
+	if err := p.K8sPodSpecV2.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	if err := p.k8sContainers.Validate(); err != nil {
@@ -39,13 +41,13 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec.Version = specs.CurrentVersion
 	// TOD(caas): OmitServiceFrontend is deprecated in v2 and will be removed in v3.
 	pSpec.OmitServiceFrontend = false
-	for i, c := range p.Containers {
-		pSpec.Containers[i] = c.ToContainerSpec()
+	for _, c := range p.Containers {
+		pSpec.Containers = append(pSpec.Containers, c.ToContainerSpec())
 	}
-	pSpec.Service = p.CaaSSpec.Service
-	pSpec.ConfigMaps = p.CaaSSpec.ConfigMaps
-	pSpec.ServiceAccount = p.CaaSSpec.ServiceAccount
-	pSpec.ProviderPod = &p.K8sSpec
+	pSpec.Service = p.caaSSpec.Service
+	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
+	pSpec.ServiceAccount = p.caaSSpec.ServiceAccount
+	pSpec.ProviderPod = &p.K8sPodSpecV2
 	return pSpec
 }
 
