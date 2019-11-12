@@ -1,18 +1,18 @@
 #!/usr/bin/env python
 
+import logging
+import re
 from argparse import ArgumentParser
 from collections import namedtuple
 from copy import deepcopy
-import logging
-import re
-import sys
 
+import sys
 import yaml
 
 from jujupy import (
     ModelClient,
     JujuData,
-    )
+)
 from jujupy.exceptions import (
     AuthNotAccepted,
     InvalidEndpoint,
@@ -23,8 +23,7 @@ from utility import (
     add_arg_juju_bin,
     JujuAssertionError,
     temp_dir,
-    )
-
+)
 
 # URLs are limited to 2083 bytes in many browsers, anything more is excessive.
 # Juju has set 4096 as being excessive, but it needs to be lowered
@@ -56,7 +55,6 @@ class NotRaised(Exception):
 
 
 class CloudValidation:
-
     NONE = object
     BASIC = object()
     ENDPOINT = object()
@@ -136,6 +134,7 @@ def assess_cloud(client, cloud_name, example_cloud):
     if clouds['clouds'].keys() != [cloud_name]:
         raise NameMismatch()
     if clouds['clouds'][cloud_name] != example_cloud:
+        sys.stderr.write("\nMissmatch for cloud: {}\n".format(cloud_name))
         sys.stderr.write('\nExpected:\n')
         yaml.dump(example_cloud, sys.stderr)
         sys.stderr.write('\nActual:\n')
@@ -171,7 +170,6 @@ def iter_clouds(clouds, cloud_validation):
         expected_exception = CloudMismatch
         if cloud_validation.has_endpoint(cloud['type']):
             expected_exception = InvalidEndpoint
-
         illegal_endpoint_config = deepcopy(cloud)
         illegal_endpoint_config['endpoint'] = long_text
         illegal_endpoint_name = 'long-endpoint-{}'.format(cloud_name)
@@ -180,10 +178,12 @@ def iter_clouds(clouds, cloud_validation):
         yield cloud_spec(illegal_endpoint_name, cloud_name, illegal_endpoint_config, expected_exception, 1641970)
 
         for region_name in regions:
-            regional_long_endpoint_name ='long-endpoint-{}-{}'.format(cloud_name, region_name)
+            regional_long_endpoint_name = 'long-endpoint-{}-{}'.format(cloud_name, region_name)
             regional_long_endpoint_config = deepcopy(cloud)
-            regional_long_endpoint_config['regions'] = {region_name: {'endpoint': long_text}} # test each region independently of others
-            yield cloud_spec(regional_long_endpoint_name, cloud_name, regional_long_endpoint_config, expected_exception, 1641970)
+            # test each region independently of others
+            regional_long_endpoint_config['regions'] = {region_name: {'endpoint': long_text}}
+            yield cloud_spec(regional_long_endpoint_name, cloud_name, regional_long_endpoint_config, expected_exception,
+                             1641970)
 
 
 def assess_all_clouds(client, cloud_specs):
