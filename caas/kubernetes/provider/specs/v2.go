@@ -15,16 +15,20 @@ import (
 )
 
 type podSpecV2 struct {
-	caaSSpec specs.PodSpecV2
-	k8sSpec  K8sPodSpecV2
+	CaaSSpec      specs.PodSpecV2 `json:",inline" yaml:",inline"`
+	K8sSpec       K8sPodSpecV2    `json:",inline" yaml:",inline"`
+	k8sContainers `json:",inline" yaml:",inline"`
 }
 
 // Validate is defined on ProviderPod.
 func (p podSpecV2) Validate() error {
-	if err := p.caaSSpec.Validate(); err != nil {
+	if err := p.CaaSSpec.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.k8sSpec.Validate(); err != nil {
+	if err := p.K8sSpec.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.k8sContainers.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -35,11 +39,13 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec.Version = specs.CurrentVersion
 	// TOD(caas): OmitServiceFrontend is deprecated in v2 and will be removed in v3.
 	pSpec.OmitServiceFrontend = false
-	pSpec.Containers = p.caaSSpec.Containers
-	pSpec.Service = p.caaSSpec.Service
-	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
-	pSpec.ServiceAccount = p.caaSSpec.ServiceAccount
-	pSpec.ProviderPod = &p.k8sSpec
+	for i, c := range p.Containers {
+		pSpec.Containers[i] = c.ToContainerSpec()
+	}
+	pSpec.Service = p.CaaSSpec.Service
+	pSpec.ConfigMaps = p.CaaSSpec.ConfigMaps
+	pSpec.ServiceAccount = p.CaaSSpec.ServiceAccount
+	pSpec.ProviderPod = &p.K8sSpec
 	return pSpec
 }
 
@@ -121,32 +127,10 @@ func (krs *KubernetesResources) Validate() error {
 }
 
 func parsePodSpecV2(in string) (_ PodSpecConverter, err error) {
-	// Do the common fields.
 	var spec podSpecV2
-
 	decoder := newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&spec.caaSSpec); err != nil {
+	if err = decoder.Decode(&spec); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	// Do the k8s pod attributes.
-	decoder = newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&spec.k8sSpec); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Do the k8s containers.
-	var containers k8sContainers
-	if err := parseContainers(in, &containers); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Compose the result.
-	for i, c := range containers.Containers {
-		if err = c.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		spec.caaSSpec.Containers[i] = c.ToContainerSpec()
 	}
 	return &spec, nil
 }
