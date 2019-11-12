@@ -37,16 +37,16 @@ func (fs *FileSet) Validate() error {
 
 // ContainerPort defines a port on a container.
 type ContainerPort struct {
-	Name          string `yaml:"name,omitempty" json:"name,omitempty"`
-	ContainerPort int32  `yaml:"containerPort" json:"containerPort"`
-	Protocol      string `yaml:"protocol" json:"protocol"`
+	Name          string `json:"name,omitempty" yaml:"name,omitempty"`
+	ContainerPort int32  `json:"containerPort" yaml:"containerPort"`
+	Protocol      string `json:"protocol" yaml:"protocol"`
 }
 
 // ImageDetails defines all details required to pull a docker image from any registry
 type ImageDetails struct {
-	ImagePath string `yaml:"imagePath" json:"imagePath"`
-	Username  string `yaml:"username,omitempty" json:"username,omitempty"`
-	Password  string `yaml:"password,omitempty" json:"password,omitempty"`
+	ImagePath string `json:"imagePath" yaml:"imagePath"`
+	Username  string `json:"username,omitempty" yaml:"username,omitempty"`
+	Password  string `json:"password,omitempty" yaml:"password,omitempty"`
 }
 
 // PullPolicy describes a policy for if/when to pull a container image.
@@ -55,24 +55,24 @@ type PullPolicy string
 // ContainerSpec defines the data values used to configure
 // a container on the CAAS substrate.
 type ContainerSpec struct {
-	Name string `yaml:"name"`
-	Init bool   `yaml:"init,omitempty"`
+	Name string `json:"name" yaml:"name"`
+	Init bool   `json:"init,omitempty" yaml:"init,omitempty"`
 	// Image is deprecated in preference to using ImageDetails.
-	Image        string          `yaml:"image,omitempty"`
-	ImageDetails ImageDetails    `yaml:"imageDetails"`
-	Ports        []ContainerPort `yaml:"ports,omitempty"`
+	Image        string          `json:"image,omitempty" yaml:"image,omitempty"`
+	ImageDetails ImageDetails    `json:"imageDetails" yaml:"imageDetails"`
+	Ports        []ContainerPort `json:"ports,omitempty" yaml:"ports,omitempty"`
 
-	Command    []string `yaml:"command,omitempty"`
-	Args       []string `yaml:"args,omitempty"`
-	WorkingDir string   `yaml:"workingDir,omitempty"`
+	Command    []string `json:"command,omitempty" yaml:"command,omitempty"`
+	Args       []string `json:"args,omitempty" yaml:"args,omitempty"`
+	WorkingDir string   `json:"workingDir,omitempty" yaml:"workingDir,omitempty"`
 
-	Config map[string]interface{} `yaml:"config,omitempty"`
-	Files  []FileSet              `yaml:"files,omitempty"`
+	Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`
+	Files  []FileSet              `json:"files,omitempty" yaml:"files,omitempty"`
 
-	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty"`
+	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
 
 	// ProviderContainer defines config which is specific to a substrate, eg k8s
-	ProviderContainer `yaml:"-"`
+	ProviderContainer `json:"-" yaml:"-"`
 }
 
 // ProviderContainer defines a provider specific container.
@@ -158,7 +158,7 @@ type ConfigMap map[string]string
 
 // podSpecBase defines the data values used to configure a pod on the CAAS substrate.
 type podSpecBase struct {
-	PodSpecVersion `yaml:",inline"`
+	PodSpecVersion `json:",inline" yaml:",inline"`
 
 	// TODO(caas): remove OmitServiceFrontend later once we deprecate legacy version.
 	// Keep it for now because we have to combine it with the ServerType (from metadata.yaml).
