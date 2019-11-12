@@ -8,14 +8,13 @@ import (
 
 	"github.com/juju/errors"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/juju/juju/caas/specs"
 )
 
 type k8sContainerLegacy struct {
-	specs.ContainerSpec `json:",inline"`
-	*K8sContainerSpec   `json:",inline"`
+	specs.ContainerSpec `json:",inline" yaml:",inline"`
+	*K8sContainerSpec   `json:",inline" yaml:",inline"`
 }
 
 // Validate validates k8sContainerLegacy.
@@ -109,9 +108,9 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 // K8sPodSpecLegacy is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type K8sPodSpecLegacy struct {
-	PodSpec                      `yaml:",inline"`
-	ServiceAccountName           string `json:"serviceAccountName,omitempty"`
-	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty"`
+	PodSpec                      `json:",inline" yaml:",inline"`
+	ServiceAccountName           string `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
+	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
 
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
 }
@@ -122,8 +121,8 @@ func (*K8sPodSpecLegacy) Validate() error {
 }
 
 type k8sContainersLegacy struct {
-	Containers     []k8sContainerLegacy `json:"containers"`
-	InitContainers []k8sContainerLegacy `json:"initContainers"`
+	Containers     []k8sContainerLegacy `json:"containers" yaml:"containers"`
+	InitContainers []k8sContainerLegacy `json:"initContainers" yaml:"initContainers"`
 }
 
 // Validate is defined on ProviderContainer.
@@ -138,13 +137,13 @@ func parsePodSpecLegacy(in string) (_ PodSpecConverter, err error) {
 	// Do the common fields.
 	var spec podSpecLegacy
 
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	decoder := newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err = decoder.Decode(&spec.caaSSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// Do the k8s pod attributes.
-	decoder = k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	decoder = newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err = decoder.Decode(&spec.k8sSpec); err != nil {
 		return nil, errors.Trace(err)
 	}
