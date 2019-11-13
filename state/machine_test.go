@@ -1545,6 +1545,51 @@ func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
 	})
 }
 
+func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
+	// Machine needs to be provisioned first.
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	quiesceInterval := 500 * time.Millisecond
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	w := s.State.WatchModelMachineStartTimes(quiesceInterval)
+
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+
+	// Get initial set of changes
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	s.Clock.Advance(quiesceInterval)
+	wc.AssertChange("0", "1")
+	wc.AssertNoChange()
+
+	// Update the agent start time for the new machine and wait for quiesceInterval
+	// so the change gets processed and added to a new changeset.
+	err = s.machine.RecordAgentStartTime()
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	s.Clock.Advance(quiesceInterval)
+
+	// Update the agent start time for machine 0 and wait for quiesceInterval
+	// so the change gets processed and appended to the current changeset.
+	err = s.machine0.RecordAgentStartTime()
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	s.Clock.Advance(quiesceInterval)
+
+	// Fetch the pending changes
+	wc.AssertChange("1", "0")
+	wc.AssertNoChange()
+
+	// Kill the machine and check that we get a change event
+	err = s.machine.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	s.Clock.Advance(quiesceInterval)
+	wc.AssertChange("1")
+	wc.AssertNoChange()
+}
+
 func (s *MachineSuite) TestConstraintsFromModel(c *gc.C) {
 	econs1 := constraints.MustParse("mem=1G")
 	econs2 := constraints.MustParse("mem=2G")

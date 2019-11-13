@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/clock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -494,6 +495,146 @@ func watchApplicationRelations(backend modelBackend, applicationName string) Str
 	}
 	members := bson.D{{"endpoints.applicationname", applicationName}}
 	return newRelationLifeSuspendedWatcher(backend, members, filter, nil)
+}
+
+// WatchModelMachineStartTimes watches the non-container machines in the model
+// for changes to the Life or AgentStartTime fields and reports them as a batch
+// after the specified quiesceInterval time has passed without seeing any new
+// change events.
+func (st *State) WatchModelMachineStartTimes(quiesceInterval time.Duration) StringsWatcher {
+	return newModelMachineStartTimeWatcher(st, st.clock(), quiesceInterval)
+}
+
+type modelMachineStartTimeFieldDoc struct {
+	Id             string    `bson:"_id"`
+	Life           Life      `bson:"life"`
+	AgentStartedAt time.Time `bson:"agent-started-at"`
+}
+
+type modelMachineStartTimeWatcher struct {
+	commonWatcher
+	outCh chan []string
+
+	clk             clock.Clock
+	quiesceInterval time.Duration
+	seenDocs        map[string]modelMachineStartTimeFieldDoc
+}
+
+func newModelMachineStartTimeWatcher(backend modelBackend, clk clock.Clock, quiesceInterval time.Duration) StringsWatcher {
+	w := &modelMachineStartTimeWatcher{
+		commonWatcher:   newCommonWatcher(backend),
+		outCh:           make(chan []string),
+		clk:             clk,
+		quiesceInterval: quiesceInterval,
+		seenDocs:        make(map[string]modelMachineStartTimeFieldDoc),
+	}
+
+	w.tomb.Go(func() error {
+		defer close(w.outCh)
+		return w.loop()
+	})
+	return w
+}
+
+// Changes returns the event channel for the watcher.
+func (w *modelMachineStartTimeWatcher) Changes() <-chan []string {
+	return w.outCh
+}
+
+func (w *modelMachineStartTimeWatcher) loop() error {
+	docWatcher := newCollectionWatcher(w.backend, colWCfg{col: machinesC})
+	defer func() { _ = docWatcher.Stop() }()
+
+	var (
+		timer           = w.clk.NewTimer(w.quiesceInterval)
+		timerArmed      = true
+		unprocessedDocs = make(set.Strings)
+		outCh           chan []string
+		changeSet       []string
+	)
+	defer func() { _ = timer.Stop() }()
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case changes := <-docWatcher.Changes():
+			if len(changes) == 0 {
+				continue
+			}
+			for _, docID := range changes {
+				unprocessedDocs.Add(w.backend.docID(docID))
+			}
+
+			// Restart the timer if currently stopped.
+			if !timerArmed {
+				_ = timer.Reset(w.quiesceInterval)
+			}
+		case <-timer.Chan():
+			timerArmed = false
+			if len(unprocessedDocs) == 0 {
+				continue // nothing to process
+			}
+
+			changedIDs, err := w.processChanges(unprocessedDocs)
+			unprocessedDocs = make(set.Strings)
+			if err != nil {
+				return err
+			} else if changedIDs.IsEmpty() {
+				continue // nothing to report
+			}
+
+			if len(changeSet) == 0 {
+				changeSet = changedIDs.Values()
+				outCh = w.outCh
+			} else {
+				// Append new set of changes to the not yet consumed changeset
+				changeSet = append(changeSet, changedIDs.Values()...)
+			}
+		case outCh <- changeSet:
+			changeSet = changeSet[:0]
+			outCh = nil
+		}
+	}
+}
+
+func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (set.Strings, error) {
+	coll, closer := w.db.GetCollection(machinesC)
+	defer closer()
+
+	// Select the fields we need from the changed documents that are not
+	// referring to containers.
+	iter := coll.Find(
+		bson.D{
+			{"_id", bson.D{{"$in", pendingDocs.Values()}}},
+			{"$or", []bson.D{
+				{{"containertype", ""}},
+				{{"containertype", bson.D{{"$exists", false}}}},
+			}},
+		},
+	).Select(bson.D{{"_id", 1}, {"life", 1}, {"agent-started-at", 1}}).Iter()
+
+	var (
+		doc modelMachineStartTimeFieldDoc
+		ids = make(set.Strings)
+	)
+	for iter.Next(&doc) {
+		id := w.backend.localID(doc.Id)
+		old, exists := w.seenDocs[id]
+		if !exists || old.Life != doc.Life || old.AgentStartedAt != doc.AgentStartedAt {
+			w.seenDocs[id] = doc
+			ids.Add(id)
+		}
+
+		// If the machine is now dead we won't see a change for it again
+		// and therefore can permanently remove its entry from docHash
+		if doc.Life == Dead {
+			delete(w.seenDocs, id)
+		}
+	}
+	return ids, iter.Close()
 }
 
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
