@@ -16023,6 +16023,14 @@
                         }
                     }
                 },
+                "WatchModelMachineStartTimes": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
+                        }
+                    }
+                },
                 "WatchModelMachines": {
                     "type": "object",
                     "properties": {
@@ -17729,6 +17737,14 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                },
+                "WatchModelMachineStartTimes": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     }
                 },
@@ -20452,7 +20468,7 @@
     },
     {
         "Name": "Machiner",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
@@ -20510,6 +20526,17 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/StringResult"
+                        }
+                    }
+                },
+                "RecordAgentStartTime": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     }
                 },
@@ -25916,6 +25943,14 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResult"
+                        }
+                    }
+                },
+                "WatchModelMachineStartTimes": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/StringsWatchResult"
                         }
                     }
                 },
