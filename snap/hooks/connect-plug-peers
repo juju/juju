@@ -1,5 +1,5 @@
 #!/bin/sh
-peer="$(snapctl get --slot :peers name)"
+peer="$(snapctl get --slot :peers content)"
 (
     echo "hook $0 $@"
     echo "connected to peer $peer"

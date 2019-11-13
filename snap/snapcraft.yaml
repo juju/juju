@@ -67,5 +67,5 @@ hooks:
 plugs:
   peers:
     interface: content
-    content: juju
+    content: microk8s
     target: $SNAP_COMMON/.peers
