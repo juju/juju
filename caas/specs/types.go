@@ -207,9 +207,9 @@ func (spec *podSpecBase) Validate(ver Version) error {
 		}
 	}
 
-	// if err := spec.Containers.Validate(); err != nil {
-	// 	return errors.Trace(err)
-	// }
+	if err := spec.caasContainers.Validate(); err != nil {
+		return errors.Trace(err)
+	}
 
 	if spec.ProviderPod != nil {
 		return spec.ProviderPod.Validate()
