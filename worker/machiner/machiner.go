@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	corelife "github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -165,7 +166,7 @@ func (mr *Machiner) Handle(_ <-chan struct{}) error {
 	}
 
 	life := mr.machine.Life()
-	if life == params.Alive {
+	if life == corelife.Alive {
 		observedConfig, err := getObservedNetworkConfig(common.DefaultNetworkConfigSource())
 		if err != nil {
 			return errors.Annotate(err, "cannot discover observed network config")

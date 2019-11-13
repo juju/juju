@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -156,7 +157,7 @@ func (s *workerSuite) TestQueueingExistingMachineAlwaysMovesItToShortPollGroup(c
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
 	machine.EXPECT().Refresh().Return(nil)
-	machine.EXPECT().Life().Return(params.Alive)
+	machine.EXPECT().Life().Return(life.Alive)
 	updWorker.appendToShortPollGroup(machineTag, machine)
 
 	// Manually move entry to long poll group.
@@ -193,7 +194,7 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	// The machine is alive, has an instance status of "provisioning" and
 	// is aware of its network addresses.
 	machine.EXPECT().Id().Return("0").AnyTimes()
-	machine.EXPECT().Life().Return(params.Alive)
+	machine.EXPECT().Life().Return(life.Alive)
 	machine.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
 	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil)
 
@@ -333,7 +334,7 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 
 	// On next refresh, the machine reports as dead
 	machine.EXPECT().Refresh().Return(nil)
-	machine.EXPECT().Life().Return(params.Dead)
+	machine.EXPECT().Life().Return(life.Dead)
 
 	// Emit a change for the machine so the queueing code detects the
 	// dead machine and removes it.
@@ -395,7 +396,7 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 
 	machineTag1 := names.NewMachineTag("1")
 	machine1 := mocks.NewMockMachine(ctrl)
-	machine1.EXPECT().Life().Return(params.Alive)
+	machine1.EXPECT().Life().Return(life.Alive)
 	machine1.EXPECT().InstanceId().Return(instance.Id("b4dc0ffee"), nil)
 	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
 	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)

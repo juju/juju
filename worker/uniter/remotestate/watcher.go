@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/watcher"
 	jworker "github.com/juju/juju/worker"
@@ -929,7 +930,7 @@ func (w *RemoteStateWatcher) storageChanged(keys []string) error {
 // the information in the current snapshot.
 func (w *RemoteStateWatcher) watchStorageAttachment(
 	tag names.StorageTag,
-	life params.Life,
+	life life.Value,
 	saw watcher.NotifyWatcher,
 ) error {
 	var storageSnapshot StorageSnapshot

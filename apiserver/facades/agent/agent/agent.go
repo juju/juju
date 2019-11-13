@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -99,7 +100,7 @@ func (api *AgentAPIV2) getEntity(tag names.Tag) (result params.AgentGetEntitiesR
 		err = common.NotSupportedError(tag, "life cycles")
 		return
 	}
-	result.Life = params.Life(entity.Life().String())
+	result.Life = life.Value(entity.Life().String())
 	if machine, ok := entity.(*state.Machine); ok {
 		result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
 		result.ContainerType = machine.ContainerType()

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
@@ -43,7 +44,7 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.accessor = &mockMachineAccessor{}
 	s.accessor.machine.watcher.changes = make(chan struct{})
-	s.accessor.machine.life = params.Alive
+	s.accessor.machine.life = life.Alive
 	s.machineTag = names.NewMachineTag("123")
 	s.addresses = []net.Addr{ // anything will do
 		&net.IPAddr{IP: net.IPv4bcast},
@@ -116,7 +117,7 @@ func (s *MachinerSuite) testMachinerMachineRefreshNotFoundOrUnauthorized(c *gc.C
 }
 
 func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
-	s.accessor.machine.life = params.Dying
+	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil,                             // SetMachineAddresses
 		nil,                             // SetStatus (started)
@@ -152,7 +153,7 @@ func (s *MachinerSuite) TestMachinerSetStatusStopped(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
-	s.accessor.machine.life = params.Dying
+	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
 		nil, // SetStatus
@@ -181,7 +182,7 @@ func (s *MachinerSuite) TestMachinerMachineEnsureDeadError(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestMachinerMachineAssignedUnits(c *gc.C) {
-	s.accessor.machine.life = params.Dying
+	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
 		nil, // SetStatus
@@ -217,7 +218,7 @@ func (s *MachinerSuite) TestMachinerStorageAttached(c *gc.C) {
 	// Machine is dying. We'll respond to "EnsureDead" by
 	// saying that there are still storage attachments;
 	// this should not cause an error.
-	s.accessor.machine.life = params.Dying
+	s.accessor.machine.life = life.Dying
 	s.accessor.machine.SetErrors(
 		nil, // SetMachineAddresses
 		nil, // SetStatus
@@ -299,7 +300,7 @@ func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 }
 
 func (s *MachinerSuite) TestSetDead(c *gc.C) {
-	s.accessor.machine.life = params.Dying
+	s.accessor.machine.life = life.Dying
 	mr := s.makeMachiner(c, false)
 	s.accessor.machine.watcher.changes <- struct{}{}
 

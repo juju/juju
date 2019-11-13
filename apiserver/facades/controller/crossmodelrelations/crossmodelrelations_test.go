@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -88,7 +89,7 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 	s.api = api
 }
 
-func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life params.Life, suspendedReason string, forceCleanup bool) {
+func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeValue life.Value, suspendedReason string, forceCleanup bool) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	rel := newMockRelation(1)
@@ -116,7 +117,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
 		Changes: []params.RemoteRelationChangeEvent{
 			{
-				Life:             life,
+				Life:             lifeValue,
 				ForceCleanup:     &forceCleanup,
 				Suspended:        &suspended,
 				SuspendedReason:  suspendedReason,
@@ -139,7 +140,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2"}},
 	}
-	if life == params.Alive {
+	if lifeValue == life.Alive {
 		c.Assert(rel.status, gc.Equals, status.Suspending)
 		if suspendedReason == "" {
 			c.Assert(rel.message, gc.Equals, "suspending after update from remote model")
@@ -170,19 +171,19 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, life p
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChanges(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Alive, "", false)
+	s.assertPublishRelationsChanges(c, life.Alive, "", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesWithSuspendedReason(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Alive, "reason", false)
+	s.assertPublishRelationsChanges(c, life.Alive, "reason", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingWhileSuspended(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Dying, "", false)
+	s.assertPublishRelationsChanges(c, life.Dying, "", false)
 }
 
 func (s *crossmodelRelationsSuite) TestPublishRelationsChangesDyingForceCleanup(c *gc.C) {
-	s.assertPublishRelationsChanges(c, params.Dying, "", true)
+	s.assertPublishRelationsChanges(c, life.Dying, "", true)
 }
 
 func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {

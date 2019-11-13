@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 )
 
@@ -100,7 +101,7 @@ func (c *ModelStatusAPI) modelStatus(tag string) (params.ModelStatus, error) {
 	result := params.ModelStatus{
 		ModelTag:           tag,
 		OwnerTag:           model.Owner().String(),
-		Life:               params.Life(model.Life().String()),
+		Life:               life.Value(model.Life().String()),
 		Type:               string(model.Type()),
 		HostedMachineCount: len(hostedMachines),
 		ApplicationCount:   len(applications),

@@ -89,7 +89,7 @@ func (s *FirewallerSuite) TestLife(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{
-				Life: params.Alive,
+				Life: life.Alive,
 			}},
 		}
 		return nil

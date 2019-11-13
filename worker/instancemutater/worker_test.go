@@ -21,6 +21,7 @@ import (
 	apiinstancemutater "github.com/juju/juju/api/instancemutater"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -447,7 +448,7 @@ func (s *workerSuite) expectCharmProfileInfoError(machine int) {
 func (s *workerSuite) expectAliveAndSetModificationStatusIdle(machine int) {
 	mExp := s.machine[machine].EXPECT()
 	mExp.Refresh().Return(nil)
-	mExp.Life().Return(params.Alive)
+	mExp.Life().Return(life.Alive)
 	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 }
 
@@ -461,14 +462,14 @@ func (s *workerSuite) expectMachineAliveStatusIdleMachineDead(machine int, group
 	notificationSync := func(_ ...interface{}) { group.Done() }
 
 	mExp.Refresh().Return(nil).Times(2)
-	o1 := mExp.Life().Return(params.Alive).Do(notificationSync)
+	o1 := mExp.Life().Return(life.Alive).Do(notificationSync)
 
 	mExp.SetModificationStatus(status.Idle, "", nil).Return(nil)
 
 	s.machine[0].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil)
 	s.machine[1].EXPECT().SetModificationStatus(status.Applied, "", nil).Return(nil).Do(do)
 
-	mExp.Life().Return(params.Dead).After(o1).Do(do)
+	mExp.Life().Return(life.Dead).After(o1).Do(do)
 }
 
 func (s *workerSuite) expectModificationStatusApplied(machine int) {
@@ -687,7 +688,7 @@ func (s *workerContainerSuite) expectContainerCharmProfilingInfo(rev int) {
 func (s *workerContainerSuite) expectContainerAliveAndSetModificationStatusIdle() {
 	cExp := s.lxdContainer.EXPECT()
 	cExp.Refresh().Return(nil)
-	cExp.Life().Return(params.Alive)
+	cExp.Life().Return(life.Alive)
 	cExp.SetModificationStatus(status.Idle, gomock.Any(), gomock.Any()).Return(nil)
 }
 

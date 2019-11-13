@@ -7,6 +7,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2/bson"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/mongo"
 )
 
@@ -20,6 +21,7 @@ const (
 	Dead
 )
 
+// String is deprecated, use Value.
 func (l Life) String() string {
 	switch l {
 	case Alive:
@@ -30,6 +32,20 @@ func (l Life) String() string {
 		return "dead"
 	default:
 		return "unknown"
+	}
+}
+
+// Value returns the core.life.Value type.
+func (l Life) Value() life.Value {
+	switch l {
+	case Alive:
+		return life.Alive
+	case Dying:
+		return life.Dying
+	case Dead:
+		return life.Dead
+	default:
+		return life.Value("unknown")
 	}
 }
 

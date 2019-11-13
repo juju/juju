@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 )
 
@@ -22,7 +23,7 @@ type Relation struct {
 	st        *State
 	tag       names.RelationTag
 	id        int
-	life      params.Life
+	life      life.Value
 	suspended bool
 	otherApp  string
 }
@@ -46,7 +47,7 @@ func (r *Relation) Id() int {
 }
 
 // Life returns the relation's current life state.
-func (r *Relation) Life() params.Life {
+func (r *Relation) Life() life.Value {
 	return r.life
 }
 

@@ -14,6 +14,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	corestorage "github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"
@@ -88,7 +89,7 @@ func (s *attachmentsSuite) TestNewAttachmentsInit(c *gc.C) {
 	attachment := params.StorageAttachment{
 		StorageTag: storageTag.String(),
 		UnitTag:    unitTag.String(),
-		Life:       params.Alive,
+		Life:       life.Alive,
 		Kind:       params.StorageKindBlock,
 		Location:   "/dev/sdb",
 	}
@@ -197,10 +198,10 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 		Kind: operation.Continue,
 	}}
 	_, err = r.NextOp(localState, remotestate.Snapshot{
-		Life: params.Alive,
+		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag0: {
-				Life:     params.Alive,
+				Life:     life.Alive,
 				Kind:     params.StorageKindBlock,
 				Location: "/dev/sdb",
 				Attached: true,
@@ -211,9 +212,9 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 
 	for _, storageTag := range []names.StorageTag{storageTag0, storageTag1} {
 		_, err = r.NextOp(localState, remotestate.Snapshot{
-			Life: params.Alive,
+			Life: life.Alive,
 			Storage: map[names.StorageTag]remotestate.StorageSnapshot{
-				storageTag: {Life: params.Dying},
+				storageTag: {Life: life.Dying},
 			},
 		}, nil)
 		c.Assert(err, gc.Equals, resolver.ErrNoOperation)
@@ -248,11 +249,11 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 		Kind: operation.Continue,
 	}}
 	op, err := r.NextOp(localState, remotestate.Snapshot{
-		Life: params.Alive,
+		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
 				Kind:     params.StorageKindBlock,
-				Life:     params.Alive,
+				Life:     life.Alive,
 				Location: "/dev/sdb",
 				Attached: true,
 			},
@@ -297,11 +298,11 @@ func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
 		Kind: operation.Continue,
 	}}
 	_, err = r.NextOp(localState, remotestate.Snapshot{
-		Life: params.Alive,
+		Life: life.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
 				Kind:     params.StorageKindBlock,
-				Life:     params.Alive,
+				Life:     life.Alive,
 				Location: "/dev/sdb",
 				Attached: true,
 			},
@@ -383,11 +384,11 @@ func (s *attachmentsSuite) TestAttachmentsSetDying(c *gc.C) {
 		Kind: operation.Continue,
 	}}
 	_, err = r.NextOp(localState, remotestate.Snapshot{
-		Life: params.Dying,
+		Life: life.Dying,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 			storageTag: {
 				Kind:     params.StorageKindBlock,
-				Life:     params.Alive,
+				Life:     life.Alive,
 				Location: "/dev/sdb",
 				Attached: true,
 			},
@@ -421,10 +422,10 @@ func (s *attachmentsSuite) TestAttachmentsWaitPending(c *gc.C) {
 			Kind:      operation.Continue,
 		}}
 		_, err := r.NextOp(localState, remotestate.Snapshot{
-			Life: params.Alive,
+			Life: life.Alive,
 			Storage: map[names.StorageTag]remotestate.StorageSnapshot{
 				storageTag: {
-					Life:     params.Alive,
+					Life:     life.Alive,
 					Attached: false,
 				},
 			},

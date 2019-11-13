@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -206,7 +207,7 @@ func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{
-				Life: params.Dying,
+				Life: life.Dying,
 			}},
 		}
 		return nil
@@ -218,7 +219,7 @@ func (s *storageSuite) TestStorageAttachmentLife(c *gc.C) {
 		UnitTag:    "unit-mysql-0",
 	}})
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(results, jc.DeepEquals, []params.LifeResult{{Life: params.Dying}})
+	c.Assert(results, jc.DeepEquals, []params.LifeResult{{Life: life.Dying}})
 }
 
 func (s *storageSuite) TestRemoveStorageAttachment(c *gc.C) {

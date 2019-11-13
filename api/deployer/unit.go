@@ -8,13 +8,14 @@ import (
 
 	"github.com/juju/juju/api/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 )
 
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
 	tag  names.UnitTag
-	life params.Life
+	life life.Value
 	st   *State
 }
 
@@ -29,7 +30,7 @@ func (u *Unit) Name() string {
 }
 
 // Life returns the unit's lifecycle value.
-func (u *Unit) Life() params.Life {
+func (u *Unit) Life() life.Value {
 	return u.life
 }
 

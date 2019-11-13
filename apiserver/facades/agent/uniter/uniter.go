@@ -25,6 +25,7 @@ import (
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
@@ -1356,7 +1357,7 @@ func (u *UniterAPI) Refresh(args params.Entities) (params.UnitRefreshResults, er
 		if canRead(tag) {
 			var unit *state.Unit
 			if unit, err = u.getUnit(tag); err == nil {
-				result.Results[i].Life = params.Life(unit.Life().String())
+				result.Results[i].Life = life.Value(unit.Life().String())
 				result.Results[i].Resolved = params.ResolvedMode(unit.Resolved())
 
 				var err1 error
@@ -1957,7 +1958,7 @@ func (u *UniterAPI) prepareRelationResult(rel *state.Relation, applicationName s
 	return params.RelationResult{
 		Id:        rel.Id(),
 		Key:       rel.String(),
-		Life:      params.Life(rel.Life().String()),
+		Life:      life.Value(rel.Life().String()),
 		Suspended: rel.Suspended(),
 		Endpoint: params.Endpoint{
 			ApplicationName: ep.ApplicationName,

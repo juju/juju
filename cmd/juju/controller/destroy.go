@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -321,7 +322,7 @@ func (c *destroyCommand) checkNoAliveHostedModels(ctx *cmd.Context, models []mod
 	// and there are models still alive.
 	var buf bytes.Buffer
 	for _, model := range models {
-		if model.Life != string(params.Alive) {
+		if model.Life != life.Alive {
 			continue
 		}
 		buf.WriteString(fmtModelStatus(model))

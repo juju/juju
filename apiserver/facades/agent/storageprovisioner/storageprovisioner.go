@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/storageprovisioner/internal/filesystemwatcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
@@ -1491,7 +1492,7 @@ func (s *StorageProvisionerAPIv3) AttachmentLife(args params.MachineStorageIds) 
 	results := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Ids)),
 	}
-	one := func(arg params.MachineStorageId) (params.Life, error) {
+	one := func(arg params.MachineStorageId) (life.Value, error) {
 		hostTag, err := names.ParseTag(arg.MachineTag)
 		if err != nil {
 			return "", err
@@ -1516,7 +1517,7 @@ func (s *StorageProvisionerAPIv3) AttachmentLife(args params.MachineStorageIds) 
 		if err != nil {
 			return "", errors.Trace(err)
 		}
-		return params.Life(lifer.Life().String()), nil
+		return life.Value(lifer.Life().String()), nil
 	}
 	for i, arg := range args.Ids {
 		life, err := one(arg)

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -134,7 +135,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if change.Life != params.Alive {
+		if change.Life != life.Alive {
 			delete(api.relationToOffer, relationTag.Id())
 		}
 	}

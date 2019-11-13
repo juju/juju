@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 // Life requests the life cycle of the given entities from the given
@@ -31,7 +32,7 @@ func Life(caller base.FacadeCaller, tags []names.Tag) ([]params.LifeResult, erro
 
 // OneLife requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
-func OneLife(caller base.FacadeCaller, tag names.Tag) (params.Life, error) {
+func OneLife(caller base.FacadeCaller, tag names.Tag) (life.Value, error) {
 	result, err := Life(caller, []names.Tag{tag})
 	if err != nil {
 		return "", err

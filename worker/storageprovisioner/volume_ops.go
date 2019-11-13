@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	environscontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/storage"
@@ -242,7 +243,7 @@ func volumeAttachmentPlanFromAttachment(attachment storage.VolumeAttachment) par
 	return params.VolumeAttachmentPlan{
 		VolumeTag:  attachment.Volume.String(),
 		MachineTag: attachment.Machine.String(),
-		Life:       params.Alive,
+		Life:       life.Alive,
 		PlanInfo:   planInfo,
 	}
 }

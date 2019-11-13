@@ -257,7 +257,7 @@ func (s *operatorSuite) testLife(c *gc.C, tag names.Tag) {
 		c.Assert(result, gc.FitsTypeOf, &params.LifeResults{})
 		*(result.(*params.LifeResults)) = params.LifeResults{
 			Results: []params.LifeResult{{
-				Life: params.Alive,
+				Life: life.Alive,
 			}},
 		}
 		return nil

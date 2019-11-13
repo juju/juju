@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -507,7 +508,7 @@ func (api *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, 
 			continue
 		}
 		result.Id = machine.Id()
-		result.Life = params.Life(machine.Life().String())
+		result.Life = life.Value(machine.Life().String())
 		results.Results = append(results.Results, result)
 	}
 	return results, nil

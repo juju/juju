@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/api/instancemutater/mocks"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	jujutesting "github.com/juju/juju/testing"
@@ -234,7 +235,7 @@ func (s *instanceMutaterMachineSuite) setUpSetProfileUpgradeCompleteArgs() param
 }
 
 func (s *instanceMutaterMachineSuite) setupMachine() *instancemutater.Machine {
-	return instancemutater.NewMachine(s.fCaller, s.tag, params.Alive)
+	return instancemutater.NewMachine(s.fCaller, s.tag, life.Alive)
 }
 
 func (s *instanceMutaterMachineSuite) machineForScenario(c *gc.C, behaviours ...func()) *instancemutater.Machine {

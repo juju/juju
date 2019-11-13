@@ -14,6 +14,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -39,7 +40,7 @@ type MutaterMachine interface {
 	Tag() names.MachineTag
 
 	// Life returns the machine's lifecycle value.
-	Life() params.Life
+	Life() life.Value
 
 	// Refresh updates the cached local copy of the machine's data.
 	Refresh() error
@@ -70,7 +71,7 @@ type Machine struct {
 	facade base.FacadeCaller
 
 	tag  names.MachineTag
-	life params.Life
+	life life.Value
 }
 
 // ContainerType implements MutaterMachine.ContainerType.
@@ -138,7 +139,7 @@ func (m *Machine) Tag() names.MachineTag {
 }
 
 // Life implements MutaterMachine.Life.
-func (m *Machine) Life() params.Life {
+func (m *Machine) Life() life.Value {
 	return m.life
 }
 

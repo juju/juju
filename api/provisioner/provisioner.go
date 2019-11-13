@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
@@ -76,7 +77,7 @@ func NewStateFromFacade(facadeCaller base.FacadeCaller) *State {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
+func (st *State) machineLife(tag names.MachineTag) (life.Value, error) {
 	return common.OneLife(st.facade, tag)
 }
 

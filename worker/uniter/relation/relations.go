@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -198,11 +199,11 @@ func (r *relations) NextHook(
 	remoteState remotestate.Snapshot,
 ) (hook.Info, error) {
 
-	if remoteState.Life == params.Dying {
+	if remoteState.Life == life.Dying {
 		// The unit is Dying, so make sure all subordinates are dying.
 		var destroyAllSubordinates bool
 		for relationId, relationSnapshot := range remoteState.Relations {
-			if relationSnapshot.Life != params.Alive {
+			if relationSnapshot.Life != life.Alive {
 				continue
 			}
 			relationer, ok := r.relationers[relationId]
@@ -210,7 +211,7 @@ func (r *relations) NextHook(
 				continue
 			}
 			if relationer.ru.Endpoint().Scope == corecharm.ScopeContainer {
-				relationSnapshot.Life = params.Dying
+				relationSnapshot.Life = life.Dying
 				remoteState.Relations[relationId] = relationSnapshot
 				destroyAllSubordinates = true
 			}
@@ -238,8 +239,8 @@ func (r *relations) NextHook(
 			continue
 		}
 		var remoteBroken bool
-		if remoteState.Life == params.Dying ||
-			relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
+		if remoteState.Life == life.Dying ||
+			relationSnapshot.Life == life.Dying || relationSnapshot.Suspended {
 			relationSnapshot = remotestate.RelationSnapshot{}
 			remoteBroken = true
 			// TODO(axw) if relation is implicit, leave scope & remove.
@@ -477,7 +478,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 			// and to the member settings versions. We handle
 			// differences in settings in nextRelationHook.
 			rel.ru.Relation().UpdateSuspended(relationSnapshot.Suspended)
-			if relationSnapshot.Life == params.Dying || relationSnapshot.Suspended {
+			if relationSnapshot.Life == life.Dying || relationSnapshot.Suspended {
 				if err := r.setDying(id); err != nil {
 					return errors.Trace(err)
 				}
@@ -486,7 +487,7 @@ func (r *relations) update(remote map[int]remotestate.RelationSnapshot) error {
 		}
 		// Relations that are not alive are simply skipped, because they
 		// were not previously known anyway.
-		if relationSnapshot.Life != params.Alive || relationSnapshot.Suspended {
+		if relationSnapshot.Life != life.Alive || relationSnapshot.Suspended {
 			continue
 		}
 		rel, err := r.st.RelationById(id)

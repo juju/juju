@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api"
 	apiagent "github.com/juju/juju/api/agent"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -54,7 +55,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	m, err = apiSt.Entity(s.unit.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
-	c.Assert(m.Life(), gc.Equals, params.Alive)
+	c.Assert(m.Life(), gc.Equals, life.Alive)
 	c.Assert(m.Jobs(), gc.HasLen, 0)
 
 	err = s.unit.EnsureDead()

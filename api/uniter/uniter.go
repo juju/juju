@@ -15,6 +15,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
@@ -77,7 +78,7 @@ func (st *State) Facade() base.FacadeCaller {
 }
 
 // life requests the lifecycle of the given entity from the server.
-func (st *State) life(tag names.Tag) (params.Life, error) {
+func (st *State) life(tag names.Tag) (life.Value, error) {
 	return common.OneLife(st.facade, tag)
 }
 

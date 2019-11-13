@@ -267,7 +267,7 @@ func (sf *statusFormatter) formatApplication(name string, application params.App
 		CharmVersion:     application.CharmVersion,
 		CharmProfile:     application.CharmProfile,
 		Exposed:          application.Exposed,
-		Life:             application.Life,
+		Life:             string(application.Life),
 		Scale:            application.Scale,
 		ProviderId:       application.ProviderId,
 		Address:          application.PublicAddress,
@@ -297,7 +297,7 @@ func (sf *statusFormatter) formatRemoteApplication(name string, application para
 	out := remoteApplicationStatus{
 		Err:        typedNilCheck(application.Err),
 		OfferURL:   application.OfferURL,
-		Life:       application.Life,
+		Life:       string(application.Life),
 		Relations:  application.Relations,
 		StatusInfo: sf.getRemoteApplicationStatusInfo(application),
 	}
@@ -448,11 +448,12 @@ func (sf *statusFormatter) formatUnit(info unitFormatInfo) unitStatus {
 func (sf *statusFormatter) getStatusInfoContents(inst params.DetailedStatus) statusInfoContents {
 	// TODO(perrito66) add status validation.
 	info := statusInfoContents{
-		Err:     typedNilCheck(inst.Err),
+		Err: typedNilCheck(inst.Err),
+		// NOTE: why use a status.Status here, but a string for Life?
 		Current: status.Status(inst.Status),
 		Message: inst.Info,
 		Version: inst.Version,
-		Life:    inst.Life,
+		Life:    string(inst.Life),
 	}
 	if inst.Since != nil {
 		info.Since = common.FormatTime(inst.Since, sf.isoTime)

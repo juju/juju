@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/caas"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller/modelmanager"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -888,7 +889,7 @@ func (m *ModelManagerAPI) ListModelSummaries(req params.ModelSummariesRequest) (
 			OwnerTag:       names.NewUserTag(mi.Owner).String(),
 			ControllerUUID: mi.ControllerUUID,
 			IsController:   mi.IsController,
-			Life:           params.Life(mi.Life.String()),
+			Life:           life.Value(mi.Life.String()),
 
 			CloudTag:    mi.CloudTag,
 			CloudRegion: mi.CloudRegion,
@@ -1129,7 +1130,7 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		ControllerUUID: model.ControllerUUID(),
 		IsController:   st.IsController(),
 		OwnerTag:       model.Owner().String(),
-		Life:           params.Life(model.Life().String()),
+		Life:           life.Value(model.Life().String()),
 		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
 		CloudRegion:    model.CloudRegion(),
 	}

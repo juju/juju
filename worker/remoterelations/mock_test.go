@@ -16,6 +16,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/worker/remoterelations"
@@ -87,7 +88,7 @@ func (m *mockRelationsFacade) removeRelation(key string) (*mockRelationUnitsWatc
 	return w, ok
 }
 
-func (m *mockRelationsFacade) updateRelationLife(key string, life params.Life) (*mockRelationUnitsWatcher, bool) {
+func (m *mockRelationsFacade) updateRelationLife(key string, life life.Value) (*mockRelationUnitsWatcher, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	w, ok := m.relationsUnitsWatchers[key]
@@ -418,7 +419,7 @@ type mockRemoteApplication struct {
 	name       string
 	offeruuid  string
 	url        string
-	life       params.Life
+	life       life.Value
 	modelUUID  string
 	registered bool
 }
@@ -488,7 +489,7 @@ func (w *mockOfferStatusWatcher) Changes() watcher.OfferStatusChannel {
 
 func newMockRemoteApplication(name, url string) *mockRemoteApplication {
 	return &mockRemoteApplication{
-		name: name, url: url, life: params.Alive, offeruuid: "offer-" + name + "-uuid",
+		name: name, url: url, life: life.Alive, offeruuid: "offer-" + name + "-uuid",
 		modelUUID: "remote-model-uuid",
 	}
 }
@@ -503,7 +504,7 @@ func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 	return names.NewModelTag(r.modelUUID)
 }
 
-func (r *mockRemoteApplication) Life() params.Life {
+func (r *mockRemoteApplication) Life() life.Value {
 	r.MethodCall(r, "Life")
 	return r.life
 }
@@ -512,14 +513,14 @@ type mockRelation struct {
 	testing.Stub
 	sync.Mutex
 	id        int
-	life      params.Life
+	life      life.Value
 	suspended bool
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
 		id:   id,
-		life: params.Alive,
+		life: life.Alive,
 	}
 }
 
@@ -528,7 +529,7 @@ func (r *mockRelation) Id() int {
 	return r.id
 }
 
-func (r *mockRelation) Life() params.Life {
+func (r *mockRelation) Life() life.Value {
 	r.MethodCall(r, "Life")
 	return r.life
 }

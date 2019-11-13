@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 )
 
@@ -55,9 +56,9 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
-			{Life: params.Alive},
+			{Life: life.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Life: params.Dead},
+			{Life: life.Dead},
 			{Error: &params.Error{Message: "x3 error"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

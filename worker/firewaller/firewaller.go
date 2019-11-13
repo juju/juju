@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
@@ -621,13 +622,12 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 		}
 		if unitd, known := fw.unitds[unitTag]; known {
 			knownMachineTag := fw.unitds[unitTag].machined.tag
-			if unit == nil || unit.Life() == params.Dead || machineTag != knownMachineTag {
+			if unit == nil || unit.Life() == life.Dead || machineTag != knownMachineTag {
 				fw.forgetUnit(unitd)
 				changed = append(changed, unitd)
 				fw.logger.Debugf("stopped watching unit %s", name)
 			}
-			// TODO(dfc) fw.machineds should be map[names.Tag]
-		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
+		} else if unit != nil && unit.Life() != life.Dead && fw.machineds[machineTag] != nil {
 			err = fw.startUnit(unit, machineTag)
 			if params.IsCodeNotFound(err) {
 				continue
@@ -961,7 +961,7 @@ func (fw *Firewaller) machineLifeChanged(tag names.MachineTag) error {
 	if found && err != nil {
 		return err
 	}
-	dead := !found || m.Life() == params.Dead
+	dead := !found || m.Life() == life.Dead
 	machined, known := fw.machineds[tag]
 	if known && dead {
 		return fw.forgetMachine(machined)
@@ -1254,7 +1254,7 @@ func (fw *Firewaller) relationLifeChanged(tag names.RelationTag) error {
 	}
 	rel := results[0].Result
 
-	gone := notfound || rel.Life == params.Dead || rel.Suspended
+	gone := notfound || rel.Life == life.Dead || rel.Suspended
 	data, known := fw.relationIngress[tag]
 	if known && gone {
 		fw.logger.Debugf("relation %v was known but has died or been suspended", tag.Id())

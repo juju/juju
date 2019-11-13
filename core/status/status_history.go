@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/life"
 )
 
 // StatusHistoryFilter holds arguments that can be use to filter a status history backlog.
@@ -61,7 +62,7 @@ type DetailedStatus struct {
 	Kind   HistoryKind
 	// TODO(perrito666) make sure this is not used and remove.
 	Version string
-	Life    string
+	Life    life.Value
 	Err     error
 }
 

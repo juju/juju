@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -226,15 +227,15 @@ func (s *unitSuite) TestDestroyAllSubordinates(c *gc.C) {
 }
 
 func (s *unitSuite) TestRefreshLife(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
 
 	err := s.apiUnit.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
 
 	err = s.apiUnit.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Dead)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Dead)
 }
 
 func (s *unitSuite) TestRefreshResolve(c *gc.C) {
@@ -281,7 +282,7 @@ func (s *unitSuite) TestRefreshUpdateProviderID(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatch(c *gc.C) {
-	c.Assert(s.apiUnit.Life(), gc.Equals, params.Alive)
+	c.Assert(s.apiUnit.Life(), gc.Equals, life.Alive)
 
 	w, err := s.apiUnit.Watch()
 	c.Assert(err, jc.ErrorIsNil)
@@ -506,7 +507,7 @@ func (s *unitSuite) TestNetworkInfo(c *gc.C) {
 		called++
 		if called == 1 {
 			*(result.(*params.UnitRefreshResults)) = params.UnitRefreshResults{
-				Results: []params.UnitRefreshResult{{Life: params.Alive, Resolved: params.ResolvedNone}}}
+				Results: []params.UnitRefreshResult{{Life: life.Alive, Resolved: params.ResolvedNone}}}
 			return nil
 		}
 		c.Check(objType, gc.Equals, "Uniter")

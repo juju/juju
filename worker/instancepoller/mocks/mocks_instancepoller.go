@@ -5,14 +5,16 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	reflect "reflect"
 )
 
 // MockEnviron is a mock of Environ interface
@@ -126,9 +128,9 @@ func (mr *MockMachineMockRecorder) IsManual() *gomock.Call {
 }
 
 // Life mocks base method
-func (m *MockMachine) Life() params.Life {
+func (m *MockMachine) Life() life.Value {
 	ret := m.ctrl.Call(m, "Life")
-	ret0, _ := ret[0].(params.Life)
+	ret0, _ := ret[0].(life.Value)
 	return ret0
 }
 

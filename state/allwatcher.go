@@ -14,6 +14,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -146,7 +147,7 @@ func (e *backingModel) updated(st *State, store *multiwatcherStore, id string) e
 	info := &params.ModelUpdate{
 		ModelUUID:      e.UUID,
 		Name:           e.Name,
-		Life:           params.Life(e.Life.String()),
+		Life:           life.Value(e.Life.String()),
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
 		IsController:   st.IsController(),
@@ -245,7 +246,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcherStore, id string)
 	info := &params.MachineInfo{
 		ModelUUID:                st.ModelUUID(),
 		Id:                       m.Id,
-		Life:                     params.Life(m.Life.String()),
+		Life:                     life.Value(m.Life.String()),
 		Series:                   m.Series,
 		ContainerType:            m.ContainerType,
 		Jobs:                     paramsJobsFromJobs(m.Jobs),
@@ -444,7 +445,7 @@ func (u *backingUnit) updated(st *State, store *multiwatcherStore, id string) er
 		Name:        u.Name,
 		Application: u.Application,
 		Series:      u.Series,
-		Life:        params.Life(u.Life.String()),
+		Life:        life.Value(u.Life.String()),
 		MachineId:   u.MachineId,
 		Principal:   u.Principal,
 		Subordinate: u.Principal != "",
@@ -539,7 +540,7 @@ func (app *backingApplication) updated(st *State, store *multiwatcherStore, id s
 		Name:        app.Name,
 		Exposed:     app.Exposed,
 		CharmURL:    app.CharmURL.String(),
-		Life:        params.Life(app.Life.String()),
+		Life:        life.Value(app.Life.String()),
 		MinUnits:    app.MinUnits,
 		Subordinate: app.Subordinate,
 	}
@@ -614,7 +615,7 @@ func (ch *backingCharm) updated(st *State, store *multiwatcherStore, id string) 
 		ModelUUID:    st.ModelUUID(),
 		CharmURL:     ch.URL.String(),
 		CharmVersion: ch.CharmVersion,
-		Life:         params.Life(ch.Life.String()),
+		Life:         life.Value(ch.Life.String()),
 	}
 
 	if ch.LXDProfile != nil && !ch.LXDProfile.Empty() {
@@ -669,7 +670,7 @@ func (app *backingRemoteApplication) updated(st *State, store *multiwatcherStore
 		Name:      app.Name,
 		OfferUUID: app.OfferUUID,
 		OfferURL:  app.URL,
-		Life:      params.Life(app.Life.String()),
+		Life:      life.Value(app.Life.String()),
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {

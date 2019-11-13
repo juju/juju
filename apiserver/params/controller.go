@@ -3,6 +3,8 @@
 
 package params
 
+import "github.com/juju/juju/core/life"
+
 // DestroyControllerArgs holds the arguments for destroying a controller.
 type DestroyControllerArgs struct {
 	// DestroyModels specifies whether or not the hosted models
@@ -44,7 +46,7 @@ type RemoveBlocksArgs struct {
 // ModelStatus holds information about the status of a juju model.
 type ModelStatus struct {
 	ModelTag           string                `json:"model-tag"`
-	Life               Life                  `json:"life"`
+	Life               life.Value            `json:"life"`
 	Type               string                `json:"type"`
 	HostedMachineCount int                   `json:"hosted-machine-count"`
 	ApplicationCount   int                   `json:"application-count"`

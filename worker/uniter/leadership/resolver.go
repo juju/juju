@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6/hooks"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
@@ -41,7 +41,7 @@ func (l *leadershipResolver) NextOp(
 
 	// If we've already accepted leadership, we don't need to do it again.
 	canAcceptLeader := !localState.Leader
-	if remoteState.Life == params.Dying {
+	if remoteState.Life == life.Dying {
 		canAcceptLeader = false
 	} else {
 		// If we're in an unexpected mode (eg pending hook) we shouldn't try either.
@@ -56,7 +56,7 @@ func (l *leadershipResolver) NextOp(
 
 	// If we're the leader but should not be any longer, or
 	// if the unit is dying, we should resign leadership.
-	case localState.Leader && (!remoteState.Leader || remoteState.Life == params.Dying):
+	case localState.Leader && (!remoteState.Leader || remoteState.Life == life.Dying):
 		return opFactory.NewResignLeadership()
 	}
 

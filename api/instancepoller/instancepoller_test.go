@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/api/instancepoller"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -54,7 +55,7 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
 	m, err := api.Machine(names.NewMachineTag("42"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
-	c.Assert(m.Life(), gc.Equals, params.Life("working"))
+	c.Assert(m.Life(), gc.Equals, life.Value("working"))
 	c.Assert(m.Id(), gc.Equals, "42")
 }
 

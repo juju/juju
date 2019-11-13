@@ -16,7 +16,6 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
@@ -203,7 +202,7 @@ func (f *FakeSpace) Zones() []string {
 	return []string{""}
 }
 
-func (f *FakeSpace) Life() (life params.Life) {
+func (f *FakeSpace) Life() (life life.Value) {
 	return
 }
 

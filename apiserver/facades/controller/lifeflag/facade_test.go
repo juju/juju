@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facades/controller/lifeflag"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
 type FacadeSuite struct {
@@ -34,7 +35,7 @@ func (*FacadeSuite) TestLifeBadEntity(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
-	c.Check(result.Life, gc.Equals, params.Life(""))
+	c.Check(result.Life, gc.Equals, life.Value(""))
 
 	// TODO(fwereade): this is DUMB. should just be a parse error.
 	// but I'm not fixing the underlying implementation as well.
@@ -50,7 +51,7 @@ func (*FacadeSuite) TestLifeAuthFailure(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
-	c.Check(result.Life, gc.Equals, params.Life(""))
+	c.Check(result.Life, gc.Equals, life.Value(""))
 	c.Check(result.Error, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
@@ -63,7 +64,7 @@ func (*FacadeSuite) TestLifeNotFound(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
-	c.Check(result.Life, gc.Equals, params.Life(""))
+	c.Check(result.Life, gc.Equals, life.Value(""))
 	c.Check(result.Error, jc.Satisfies, params.IsCodeNotFound)
 }
 
@@ -75,7 +76,7 @@ func (*FacadeSuite) TestLifeSuccess(c *gc.C) {
 	results, err := facade.Life(modelEntity())
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(results, jc.DeepEquals, params.LifeResults{
-		Results: []params.LifeResult{{Life: params.Dying}},
+		Results: []params.LifeResult{{Life: life.Dying}},
 	})
 }
 

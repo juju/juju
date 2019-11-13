@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common/storagecommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -141,7 +142,7 @@ func (s *StorageAPI) StorageAttachmentLife(args params.StorageAttachmentIds) (pa
 		stateStorageAttachment, err := s.getOneStateStorageAttachment(canAccess, id)
 		if err == nil {
 			life := stateStorageAttachment.Life()
-			result.Results[i].Life = params.Life(life.String())
+			result.Results[i].Life = life.Value()
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -204,7 +205,7 @@ func (s *StorageAPI) fromStateStorageAttachment(stateStorageAttachment state.Sto
 		stateStorageAttachment.Unit().String(),
 		params.StorageKind(stateStorageInstance.Kind()),
 		info.Location,
-		params.Life(stateStorageAttachment.Life().String()),
+		life.Value(stateStorageAttachment.Life().String()),
 	}, nil
 }
 

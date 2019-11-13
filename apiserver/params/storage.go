@@ -6,6 +6,7 @@ package params
 import (
 	"time"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/storage"
 )
 
@@ -97,7 +98,7 @@ type StorageAttachment struct {
 
 	Kind     StorageKind `json:"kind"`
 	Location string      `json:"location"`
-	Life     Life        `json:"life"`
+	Life     life.Value  `json:"life"`
 }
 
 // StorageAttachmentId identifies a storage attachment by the tags of the
@@ -217,7 +218,7 @@ type VolumeAttachment struct {
 type VolumeAttachmentPlan struct {
 	VolumeTag  string                   `json:"volume-tag"`
 	MachineTag string                   `json:"machine-tag"`
-	Life       Life                     `json:"life,omitempty"`
+	Life       life.Value               `json:"life,omitempty"`
 	PlanInfo   VolumeAttachmentPlanInfo `json:"plan-info"`
 	// BlockDevice should only be set by machine agents after
 	// the AttachVolume() function is called. It represents the machines
@@ -524,7 +525,7 @@ type StorageDetails struct {
 	// Life contains the lifecycle state of the storage.
 	// Juju controllers older than 2.2 do not populate this
 	// field, so it may be omitted.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 
 	// Persistent reports whether or not the underlying volume or
 	// filesystem is persistent; i.e. whether or not it outlives
@@ -588,7 +589,7 @@ type StorageAttachmentDetails struct {
 	// Life contains the lifecycle state of the storage attachment.
 	// Juju controllers older than 2.2 do not populate this
 	// field, so it may be omitted.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 }
 
 // StoragePool holds data for a pool instance.
@@ -692,7 +693,7 @@ type VolumeDetails struct {
 	// Life contains the lifecycle state of the volume.
 	// Juju controllers older than 2.2 do not populate this
 	// field, so it may be omitted.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 
 	// Status contains the status of the volume.
 	Status EntityStatus `json:"status"`
@@ -723,7 +724,7 @@ type VolumeAttachmentDetails struct {
 	// Life contains the lifecycle state of the volume attachment.
 	// Juju controllers older than 2.2 do not populate this
 	// field, so it may be omitted.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 }
 
 // VolumeDetailsResult contains details about a volume, its attachments or
@@ -773,7 +774,7 @@ type FilesystemDetails struct {
 	// Life contains the lifecycle state of the filesystem.
 	// Juju controllers older than 2.2 do not populate this
 	// field, so it may be omitted.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 
 	// Status contains the status of the filesystem.
 	Status EntityStatus `json:"status"`
@@ -804,7 +805,7 @@ type FilesystemAttachmentDetails struct {
 	// Life contains the lifecycle state of the filesystem attachment.
 	// Juju controllers older than 2.2 do not populate this
 	// field, so it may be omitted.
-	Life Life `json:"life,omitempty"`
+	Life life.Value `json:"life,omitempty"`
 }
 
 // FilesystemDetailsResult contains details about a filesystem, its attachments or

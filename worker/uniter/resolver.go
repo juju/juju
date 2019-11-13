@@ -9,6 +9,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
@@ -60,7 +61,7 @@ func (s *uniterResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-	if remoteState.Life == params.Dead || localState.Stopped {
+	if remoteState.Life == life.Dead || localState.Stopped {
 		return nil, resolver.ErrTerminate
 	}
 
@@ -260,8 +261,8 @@ func (s *uniterResolver) nextOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 	switch remoteState.Life {
-	case params.Alive:
-	case params.Dying:
+	case life.Alive:
+	case life.Dying:
 		// Normally we handle relations last, but if we're dying we
 		// must ensure that all relations are broken first.
 		op, err := s.config.Relations.NextOp(localState, remoteState, opFactory)
@@ -279,7 +280,7 @@ func (s *uniterResolver) nextOp(
 			return opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
 		}
 		fallthrough
-	case params.Dead:
+	case life.Dead:
 		// The unit is dying/dead and stopped, so tell the uniter
 		// to terminate.
 		return nil, resolver.ErrTerminate

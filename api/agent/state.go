@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 )
 
@@ -101,7 +102,7 @@ func (m *Entity) Tag() string {
 }
 
 // Life returns the current life cycle state of the entity.
-func (m *Entity) Life() params.Life {
+func (m *Entity) Life() life.Value {
 	return m.doc.Life
 }
 

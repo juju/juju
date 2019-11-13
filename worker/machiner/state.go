@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/api/machiner"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -19,7 +20,7 @@ type MachineAccessor interface {
 
 type Machine interface {
 	Refresh() error
-	Life() params.Life
+	Life() life.Value
 	EnsureDead() error
 	SetMachineAddresses(addresses []network.MachineAddress) error
 	SetStatus(machineStatus status.Status, info string, data map[string]interface{}) error

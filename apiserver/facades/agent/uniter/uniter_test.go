@@ -29,6 +29,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas"
 	coreapplication "github.com/juju/juju/core/application"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -1842,7 +1843,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 			{
 				Id:        rel.Id(),
 				Key:       rel.String(),
-				Life:      params.Life(rel.Life().String()),
+				Life:      life.Value(rel.Life().String()),
 				Suspended: rel.Suspended(),
 				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
@@ -1881,7 +1882,7 @@ func (s *uniterSuite) TestRelationById(c *gc.C) {
 			{
 				Id:        rel.Id(),
 				Key:       rel.String(),
-				Life:      params.Life(rel.Life().String()),
+				Life:      life.Value(rel.Life().String()),
 				Suspended: rel.Suspended(),
 				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
@@ -3427,7 +3428,7 @@ func (s *uniterSuite) TestV5Relation(c *gc.C) {
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: params.Life(rel.Life().String()),
+				Life: life.Value(rel.Life().String()),
 				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        params.NewCharmRelation(wpEp.Relation),
@@ -3452,7 +3453,7 @@ func (s *uniterSuite) TestV5RelationById(c *gc.C) {
 			{
 				Id:   rel.Id(),
 				Key:  rel.String(),
-				Life: params.Life(rel.Life().String()),
+				Life: life.Value(rel.Life().String()),
 				Endpoint: params.Endpoint{
 					ApplicationName: wpEp.ApplicationName,
 					Relation:        params.NewCharmRelation(wpEp.Relation),
@@ -3474,7 +3475,7 @@ func (s *uniterSuite) TestRefresh(c *gc.C) {
 	}
 	expect := params.UnitRefreshResults{
 		Results: []params.UnitRefreshResult{
-			{Life: params.Alive, Resolved: params.ResolvedNone},
+			{Life: life.Alive, Resolved: params.ResolvedNone},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

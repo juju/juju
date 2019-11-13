@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/environs/context"
@@ -489,15 +490,15 @@ func (m *mockLifecycleManager) Life(tags []names.Tag) ([]params.LifeResult, erro
 			result = append(result, params.LifeResult{Error: m.err})
 			continue
 		}
-		life := params.Alive
+		value := life.Alive
 		if tag.Kind() == names.ApplicationTagKind {
 			if tag.Id() == "mysql" {
-				life = params.Dying
+				value = life.Dying
 			} else if tag.Id() == "postgresql" {
-				life = params.Dead
+				value = life.Dead
 			}
 		}
-		result = append(result, params.LifeResult{Life: life})
+		result = append(result, params.LifeResult{Life: value})
 	}
 	return result, nil
 }
@@ -511,13 +512,13 @@ func (m *mockLifecycleManager) AttachmentLife(ids []params.MachineStorageId) ([]
 		switch id {
 		case dyingVolumeAttachmentId, dyingUnitVolumeAttachmentId,
 			dyingFilesystemAttachmentId, dyingUnitFilesystemAttachmentId:
-			result = append(result, params.LifeResult{Life: params.Dying})
+			result = append(result, params.LifeResult{Life: life.Dying})
 		case missingVolumeAttachmentId:
 			result = append(result, params.LifeResult{
 				Error: common.ServerError(errors.NotFoundf("attachment %v", id)),
 			})
 		default:
-			result = append(result, params.LifeResult{Life: params.Alive})
+			result = append(result, params.LifeResult{Life: life.Alive})
 		}
 	}
 	return result, nil

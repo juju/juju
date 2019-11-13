@@ -11,6 +11,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 )
@@ -19,7 +20,7 @@ import (
 type Machine struct {
 	st   *Client
 	tag  names.MachineTag
-	life params.Life
+	life life.Value
 }
 
 // Tag returns the machine tag.
@@ -71,7 +72,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 }
 
 // Life returns the machine's life cycle value.
-func (m *Machine) Life() params.Life {
+func (m *Machine) Life() life.Value {
 	return m.life
 }
 

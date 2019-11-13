@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -247,15 +248,15 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
 	apiMachine := s.assertGetOneMachine(c, otherMachine.MachineTag())
-	c.Assert(apiMachine.Life(), gc.Equals, params.Alive)
+	c.Assert(apiMachine.Life(), gc.Equals, life.Alive)
 
 	err = apiMachine.EnsureDead()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine.Life(), gc.Equals, params.Alive)
+	c.Assert(apiMachine.Life(), gc.Equals, life.Alive)
 
 	err = apiMachine.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(apiMachine.Life(), gc.Equals, params.Dead)
+	c.Assert(apiMachine.Life(), gc.Equals, life.Dead)
 }
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {

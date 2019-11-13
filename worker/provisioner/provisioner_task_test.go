@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -141,12 +142,12 @@ func (s *ProvisionerTaskSuite) TestStopInstancesIgnoresMachinesWithKeep(c *gc.C)
 
 	m0 := &testMachine{
 		id:       "0",
-		life:     params.Dead,
+		life:     life.Dead,
 		instance: i0,
 	}
 	m1 := &testMachine{
 		id:           "1",
-		life:         params.Dead,
+		life:         life.Dead,
 		instance:     i1,
 		keepInstance: true,
 	}
@@ -520,7 +521,7 @@ type testMachine struct {
 
 	*apiprovisioner.Machine
 	id   string
-	life params.Life
+	life life.Value
 
 	instance     *testInstance
 	keepInstance bool
@@ -540,7 +541,7 @@ func (m *testMachine) String() string {
 	return m.Id()
 }
 
-func (m *testMachine) Life() params.Life {
+func (m *testMachine) Life() life.Value {
 	return m.life
 }
 

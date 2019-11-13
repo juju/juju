@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/model"
+	"github.com/juju/juju/core/life"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -66,7 +67,7 @@ func (s *ShowCommandSuite) SetUpTest(c *gc.C) {
 			CloudTag:       "cloud-some-cloud",
 			CloudRegion:    "some-region",
 			ProviderType:   "openstack",
-			Life:           params.Alive,
+			Life:           life.Alive,
 			Status: params.EntityStatus{
 				Status: status.Active,
 				Since:  &statusSince,
@@ -681,7 +682,7 @@ func createBasicModelInfo() *params.ModelInfo {
 		IsController:   false,
 		Type:           "iaas",
 		OwnerTag:       names.NewUserTag("owner").String(),
-		Life:           params.Dead,
+		Life:           life.Dead,
 		CloudTag:       names.NewCloudTag("altostratus").String(),
 		CloudRegion:    "mid-level",
 	}

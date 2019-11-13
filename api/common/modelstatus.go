@@ -89,7 +89,7 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 
 	result := base.ModelStatus{
 		UUID:               m.Id(),
-		Life:               string(r.Life),
+		Life:               r.Life,
 		Owner:              owner.Id(),
 		ModelType:          model.ModelType(r.Type),
 		HostedMachineCount: r.HostedMachineCount,

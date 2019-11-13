@@ -85,7 +85,7 @@ func (w *remoteRelationsWorker) loop() error {
 			event = params.RemoteRelationChangeEvent{
 				RelationToken:    w.remoteRelationToken,
 				ApplicationToken: w.applicationToken,
-				Life:             params.Life(change.Life),
+				Life:             change.Life,
 				Suspended:        &suspended,
 				SuspendedReason:  change.SuspendedReason,
 			}

@@ -7,10 +7,10 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 )
 
-func NewMachine(caller base.APICaller, tag names.MachineTag, life params.Life) *Machine {
+func NewMachine(caller base.APICaller, tag names.MachineTag, life life.Value) *Machine {
 	facade := base.NewFacadeCaller(caller, instancePollerFacade)
 	return &Machine{facade, tag, life}
 }

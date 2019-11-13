@@ -8,13 +8,14 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 )
 
 // Snapshot is a snapshot of the remote state of the unit.
 type Snapshot struct {
 	// Life is the lifecycle state of the unit.
-	Life params.Life
+	Life life.Value
 
 	// Relations contains the lifecycle states of
 	// each of the application's relations, keyed by
@@ -93,7 +94,7 @@ type Snapshot struct {
 // RelationSnapshot tracks the state of a relationship from the viewpoint of the local unit.
 type RelationSnapshot struct {
 	// Life indicates whether this relation is active, stopping or dead
-	Life params.Life
+	Life life.Value
 
 	// Suspended is used by cross-model relations to indicate the offer has
 	// disabled the relation, but has not removed it entirely.
@@ -110,7 +111,7 @@ type RelationSnapshot struct {
 // instance belonging to a unit.
 type StorageSnapshot struct {
 	Kind     params.StorageKind
-	Life     params.Life
+	Life     life.Value
 	Attached bool
 	Location string
 }

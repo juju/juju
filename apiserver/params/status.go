@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/relation"
 )
@@ -138,7 +139,7 @@ type ApplicationStatus struct {
 	Charm            string                 `json:"charm"`
 	Series           string                 `json:"series"`
 	Exposed          bool                   `json:"exposed"`
-	Life             string                 `json:"life"`
+	Life             life.Value             `json:"life"`
 	Relations        map[string][]string    `json:"relations"`
 	CanUpgradeTo     string                 `json:"can-upgrade-to"`
 	SubordinateTo    []string               `json:"subordinate-to"`
@@ -162,7 +163,7 @@ type RemoteApplicationStatus struct {
 	OfferURL  string              `json:"offer-url"`
 	OfferName string              `json:"offer-name"`
 	Endpoints []RemoteEndpoint    `json:"endpoints"`
-	Life      string              `json:"life"`
+	Life      life.Value          `json:"life"`
 	Relations map[string][]string `json:"relations"`
 	Status    DetailedStatus      `json:"status"`
 }
@@ -237,7 +238,7 @@ type DetailedStatus struct {
 	Since   *time.Time             `json:"since"`
 	Kind    string                 `json:"kind"`
 	Version string                 `json:"version"`
-	Life    string                 `json:"life"`
+	Life    life.Value             `json:"life"`
 	Err     *Error                 `json:"err,omitempty"`
 }
 
@@ -291,7 +292,7 @@ type StatusHistoryPruneArgs struct {
 type StatusResult struct {
 	Error  *Error                 `json:"error,omitempty"`
 	Id     string                 `json:"id"`
-	Life   Life                   `json:"life"`
+	Life   life.Value             `json:"life"`
 	Status string                 `json:"status"`
 	Info   string                 `json:"info"`
 	Data   map[string]interface{} `json:"data"`

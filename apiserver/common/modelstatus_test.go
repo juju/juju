@@ -16,6 +16,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -192,7 +193,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			HostedMachineCount: 1,
 			ApplicationCount:   1,
 			OwnerTag:           s.Owner.String(),
-			Life:               params.Alive,
+			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
 				{Id: "0", Hardware: &params.MachineHardware{Cores: &eight}, InstanceId: "id-4", DisplayName: "snowflake", Status: "pending", WantsVote: true},
@@ -212,7 +213,7 @@ func (s *modelStatusSuite) TestModelStatus(c *gc.C) {
 			HostedMachineCount: 2,
 			ApplicationCount:   1,
 			OwnerTag:           otherModelOwner.UserTag.String(),
-			Life:               params.Alive,
+			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
 			Machines: []params.ModelMachineInfo{
 				{Id: "0", Hardware: stdHw, InstanceId: "id-8", Status: "pending"},
@@ -258,7 +259,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 			HostedMachineCount: 0,
 			ApplicationCount:   0,
 			OwnerTag:           s.Owner.String(),
-			Life:               params.Alive,
+			Life:               life.Alive,
 			Type:               string(state.ModelTypeIAAS),
 		},
 		{
@@ -267,7 +268,7 @@ func (s *modelStatusSuite) TestModelStatusCAAS(c *gc.C) {
 			ApplicationCount:   1,
 			UnitCount:          1,
 			OwnerTag:           otherModelOwner.UserTag.String(),
-			Life:               params.Alive,
+			Life:               life.Alive,
 			Type:               string(state.ModelTypeCAAS),
 		},
 	})
@@ -286,7 +287,7 @@ func (s *modelStatusSuite) TestModelStatusRunsForAllModels(c *gc.C) {
 				Error: common.ServerError(errors.New(`"fail.me" is not a valid tag`))},
 			{
 				ModelTag: s.Model.ModelTag().String(),
-				Life:     params.Life(s.Model.Life().String()),
+				Life:     life.Value(s.Model.Life().String()),
 				OwnerTag: s.Model.Owner().String(),
 				Type:     string(state.ModelTypeIAAS),
 			},

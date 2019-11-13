@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/paths"
@@ -778,7 +779,7 @@ func (a *MachineAgent) machine(apiConn api.Connection) (*apimachiner.Machine, er
 
 func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error {
 	machine, err := a.machine(apiConn)
-	if errors.IsNotFound(err) || err == nil && machine.Life() == params.Dead {
+	if errors.IsNotFound(err) || err == nil && machine.Life() == life.Dead {
 		return jworker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -903,7 +904,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	if len(result) != 1 {
 		return errors.Errorf("expected 1 result, got %d", len(result))
 	}
-	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == params.Dead) {
+	if errors.IsNotFound(result[0].Err) || (result[0].Err == nil && result[0].Machine.Life() == life.Dead) {
 		return jworker.ErrTerminateAgent
 	}
 	machine := result[0].Machine

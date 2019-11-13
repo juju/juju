@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/worker/containerbroker"
 	"github.com/juju/juju/worker/containerbroker/mocks"
@@ -250,7 +251,7 @@ func (s *trackerSuite) expectMachines() {
 	s.state.EXPECT().Machines(s.machineTag).Return([]provisioner.MachineResult{{
 		Machine: s.machine,
 	}}, nil)
-	s.machine.EXPECT().Life().Return(params.Alive)
+	s.machine.EXPECT().Life().Return(life.Alive)
 }
 
 func (s *trackerSuite) expectNoMachines() {
@@ -261,7 +262,7 @@ func (s *trackerSuite) expectDeadMachines() {
 	s.state.EXPECT().Machines(s.machineTag).Return([]provisioner.MachineResult{{
 		Machine: s.machine,
 	}}, nil)
-	s.machine.EXPECT().Life().Return(params.Dead)
+	s.machine.EXPECT().Life().Return(life.Dead)
 }
 
 func (s *trackerSuite) expectSupportedContainers() {

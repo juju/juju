@@ -11,6 +11,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
@@ -121,10 +122,10 @@ func (u *Undertaker) run() error {
 	}
 	modelInfo := result.Result
 
-	if modelInfo.Life == params.Alive {
+	if modelInfo.Life == life.Alive {
 		return errors.Errorf("model still alive")
 	}
-	if modelInfo.Life == params.Dying {
+	if modelInfo.Life == life.Dying {
 		// TODO(axw) 2016-04-14 #1570285
 		// We should update status with information
 		// about the remaining resources here, and

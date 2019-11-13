@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/api/common"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -20,7 +21,7 @@ import (
 type Unit struct {
 	st           *State
 	tag          names.UnitTag
-	life         params.Life
+	life         life.Value
 	resolvedMode params.ResolvedMode
 	providerID   string
 }
@@ -46,7 +47,7 @@ func (u *Unit) String() string {
 }
 
 // Life returns the unit's lifecycle value.
-func (u *Unit) Life() params.Life {
+func (u *Unit) Life() life.Value {
 	return u.life
 }
 

@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -133,7 +134,7 @@ func (p *provisioner) loop() error {
 					}
 					continue
 				}
-				if _, ok := p.getApplicationWorker(appId); ok || appLifeResult.Life == params.Dead {
+				if _, ok := p.getApplicationWorker(appId); ok || appLifeResult.Life == life.Dead {
 					// Already watching the application. or we're
 					// not yet watching it and it's dead.
 					continue

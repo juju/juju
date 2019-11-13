@@ -5,14 +5,16 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	instance "github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
 )
 
 // MockMachineProvisioner is a mock of MachineProvisioner interface
@@ -129,9 +131,9 @@ func (mr *MockMachineProvisionerMockRecorder) KeepInstance() *gomock.Call {
 }
 
 // Life mocks base method
-func (m *MockMachineProvisioner) Life() params.Life {
+func (m *MockMachineProvisioner) Life() life.Value {
 	ret := m.ctrl.Call(m, "Life")
-	ret0, _ := ret[0].(params.Life)
+	ret0, _ := ret[0].(life.Value)
 	return ret0
 }
 

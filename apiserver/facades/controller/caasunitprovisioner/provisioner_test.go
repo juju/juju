@@ -21,6 +21,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -300,9 +301,9 @@ func (s *CAASProvisionerSuite) TestLife(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results, jc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{{
-			Life: params.Dying,
+			Life: life.Dying,
 		}, {
-			Life: params.Alive,
+			Life: life.Alive,
 		}, {
 			Error: &params.Error{
 				Code:    "unauthorized access",
