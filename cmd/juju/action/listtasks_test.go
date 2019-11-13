@@ -184,23 +184,23 @@ func (s *ListTasksSuite) TestRunYaml(c *gc.C) {
 	s.wrappedCommand, _ = action.NewListTasksCommandForTest(s.store)
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
-		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--format", "yaml")
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--format", "yaml", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
 "1":
   status: completed
   timing:
-    started: 2015-02-14 06:06:06 +0000 UTC
+    started: "2015-02-14 06:06:06"
   unit: mysql/0
 "2":
   status: running
   timing:
-    completed: 2014-02-14 06:06:06 +0000 UTC
+    completed: "2014-02-14 06:06:06"
   unit: mysql/1
 "3":
   status: pending
   timing:
-    enqueued: 2013-02-14 06:06:06 +0000 UTC
+    enqueued: "2013-02-14 06:06:06"
   unit: mysql/1
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
