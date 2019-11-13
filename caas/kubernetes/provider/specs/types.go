@@ -175,14 +175,18 @@ func parsePodSpec(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spec, err := parser(in)
+	k8sspec, err := parser(in)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err = spec.Validate(); err != nil {
+	if err = k8sspec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return spec.ToLatest(), nil
+	caaSSpec := k8sspec.ToLatest()
+	if err := caaSSpec.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return caaSSpec, nil
 }
 
 type parserType func(string) (PodSpecConverter, error)

@@ -14,19 +14,16 @@ import (
 	"github.com/juju/juju/caas/specs"
 )
 
-type caaSSpec = specs.PodSpecV2
+type caaSSpecV2 = specs.PodSpecV2
 
 type podSpecV2 struct {
-	caaSSpec      `json:",inline" yaml:",inline"`
+	caaSSpecV2    `json:",inline" yaml:",inline"`
 	K8sPodSpecV2  `json:",inline" yaml:",inline"`
 	k8sContainers `json:",inline" yaml:",inline"`
 }
 
 // Validate is defined on ProviderPod.
 func (p podSpecV2) Validate() error {
-	if err := p.caaSSpec.Validate(); err != nil {
-		return errors.Trace(err)
-	}
 	if err := p.K8sPodSpecV2.Validate(); err != nil {
 		return errors.Trace(err)
 	}
@@ -44,9 +41,9 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	for _, c := range p.Containers {
 		pSpec.Containers = append(pSpec.Containers, c.ToContainerSpec())
 	}
-	pSpec.Service = p.caaSSpec.Service
-	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
-	pSpec.ServiceAccount = p.caaSSpec.ServiceAccount
+	pSpec.Service = p.caaSSpecV2.Service
+	pSpec.ConfigMaps = p.caaSSpecV2.ConfigMaps
+	pSpec.ServiceAccount = p.caaSSpecV2.ServiceAccount
 	pSpec.ProviderPod = &p.K8sPodSpecV2
 	return pSpec
 }
@@ -103,14 +100,21 @@ type KubernetesResources struct {
 	ServiceAccounts []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 }
 
+func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
+	if crd.Scope != apiextensionsv1beta1.NamespaceScoped {
+		return errors.NewNotSupported(nil,
+			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q scope",
+				name, crd.Scope, apiextensionsv1beta1.NamespaceScoped),
+		)
+	}
+	return nil
+}
+
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
 	for k, crd := range krs.CustomResourceDefinitions {
-		if crd.Scope != apiextensionsv1beta1.NamespaceScoped {
-			return errors.NewNotSupported(nil,
-				fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q scope",
-					k, crd.Scope, apiextensionsv1beta1.NamespaceScoped),
-			)
+		if err := validateCustomResourceDefinition(k, crd); err != nil {
+			return errors.Trace(err)
 		}
 	}
 

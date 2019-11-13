@@ -51,75 +51,6 @@ func (c *k8sContainerLegacy) ToContainerSpec() specs.ContainerSpec {
 	return result
 }
 
-type podSpecLegacy struct {
-	caaSSpec specs.PodSpecLegacy
-	k8sSpec  K8sPodSpecLegacy
-}
-
-// Validate is defined on ProviderPod.
-func (p podSpecLegacy) Validate() error {
-	if err := p.caaSSpec.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	if err := p.k8sSpec.Validate(); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (p podSpecLegacy) ToLatest() *specs.PodSpec {
-	pSpec := &specs.PodSpec{}
-	pSpec.Version = specs.CurrentVersion
-	pSpec.OmitServiceFrontend = p.caaSSpec.OmitServiceFrontend
-	if pSpec.OmitServiceFrontend {
-		logger.Warningf("OmitServiceFrontend will be deprecated in v2.")
-	}
-	pSpec.Service = p.caaSSpec.Service
-	pSpec.ConfigMaps = p.caaSSpec.ConfigMaps
-	pSpec.Containers = p.caaSSpec.Containers
-	for _, c := range p.caaSSpec.InitContainers {
-		pSpec.Containers = append(pSpec.Containers, c)
-	}
-
-	if p.k8sSpec.ServiceAccountName != "" {
-		// we ignore service account stuff in legacy version.
-		logger.Warningf("service account is not supported in legacy version, please use v2.")
-	}
-
-	iPodSpec := &PodSpec{
-		RestartPolicy:                 p.k8sSpec.RestartPolicy,
-		ActiveDeadlineSeconds:         p.k8sSpec.ActiveDeadlineSeconds,
-		TerminationGracePeriodSeconds: p.k8sSpec.TerminationGracePeriodSeconds,
-		SecurityContext:               p.k8sSpec.SecurityContext,
-		ReadinessGates:                p.k8sSpec.ReadinessGates,
-		DNSPolicy:                     p.k8sSpec.DNSPolicy,
-	}
-	if !iPodSpec.IsEmpty() || p.k8sSpec.CustomResourceDefinitions != nil {
-		pSpec.ProviderPod = &K8sPodSpec{
-			KubernetesResources: &KubernetesResources{
-				CustomResourceDefinitions: p.k8sSpec.CustomResourceDefinitions,
-				Pod:                       iPodSpec,
-			},
-		}
-	}
-	return pSpec
-}
-
-// K8sPodSpecLegacy is a subset of v1.PodSpec which defines
-// attributes we expose for charms to set.
-type K8sPodSpecLegacy struct {
-	PodSpec                      `json:",inline" yaml:",inline"`
-	ServiceAccountName           string `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
-	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
-
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
-}
-
-// Validate is defined on ProviderPod.
-func (*K8sPodSpecLegacy) Validate() error {
-	return nil
-}
-
 type k8sContainersLegacy struct {
 	Containers     []k8sContainerLegacy `json:"containers" yaml:"containers"`
 	InitContainers []k8sContainerLegacy `json:"initContainers" yaml:"initContainers"`
@@ -130,43 +61,107 @@ func (cs *k8sContainersLegacy) Validate() error {
 	if len(cs.Containers) == 0 {
 		return errors.New("require at least one container spec")
 	}
+	for _, c := range cs.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	for _, c := range cs.InitContainers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return nil
+}
+
+// k8sPodSpecLegacy is a subset of v1.PodSpec which defines
+// attributes we expose for charms to set.
+type k8sPodSpecLegacy struct {
+	PodSpec                      `json:",inline" yaml:",inline"`
+	ServiceAccountName           string `json:"serviceAccountName,omitempty" yaml:"serviceAccountName,omitempty"`
+	AutomountServiceAccountToken *bool  `json:"automountServiceAccountToken,omitempty" yaml:"automountServiceAccountToken,omitempty"`
+
+	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `yaml:"customResourceDefinitions,omitempty"`
+}
+
+// Validate is defined on ProviderPod.
+func (ksl *k8sPodSpecLegacy) Validate() error {
+	for k, crd := range ksl.CustomResourceDefinitions {
+		if err := validateCustomResourceDefinition(k, crd); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+type caaSSpecLegacy = specs.PodSpecLegacy
+
+type podSpecLegacy struct {
+	caaSSpecLegacy      `json:",inline" yaml:",inline"`
+	k8sPodSpecLegacy    `json:",inline" yaml:",inline"`
+	k8sContainersLegacy `json:",inline" yaml:",inline"`
+}
+
+// Validate is defined on ProviderPod.
+func (p podSpecLegacy) Validate() error {
+	if err := p.k8sPodSpecLegacy.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := p.k8sContainersLegacy.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+func (p podSpecLegacy) ToLatest() *specs.PodSpec {
+	pSpec := &specs.PodSpec{}
+	pSpec.Version = specs.CurrentVersion
+	pSpec.OmitServiceFrontend = p.caaSSpecLegacy.OmitServiceFrontend
+	if pSpec.OmitServiceFrontend {
+		logger.Warningf("OmitServiceFrontend will be deprecated in v2.")
+	}
+	pSpec.Service = p.caaSSpecLegacy.Service
+	pSpec.ConfigMaps = p.caaSSpecLegacy.ConfigMaps
+
+	for _, c := range p.k8sContainersLegacy.Containers {
+		c.Init = false
+		pSpec.Containers = append(pSpec.Containers, c.ToContainerSpec())
+	}
+	for _, c := range p.k8sContainersLegacy.InitContainers {
+		c.Init = true
+		pSpec.Containers = append(pSpec.Containers, c.ToContainerSpec())
+	}
+
+	if p.k8sPodSpecLegacy.ServiceAccountName != "" {
+		// we ignore service account stuff in legacy version.
+		logger.Warningf("service account is not supported in legacy version, please use v2.")
+	}
+
+	iPodSpec := &PodSpec{
+		RestartPolicy:                 p.k8sPodSpecLegacy.RestartPolicy,
+		ActiveDeadlineSeconds:         p.k8sPodSpecLegacy.ActiveDeadlineSeconds,
+		TerminationGracePeriodSeconds: p.k8sPodSpecLegacy.TerminationGracePeriodSeconds,
+		SecurityContext:               p.k8sPodSpecLegacy.SecurityContext,
+		ReadinessGates:                p.k8sPodSpecLegacy.ReadinessGates,
+		DNSPolicy:                     p.k8sPodSpecLegacy.DNSPolicy,
+	}
+	if !iPodSpec.IsEmpty() || p.k8sPodSpecLegacy.CustomResourceDefinitions != nil {
+		pSpec.ProviderPod = &K8sPodSpec{
+			KubernetesResources: &KubernetesResources{
+				CustomResourceDefinitions: p.k8sPodSpecLegacy.CustomResourceDefinitions,
+				Pod:                       iPodSpec,
+			},
+		}
+	}
+	return pSpec
 }
 
 func parsePodSpecLegacy(in string) (_ PodSpecConverter, err error) {
 	// Do the common fields.
 	var spec podSpecLegacy
-
 	decoder := newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&spec.caaSSpec); err != nil {
+	if err = decoder.Decode(&spec); err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	// Do the k8s pod attributes.
-	decoder = newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
-	if err = decoder.Decode(&spec.k8sSpec); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Do the k8s containers.
-	var containers k8sContainersLegacy
-	if err := parseContainers(in, &containers); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	// Compose the result.
-	for i, c := range containers.Containers {
-		if err = c.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		spec.caaSSpec.Containers[i] = c.ToContainerSpec()
-	}
-	for i, c := range containers.InitContainers {
-		if err = c.Validate(); err != nil {
-			return nil, errors.Trace(err)
-		}
-		spec.caaSSpec.InitContainers[i] = c.ToContainerSpec()
-	}
-
 	return &spec, nil
 }
