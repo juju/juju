@@ -1310,12 +1310,16 @@ func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription,
 	ops := make([]txn.Op, 0)
 	for _, app := range remoteApplications {
 		appDoc := src.MakeRemoteApplicationDoc(app)
-		status := app.Status()
-		if status == nil {
-			return errors.NotValidf("missing status")
+
+		// Status maybe empty for some remoteApplications. Ensure we handle
+		// that correctly by checking if we get one before mkaing a new
+		// StatusDoc
+		var appStatusDoc *statusDoc
+		if status := app.Status(); status != nil {
+			doc := src.MakeStatusDoc(status)
+			appStatusDoc = &doc
 		}
 		app := src.NewRemoteApplication(appDoc)
-		appStatusDoc := src.MakeStatusDoc(status)
 
 		remoteAppOps, err := i.addRemoteApplicationOps(src, app, addRemoteApplicationOpsArgs{
 			remoteApplicationDoc: appDoc,
@@ -1334,7 +1338,7 @@ func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription,
 
 type addRemoteApplicationOpsArgs struct {
 	remoteApplicationDoc *remoteApplicationDoc
-	statusDoc            statusDoc
+	statusDoc            *statusDoc
 }
 
 func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplicationsDescription,
@@ -1356,12 +1360,17 @@ func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplications
 			Assert: txn.DocMissing,
 			Insert: args.remoteApplicationDoc,
 		},
-		src.MakeStatusOp(globalKey, args.statusDoc),
 	}
+	// The status doc can be optional with a remoteApplication. To ensure that
+	// we correctly handle this situation check for it.
+	if args.statusDoc != nil {
+		ops = append(ops, src.MakeStatusOp(globalKey, *args.statusDoc))
+	}
+
 	return ops, nil
 }
 
-func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
+func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) (*remoteApplicationDoc, error) {
 	doc := &remoteApplicationDoc{
 		Name:            app.Name(),
 		OfferUUID:       app.OfferUUID(),
@@ -1405,7 +1414,7 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		spaces[i].Subnets = subnets
 	}
 	doc.Spaces = spaces
-	return doc
+	return nil, doc
 }
 
 func (i *importer) relations() error {
