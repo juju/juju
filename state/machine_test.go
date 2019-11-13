@@ -126,6 +126,16 @@ func (s *MachineSuite) TestSetUnsetRebootFlag(c *gc.C) {
 	c.Assert(rebootFlag, jc.IsFalse)
 }
 
+func (s *MachineSuite) TestRecordAgentStartTime(c *gc.C) {
+	now := s.Clock.Now().Truncate(time.Millisecond)
+	err := s.machine.RecordAgentStartTime()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.machine.AgentStartTime(), gc.Equals, now)
+}
+
 func (s *MachineSuite) TestSetKeepInstance(c *gc.C) {
 	err := s.machine.SetProvisioned("1234", "", "nonce", nil)
 	c.Assert(err, jc.ErrorIsNil)

@@ -140,6 +140,9 @@ type machineDoc struct {
 	// StopMongoUntilVersion holds the version that must be checked to
 	// know if mongo must be stopped.
 	StopMongoUntilVersion string `bson:",omitempty"`
+
+	// AgentStartedAt records the time when the machine agent started.
+	AgentStartedAt time.Time `bson:"agent-started-at"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -2128,6 +2131,33 @@ func (m *Machine) VerifyUnitsSeries(unitNames []string, series string, force boo
 		results = append(results, subUnits...)
 	}
 	return results, nil
+}
+
+// RecordAgentStartTime updates the time when the machine agent was started.
+func (m *Machine) RecordAgentStartTime() error {
+	now := m.st.clock().Now()
+	ops := []txn.Op{{
+		C:      machinesC,
+		Id:     m.doc.DocID,
+		Assert: notDeadDoc,
+		Update: bson.D{
+			{"$set", bson.D{
+				{"agent-started-at", now},
+			}}},
+	}}
+	if err := m.st.db().RunTransaction(ops); err != nil {
+		// If instance doc doesn't exist, that's ok; there's nothing to keep,
+		// but that's not an error we care about.
+		return errors.Annotatef(onAbort(err, nil), "cannot update agent start time on machine %v", m)
+	}
+	m.doc.AgentStartedAt = now
+	return nil
+}
+
+// AgentStartTime returns the last recorded timestamp when the machine agent
+// was started.
+func (m *Machine) AgentStartTime() time.Time {
+	return m.doc.AgentStartedAt
 }
 
 // UpdateOperation returns a model operation that will update the machine.
