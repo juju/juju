@@ -252,7 +252,7 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 		// status at the next interval.
 		u.moveEntryToPollGroup(shortPollGroup, entry)
 		if groupType == longPollGroup {
-			u.config.Logger.Debugf("moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
+			u.config.Logger.Debugf("moving machine %q (instance ID %q) to short poll group", entry.m, entry.instanceID)
 		}
 		return nil
 	}
