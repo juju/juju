@@ -656,7 +656,10 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 
 func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	// Add the dummy charm.
-	ch := testcharms.Repo.CharmArchive(c.MkDir(), "dummy")
+	charmName := "dummy"
+	repo := testcharms.TmpRepo(c)
+	defer os.Remove(repo.Path())
+	ch := repo.CharmArchive(repo.Path(), charmName)
 	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
 
 	data, err := ioutil.ReadFile(ch.Path)
