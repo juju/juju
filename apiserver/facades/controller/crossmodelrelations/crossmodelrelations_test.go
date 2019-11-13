@@ -596,3 +596,11 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 		"slaughterhouse": "the-tongue",
 	})
 }
+
+func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
+	c.Fatalf("writeme")
+}
+
+func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
+	c.Fatalf("writeme")
+}

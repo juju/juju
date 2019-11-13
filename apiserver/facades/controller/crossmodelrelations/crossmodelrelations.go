@@ -44,6 +44,11 @@ type CrossModelRelationsAPI struct {
 	offerStatusWatcher    offerStatusWatcherFunc
 }
 
+// CrossModelRelationsAPI has WatchRelationUnits rather than WatchRelationChanges.
+type CrossModelRelationsAPIv1 struct {
+	*CrossModelRelationsAPI
+}
+
 // NewStateCrossModelRelationsAPI creates a new server-side CrossModelRelations API facade
 // backed by global state.
 func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI, error) {
@@ -65,6 +70,16 @@ func NewStateCrossModelRelationsAPI(ctx facade.Context) (*CrossModelRelationsAPI
 		watchRelationLifeSuspendedStatus,
 		watchOfferStatus,
 	)
+}
+
+// NewStateCrossModelRelationsAPIv1 creates a new server-side
+// CrossModelRelations v1 API facade backed by state.
+func NewStateCrossModelRelationsAPIv1(ctx facade.Context) (*CrossModelRelationsAPIv1, error) {
+	api, err := NewStateCrossModelRelationsAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &CrossModelRelationsAPIv1{api}, nil
 }
 
 // NewCrossModelRelationsAPI returns a new server-side CrossModelRelationsAPI facade.
@@ -307,8 +322,10 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 // WatchRelationUnits starts a RelationUnitsWatcher for watching the
 // relation units involved in each specified relation, and returns the
-// watcher IDs and initial values, or an error if the relation units could not be watched.
-func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.RemoteEntityArgs) (params.RelationUnitsWatchResults, error) {
+// watcher IDs and initial values, or an error if the relation units
+// could not be watched.  WatchRelationUnits is only supported on the
+// v1 API - later versions provide WatchRelationChanges instead.
+func (api *CrossModelRelationsAPIv1) WatchRelationUnits(remoteRelationArgs params.RemoteEntityArgs) (params.RelationUnitsWatchResults, error) {
 	results := params.RelationUnitsWatchResults{
 		Results: make([]params.RelationUnitsWatchResult, len(remoteRelationArgs.Args)),
 	}
@@ -337,6 +354,22 @@ func (api *CrossModelRelationsAPI) WatchRelationUnits(remoteRelationArgs params.
 	}
 	return results, nil
 }
+
+// WatchRelationChanges starts a RemoteRelationChangesWatcher for each
+// specified relation, returning the watcher IDs and initial values,
+// or an error if the remote relations couldn't be watched.
+func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs params.RemoteEntityArgs) (
+	params.RemoteRelationWatchResults, error,
+) {
+	return params.RemoteRelationWatchResults{}, errors.NotImplementedf("WatchRelationChanges")
+}
+
+// Mask out new methods from the old API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// WatchRelationChanges doesn't exist before the v2 API.
+func (api *CrossModelRelationsAPIv1) WatchRelationChanges(_, _ struct{}) {}
 
 // RelationUnitSettings returns the relation unit settings for the given relation units.
 func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.RemoteRelationUnits) (params.SettingsResults, error) {

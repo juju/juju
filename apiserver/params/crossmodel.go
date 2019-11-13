@@ -382,6 +382,20 @@ type RemoteRelationChangeEvent struct {
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
 }
 
+// RemoteRelationWatchResult holds a RemoteRelationWatcher id, initial
+// state (in the Changes field) or an error if the relation couldn't
+// be watched.
+type RemoteRelationWatchResult struct {
+	RemoteRelationWatcherId string                    `json:"watcher-id"`
+	Changes                 RemoteRelationChangeEvent `json:"changes"`
+	Error                   *Error                    `json:"error,omitempty"`
+}
+
+// RemoteRelationWatchResults holds the results for any API call that ends up returning a list of RemoteRelationWatchers
+type RemoteRelationWatchResults struct {
+	Results []RemoteRelationWatchResult `json:"results"`
+}
+
 // RelationLifeSuspendedStatusChange describes the life
 // and suspended status of a relation.
 type RelationLifeSuspendedStatusChange struct {
