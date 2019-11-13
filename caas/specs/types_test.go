@@ -151,12 +151,21 @@ func (s *typesSuite) TestValidateContainerSpec(c *gc.C) {
 }
 
 func (s *typesSuite) TestValidatePodSpecBase(c *gc.C) {
-	spec := specs.PodSpecBase{}
-	c.Assert(spec.Validate(specs.VersionLegacy), jc.ErrorIsNil)
-	spec.Version = specs.VersionLegacy
-	c.Assert(spec.Validate(specs.VersionLegacy), jc.ErrorIsNil)
+	minSpecs := specs.PodSpecBase{}
+	minSpecs.Containers = []specs.ContainerSpec{
+		{
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+		},
+	}
+	c.Assert(minSpecs.Validate(specs.VersionLegacy), jc.ErrorIsNil)
+	minSpecs.Version = specs.VersionLegacy
+	c.Assert(minSpecs.Validate(specs.VersionLegacy), jc.ErrorIsNil)
 
-	c.Assert(spec.Validate(specs.Version2), gc.ErrorMatches, `expected version 2, but found 0`)
-	spec.Version = specs.Version2
-	c.Assert(spec.Validate(specs.Version2), jc.ErrorIsNil)
+	c.Assert(minSpecs.Validate(specs.Version2), gc.ErrorMatches, `expected version 2, but found 0`)
+	minSpecs.Version = specs.Version2
+	c.Assert(minSpecs.Validate(specs.Version2), jc.ErrorIsNil)
 }
