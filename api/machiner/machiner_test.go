@@ -206,3 +206,21 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 }
+
+func (s *machinerSuite) TestRecordAgentStartTime(c *gc.C) {
+	mTag := names.NewMachineTag("1")
+	stMachine, err := s.State.Machine(mTag.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	oldStartedAt := stMachine.AgentStartTime()
+
+	machine, err := s.machiner.Machine(mTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = machine.RecordAgentStartTime()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = stMachine.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(stMachine.AgentStartTime(), gc.Not(gc.Equals), oldStartedAt, gc.Commentf("expected the agent start time to be updated"))
+}
