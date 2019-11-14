@@ -26,7 +26,7 @@ juju_bin=$1
 test_tmpdir=$(mktemp -d)
 export JUJU_DATA="${test_tmpdir}"
 
-${juju_bin} --show-log update-public-clouds
+${juju_bin} --show-log update-public-clouds --client
 
 # The public-clouds.yaml published must match what is built into the Juju binary
 # under test.
