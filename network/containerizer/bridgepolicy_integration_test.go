@@ -409,6 +409,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMismatchCo
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
@@ -430,6 +431,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesMissingBri
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "dmz" for container "0/lxd/0"`)
 
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
@@ -572,6 +574,7 @@ func (s *bridgePolicyStateSuite) TestPopulateContainerLinkLayerDevicesNoLocal(c 
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bridgePolicy.PopulateContainerLinkLayerDevices(s.machine, s.containerMachine)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `unable to find host bridge for space(s) "alpha" for container "0/lxd/0"`)
 	s.assertNoDevicesOnMachine(c, s.containerMachine)
 }
@@ -653,6 +656,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerNoHostDevices
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, reconfigureDelay, err := bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "dmz", "third"`)
 	c.Check(reconfigureDelay, gc.Equals, 0)
 }
@@ -670,6 +674,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerTwoSpacesOneM
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, gc.NotNil)
 	// both somespace and dmz are needed, but somespace is missing
 	c.Assert(err.Error(), gc.Equals, `host machine "0" has no available device in space(s) "somespace"`)
 }
@@ -799,6 +804,7 @@ func (s *bridgePolicyStateSuite) TestFindMissingBridgesForContainerUnknownWithCo
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, _, err = bridgePolicy.FindMissingBridgesForContainer(s.machine, s.containerMachine)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals,
 		`host machine "0" has no available device in space(s) "somespace"`)
 }
