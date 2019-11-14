@@ -47,21 +47,21 @@ func (s *spaceSuite) TestContainsName(c *gc.C) {
 	c.Assert(s.spaces.ContainsName("space666"), jc.IsFalse)
 }
 
-func (s *spaceSuite) TestDifference(c *gc.C) {
+func (s *spaceSuite) TestMinus(c *gc.C) {
 	infos := network.SpaceInfos{
 		{ID: "2", Name: "space2"},
 		{ID: "3", Name: "space3"},
 	}
-	result := s.spaces.Difference(infos)
+	result := s.spaces.Minus(infos)
 	c.Assert(result, gc.DeepEquals, network.SpaceInfos{{ID: "1", Name: "space1"}})
 }
 
-func (s *spaceSuite) TestDifferenceNoDiff(c *gc.C) {
+func (s *spaceSuite) TestMinuxNoDiff(c *gc.C) {
 	infos := network.SpaceInfos{
 		{ID: "1", Name: "space1"},
 		{ID: "2", Name: "space2"},
 		{ID: "3", Name: "space3"},
 	}
-	result := s.spaces.Difference(infos)
+	result := s.spaces.Minus(infos)
 	c.Assert(result, gc.DeepEquals, network.SpaceInfos{})
 }

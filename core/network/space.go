@@ -112,10 +112,10 @@ func (s SpaceInfos) ContainsName(name string) bool {
 	return s.GetByName(name) != nil
 }
 
-// Difference returns a new SpaceInfos representing all the
+// Minus returns a new SpaceInfos representing all the
 // values in the target that are not in the parameter. Value
 // matching is done by ID.
-func (s SpaceInfos) Difference(other SpaceInfos) SpaceInfos {
+func (s SpaceInfos) Minus(other SpaceInfos) SpaceInfos {
 	result := make(SpaceInfos, 0)
 	for _, value := range s {
 		if !other.ContainsID(value.ID) {

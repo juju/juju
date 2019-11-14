@@ -99,8 +99,8 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 		}
 	}
 
-	notFound := guestSpaceInfos.Difference(spacesFound)
-	fanNotFound := guestSpaceInfos.Difference(fanSpacesFound)
+	notFound := guestSpaceInfos.Minus(spacesFound)
+	fanNotFound := guestSpaceInfos.Minus(fanSpacesFound)
 
 	if p.containerNetworkingMethod == "fan" {
 		if len(fanNotFound) == 0 {
@@ -160,7 +160,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 			}
 		}
 	}
-	notFound = notFound.Difference(spacesFound)
+	notFound = notFound.Minus(spacesFound)
 	if len(notFound) != 0 {
 		hostSpaces, err := host.AllSpaces()
 		if err != nil {
@@ -505,7 +505,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 		}
 	}
 
-	missingSpaces := guestSpaces.Difference(spacesFound)
+	missingSpaces := guestSpaces.Minus(spacesFound)
 
 	// Check if we are missing the default space and can fill it in with a local bridge
 	if len(missingSpaces) == 1 &&
@@ -516,7 +516,7 @@ func (p *BridgePolicy) PopulateContainerLinkLayerDevices(host Machine, guest Con
 			name := hostDevice.Name()
 			if hostDevice.Type() == corenetwork.BridgeDevice && name == localBridgeName {
 				alphaInfo := p.spaces.GetByID(corenetwork.AlphaSpaceId)
-				missingSpaces = missingSpaces.Difference(corenetwork.SpaceInfos{*alphaInfo})
+				missingSpaces = missingSpaces.Minus(corenetwork.SpaceInfos{*alphaInfo})
 				devicesByName[name] = hostDevice
 				bridgeDeviceNames = append(bridgeDeviceNames, name)
 				spacesFound = append(spacesFound, *alphaInfo)
