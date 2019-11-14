@@ -8,28 +8,8 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/juju/apiserver/facade"
-	"github.com/juju/juju/migration"
 	"github.com/juju/juju/state"
 )
-
-// NewFacade exists to provide the required signature for API
-// registration, converting st to backend.
-func NewFacade(ctx facade.Context) (*API, error) {
-	controllerState := ctx.StatePool().SystemState()
-	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating precheck backend")
-	}
-	return NewAPI(
-		&backendShim{ctx.State()},
-		precheckBackend,
-		migration.PoolShim(ctx.StatePool()),
-		ctx.Resources(),
-		ctx.Auth(),
-		ctx.Presence(),
-	)
-}
 
 // backendShim wraps a *state.State to implement Backend. It is
 // untested, but is simple enough to be verified by inspection.

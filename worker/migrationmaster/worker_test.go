@@ -481,6 +481,20 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 	))
 }
 
+func (s *Suite) TestProcessRelationsFailure(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.PROCESSRELATIONS))
+	s.facade.processRelationsErr = errors.New("boom")
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.ProcessRelations", []interface{}{""}},
+		},
+		abortCalls,
+	))
+}
+
 func (s *Suite) TestExportFailure(c *gc.C) {
 	s.facade.queueStatus(s.makeStatus(coremigration.IMPORT))
 	s.facade.exportErr = errors.New("boom")

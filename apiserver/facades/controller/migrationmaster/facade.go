@@ -33,6 +33,38 @@ type API struct {
 	presence        facade.Presence
 }
 
+type APIV1 struct {
+	*API
+}
+
+// NewMigrationMasterFacadeV2 exists to provide the required signature for API
+// registration, converting st to backend.
+func NewMigrationMasterFacadeV2(ctx facade.Context) (*API, error) {
+	controllerState := ctx.StatePool().SystemState()
+	precheckBackend, err := migration.PrecheckShim(ctx.State(), controllerState)
+	if err != nil {
+		return nil, errors.Annotate(err, "creating precheck backend")
+	}
+	return NewAPI(
+		&backendShim{ctx.State()},
+		precheckBackend,
+		migration.PoolShim(ctx.StatePool()),
+		ctx.Resources(),
+		ctx.Auth(),
+		ctx.Presence(),
+	)
+}
+
+// NewMigrationMasterFacade exists to provide the required signature for API
+// registration, converting st to backend.
+func NewMigrationMasterFacade(ctx facade.Context) (*APIV1, error) {
+	v2, err := NewMigrationMasterFacadeV2(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIV1{v2}, nil
+}
+
 // NewAPI creates a new API server endpoint for the model migration
 // master worker.
 func NewAPI(
@@ -210,6 +242,15 @@ func (api *API) Export() (params.SerializedModel, error) {
 		serialized.Tools = getUsedTools(model)
 	}
 	return serialized, nil
+}
+
+// ProcessRelations is masked on older versions of the migration master API
+func (api *APIV1) ProcessRelations(_, _ struct{}) {}
+
+// ProcessRelations processes any relations that need updating after an export.
+// This should help fix any remoteApplications that have been migrated.
+func (api *API) ProcessRelations(args params.ProcessReleations) error {
+	return nil
 }
 
 // Reap removes all documents for the model associated with the API

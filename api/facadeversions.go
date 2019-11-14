@@ -70,7 +70,7 @@ var facadeVersions = map[string]int{
 	"MetricsDebug":                 2,
 	"MetricsManager":               1,
 	"MigrationFlag":                1,
-	"MigrationMaster":              1,
+	"MigrationMaster":              2,
 	"MigrationMinion":              1,
 	"MigrationStatusWatcher":       1,
 	"MigrationTarget":              1,
