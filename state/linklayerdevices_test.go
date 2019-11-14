@@ -242,7 +242,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithDuplicateProvide
 
 	args2 := args1
 	args2.Name = "br-eth0"
-	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args2, `ProviderID\(s\) not unique: 42`)
+	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args2, `provider IDs not unique: 42`)
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
@@ -292,7 +292,7 @@ func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesUpdateWithDuplicateP
 	s.assertSetLinkLayerDevicesSucceedsAndResultMatchesArgs(c, args)
 
 	args.ProviderID = "42"
-	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args, `ProviderID\(s\) not unique: 42`)
+	err := s.assertSetLinkLayerDevicesFailsValidationForArgs(c, args, `provider IDs not unique: 42`)
 	c.Assert(err, jc.Satisfies, state.IsProviderIDNotUniqueError)
 }
 
