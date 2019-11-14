@@ -1,3 +1,6 @@
+# SHORT_TIMEOUT creates a consistent short timeout of the wait_for condition.
+SHORT_TIMEOUT=5
+
 # wait_for defines the ability to wait for a given condition to happen in a
 # juju status output. The output is JSON, so everything that the API server
 # knows about should be valid.
@@ -17,13 +20,16 @@ wait_for() {
     until [ "$(juju status --format=json 2> /dev/null | jq -S "${query}" | grep "${name}")" ]; do
         echo "[+] (attempt ${attempt}) polling status"
         juju status --relations 2>&1 | sed 's/^/    | /g'
-        sleep 5
+        sleep "${SHORT_TIMEOUT}"
         attempt=$((attempt+1))
     done
 
     if [ "${attempt}" -gt 0 ]; then
         echo "[+] $(green 'Completed polling status')"
         juju status --relations 2>&1 | sed 's/^/    | /g'
+        # Although juju reports as an idle condition, some charms require a
+        # breathe period to ensure things have actually settled.
+        sleep "${SHORT_TIMEOUT}"
     fi
 }
 
@@ -35,6 +41,16 @@ idle_condition() {
     unit_index=${3:-0}
 
     echo ".applications | select(.[\"$name\"] | .units | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
+}
+
+active_condition() {
+    local name app_index unit_index
+
+    name=${1}
+    app_index=${2:-0}
+    unit_index=${3:-0}
+
+    echo ".applications | select(.[\"$name\"] | .[\"application-status\"] | .current == \"active\") | keys[$app_index]"
 }
 
 # workload_status gets the workload-status object for the unit - use
@@ -79,13 +95,14 @@ wait_for_machine_agent_status() {
     until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"juju-status\"] | .[\"current\"]" | grep "${status}") ]; do
         echo "[+] (attempt ${attempt}) polling machines"
         juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
-        sleep 5
+        sleep "${SHORT_TIMEOUT}"
         attempt=$((attempt+1))
     done
 
     if [ "${attempt}" -gt 0 ]; then
         echo "[+] $(green 'Completed polling machines')"
         juju machines | grep "$inst_id" 2>&1 | sed 's/^/    | /g'
+        sleep "${SHORT_TIMEOUT}"
     fi
 }
 
@@ -110,7 +127,7 @@ wait_for_machine_netif_count() {
     until [ $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length" | grep "${count}") ]; do
         # shellcheck disable=SC2046,SC2143
         echo "[+] (attempt ${attempt}) network interface count for instance ${inst_id} = "$(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${inst_id}\"] | .[\"network-interfaces\"] | length")
-        sleep 5
+        sleep "${SHORT_TIMEOUT}"
         attempt=$((attempt+1))
     done
 }
@@ -135,12 +152,13 @@ wait_for_model() {
     until [ $(juju models --format=json | jq -r ".models | .[] | select(.[\"short-name\"] == \"${name}\") | .[\"short-name\"]" | grep "${name}") ]; do
         echo "[+] (attempt ${attempt}) polling models"
         juju models | sed 's/^/    | /g'
-        sleep 5
+        sleep "${SHORT_TIMEOUT}"
         attempt=$((attempt+1))
     done
 
     if [ "${attempt}" -gt 0 ]; then
         echo "[+] $(green 'Completed polling models')"
         juju models | sed 's/^/    | /g'
+        sleep "${SHORT_TIMEOUT}"
     fi
 }

@@ -213,7 +213,7 @@ destroy_controller() {
         echo "====> Destroying model ($(green "${name}"))"
 
         output="${TEST_DIR}/${name}-destroy-model.txt"
-        echo "${name}" | xargs -I % juju destroy-model -y % 2>&1 | add_date >"${output}"
+        echo "${name}" | xargs -I % juju destroy-model --force -y % 2>&1 | add_date >"${output}"
 
         echo "====> Destroyed model ($(green "${name}"))"
         return
