@@ -59,8 +59,15 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 	}, nil
 }
 
-func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
-	entity, err := api.st.FindEntity(tag)
+func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {
+	mtag, err := names.ParseMachineTag(tag)
+	if err != nil {
+		return nil, common.ErrPerm
+	} else if !authChecker(mtag) {
+		return nil, common.ErrPerm
+	}
+
+	entity, err := api.st.FindEntity(mtag)
 	if err != nil {
 		return nil, err
 	}
@@ -76,16 +83,7 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 		return results, err
 	}
 	for i, arg := range args.MachineAddresses {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if !canModify(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		m, err := api.getMachine(tag)
+		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -114,18 +112,7 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	}
 
 	for i, agent := range args.Entities {
-		tag, err := names.ParseMachineTag(agent.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if !canRead(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		machine, err := api.getMachine(tag)
+		machine, err := api.getMachine(agent.Tag, canRead)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -149,17 +136,9 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 	if err != nil {
 		return results, err
 	}
+
 	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if !canModify(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		m, err := api.getMachine(tag)
+		m, err := api.getMachine(entity.Tag, canModify)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
