@@ -361,7 +361,14 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					err = added.Log("hello")
 					c.Assert(err, jc.ErrorIsNil)
 					status := state.ActionCompleted
-					output := map[string]interface{}{"output": "blah, blah, blah"}
+					output := map[string]interface{}{
+						"output":         "blah, blah, blah",
+						"Stdout":         "out",
+						"StdoutEncoding": "utf-8",
+						"Stderr":         "err",
+						"StderrEncoding": "utf-8",
+						"Code":           "1",
+					}
 					message := "success"
 
 					fa, err := added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
@@ -370,7 +377,14 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 
 					exp.Status = string(status)
 					exp.Message = message
-					exp.Output = output
+					exp.Output = map[string]interface{}{
+						"output":          "blah, blah, blah",
+						"stdout":          "out",
+						"stdout-encoding": "utf-8",
+						"stderr":          "err",
+						"stderr-encoding": "utf-8",
+						"return-code":     1,
+					}
 					exp.Log = []params.ActionMessage{{Message: "hello"}}
 				}
 			}
@@ -539,7 +553,14 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 
 				if act.Execute {
 					status := state.ActionCompleted
-					output := map[string]interface{}{"output": "blah, blah, blah"}
+					output := map[string]interface{}{
+						"output":         "blah, blah, blah",
+						"Stdout":         "out",
+						"StdoutEncoding": "utf-8",
+						"Stderr":         "err",
+						"StderrEncoding": "utf-8",
+						"Code":           "1",
+					}
 					message := "success"
 
 					_, err = added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
@@ -554,7 +575,14 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 						},
 						Status:  string(status),
 						Message: message,
-						Output:  output,
+						Output: map[string]interface{}{
+							"output":          "blah, blah, blah",
+							"stdout":          "out",
+							"stdout-encoding": "utf-8",
+							"stderr":          "err",
+							"stderr-encoding": "utf-8",
+							"return-code":     1,
+						},
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}

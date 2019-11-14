@@ -75,7 +75,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d should %s: juju functions defined %s", i,
+			c.Logf("test %d should %s: juju actions defined %s", i,
 				t.should, strings.Join(t.args, " "))
 			s.wrappedCommand, s.command = action.NewListCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
@@ -93,7 +93,7 @@ func (s *ListSuite) TestInit(c *gc.C) {
 
 func (s *ListSuite) TestRun(c *gc.C) {
 	simpleOutput := `
-Function        Description
+Action          Description
 kill            Kill the database.
 no-description  No description
 no-params       An action with no parameters.
@@ -127,7 +127,7 @@ snapshot        Take a snapshot of the database.
 		should:          "work properly when no results found",
 		withArgs:        []string{validApplicationId},
 		expectNoResults: true,
-		expectMessage:   fmt.Sprintf("No functions defined for %s.\n", validApplicationId),
+		expectMessage:   fmt.Sprintf("No actions defined for %s.\n", validApplicationId),
 	}, {
 		should:           "get tabular default output when --schema is NOT specified",
 		withArgs:         []string{"--format=default", validApplicationId},

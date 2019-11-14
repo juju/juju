@@ -87,7 +87,7 @@ func (s *ListTasksSuite) TestRunQueryArgs(c *gc.C) {
 	}
 	for _, modelFlag := range s.modelFlags {
 		s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
-		args = append([]string{modelFlag, "admin"}, args...)
+		args = append([]string{modelFlag, "admin", "--utc"}, args...)
 
 		_, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 		c.Assert(err, jc.ErrorIsNil)
@@ -164,10 +164,10 @@ func (s *ListTasksSuite) TestRunPlain(c *gc.C) {
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
-Time                 Id  Task     Status     Unit
-2013-02-14 06:06:06   3  vacuum   pending    mysql/1
-2014-02-14 06:06:06   2  restore  running    mysql/1
-2015-02-14 06:06:06   1  backup   completed  mysql/0
+Id  Task     Status     Unit     Time
+ 3  vacuum   pending    mysql/1  2013-02-14T06:06:06
+ 2  restore  running    mysql/1  2014-02-14T06:06:06
+ 1  backup   completed  mysql/0  2015-02-14T06:06:06
 
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
@@ -190,17 +190,17 @@ func (s *ListTasksSuite) TestRunYaml(c *gc.C) {
 "1":
   status: completed
   timing:
-    started: "2015-02-14 06:06:06"
+    started: 2015-02-14 06:06:06 +0000 UTC
   unit: mysql/0
 "2":
   status: running
   timing:
-    completed: "2014-02-14 06:06:06"
+    completed: 2014-02-14 06:06:06 +0000 UTC
   unit: mysql/1
 "3":
   status: pending
   timing:
-    enqueued: "2013-02-14 06:06:06"
+    enqueued: 2013-02-14 06:06:06 +0000 UTC
   unit: mysql/1
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)

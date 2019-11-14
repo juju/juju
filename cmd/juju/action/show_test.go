@@ -46,7 +46,7 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "fail with missing action name",
 		args:        []string{validApplicationId},
-		expectedErr: "no function name specified",
+		expectedErr: "no action name specified",
 	}, {
 		should:      "fail with invalid application name",
 		args:        []string{invalidApplicationId, "doIt"},
@@ -64,7 +64,7 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d should %s: juju show-function defined %s", i,
+			c.Logf("test %d should %s: juju show-action defined %s", i,
 				t.should, strings.Join(t.args, " "))
 			s.wrappedCommand, s.command = action.NewShowCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
@@ -112,12 +112,12 @@ name:
 		withArgs:        []string{validApplicationId, "snapshot"},
 		expectNoResults: true,
 		expectedErr:     "cmd: error out silently",
-		expectMessage:   `unknown function "snapshot"`,
+		expectMessage:   `unknown action "snapshot"`,
 	}, {
-		should:           "error when unknown function specified",
+		should:           "error when unknown action specified",
 		withArgs:         []string{validApplicationId, "something"},
 		withCharmActions: someCharmActions,
-		expectMessage:    `unknown function "something"`,
+		expectMessage:    `unknown action "something"`,
 		expectedErr:      "cmd: error out silently",
 	}, {
 		should:           "get results properly",
