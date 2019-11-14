@@ -12,11 +12,13 @@ import (
 	"github.com/juju/juju/api/watcher"
 )
 
+// NewFacade attempts to create a new facade from the migration master
 func NewFacade(apiCaller base.APICaller) (Facade, error) {
 	facade := migrationmaster.NewClient(apiCaller, watcher.NewNotifyWatcher)
 	return facade, nil
 }
 
+// NewWorker creates a new Worker from the config supplied.
 func NewWorker(config Config) (worker.Worker, error) {
 	worker, err := New(config)
 	if err != nil {

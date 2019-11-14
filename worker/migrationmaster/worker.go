@@ -89,6 +89,10 @@ type Facade interface {
 	// associated with the API connection.
 	Export() (coremigration.SerializedModel, error)
 
+	// ProcessRelations runs a series of processes to ensure that the relations
+	// of a given model are correct after a migrated model.
+	ProcessRelations(string) error
+
 	// OpenResource downloads a single resource for an application.
 	OpenResource(string, string) (io.ReadCloser, error)
 
@@ -220,6 +224,8 @@ func (w *Worker) run() error {
 			phase, err = w.doQUIESCE(status)
 		case coremigration.IMPORT:
 			phase, err = w.doIMPORT(status.TargetInfo, status.ModelUUID)
+		case coremigration.PROCESSRELATIONS:
+			phase, err = w.doPROCESSRELATIONS(status)
 		case coremigration.VALIDATION:
 			phase, err = w.doVALIDATION(status)
 		case coremigration.SUCCESS:
@@ -357,7 +363,7 @@ func (w *Worker) doIMPORT(targetInfo coremigration.TargetInfo, modelUUID string)
 		w.setErrorStatus("model data transfer failed, %v", err)
 		return coremigration.ABORT, nil
 	}
-	return coremigration.VALIDATION, nil
+	return coremigration.PROCESSRELATIONS, nil
 }
 
 type uploadWrapper struct {
@@ -430,6 +436,24 @@ func (w *Worker) transferModel(targetInfo coremigration.TargetInfo, modelUUID st
 		ResourceUploader:   wrapper,
 	})
 	return errors.Annotate(err, "failed to migrate binaries")
+}
+
+func (w *Worker) doPROCESSRELATIONS(status coremigration.MigrationStatus) (coremigration.Phase, error) {
+	err := w.processRelations(status.TargetInfo, status.ModelUUID)
+	if err != nil {
+		w.setErrorStatus("processing relations failed, %v", err)
+		return coremigration.ABORT, nil
+	}
+	return coremigration.VALIDATION, nil
+}
+
+func (w *Worker) processRelations(targetInfo coremigration.TargetInfo, modelUUID string) error {
+	w.setInfoStatus("processing relations")
+	err := w.config.Facade.ProcessRelations(targetInfo.ControllerAlias)
+	if err != nil {
+		return errors.Annotate(err, "processing relations failed")
+	}
+	return nil
 }
 
 func (w *Worker) doVALIDATION(status coremigration.MigrationStatus) (coremigration.Phase, error) {
