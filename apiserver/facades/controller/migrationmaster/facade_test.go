@@ -189,6 +189,14 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "retrieving model: boom")
 }
 
+func (s *Suite) TestProcessRelations(c *gc.C) {
+	api := s.mustMakeAPI(c)
+	err := api.ProcessRelations(params.ProcessReleations{
+		ControllerAlias: "foo",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *Suite) TestExportIAAS(c *gc.C) {
 	s.assertExport(c, "iaas")
 }
