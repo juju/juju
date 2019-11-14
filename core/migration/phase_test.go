@@ -61,6 +61,7 @@ func (s *PhaseSuite) TestIsRunning(c *gc.C) {
 
 	c.Check(migration.QUIESCE.IsRunning(), jc.IsTrue)
 	c.Check(migration.IMPORT.IsRunning(), jc.IsTrue)
+	c.Check(migration.PROCESSRELATIONS.IsRunning(), jc.IsTrue)
 	c.Check(migration.SUCCESS.IsRunning(), jc.IsTrue)
 
 	c.Check(migration.LOGTRANSFER.IsRunning(), jc.IsFalse)
@@ -75,6 +76,7 @@ func (s *PhaseSuite) TestCanTransitionTo(c *gc.C) {
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.SUCCESS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.ABORT), jc.IsTrue)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.IMPORT), jc.IsTrue)
+	c.Check(migration.QUIESCE.CanTransitionTo(migration.PROCESSRELATIONS), jc.IsFalse)
 	c.Check(migration.QUIESCE.CanTransitionTo(migration.Phase(-1)), jc.IsFalse)
 	c.Check(migration.ABORT.CanTransitionTo(migration.QUIESCE), jc.IsFalse)
 }

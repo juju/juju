@@ -12,6 +12,7 @@ const (
 	NONE
 	QUIESCE
 	IMPORT
+	PROCESSRELATIONS
 	VALIDATION
 	SUCCESS
 	LOGTRANSFER
@@ -27,6 +28,7 @@ var phaseNames = []string{
 	"NONE",    // For watchers to indicate there's never been a migration attempt.
 	"QUIESCE",
 	"IMPORT",
+	"PROCESSRELATIONS",
 	"VALIDATION",
 	"SUCCESS",
 	"LOGTRANSFER",
@@ -81,7 +83,7 @@ func (p Phase) IsRunning() bool {
 		return false
 	}
 	switch p {
-	case QUIESCE, IMPORT, VALIDATION, SUCCESS:
+	case QUIESCE, IMPORT, PROCESSRELATIONS, VALIDATION, SUCCESS:
 		return true
 	default:
 		return false
@@ -93,13 +95,14 @@ func (p Phase) IsRunning() bool {
 // The keys are the "from" states and the values enumerate the
 // possible "to" states.
 var validTransitions = map[Phase][]Phase{
-	QUIESCE:     {IMPORT, ABORT},
-	IMPORT:      {VALIDATION, ABORT},
-	VALIDATION:  {SUCCESS, ABORT},
-	SUCCESS:     {LOGTRANSFER},
-	LOGTRANSFER: {REAP},
-	REAP:        {DONE, REAPFAILED},
-	ABORT:       {ABORTDONE},
+	QUIESCE:          {IMPORT, ABORT},
+	IMPORT:           {PROCESSRELATIONS, ABORT},
+	PROCESSRELATIONS: {VALIDATION, ABORT},
+	VALIDATION:       {SUCCESS, ABORT},
+	SUCCESS:          {LOGTRANSFER},
+	LOGTRANSFER:      {REAP},
+	REAP:             {DONE, REAPFAILED},
+	ABORT:            {ABORTDONE},
 }
 
 var terminalPhases []Phase
