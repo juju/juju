@@ -1370,7 +1370,7 @@ func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplications
 	return ops, nil
 }
 
-func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) (*remoteApplicationDoc, error) {
+func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
 	doc := &remoteApplicationDoc{
 		Name:            app.Name(),
 		OfferUUID:       app.OfferUUID(),
@@ -1414,7 +1414,7 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) (
 		spaces[i].Subnets = subnets
 	}
 	doc.Spaces = spaces
-	return nil, doc
+	return doc
 }
 
 func (i *importer) relations() error {
