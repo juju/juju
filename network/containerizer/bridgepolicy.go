@@ -161,7 +161,7 @@ func (p *BridgePolicy) FindMissingBridgesForContainer(
 		}
 	}
 	notFound = notFound.Difference(spacesFound)
-	if len(notFound) == 0 {
+	if len(notFound) != 0 {
 		hostSpaces, err := host.AllSpaces()
 		if err != nil {
 			// log it, but we're returning another error right now
