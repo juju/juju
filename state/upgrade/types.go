@@ -36,7 +36,7 @@ type OldAddress27 struct {
 // new address representation based on whether space name/ID are populated.
 // An error is returned if the address has a non-empty space name that we
 // cannot map to an ID.
-func (a OldAddress27) Upgrade(lookup map[string]string) (OldAddress27, error) {
+func (a OldAddress27) Upgrade(lookup network.SpaceInfos) (OldAddress27, error) {
 	// Ignore zero-type addresses.
 	if a.Value == "" {
 		return a, nil
@@ -54,11 +54,11 @@ func (a OldAddress27) Upgrade(lookup map[string]string) (OldAddress27, error) {
 			logger.Warningf("not converting address %q with empty space name and ID %q", a.Value, a.SpaceID)
 		}
 	} else {
-		newID, ok := lookup[a.SpaceName]
-		if !ok {
+		spaceInfo := lookup.GetByName(a.SpaceName)
+		if spaceInfo == nil {
 			return a, errors.NotFoundf("space with name: %q", a.SpaceName)
 		}
-		a.SpaceID = newID
+		a.SpaceID = spaceInfo.ID
 		a.SpaceName = ""
 	}
 	return a, nil

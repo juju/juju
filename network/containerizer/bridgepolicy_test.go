@@ -21,9 +21,9 @@ type bridgePolicySuite struct {
 	netBondReconfigureDelay   int
 	containerNetworkingMethod string
 
-	spaceIDs map[string]string
-	host     *MockContainer
-	guest    *MockContainer
+	spaces network.SpaceInfos
+	host   *MockContainer
+	guest  *MockContainer
 }
 
 var _ = gc.Suite(&bridgePolicySuite{})
@@ -33,7 +33,6 @@ func (s *bridgePolicySuite) SetUpTest(c *gc.C) {
 
 	s.netBondReconfigureDelay = 13
 	s.containerNetworkingMethod = "local"
-	s.spaceIDs = make(map[string]string)
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
@@ -42,9 +41,13 @@ func (s *bridgePolicySuite) TestDetermineContainerSpacesConstraints(c *gc.C) {
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse("spaces=foo,bar,^baz"), nil)
 
-	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
+	obtained, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces, jc.SameContents, []string{"2", "1"})
+	expected := network.SpaceInfos{
+		*s.spaces.GetByName("foo"),
+		*s.spaces.GetByName("bar"),
+	}
+	c.Check(obtained, jc.DeepEquals, expected)
 }
 
 func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *gc.C) {
@@ -53,9 +56,12 @@ func (s *bridgePolicySuite) TestDetermineContainerNoSpacesConstraints(c *gc.C) {
 	exp := s.guest.EXPECT()
 	exp.Constraints().Return(constraints.MustParse(""), nil)
 
-	spaces, err := s.policy().determineContainerSpaces(s.host, s.guest)
+	obtained, err := s.policy().determineContainerSpaces(s.host, s.guest)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(spaces, jc.SameContents, []string{"0"})
+	expected := network.SpaceInfos{
+		*s.spaces.GetByName(network.AlphaSpaceName),
+	}
+	c.Check(obtained, jc.DeepEquals, expected)
 }
 
 func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
@@ -66,18 +72,18 @@ func (s *bridgePolicySuite) setupMocks(c *gc.C) *gomock.Controller {
 
 	s.guest.EXPECT().Id().Return("guest-id").AnyTimes()
 
+	s.spaces = make(network.SpaceInfos, 4)
 	for i, space := range []string{network.AlphaSpaceName, "foo", "bar", "fizz"} {
 		// 0 is the AlphaSpaceId
 		id := strconv.Itoa(i)
-		s.spaceIDs[space] = id
+		s.spaces[i] = network.SpaceInfo{ID: id, Name: network.SpaceName(space)}
 	}
-
 	return ctrl
 }
 
 func (s *bridgePolicySuite) policy() *BridgePolicy {
 	return &BridgePolicy{
-		spaceIDs:                  s.spaceIDs,
+		spaces:                    s.spaces,
 		netBondReconfigureDelay:   s.netBondReconfigureDelay,
 		containerNetworkingMethod: s.containerNetworkingMethod,
 	}

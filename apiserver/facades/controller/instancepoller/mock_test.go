@@ -200,18 +200,11 @@ func (m *mockState) Machine(id string) (instancepoller.StateMachine, error) {
 	return machine, nil
 }
 
-// SpaceIDsByName implements network.SpaceLookup.
+// AllSpaceInfos implements network.AllSpaceInfos.
 // This method never throws an error.
-func (m *mockState) SpaceIDsByName() (map[string]string, error) {
-	m.MethodCall(m, "SpaceIDsByName")
-	return map[string]string{}, nil
-}
-
-// SpaceInfosByID implements network.SpaceLookup.
-// This method never throws an error.
-func (m *mockState) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
-	m.MethodCall(m, "SpaceInfosByName")
-	return map[string]network.SpaceInfo{}, nil
+func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
+	m.MethodCall(m, "AllSpaceInfos")
+	return network.SpaceInfos{}, nil
 }
 
 // StartSync implements statetesting.SyncStarter, so mockState can be

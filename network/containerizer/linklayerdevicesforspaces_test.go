@@ -41,7 +41,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpaces(c *gc.C) {
 	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", "1")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{"1"})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -59,7 +59,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoSuchSpace(c 
 	s.expectNICAndBridgeWithIP(ctrl, "eth0", "br-eth0", "1")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{"2"})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "2"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 0)
 }
@@ -76,7 +76,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesNoBridge(c *gc
 	s.expectNICWithIP(ctrl, "eth0", "1")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{"1"})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -97,7 +97,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesMultipleSpaces
 	s.expectNICWithIP(ctrl, "eth1", "2")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{"1", "2"})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}, {ID: "2"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 2)
 
@@ -124,7 +124,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithExtraAddre
 	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{"1"})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: "1"}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 
@@ -142,7 +142,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesInDefaultSpace
 	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -164,7 +164,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithUnknown(c 
 	s.expectLoopbackNIC(ctrl)
 	s.expectMachineAddressesDevices()
 
-	spaces := []string{network.AlphaSpaceId, "1"}
+	spaces := network.SpaceInfos{{ID: network.AlphaSpaceId}, {ID: "1"}}
 	res, err := linkLayerDevicesForSpaces(s.machine, spaces)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 2)
@@ -193,7 +193,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesWithNoAddress(
 	s.expectNICWithIP(ctrl, "ens5", network.AlphaSpaceId)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 
@@ -222,7 +222,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesUnknownIgnores
 	s.expectBridgeDevice(ctrl, "virbr0")
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res, gc.HasLen, 1)
 	devices, ok := res[network.AlphaSpaceId]
@@ -242,7 +242,7 @@ func (s *linkLayerDevForSpacesSuite) TestLinkLayerDevicesForSpacesSortOrder(c *g
 	s.setupForNaturalSort(ctrl)
 	s.expectMachineAddressesDevices()
 
-	res, err := linkLayerDevicesForSpaces(s.machine, []string{network.AlphaSpaceId})
+	res, err := linkLayerDevicesForSpaces(s.machine, network.SpaceInfos{{ID: network.AlphaSpaceId}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(res, gc.HasLen, 1)
 	defaultDevices, ok := res[network.AlphaSpaceId]

@@ -3,7 +3,10 @@
 
 package network
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	// AlphaSpaceId is the ID of the alpha network space.
@@ -15,11 +18,10 @@ const (
 	AlphaSpaceName = "alpha"
 )
 
-// SpaceLookup describes methods for acquiring lookups that
-// will translate space IDs to space names and vice versa.
+// SpaceLookup describes methods for acquiring SpaceInfos
+// to translate space IDs to space names and vice versa.
 type SpaceLookup interface {
-	SpaceIDsByName() (map[string]string, error)
-	SpaceInfosByID() (map[string]SpaceInfo, error)
+	AllSpaceInfos() (SpaceInfos, error)
 }
 
 // SpaceName is the name of a network space.
@@ -45,9 +47,17 @@ type SpaceInfo struct {
 // SpaceInfos is a collection of spaces.
 type SpaceInfos []SpaceInfo
 
-// String returns the comma-delimited names of the spaces in the collection.
+// String returns returns a quoted, comma-delimited names of the spaces in the
+// collection, or <none> if the collection is empty.
 func (s SpaceInfos) String() string {
-	return strings.Join(s.Names(), ", ")
+	if len(s) == 0 {
+		return "<none>"
+	}
+	names := make([]string, len(s))
+	for i, v := range s {
+		names[i] = fmt.Sprintf("%q", string(v.Name))
+	}
+	return strings.Join(names, ", ")
 }
 
 // Names returns a string slice with each of the space names in the collection.
@@ -88,4 +98,29 @@ func (s SpaceInfos) GetByName(name string) *SpaceInfo {
 		}
 	}
 	return nil
+}
+
+// ContainsID returns true if the collection contains a
+// space with the given ID.
+func (s SpaceInfos) ContainsID(id string) bool {
+	return s.GetByID(id) != nil
+}
+
+// ContainsName returns true if the collection contains a
+// space with the given name.
+func (s SpaceInfos) ContainsName(name string) bool {
+	return s.GetByName(name) != nil
+}
+
+// Minus returns a new SpaceInfos representing all the
+// values in the target that are not in the parameter. Value
+// matching is done by ID.
+func (s SpaceInfos) Minus(other SpaceInfos) SpaceInfos {
+	result := make(SpaceInfos, 0)
+	for _, value := range s {
+		if !other.ContainsID(value.ID) {
+			result = append(result, value)
+		}
+	}
+	return result
 }

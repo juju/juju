@@ -796,17 +796,10 @@ type stubLookup struct{}
 
 var _ network.SpaceLookup = stubLookup{}
 
-func (s stubLookup) SpaceIDsByName() (map[string]string, error) {
-	return map[string]string{
-		"space-one": "1",
-		"space-two": "2",
-	}, nil
-}
-
-func (s stubLookup) SpaceInfosByID() (map[string]network.SpaceInfo, error) {
-	return map[string]network.SpaceInfo{
-		"1": {ID: "1", Name: "space-one", ProviderId: "p1"},
-		"2": {ID: "2", Name: "space-two"},
+func (s stubLookup) AllSpaceInfos() (network.SpaceInfos, error) {
+	return network.SpaceInfos{
+		{ID: "1", Name: "space-one", ProviderId: "p1"},
+		{ID: "2", Name: "space-two"},
 	}, nil
 }
 

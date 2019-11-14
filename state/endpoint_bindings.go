@@ -403,9 +403,7 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 		return errors.NotValidf("nil charm metadata")
 	}
 
-	// We do not need the space names, but a handy way to
-	// determine valid space IDs.
-	spaceIDs, err := b.st.SpaceNamesByID()
+	spaceInfos, err := b.st.AllSpaceInfos()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -428,7 +426,7 @@ func (b *Bindings) validateForCharm(charmMeta *charm.Meta) error {
 		if endpoint != defaultEndpointName && !endpointsNamesSet.Contains(endpoint) {
 			return errors.NotValidf("unknown endpoint %q", endpoint)
 		}
-		if _, ok := spaceIDs[space]; !ok {
+		if !spaceInfos.ContainsID(space) {
 			return errors.NotValidf("unknown space %q", space)
 		}
 	}
@@ -485,10 +483,9 @@ func DefaultEndpointBindingsForCharm(st EndpointBinding, charmMeta *charm.Meta) 
 //
 //go:generate mockgen -package mocks -destination mocks/endpointbinding_mock.go github.com/juju/juju/state EndpointBinding
 type EndpointBinding interface {
+	network.SpaceLookup
 	DefaultEndpointBindingSpace() (string, error)
 	Space(id string) (*Space, error)
-	SpaceIDsByName() (map[string]string, error)
-	SpaceNamesByID() (map[string]string, error)
 }
 
 // Bindings are EndpointBindings.
@@ -501,24 +498,19 @@ type Bindings struct {
 // NewBindings returns a bindings guaranteed to be in space id format.
 func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, error) {
 	// namesErr and idError are only problems if both are not nil.
-	spacesNamesToIDs, err := st.SpaceIDsByName()
+	spaceInfos, err := st.AllSpaceInfos()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	// If givenMap contains space names empty values are allowed (e.g. they
 	// may be present when migrating a model from a 2.6.x controller).
-	namesErr := allOfOne(spacesNamesToIDs, givenMap, true)
-
-	spacesIDsToNames, err := st.SpaceNamesByID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	namesErr := allOfOne(spaceInfos.ContainsName, givenMap, true)
 
 	// If givenMap contains empty values then the map most probably contains
 	// space names. Therefore, we want allOfOne to be strict and bail out
 	// if it sees any empty values.
-	idErr := allOfOne(spacesIDsToNames, givenMap, false)
+	idErr := allOfOne(spaceInfos.ContainsID, givenMap, false)
 
 	// Ensure the spaces values are all names OR ids in the
 	// given map.
@@ -533,9 +525,9 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 		newMap = make(map[string]string, len(givenMap))
 
 	case namesErr == nil && idErr != nil:
-		newMap, err = newBindingsFromNames(spacesNamesToIDs, givenMap)
+		newMap, err = newBindingsFromNames(spaceInfos, givenMap)
 	case idErr == nil && namesErr != nil:
-		newMap, err = newBindingsFromIDs(spacesIDsToNames, givenMap)
+		newMap, err = newBindingsFromIDs(spaceInfos, givenMap)
 	default:
 		logger.Errorf("%s", namesErr)
 		logger.Errorf("%s", idErr)
@@ -545,16 +537,16 @@ func NewBindings(st EndpointBinding, givenMap map[string]string) (*Bindings, err
 	return &Bindings{st: st, bindingsMap: newMap}, err
 }
 
-func allOfOne(currentSpaces, givenMap map[string]string, allowEmptyValues bool) error {
+func allOfOne(foundValue func(string) bool, givenMap map[string]string, allowEmptyValues bool) error {
 	for k, v := range givenMap {
-		if _, ok := currentSpaces[v]; !ok && (v != "" || (v == "" && !allowEmptyValues)) {
+		if !foundValue(v) && (v != "" || (v == "" && !allowEmptyValues)) {
 			return errors.NotFoundf("endpoint %q, value %q, space name or id", k, v)
 		}
 	}
 	return nil
 }
 
-func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[string]string, error) {
+func newBindingsFromNames(spaceInfos network.SpaceInfos, givenMap map[string]string) (map[string]string, error) {
 	newMap := make(map[string]string, len(givenMap))
 	for epName, name := range givenMap {
 		if name == "" {
@@ -562,16 +554,16 @@ func newBindingsFromNames(verificationMap, givenMap map[string]string) (map[stri
 			continue
 		}
 		// check that the name is valid and get id.
-		value, ok := verificationMap[name]
-		if !ok {
+		info := spaceInfos.GetByName(name)
+		if info == nil {
 			return nil, errors.NotFoundf("programming error: epName %q space name value %q", epName, name)
 		}
-		newMap[epName] = value
+		newMap[epName] = info.ID
 	}
 	return newMap, nil
 }
 
-func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string]string, error) {
+func newBindingsFromIDs(spaceInfos network.SpaceInfos, givenMap map[string]string) (map[string]string, error) {
 	newMap := make(map[string]string, len(givenMap))
 	for epName, id := range givenMap {
 		if id == "" {
@@ -579,7 +571,7 @@ func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string
 			return nil, errors.NotValidf("bindings map with empty space ID")
 		}
 		// check that the id is valid.
-		if _, ok := verificationMap[id]; !ok {
+		if !spaceInfos.ContainsID(id) {
 			return nil, errors.NotFoundf("programming error: epName %q space id value %q", epName, id)
 		}
 
@@ -591,7 +583,7 @@ func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string
 // MapWithSpaceNames returns the current bindingMap with space names rather than ids.
 func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	retVal := make(map[string]string, len(b.bindingsMap))
-	namesToIDs, err := b.st.SpaceNamesByID()
+	lookup, err := b.st.AllSpaceInfos()
 	if err != nil {
 		return nil, err
 	}
@@ -599,11 +591,11 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		spaceID, found := namesToIDs[v]
-		if !found {
+		spaceInfo := lookup.GetByID(v)
+		if spaceInfo == nil {
 			return nil, errors.NotFoundf("space id for space %q", v)
 		}
-		retVal[k] = spaceID
+		retVal[k] = string(spaceInfo.Name)
 	}
 	return retVal, nil
 }
