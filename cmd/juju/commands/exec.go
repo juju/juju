@@ -113,14 +113,13 @@ NOTE: Juju 2 uses "juju run" which is deprecated in favour of "juju exec".
 
 func (c *execCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "run",
+		Name:    "exec",
 		Args:    "<commands>",
 		Purpose: "Run the commands on the remote targets specified.",
-		Aliases: []string{"exec"},
+		Aliases: []string{"run"},
 		Doc:     execDoc,
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Name = "exec"
 		info.Aliases = nil
 	}
 	return info
@@ -462,7 +461,7 @@ var getExecAPIClient = func(c *execCommand) (ExecClient, error) {
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
 var getActionResult = func(c ExecClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
-	return action.GetActionResult(c, actionId, wait)
+	return action.GetActionResult(c, actionId, wait, false)
 }
 
 // entities is a convenience constructor for params.Entities.

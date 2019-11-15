@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
@@ -20,11 +19,20 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/actions"
 	"github.com/juju/juju/core/watcher"
-	"github.com/juju/juju/feature"
 )
 
-func NewShowOutputCommand() cmd.Command {
+func NewShowActionOutputCommand() cmd.Command {
 	return modelcmd.Wrap(&showOutputCommand{
+		compat: true,
+		logMessageHandler: func(ctx *cmd.Context, msg string) {
+			fmt.Fprintln(ctx.Stderr, msg)
+		},
+	})
+}
+
+func NewShowTaskCommand() cmd.Command {
+	return modelcmd.Wrap(&showOutputCommand{
+		compat: false,
 		logMessageHandler: func(ctx *cmd.Context, msg string) {
 			fmt.Fprintln(ctx.Stderr, msg)
 		},
@@ -40,6 +48,9 @@ type showOutputCommand struct {
 	wait        string
 	watch       bool
 	utc         bool
+
+	// compat is true when running as legacy show-action-output
+	compat bool
 
 	logMessageHandler func(*cmd.Context, string)
 }
@@ -70,7 +81,7 @@ See also:
 func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	defaultFormatter := "yaml"
-	if featureflag.Enabled(feature.JujuV3) {
+	if !c.compat {
 		defaultFormatter = "plain"
 	}
 	c.out.AddFlags(f, defaultFormatter, map[string]cmd.Formatter{
@@ -91,7 +102,7 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		Purpose: "Show results of an action by ID.",
 		Doc:     showOutputDoc,
 	})
-	if featureflag.Enabled(feature.JujuV3) {
+	if !c.compat {
 		info.Name = "show-task"
 		info.Args = "<task ID>"
 		info.Purpose = "Show results of a task by ID."
@@ -113,10 +124,10 @@ func (c *showOutputCommand) Init(args []string) error {
 	}
 	switch len(args) {
 	case 0:
-		if featureflag.Enabled(feature.JujuV3) {
-			return errors.New("no task ID specified")
+		if c.compat {
+			return errors.New("no action ID specified")
 		}
-		return errors.New("no action ID specified")
+		return errors.New("no task ID specified")
 	case 1:
 		c.requestedId = args[0]
 		return nil
@@ -166,7 +177,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 
 	shouldWatch := waitDur.Nanoseconds() >= 0
 	if shouldWatch {
-		result, err := fetchResult(api, c.requestedId)
+		result, err := fetchResult(api, c.requestedId, c.compat)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -185,7 +196,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		})
 	}
 
-	result, err := GetActionResult(api, c.requestedId, wait)
+	result, err := GetActionResult(api, c.requestedId, wait, c.compat)
 	close(actionDone)
 	if logsWatcher != nil {
 		logsWatcher.Wait()
@@ -198,7 +209,7 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	formatted := FormatActionResult(result, c.utc)
+	formatted := FormatActionResult(result, c.utc, c.compat)
 	if c.out.Name() != "plain" {
 		return c.out.Write(ctx, formatted)
 	}
@@ -210,19 +221,19 @@ func (c *showOutputCommand) Run(ctx *cmd.Context) error {
 // GetActionResult tries to repeatedly fetch an action until it is
 // in a completed state and then it returns it.
 // It waits for a maximum of "wait" before returning with the latest action status.
-func GetActionResult(api APIClient, requestedId string, wait *time.Timer) (params.ActionResult, error) {
+func GetActionResult(api APIClient, requestedId string, wait *time.Timer, compat bool) (params.ActionResult, error) {
 
 	// tick every two seconds, to delay the loop timer.
 	// TODO(fwereade): 2016-03-17 lp:1558657
 	tick := time.NewTimer(2 * time.Second)
 
-	return timerLoop(api, requestedId, wait, tick)
+	return timerLoop(api, requestedId, wait, tick, compat)
 }
 
 // timerLoop loops indefinitely to query the given API, until "wait" times
 // out, using the "tick" timer to delay the API queries.  It writes the
 // result to the given output.
-func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (params.ActionResult, error) {
+func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer, compat bool) (params.ActionResult, error) {
 	var (
 		result params.ActionResult
 		err    error
@@ -231,7 +242,7 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (param
 	// Loop over results until we get "failed" or "completed".  Wait for
 	// timer, and reset it each time.
 	for {
-		result, err = fetchResult(api, requestedId)
+		result, err = fetchResult(api, requestedId, compat)
 		if err != nil {
 			return result, err
 		}
@@ -261,7 +272,7 @@ func timerLoop(api APIClient, requestedId string, wait, tick *time.Timer) (param
 
 // fetchResult queries the given API for the given Action ID prefix, and
 // makes sure the results are acceptable, returning an error if they are not.
-func fetchResult(api APIClient, requestedId string) (params.ActionResult, error) {
+func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionResult, error) {
 	none := params.ActionResult{}
 
 	actionTag, err := getActionTagByPrefix(api, requestedId)
@@ -278,7 +289,7 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 	actionResults := actions.Results
 	numActionResults := len(actionResults)
 	task := "task"
-	if !featureflag.Enabled(feature.JujuV3) {
+	if compat {
 		task = "action"
 	}
 	if numActionResults == 0 {
@@ -299,7 +310,7 @@ func fetchResult(api APIClient, requestedId string) (params.ActionResult, error)
 // FormatActionResult removes empty values from the given ActionResult and
 // inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func FormatActionResult(result params.ActionResult, utc bool) map[string]interface{} {
+func FormatActionResult(result params.ActionResult, utc, compat bool) map[string]interface{} {
 	response := map[string]interface{}{"status": result.Status}
 	if result.Action != nil {
 		ut, err := names.ParseUnitTag(result.Action.Receiver)
@@ -332,15 +343,15 @@ func FormatActionResult(result params.ActionResult, utc bool) map[string]interfa
 		if t.IsZero() {
 			return ""
 		}
-		if featureflag.Enabled(feature.JujuV3) {
-			if utc {
-				t = t.UTC()
-			} else {
-				t = t.Local()
-			}
-			return t.Format(resultTimestampFormat)
+		if compat {
+			return t.String()
 		}
-		return t.String()
+		if utc {
+			t = t.UTC()
+		} else {
+			t = t.Local()
+		}
+		return t.Format(resultTimestampFormat)
 	}
 
 	responseTiming := make(map[string]string)

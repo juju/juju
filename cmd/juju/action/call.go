@@ -267,7 +267,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 			return errors.Trace(err)
 		}
 		fmt.Fprintf(ctx.Stderr, "Waiting for task %v...\n", tag.Id())
-		result, err = GetActionResult(c.api, tag.Id(), wait)
+		result, err = GetActionResult(c.api, tag.Id(), wait, false)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -282,7 +282,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		d := FormatActionResult(result, c.utc)
+		d := FormatActionResult(result, c.utc, false)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		info[unitTag.Id()] = d
 	}

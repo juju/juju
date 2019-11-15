@@ -1823,7 +1823,18 @@ func (st *State) addMachineWithPlacement(unit *Unit, data *placementData) (*Mach
 			spaces.Add(name)
 		}
 	}
+
+	// Merging constraints returns an error if any spaces are already set,
+	// so we "move" any existing constraints over to the bind spaces before
+	// parsing and merging.
+	if unitCons.Spaces != nil {
+		for _, sp := range *unitCons.Spaces {
+			spaces.Add(sp)
+		}
+		unitCons.Spaces = nil
+	}
 	spaceCons := constraints.MustParse("spaces=" + strings.Join(spaces.Values(), ","))
+
 	cons, err := constraints.Merge(*unitCons, spaceCons)
 	if err != nil {
 		return nil, errors.Trace(err)
