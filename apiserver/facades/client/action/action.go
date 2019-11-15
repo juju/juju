@@ -319,8 +319,8 @@ func (a *ActionAPI) listAll(arg params.Entities, compat bool) (params.ActionsByR
 	return a.internalList(arg, combine(pendingActions, runningActions, completedActions), compat)
 }
 
-// Tasks fetches the called functions (actions) for specified apps/units.
-func (a *ActionAPI) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
+// Operations fetches the called functions (actions) for specified apps/units.
+func (a *ActionAPI) Operations(arg params.OperationQueryArgs) (params.ActionResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.ActionResults{}, errors.Trace(err)
 	}

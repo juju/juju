@@ -31,7 +31,7 @@ func NewShowActionOutputCommand() cmd.Command {
 	})
 }
 
-func NewShowTaskCommand() cmd.Command {
+func NewShowOperationCommand() cmd.Command {
 	return modelcmd.Wrap(&showOutputCommand{
 		compat: false,
 		logMessageHandler: func(ctx *cmd.Context, msg string) {
@@ -75,7 +75,7 @@ Examples:
 
 See also:
     run-action
-    list-tasks
+    list-operations
 `
 
 // Set up the output.
@@ -104,11 +104,11 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		Doc:     showOutputDoc,
 	})
 	if !c.compat {
-		info.Name = "show-task"
-		info.Args = "<task ID>"
-		info.Purpose = "Show results of a task by ID."
+		info.Name = "show-operation"
+		info.Args = "<operation ID>"
+		info.Purpose = "Show results of a operation by ID."
 		info.Doc = strings.Replace(info.Doc, "an action", "a function call", -1)
-		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-task", -1)
+		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-operation", -1)
 		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
 	}
 	return info
@@ -128,7 +128,7 @@ func (c *showOutputCommand) Init(args []string) error {
 		if c.compat {
 			return errors.New("no action ID specified")
 		}
-		return errors.New("no task ID specified")
+		return errors.New("no operation ID specified")
 	case 1:
 		c.requestedId = args[0]
 		return nil
@@ -289,15 +289,15 @@ func fetchResult(api APIClient, requestedId string, compat bool) (params.ActionR
 	}
 	actionResults := actions.Results
 	numActionResults := len(actionResults)
-	task := "task"
+	operation := "operation"
 	if compat {
-		task = "action"
+		operation = "action"
 	}
 	if numActionResults == 0 {
-		return none, errors.Errorf("no results for %s %s", task, requestedId)
+		return none, errors.Errorf("no results for %s %s", operation, requestedId)
 	}
 	if numActionResults != 1 {
-		return none, errors.Errorf("too many results for %s %s", task, requestedId)
+		return none, errors.Errorf("too many results for %s %s", operation, requestedId)
 	}
 
 	result := actionResults[0]

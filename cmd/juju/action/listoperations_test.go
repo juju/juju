@@ -17,20 +17,20 @@ import (
 	"github.com/juju/juju/cmd/juju/action"
 )
 
-type ListTasksSuite struct {
+type ListOperationsSuite struct {
 	BaseActionSuite
 	wrappedCommand cmd.Command
-	command        *action.ListTasksCommand
+	command        *action.ListOperationsCommand
 }
 
-var _ = gc.Suite(&ListTasksSuite{})
+var _ = gc.Suite(&ListOperationsSuite{})
 
-func (s *ListTasksSuite) SetUpTest(c *gc.C) {
+func (s *ListOperationsSuite) SetUpTest(c *gc.C) {
 	s.BaseActionSuite.SetUpTest(c)
-	s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
+	s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 }
 
-func (s *ListTasksSuite) TestInit(c *gc.C) {
+func (s *ListOperationsSuite) TestInit(c *gc.C) {
 	tests := []struct {
 		should      string
 		args        []string
@@ -59,9 +59,9 @@ func (s *ListTasksSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d should %s: juju tasks defined %s", i,
+			c.Logf("test %d should %s: juju operations defined %s", i,
 				t.should, strings.Join(t.args, " "))
-			s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
+			s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 			args := append([]string{modelFlag, "admin"}, t.args...)
 			err := cmdtesting.InitCommand(s.wrappedCommand, args)
 			if t.expectedErr == "" {
@@ -73,12 +73,12 @@ func (s *ListTasksSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *ListTasksSuite) TestRunQueryArgs(c *gc.C) {
+func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	s.wrappedCommand, _ = action.NewListTasksCommandForTest(s.store)
+	s.wrappedCommand, _ = action.NewListOperationsCommandForTest(s.store)
 	args := []string{
 		"--apps", "mysql,mediawiki",
 		"--units", "mysql/1,mediawiki/0",
@@ -86,12 +86,12 @@ func (s *ListTasksSuite) TestRunQueryArgs(c *gc.C) {
 		"--status", "completed,pending",
 	}
 	for _, modelFlag := range s.modelFlags {
-		s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
+		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		args = append([]string{modelFlag, "admin", "--utc"}, args...)
 
 		_, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(fakeClient.taskQueryArgs, jc.DeepEquals, params.TaskQueryArgs{
+		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, params.OperationQueryArgs{
 			Applications:  []string{"mysql", "mediawiki"},
 			Units:         []string{"mysql/1", "mediawiki/0"},
 			FunctionNames: []string{"backup"},
@@ -100,7 +100,7 @@ func (s *ListTasksSuite) TestRunQueryArgs(c *gc.C) {
 	}
 }
 
-var listTaskResults = []params.ActionResult{
+var listOperationResults = []params.ActionResult{
 	{
 		Action: &params.Action{
 			Tag:      "action-1",
@@ -136,54 +136,54 @@ var listTaskResults = []params.ActionResult{
 	},
 }
 
-func (s *ListTasksSuite) TestRunNoResults(c *gc.C) {
+func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
 	fakeClient := &fakeAPIClient{}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	s.wrappedCommand, _ = action.NewListTasksCommandForTest(s.store)
+	s.wrappedCommand, _ = action.NewListOperationsCommandForTest(s.store)
 	for _, modelFlag := range s.modelFlags {
-		s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
+		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin")
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "no matching tasks\n")
+		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "no matching operations\n")
 	}
 }
 
-func (s *ListTasksSuite) TestRunPlain(c *gc.C) {
+func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
 	fakeClient := &fakeAPIClient{
-		actionResults: listTaskResults,
+		actionResults: listOperationResults,
 	}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	s.wrappedCommand, _ = action.NewListTasksCommandForTest(s.store)
+	s.wrappedCommand, _ = action.NewListOperationsCommandForTest(s.store)
 	for _, modelFlag := range s.modelFlags {
-		s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
+		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
-Id  Task     Status     Unit     Time
- 3  vacuum   pending    mysql/1  2013-02-14T06:06:06
- 2  restore  running    mysql/1  2014-02-14T06:06:06
- 1  backup   completed  mysql/0  2015-02-14T06:06:06
+Id  Operation  Status     Unit     Time
+ 3  vacuum     pending    mysql/1  2013-02-14T06:06:06
+ 2  restore    running    mysql/1  2014-02-14T06:06:06
+ 1  backup     completed  mysql/0  2015-02-14T06:06:06
 
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}
 }
 
-func (s *ListTasksSuite) TestRunYaml(c *gc.C) {
+func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
 	fakeClient := &fakeAPIClient{
-		actionResults: listTaskResults,
+		actionResults: listOperationResults,
 	}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
 
-	s.wrappedCommand, _ = action.NewListTasksCommandForTest(s.store)
+	s.wrappedCommand, _ = action.NewListOperationsCommandForTest(s.store)
 	for _, modelFlag := range s.modelFlags {
-		s.wrappedCommand, s.command = action.NewListTasksCommandForTest(s.store)
+		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--format", "yaml", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `

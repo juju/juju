@@ -391,8 +391,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewCancelCommand())
 	if featureflag.Enabled(feature.JujuV3) {
 		r.Register(action.NewCallCommand())
-		r.Register(action.NewListTasksCommand())
-		r.Register(action.NewShowTaskCommand())
+		r.Register(action.NewListOperationsCommand())
+		r.Register(action.NewShowOperationCommand())
 	} else {
 		r.Register(action.NewRunActionCommand())
 		r.Register(action.NewShowActionOutputCommand())
