@@ -35,13 +35,13 @@ func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
 	return results, err
 }
 
-// Tasks fetches the called functions (actions) for specified apps/units.
-func (c *Client) Tasks(arg params.TaskQueryArgs) (params.ActionResults, error) {
+// Operations fetches the called functions (actions) for specified apps/units.
+func (c *Client) Operations(arg params.OperationQueryArgs) (params.ActionResults, error) {
 	results := params.ActionResults{}
 	if v := c.BestAPIVersion(); v < 5 {
-		return results, errors.Errorf("Tasks not supported by this version (%d) of Juju", v)
+		return results, errors.Errorf("Operations not supported by this version (%d) of Juju", v)
 	}
-	err := c.facade.FacadeCall("Tasks", arg, &results)
+	err := c.facade.FacadeCall("Operations", arg, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}

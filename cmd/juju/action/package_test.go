@@ -140,7 +140,7 @@ type fakeAPIClient struct {
 	delay              *time.Timer
 	timeout            *time.Timer
 	actionResults      []params.ActionResult
-	taskQueryArgs      params.TaskQueryArgs
+	operationQueryArgs params.OperationQueryArgs
 	enqueuedActions    params.Actions
 	actionsByReceivers []params.ActionsByReceiver
 	actionTagMatches   params.FindTagsResults
@@ -267,8 +267,8 @@ func (c *fakeAPIClient) WatchActionProgress(actionId string) (watcher.StringsWat
 	return watchertest.NewMockStringsWatcher(c.logMessageCh), nil
 }
 
-func (c *fakeAPIClient) Tasks(args params.TaskQueryArgs) (params.ActionResults, error) {
-	c.taskQueryArgs = args
+func (c *fakeAPIClient) Operations(args params.OperationQueryArgs) (params.ActionResults, error) {
+	c.operationQueryArgs = args
 	return params.ActionResults{
 		Results: c.actionResults,
 	}, c.apiErr
