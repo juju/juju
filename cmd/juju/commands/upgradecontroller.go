@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/permission"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -117,6 +118,15 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	accDetails, err := c.ClientStore().AccountDetails(controllerName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if !permission.Access(accDetails.LastKnownAccess).EqualOrGreaterControllerAccessThan(permission.SuperuserAccess) {
+		return errors.Errorf("upgrade not possible missing"+
+			" permissions, current level %q, need: %q", accDetails.LastKnownAccess, permission.SuperuserAccess)
+	}
 	controllerModel := jujuclient.JoinOwnerModelName(
 		names.NewUserTag(environs.AdminUser), bootstrap.ControllerModelName)
 	_, err = c.ModelUUIDs([]string{controllerModel})
@@ -124,13 +134,14 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 		return errors.Annotatef(err, "cannot get controller model uuid")
 	}
 	details, err := c.ClientStore().ModelByName(controllerName, controllerModel)
+	fullControllerModelName := modelcmd.JoinModelName(controllerName, controllerModel)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	if details.ModelType == model.CAAS {
 		return c.upgradeCAASController(ctx)
 	}
-	return c.upgradeIAASController(ctx)
+	return c.upgradeIAASController(ctx, fullControllerModelName)
 }
 
 func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error {
@@ -262,19 +273,13 @@ func initCAASVersions(
 	}, nil
 }
 
-func (c *upgradeControllerCommand) upgradeIAASController(ctx *cmd.Context) error {
+func (c *upgradeControllerCommand) upgradeIAASController(ctx *cmd.Context, controllerModel string) error {
 	jcmd := &upgradeJujuCommand{baseUpgradeCommand: baseUpgradeCommand{
 		upgradeMessage: "upgrade to this version by running\n    juju upgrade-controller",
 	}}
 	jcmd.SetClientStore(c.ClientStore())
 	wrapped := modelcmd.Wrap(jcmd)
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	fullControllerModelName := modelcmd.JoinModelName(controllerName,
-		bootstrap.ControllerModelName)
-	args := append(c.rawArgs, "-m", fullControllerModelName)
+	args := append(c.rawArgs, "-m", controllerModel)
 	if c.vers != "" {
 		args = append(args, "--agent-version", c.vers)
 	}
