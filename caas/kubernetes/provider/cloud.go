@@ -324,7 +324,7 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 
 func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
 	resp, err := cmdRunner.RunCommands(exec.RunParams{
-		Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`,
+		Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`,
 	})
 	if err != nil {
 		return errors.Annotate(err, "checking microk8s setup")
