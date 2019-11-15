@@ -291,6 +291,8 @@ Details:
 action-get will print the value of the parameter at the given key, serialized
 as YAML.  If multiple keys are passed, action-get will recurse into the param
 map as needed.
+
+Aliases: function-get
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

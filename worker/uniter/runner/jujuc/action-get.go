@@ -38,6 +38,7 @@ map as needed.
 		Name:    "action-get",
 		Args:    "[<key>[.<key>.<key>...]]",
 		Purpose: "get action parameters",
+		Aliases: []string{"function-get"},
 		Doc:     doc,
 	})
 }

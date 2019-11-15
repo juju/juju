@@ -114,6 +114,8 @@ Details:
 action-fail sets the action's fail state with a given error message.  Using
 action-fail without a failure message will set a default message indicating a
 problem with the action.
+
+Aliases: function-fail
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

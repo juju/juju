@@ -28,6 +28,7 @@ func (c *ActionLogCommand) Info() *cmd.Info {
 		Name:    "action-log",
 		Args:    "<message>",
 		Purpose: "record a progress message for the current action",
+		Aliases: []string{"function-log"},
 	})
 }
 
