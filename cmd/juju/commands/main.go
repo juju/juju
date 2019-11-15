@@ -295,7 +295,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(status.NewStatusHistoryCommand())
 
 	// Error resolution and debugging commands.
-	r.Register(newDefaultRunCommand(nil))
+	if !featureflag.Enabled(feature.JujuV3) {
+		r.Register(newDefaultRunCommand(nil))
+	}
+	r.Register(newDefaultExecCommand(nil))
 	r.Register(newSCPCommand(nil))
 	r.Register(newSSHCommand(nil, nil))
 	r.Register(application.NewResolvedCommand())
@@ -383,15 +386,16 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 
 	// Manage and control actions
-	r.Register(action.NewShowTaskCommand())
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	r.Register(action.NewCallCommand())
-	r.Register(action.NewListTasksCommand())
-	if !featureflag.Enabled(feature.JujuV3) {
-		r.Register(action.NewShowActionOutputCommand())
+	if featureflag.Enabled(feature.JujuV3) {
+		r.Register(action.NewCallCommand())
+		r.Register(action.NewListTasksCommand())
+		r.Register(action.NewShowTaskCommand())
+	} else {
 		r.Register(action.NewRunActionCommand())
+		r.Register(action.NewShowActionOutputCommand())
 		r.Register(action.NewStatusCommand())
 	}
 

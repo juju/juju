@@ -6,6 +6,7 @@ package action
 import (
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -322,7 +323,12 @@ func FormatActionResult(result params.ActionResult, utc, compat bool) map[string
 		response["message"] = result.Message
 	}
 	if len(result.Output) != 0 {
-		response["results"] = result.Output
+		if compat {
+			output := ConvertActionOutput(result.Output, compat, false)
+			response["results"] = output
+		} else {
+			response["results"] = result.Output
+		}
 	}
 	if len(result.Log) > 0 {
 		var logs []string
@@ -330,35 +336,29 @@ func FormatActionResult(result params.ActionResult, utc, compat bool) map[string
 			logs = append(logs, formatLogMessage(actions.ActionMessage{
 				Timestamp: msg.Timestamp,
 				Message:   msg.Message,
-			}, false, utc))
+			}, false, utc, false))
 		}
 		response["log"] = logs
+	}
+
+	if unit, ok := response["UnitId"]; ok && !compat {
+		delete(response, "UnitId")
+		response["unit"] = unit
+	}
+	if unit, ok := response["unit"]; ok && compat {
+		delete(response, "unit")
+		response["UnitId"] = unit
 	}
 
 	if result.Enqueued.IsZero() && result.Started.IsZero() && result.Completed.IsZero() {
 		return response
 	}
 
-	formatMetadataTimestamp := func(t time.Time) string {
-		if t.IsZero() {
-			return ""
-		}
-		if compat {
-			return t.String()
-		}
-		if utc {
-			t = t.UTC()
-		} else {
-			t = t.Local()
-		}
-		return t.Format(resultTimestampFormat)
-	}
-
 	responseTiming := make(map[string]string)
 	for k, v := range map[string]string{
-		"enqueued":  formatMetadataTimestamp(result.Enqueued),
-		"started":   formatMetadataTimestamp(result.Started),
-		"completed": formatMetadataTimestamp(result.Completed),
+		"enqueued":  formatTimestamp(result.Enqueued, false, utc || compat, false),
+		"started":   formatTimestamp(result.Started, false, utc || compat, false),
+		"completed": formatTimestamp(result.Completed, false, utc || compat, false),
 	} {
 		if v != "" {
 			responseTiming[k] = v
@@ -367,4 +367,73 @@ func FormatActionResult(result params.ActionResult, utc, compat bool) map[string
 	response["timing"] = responseTiming
 
 	return response
+}
+
+// ConvertActionOutput returns result data with stdout, stderr etc correctly formatted.
+func ConvertActionOutput(output map[string]interface{}, compat, alwaysStdout bool) map[string]interface{} {
+	values := output
+	// We always want to have a string for stdout, but only show stderr,
+	// code and error if they are there.
+	stdoutKey := "stdout"
+	if compat {
+		stdoutKey = "Stdout"
+	}
+	res, ok := output["Stdout"].(string)
+	if !ok {
+		res, ok = output["stdout"].(string)
+	}
+	if ok && len(res) > 0 {
+		values[stdoutKey] = strings.Replace(res, "\r\n", "\n", -1)
+		if res, ok := output["StdoutEncoding"].(string); ok && res != "" {
+			values["Stdout-encoding"] = res
+		}
+	} else if compat && alwaysStdout {
+		values[stdoutKey] = ""
+	} else {
+		delete(values, "stdout")
+	}
+	stderrKey := "stderr"
+	if compat {
+		stderrKey = "Stderr"
+	}
+	res, ok = output["Stderr"].(string)
+	if !ok {
+		res, ok = output["stderr"].(string)
+	}
+	if ok && len(res) > 0 {
+		values[stderrKey] = strings.Replace(res, "\r\n", "\n", -1)
+		if res, ok := output["StderrEncoding"].(string); ok && res != "" {
+			values["Stderr-encoding"] = res
+		}
+	} else {
+		delete(values, "stderr")
+	}
+	codeKey := "return-code"
+	if compat {
+		codeKey = "ReturnCode"
+	}
+	res, ok = output["Code"].(string)
+	if !ok {
+		var v interface{}
+		if v, ok = output["return-code"]; ok && v != nil {
+			res = fmt.Sprintf("%v", v)
+		}
+	}
+	if ok && len(res) > 0 {
+		code, err := strconv.Atoi(res)
+		if err == nil && (code != 0 || !compat) {
+			values[codeKey] = code
+		}
+	} else {
+		delete(values, "return-code")
+	}
+
+	if compat {
+		delete(values, "stdout")
+		delete(values, "stderr")
+		delete(values, "return-code")
+		delete(values, "stdout-encoding")
+		delete(values, "stderr-encoding")
+	}
+	return values
 }

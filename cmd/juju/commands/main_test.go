@@ -447,7 +447,6 @@ var commandNames = []string{
 	"bind",
 	"bootstrap",
 	"budget",
-	"call",
 	"cached-images",
 	"cancel-action",
 	"change-user-password",
@@ -486,7 +485,6 @@ var commandNames = []string{
 	"expose",
 	"find-offers",
 	"firewall-rules",
-	"functions",
 	"get-constraints",
 	"get-model-constraints",
 	"grant",
@@ -509,7 +507,6 @@ var commandNames = []string{
 	"list-credentials",
 	"list-disabled-commands",
 	"list-firewall-rules",
-	"list-functions",
 	"list-machines",
 	"list-models",
 	"list-offers",
@@ -522,7 +519,6 @@ var commandNames = []string{
 	"list-storage",
 	"list-storage-pools",
 	"list-subnets",
-	"list-tasks",
 	"list-users",
 	"list-wallets",
 	"login",
@@ -586,14 +582,12 @@ var commandNames = []string{
 	"show-controller",
 	"show-credential",
 	"show-credentials",
-	"show-function",
 	"show-machine",
 	"show-model",
 	"show-offer",
 	"show-status",
 	"show-status-log",
 	"show-storage",
-	"show-task",
 	"show-user",
 	"show-wallet",
 	"sla",
@@ -608,7 +602,6 @@ var commandNames = []string{
 	"switch",
 	"sync-agent-binaries",
 	"sync-tools",
-	"tasks",
 	"trust",
 	"unexpose",
 	"unregister",
@@ -637,7 +630,9 @@ var devFeatures = []string{
 }
 
 // These are the commands that are behind the `devFeatures`.
-var commandNamesBehindFlags = set.NewStrings()
+var commandNamesBehindFlags = set.NewStrings(
+	"call", "show-task", "functions", "list-functions", "show-function", "tasks", "list-tasks",
+)
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the commands

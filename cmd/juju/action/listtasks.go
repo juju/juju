@@ -173,15 +173,15 @@ func (c *listTasksCommand) formatTabular(writer io.Writer, value interface{}) er
 	}
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.SetColumnAlignRight(1)
+	w.SetColumnAlignRight(0)
 
 	printTasks := func(tasks []taskLine, utc bool) {
 		for _, line := range tasks {
-			w.Print(formatTimestamp(line.timestamp, false, c.utc))
-			w.Println(line.id, line.task, line.status, line.unit)
+			w.Print(line.id, line.task, line.status, line.unit)
+			w.Println(formatTimestamp(line.timestamp, false, c.utc, true))
 		}
 	}
-	w.Println("Time", "Id", "Task", "Status", "Unit")
+	w.Println("Id", "Task", "Status", "Unit", "Time")
 	printTasks(actionTaskLinesFromResults(results), c.utc)
 	return tw.Flush()
 }

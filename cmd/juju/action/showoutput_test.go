@@ -270,7 +270,7 @@ timing:
 				"foo": map[string]interface{}{
 					"bar": "baz",
 				},
-				"Stdout": "hello",
+				"stdout": "hello",
 			},
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),

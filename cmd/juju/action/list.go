@@ -35,17 +35,17 @@ type listCommand struct {
 }
 
 const listDoc = `
-List the functions available to run on the target application, with a short
-description.  To show the full schema for the functions, use --schema.
+List the actions available to run on the target application, with a short
+description.  To show the full schema for the actions, use --schema.
 
 Examples:
-    juju functions postgresql
-    juju functions postgresql --format yaml
-    juju functions postgresql --schema
+    juju list-actions postgresql
+    juju list-actions postgresql --format yaml
+    juju list-actions postgresql --schema
 
 See also:
-    call
-    show-function
+    run-action
+    show-action
 `
 
 // Set up the output.
@@ -68,19 +68,23 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": c.printTabular,
 		"default": c.dummyDefault,
 	})
-	f.BoolVar(&c.fullSchema, "schema", false, "Display the full function schema")
+	f.BoolVar(&c.fullSchema, "schema", false, "Display the full action schema")
 }
 
 func (c *listCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "functions",
+		Name:    "actions",
 		Args:    "<application name>",
-		Purpose: "List functions defined for an application.",
+		Purpose: "List actions defined for an application.",
 		Doc:     listDoc,
-		Aliases: []string{"list-functions", "actions", "list-actions"},
+		Aliases: []string{"list-actions"},
 	})
 	if featureflag.Enabled(feature.JujuV3) {
+		info.Name = "functions"
 		info.Aliases = []string{"list-functions"}
+		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
+		info.Doc = strings.Replace(info.Doc, "action", "function", -1)
+		info.Purpose = strings.Replace(info.Purpose, "action", "function", -1)
 	}
 	return info
 }
@@ -149,7 +153,11 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		output = shortOutput
 	default:
 		if len(sortedNames) == 0 {
-			ctx.Infof("No functions defined for %s.", c.applicationTag.Id())
+			functions := "functions"
+			if !featureflag.Enabled(feature.JujuV3) {
+				functions = "actions"
+			}
+			ctx.Infof("No %s defined for %s.", functions, c.applicationTag.Id())
 			return nil
 		}
 		var list []listOutput
@@ -180,7 +188,11 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	fmt.Fprintf(tw, "%s\t%s\n", "Function", "Description")
+	if featureflag.Enabled(feature.JujuV3) {
+		fmt.Fprintf(tw, "%s\t%s\n", "Function", "Description")
+	} else {
+		fmt.Fprintf(tw, "%s\t%s\n", "Action", "Description")
+	}
 	for _, value := range list {
 		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.TrimSpace(value.description))
 	}

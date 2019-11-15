@@ -367,7 +367,7 @@ func (c *callCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, e
 
 // filteredOutputKeys are those we don't want to display as part of the
 // results map for plain output.
-var filteredOutputKeys = set.NewStrings("Code", "Stdout", "Stderr", "StdoutEncoding", "StderrEncoding")
+var filteredOutputKeys = set.NewStrings("return-code", "stdout", "stderr", "stdout-encoding", "stderr-encoding")
 
 func printPlainOutput(writer io.Writer, value interface{}) error {
 	info, ok := value.(map[string]interface{})
@@ -403,21 +403,24 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 		if ok {
 			resultDataCopy := make(map[string]interface{})
 			for k, v := range resultData {
-				if k == "Stdout" && v != "" {
+				k = strings.ToLower(k)
+				if k == "stdout" && v != "" {
 					stdout = fmt.Sprint(v)
 				}
-				if k == "Stderr" && v != "" {
+				if k == "stderr" && v != "" {
 					stderr = fmt.Sprint(v)
 				}
 				if !filteredOutputKeys.Contains(k) {
 					resultDataCopy[k] = v
 				}
 			}
-			data, err := yaml.Marshal(resultDataCopy)
-			if err == nil {
-				actionOutput[k] = string(data)
-			} else {
-				actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+			if len(resultDataCopy) > 0 {
+				data, err := yaml.Marshal(resultDataCopy)
+				if err == nil {
+					actionOutput[k] = string(data)
+				} else {
+					actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+				}
 			}
 		} else {
 			actionOutput[k] = fmt.Sprintf("Task %v complete\n", resultMetadata["id"])
@@ -427,7 +430,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 			"output": actionOutput[k],
 		}
 	}
-	if len(actionOutput) != 1 {
+	if len(actionOutput) > 1 {
 		return cmd.FormatYaml(writer, actionInfo)
 	}
 	for _, msg := range actionOutput {
