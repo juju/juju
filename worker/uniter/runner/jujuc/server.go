@@ -51,10 +51,6 @@ var baseCommands = map[string]creator{
 	"open-port" + cmdSuffix:               NewOpenPortCommand,
 	"opened-ports" + cmdSuffix:            NewOpenedPortsCommand,
 	"relation-get" + cmdSuffix:            NewRelationGetCommand,
-	"action-get" + cmdSuffix:              NewActionGetCommand,
-	"action-set" + cmdSuffix:              NewActionSetCommand,
-	"action-fail" + cmdSuffix:             NewActionFailCommand,
-	"action-log" + cmdSuffix:              NewActionLogCommand,
 	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
 	"relation-list" + cmdSuffix:           NewRelationListCommand,
 	"relation-set" + cmdSuffix:            NewRelationSetCommand,
@@ -68,6 +64,21 @@ var baseCommands = map[string]creator{
 	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
 	"goal-state" + cmdSuffix:              NewGoalStateCommand,
 	"credential-get" + cmdSuffix:          NewCredentialGetCommand,
+
+	// Commands have alias.
+	// consider to create a new Command rather than using alias?
+	// It will be cleaner for ensuring symlinks.
+	"action-get" + cmdSuffix:  NewActionGetCommand,
+	"action-set" + cmdSuffix:  NewActionSetCommand,
+	"action-fail" + cmdSuffix: NewActionFailCommand,
+	"action-log" + cmdSuffix:  NewActionLogCommand,
+}
+
+var actionCommandsAlias = []string{
+	"function-get",
+	"function-set",
+	"function-fail",
+	"function-log",
 }
 
 var storageCommands = map[string]creator{
@@ -101,6 +112,7 @@ func CommandNames() (names []string) {
 	for name := range allEnabledCommands() {
 		names = append(names, name)
 	}
+	names = append(names, actionCommandsAlias...)
 	sort.Strings(names)
 	return
 }
