@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
@@ -142,6 +143,53 @@ func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindings
 		cons, err := m.Constraints()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(cons.IncludeSpaces(), gc.DeepEquals, []string{"special-space"})
+	}
+}
+
+func (s *UnitAssignmentSuite) TestAssignUnitWithPlacementNewMachinesHaveBindingsAsConstraintsMerged(c *gc.C) {
+	boundSpace, err := s.State.AddSpace("bound-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	constrainedSpace, err := s.State.AddSpace("constrained-space", "", nil, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charm := s.AddTestingCharm(c, "dummy")
+	placement := instance.Placement{Scope: "lxd"}
+	app, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:      "dummy",
+		Charm:     charm,
+		NumUnits:  1,
+		Placement: []*instance.Placement{&placement},
+		// Same space used in both bindings and constraints to test merging.
+		Constraints: constraints.MustParse("spaces=bound-space,constrained-space"),
+		EndpointBindings: map[string]string{
+			"": boundSpace.Id(),
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	units, err := app.AllUnits()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(units, gc.HasLen, 1)
+	unit := units[0]
+
+	err = s.State.AssignUnitWithPlacement(unit, &placement)
+	c.Assert(err, jc.ErrorIsNil)
+
+	guestID, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+
+	guest, err := s.State.Machine(guestID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	hostID, _ := guest.ParentId()
+	host, err := s.State.Machine(hostID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	for _, m := range []*state.Machine{guest, host} {
+		cons, err := m.Constraints()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(cons.IncludeSpaces(), jc.SameContents, []string{boundSpace.Name(), constrainedSpace.Name()})
 	}
 }
 

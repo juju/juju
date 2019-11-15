@@ -113,6 +113,7 @@ type ListTasksCommand struct {
 
 func NewShowOutputCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *ShowOutputCommand) {
 	c := &showOutputCommand{
+		compat:            true,
 		logMessageHandler: logMessage,
 	}
 	c.SetClientStore(store)

@@ -385,14 +385,14 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	}
 
 	// Manage and control actions
-	r.Register(action.NewShowOutputCommand())
+	r.Register(action.NewShowTaskCommand())
 	r.Register(action.NewListCommand())
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
-	if featureflag.Enabled(feature.JujuV3) {
-		r.Register(action.NewCallCommand())
-		r.Register(action.NewListTasksCommand())
-	} else {
+	r.Register(action.NewCallCommand())
+	r.Register(action.NewListTasksCommand())
+	if !featureflag.Enabled(feature.JujuV3) {
+		r.Register(action.NewShowActionOutputCommand())
 		r.Register(action.NewRunActionCommand())
 		r.Register(action.NewStatusCommand())
 	}
