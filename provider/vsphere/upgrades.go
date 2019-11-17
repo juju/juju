@@ -99,10 +99,11 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	return step.env.withSession(ctx, func(env *sessionEnviron) error {
 		// We must create the folder even if there are no VMs in the model.
 		modelFolderPath := path.Join(
+			env.ecfg.VMFolder(),
 			controllerFolderName(step.controllerUUID),
 			env.modelFolderName(),
 		)
-		if _, err := env.client.EnsureVMFolder(env.ctx, modelFolderPath, env.ecfg.VMFolder()); err != nil {
+		if _, err := env.client.EnsureVMFolder(env.ctx, modelFolderPath); err != nil {
 			HandleCredentialError(err, ctx)
 			return errors.Annotate(err, "creating model folder")
 		}

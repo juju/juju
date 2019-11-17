@@ -33,7 +33,7 @@ var (
 		cfgExternalNetwork: "",
 		cfgDatastore:       schema.Omit,
 		cfgPrimaryNetwork:  schema.Omit,
-		cfgVMFolder:        schema.Omit, 
+		cfgVMFolder:        schema.Omit,
 		cfgEnableDiskUUID:  true,
 	}
 
