@@ -57,8 +57,11 @@ func modelFolderName(modelUUID, modelName string) string {
 
 // vmdkDirectoryName returns the name of the datastore directory in which
 // the base VMDKs are stored for the controller.
-func vmdkDirectoryName(controllerUUID string) string {
-	return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
+func vmdkDirectoryName(parentfolder string, controllerUUID string) string {
+	if parentfolder == "" {
+		return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
+	}
+	return fmt.Sprintf("%s/juju-vmdks/%s", parentfolder, controllerUUID)
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -217,13 +220,14 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
 		Folder: path.Join(
+			env.ecfg.VMFolder(),
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
 		Series:                 series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
-		VMDKDirectory:          vmdkDirectoryName(args.ControllerUUID),
+		VMDKDirectory:          vmdkDirectoryName(env.ecfg.VMFolder(), args.ControllerUUID),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -245,7 +249,7 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs.ComputeResource = &availZone.r
 	createVMArgs.ResourcePool = availZone.pool.Reference()
 
-	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs, env.ecfg.VMFolder())
+	vm, err := env.client.CreateVirtualMachine(env.ctx, createVMArgs)
 	if vsphereclient.IsExtendDiskError(err) {
 		// Ensure we don't try to make the same extension across
 		// different resource groups.
@@ -279,6 +283,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []i
 // AllInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	modelFolderPath := path.Join(
+		env.ecfg.VMFolder(),
 		controllerFolderName("*"),
 		env.modelFolderName(),
 	)
@@ -319,6 +324,7 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instan
 // StopInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	modelFolderPath := path.Join(
+		env.ecfg.VMFolder(),
 		controllerFolderName("*"),
 		env.modelFolderName(),
 	)
