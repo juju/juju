@@ -1880,12 +1880,10 @@ class ModelClient:
         args = (unit, action) + args
 
         output = self.get_juju_output("run-action", *args)
-        idRegexp = '([0-9]+|((?:[a-f0-9\-]{36})|(?:(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)-(?:0|[1-9][0-9]*))))'
-        action_id_pattern = re.compile('Action queued with id: ' + idRegexp)
+        action_id_pattern = re.compile('Action queued with id: "([0-9]+)"')
         match = action_id_pattern.search(output)
         if match is None:
-            raise Exception("Action id not found in output: %s" %
-                            output)
+            raise Exception("Action id not found in output: {}".format(output))
         return match.group(1)
 
     def action_do_fetch(self, unit, action, timeout="1m", *args):
