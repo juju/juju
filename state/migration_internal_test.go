@@ -320,6 +320,8 @@ func (s *MigrationSuite) TestMachineDocFields(c *gc.C) {
 		// Ignored at this stage, could be an issue if mongo 3.0 isn't
 		// available.
 		"StopMongoUntilVersion",
+		// Ignored; it gets populated on demand when the agent restarts
+		"AgentStartedAt",
 	)
 	migrated := set.NewStrings(
 		"Addresses",

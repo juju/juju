@@ -142,7 +142,7 @@ type machineDoc struct {
 	StopMongoUntilVersion string `bson:",omitempty"`
 
 	// AgentStartedAt records the time when the machine agent started.
-	AgentStartedAt time.Time `bson:"agent-started-at"`
+	AgentStartedAt time.Time `bson:"agent-started-at,omitempty"`
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
