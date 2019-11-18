@@ -20,7 +20,6 @@ import (
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/testing"
@@ -1447,13 +1446,17 @@ func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
 	return s
 }
 
-var serverKey2 = func() string {
-	_, key, err := cert.NewDefaultServer(testing.CACert, testing.CAKey, nil)
-	if err != nil {
-		panic(err)
-	}
-	return key
-}()
+var serverKey2 = `
+-----BEGIN RSA PRIVATE KEY-----
+MIIBPAIBAAJBALgI8m2TSdKefUOXkaluDrqbv1ua9gl2ec2ZrYQPDOQwDUoFXxQp
+Pn9Z/8QTshu7Nvvl0bRLgt32HyIp6xdb29MCAwEAAQJBAIa5fgf7gFqgzeDyj57y
+Q/QWWpMMMTuiMO7zptP7VJui18u7IdswycELNuniV2mncNGKEycV1d8osNpl+hBF
+e+ECIQDglKen9ciXbhJ4aN+U/tEULfzBhLJ0UxZobLau1eDUcQIhANHIJhdCTlW0
+7Q25YBXQP9KO2JkrBQ4yF6OcdS413IaDAiEA0XxY12eA8SAPwpmw1P7McJJlDu6E
+t9U5NbcSwQtoaUECIBabwncpPzX/bLjY7KENM4Omv3Mqbr4L6f5JA1v6lAyvAiEA
+1DgNkh2nlhR1AFbTY/MfFmIGq2KDMYeTWGP6XmiYOOg=
+-----END RSA PRIVATE KEY-----
+`[1:]
 
 var invalidCAKey = `
 -----BEGIN RSA PRIVATE KEY-----
