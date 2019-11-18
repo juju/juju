@@ -5,6 +5,7 @@ package commands
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/juju/cmd"
@@ -15,6 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
@@ -25,6 +27,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
+	"github.com/juju/juju/permission"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -44,7 +47,6 @@ func (s *UpgradeIAASControllerSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag: s.AdminUserTag(c),
 	}
-
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
 	s.AddCleanup(func(*gc.C) { s.CmdBlockHelper.Close() })
@@ -164,6 +166,50 @@ func (s *UpgradeIAASControllerSuite) TestUpgradeCorrectController(c *gc.C) {
 
 func (s *UpgradeIAASControllerSuite) TestUpgradeDryRun(c *gc.C) {
 	s.assertUpgradeDryRun(c, "upgrade-controller", s.upgradeControllerCommand)
+}
+
+func (s *UpgradeIAASControllerSuite) TestUpgradeWrongPermissions(c *gc.C) {
+	details, err := s.ControllerStore.AccountDetails("kontroll")
+	c.Assert(err, jc.ErrorIsNil)
+	details.LastKnownAccess = string(permission.ReadAccess)
+	err = s.ControllerStore.UpdateAccount("kontroll", *details)
+	c.Assert(err, jc.ErrorIsNil)
+	com := s.upgradeControllerCommand(nil)
+	err = cmdtesting.InitCommand(com, []string{})
+	c.Assert(err, jc.ErrorIsNil)
+	ctx := cmdtesting.Context(c)
+	err = com.Run(ctx)
+	expectedErrMsg := fmt.Sprintf("upgrade not possible missing"+
+		" permissions, current level %q, need: %q", details.LastKnownAccess, permission.SuperuserAccess)
+	c.Assert(err, gc.ErrorMatches, expectedErrMsg)
+}
+
+func (s *UpgradeIAASControllerSuite) TestUpgradeDifferentUser(c *gc.C) {
+	user, err := s.BackingState.AddUser("rick", "rick", "dummy-secret", "admin")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.authoriser = apiservertesting.FakeAuthorizer{
+		Tag: user.Tag(),
+	}
+	ctag := names.NewControllerTag(s.BackingState.ControllerUUID())
+
+	_, err = s.BackingState.SetUserAccess(user.UserTag(), ctag, permission.SuperuserAccess)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.ControllerStore.UpdateAccount("kontroll", jujuclient.AccountDetails{
+		User:            "rick",
+		LastKnownAccess: string(permission.SuperuserAccess),
+		Password:        "dummy-secret",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	cmd := &upgradeControllerCommand{
+		baseUpgradeCommand: baseUpgradeCommand{minMajorUpgradeVersion: minMajorUpgradeVersion},
+	}
+	cmd.SetClientStore(s.ControllerStore)
+	cmdrun := modelcmd.WrapController(cmd)
+	_, err = cmdtesting.RunCommand(c, cmdrun)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type UpgradeCAASControllerSuite struct {
