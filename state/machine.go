@@ -1356,8 +1356,8 @@ func (m *Machine) SetProvisioned(
 	return fmt.Errorf("already set")
 }
 
-// SetInstanceInfo is used to provision a machine and in one step sets it's
-// instance id, nonce, hardware characteristics, add link-layer devices and set
+// SetInstanceInfo is used to provision a machine and in one step sets its
+// instance ID, nonce, hardware characteristics, add link-layer devices and set
 // their addresses as needed.  After, set charm profiles if needed.
 func (m *Machine) SetInstanceInfo(
 	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
