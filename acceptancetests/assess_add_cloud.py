@@ -198,7 +198,7 @@ def assess_all_clouds(client, cloud_specs):
     failed = set()
     client.env.load_yaml()
     for cloud_spec in cloud_specs:
-        sys.stdout.write('Testing {}.\n'.format(cloud_spec.label))
+        sys.stdout.write('\n Testing {}.\n'.format(cloud_spec.label))
         try:
             if cloud_spec.exception is None:
                 assess_cloud(client, cloud_spec.name, cloud_spec.config)
