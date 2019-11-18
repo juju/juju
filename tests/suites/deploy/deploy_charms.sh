@@ -40,10 +40,31 @@ run_deploy_local_lxd_profile_charm() {
     wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
     wait_for "lxd-profile-subordinate" ".applications | keys[1]"
 
-    juju status --format=json | jq ".machines | .[\"0\"] | .[\"lxd-profiles\"] | keys" | grep -q "juju-test-deploy-local-lxd-profile-lxd-profile"
+    lxd_profile_name="juju-test-deploy-local-lxd-profile-lxd-profile"
+    lxd_profile_sub_name="juju-test-deploy-local-lxd-profile-lxd-profile-subordinate"
 
     # subordinates take longer to show, so use wait_for
-    wait_for "juju-test-deploy-local-lxd-profile-lxd-profile-subordinate" ".machines | .[\"0\"] | .[\"lxd-profiles\"] | keys"
+    machine_0="$(machine_path 0)"
+    wait_for "${lxd_profile_sub_name}" "${machine_0}"
+
+    juju status --format=json | jq "${machine_0}" | grep -q "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_0}" | grep -q "${lxd_profile_sub_name}"
+
+    juju add-unit "lxd-profile"
+
+    machine_1="$(machine_path 1)"
+    wait_for "${lxd_profile_sub_name}" "${machine_1}"
+
+    juju status --format=json | jq "${machine_1}" | grep -q "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_1}" | grep -q "${lxd_profile_sub_name}"
+
+    juju add-unit "lxd-profile" --to lxd
+
+    machine_2="$(machine_container_path 2 2/lxd/0)"
+    wait_for "${lxd_profile_sub_name}" "${machine_2}"
+
+    juju status --format=json | jq "${machine_2}" | grep -q "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_2}" | grep -q "${lxd_profile_sub_name}"
 
     destroy_model "test-deploy-local-lxd-profile"
 }
@@ -63,4 +84,21 @@ test_deploy_charms() {
         run "run_deploy_lxd_profile_charm"
         run "run_deploy_local_lxd_profile_charm"
     )
+}
+
+machine_path() {
+    local machine
+
+    machine=${1}
+
+    echo ".machines | .[\"${machine}\"] | .[\"lxd-profiles\"] | keys"
+}
+
+machine_container_path() {
+    local machine container
+
+    machine=${1}
+    container=${2}
+
+    echo ".machines | .[\"${machine}\"] | .containers | .[\"${container}\"] | .[\"lxd-profiles\"] | keys"
 }
