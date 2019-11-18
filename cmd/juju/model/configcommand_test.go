@@ -106,7 +106,8 @@ func (s *ConfigCommandSuite) TestSingleValueOutputFile(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestGetUnknownValue(c *gc.C) {
 	context, err := s.run(c, "unknown")
-	c.Assert(err, gc.ErrorMatches, `"unknown" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+	c.Assert(err, gc.ErrorMatches,
+		`"unknown" seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
@@ -130,7 +131,8 @@ func (s *ConfigCommandSuite) TestGetFileLike(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestNotFileLike(c *gc.C) {
 	context, err := s.run(c, "bundles/k8s-model-config--json")
-	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config--json" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+	c.Assert(err, gc.ErrorMatches,
+		`"bundles/k8s-model-config--json" seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
@@ -138,7 +140,8 @@ func (s *ConfigCommandSuite) TestNotFileLike(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestNotFileLikeEndsWithDot(c *gc.C) {
 	context, err := s.run(c, "bundles/k8s-model-config.")
-	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config." seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+	c.Assert(err, gc.ErrorMatches,
+		`"bundles/k8s-model-config." seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
@@ -146,7 +149,8 @@ func (s *ConfigCommandSuite) TestNotFileLikeEndsWithDot(c *gc.C) {
 
 func (s *ConfigCommandSuite) TestNotFileLikeEndsTooLong(c *gc.C) {
 	context, err := s.run(c, "bundles/k8s-model-config.fksdkfsd")
-	c.Assert(err, gc.ErrorMatches, `"bundles/k8s-model-config.fksdkfsd" seems to be neither a file nor a key of the currently targeted model: {<nil> \"\"}`)
+	c.Assert(err, gc.ErrorMatches,
+		`"bundles/k8s-model-config.fksdkfsd" seems to be neither a file nor a key of the currently targeted model: "king/sword"`)
 
 	output := cmdtesting.Stdout(context)
 	c.Assert(output, gc.Equals, "")
