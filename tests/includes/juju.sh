@@ -87,7 +87,7 @@ bootstrap() {
 
     START_TIME=$(date +%s)
     if [ "${BOOTSTRAP_REUSE}" = "true" ]; then
-        echo "====> Reusing bootstrapped juju ($(green "${version}"))"
+        echo "====> Reusing bootstrapped juju ($(green "${version}:${provider}"))"
 
         OUT=$(juju models -c "${bootstrapped_name}" --format=json 2>/dev/null | jq '.models[] | .["short-name"]' | grep "${model}" || true)
         if [ -n "${OUT}" ]; then
@@ -100,7 +100,7 @@ bootstrap() {
         add_model "${model}" "${provider}" "${bootstrapped_name}"
         name="${bootstrapped_name}"
     else
-        echo "====> Bootstrapping juju ($(green "${version}"))"
+        echo "====> Bootstrapping juju ($(green "${version}:${provider}"))"
         juju_bootstrap "${provider}" "${name}" "${model}" "${output}"
     fi
     END_TIME=$(date +%s)
