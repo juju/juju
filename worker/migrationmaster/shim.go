@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/api/watcher"
 )
 
-// NewFacade attempts to create a new facade from the migration master
+// NewFacade attempts to create a new facade for the migration master
 func NewFacade(apiCaller base.APICaller) (Facade, error) {
 	facade := migrationmaster.NewClient(apiCaller, watcher.NewNotifyWatcher)
 	return facade, nil
