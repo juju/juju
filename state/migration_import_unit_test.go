@@ -84,11 +84,41 @@ func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusFiel
 		entity0,
 	}
 
+	appDoc := &remoteApplicationDoc{
+		Name:      "remote-application",
+		URL:       "me/model.rainbow",
+		OfferUUID: "offer-uuid",
+		Endpoints: []remoteEndpointDoc{
+			{Name: "db", Interface: "mysql"},
+			{Name: "db-admin", Interface: "mysql-root"},
+		},
+		Spaces: []remoteSpaceDoc{
+			{CloudType: "ec2"},
+		},
+	}
+
 	model := NewMockRemoteApplicationsDescription(ctrl)
 	model.EXPECT().RemoteApplications().Return(entities)
-	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(&remoteApplicationDoc{})
+	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
+	model.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
+		doc: *appDoc,
+	})
+	model.EXPECT().DocID("remote-application").Return("c#remote-application")
 
 	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      applicationsC,
+			Id:     "remote-application",
+			Assert: txn.DocMissing,
+		},
+		{
+			C:      remoteApplicationsC,
+			Id:     "c#remote-application",
+			Assert: txn.DocMissing,
+			Insert: appDoc,
+		},
+	}).Return(nil)
 
 	m := ImportRemoteApplications{}
 	err := m.Execute(model, runner)
