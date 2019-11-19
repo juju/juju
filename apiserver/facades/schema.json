@@ -21899,7 +21899,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/ProcessReleations"
+                            "$ref": "#/definitions/ProcessRelations"
                         }
                     }
                 },
@@ -22151,7 +22151,7 @@
                         "Build"
                     ]
                 },
-                "ProcessReleations": {
+                "ProcessRelations": {
                     "type": "object",
                     "properties": {
                         "controller-alias": {

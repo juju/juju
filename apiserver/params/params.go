@@ -166,9 +166,9 @@ type RelationSuspendedArg struct {
 	Suspended  bool   `json:"suspended"`
 }
 
-// ProcessReleations holds the information required to process series of
+// ProcessRelations holds the information required to process series of
 // relations during a model migration.
-type ProcessReleations struct {
+type ProcessRelations struct {
 	ControllerAlias string `json:"controller-alias"`
 }
 

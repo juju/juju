@@ -249,7 +249,7 @@ func (api *APIV1) ProcessRelations(_, _ struct{}) {}
 
 // ProcessRelations processes any relations that need updating after an export.
 // This should help fix any remoteApplications that have been migrated.
-func (api *API) ProcessRelations(args params.ProcessReleations) error {
+func (api *API) ProcessRelations(args params.ProcessRelations) error {
 	return nil
 }
 
