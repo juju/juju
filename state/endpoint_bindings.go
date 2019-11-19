@@ -593,7 +593,7 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	for k, v := range b.bindingsMap {
 		spaceInfo := lookup.GetByID(v)
 		if spaceInfo == nil {
-			return nil, errors.NotFoundf("space id for space %q", v)
+			return nil, errors.NotFoundf("space with ID %q", v)
 		}
 		retVal[k] = string(spaceInfo.Name)
 	}

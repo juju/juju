@@ -62,7 +62,7 @@ type callCommand struct {
 
 const callDoc = `
 Run a charm function for execution on a given unit, with a given set of params.
-An ID is returned for use with 'juju show-task <ID>'.
+An ID is returned for use with 'juju show-operation <ID>'.
 
 To queue a function to be run in the background without waiting for it to finish,
 use the --background option.
@@ -100,7 +100,7 @@ Examples:
     juju call mysql/3 backup --utc
     juju call mysql/3 backup
     juju call mysql/leader backup
-    juju show-task <ID>
+    juju show-operation <ID>
     juju call mysql/3 backup --params parameters.yml
     juju call mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
     juju call mysql/3 backup --params p.yml file.kind=xz file.quality=high
@@ -108,8 +108,8 @@ Examples:
     juju call sleeper/0 pause --string-args time=1000
 
 See also:
-    list-tasks
-    show-task
+    list-operations
+    show-operation
 `
 
 // SetFlags offers an option for YAML output.
@@ -201,14 +201,14 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 			return result.Error
 		}
 		if result.Action == nil {
-			return errors.Errorf("task failed to enqueue on %q", result.Action.Receiver)
+			return errors.Errorf("operation failed to enqueue on %q", result.Action.Receiver)
 		}
 		if actionTag, err = names.ParseActionTag(result.Action.Tag); err != nil {
 			return err
 		}
 
 		if !c.background {
-			ctx.Infof("Running Task %s", actionTag.Id())
+			ctx.Infof("Running Operation %s", actionTag.Id())
 		}
 		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
 		if err != nil {
@@ -220,12 +220,12 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 	}
 	if c.background {
 		if len(results.Results) == 1 {
-			ctx.Infof("Scheduled Task %s", actionTag.Id())
-			ctx.Infof("Check status with 'juju show-task %s'", actionTag.Id())
+			ctx.Infof("Scheduled Operation %s", actionTag.Id())
+			ctx.Infof("Check status with 'juju show-operation %s'", actionTag.Id())
 		} else {
-			ctx.Infof("Scheduled Tasks:")
+			ctx.Infof("Scheduled Operations:")
 			cmd.FormatYaml(ctx.Stderr, info)
-			ctx.Infof("Check status with 'juju show-task <id>'")
+			ctx.Infof("Check status with 'juju show-operation <id>'")
 		}
 		return nil
 	}
@@ -266,7 +266,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 			waitForWatcher()
 			return errors.Trace(err)
 		}
-		fmt.Fprintf(ctx.Stderr, "Waiting for task %v...\n", tag.Id())
+		fmt.Fprintf(ctx.Stderr, "Waiting for operation %v...\n", tag.Id())
 		result, err = GetActionResult(c.api, tag.Id(), wait, false)
 		if i == 0 {
 			waitForWatcher()
@@ -367,7 +367,7 @@ func (c *callCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, e
 
 // filteredOutputKeys are those we don't want to display as part of the
 // results map for plain output.
-var filteredOutputKeys = set.NewStrings("Code", "Stdout", "Stderr", "StdoutEncoding", "StderrEncoding")
+var filteredOutputKeys = set.NewStrings("return-code", "stdout", "stderr", "stdout-encoding", "stderr-encoding")
 
 func printPlainOutput(writer io.Writer, value interface{}) error {
 	info, ok := value.(map[string]interface{})
@@ -403,31 +403,34 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 		if ok {
 			resultDataCopy := make(map[string]interface{})
 			for k, v := range resultData {
-				if k == "Stdout" && v != "" {
+				k = strings.ToLower(k)
+				if k == "stdout" && v != "" {
 					stdout = fmt.Sprint(v)
 				}
-				if k == "Stderr" && v != "" {
+				if k == "stderr" && v != "" {
 					stderr = fmt.Sprint(v)
 				}
 				if !filteredOutputKeys.Contains(k) {
 					resultDataCopy[k] = v
 				}
 			}
-			data, err := yaml.Marshal(resultDataCopy)
-			if err == nil {
-				actionOutput[k] = string(data)
-			} else {
-				actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+			if len(resultDataCopy) > 0 {
+				data, err := yaml.Marshal(resultDataCopy)
+				if err == nil {
+					actionOutput[k] = string(data)
+				} else {
+					actionOutput[k] = fmt.Sprintf("%v", resultDataCopy)
+				}
 			}
 		} else {
-			actionOutput[k] = fmt.Sprintf("Task %v complete\n", resultMetadata["id"])
+			actionOutput[k] = fmt.Sprintf("Operation %v complete\n", resultMetadata["id"])
 		}
 		actionInfo[k] = map[string]interface{}{
 			"id":     resultMetadata["id"],
 			"output": actionOutput[k],
 		}
 	}
-	if len(actionOutput) != 1 {
+	if len(actionOutput) > 1 {
 		return cmd.FormatYaml(writer, actionInfo)
 	}
 	for _, msg := range actionOutput {

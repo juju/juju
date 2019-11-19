@@ -126,7 +126,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8s(c *gc.C) {
 
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`}).Returns(
+		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
 		&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
@@ -165,7 +165,7 @@ func (s *cloudSuite) TestFinalizeCloudMicrok8sAlreadyStorage(c *gc.C) {
 
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`}).Returns(
+		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
 		&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
@@ -200,7 +200,7 @@ func (s *cloudSuite) getProvider() caas.ContainerEnvironProvider {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`}).Returns(
+		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
 		&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
@@ -212,7 +212,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableSuccess(c *gc.C) {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`}).Returns(
+		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
 		&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
@@ -224,7 +224,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableStorageDisabled(c *gc.C) {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`}).Returns(
+		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
 		&exec.ExecResponse{Code: 0}, nil)
 	s.runner.Call(
 		"RunCommands",
@@ -236,7 +236,7 @@ func (s *cloudSuite) TestEnsureMicroK8sSuitableDNSDisabled(c *gc.C) {
 func (s *cloudSuite) TestEnsureMicroK8sSuitableNotInGroup(c *gc.C) {
 	s.runner.Call(
 		"RunCommands",
-		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "microk8s"`}).Returns(
+		exec.RunParams{Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`}).Returns(
 		&exec.ExecResponse{Code: 1}, nil)
 	err := provider.EnsureMicroK8sSuitable(s.runner)
 	c.Assert(err, gc.NotNil)

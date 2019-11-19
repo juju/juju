@@ -108,8 +108,8 @@ type FindActionsByNames struct {
 	ActionNames []string `json:"names,omitempty"`
 }
 
-// TaskQueryArgs holds args for listing tasks.
-type TaskQueryArgs struct {
+// OperationQueryArgs holds args for listing operations.
+type OperationQueryArgs struct {
 	Applications  []string `json:"applications,omitempty"`
 	Units         []string `json:"units,omitempty"`
 	FunctionNames []string `json:"functions,omitempty"`
