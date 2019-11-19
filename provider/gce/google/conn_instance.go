@@ -20,7 +20,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 	var waitErr error
 	inst := *requestedInst
 	inst.MachineType = formatMachineType(zone, machineType)
-	err := gce.raw.AddInstance(gce.projectID, zone, &inst)
+	err := gce.service.AddInstance(gce.projectID, zone, &inst)
 	if isWaitError(err) {
 		waitErr = err
 	} else if err != nil {
@@ -29,7 +29,7 @@ func (gce *Connection) addInstance(requestedInst *compute.Instance, machineType 
 	}
 
 	// Check if the instance was created.
-	realized, err := gce.raw.GetInstance(gce.projectID, zone, inst.Name)
+	realized, err := gce.service.GetInstance(gce.projectID, zone, inst.Name)
 	if err != nil {
 		if waitErr != nil {
 			return errors.Trace(waitErr)
@@ -58,7 +58,7 @@ func (gce *Connection) AddInstance(spec InstanceSpec) (*Instance, error) {
 // and returns it.
 func (gce *Connection) Instance(id, zone string) (Instance, error) {
 	var result Instance
-	raw, err := gce.raw.GetInstance(gce.projectID, zone, id)
+	raw, err := gce.service.GetInstance(gce.projectID, zone, id)
 	if err != nil {
 		return result, errors.Trace(err)
 	}
@@ -71,7 +71,7 @@ func (gce *Connection) Instance(id, zone string) (Instance, error) {
 // provided prefix. The result is also limited to those instances with
 // one of the specified statuses (if any).
 func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance, error) {
-	rawInsts, err := gce.raw.ListInstances(gce.projectID, prefix, statuses...)
+	rawInsts, err := gce.service.ListInstances(gce.projectID, prefix, statuses...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -88,7 +88,7 @@ func (gce *Connection) Instances(prefix string, statuses ...string) ([]Instance,
 // with the provided ID (in the specified zone). The call blocks until
 // the instance is removed (or the request fails).
 func (gce *Connection) removeInstance(id, zone string) error {
-	err := gce.raw.RemoveInstance(gce.projectID, zone, id)
+	err := gce.service.RemoveInstance(gce.projectID, zone, id)
 	if err != nil {
 		if IsNotFound(err) {
 			return nil
@@ -98,7 +98,7 @@ func (gce *Connection) removeInstance(id, zone string) error {
 	}
 
 	fwname := id
-	err = gce.raw.RemoveFirewall(gce.projectID, fwname)
+	err = gce.service.RemoveFirewall(gce.projectID, fwname)
 	if err != nil {
 		if IsNotFound(err) {
 			return nil
@@ -151,7 +151,7 @@ func (gce *Connection) UpdateMetadata(key, value string, ids ...string) error {
 		return nil
 	}
 
-	instances, err := gce.raw.ListInstances(gce.projectID, "")
+	instances, err := gce.service.ListInstances(gce.projectID, "")
 	if err != nil {
 		return errors.Annotatef(err, "updating metadata for instances %v", ids)
 	}
@@ -188,7 +188,7 @@ func (gce *Connection) updateInstanceMetadata(instance *compute.Instance, key, v
 	}
 	// The GCE API won't accept a full URL for the zone (lp:1667172).
 	zoneName := path.Base(instance.Zone)
-	return errors.Trace(gce.raw.SetMetadata(gce.projectID, zoneName, instance.Name, metadata))
+	return errors.Trace(gce.service.SetMetadata(gce.projectID, zoneName, instance.Name, metadata))
 }
 
 func findMetadataItem(items []*compute.MetadataItems, key string) *compute.MetadataItems {

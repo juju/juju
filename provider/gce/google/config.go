@@ -18,12 +18,11 @@ import (
 // defined by juju for use with the GCE provider. If Google defines
 // equivalent environment variables they should be used instead.
 const (
-	OSEnvPrivateKey    = "GCE_PRIVATE_KEY"
-	OSEnvClientID      = "GCE_CLIENT_ID"
-	OSEnvClientEmail   = "GCE_CLIENT_EMAIL"
-	OSEnvRegion        = "GCE_REGION"
-	OSEnvProjectID     = "GCE_PROJECT_ID"
-	OSEnvImageEndpoint = "GCE_IMAGE_URL"
+	OSEnvPrivateKey  = "GCE_PRIVATE_KEY"
+	OSEnvClientID    = "GCE_CLIENT_ID"
+	OSEnvClientEmail = "GCE_CLIENT_EMAIL"
+	OSEnvRegion      = "GCE_REGION"
+	OSEnvProjectID   = "GCE_PROJECT_ID"
 )
 
 const (
@@ -157,7 +156,7 @@ func (gc Credentials) Values() map[string]string {
 	}
 }
 
-// Validate checks the credentialss for invalid values. If the values
+// Validate checks the credentials for invalid values. If the values
 // are not valid, it returns errors.NotValid with the message set to
 // the corresponding OS environment variable name.
 //

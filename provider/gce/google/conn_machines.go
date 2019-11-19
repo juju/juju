@@ -8,7 +8,7 @@ import "github.com/juju/errors"
 // ListMachineTypes returns a list of MachineType available for the
 // given zone.
 func (gce *Connection) ListMachineTypes(zone string) ([]MachineType, error) {
-	machines, err := gce.raw.ListMachineTypes(gce.projectID, zone)
+	machines, err := gce.service.ListMachineTypes(gce.projectID, zone)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

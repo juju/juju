@@ -20,7 +20,7 @@ import (
 // no rules match the name the RuleSet will be empty and no error is
 // returned.
 func (gce Connection) firewallRules(fwname string) (ruleSet, error) {
-	firewalls, err := gce.raw.GetFirewalls(gce.projectID, fwname)
+	firewalls, err := gce.service.GetFirewalls(gce.projectID, fwname)
 	if IsNotFound(err) {
 		return make(ruleSet), nil
 	}
@@ -102,7 +102,7 @@ func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rul
 			}
 			allNames.Add(name)
 			spec := firewallSpec(name, target, inputFirewall.SourceCIDRs, inputFirewall.AllowedPorts)
-			if err := gce.raw.AddFirewall(gce.projectID, spec); err != nil {
+			if err := gce.service.AddFirewall(gce.projectID, spec); err != nil {
 				return errors.Annotatef(err, "opening port(s) %+v", rules)
 			}
 			continue
@@ -121,7 +121,7 @@ func (gce Connection) OpenPortsWithNamer(target string, namer FirewallNamer, rul
 
 		// Copy new firewall details into required firewall spec.
 		spec := firewallSpec(existingFirewall.Name, target, combinedCIDRs, allowedPorts)
-		if err := gce.raw.UpdateFirewall(gce.projectID, existingFirewall.Name, spec); err != nil {
+		if err := gce.service.UpdateFirewall(gce.projectID, existingFirewall.Name, spec); err != nil {
 			return errors.Annotatef(err, "opening port(s) %+v", rules)
 		}
 	}
@@ -179,7 +179,7 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 			if len(remainingCidrs) == 0 {
 				// Delete a firewall.
 				// TODO(ericsnow) Handle case where firewall does not exist.
-				if err := gce.raw.RemoveFirewall(gce.projectID, existingFirewall.Name); err != nil {
+				if err := gce.service.RemoveFirewall(gce.projectID, existingFirewall.Name); err != nil {
 					return errors.Annotatef(err, "closing port(s) %+v", rules)
 				}
 				continue
@@ -187,7 +187,7 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 
 			// Update the existing firewall with the remaining CIDRs.
 			spec := firewallSpec(existingFirewall.Name, target, remainingCidrs, existingFirewall.AllowedPorts)
-			if err := gce.raw.UpdateFirewall(gce.projectID, existingFirewall.Name, spec); err != nil {
+			if err := gce.service.UpdateFirewall(gce.projectID, existingFirewall.Name, spec); err != nil {
 				return errors.Annotatef(err, "closing port(s) %+v", rules)
 			}
 			continue
@@ -209,7 +209,7 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 
 		// Copy new firewall details into required firewall spec.
 		spec := firewallSpec(existingFirewall.Name, target, existingFirewall.SourceCIDRs, remainingPorts)
-		if err := gce.raw.UpdateFirewall(gce.projectID, existingFirewall.Name, spec); err != nil {
+		if err := gce.service.UpdateFirewall(gce.projectID, existingFirewall.Name, spec); err != nil {
 			return errors.Annotatef(err, "closing port(s) %+v", rules)
 		}
 	}
@@ -218,7 +218,7 @@ func (gce Connection) ClosePorts(target string, rules ...network.IngressRule) er
 
 // Subnetworks returns the subnets available in this region.
 func (gce Connection) Subnetworks(region string) ([]*compute.Subnetwork, error) {
-	results, err := gce.raw.ListSubnetworks(gce.projectID, region)
+	results, err := gce.service.ListSubnetworks(gce.projectID, region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -227,7 +227,7 @@ func (gce Connection) Subnetworks(region string) ([]*compute.Subnetwork, error) 
 
 // Networks returns the networks available.
 func (gce Connection) Networks() ([]*compute.Network, error) {
-	results, err := gce.raw.ListNetworks(gce.projectID)
+	results, err := gce.service.ListNetworks(gce.projectID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
