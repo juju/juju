@@ -554,6 +554,16 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 	)
 	defer func() { _ = timer.Stop() }()
 
+	// Collect and initial set of machine IDs; this makes the worker
+	// compatible with other workers that expect the full state to be
+	// immediately emitted once the worker starts.
+	initialSet, err := w.initialMachineSet()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	changeSet = initialSet.Values()
+	outCh = w.outCh
+
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -598,6 +608,35 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 			outCh = nil
 		}
 	}
+}
+
+func (w *modelMachineStartTimeWatcher) initialMachineSet() (set.Strings, error) {
+	coll, closer := w.db.GetCollection(machinesC)
+	defer closer()
+
+	// Select the fields we need from documents that are not referring to
+	// containers.
+	iter := coll.Find(
+		bson.D{
+			{"$or", []bson.D{
+				{{"containertype", ""}},
+				{{"containertype", bson.D{{"$exists", false}}}},
+			}},
+		},
+	).Select(bson.D{{"_id", 1}, {"life", 1}, {"agent-started-at", 1}}).Iter()
+
+	var (
+		doc modelMachineStartTimeFieldDoc
+		ids = make(set.Strings)
+	)
+	for iter.Next(&doc) {
+		id := w.backend.localID(doc.Id)
+		ids.Add(id)
+		if doc.Life != Dead {
+			w.seenDocs[id] = doc
+		}
+	}
+	return ids, iter.Close()
 }
 
 func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (set.Strings, error) {
