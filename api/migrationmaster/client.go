@@ -193,7 +193,7 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 // ProcessRelations runs a series of processes to ensure that the relations
 // of a given model are correct after a migrated model.
 func (c *Client) ProcessRelations(controllerAlias string) error {
-	param := params.ProcessReleations{
+	param := params.ProcessRelations{
 		ControllerAlias: controllerAlias,
 	}
 	var result params.ErrorResult

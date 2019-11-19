@@ -292,6 +292,7 @@ func (s *MigrationSuite) TestLatestMigrationWithPrevious(c *gc.C) {
 	// having been migrated back to the controller.
 	phases := []migration.Phase{
 		migration.IMPORT,
+		migration.PROCESSRELATIONS,
 		migration.VALIDATION,
 		migration.SUCCESS,
 		migration.LOGTRANSFER,
@@ -331,7 +332,15 @@ func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Cycle through the phases and complete the migration
-	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	phases := []migration.Phase{
+		migration.IMPORT,
+		migration.PROCESSRELATIONS,
+		migration.VALIDATION,
+		migration.SUCCESS,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.DONE,
+	}
 	for _, phase := range phases {
 		c.Assert(mig1.SetPhase(phase), jc.ErrorIsNil)
 	}
@@ -393,6 +402,7 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 
 	phases := []migration.Phase{
 		migration.IMPORT,
+		migration.PROCESSRELATIONS,
 		migration.VALIDATION,
 		migration.SUCCESS,
 		migration.LOGTRANSFER,
@@ -462,6 +472,7 @@ func (s *MigrationSuite) TestREAPFAILEDCleanup(c *gc.C) {
 	// Advance the migration to REAPFAILED.
 	phases := []migration.Phase{
 		migration.IMPORT,
+		migration.PROCESSRELATIONS,
 		migration.VALIDATION,
 		migration.SUCCESS,
 		migration.LOGTRANSFER,
