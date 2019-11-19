@@ -36,7 +36,7 @@ var _ = gc.Suite(&CertUpdaterSuite{})
 
 func (s *CertUpdaterSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.PatchValue(&jujucert.NewLeafKeyBits, 512)
+	s.PatchValue(&jujucert.NewLeafKeyBits, 1024)
 
 	s.stateServingInfo = params.StateServingInfo{
 		Cert:         coretesting.ServerCert,
