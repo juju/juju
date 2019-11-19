@@ -46,37 +46,83 @@ run_model_migration_saas_block() {
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
     juju deploy mysql
 
-    wait_for "mysql" ".applications | keys[0]"
+    wait_for "mysql" "$(idle_condition "mysql")"
 
     juju offer mysql:db
     juju add-model blog
 
     juju switch blog
 
-    bundle=./tests/suites/model/bundles/saas_wordpress.yaml
-    sed "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${BOOTSTRAPPED_JUJU_CTRL_NAME}/g" "${bundle}" > "${TEST_DIR}/saas_wordpress.yaml"
+    generate_saas_bundle "${BOOTSTRAPPED_JUJU_CTRL_NAME}" "model-migration-saas"
+
     juju deploy "${TEST_DIR}/saas_wordpress.yaml"
 
     wait_for "wordpress" "$(idle_condition "wordpress")"
 
-    juju migrate "blog" "alt-model-migration-saas"
+    juju migrate "model-migration-saas" "alt-model-migration-saas"
     juju switch "alt-model-migration-saas"
 
     # Wait for the new model migration to appear in the alt controller.
-    wait_for_model "blog"
+    wait_for_model "model-migration-saas"
 
     # Once the model has appeared, switch to it.
-    juju switch "alt-model-migration-saas:blog"
+    juju switch "alt-model-migration-saas:model-migration-saas"
 
-    wait_for "wordpress" "$(idle_condition "wordpress")"
-
-    juju expose wordpress
+    wait_for "mysql" "$(idle_condition "mysql")"
 
     # Clean up!
     destroy_controller "alt-model-migration-saas"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
     destroy_model "model-migration-saas"
+    destroy_model "blog"
+}
+
+run_model_migration_saas_consumer() {
+    # Echo out to ensure nice output to the test suite.
+    echo
+
+    # The following ensures that a bootstrap juju exists
+    file="${TEST_DIR}/test-model-migration-consume.txt"
+    ensure "model-migration-consume" "${file}"
+
+    # Ensure we have another controller available
+    bootstrap_alt_controller "alt-model-migration-consume"
+
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju deploy mysql
+
+    wait_for "mysql" "$(idle_condition "mysql")"
+
+    juju offer mysql:db
+    juju add-model blog
+
+    juju switch blog
+
+    generate_saas_bundle "${BOOTSTRAPPED_JUJU_CTRL_NAME}" "model-migration-consume"
+
+    juju deploy "${TEST_DIR}/saas_wordpress.yaml"
+
+    wait_for "wordpress" "$(idle_condition "wordpress")"
+
+    juju migrate "blog" "alt-model-migration-consume"
+    juju switch "alt-model-migration-consume"
+
+    # Wait for the new model migration to appear in the alt controller.
+    wait_for_model "blog"
+
+    # Once the model has appeared, switch to it.
+    juju switch "alt-model-migration-consume:blog"
+
+    wait_for "wordpress" "$(idle_condition "wordpress")"
+
+    juju expose wordpress
+
+    # Clean up!
+    destroy_controller "alt-model-migration-consume"
+
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    destroy_model "model-migration-consume"
     destroy_model "blog"
 }
 
@@ -93,6 +139,7 @@ test_model_migration() {
 
         run "run_model_migration"
         run "run_model_migration_saas_block"
+        run "run_model_migration_saas_consumer"
     )
 }
 
@@ -109,4 +156,17 @@ bootstrap_alt_controller() {
 
     END_TIME=$(date +%s)
     echo "====> Bootstrapped destination juju ($((END_TIME-START_TIME))s)"
+}
+
+generate_saas_bundle() {
+    local ctrl_name model_name
+
+    ctrl_name=${1}
+    model_name=${2}
+
+    bundle=./tests/suites/model/bundles/saas_wordpress.yaml
+    cp "${bundle}" "${TEST_DIR}/saas_wordpress.yaml"
+
+    sed -i "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${ctrl_name}/g" "${TEST_DIR}/saas_wordpress.yaml"
+    sed -i "s/{{JUJU_MODEL_NAME}}/${model_name}/g" "${TEST_DIR}/saas_wordpress.yaml"
 }

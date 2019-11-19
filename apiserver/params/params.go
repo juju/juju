@@ -166,6 +166,12 @@ type RelationSuspendedArg struct {
 	Suspended  bool   `json:"suspended"`
 }
 
+// ProcessRelations holds the information required to process series of
+// relations during a model migration.
+type ProcessRelations struct {
+	ControllerAlias string `json:"controller-alias"`
+}
+
 // AddCharm holds the arguments for making an AddCharm API call.
 type AddCharm struct {
 	URL     string `json:"url"`

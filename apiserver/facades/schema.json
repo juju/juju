@@ -21856,7 +21856,7 @@
     },
     {
         "Name": "MigrationMaster",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
@@ -21894,6 +21894,14 @@
                 },
                 "Prechecks": {
                     "type": "object"
+                },
+                "ProcessRelations": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/ProcessRelations"
+                        }
+                    }
                 },
                 "Reap": {
                     "type": "object"
@@ -22141,6 +22149,18 @@
                         "Tag",
                         "Patch",
                         "Build"
+                    ]
+                },
+                "ProcessRelations": {
+                    "type": "object",
+                    "properties": {
+                        "controller-alias": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "controller-alias"
                     ]
                 },
                 "SerializedModel": {

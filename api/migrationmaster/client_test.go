@@ -215,6 +215,27 @@ func (s *ClientSuite) TestPrechecks(c *gc.C) {
 	})
 }
 
+func (s *ClientSuite) TestProcessRelations(c *gc.C) {
+	var stub jujutesting.Stub
+	apiCaller := apitesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+		stub.AddCall(objType+"."+request, id, arg)
+		return nil
+	})
+
+	client := migrationmaster.NewClient(apiCaller, nil)
+	err := client.ProcessRelations("foo")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ClientSuite) TestProcessRelationsError(c *gc.C) {
+	apiCaller := apitesting.APICallerFunc(func(string, int, string, string, interface{}, interface{}) error {
+		return errors.New("blam")
+	})
+	client := migrationmaster.NewClient(apiCaller, nil)
+	err := client.ProcessRelations("foo")
+	c.Assert(err, gc.ErrorMatches, "blam")
+}
+
 func (s *ClientSuite) TestExport(c *gc.C) {
 	var stub jujutesting.Stub
 

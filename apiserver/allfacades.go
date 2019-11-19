@@ -243,7 +243,8 @@ func AllFacades() *facade.Registry {
 	reg("MetricsManager", 1, metricsmanager.NewFacade)
 
 	reg("MigrationFlag", 1, migrationflag.NewFacade)
-	reg("MigrationMaster", 1, migrationmaster.NewFacade)
+	reg("MigrationMaster", 1, migrationmaster.NewMigrationMasterFacade)
+	reg("MigrationMaster", 2, migrationmaster.NewMigrationMasterFacadeV2)
 	reg("MigrationMinion", 1, migrationminion.NewFacade)
 	reg("MigrationTarget", 1, migrationtarget.NewFacade)
 

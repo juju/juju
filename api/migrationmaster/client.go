@@ -190,6 +190,23 @@ func (c *Client) Export() (migration.SerializedModel, error) {
 	}, nil
 }
 
+// ProcessRelations runs a series of processes to ensure that the relations
+// of a given model are correct after a migrated model.
+func (c *Client) ProcessRelations(controllerAlias string) error {
+	param := params.ProcessRelations{
+		ControllerAlias: controllerAlias,
+	}
+	var result params.ErrorResult
+	err := c.caller.FacadeCall("ProcessRelations", param, &result)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if result.Error != nil {
+		return errors.Trace(result.Error)
+	}
+	return nil
+}
+
 // OpenResource downloads the named resource for an application.
 func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 	httpClient, err := c.httpClientFactory()

@@ -170,7 +170,15 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	phases := []migration.Phase{migration.IMPORT, migration.VALIDATION, migration.SUCCESS, migration.LOGTRANSFER, migration.REAP, migration.DONE}
+	phases := []migration.Phase{
+		migration.IMPORT,
+		migration.PROCESSRELATIONS,
+		migration.VALIDATION,
+		migration.SUCCESS,
+		migration.LOGTRANSFER,
+		migration.REAP,
+		migration.DONE,
+	}
 	for _, phase := range phases {
 		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
 	}

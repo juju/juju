@@ -72,6 +72,8 @@ func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// A Remote Application with a missing status field is a valid remote
+// application and should be correctly imported.
 func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusField(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -82,15 +84,45 @@ func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusFiel
 		entity0,
 	}
 
+	appDoc := &remoteApplicationDoc{
+		Name:      "remote-application",
+		URL:       "me/model.rainbow",
+		OfferUUID: "offer-uuid",
+		Endpoints: []remoteEndpointDoc{
+			{Name: "db", Interface: "mysql"},
+			{Name: "db-admin", Interface: "mysql-root"},
+		},
+		Spaces: []remoteSpaceDoc{
+			{CloudType: "ec2"},
+		},
+	}
+
 	model := NewMockRemoteApplicationsDescription(ctrl)
 	model.EXPECT().RemoteApplications().Return(entities)
-	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(&remoteApplicationDoc{})
+	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
+	model.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
+		doc: *appDoc,
+	})
+	model.EXPECT().DocID("remote-application").Return("c#remote-application")
 
 	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      applicationsC,
+			Id:     "remote-application",
+			Assert: txn.DocMissing,
+		},
+		{
+			C:      remoteApplicationsC,
+			Id:     "c#remote-application",
+			Assert: txn.DocMissing,
+			Insert: appDoc,
+		},
+	}).Return(nil)
 
 	m := ImportRemoteApplications{}
 	err := m.Execute(model, runner)
-	c.Assert(err, gc.ErrorMatches, "missing status not valid")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MigrationImportSuite) remoteApplication(ctrl *gomock.Controller, status description.Status) description.RemoteApplication {

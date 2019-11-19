@@ -255,6 +255,10 @@ func (s *Suite) TestSuccessfulMigration(c *gc.C) {
 				s.facade,
 			}},
 			apiCloseCall, // for target controller
+			{"facade.SetPhase", []interface{}{coremigration.PROCESSRELATIONS}},
+
+			// PROCESSRELATIONS
+			{"facade.ProcessRelations", []interface{}{""}},
 			{"facade.SetPhase", []interface{}{coremigration.VALIDATION}},
 
 			// VALIDATION
@@ -473,6 +477,20 @@ func (s *Suite) TestQUIESCETargetChecksFail(c *gc.C) {
 	s.stub.CheckCalls(c, joinCalls(
 		watchStatusLockdownCalls,
 		prechecksCalls,
+		abortCalls,
+	))
+}
+
+func (s *Suite) TestProcessRelationsFailure(c *gc.C) {
+	s.facade.queueStatus(s.makeStatus(coremigration.PROCESSRELATIONS))
+	s.facade.processRelationsErr = errors.New("boom")
+
+	s.checkWorkerReturns(c, migrationmaster.ErrInactive)
+	s.stub.CheckCalls(c, joinCalls(
+		watchStatusLockdownCalls,
+		[]jujutesting.StubCall{
+			{"facade.ProcessRelations", []interface{}{""}},
+		},
 		abortCalls,
 	))
 }
@@ -1074,9 +1092,10 @@ type stubMasterFacade struct {
 	status         []coremigration.MigrationStatus
 	statusErr      error
 
-	prechecksErr error
-	modelInfoErr error
-	exportErr    error
+	prechecksErr        error
+	modelInfoErr        error
+	exportErr           error
+	processRelationsErr error
 
 	logMessages func(chan<- common.LogMessage)
 	streamErr   error
@@ -1193,6 +1212,14 @@ func (f *stubMasterFacade) Export() (coremigration.SerializedModel, error) {
 	}, nil
 }
 
+func (f *stubMasterFacade) ProcessRelations(controllerAlias string) error {
+	f.stub.AddCall("facade.ProcessRelations", controllerAlias)
+	if f.processRelationsErr != nil {
+		return f.processRelationsErr
+	}
+	return nil
+}
+
 func (f *stubMasterFacade) SetPhase(phase coremigration.Phase) error {
 	f.stub.AddCall("facade.SetPhase", phase)
 	return nil
@@ -1243,10 +1270,11 @@ func (w *mockWatcher) Changes() watcher.NotifyChannel {
 
 type stubConnection struct {
 	api.Connection
-	stub          *jujutesting.Stub
-	prechecksErr  error
-	importErr     error
-	controllerTag names.ControllerTag
+	stub                *jujutesting.Stub
+	prechecksErr        error
+	importErr           error
+	processRelationsErr error
+	controllerTag       names.ControllerTag
 
 	streamErr error
 	logStream *mockStream
@@ -1271,6 +1299,8 @@ func (c *stubConnection) APICall(objType string, version int, id, request string
 			return c.prechecksErr
 		case "Import":
 			return c.importErr
+		case "ProcessRelations":
+			return c.processRelationsErr
 		case "Activate", "AdoptResources":
 			return nil
 		case "LatestLogTime":
