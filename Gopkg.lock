@@ -1494,8 +1494,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  branch = "add-support-functions"
-  digest = "1:4f9201440dc6b732dad20e9bd730b9c8ac418285a069e7dd367834821220aaa9"
+  digest = "1:79a27343a7bbcf0f95f02624f734d5c1ae62f69309414714c0c287c12b49bceb"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1503,7 +1502,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "a2b006e9dec7504e36f16334a1ef5be1710d9a4c"
+  revision = "e796da0d55361152e5f113fa559c52082731df76"
   source = "github.com/ycliuhw/charm"
 
 [[projects]]
