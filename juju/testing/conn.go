@@ -152,7 +152,7 @@ func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	s.PatchValue(&cert.NewCA, testing.NewCA)
-	s.PatchValue(&cert.NewLeafKeyBits, 512)
+	s.PatchValue(&cert.NewLeafKeyBits, 1024)
 	s.PatchValue(&paths.Chown, func(name string, uid, gid int) error { return nil })
 }
 

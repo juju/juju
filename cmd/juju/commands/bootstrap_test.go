@@ -95,7 +95,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 	s.PatchValue(&cert.NewCA, coretesting.NewCA)
-	s.PatchValue(&cert.NewLeafKeyBits, 512)
+	s.PatchValue(&cert.NewLeafKeyBits, 1024)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
