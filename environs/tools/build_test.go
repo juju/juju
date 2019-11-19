@@ -249,6 +249,10 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 	testBinary := filepath.Join(dir, "tst")
 	os.Args[0] = testBinary
 	err = os.Link(oldArg0, testBinary)
+	if _, ok := err.(*os.LinkError); ok {
+		// Soft link when cross device.
+		err = os.Symlink(oldArg0, testBinary)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	b.AddCleanup(func(c *gc.C) {
 		os.Args[0] = oldArg0
