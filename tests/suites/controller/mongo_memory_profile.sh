@@ -16,7 +16,18 @@ run_mongo_memory_profile() {
 
     sleep 5
 
-    check_contains "$(cat_mongo_service)" wiredTigerCacheSizeGB
+    attempt=0
+    # shellcheck disable=SC2046,SC2143,SC2091
+    until $(check_contains "$(cat_mongo_service)" wiredTigerCacheSizeGB 2>&1 >/dev/null); do
+        echo "[+] (attempt ${attempt}) polling mongo service"
+        cat_mongo_service | sed 's/^/    | /g'
+        if [ "${attempt}" -ge 4 ]; then
+            echo "Failed: expected wiredTigerCacheSizeGB to be set in mongo service."
+            exit 1
+        fi
+        sleep 5
+        attempt=$((attempt+1))
+    done
 
     # Set the value back in case we are reusing a controller
     juju controller-config mongo-memory-profile=default
