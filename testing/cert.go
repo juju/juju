@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"math/rand"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -28,16 +29,16 @@ func init() {
 // Certs holds the certificates and keys required to make a secure
 // connection to a Mongo database.
 var (
-	CACert, CAKey = mustNewCA()
+	CACert, CAKey, ServerCert, ServerKey = chooseGeneratedCA()
 
 	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
 
-	ServerTLSCert, ServerCert, ServerKey = mustNewServer()
+	ServerTLSCert = mustParseServerCert(ServerCert, ServerKey)
 
 	Certs = serverCerts()
 
 	// Other valid test certs different from the default.
-	OtherCACert, OtherCAKey        = mustNewCA()
+	OtherCACert, OtherCAKey        = chooseGeneratedOtherCA()
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
 )
 
@@ -51,6 +52,23 @@ func verifyCertificates() error {
 		return fmt.Errorf("bad server cert key pair: %v", err)
 	}
 	return cert.Verify(ServerCert, CACert, time.Now())
+}
+
+func chooseGeneratedCA() (string, string, string, string) {
+	index := rand.Intn(len(generatedCA))
+	if len(generatedCA) != len(generatedServer) {
+		// This should never happen.
+		panic("generatedCA and generatedServer have mismatched length")
+	}
+	ca := generatedCA[index]
+	server := generatedServer[index]
+	return ca.certPEM, ca.keyPEM, server.certPEM, server.keyPEM
+}
+
+func chooseGeneratedOtherCA() (string, string) {
+	index := rand.Intn(len(otherCA))
+	ca := otherCA[index]
+	return ca.certPEM, ca.keyPEM
 }
 
 func mustNewCA() (string, string) {
@@ -70,6 +88,11 @@ func mustNewServer() (*tls.Certificate, string, string) {
 	if err != nil {
 		panic(err)
 	}
+	tlsCert := mustParseServerCert(srvCert, srvKey)
+	return tlsCert, srvCert, srvKey
+}
+
+func mustParseServerCert(srvCert string, srvKey string) *tls.Certificate {
 	tlsCert, err := tls.X509KeyPair([]byte(srvCert), []byte(srvKey))
 	if err != nil {
 		panic(err)
@@ -79,7 +102,7 @@ func mustNewServer() (*tls.Certificate, string, string) {
 		panic(err)
 	}
 	tlsCert.Leaf = x509Cert
-	return &tlsCert, srvCert, srvKey
+	return &tlsCert
 }
 
 func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey) {
