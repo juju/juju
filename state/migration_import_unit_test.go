@@ -72,6 +72,8 @@ func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// A Remote Application with a missing status field is a valid remote
+// application and should be correctly imported.
 func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusField(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
@@ -90,7 +92,7 @@ func (s *MigrationImportSuite) TestImportRemoteApplicationsWithMissingStatusFiel
 
 	m := ImportRemoteApplications{}
 	err := m.Execute(model, runner)
-	c.Assert(err, gc.ErrorMatches, "missing status not valid")
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *MigrationImportSuite) remoteApplication(ctrl *gomock.Controller, status description.Status) description.RemoteApplication {

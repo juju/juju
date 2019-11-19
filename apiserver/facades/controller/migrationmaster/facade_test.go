@@ -191,7 +191,7 @@ func (s *Suite) TestPrechecks(c *gc.C) {
 
 func (s *Suite) TestProcessRelations(c *gc.C) {
 	api := s.mustMakeAPI(c)
-	err := api.ProcessRelations(params.ProcessReleations{
+	err := api.ProcessRelations(params.ProcessRelations{
 		ControllerAlias: "foo",
 	})
 	c.Assert(err, jc.ErrorIsNil)
