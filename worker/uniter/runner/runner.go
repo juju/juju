@@ -246,6 +246,7 @@ func encodeBytes(input []byte) (value string, encoding string) {
 }
 
 func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
+	// TODO(juju3) - use lower case here
 	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
 		return errors.Trace(err)
 	}

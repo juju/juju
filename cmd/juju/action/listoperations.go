@@ -21,12 +21,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 )
 
-func NewListTasksCommand() cmd.Command {
-	return modelcmd.Wrap(&listTasksCommand{})
+func NewListOperationsCommand() cmd.Command {
+	return modelcmd.Wrap(&listOperationsCommand{})
 }
 
-// listTasksCommand fetches the results of an action by ID.
-type listTasksCommand struct {
+// listOperationsCommand fetches the results of an action by ID.
+type listOperationsCommand struct {
 	ActionCommandBase
 	out              cmd.Output
 	utc              bool
@@ -36,29 +36,29 @@ type listTasksCommand struct {
 	statusValues     []string
 }
 
-const listTasksDoc = `
-List the tasks with the specified query criteria.
-With no query arguments, any completed tasks will be listed.
-A completed task is one that has run successfully, been cancelled, or failed.
+const listOperationsDoc = `
+List the operations with the specified query criteria.
+With no query arguments, any completed operations will be listed.
+A completed operation is one that has run successfully, been cancelled, or failed.
 
 When an application is specified, all units from that application are relevant.
 
 Examples:
-    juju tasks
-    juju tasks --format yaml
-    juju tasks --functions backup,restore
-    juju tasks --apps mysql,mediawiki
-    juju tasks --units mysql/0,mediawiki/1
-    juju tasks --status pending,completed
-    juju tasks --apps mysql --units mediawiki/0 --status running --functions backup
+    juju operations
+    juju operations --format yaml
+    juju operations --functions backup,restore
+    juju operations --apps mysql,mediawiki
+    juju operations --units mysql/0,mediawiki/1
+    juju operations --status pending,completed
+    juju operations --apps mysql --units mediawiki/0 --status running --functions backup
 
 See also:
     call
-    show-task
+    show-operation
 `
 
 // Set up the output.
-func (c *listTasksCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *listOperationsCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	defaultFormatter := "plain"
 	c.out.AddFlags(f, defaultFormatter, map[string]cmd.Formatter{
@@ -72,20 +72,20 @@ func (c *listTasksCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(cmd.NewStringsValue(nil, &c.applicationNames), "apps", "Comma separated list of applications to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.unitNames), "units", "Comma separated list of units to filter on")
 	f.Var(cmd.NewStringsValue(nil, &c.functionNames), "functions", "Comma separated list of function names to filter on")
-	f.Var(cmd.NewStringsValue([]string{params.ActionCompleted}, &c.statusValues), "status", "Comma separated list of task status values to filter on")
+	f.Var(cmd.NewStringsValue([]string{params.ActionCompleted}, &c.statusValues), "status", "Comma separated list of operation status values to filter on")
 }
 
-func (c *listTasksCommand) Info() *cmd.Info {
+func (c *listOperationsCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "tasks",
-		Purpose: "Lists pending, running, or completed tasks for specified application, units, or all.",
-		Doc:     listTasksDoc,
-		Aliases: []string{"list-tasks"},
+		Name:    "operations",
+		Purpose: "Lists pending, running, or completed operations for specified application, units, or all.",
+		Doc:     listOperationsDoc,
+		Aliases: []string{"list-operations"},
 	})
 }
 
 // Init implements Command.
-func (c *listTasksCommand) Init(args []string) error {
+func (c *listOperationsCommand) Init(args []string) error {
 	var nameErrors []string
 	for _, application := range c.applicationNames {
 		if !names.IsValidApplication(application) {
@@ -116,20 +116,20 @@ func (c *listTasksCommand) Init(args []string) error {
 }
 
 // Run implements Command.
-func (c *listTasksCommand) Run(ctx *cmd.Context) error {
+func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	args := params.TaskQueryArgs{
+	args := params.OperationQueryArgs{
 		Applications:  c.applicationNames,
 		Units:         c.unitNames,
 		FunctionNames: c.functionNames,
 		Status:        c.statusValues,
 	}
-	results, err := api.Tasks(args)
+	results, err := api.Operations(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -137,7 +137,7 @@ func (c *listTasksCommand) Run(ctx *cmd.Context) error {
 	out := make(map[string]interface{})
 	var actionResults byId = results.Results
 	if len(actionResults) == 0 {
-		fmt.Fprintln(ctx.Stderr, "no matching tasks")
+		fmt.Fprintln(ctx.Stderr, "no matching operations")
 		return nil
 	}
 
@@ -158,35 +158,35 @@ func (c *listTasksCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, actionResults)
 }
 
-type taskLine struct {
+type operationLine struct {
 	timestamp time.Time
 	id        string
-	task      string
+	operation string
 	status    string
 	unit      string
 }
 
-func (c *listTasksCommand) formatTabular(writer io.Writer, value interface{}) error {
+func (c *listOperationsCommand) formatTabular(writer io.Writer, value interface{}) error {
 	results, ok := value.(byId)
 	if !ok {
 		return errors.Errorf("expected value of type %T, got %T", results, value)
 	}
 	tw := output.TabWriter(writer)
 	w := output.Wrapper{tw}
-	w.SetColumnAlignRight(1)
+	w.SetColumnAlignRight(0)
 
-	printTasks := func(tasks []taskLine, utc bool) {
-		for _, line := range tasks {
-			w.Print(formatTimestamp(line.timestamp, false, c.utc))
-			w.Println(line.id, line.task, line.status, line.unit)
+	printOperations := func(operations []operationLine, utc bool) {
+		for _, line := range operations {
+			w.Print(line.id, line.operation, line.status, line.unit)
+			w.Println(formatTimestamp(line.timestamp, false, c.utc, true))
 		}
 	}
-	w.Println("Time", "Id", "Task", "Status", "Unit")
-	printTasks(actionTaskLinesFromResults(results), c.utc)
+	w.Println("Id", "Operation", "Status", "Unit", "Time")
+	printOperations(actionOperationLinesFromResults(results), c.utc)
 	return tw.Flush()
 }
 
-func taskDisplayTime(r params.ActionResult) time.Time {
+func operationDisplayTime(r params.ActionResult) time.Time {
 	timestamp := r.Completed
 	if timestamp.IsZero() {
 		timestamp = r.Started
@@ -197,18 +197,18 @@ func taskDisplayTime(r params.ActionResult) time.Time {
 	return timestamp
 }
 
-func actionTaskLinesFromResults(results []params.ActionResult) []taskLine {
+func actionOperationLinesFromResults(results []params.ActionResult) []operationLine {
 	sort.Sort(byTimestamp(results))
 
-	var taskLines []taskLine
+	var operationLines []operationLine
 	for _, r := range results {
 		if r.Action == nil {
 			continue
 		}
-		line := taskLine{
-			timestamp: taskDisplayTime(r),
+		line := operationLine{
+			timestamp: operationDisplayTime(r),
 			status:    r.Status,
-			task:      r.Action.Name,
+			operation: r.Action.Name,
 		}
 		if at, err := names.ParseActionTag(r.Action.Tag); err == nil {
 			line.id = at.Id()
@@ -216,9 +216,9 @@ func actionTaskLinesFromResults(results []params.ActionResult) []taskLine {
 		if ut, err := names.ParseUnitTag(r.Action.Receiver); err == nil {
 			line.unit = ut.Id()
 		}
-		taskLines = append(taskLines, line)
+		operationLines = append(operationLines, line)
 	}
-	return taskLines
+	return operationLines
 }
 
 type byTimestamp []params.ActionResult
@@ -232,7 +232,7 @@ func (s byTimestamp) Swap(i, j int) {
 }
 
 func (s byTimestamp) Less(i, j int) bool {
-	return taskDisplayTime(s[i]).UnixNano() < taskDisplayTime(s[j]).UnixNano()
+	return operationDisplayTime(s[i]).UnixNano() < operationDisplayTime(s[j]).UnixNano()
 }
 
 type byId []params.ActionResult

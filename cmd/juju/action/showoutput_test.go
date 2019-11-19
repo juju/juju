@@ -54,7 +54,7 @@ func (s *ShowOutputSuite) TestInit(c *gc.C) {
 
 	for i, t := range tests {
 		for _, modelFlag := range s.modelFlags {
-			c.Logf("test %d: it should %s: juju show-task %s", i,
+			c.Logf("test %d: it should %s: juju show-operation %s", i,
 				t.should, strings.Join(t.args, " "))
 			cmd, _ := action.NewShowOutputCommandForTest(s.store, nil)
 			args := append([]string{modelFlag, "admin"}, t.args...)
@@ -270,7 +270,7 @@ timing:
 				"foo": map[string]interface{}{
 					"bar": "baz",
 				},
-				"Stdout": "hello",
+				"stdout": "hello",
 			},
 			Enqueued:  time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
 			Started:   time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),

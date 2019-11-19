@@ -5,6 +5,7 @@ package action
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -28,17 +29,17 @@ type showCommand struct {
 }
 
 var showActionDoc = `
-Show detailed information about a function on the target application.
+Show detailed information about an action on the target application.
 
 Examples:
-    juju show-function postgresql backup
+    juju show-action postgresql backup
 
 See also:
-    call
-    list-functions
+    list-actions
+    run-action
 `
 
-// NewShowCommand returns a command to print function information.
+// NewShowCommand returns a command to print action information.
 func NewShowCommand() cmd.Command {
 	return modelcmd.Wrap(&showCommand{})
 }
@@ -48,7 +49,10 @@ func (c *showCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no application name specified")
 	case 1:
-		return errors.New("no function name specified")
+		if featureflag.Enabled(feature.JujuV3) {
+			return errors.New("no function name specified")
+		}
+		return errors.New("no action name specified")
 	case 2:
 		appName := args[0]
 		if !names.IsValidApplication(appName) {
@@ -64,14 +68,17 @@ func (c *showCommand) Init(args []string) error {
 
 func (c *showCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "show-function",
-		Args:    "<application name> <function name>",
-		Purpose: "Shows detailed information about a function.",
+		Name:    "show-action",
+		Args:    "<application name> <action name>",
+		Purpose: "Shows detailed information about an action.",
 		Doc:     showActionDoc,
-		Aliases: []string{"show-action"},
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Aliases = nil
+		info.Name = "show-function"
+		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
+		info.Doc = strings.Replace(info.Doc, "an action", "a function", -1)
+		info.Doc = strings.Replace(info.Doc, "action", "function", -1)
+		info.Purpose = strings.Replace(info.Purpose, "an action", "a function", -1)
 	}
 	return info
 }
@@ -89,7 +96,11 @@ func (c *showCommand) Run(ctx *cmd.Context) error {
 	}
 	info, ok := actions[c.functionName]
 	if !ok {
-		ctx.Infof("unknown function %q\n", c.functionName)
+		if featureflag.Enabled(feature.JujuV3) {
+			ctx.Infof("unknown function %q\n", c.functionName)
+		} else {
+			ctx.Infof("unknown action %q\n", c.functionName)
+		}
 		return cmd.ErrSilent
 	}
 
