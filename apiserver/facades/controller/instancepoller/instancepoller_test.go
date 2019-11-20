@@ -166,19 +166,35 @@ func (s *InstancePollerSuite) TestWatchForModelConfigChangesSuccess(c *gc.C) {
 }
 
 func (s *InstancePollerSuite) TestWatchModelMachinesFailure(c *gc.C) {
+	s.assertMachineWatcherFails(c, "WatchModelMachines", s.api.WatchModelMachines)
+}
+
+func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
+	s.assertMachineWatcherSucceeds(c, "WatchModelMachines", s.api.WatchModelMachines)
+}
+
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesFailure(c *gc.C) {
+	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
+}
+
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
+	s.assertMachineWatcherFails(c, "WatchModelMachineStartTimes", s.api.WatchModelMachineStartTimes)
+}
+
+func (s *InstancePollerSuite) assertMachineWatcherFails(c *gc.C, watchFacadeName string, getWatcherFn func() (params.StringsWatchResult, error)) {
 	// Force the Changes() method of the mock watcher to return a
 	// closed channel by setting an error.
 	s.st.SetErrors(errors.Errorf("boom"))
 
-	result, err := s.api.WatchModelMachines()
+	result, err := getWatcherFn()
 	c.Assert(err, gc.ErrorMatches, "cannot obtain initial model machines: boom")
 	c.Assert(result, jc.DeepEquals, params.StringsWatchResult{})
 
 	c.Assert(s.resources.Count(), gc.Equals, 0) // no watcher registered
-	s.st.CheckCallNames(c, "WatchModelMachines")
+	s.st.CheckCallNames(c, watchFacadeName)
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
+func (s *InstancePollerSuite) assertMachineWatcherSucceeds(c *gc.C, watchFacadeName string, getWatcherFn func() (params.StringsWatchResult, error)) {
 	// Add a couple of machines.
 	s.st.SetMachineInfo(c, machineInfo{id: "2"})
 	s.st.SetMachineInfo(c, machineInfo{id: "1"})
@@ -188,7 +204,7 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 		StringsWatcherId: "1",
 		Changes:          []string{"1", "2"}, // initial event (sorted ids)
 	}
-	result, err := s.api.WatchModelMachines()
+	result, err := getWatcherFn()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, expectedResult)
 
@@ -205,14 +221,14 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	wc1 := statetesting.NewStringsWatcherC(c, s.st, resource1.(state.StringsWatcher))
 	wc1.AssertNoChange()
 
-	s.st.CheckCallNames(c, "WatchModelMachines")
+	s.st.CheckCallNames(c, watchFacadeName)
 
 	// Add another watcher to verify events coalescence.
-	result, err = s.api.WatchModelMachines()
+	result, err = getWatcherFn()
 	c.Assert(err, jc.ErrorIsNil)
 	expectedResult.StringsWatcherId = "2"
 	c.Assert(result, jc.DeepEquals, expectedResult)
-	s.st.CheckCallNames(c, "WatchModelMachines", "WatchModelMachines")
+	s.st.CheckCallNames(c, watchFacadeName, watchFacadeName)
 	c.Assert(s.resources.Count(), gc.Equals, 2)
 	resource2 := s.resources.Get("2")
 	defer statetesting.AssertStop(c, resource2)
