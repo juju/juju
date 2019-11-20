@@ -147,15 +147,11 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "e796da0d55361152e5f113fa559c52082731df76"
-  # branch = "add-support-functions"
-  source = "github.com/ycliuhw/charm"
+  revision = "a35e524ea871ac01a0522bd37b6267a45e233fb2"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
   name = "gopkg.in/juju/charmrepo.v3"
-  # branch = "add-support-functions"
-  # source = "github.com/ycliuhw/charmrepo"
 
 [[constraint]]
   revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
