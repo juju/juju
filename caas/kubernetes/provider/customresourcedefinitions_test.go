@@ -756,10 +756,10 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourcesUpdate(c *gc.C) {
 	s.assertCustomerResources(
 		c, crs,
 		func() {
-			err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+			err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 
-			err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+			err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		// waits CRD stablised.
@@ -1084,10 +1084,10 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 3)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 3)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -1109,7 +1109,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 
 	// round 1. crd1 not found.
 	mockCRDGetter.EXPECT().Get("tfjobs.kubeflow.org").AnyTimes().Return(nil, errors.NotFoundf(""))
-	// round 1. crd2 un expected error - will not retry and abort the whole wg.
+	// round 1. crd2 un expected error - will not retry but abort the whole wg.
 	mockCRDGetter.EXPECT().Get("scheduledworkflows.kubeflow.org").Times(1).Return(nil, unExpectedErr)
 
 	resultChan := make(chan map[string]*apiextensionsv1beta1.CustomResourceDefinition)
@@ -1125,7 +1125,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
