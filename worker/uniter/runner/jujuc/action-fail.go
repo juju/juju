@@ -34,6 +34,7 @@ problem with the action.
 		Args:    "[\"<failure message>\"]",
 		Purpose: "set action fail status with message",
 		Doc:     doc,
+		Aliases: []string{"function-fail"},
 	})
 }
 

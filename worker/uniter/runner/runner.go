@@ -287,10 +287,19 @@ func (runner *runner) RunAction(actionName string) error {
 	}
 	rMode := runOnLocal
 	if runner.context.ModelType() == model.CAAS {
+		// run actions/functions on remote workload pod if it's caas model.
 		rMode = runOnRemote
 	}
-	// run actions on remote workload pod for caas.
-	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
+	return runner.runCharmHookWithLocation(actionName, runner.getFunctionDir(), rMode)
+}
+
+func (runner *runner) getFunctionDir() string {
+	charmDir := runner.paths.GetCharmDir()
+	dir := filepath.Join(charmDir, "functions")
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		return "functions"
+	}
+	return "actions"
 }
 
 // RunHook exists to satisfy the Runner interface.
