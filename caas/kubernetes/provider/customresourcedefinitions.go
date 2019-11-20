@@ -4,6 +4,7 @@
 package provider
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"sync"
@@ -254,34 +255,38 @@ func (cg *crdGetter) Get(
 	return crd, nil
 }
 
-func (k *kubernetesClient) getCRDsForCRs(crs map[string][]unstructured.Unstructured, getter CRDGetterInterface) (out map[string]*apiextensionsv1beta1.CustomResourceDefinition, err error) {
-	var wg sync.WaitGroup
-	wg.Add(len(crs))
+func (k *kubernetesClient) getCRDsForCRs(
+	crs map[string][]unstructured.Unstructured,
+	getter CRDGetterInterface,
+) (out map[string]*apiextensionsv1beta1.CustomResourceDefinition, err error) {
 
 	out = make(map[string]*apiextensionsv1beta1.CustomResourceDefinition)
-
 	crdChan := make(chan *apiextensionsv1beta1.CustomResourceDefinition, 1)
 	errChan := make(chan error, 1)
-	abortChan := make(chan struct{})
 
-	defer func() {
-		close(abortChan)
-	}()
+	n := len(crs)
+	if n == 0 {
+		return
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(n)
+	defer wg.Wait()
 
 	getCRD := func(
+		ctx context.Context,
 		name string,
 		getter CRDGetterInterface,
 		resultChan chan<- *apiextensionsv1beta1.CustomResourceDefinition,
 		errChan chan<- error,
 		clk jujuclock.Clock,
-		abort <-chan struct{},
 	) {
 		var crd *apiextensionsv1beta1.CustomResourceDefinition
 		err := retry.Call(retry.CallArgs{
 			Attempts: 8,
 			Delay:    1 * time.Second,
 			Clock:    clk,
-			Stop:     abort,
+			Stop:     ctx.Done(),
 			Func: func() (err error) {
 				crd, err = getter.Get(name)
 				return errors.Trace(err)
@@ -296,26 +301,22 @@ func (k *kubernetesClient) getCRDsForCRs(crs map[string][]unstructured.Unstructu
 		if err == nil {
 			select {
 			case resultChan <- crd:
-				wg.Done()
 			}
 		} else {
 			select {
 			case errChan <- err:
 			}
 		}
+		wg.Done()
 	}
 
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
 	for name := range crs {
-		go getCRD(name, getter, crdChan, errChan, k.clock, abortChan)
+		go getCRD(ctx, name, getter, crdChan, errChan, k.clock)
 	}
 
-	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
-
-	for {
+	for range crs {
 		select {
 		case crd := <-crdChan:
 			if crd == nil {
@@ -324,17 +325,13 @@ func (k *kubernetesClient) getCRDsForCRs(crs map[string][]unstructured.Unstructu
 			name := crd.GetName()
 			out[name] = crd
 			logger.Debugf("custom resource definition %q is ready", name)
-		case <-done:
-			logger.Debugf("%d custom resource definitions are required, %d are ready", len(crs), len(out))
-			return out, nil
 		case err := <-errChan:
 			if err != nil {
 				return nil, errors.Annotatef(err, "getting custom resources")
 			}
-		case <-k.clock.After(15 * time.Second):
-			return nil, errors.NewTimeout(nil, fmt.Sprintf("getting custom resources"))
 		}
 	}
+	return out, nil
 }
 
 func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv1beta1.CustomResourceDefinition, version string) (dynamic.ResourceInterface, error) {
