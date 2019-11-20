@@ -581,6 +581,7 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 			// Restart the timer if currently stopped.
 			if !timerArmed {
 				_ = timer.Reset(w.quiesceInterval)
+				timerArmed = true
 			}
 		case <-timer.Chan():
 			timerArmed = false
