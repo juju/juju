@@ -310,7 +310,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []model.MachineJob, 
 		Nonce:             agent.BootstrapNonce,
 		Controller:        testing.ControllerTag,
 		Model:             testing.ModelTag,
-		APIAddresses:      []string{"0.1.2.3:1234"},
+		APIAddresses:      []string{"127.0.0.2:1234"},
 		CACert:            testing.CACert,
 		Values: map[string]string{
 			agent.Namespace:      "foobar",
