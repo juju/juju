@@ -2051,7 +2051,6 @@
     "golang.org/x/crypto/ssh",
     "golang.org/x/crypto/ssh/terminal",
     "golang.org/x/net/context",
-    "golang.org/x/oauth2",
     "golang.org/x/oauth2/google",
     "golang.org/x/sys/windows",
     "golang.org/x/sys/windows/svc",
