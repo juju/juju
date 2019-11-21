@@ -446,3 +446,46 @@ func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelay(c *gc.C) {
 	reportPorts["agent"] = fmt.Sprintf("[::]:%d", s.config.APIPort)
 	c.Check(worker.Report(), jc.DeepEquals, report)
 }
+
+func (s *WorkerControllerPortSuite) TestDualPortListenerWithDelayShutdown(c *gc.C) {
+	err := s.mux.AddHandler("GET", "/quick", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	request := func(url string) error {
+		client := &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: s.config.TLSConfig,
+			},
+		}
+		_, err := client.Get(url + "/quick")
+		return err
+	}
+	// Make a worker with a controller API port.
+	port := testing.FindTCPPort()
+	controllerPort := testing.FindTCPPort()
+	s.config.APIPort = port
+	s.config.ControllerAPIPort = controllerPort
+	s.config.APIPortOpenDelay = 10 * time.Second
+
+	worker := s.newWorker(c)
+	controllerURL := worker.URL()
+	parsed, err := url.Parse(controllerURL)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(parsed.Port(), gc.Equals, fmt.Sprint(controllerPort))
+	// Requests to controllerURL are successful, but normal requests are denied
+	c.Assert(request(controllerURL), jc.ErrorIsNil)
+	parsed.Host = net.JoinHostPort(parsed.Hostname(), fmt.Sprint(port))
+	normalURL := parsed.String()
+	c.Assert(request(normalURL), gc.ErrorMatches, `.*: connection refused$`)
+	// Send API details on the hub - still no luck connecting on the
+	// non-controller port.
+	_, err = s.hub.Publish(apiserver.ConnectTopic, apiserver.APIConnection{
+		AgentTag: s.agentName,
+		Origin:   s.agentName,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	// We exit cleanly even if we never tick the clock forward
+	workertest.CleanKill(c, worker)
+}
