@@ -9,6 +9,17 @@ import (
 )
 
 // service facilitates mocking out the GCE API during tests.
+// TODO (manadart 2019-11-19): This indirection is for *our* wrapper of the
+// underlying compute services. As an indirection, it is one layer too high
+// and sits on an unnecessary type abstraction.
+// We should:
+// - Create interfaces for members of the compute service so our line of
+//   indirection is at the boundary with the dependency.
+// - Use the compute service as the implementer of those interfaces and
+//   embed them directly in an equivalent of Connection (below).
+// - Remove this interface and rawConn altogether.
+// - Remove types that have no purpose other than to mirror those returned by
+//   the compute service such as `MachineType`.
 type service interface {
 	// GetProject sends a request to the GCE API for info about the
 	// specified project. If the project does not exist then an error
