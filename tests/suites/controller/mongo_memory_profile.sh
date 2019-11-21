@@ -21,7 +21,8 @@ run_mongo_memory_profile() {
     until $(check_contains "$(cat_mongo_service)" wiredTigerCacheSizeGB 2>&1 >/dev/null); do
         echo "[+] (attempt ${attempt}) polling mongo service"
         cat_mongo_service | sed 's/^/    | /g'
-        if [ "${attempt}" -ge 4 ]; then
+        # This will attempt to wait for 2 minutes before failing out.
+        if [ "${attempt}" -ge 24 ]; then
             echo "Failed: expected wiredTigerCacheSizeGB to be set in mongo service."
             exit 1
         fi
