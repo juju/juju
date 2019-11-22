@@ -295,6 +295,8 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 				Metric:          route.Metric,
 			}
 		}
+		// TODO(achilleasa): do we need to define interfaces for the
+		// non-primary private addresses (if present)?
 		ifaceInfo[i] = network.InterfaceInfo{
 			DeviceIndex:         cfg.DeviceIndex,
 			MACAddress:          cfg.MACAddress,
@@ -312,7 +314,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			Disabled:            cfg.Disabled,
 			NoAutoStart:         cfg.NoAutoStart,
 			ConfigType:          network.InterfaceConfigType(cfg.ConfigType),
-			Address:             corenetwork.NewProviderAddress(cfg.Address),
+			Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(cfg.Address)},
 			DNSServers:          corenetwork.NewProviderAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,
 			GatewayAddress:      corenetwork.NewProviderAddress(cfg.GatewayAddress),

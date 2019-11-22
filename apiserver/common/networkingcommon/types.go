@@ -172,6 +172,10 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 				Metric:          route.Metric,
 			}
 		}
+
+		// TODO(achilleasa): we currently only emit a NetworkConfig for
+		// the primary address. We need to revisit this and emit configs
+		// for each Address/ShadowAddress entry.
 		result[i] = params.NetworkConfig{
 			DeviceIndex:         v.DeviceIndex,
 			MACAddress:          v.MACAddress,
@@ -190,7 +194,7 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []pa
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          string(v.ConfigType),
-			Address:             v.Address.Value,
+			Address:             v.PrimaryAddress().Value,
 			DNSServers:          dnsServers,
 			DNSSearchDomains:    v.DNSSearchDomains,
 			GatewayAddress:      v.GatewayAddress.Value,
