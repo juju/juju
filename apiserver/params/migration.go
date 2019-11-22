@@ -218,3 +218,18 @@ type AdoptResourcesArgs struct {
 	// that version.
 	SourceControllerVersion version.Number `json:"source-controller-version"`
 }
+
+// RelationsForMigrationResult holds information for cross-model relations for
+// which consuming models need to be updated as part of a model migration.
+type RelationsForMigrationResult struct {
+	// External controllers are all the external
+	// controllers that his model knows of.
+	ExternalControllers []ExternalControllerInfo `json:"external-controllers"`
+
+	// OfferConnections are all the relations that have been established from
+	// other models to offers made from this model.
+	OfferConnections []OfferConnection `json:"offer-connections"`
+
+	// Error is non-nil if an error occurred processing the request.
+	Error *Error `json:"error,omitempty"`
+}
