@@ -26,11 +26,34 @@ import (
 // - juju-controller
 // - juju-application-offer
 type FirewallRule struct {
-	// WellKnownService is the known service for the firewall rules entity.
-	WellKnownService WellKnownServiceType
+	id string
 
-	// WhitelistCIDRS is the whitelist CIDRs for the rule.
-	WhitelistCIDRs []string
+	wellKnownService string
+
+	whitelistCIDRs []string
+}
+
+func NewFirewallRule(serviceType WellKnownServiceType, cidrs []string) FirewallRule {
+	return FirewallRule{whitelistCIDRs: cidrs, wellKnownService: string(serviceType)}
+}
+
+func (f FirewallRule) ID() string {
+	return f.id
+}
+
+// WellKnownServiceType is the known service for the firewall rules entity.
+func (f FirewallRule) WellKnownServiceType() WellKnownServiceType {
+	return WellKnownServiceType(f.wellKnownService)
+}
+
+// WellKnownService is the known service for the firewall rules entity as a string.
+func (f FirewallRule) WellKnownService() string {
+	return f.wellKnownService
+}
+
+// WhitelistCIDRS is the whitelist CIDRs for the rule.
+func (f FirewallRule) WhitelistCIDRs() []string {
+	return f.whitelistCIDRs
 }
 
 type firewallRulesDoc struct {
@@ -41,8 +64,9 @@ type firewallRulesDoc struct {
 
 func (r *firewallRulesDoc) toRule() *FirewallRule {
 	return &FirewallRule{
-		WellKnownService: WellKnownServiceType(r.WellKnownService),
-		WhitelistCIDRs:   r.WhitelistCIDRS,
+		id:               r.Id,
+		wellKnownService: r.WellKnownService,
+		whitelistCIDRs:   r.WhitelistCIDRS,
 	}
 }
 
@@ -86,19 +110,19 @@ func NewFirewallRules(st *State) *firewallRulesState {
 
 // Save stores the specified firewall rule.
 func (fw *firewallRulesState) Save(rule FirewallRule) error {
-	if err := rule.WellKnownService.validate(); err != nil {
+	if err := rule.WellKnownServiceType().validate(); err != nil {
 		return errors.Trace(err)
 	}
-	for _, cidr := range rule.WhitelistCIDRs {
+	for _, cidr := range rule.WhitelistCIDRs() {
 		if _, _, err := net.ParseCIDR(cidr); err != nil {
 			return errors.NotValidf("CIDR %q", cidr)
 		}
 	}
-	serviceStr := string(rule.WellKnownService)
+	serviceStr := string(rule.WellKnownServiceType())
 	doc := firewallRulesDoc{
 		Id:               serviceStr,
 		WellKnownService: serviceStr,
-		WhitelistCIDRS:   rule.WhitelistCIDRs,
+		WhitelistCIDRS:   rule.WhitelistCIDRs(),
 	}
 	buildTxn := func(int) ([]txn.Op, error) {
 		model, err := fw.st.Model()
@@ -109,7 +133,7 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 			return nil, errors.Trace(err)
 		}
 
-		_, err = fw.Rule(rule.WellKnownService)
+		_, err = fw.Rule(rule.WellKnownServiceType())
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
@@ -120,11 +144,11 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 				Id:     serviceStr,
 				Assert: txn.DocExists,
 				Update: bson.D{
-					{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs}}},
+					{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs()}}},
 				},
 			}, model.assertActiveOp()}
 		} else {
-			doc.WhitelistCIDRS = rule.WhitelistCIDRs
+			doc.WhitelistCIDRS = rule.WhitelistCIDRs()
 			ops = []txn.Op{{
 				C:      firewallRulesC,
 				Id:     doc.Id,

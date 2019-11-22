@@ -373,7 +373,8 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	s.st.firewallRules[state.JujuApplicationOfferRule] = &state.FirewallRule{WhitelistCIDRs: []string{"10.1.1.1/8"}}
+	rule := state.NewFirewallRule("", []string{"10.1.1.1/8"})
+	s.st.firewallRules[state.JujuApplicationOfferRule] = &rule
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{

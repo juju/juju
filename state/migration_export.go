@@ -176,6 +176,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.remoteEntities(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.firewallRules(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.relationNetworks(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1171,6 +1174,41 @@ func (e *exporter) relations() error {
 		}
 	}
 	return nil
+}
+func (e *exporter) firewallRules() error {
+	e.logger.Debugf("reading firewall rules")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportFirewallRule{}
+		return m.Execute(firewallRulesShim{
+			st: migration.src,
+		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// firewallRulesShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type firewallRulesShim struct {
+	st *State
+}
+
+func (s firewallRulesShim) AllFirewallRules() ([]migrations.MigrationFirewallRule, error) {
+	fRs := firewallRulesState{st: s.st}
+	firewallRules, err := fRs.AllRules()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationFirewallRule, len(firewallRules))
+	for k, v := range firewallRules {
+		result[k] = v
+
+	}
+	return result, nil
 }
 
 func (e *exporter) remoteEntities() error {
