@@ -111,11 +111,13 @@ func (f FakeIpReservation) DeleteIpReservation(string) error {
 }
 
 type FakeIpAssociation struct {
-	Create    response.IpAssociation
-	CreateErr error
-	DeleteErr error
-	All       response.AllIpAssociations
-	AllErr    error
+	Create     response.IpAssociation
+	CreateErr  error
+	DeleteErr  error
+	All        response.AllIpAssociations
+	AllErr     error
+	Details    response.IpAssociation
+	DetailsErr error
 }
 
 func (f FakeIpAssociation) CreateIpAssociation(common.IPPool,
@@ -129,6 +131,10 @@ func (f FakeIpAssociation) DeleteIpAssociation(string) error {
 
 func (f FakeIpAssociation) AllIpAssociations([]api.Filter) (response.AllIpAssociations, error) {
 	return f.All, f.AllErr
+}
+
+func (f FakeIpAssociation) IpAssociationDetails(string) (response.IpAssociation, error) {
+	return f.Details, f.DetailsErr
 }
 
 type FakeIpNetworkExchanger struct {
@@ -317,11 +323,13 @@ var (
 						Vethernet_id:   "0",
 						Vethernet_type: "vlan",
 						Instance:       "",
-						Ipassociations: []string(nil),
-						Ipattachment:   "",
-						Ipnetwork:      "",
-						Vnic:           "",
-						Vnicsets:       []string(nil),
+						Ipassociations: []string{
+							"/Compute-a432100/sgiulitti@cloudbase.com/f490e701-c68f-415d-a166-b75f1e1116d4",
+						},
+						Ipattachment: "",
+						Ipnetwork:    "",
+						Vnic:         "",
+						Vnicsets:     []string(nil),
 					},
 				},
 				Nimbula_orchestration: "/Compute-a432100/sgiulitti@cloudbase.com/JujuTools_instance",

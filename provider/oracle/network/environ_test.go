@@ -89,6 +89,12 @@ func (f fakeNetworkingAPI) AllAcls(filter []api.Filter) (response.AllAcls, error
 	return response.AllAcls{}, nil
 }
 
+func (f fakeNetworkingAPI) IpAssociationDetails(name string) (resp response.IpAssociation, err error) {
+	return response.IpAssociation{
+		Ip: "73.37.0.1",
+	}, nil
+}
+
 func (f fakeNetworkingAPI) ComposeName(name string) string {
 	return fmt.Sprintf("https://some-url.us6.com/%s", name)
 }
@@ -150,6 +156,12 @@ func (e *environSuite) TestSubnets(c *gc.C) {
 
 func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
 	envAPI := oracletesting.DefaultEnvironAPI
+	origNet := envAPI.FakeInstance.All.Result[0].Networking
+	origRespMap := envAPI.FakeInstance.All.Result[0].Attributes.Network
+	defer func() {
+		envAPI.FakeInstance.All.Result[0].Networking = origNet
+		envAPI.FakeInstance.All.Result[0].Attributes.Network = origRespMap
+	}()
 	envAPI.FakeInstance.All.Result[0].Networking = common.Networking{}
 	envAPI.FakeInstance.All.Result[0].Attributes.Network = map[string]response.Network{}
 
@@ -172,6 +184,32 @@ func (e *environSuite) TestNetworkInterfacesWithEmptyParams(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(infoList, gc.HasLen, 1)
 	c.Assert(infoList[0], jc.DeepEquals, []jujunetwork.InterfaceInfo{})
+}
+
+func (e *environSuite) TestNetworkInterfacesWithIPAssociation(c *gc.C) {
+	envAPI := oracletesting.DefaultEnvironAPI
+	env, err := oracle.NewOracleEnviron(
+		&oracle.EnvironProvider{},
+		environs.OpenParams{
+			Config: testing.ModelConfig(c),
+		},
+		envAPI,
+		&advancingClock,
+	)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(env, gc.NotNil)
+
+	netEnv := network.NewEnviron(&fakeNetworkingAPI{}, env)
+	c.Assert(netEnv, gc.NotNil)
+
+	infoList, err := netEnv.NetworkInterfaces(e.callCtx, []instance.Id{instance.Id("0")})
+	c.Assert(err, gc.IsNil)
+	c.Assert(infoList, gc.HasLen, 1)
+	instInfoList := infoList[0]
+	c.Assert(instInfoList, gc.HasLen, 1)
+	c.Assert(instInfoList[0].Addresses, jc.DeepEquals, corenetwork.ProviderAddresses{corenetwork.NewScopedProviderAddress("10.31.5.106", corenetwork.ScopeCloudLocal)})
+	c.Assert(instInfoList[0].ShadowAddresses, jc.DeepEquals, corenetwork.ProviderAddresses{corenetwork.NewScopedProviderAddress("73.37.0.1", corenetwork.ScopePublic)})
 }
 
 func (e *environSuite) TestSpaces(c *gc.C) {
