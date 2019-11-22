@@ -737,8 +737,8 @@ func (e *exporter) readAllPayloads() (map[string][]payload.FullPayloadInfo, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, payload := range all {
-		result[payload.Unit] = append(result[payload.Unit], payload)
+	for _, pl := range all {
+		result[pl.Unit] = append(result[pl.Unit], pl)
 	}
 	return result, nil
 }
@@ -1027,19 +1027,19 @@ func (e *exporter) setResources(exApp description.Application, resources resourc
 }
 
 func (e *exporter) setUnitResources(exUnit description.Unit, allResources []resource.UnitResources) {
-	for _, resource := range findUnitResources(exUnit.Name(), allResources) {
+	for _, res := range findUnitResources(exUnit.Name(), allResources) {
 		exUnit.AddResource(description.UnitResourceArgs{
-			Name: resource.Name,
+			Name: res.Name,
 			RevisionArgs: description.ResourceRevisionArgs{
-				Revision:       resource.Revision,
-				Type:           resource.Type.String(),
-				Path:           resource.Path,
-				Description:    resource.Description,
-				Origin:         resource.Origin.String(),
-				FingerprintHex: resource.Fingerprint.Hex(),
-				Size:           resource.Size,
-				Timestamp:      resource.Timestamp,
-				Username:       resource.Username,
+				Revision:       res.Revision,
+				Type:           res.Type.String(),
+				Path:           res.Path,
+				Description:    res.Description,
+				Origin:         res.Origin.String(),
+				FingerprintHex: res.Fingerprint.Hex(),
+				Size:           res.Size,
+				Timestamp:      res.Timestamp,
+				Username:       res.Username,
 			},
 		})
 	}
@@ -1195,6 +1195,9 @@ type remoteEntitiesShim struct {
 	st *State
 }
 
+// AllRemoteEntities returns all remote entities in the model.
+// Macaroons are omitted with the assumption that they
+// will be automatically re-minted later.
 func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEntity, error) {
 	entities, err := s.st.AllRemoteEntities()
 	if err != nil {
@@ -1202,6 +1205,7 @@ func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEnt
 	}
 	result := make([]migrations.MigrationRemoteEntity, len(entities))
 	for k, v := range entities {
+		v.macaroon = ""
 		result[k] = v
 	}
 	return result, nil
@@ -1215,9 +1219,7 @@ func (e *exporter) relationNetworks() error {
 	}
 	migration.Add(func() error {
 		m := migrations.ExportRelationNetworks{}
-		return m.Execute(relationNetworksShim{
-			st: migration.src,
-		}, migration.dst)
+		return m.Execute(relationNetworksShim{st: migration.src}, migration.dst)
 	})
 	return migration.Run()
 }
@@ -1918,16 +1920,18 @@ type remoteApplicationsShim struct {
 	exporter *exporter
 }
 
+// AllRemoteApplications returns all remote applications in the model.
+// Macaroons are omitted with the assumption that they
+// will be automatically re-minted later.
 func (s remoteApplicationsShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
-	entities, err := s.st.AllRemoteApplications()
+	remoteApps, err := s.st.AllRemoteApplications()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]migrations.MigrationRemoteApplication, len(entities))
-	for k, v := range entities {
-		result[k] = remoteApplicationShim{
-			RemoteApplication: v,
-		}
+	result := make([]migrations.MigrationRemoteApplication, len(remoteApps))
+	for k, v := range remoteApps {
+		v.doc.Macaroon = ""
+		result[k] = remoteApplicationShim{RemoteApplication: v}
 	}
 	return result, nil
 }
