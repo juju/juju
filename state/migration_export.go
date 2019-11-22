@@ -229,8 +229,8 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 }
 
 // ExportStateMigration defines a migration for exporting various entities into
-// a destiniation description model from the source state.
-// It accumulates a series of migrations to Run at a later time.
+// a destination description model from the source state.
+// It accumulates a series of migrations to run at a later time.
 // Running the state migration visits all the migrations and exits upon seeing
 // the first error from the migration.
 type ExportStateMigration struct {

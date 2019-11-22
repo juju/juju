@@ -784,8 +784,9 @@ func (p AddRemoteApplicationParams) Validate() error {
 	return nil
 }
 
-// AddRemoteApplication creates a new remote application record, having the supplied relation endpoints,
-// with the supplied name (which must be unique across all applications, local and remote).
+// AddRemoteApplication creates a new remote application record,
+// having the supplied relation endpoints, with the supplied name,
+// which must be unique across all applications, local and remote.
 func (st *State) AddRemoteApplication(args AddRemoteApplicationParams) (_ *RemoteApplication, err error) {
 	defer errors.DeferredAnnotatef(&err, "cannot add remote application %q", args.Name)
 

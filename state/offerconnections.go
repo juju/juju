@@ -14,7 +14,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// OfferConnection represents the state of an relation
+// OfferConnection represents the state of a relation
 // to an offer hosted in this model.
 type OfferConnection struct {
 	st  *State
