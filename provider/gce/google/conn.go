@@ -8,8 +8,19 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-// rawConnectionWrapper facilitates mocking out the GCE API during tests.
-type rawConnectionWrapper interface {
+// service facilitates mocking out the GCE API during tests.
+// TODO (manadart 2019-11-19): This indirection is for *our* wrapper of the
+// underlying compute services. As an indirection, it is one layer too high
+// and sits on an unnecessary type abstraction.
+// We should:
+// - Create interfaces for members of the compute service so our line of
+//   indirection is at the boundary with the dependency.
+// - Use the compute service as the implementer of those interfaces and
+//   embed them directly in an equivalent of Connection (below).
+// - Remove this interface and rawConn altogether.
+// - Remove types that have no purpose other than to mirror those returned by
+//   the compute service such as `MachineType`.
+type service interface {
 	// GetProject sends a request to the GCE API for info about the
 	// specified project. If the project does not exist then an error
 	// will be returned.
@@ -116,8 +127,7 @@ type rawConnectionWrapper interface {
 // called to authenticate and open the raw connection to the GCE API.
 // Otherwise a panic will result.
 type Connection struct {
-	// TODO(ericsnow) name this something else?
-	raw       rawConnectionWrapper
+	service   service
 	region    string
 	projectID string
 }
@@ -128,30 +138,28 @@ type Connection struct {
 // result in an error. All errors that happen while authenticating and
 // connecting are returned by Connect.
 func Connect(connCfg ConnectionConfig, creds *Credentials) (*Connection, error) {
-	raw, err := newRawConnection(creds)
+	raw, err := newService(creds)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	conn := &Connection{
-		raw:       &rawConn{raw},
+		service:   &rawConn{raw},
 		region:    connCfg.Region,
 		projectID: connCfg.ProjectID,
 	}
 	return conn, nil
 }
 
-var newRawConnection = func(creds *Credentials) (*compute.Service, error) {
-	return newConnection(creds)
+var newService = func(creds *Credentials) (*compute.Service, error) {
+	return newComputeService(creds)
 }
-
-// TODO(ericsnow) Verify in each method that Connection.raw is set?
 
 // VerifyCredentials ensures that the authentication credentials used
 // to connect are valid for use in the project and region defined for
 // the Connection. If they are not then an error is returned.
 func (gc Connection) VerifyCredentials() error {
-	if _, err := gc.raw.GetProject(gc.projectID); err != nil {
+	if _, err := gc.service.GetProject(gc.projectID); err != nil {
 		// TODO(ericsnow) Wrap err with something about bad credentials?
 		return errors.Trace(err)
 	}
@@ -162,7 +170,7 @@ func (gc Connection) VerifyCredentials() error {
 // GCE region. If none are found the the list is empty. Any failure in
 // the low-level request is returned as an error.
 func (gc *Connection) AvailabilityZones(region string) ([]AvailabilityZone, error) {
-	rawZones, err := gc.raw.ListAvailabilityZones(gc.projectID, region)
+	rawZones, err := gc.service.ListAvailabilityZones(gc.projectID, region)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

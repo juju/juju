@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	NewRawConnection = &newRawConnection
+	NewService = &newService
 
 	NewInstanceRaw      = newInstance
 	PackMetadata        = packMetadata
@@ -21,12 +21,12 @@ var (
 	MatchesPrefix       = matchesPrefix
 )
 
-func SetRawConn(conn *Connection, raw rawConnectionWrapper) {
-	conn.raw = raw
+func SetRawConn(conn *Connection, svc service) {
+	conn.service = svc
 }
 
 func ExposeRawService(conn *Connection) *compute.Service {
-	return conn.raw.(*rawConn).Service
+	return conn.service.(*rawConn).Service
 }
 
 func NewAttached(spec DiskSpec) *compute.AttachedDisk {

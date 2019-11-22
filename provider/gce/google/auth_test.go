@@ -15,6 +15,6 @@ type authSuite struct {
 var _ = gc.Suite(&authSuite{})
 
 func (s *authSuite) TestNewConnection(c *gc.C) {
-	_, err := newConnection(s.Credentials)
+	_, err := newComputeService(s.Credentials)
 	c.Assert(err, jc.ErrorIsNil)
 }
