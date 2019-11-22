@@ -215,7 +215,9 @@ func (s *environNetSuite) TestInterfaces(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		},
 	}})
 }
 
@@ -269,11 +271,7 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 			NetworkIP:  "10.0.20.42",
 			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/shellac",
 			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/shellac",
-			AccessConfigs: []*compute.AccessConfig{{
-				Type:  "ONE_TO_ONE_NAT",
-				Name:  "ExternalNAT",
-				NatIP: "25.185.142.227",
-			}},
+			// No public IP
 		},
 	}
 	s.FakeEnviron.Insts = []instances.Instance{
@@ -302,7 +300,9 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		},
 	}})
 
 	// Check interfaces for second instance
@@ -319,7 +319,12 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.42", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.42", corenetwork.ScopeCloudLocal),
+		},
+		ShadowAddresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+		},
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.20.0/24",
@@ -332,7 +337,9 @@ func (s *environNetSuite) TestInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.20.42", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.20.42", corenetwork.ScopeCloudLocal),
+		},
 	}})
 }
 
@@ -359,7 +366,9 @@ func (s *environNetSuite) TestPartialInterfacesForMultipleInstances(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		},
 	}})
 
 	// Check that the slot for the second instance is nil
@@ -402,7 +411,9 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		},
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.20.0/24",
@@ -415,7 +426,12 @@ func (s *environNetSuite) TestInterfacesMulti(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.20.3", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.20.3", corenetwork.ScopeCloudLocal),
+		},
+		ShadowAddresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+		},
 	}})
 }
 
@@ -454,7 +470,12 @@ func (s *environNetSuite) TestInterfacesLegacy(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.240.0.2", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.240.0.2", corenetwork.ScopeCloudLocal),
+		},
+		ShadowAddresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+		},
 	}})
 }
 
@@ -494,7 +515,9 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.3", corenetwork.ScopeCloudLocal),
+		},
 	}, {
 		DeviceIndex:       1,
 		CIDR:              "10.0.10.0/24",
@@ -507,6 +530,11 @@ func (s *environNetSuite) TestInterfacesSameSubnetwork(c *gc.C) {
 		Disabled:          false,
 		NoAutoStart:       false,
 		ConfigType:        network.ConfigDHCP,
-		Address:           corenetwork.NewScopedProviderAddress("10.0.10.4", corenetwork.ScopeCloudLocal),
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("10.0.10.4", corenetwork.ScopeCloudLocal),
+		},
+		ShadowAddresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress("25.185.142.227", corenetwork.ScopePublic),
+		},
 	}})
 }
