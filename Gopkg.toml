@@ -134,7 +134,7 @@
   revision = "72941f7f9bfa6550f640b797fde43b19b1574911"
 
 [[constraint]]
-  revision = "8c3190dff075bf5442c9eedbf8f8ed6144a099e7"
+  revision = "7ba11a47c7894cb8e43e899866f18ba1a73548fc"
   name = "gopkg.in/amz.v3"
 
 [[constraint]]
