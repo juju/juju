@@ -131,9 +131,9 @@ func (mi *maas1Instance) interfaceAddresses(ctx context.ProviderCallContext) ([]
 
 	var addresses []network.ProviderAddress
 	for _, iface := range interfaces {
-		if iface.Address.Value != "" {
-			logger.Debugf("found address %q on interface %q", iface.Address, iface.InterfaceName)
-			addresses = append(addresses, iface.Address)
+		if primAddr := iface.PrimaryAddress(); primAddr.Value != "" {
+			logger.Debugf("found address %q on interface %q", primAddr, iface.InterfaceName)
+			addresses = append(addresses, primAddr)
 		} else {
 			logger.Infof("no address found on interface %q", iface.InterfaceName)
 		}
