@@ -969,7 +969,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             corenetwork.NewProviderAddress("192.168.0.6"),
+		Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("192.168.0.6")},
 		DNSServers:          corenetwork.NewProviderAddresses("8.8.8.8"),
 		DNSSearchDomains:    []string{"mydomain"},
 		GatewayAddress:      corenetwork.NewProviderAddress("192.168.0.1"),

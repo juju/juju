@@ -123,7 +123,7 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 		InterfaceName:       "dummy0",
 		ParentInterfaceName: "lxdbr0",
 		MACAddress:          "aa:bb:cc:dd:ee:ff",
-		Address:             corenetwork.NewProviderAddress("0.1.2.3"),
+		Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
 		GatewayAddress:      corenetwork.NewProviderAddress("0.1.2.1"),
 		DNSServers:          corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		DNSSearchDomains:    []string{"dummy", "invalid"},

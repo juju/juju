@@ -72,7 +72,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		CIDR:             "0.1.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
-		Address:          corenetwork.NewProviderAddress("0.1.2.3"),
+		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewProviderAddress("0.1.2.1"),
@@ -83,7 +83,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		CIDR:             "0.2.2.0/24",
 		ConfigType:       network.ConfigStatic,
 		NoAutoStart:      false,
-		Address:          corenetwork.NewProviderAddress("0.2.2.4"),
+		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.2.2.4")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewProviderAddress("0.2.2.1"),
@@ -114,7 +114,7 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 		MACAddress:     "aa:bb:cc:dd:ee:f5",
 		NoAutoStart:    false,
 		CIDR:           "2001:db8::/64",
-		Address:        corenetwork.NewProviderAddress("2001:db8::dead:beef"),
+		Addresses:      corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("2001:db8::dead:beef")},
 		GatewayAddress: corenetwork.NewProviderAddress("2001:db8::dead:f00"),
 	}}
 
