@@ -1214,10 +1214,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
 	fwRules := state.NewFirewallRules(s.State)
-	err := fwRules.Save(state.FirewallRule{
-		WellKnownService: state.JujuApplicationOfferRule,
-		WhitelistCIDRs:   []string{"192.168.1.0/16"},
-	})
+	err := fwRules.Save(state.NewFirewallRule(state.JujuApplicationOfferRule, []string{"192.168.1.0/16"}))
 	c.Assert(err, jc.ErrorIsNil)
 	var ingress []string
 	for i := 1; i < 30; i++ {

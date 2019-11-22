@@ -497,7 +497,7 @@ func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.Li
 		}
 		result.Rules = append(result.Rules, params.FirewallRule{
 			KnownService:   knownService,
-			WhitelistCIDRS: rule.WhitelistCIDRs,
+			WhitelistCIDRS: rule.WhitelistCIDRs(),
 		})
 	}
 	return result, nil

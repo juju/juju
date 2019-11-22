@@ -257,7 +257,7 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 		return nil
 	}
 	var whitelistCIDRs, requestedCIDRs []*net.IPNet
-	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs); err != nil {
+	if err := parseCIDRs(&whitelistCIDRs, rule.WhitelistCIDRs()); err != nil {
 		return errors.Trace(err)
 	}
 	if err := parseCIDRs(&requestedCIDRs, networks); err != nil {
