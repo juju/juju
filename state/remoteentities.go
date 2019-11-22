@@ -16,7 +16,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 )
 
-// RemoteEntity definies a remote entity that has a unique opaque token that
+// RemoteEntity defines a remote entity that has a unique opaque token that
 // identifies the entity within the model.
 type RemoteEntity struct {
 	docID    string

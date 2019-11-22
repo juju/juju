@@ -221,9 +221,11 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 		return nil, errors.NotFoundf("relation endpoint %v", relation.LocalEndpointName)
 	}
 
-	// Add the remote application reference. We construct a unique, opaque application name based on the
-	// token passed in from the consuming model. This model, which is offering the application being
-	// related to, does not need to know the name of the consuming application.
+	// Add the remote application reference.
+	// We construct a unique, opaque application name based on the token passed
+	// in from the consuming model. This model, which is offering the
+	// application being related to, does not need to know the name of the
+	// consuming application.
 	uniqueRemoteApplicationName := "remote-" + strings.Replace(relation.ApplicationToken, "-", "", -1)
 	remoteEndpoint := state.Endpoint{
 		ApplicationName: uniqueRemoteApplicationName,
