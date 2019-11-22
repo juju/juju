@@ -63,7 +63,7 @@ If more than one flag is specified, a map of values is returned.
     --bind-address: the address the local unit should listen on to serve connections, as well
                     as the address that should be advertised to its peers.
     --ingress-address: the address the local unit should advertise as being used for incoming connections.
-    --egress_subnets: subnets (in CIDR notation) from which traffic on this relation will originate.
+    --egress-subnets: subnets (in CIDR notation) from which traffic on this relation will originate.
 `
 	return jujucmd.Info(&cmd.Info{
 		Name:    "network-get",
