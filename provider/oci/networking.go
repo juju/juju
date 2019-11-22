@@ -1088,16 +1088,28 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		if !ok || subnet.CidrBlock == nil {
 			continue
 		}
-		addr := corenetwork.NewScopedProviderAddress(*iface.Vnic.PrivateIp, corenetwork.ScopeCloudLocal)
 		nic := network.InterfaceInfo{
-			InterfaceName:    fmt.Sprintf("unsupported%d", iface.Idx),
-			DeviceIndex:      iface.Idx,
-			ProviderId:       corenetwork.Id(*iface.Vnic.Id),
-			MACAddress:       *iface.Vnic.MacAddress,
-			Address:          addr,
+			InterfaceName: fmt.Sprintf("unsupported%d", iface.Idx),
+			DeviceIndex:   iface.Idx,
+			ProviderId:    corenetwork.Id(*iface.Vnic.Id),
+			MACAddress:    *iface.Vnic.MacAddress,
+			Addresses: corenetwork.ProviderAddresses{
+				corenetwork.NewScopedProviderAddress(
+					*iface.Vnic.PrivateIp,
+					corenetwork.ScopeCloudLocal,
+				),
+			},
 			InterfaceType:    network.EthernetInterface,
 			ProviderSubnetId: corenetwork.Id(*iface.Vnic.SubnetId),
 			CIDR:             *subnet.CidrBlock,
+		}
+		if iface.Vnic.PublicIp != nil {
+			nic.ShadowAddresses = append(nic.ShadowAddresses,
+				corenetwork.NewScopedProviderAddress(
+					*iface.Vnic.PublicIp,
+					corenetwork.ScopePublic,
+				),
+			)
 		}
 		info = append(info, nic)
 	}
