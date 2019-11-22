@@ -241,7 +241,7 @@ type RemoteApplication struct {
 	// Status is the current status of the application.
 	Status string `json:"status,omitempty"`
 
-	// ModelUUID is the UUId of the model hosting the application.
+	// ModelUUID is the UUID of the model hosting the application.
 	ModelUUID string `json:"model-uuid"`
 
 	// IsConsumerProxy returns if the application is created
