@@ -21,6 +21,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon.v2-unstable"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
@@ -330,18 +331,19 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	c.Assert(exported.Tag(), gc.Equals, machine1.MachineTag())
 	c.Assert(exported.Series(), gc.Equals, machine1.Series())
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
-	constraints := exported.Constraints()
-	c.Assert(constraints, gc.NotNil)
-	c.Assert(constraints.Architecture(), gc.Equals, *cons.Arch)
-	c.Assert(constraints.Memory(), gc.Equals, *cons.Mem)
+
+	expCons := exported.Constraints()
+	c.Assert(expCons, gc.NotNil)
+	c.Assert(expCons.Architecture(), gc.Equals, *cons.Arch)
+	c.Assert(expCons.Memory(), gc.Equals, *cons.Mem)
 	if cons.HasVirtType() {
-		c.Assert(constraints.VirtType(), gc.Equals, *cons.VirtType)
+		c.Assert(expCons.VirtType(), gc.Equals, *cons.VirtType)
 	}
 	if cons.HasRootDiskSource() {
-		c.Assert(constraints.RootDiskSource(), gc.Equals, *cons.RootDiskSource)
+		c.Assert(expCons.RootDiskSource(), gc.Equals, *cons.RootDiskSource)
 	}
 	if cons.HasRootDisk() {
-		c.Assert(constraints.RootDisk(), gc.Equals, *cons.RootDisk)
+		c.Assert(expCons.RootDisk(), gc.Equals, *cons.RootDisk)
 	}
 
 	tools, err := machine1.AgentTools()
@@ -359,10 +361,10 @@ func (s *MigrationExportSuite) assertMachinesMigrated(c *gc.C, cons constraints.
 	container := containers[0]
 	c.Assert(container.Tag(), gc.Equals, nested.MachineTag())
 
-	// ensure that a new machine has a modification set to it's initial state.
-	instance := exported.Instance()
-	c.Assert(instance.ModificationStatus().Value(), gc.Equals, "idle")
-	c.Assert(instance.RootDiskSource(), gc.Equals, "vashti")
+	// Ensure that a new machine has a modification set to its initial state.
+	inst := exported.Instance()
+	c.Assert(inst.ModificationStatus().Value(), gc.Equals, "idle")
+	c.Assert(inst.RootDiskSource(), gc.Equals, "vashti")
 
 	c.Assert(exported.ProviderAddresses(), gc.HasLen, 1)
 	exAddr := exported.ProviderAddresses()[0]
@@ -843,7 +845,15 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
-	err := s.State.RemoteEntities().ImportRemoteEntity(names.NewControllerTag("uuid-223412"), "aaa-bbb-ccc")
+	remotes := s.State.RemoteEntities()
+	remoteCtrl := names.NewControllerTag("uuid-223412")
+
+	err := remotes.ImportRemoteEntity(remoteCtrl, "aaa-bbb-ccc")
+	c.Assert(err, jc.ErrorIsNil)
+
+	mac, err := macaroon.New(nil, []byte(remoteCtrl.Id()), "")
+	c.Assert(err, jc.ErrorIsNil)
+	err = remotes.SaveMacaroon(remoteCtrl, mac)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()
