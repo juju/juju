@@ -397,7 +397,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		}
 		stderrKey := "stderr"
 		if c.compat {
-			stdoutKey = "Stderr"
+			stderrKey = "Stderr"
 		}
 		codeKey := "return-code"
 		if c.compat {

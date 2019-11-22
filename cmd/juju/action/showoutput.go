@@ -416,6 +416,7 @@ func ConvertActionOutput(output map[string]interface{}, compat, alwaysStdout boo
 		codeKey = "ReturnCode"
 	}
 	res, ok = output["Code"].(string)
+	delete(values, "Code")
 	if !ok {
 		var v interface{}
 		if v, ok = output["return-code"]; ok && v != nil {
