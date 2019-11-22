@@ -123,10 +123,8 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestFirewallRules(c *gc.C) {
-	s.st.firewallRules[state.JujuApplicationOfferRule] = &state.FirewallRule{
-		WellKnownService: state.JujuApplicationOfferRule,
-		WhitelistCIDRs:   []string{"192.168.0.0/16"},
-	}
+	rule := state.NewFirewallRule(state.JujuApplicationOfferRule, []string{"192.168.0.0/16"})
+	s.st.firewallRules[state.JujuApplicationOfferRule] = &rule
 	result, err := s.api.FirewallRules(params.KnownServiceArgs{
 		KnownServices: []params.KnownServiceValue{params.JujuApplicationOfferRule, params.SSHRule}})
 	c.Assert(err, jc.ErrorIsNil)

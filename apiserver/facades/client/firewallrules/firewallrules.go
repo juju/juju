@@ -86,10 +86,8 @@ func (api *API) SetFirewallRules(args params.FirewallRuleArgs) (params.ErrorResu
 	results := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
 		logger.Debugf("saving firewall rule %+v", arg)
-		err := api.backend.SaveFirewallRule(state.FirewallRule{
-			WellKnownService: state.WellKnownServiceType(arg.KnownService),
-			WhitelistCIDRs:   arg.WhitelistCIDRS,
-		})
+		err := api.backend.SaveFirewallRule(state.NewFirewallRule(
+			state.WellKnownServiceType(arg.KnownService), arg.WhitelistCIDRS))
 		results[i].Error = common.ServerError(err)
 	}
 	errResults.Results = results
@@ -109,8 +107,8 @@ func (api *API) ListFirewallRules() (params.ListFirewallRulesResults, error) {
 	listResults.Rules = make([]params.FirewallRule, len(rules))
 	for i, r := range rules {
 		listResults.Rules[i] = params.FirewallRule{
-			KnownService:   params.KnownServiceValue(r.WellKnownService),
-			WhitelistCIDRS: r.WhitelistCIDRs,
+			KnownService:   params.KnownServiceValue(r.WellKnownServiceType()),
+			WhitelistCIDRS: r.WhitelistCIDRs(),
 		}
 	}
 	return listResults, nil

@@ -74,10 +74,7 @@ func (s *FirewallRulesSuite) TestSetFirewallRules(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.ErrorResults{[]params.ErrorResult{{Error: nil}}})
-	c.Assert(s.backend.rules["juju-controller"], jc.DeepEquals, state.FirewallRule{
-		WellKnownService: state.JujuControllerRule,
-		WhitelistCIDRs:   []string{"1.2.3.4/8"},
-	})
+	c.Assert(s.backend.rules["juju-controller"], jc.DeepEquals, state.NewFirewallRule(state.JujuControllerRule, []string{"1.2.3.4/8"}))
 }
 
 func (s *FirewallRulesSuite) TestSetFirewallRulesPermission(c *gc.C) {

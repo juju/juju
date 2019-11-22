@@ -844,6 +844,26 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	c.Assert(bindings["db"], gc.Equals, oneSpace.Id())
 }
 
+func (s *MigrationExportSuite) TestFirewallRules(c *gc.C) {
+	service := "ssh"
+	cidrs := []string{"192.168.1.0/16"}
+
+	frst := state.NewFirewallRules(s.State)
+	rule := state.NewFirewallRule(state.WellKnownServiceType(service), cidrs)
+	err := frst.Save(rule)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	firewallRules := model.FirewallRules()
+	c.Assert(firewallRules, gc.HasLen, 1)
+
+	entity := firewallRules[0]
+	c.Assert(entity.WellKnownService(), gc.Equals, service)
+	c.Assert(entity.WhitelistCIDRs(), gc.DeepEquals, cidrs)
+}
+
 func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
 	remotes := s.State.RemoteEntities()
 	remoteCtrl := names.NewControllerTag("uuid-223412")
