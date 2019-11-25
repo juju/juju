@@ -5,11 +5,9 @@ package apiserver
 
 import (
 	"archive/zip"
-	"bufio"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"mime"
@@ -414,16 +412,11 @@ func (h *charmsHandler) repackageAndUploadCharm(st *state.State, archive *charm.
 	var version string
 	versionPath := filepath.Join(extractPath, "version")
 	if file, err := os.Open(versionPath); err == nil {
-		scanner := bufio.NewScanner(file)
-		scanner.Scan()
-		file.Close()
-		if err := scanner.Err(); err != nil {
-			return errors.Annotate(err, "cannot read version file")
+		version, err = charm.ReadVersion(file)
+		_ = file.Close()
+		if err != nil {
+			return errors.Trace(err)
 		}
-		revLine := scanner.Text()
-		// bzr revision info starts with "revision-id: " so strip that.
-		revLine = strings.TrimPrefix(revLine, "revision-id: ")
-		version = fmt.Sprintf("%.100s", revLine)
 	} else if !os.IsNotExist(err) {
 		return errors.Annotate(err, "cannot open version file")
 	}
@@ -488,11 +481,11 @@ func (h *charmsHandler) processGet(r *http.Request, st *state.State) (
 	if err != nil {
 		return errRet(errors.Annotate(err, "cannot get charm from state"))
 	}
-	charmFileName, err := common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
+	archivePath, err = common.ReadCharmFromStorage(store, h.dataDir, ch.StoragePath())
 	if err != nil {
 		return errRet(errors.Annotatef(err, "cannot read charm %q from storage", curl))
 	}
-	return charmFileName, fileArg, serveIcon, nil
+	return archivePath, fileArg, serveIcon, nil
 }
 
 // sendJSONError sends a JSON-encoded error response.  Note the

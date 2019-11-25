@@ -371,6 +371,9 @@ func FormatActionResult(result params.ActionResult, utc, compat bool) map[string
 
 // ConvertActionOutput returns result data with stdout, stderr etc correctly formatted.
 func ConvertActionOutput(output map[string]interface{}, compat, alwaysStdout bool) map[string]interface{} {
+	if output == nil {
+		return nil
+	}
 	values := output
 	// We always want to have a string for stdout, but only show stderr,
 	// code and error if they are there.
@@ -413,6 +416,7 @@ func ConvertActionOutput(output map[string]interface{}, compat, alwaysStdout boo
 		codeKey = "ReturnCode"
 	}
 	res, ok = output["Code"].(string)
+	delete(values, "Code")
 	if !ok {
 		var v interface{}
 		if v, ok = output["return-code"]; ok && v != nil {

@@ -2112,7 +2112,7 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("pod not found")
+		return nil, errors.NotFoundf("pod %q", podName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}

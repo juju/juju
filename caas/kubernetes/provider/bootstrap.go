@@ -714,6 +714,10 @@ func (c *controllerStack) waitForPod(podWatcher watcher.NotifyWatcher, podName s
 		case <-podWatcher.Changes():
 			printPodEvents()
 			pod, err := c.broker.getPod(podName)
+			if errors.IsNotFound(err) {
+				logger.Debugf("pod %q is not provisioned yet", podName)
+				continue
+			}
 			if err != nil {
 				return errors.Annotate(err, "fetching pods' status for controller")
 			}
