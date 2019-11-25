@@ -112,6 +112,8 @@ class MicroK8s(Base):
     def __ensure_microk8s_installed(self):
         # unfortunately, we need sudo!
         if shutil.which('microk8s.kubectl'):
+            # The microk8s.reset sometimes left ingress namespace in dirty deleting
+            # status which causes the namespace can never be deleted anymore using kubectl.
             self.sh('sudo', 'snap', 'remove', 'microk8s')
 
         # install microk8s.
