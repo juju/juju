@@ -2,12 +2,13 @@
 
 from __future__ import print_function
 
+import os
 from argparse import ArgumentParser
 from contextlib import contextmanager
 from copy import deepcopy
 from difflib import ndiff
-import os
 from pprint import pformat
+
 import sys
 import yaml
 
@@ -15,7 +16,7 @@ from jujupy import client_from_config
 from utility import (
     add_arg_juju_bin,
     JujuAssertionError,
-    )
+)
 
 
 def remove_display_attributes(cloud):
@@ -29,14 +30,28 @@ def remove_display_attributes(cloud):
         'vsphere': '',
         'manual': '',
         'maas': 'Metal As A Service',
-        }
+        'lxd': 'LXD Container Hypervisor'
+    }
     # The lack of built-in descriptions for vsphere and manual is
     # bug #1646128.  The inability to specify descriptions interactively is
     # bug #1645783.
     defined = cloud.pop('defined')
     assert_equal(defined, 'local')
-    description = cloud.pop('description')
-    assert_equal(description, type_descriptions[cloud['type']])
+    description = cloud.pop('description', "")
+
+    # Delete None values, which are "errors" from parsing the yaml
+    # E.g. output can show values which we show to the customers but should actually not parsed and compared
+    for key in cloud.keys():
+        if cloud[key] is None:
+            del cloud[key]
+
+    try:
+        expected_type = type_descriptions[cloud['type']]
+    # We skip types we do not have yet, because this is not part of this test.
+    # We only want to ensure the description of the above types
+    except Exception:
+        expected_type = None
+    assert_equal(description, expected_type)
 
 
 def get_clouds(client):
@@ -83,6 +98,8 @@ def strip_redundant_endpoints(clouds):
     no_region_endpoint = deepcopy(clouds)
     for cloud in no_region_endpoint.values():
         for region in cloud.get('regions', {}).values():
+            if region == {} or cloud.get('endpoint', {}) == {}:
+                continue
             if region['endpoint'] == cloud['endpoint']:
                 region.pop('endpoint')
     return no_region_endpoint
@@ -115,8 +132,7 @@ def main():
         with open(args.clouds_file) as f:
             supplied_clouds = yaml.safe_load(f.read().decode('utf-8'))
         client.env.write_clouds(client.env.juju_home, supplied_clouds)
-        no_region_endpoint = strip_redundant_endpoints(
-            supplied_clouds['clouds'])
+        no_region_endpoint = strip_redundant_endpoints(supplied_clouds['clouds'])
         with testing('assess_clouds'):
             assess_clouds(client, no_region_endpoint)
         with testing('assess_show_cloud'):
