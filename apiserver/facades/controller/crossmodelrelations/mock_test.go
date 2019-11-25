@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -325,12 +326,15 @@ type mockRelation struct {
 	status          status.Status
 	message         string
 	units           map[string]commoncrossmodel.RelationUnit
+	endpoints       []state.Endpoint
+	watchers        map[string]*mockUnitsWatcher
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:    id,
-		units: make(map[string]commoncrossmodel.RelationUnit),
+		id:       id,
+		units:    make(map[string]commoncrossmodel.RelationUnit),
+		watchers: make(map[string]*mockUnitsWatcher),
 	}
 }
 
@@ -418,9 +422,21 @@ func (r *mockRelation) ReplaceSettings(appName string, values map[string]interfa
 	return r.NextErr()
 }
 
-func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
-	u.MethodCall(u, "Settings")
-	return u.settings, u.NextErr()
+func (r *mockRelation) Endpoints() []state.Endpoint {
+	r.MethodCall(r, "Endpoints")
+	return r.endpoints
+}
+
+func (r *mockRelation) WatchUnits(appName string) (state.RelationUnitsWatcher, error) {
+	r.MethodCall(r, "WatchUnits", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	w, found := r.watchers[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake watcher for %q units", appName)
+	}
+	return w, nil
 }
 
 type mockRemoteApplication struct {
@@ -515,6 +531,11 @@ func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
 	return nil
 }
 
+func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
+	u.MethodCall(u, "Settings")
+	return u.settings, u.NextErr()
+}
+
 func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) error {
 	u.MethodCall(u, "ReplaceSettings", settings)
 	if err := u.NextErr(); err != nil {
@@ -565,4 +586,13 @@ func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]stri
 func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
 	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
+}
+
+type mockUnitsWatcher struct {
+	*mockWatcher
+	changes chan watcher.RelationUnitsChange
+}
+
+func (w *mockUnitsWatcher) Changes() watcher.RelationUnitsChannel {
+	return w.changes
 }
