@@ -2,11 +2,11 @@
 
 import logging
 import re
+import sys
 from argparse import ArgumentParser
 from collections import namedtuple
 from copy import deepcopy
 
-import sys
 import yaml
 
 from jujupy import (
@@ -165,7 +165,15 @@ def iter_clouds(clouds, cloud_validation):
         if cloud['type'] == 'vsphere':
             continue
 
-        regions = list(cloud.get('regions', {}).keys())
+        # juju saves for each cloud at least one region, even if the cloud does not support them.
+        # The code below `tests to add invalid regions for each region`
+        # but because juju always at least adds one empty region
+        # it will try to run the code below and test for invalid region endpoints.
+        regions = cloud.get('regions', {})
+        if regions.get("default") == {}:
+            regions = []
+        else:
+            regions = list(cloud.get('regions', {}).keys())
 
         expected_exception = CloudMismatch
         if cloud_validation.has_endpoint(cloud['type']):
