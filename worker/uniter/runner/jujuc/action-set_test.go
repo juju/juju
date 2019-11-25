@@ -161,6 +161,7 @@ Example usage:
  action-set foo.baz.val=3
  action-set foo.bar.zab=4
  action-set foo.baz=1
+ function-set foo.baz=1
 
  will yield:
 
@@ -170,6 +171,8 @@ Example usage:
    bar:
      zab: "4"
    baz: "1"
+
+Aliases: function-set
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

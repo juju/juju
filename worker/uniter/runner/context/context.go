@@ -731,6 +731,11 @@ func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error)
 	}
 	if context.actionData != nil {
 		vars = append(vars,
+			"JUJU_FUNCTION_NAME="+context.actionData.Name,
+			"JUJU_FUNCTION_ID="+context.actionData.Tag.Id(),
+			"JUJU_FUNCTION_TAG="+context.actionData.Tag.String(),
+
+			// TODO(ycliuhw): remove here once action is deprecated.
 			"JUJU_ACTION_NAME="+context.actionData.Name,
 			"JUJU_ACTION_UUID="+context.actionData.Tag.Id(),
 			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
