@@ -511,6 +511,17 @@ type modelMachineStartTimeFieldDoc struct {
 	AgentStartedAt time.Time `bson:"agent-started-at"`
 }
 
+var (
+	notContainerQuery = bson.D{{"$or", []bson.D{
+		{{"containertype", ""}},
+		{{"containertype", bson.D{{"$exists", false}}}},
+	}}}
+
+	modelMachineStartTimeFields = bson.D{
+		{"_id", 1}, {"life", 1}, {"agent-started-at", 1},
+	}
+)
+
 type modelMachineStartTimeWatcher struct {
 	commonWatcher
 	outCh chan []string
@@ -617,14 +628,7 @@ func (w *modelMachineStartTimeWatcher) initialMachineSet() (set.Strings, error) 
 
 	// Select the fields we need from documents that are not referring to
 	// containers.
-	iter := coll.Find(
-		bson.D{
-			{"$or", []bson.D{
-				{{"containertype", ""}},
-				{{"containertype", bson.D{{"$exists", false}}}},
-			}},
-		},
-	).Select(bson.D{{"_id", 1}, {"life", 1}, {"agent-started-at", 1}}).Iter()
+	iter := coll.Find(notContainerQuery).Select(modelMachineStartTimeFields).Iter()
 
 	var (
 		doc modelMachineStartTimeFieldDoc
@@ -647,14 +651,11 @@ func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (
 	// Select the fields we need from the changed documents that are not
 	// referring to containers.
 	iter := coll.Find(
-		bson.D{
-			{"_id", bson.D{{"$in", pendingDocs.Values()}}},
-			{"$or", []bson.D{
-				{{"containertype", ""}},
-				{{"containertype", bson.D{{"$exists", false}}}},
-			}},
-		},
-	).Select(bson.D{{"_id", 1}, {"life", 1}, {"agent-started-at", 1}}).Iter()
+		append(
+			bson.D{{"_id", bson.D{{"$in", pendingDocs.Values()}}}},
+			notContainerQuery...,
+		),
+	).Select(modelMachineStartTimeFields).Iter()
 
 	var (
 		doc modelMachineStartTimeFieldDoc
@@ -680,10 +681,6 @@ func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (
 // WatchModelMachines returns a StringsWatcher that notifies of changes to
 // the lifecycles of the machines (but not containers) in the model.
 func (st *State) WatchModelMachines() StringsWatcher {
-	members := bson.D{{"$or", []bson.D{
-		{{"containertype", ""}},
-		{{"containertype", bson.D{{"$exists", false}}}},
-	}}}
 	filter := func(id interface{}) bool {
 		k, err := st.strictLocalID(id.(string))
 		if err != nil {
@@ -691,7 +688,7 @@ func (st *State) WatchModelMachines() StringsWatcher {
 		}
 		return !strings.Contains(k, "/")
 	}
-	return newLifecycleWatcher(st, machinesC, members, filter, nil)
+	return newLifecycleWatcher(st, machinesC, notContainerQuery, filter, nil)
 }
 
 // WatchContainers returns a StringsWatcher that notifies of changes to the
