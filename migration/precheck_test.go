@@ -784,6 +784,9 @@ type fakeBackend struct {
 	pendingResources    []resource.Resource
 	pendingResourcesErr error
 
+	offerConnections    []migration.PrecheckOfferConnection
+	offerConnectionsErr error
+
 	controllerBackend *fakeBackend
 }
 
@@ -825,6 +828,10 @@ func (b *fakeBackend) AllApplications() ([]migration.PrecheckApplication, error)
 
 func (b *fakeBackend) AllRelations() ([]migration.PrecheckRelation, error) {
 	return b.relations, b.allRelsErr
+}
+
+func (b *fakeBackend) AllOfferConnections() ([]migration.PrecheckOfferConnection, error) {
+	return b.offerConnections, b.offerConnectionsErr
 }
 
 func (b *fakeBackend) ListPendingResources(app string) ([]resource.Resource, error) {
