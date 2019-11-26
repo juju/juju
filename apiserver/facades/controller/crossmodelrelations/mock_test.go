@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
 	"github.com/juju/juju/core/crossmodel"
+	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
@@ -50,7 +51,7 @@ type mockState struct {
 	offerConnections      map[int]*mockOfferConnection
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
-	firewallRules         map[state.WellKnownServiceType]*state.FirewallRule
+	firewallRules         map[corefirewall.WellKnownServiceType]*state.FirewallRule
 	ingressNetworks       map[string][]string
 }
 
@@ -64,7 +65,7 @@ func newMockState() *mockState {
 		offerNames:            make(map[string]string),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
-		firewallRules:         make(map[state.WellKnownServiceType]*state.FirewallRule),
+		firewallRules:         make(map[corefirewall.WellKnownServiceType]*state.FirewallRule),
 		ingressNetworks:       make(map[string][]string),
 	}
 }
@@ -122,7 +123,7 @@ func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (cro
 	return oc, nil
 }
 
-func (st *mockState) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+func (st *mockState) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	if r, ok := st.firewallRules[service]; ok {
 		return r, nil
 	}

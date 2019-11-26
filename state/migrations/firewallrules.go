@@ -6,13 +6,15 @@ package migrations
 import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/core/firewall"
 )
 
 // MigrationFirewallRule represents a state.FirewallRule
 // Point of use interface to enable better encapsulation.
 type MigrationFirewallRule interface {
 	ID() string
-	WellKnownService() string
+	WellKnownService() firewall.WellKnownServiceType
 	WhitelistCIDRs() []string
 }
 
@@ -28,7 +30,7 @@ type FirewallRulesModel interface {
 	AddFirewallRule(args description.FirewallRuleArgs) description.FirewallRule
 }
 
-// ExportRemoteEntities describes a way to execute a migration for exporting
+// ExportFirewallRule describes a way to execute a migration for exporting
 // remote entities.
 type ExportFirewallRule struct{}
 
@@ -44,7 +46,7 @@ func (ExportFirewallRule) Execute(src FirewallRuleSource, dst FirewallRulesModel
 	for _, firewallRule := range firewallRules {
 		dst.AddFirewallRule(description.FirewallRuleArgs{
 			ID:               firewallRule.ID(),
-			WellKnownService: firewallRule.WellKnownService(),
+			WellKnownService: string(firewallRule.WellKnownService()),
 			WhitelistCIDRs:   firewallRule.WhitelistCIDRs(),
 		})
 	}

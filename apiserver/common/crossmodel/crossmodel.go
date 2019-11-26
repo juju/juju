@@ -14,9 +14,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
@@ -415,7 +415,7 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 	}
 
 	// Check that the required ingress is allowed.
-	rule, err := backend.FirewallRule(state.JujuApplicationOfferRule)
+	rule, err := backend.FirewallRule(firewall.JujuApplicationOfferRule)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
