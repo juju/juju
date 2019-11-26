@@ -152,3 +152,38 @@ func (s *offerConnectionsSuite) TestOfferConnectionsForUser(c *gc.C) {
 	c.Assert(obtained[0].OfferUUID(), gc.Equals, oc.OfferUUID())
 	c.Assert(obtained[0].UserName(), gc.Equals, oc.UserName())
 }
+
+func (s *offerConnectionsSuite) TestAllOfferConnections(c *gc.C) {
+	obtained, err := s.State.AllOfferConnections()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained, gc.HasLen, 0)
+
+	oc1, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      s.activeRel.Id(),
+		RelationKey:     s.activeRel.Tag().Id(),
+		Username:        "fred",
+		OfferUUID:       "offer-uuid1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	oc2, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		SourceModelUUID: testing.ModelTag.Id(),
+		RelationId:      s.suspendedRel.Id(),
+		RelationKey:     s.suspendedRel.Tag().Id(),
+		Username:        "mary",
+		OfferUUID:       "offer-uuid2",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	obtained, err = s.State.AllOfferConnections()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Get strings for comparison. Comparing pointers is no good.
+	obtainedStr := make([]string, len(obtained))
+	for i, v := range obtained {
+		obtainedStr[i] = v.String()
+	}
+	c.Assert(obtainedStr, jc.SameContents, []string{oc1.String(), oc2.String()})
+
+}

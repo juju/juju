@@ -159,18 +159,37 @@ func (st *State) AddOfferConnection(args AddOfferConnectionParams) (_ *OfferConn
 	return &OfferConnection{doc: offerConnectionDoc}, nil
 }
 
+// AllOfferConnections returns all offer connections in the model.
+func (st *State) AllOfferConnections() ([]*OfferConnection, error) {
+	conns, err := st.offerConnections(nil)
+	return conns, errors.Annotate(err, "getting offer connections")
+}
+
 // OfferConnections returns the offer connections for an offer.
-func (st *State) OfferConnections(offerUUID string) (conns []*OfferConnection, err error) {
+func (st *State) OfferConnections(offerUUID string) ([]*OfferConnection, error) {
+	conns, err := st.offerConnections(bson.D{{"offer-uuid", offerUUID}})
+	return conns, errors.Annotatef(err, "getting offer connections for %v", offerUUID)
+}
+
+// OfferConnectionsForUser returns the offer connections for the specified user.
+func (st *State) OfferConnectionsForUser(username string) ([]*OfferConnection, error) {
+	conns, err := st.offerConnections(bson.D{{"username", username}})
+	return conns, errors.Annotatef(err, "getting offer connections for user %q", username)
+}
+
+// offerConnections returns the offer connections for the input condition
+func (st *State) offerConnections(condition bson.D) ([]*OfferConnection, error) {
 	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
 	defer closer()
 
-	connDocs := []offerConnectionDoc{}
-	err = offerConnectionCollection.Find(bson.D{{"offer-uuid", offerUUID}}).All(&connDocs)
-	if err != nil {
-		return nil, errors.Errorf("cannot get the offer connections for %v", offerUUID)
+	var connDocs []offerConnectionDoc
+	if err := offerConnectionCollection.Find(condition).All(&connDocs); err != nil {
+		return nil, errors.Trace(err)
 	}
-	for _, v := range connDocs {
-		conns = append(conns, newOfferConnection(st, &v))
+
+	conns := make([]*OfferConnection, len(connDocs))
+	for i, v := range connDocs {
+		conns[i] = newOfferConnection(st, &v)
 	}
 	return conns, nil
 }
@@ -189,23 +208,6 @@ func (st *State) OfferConnectionForRelation(relationKey string) (*OfferConnectio
 		return nil, errors.Annotatef(err, "cannot get offer connection details for relation %q", relationKey)
 	}
 	return newOfferConnection(st, &connDoc), nil
-}
-
-// OfferConnectionsForUser returns the offer connections for the specified user.
-func (st *State) OfferConnectionsForUser(username string) ([]*OfferConnection, error) {
-	offerConnectionCollection, closer := st.db().GetCollection(offerConnectionsC)
-	defer closer()
-
-	var connDocs []offerConnectionDoc
-	err := offerConnectionCollection.Find(bson.D{{"username", username}}).All(&connDocs)
-	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get offer connection details for user %q", username)
-	}
-	conns := make([]*OfferConnection, len(connDocs))
-	for i, oc := range connDocs {
-		conns[i] = newOfferConnection(st, &oc)
-	}
-	return conns, nil
 }
 
 // RemoteConnectionStatus returns summary information about connections to the specified offer.
