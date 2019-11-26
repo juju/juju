@@ -1581,10 +1581,15 @@ func (s *MachineSuite) TestWatchMachineStartTimes(c *gc.C) {
 	wc.AssertChange("1", "0")
 	wc.AssertNoChange()
 
-	// Kill the machine and check that we get a change event
+	// Kill the machine, remove it from state and check ensure that we
+	// still get back a change event.
 	err = s.machine.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
+	err = s.machine.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.machine.Remove()
+	c.Assert(err, jc.ErrorIsNil)
 	s.Clock.Advance(quiesceInterval)
 	wc.AssertChange("1")
 	wc.AssertNoChange()

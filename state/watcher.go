@@ -661,8 +661,9 @@ func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (
 	).Select(modelMachineStartTimeFields).Iter()
 
 	var (
-		doc modelMachineStartTimeFieldDoc
-		ids = make(set.Strings)
+		doc          modelMachineStartTimeFieldDoc
+		ids          = make(set.Strings)
+		notFoundDocs = set.NewStrings(pendingDocs.Values()...)
 	)
 	for iter.Next(&doc) {
 		id := w.backend.localID(doc.Id)
@@ -677,7 +678,18 @@ func (w *modelMachineStartTimeWatcher) processChanges(pendingDocs set.Strings) (
 		if doc.Life == Dead {
 			delete(w.seenDocs, id)
 		}
+
+		notFoundDocs.Remove(doc.Id)
 	}
+
+	// Assume that any doc in the notFound list belongs to a dead machine
+	// that has been reaped from the DB.
+	for docId := range notFoundDocs {
+		id := w.backend.localID(docId)
+		ids.Add(id)
+		delete(w.seenDocs, id)
+	}
+
 	return ids, iter.Close()
 }
 
