@@ -47,11 +47,11 @@ func (api *API) Machine(tag names.MachineTag) (*Machine, error) {
 
 var newStringsWatcher = apiwatcher.NewStringsWatcher
 
-// WatchModelMachines return a StringsWatcher reporting waiting for the
-// model configuration to change.
+// WatchModelMachines returns a StringsWatcher reporting changes to the
+// machine life or agent start timestamps.
 func (api *API) WatchModelMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := api.facade.FacadeCall("WatchModelMachines", nil, &result)
+	err := api.facade.FacadeCall("WatchModelMachineStartTimes", nil, &result)
 	if err != nil {
 		return nil, err
 	}

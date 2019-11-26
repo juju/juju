@@ -113,10 +113,13 @@ type UnitsWatcher interface {
 	WatchUnits() StringsWatcher
 }
 
-// ModelMachinesWatcher defines a single method -
+// ModelMachinesWatcher defines a the methods required for listening to
+// machine lifecycle events or a combination of lifecycle events and changes
+// to the agent start time field.
 // WatchModelMachines.
 type ModelMachinesWatcher interface {
 	WatchModelMachines() StringsWatcher
+	WatchModelMachineStartTimes(quiesceInterval time.Duration) StringsWatcher
 }
 
 // InstanceIdGetter defines a single method - InstanceId.

@@ -59,7 +59,7 @@ func (s *InstancePollerSuite) TestMachineCallsLife(c *gc.C) {
 	c.Assert(m.Id(), gc.Equals, "42")
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesSuccess(c *gc.C) {
 	// We're not testing the watcher logic here as it's already tested elsewhere.
 	var numWatcherCalls int
 	expectResult := params.StringsWatchResult{
@@ -74,7 +74,7 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	}
 	s.PatchValue(instancepoller.NewStringsWatcher, watcherFunc)
 
-	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectResult)
+	apiCaller := successAPICaller(c, "WatchModelMachineStartTimes", nil, expectResult)
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines()
@@ -84,8 +84,8 @@ func (s *InstancePollerSuite) TestWatchModelMachinesSuccess(c *gc.C) {
 	c.Assert(w, gc.IsNil)
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachinesClientError(c *gc.C) {
-	apiCaller := clientErrorAPICaller(c, "WatchModelMachines", nil)
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesClientError(c *gc.C) {
+	apiCaller := clientErrorAPICaller(c, "WatchModelMachineStartTimes", nil)
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines()
 	c.Assert(err, gc.ErrorMatches, "client error!")
@@ -93,11 +93,11 @@ func (s *InstancePollerSuite) TestWatchModelMachinesClientError(c *gc.C) {
 	c.Assert(apiCaller.CallCount, gc.Equals, 1)
 }
 
-func (s *InstancePollerSuite) TestWatchModelMachinesServerError(c *gc.C) {
+func (s *InstancePollerSuite) TestWatchModelMachineStartTimesServerError(c *gc.C) {
 	expectedResults := params.StringsWatchResult{
 		Error: apiservertesting.ServerError("server boom!"),
 	}
-	apiCaller := successAPICaller(c, "WatchModelMachines", nil, expectedResults)
+	apiCaller := successAPICaller(c, "WatchModelMachineStartTimes", nil, expectedResults)
 
 	api := instancepoller.NewAPI(apiCaller)
 	w, err := api.WatchModelMachines()

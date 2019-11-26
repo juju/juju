@@ -236,10 +236,19 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 	// If we are already polling this machine, check whether it is still alive
 	// and remove it from its poll group if it now dead.
 	if entry, groupType := u.lookupPolledMachine(tag); entry != nil {
+		var isDead bool
 		if err := entry.m.Refresh(); err != nil {
-			return errors.Trace(err)
+			// If the machine is not found, this probably means
+			// that it is dead and has been removed from the DB.
+			if !errors.IsNotFound(err) {
+				return errors.Trace(err)
+			}
+			isDead = true
+		} else if entry.m.Life() == life.Dead {
+			isDead = true
 		}
-		if entry.m.Life() == life.Dead {
+
+		if isDead {
 			u.config.Logger.Debugf("removing dead machine %q (instance ID %q)", entry.m, entry.instanceID)
 			delete(u.pollGroup[groupType], tag)
 			delete(u.instanceIDToGroupEntry, entry.instanceID)
@@ -252,7 +261,7 @@ func (u *updaterWorker) queueMachineForPolling(tag names.MachineTag) error {
 		// status at the next interval.
 		u.moveEntryToPollGroup(shortPollGroup, entry)
 		if groupType == longPollGroup {
-			u.config.Logger.Debugf("moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
+			u.config.Logger.Debugf("moving machine %q (instance ID %q) to short poll group", entry.m, entry.instanceID)
 		}
 		return nil
 	}

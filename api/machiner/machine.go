@@ -138,3 +138,22 @@ func (m *Machine) SetProviderNetworkConfig() error {
 	}
 	return result.OneError()
 }
+
+// RecordAgentStartTime updates the start time for the agent running on the
+// machine.
+func (m *Machine) RecordAgentStartTime() error {
+	// Ignore if connecting to an older, not upgraded controller
+	if m.st.facade.BestAPIVersion() < 2 {
+		return nil
+	}
+
+	var result params.ErrorResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag.String()}},
+	}
+	err := m.st.facade.FacadeCall("RecordAgentStartTime", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.OneError()
+}

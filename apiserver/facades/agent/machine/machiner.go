@@ -34,7 +34,7 @@ type MachinerAPI struct {
 	getCanRead   common.GetAuthFunc
 }
 
-// NewMachinerAPI creates a new instance of the Machiner API.
+// NewMachinerAPI creates a new instance of the V2 Machiner API.
 func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
@@ -59,8 +59,15 @@ func NewMachinerAPI(st *state.State, resources facade.Resources, authorizer faca
 	}, nil
 }
 
-func (api *MachinerAPI) getMachine(tag names.Tag) (*state.Machine, error) {
-	entity, err := api.st.FindEntity(tag)
+func (api *MachinerAPI) getMachine(tag string, authChecker common.AuthFunc) (*state.Machine, error) {
+	mtag, err := names.ParseMachineTag(tag)
+	if err != nil {
+		return nil, common.ErrPerm
+	} else if !authChecker(mtag) {
+		return nil, common.ErrPerm
+	}
+
+	entity, err := api.st.FindEntity(mtag)
 	if err != nil {
 		return nil, err
 	}
@@ -76,16 +83,7 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 		return results, err
 	}
 	for i, arg := range args.MachineAddresses {
-		tag, err := names.ParseMachineTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if !canModify(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		m, err := api.getMachine(tag)
+		m, err := api.getMachine(arg.Tag, canModify)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -114,18 +112,7 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	}
 
 	for i, agent := range args.Entities {
-		tag, err := names.ParseMachineTag(agent.Tag)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if !canRead(tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		machine, err := api.getMachine(tag)
+		machine, err := api.getMachine(agent.Tag, canRead)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
@@ -139,3 +126,45 @@ func (api *MachinerAPI) Jobs(args params.Entities) (params.JobsResults, error) {
 	}
 	return result, nil
 }
+
+// RecordAgentStartTime updates the agent start time field in the machine doc.
+func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	canModify, err := api.getCanModify()
+	if err != nil {
+		return results, err
+	}
+
+	for i, entity := range args.Entities {
+		m, err := api.getMachine(entity.Tag, canModify)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if err := m.RecordAgentStartTime(); err != nil {
+			results.Results[i].Error = common.ServerError(err)
+		}
+	}
+	return results, nil
+}
+
+// MachinerAPI implements the V1 API used by the machiner worker. Compared to
+// V2, it lacks the RecordAgentStartTime method.
+type MachinerAPIV1 struct {
+	*MachinerAPI
+}
+
+// NewMachinerAPIV1 creates a new instance of the V1 Machiner API.
+func NewMachinerAPIV1(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*MachinerAPIV1, error) {
+	api, err := NewMachinerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, err
+	}
+
+	return &MachinerAPIV1{api}, nil
+}
+
+// RecordAgentStartTime is not available in V1.
+func (api *MachinerAPIV1) RecordAgentStartTime(_, _ struct{}) {}

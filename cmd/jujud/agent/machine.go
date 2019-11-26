@@ -716,6 +716,14 @@ func (a *MachineAgent) startAPIWorkers(apiConn api.Connection) (_ worker.Worker,
 		return nil, errors.Annotate(err, "setting up container support")
 	}
 
+	// Record the agent start time in the machine document. This ensures
+	// that whenever a machine restarts, the instancepoller gets a chance
+	// to immediately refresh the provider address (inc. shadow IP)
+	// information which can change between reboots.
+	if err := a.recordAgentStartTime(apiConn); err != nil {
+		return nil, errors.Annotate(err, "recording agent start time")
+	}
+
 	var isController bool
 	for _, job := range entity.Jobs() {
 		switch job {
@@ -788,6 +796,21 @@ func (a *MachineAgent) setControllerNetworkConfig(apiConn api.Connection) error 
 
 	if err := machine.SetProviderNetworkConfig(); err != nil {
 		return errors.Annotate(err, "cannot set controller provider network config")
+	}
+	return nil
+}
+
+func (a *MachineAgent) recordAgentStartTime(apiConn api.Connection) error {
+	machine, err := a.machine(apiConn)
+	if errors.IsNotFound(err) || err == nil && machine.Life() == life.Dead {
+		return jworker.ErrTerminateAgent
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot load machine %s from state", a.CurrentConfig().Tag())
+	}
+
+	if err := machine.RecordAgentStartTime(); err != nil {
+		return errors.Annotate(err, "cannot record agent start time")
 	}
 	return nil
 }

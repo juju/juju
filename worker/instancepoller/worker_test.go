@@ -345,6 +345,35 @@ func (s *workerSuite) TestDeadMachineGetsRemoved(c *gc.C) {
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0, gc.Commentf("dead machine has not been removed"))
 }
 
+func (s *workerSuite) TestReapedMachineIsTreatedAsDeadAndRemoved(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	machineTag := names.NewMachineTag("0")
+	machine := mocks.NewMockMachine(ctrl)
+
+	// Add machine to short poll group
+	updWorker.appendToShortPollGroup(machineTag, machine)
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
+
+	// On next refresh, the machine refresh fails with NotFoudn
+	machine.EXPECT().Refresh().Return(
+		errors.NotFoundf("this is not the machine you are looking for"),
+	)
+
+	// Emit a change for the machine so the queueing code detects the
+	// dead machine and removes it.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.facadeAPI.assertEnqueueChange(c, []string{"0"})
+	})
+
+	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0, gc.Commentf("dead machine has not been removed"))
+}
+
 func (s *workerSuite) TestQueuingOfManualMachines(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
