@@ -11,17 +11,17 @@ import yaml
 from deploy_stack import (
     boot_context,
     update_env,
-    )
+)
 from jujucharm import (
     local_charm_path,
-    )
+)
 from jujupy import (
     client_from_config,
     juju_home_path,
-    )
+)
 from utility import (
     add_basic_testing_arguments,
-    )
+)
 
 
 __metaclass__ = type
@@ -88,7 +88,7 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, log_size, *
     # we'll obviously already have some data in the logs, so adding exactly
     # 300megs should do the trick.
 
-    single_megs = 10
+    single_megs = 100
     args += ("megs={}".format(single_megs),)
 
     def run_fill_log_action():
