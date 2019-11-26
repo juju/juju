@@ -109,7 +109,7 @@ type QueryApplicationOffersResults struct {
 	Results []ApplicationOfferAdminDetails `json:"results"`
 }
 
-// AddApplicationOffers is used when adding offers to a application directory.
+// AddApplicationOffers is used when adding offers to an application directory.
 type AddApplicationOffers struct {
 	Offers []AddApplicationOffer
 }
