@@ -586,7 +586,10 @@ func (w *modelMachineStartTimeWatcher) loop() error {
 				continue
 			}
 			for _, docID := range changes {
-				unprocessedDocs.Add(w.backend.docID(docID))
+				// filter out doc IDs that correspond to containers
+				if !strings.ContainsRune(docID, '/') {
+					unprocessedDocs.Add(w.backend.docID(docID))
+				}
 			}
 
 			// Restart the timer if currently stopped.
