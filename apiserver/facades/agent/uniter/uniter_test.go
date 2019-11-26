@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -2834,17 +2835,54 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewRelationUnitsWatcherC(c, s.State, resource.(state.RelationUnitsWatcher))
-	wc.AssertNoChange()
+	w, ok := resource.(common.RelationUnitsWatcher)
+	c.Assert(ok, gc.Equals, true)
+	s.State.StartSync()
+	select {
+	case actual, ok := <-w.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(coretesting.ShortWait):
+	}
 
 	// Leave scope with mysqlUnit and check it's detected.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, false)
 
-	wc.AssertChange(nil, nil, []string{"mysql/0"})
+	s.assertRUWChange(c, w, nil, nil, []string{"mysql/0"})
 	// TODO(jam): 2019-10-21 this test is getting a bit unweildy, but maybe we
 	//  should test that changing application data triggers a change here
+}
+
+func (s *uniterSuite) assertRUWChange(c *gc.C, w common.RelationUnitsWatcher, changed []string, appChanged []string, departed []string) {
+	// Cloned from state/testing.RelationUnitsWatcherC - we can't use
+	// that anymore since the change type is different between the
+	// state and apiserver watchers. Hacked out the code to maintain
+	// state between events, since it's not needed for this test.
+
+	// Get all items in changed in a map for easy lookup.
+	changedNames := set.NewStrings(changed...)
+	appChangedNames := set.NewStrings(appChanged...)
+	s.State.StartSync()
+	timeout := time.After(coretesting.LongWait)
+	select {
+	case actual, ok := <-w.Changes():
+		c.Logf("Watcher.Changes() => %# v", actual)
+		c.Assert(ok, jc.IsTrue)
+		c.Check(actual.Changed, gc.HasLen, len(changed))
+		c.Check(actual.AppChanged, gc.HasLen, len(appChanged))
+		// Because the versions can change, we only need to make sure
+		// the keys match, not the contents (UnitSettings == txnRevno).
+		for k := range actual.Changed {
+			c.Check(changedNames.Contains(k), jc.IsTrue)
+		}
+		for k := range actual.AppChanged {
+			c.Check(appChangedNames.Contains(k), jc.IsTrue)
+		}
+		c.Check(actual.Departed, jc.SameContents, departed)
+	case <-timeout:
+		c.Fatalf("watcher did not send change")
+	}
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
