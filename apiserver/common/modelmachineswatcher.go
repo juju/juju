@@ -13,6 +13,12 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+// watchMachinesQuiesceInterval specifies the time window for batching together
+// changes to life and agent start times when watching the machine collection
+// for a particular model. For more information, see the WatchModelMachineStartTimes
+// method in state/watcher.go.
+const watchMachinesQuiesceInterval = 500 * time.Millisecond
+
 // ModelMachinesWatcher implements a common WatchModelMachines
 // method for use by various facades.
 type ModelMachinesWatcher struct {
@@ -53,15 +59,13 @@ func (e *ModelMachinesWatcher) WatchModelMachines() (params.StringsWatchResult, 
 }
 
 // WatchModelMachineStartTimes watches the non-container machines in the model
-// for changes to the Life or AgentStartTime fields and reports them as a batch
-// after the specified quiesceInterval time has passed without seeing any new
-// change events.
+// for changes to the Life or AgentStartTime fields and reports them as a batch.
 func (e *ModelMachinesWatcher) WatchModelMachineStartTimes() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
 	if !e.authorizer.AuthController() {
 		return result, ErrPerm
 	}
-	watch := e.st.WatchModelMachineStartTimes(500 * time.Millisecond)
+	watch := e.st.WatchModelMachineStartTimes(watchMachinesQuiesceInterval)
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		result.StringsWatcherId = e.resources.Register(watch)
