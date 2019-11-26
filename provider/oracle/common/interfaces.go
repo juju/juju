@@ -88,6 +88,7 @@ type IpAssociationAPI interface {
 	CreateIpAssociation(common.IPPool, common.VcableID) (response.IpAssociation, error)
 	DeleteIpAssociation(string) error
 	AllIpAssociations([]api.Filter) (response.AllIpAssociations, error)
+	IpAssociationDetails(string) (response.IpAssociation, error)
 }
 
 // IpNetworkExchanger provides a simple interface for retrieving all

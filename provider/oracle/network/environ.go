@@ -37,6 +37,9 @@ type NetworkingAPI interface {
 
 	// AllAcls fetches all ACLs that match a given filter.
 	AllAcls([]api.Filter) (response.AllAcls, error)
+
+	// IpAssociationDetails retrieves details of an IP associations.
+	IpAssociationDetails(name string) (resp response.IpAssociation, err error)
 }
 
 // Environ implements the environs.Networking interface
@@ -215,14 +218,28 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 		if err != nil {
 			return nil, err
 		}
-		addr := corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal)
 		nic := network.InterfaceInfo{
 			InterfaceName: name,
 			DeviceIndex:   deviceIndex,
 			ProviderId:    corenetwork.Id(deviceAttributes.Id),
 			MACAddress:    mac,
-			Address:       addr,
+			Addresses: corenetwork.ProviderAddresses{
+				corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal),
+			},
 			InterfaceType: network.EthernetInterface,
+		}
+
+		for _, ipAssocName := range deviceAttributes.Ipassociations {
+			details, err := e.client.IpAssociationDetails(ipAssocName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+
+			if details.Ip != "" {
+				nic.ShadowAddresses = append(nic.ShadowAddresses,
+					corenetwork.NewScopedProviderAddress(details.Ip, corenetwork.ScopePublic),
+				)
+			}
 		}
 
 		// gsamfira: VEthernet NICs are connected to shared networks

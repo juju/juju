@@ -251,7 +251,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          corenetwork.NewProviderAddress("0.10.0.2"),
+		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.10.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.10.0.1"),
 	}, {
@@ -266,7 +266,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         false,
 		NoAutoStart:      true,
 		ConfigType:       network.ConfigDHCP,
-		Address:          corenetwork.NewProviderAddress("0.20.0.2"),
+		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.20.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.20.0.1"),
 	}, {
@@ -281,7 +281,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		Disabled:         true,
 		NoAutoStart:      false,
 		ConfigType:       network.ConfigDHCP,
-		Address:          corenetwork.NewProviderAddress("0.30.0.2"),
+		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.30.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.30.0.1"),
 	}}

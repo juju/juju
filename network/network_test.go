@@ -30,7 +30,7 @@ func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
-		{Address: corenetwork.NewProviderAddress("0.1.2.3")},
+		{Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")}},
 		{DNSServers: corenetwork.NewProviderAddresses("1.1.1.1", "2.2.2.2")},
 		{GatewayAddress: corenetwork.NewProviderAddress("4.3.2.1")},
 		{AvailabilityZones: []string{"foo", "bar"}},
@@ -63,7 +63,7 @@ func (s *InterfaceInfoSuite) TestIsVLAN(c *gc.C) {
 func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
 	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
-	c.Check(s.info[4].Address, jc.DeepEquals, corenetwork.NewProviderAddress("0.1.2.3"))
+	c.Check(s.info[4].Addresses, jc.DeepEquals, corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")})
 	c.Check(s.info[5].DNSServers, jc.DeepEquals, corenetwork.NewProviderAddresses("1.1.1.1", "2.2.2.2"))
 	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, corenetwork.NewProviderAddress("4.3.2.1"))
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})

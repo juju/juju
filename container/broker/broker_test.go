@@ -104,7 +104,7 @@ var fakeInterfaceInfo = network.InterfaceInfo{
 	MACAddress:     "aa:bb:cc:dd:ee:ff",
 	CIDR:           "0.1.2.0/24",
 	InterfaceName:  "dummy0",
-	Address:        corenetwork.NewProviderAddress("0.1.2.3"),
+	Addresses:      corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
 	GatewayAddress: corenetwork.NewProviderAddress("0.1.2.1"),
 	// Explicitly set only DNSServers, but not DNSSearchDomains to test this is
 	// detected and the latter populated by parsing the fake resolv.conf created

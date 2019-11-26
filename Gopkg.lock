@@ -1403,7 +1403,7 @@
   version = "v1.16.0"
 
 [[projects]]
-  digest = "1:cd0f0871b8ef94a03ee2b06ddce020e8bb44489e2d59163f8ab0a622921b946f"
+  digest = "1:e1f919f281158850c1e584a8b51d581fcc2b7d010bf24ef494c23b84e6a1f463"
   name = "gopkg.in/amz.v3"
   packages = [
     "aws",
@@ -1411,7 +1411,7 @@
     "ec2/ec2test",
   ]
   pruneopts = ""
-  revision = "8c3190dff075bf5442c9eedbf8f8ed6144a099e7"
+  revision = "7ba11a47c7894cb8e43e899866f18ba1a73548fc"
 
 [[projects]]
   digest = "1:1b27622885bab97241f7b5e909a1d69e90bb874dd330243b7ecf71be00ff6ce9"

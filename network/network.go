@@ -190,10 +190,17 @@ type InterfaceInfo struct {
 	// interfaces(5) for more information.
 	ConfigType InterfaceConfigType
 
-	// Address contains an optional static IP address to configure for
-	// this network interface. The subnet mask to set will be inferred
-	// from the CIDR value.
-	Address corenetwork.ProviderAddress
+	// Addresses contains an optional list of static IP address to
+	// configure for this network interface. The subnet mask to set will be
+	// inferred from the CIDR value of the first entry which is always
+	// assumed to be the primary IP address for the interface.
+	Addresses corenetwork.ProviderAddresses
+
+	// ShadowAddresses contains an optional list of additional IP addresses
+	// that the underlying network provider associates with this network
+	// interface instance. These IP addresses are not typically visible
+	// to the machine that the interface is connected to.
+	ShadowAddresses corenetwork.ProviderAddresses
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
@@ -320,19 +327,34 @@ func (i *InterfaceInfo) IsVLAN() bool {
 
 // CIDRAddress returns Address.Value combined with CIDR mask.
 func (i *InterfaceInfo) CIDRAddress() string {
-	if i.CIDR == "" || i.Address.Value == "" {
+	primaryAddr := i.PrimaryAddress()
+	if i.CIDR == "" || primaryAddr.Value == "" {
 		return ""
 	}
 	_, ipNet, err := net.ParseCIDR(i.CIDR)
 	if err != nil {
 		return errors.Trace(err).Error()
 	}
-	ip := net.ParseIP(i.Address.Value)
+	ip := net.ParseIP(primaryAddr.Value)
 	if ip == nil {
-		return errors.Errorf("cannot parse IP address %q", i.Address.Value).Error()
+		return errors.Errorf("cannot parse IP address %q", primaryAddr.Value).Error()
 	}
 	ipNet.IP = ip
 	return ipNet.String()
+}
+
+// PrimaryAddress returns the primary address for the interface.
+func (i *InterfaceInfo) PrimaryAddress() corenetwork.ProviderAddress {
+	if len(i.Addresses) == 0 {
+		return corenetwork.ProviderAddress{}
+	}
+
+	// We assume that the primary IP is always listed first. The majority
+	// of providers only define a single IP so this will still work as
+	// expected. Notably, ec2 does allow multiple private IP addresses to
+	// be assigned to an interface but the provider ensures that the one
+	// flagged as primary is present at index 0.
+	return i.Addresses[0]
 }
 
 // ProviderInterfaceInfo holds enough information to identify an

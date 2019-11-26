@@ -1154,7 +1154,7 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 }
 
 func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) network.InterfaceInfo {
-	return network.InterfaceInfo{
+	ni := network.InterfaceInfo{
 		DeviceIndex:       iface.Attachment.DeviceIndex,
 		MACAddress:        iface.MACAddress,
 		CIDR:              subnet.CIDRBlock,
@@ -1168,8 +1168,36 @@ func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) network.
 		NoAutoStart:   false,
 		ConfigType:    network.ConfigDHCP,
 		InterfaceType: network.EthernetInterface,
-		Address:       corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
+		// The describe interface responses that we get back from EC2
+		// define a *list* of private IP addresses with one entry that
+		// is tagged as primary and whose value is encoded in the
+		// "PrivateIPAddress" field. The code below arranges so that
+		// the primary IP is always added first with any additional
+		// private IPs appended after it.
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress(iface.PrivateIPAddress, corenetwork.ScopeCloudLocal),
+		},
 	}
+
+	for _, privAddr := range iface.PrivateIPs {
+		if privAddr.Association.PublicIP != "" {
+			ni.ShadowAddresses = append(
+				ni.ShadowAddresses,
+				corenetwork.NewScopedProviderAddress(privAddr.Association.PublicIP, corenetwork.ScopePublic),
+			)
+		}
+
+		if privAddr.Address == iface.PrivateIPAddress {
+			continue // primary address has already been added.
+		}
+
+		ni.Addresses = append(
+			ni.Addresses,
+			corenetwork.NewScopedProviderAddress(privAddr.Address, corenetwork.ScopeCloudLocal),
+		)
+	}
+
+	return ni
 }
 
 func makeSubnetInfo(

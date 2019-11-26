@@ -230,7 +230,13 @@ func (env *maasEnviron) deviceInterfaceInfo(deviceID instance.Id, nameToParentNa
 			}
 
 			nicInfo.CIDR = link.Subnet.CIDR
-			nicInfo.Address = corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.IPAddress)
+			// NOTE(achilleasa): this bit of code preserves the
+			// long-standing last-write-wins behavior that was
+			// present in the original code. Do we need to revisit
+			// this in the future and append link addresses to the list?
+			nicInfo.Addresses = corenetwork.ProviderAddresses{
+				corenetwork.NewProviderAddressInSpace(link.Subnet.Space, link.IPAddress),
+			}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(link.Subnet.ID))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID))
 			if link.Subnet.GatewayIP != "" {
@@ -310,7 +316,11 @@ func (env *maasEnviron) deviceInterfaceInfo2(
 			}
 
 			nicInfo.CIDR = subnet.CIDR()
-			nicInfo.Address = corenetwork.NewProviderAddressInSpace(subnet.Space(), link.IPAddress())
+			// NOTE(achilleasa): the original code used a last-write-wins
+			// policy. Do we need to append link addresses to the list?
+			nicInfo.Addresses = corenetwork.ProviderAddresses{
+				corenetwork.NewProviderAddressInSpace(subnet.Space(), link.IPAddress()),
+			}
 			nicInfo.ProviderSubnetId = corenetwork.Id(strconv.Itoa(subnet.ID()))
 			nicInfo.ProviderAddressId = corenetwork.Id(strconv.Itoa(link.ID()))
 			if subnet.Gateway() != "" {

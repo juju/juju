@@ -191,6 +191,20 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				return nil, errors.Annotatef(err, "instance %q", ids[idx])
 			}
 
+			// Scan the access configs for public addresses
+			var shadowAddrs corenetwork.ProviderAddresses
+			for _, accessConf := range iface.AccessConfigs {
+				// According to the gce docs only ONE_TO_ONE_NAT
+				// is currently supported for external IPs
+				if accessConf.Type != "ONE_TO_ONE_NAT" {
+					continue
+				}
+
+				shadowAddrs = append(shadowAddrs,
+					corenetwork.NewScopedProviderAddress(accessConf.NatIP, corenetwork.ScopePublic),
+				)
+			}
+
 			infos[idx] = append(infos[idx], network.InterfaceInfo{
 				DeviceIndex: i,
 				CIDR:        details.cidr,
@@ -201,11 +215,14 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				ProviderNetworkId: details.network,
 				AvailabilityZones: copyStrings(zones),
 				InterfaceName:     iface.Name,
-				Address:           corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
-				InterfaceType:     network.EthernetInterface,
-				Disabled:          false,
-				NoAutoStart:       false,
-				ConfigType:        network.ConfigDHCP,
+				Addresses: corenetwork.ProviderAddresses{
+					corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
+				},
+				ShadowAddresses: shadowAddrs,
+				InterfaceType:   network.EthernetInterface,
+				Disabled:        false,
+				NoAutoStart:     false,
+				ConfigType:      network.ConfigDHCP,
 			})
 		}
 	}

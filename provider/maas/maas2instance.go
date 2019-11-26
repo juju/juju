@@ -79,8 +79,8 @@ func (mi *maas2Instance) Addresses(ctx context.ProviderCallContext) (corenetwork
 
 	var addresses []corenetwork.ProviderAddress
 	for _, iface := range interfaces {
-		if iface.Address.Value != "" {
-			addresses = append(addresses, iface.Address)
+		if primAddr := iface.PrimaryAddress(); primAddr.Value != "" {
+			addresses = append(addresses, primAddr)
 		} else {
 			logger.Debugf("no address found on interface %q", iface.InterfaceName)
 		}

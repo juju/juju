@@ -1697,18 +1697,28 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
 
 	expectedInterface := network.InterfaceInfo{
-		DeviceIndex:       expDevIndex,
-		MACAddress:        iface.MACAddress,
-		CIDR:              cidr,
-		ProviderId:        corenetwork.Id(fmt.Sprintf("eni-%d", expIfaceID)),
-		ProviderSubnetId:  subnetId,
-		VLANTag:           0,
-		InterfaceName:     "unsupported0",
-		Disabled:          false,
-		NoAutoStart:       false,
-		ConfigType:        network.ConfigDHCP,
-		InterfaceType:     network.EthernetInterface,
-		Address:           corenetwork.NewScopedProviderAddress(addr, corenetwork.ScopeCloudLocal),
+		DeviceIndex:      expDevIndex,
+		MACAddress:       iface.MACAddress,
+		CIDR:             cidr,
+		ProviderId:       corenetwork.Id(fmt.Sprintf("eni-%d", expIfaceID)),
+		ProviderSubnetId: subnetId,
+		VLANTag:          0,
+		InterfaceName:    "unsupported0",
+		Disabled:         false,
+		NoAutoStart:      false,
+		ConfigType:       network.ConfigDHCP,
+		InterfaceType:    network.EthernetInterface,
+		Addresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress(addr, corenetwork.ScopeCloudLocal),
+		},
+		// Each machine is also assigned a shadow IP with the pattern:
+		// 73.37.0.X where X=(provider iface ID + 1)
+		ShadowAddresses: corenetwork.ProviderAddresses{
+			corenetwork.NewScopedProviderAddress(
+				fmt.Sprintf("73.37.0.%d", expIfaceID+1),
+				corenetwork.ScopePublic,
+			),
+		},
 		AvailabilityZones: zones,
 	}
 	c.Assert(iface, gc.DeepEquals, expectedInterface)

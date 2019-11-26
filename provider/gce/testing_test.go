@@ -284,11 +284,6 @@ func (s *BaseSuiteUnpatched) NewBaseInstance(c *gc.C, id string) *google.Instanc
 			NetworkIP:  "10.0.10.3",
 			Network:    "https://www.googleapis.com/compute/v1/projects/sonic-youth/global/networks/go-team",
 			Subnetwork: "https://www.googleapis.com/compute/v1/projects/sonic-youth/regions/asia-east1/subnetworks/go-team",
-			AccessConfigs: []*compute.AccessConfig{{
-				Type:  "ONE_TO_ONE_NAT",
-				Name:  "ExternalNAT",
-				NatIP: "25.185.142.226",
-			}},
 		}},
 	}
 	return google.NewInstance(summary, &instanceSpec)
