@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
+	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -37,7 +38,7 @@ type mockState struct {
 	macaroons      map[names.Tag]*macaroon.Macaroon
 	relations      map[string]*mockRelation
 	controllerInfo map[string]*mockControllerInfo
-	firewallRules  map[state.WellKnownServiceType]*state.FirewallRule
+	firewallRules  map[corefirewall.WellKnownServiceType]*state.FirewallRule
 	subnetsWatcher *mockStringsWatcher
 	modelWatcher   *mockNotifyWatcher
 	configAttrs    map[string]interface{}
@@ -50,7 +51,7 @@ func newMockState(modelUUID string) *mockState {
 		remoteEntities: make(map[names.Tag]string),
 		macaroons:      make(map[names.Tag]*macaroon.Macaroon),
 		controllerInfo: make(map[string]*mockControllerInfo),
-		firewallRules:  make(map[state.WellKnownServiceType]*state.FirewallRule),
+		firewallRules:  make(map[corefirewall.WellKnownServiceType]*state.FirewallRule),
 		subnetsWatcher: newMockStringsWatcher(),
 		modelWatcher:   newMockNotifyWatcher(),
 		configAttrs:    coretesting.FakeConfig(),
@@ -110,7 +111,7 @@ func (st *mockState) FindEntity(tag names.Tag) (state.Entity, error) {
 	return nil, errors.NotImplementedf("FindEntity")
 }
 
-func (st *mockState) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+func (st *mockState) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	r, ok := st.firewallRules[service]
 	if !ok {
 		return nil, errors.NotFoundf("firewall rule for %q", service)
