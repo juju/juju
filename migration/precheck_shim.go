@@ -70,9 +70,9 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckMachine, 0, len(machines))
-	for _, machine := range machines {
-		out = append(out, machine)
+	out := make([]PrecheckMachine, len(machines))
+	for i, machine := range machines {
+		out[i] = machine
 	}
 	return out, nil
 }
@@ -83,9 +83,9 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckApplication, 0, len(apps))
-	for _, app := range apps {
-		out = append(out, &precheckAppShim{app})
+	out := make([]PrecheckApplication, len(apps))
+	for i, app := range apps {
+		out[i] = &precheckAppShim{app}
 	}
 	return out, nil
 }
@@ -95,9 +95,9 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var out []PrecheckRelation
-	for _, rel := range rels {
-		out = append(out, &precheckRelationShim{rel})
+	out := make([]PrecheckRelation, len(rels))
+	for i, rel := range rels {
+		out[i] = &precheckRelationShim{rel}
 	}
 	return out, nil
 }
@@ -144,9 +144,9 @@ func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckUnit, 0, len(units))
-	for _, unit := range units {
-		out = append(out, unit)
+	out := make([]PrecheckUnit, len(units))
+	for i, unit := range units {
+		out[i] = unit
 	}
 	return out, nil
 }
