@@ -35,10 +35,7 @@ type precheckShim struct {
 // Model implements PrecheckBackend.
 func (s *precheckShim) Model() (PrecheckModel, error) {
 	model, err := s.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return model, nil
+	return model, errors.Trace(err)
 }
 
 // IsMigrationActive implements PrecheckBackend.
@@ -102,13 +99,24 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 	return out, nil
 }
 
-// ListPendingResources implements PrecheckBackend.
-func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
-	resources, err := s.resourcesSt.ListPendingResources(app)
+// AllOfferConnections (PrecheckBackend) returns all CMR offer consumptions
+// for the model.
+func (s *precheckShim) AllOfferConnections() ([]PrecheckOfferConnection, error) {
+	conns, err := s.State.AllOfferConnections()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return resources, nil
+	out := make([]PrecheckOfferConnection, len(conns))
+	for i, conn := range conns {
+		out[i] = conn
+	}
+	return out, nil
+}
+
+// ListPendingResources implements PrecheckBackend.
+func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
+	resources, err := s.resourcesSt.ListPendingResources(app)
+	return resources, errors.Trace(err)
 }
 
 // ControllerBackend implements PrecheckBackend.
@@ -163,14 +171,11 @@ func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, erro
 		return nil, errors.Errorf("got %T instead of *state.Unit", pu)
 	}
 	ru, err := s.Relation.Unit(u)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ru, nil
+	return ru, errors.Trace(err)
 }
 
 // IsCrossModel implements PreCheckRelation.
 func (s *precheckRelationShim) IsCrossModel() (bool, error) {
 	_, result, err := s.Relation.RemoteApplication()
-	return result, err
+	return result, errors.Trace(err)
 }
