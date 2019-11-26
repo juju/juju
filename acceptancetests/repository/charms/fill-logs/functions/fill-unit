@@ -25,7 +25,7 @@ getPage() {
 }
 
 CURRENTSIZE=0
-EXPECTED=$(action-get megs)
+EXPECTED=$(function-get megs)
 function-log "start to fill $EXPECTED Mi log."
 EXPECTED=$((EXPECTED*1024*1024))
 
