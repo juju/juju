@@ -988,6 +988,17 @@ func (k *kubernetesClient) EnsureService(
 		logger.Debugf("created/updated custom resources for %q.", appName)
 	}
 
+	// ensure ingress resources.
+	ings := workloadSpec.Ingresses
+	if len(ings) > 0 {
+		ingCleanUps, err := k.ensureIngresses(appName, annotations, workloadSpec.Ingresses)
+		cleanups = append(cleanups, ingCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating ingress resources")
+		}
+		logger.Debugf("created/updated ingress resources for %q.", appName)
+	}
+
 	for _, sa := range workloadSpec.ServiceAccounts {
 		saCleanups, err := k.ensureServiceAccountForApp(appName, annotations, sa)
 		cleanups = append(cleanups, saCleanups...)
@@ -1804,7 +1815,8 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 // UnexposeService removes external access to the specified service.
 func (k *kubernetesClient) UnexposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
-	return k.deleteIngress(appName)
+	deploymentName := k.deploymentName(appName)
+	return k.deleteIngress(deploymentName)
 }
 
 func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
@@ -1816,10 +1828,35 @@ func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteIngress(appName string) error {
-	deploymentName := k.deploymentName(appName)
+func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
+	return map[string]string{
+		labelApplication: appName,
+	}
+}
+
+func (k *kubernetesClient) ensureIngresses(
+	appName string, annotations k8sannotations.Annotation, ingSpecs []k8sspecs.K8sIngressSpec,
+) (cleanUps []func(), err error) {
+	for _, v := range ingSpecs {
+		ing := &v1beta1.Ingress{
+			ObjectMeta: v1.ObjectMeta{
+				Name:        v.Name,
+				Labels:      k.getIngressLabels(appName),
+				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
+			},
+			Spec: v.Spec,
+		}
+		if err := k.ensureIngress(ing); err != nil {
+			return cleanUps, errors.Trace(err)
+		}
+		cleanUps = append(cleanUps, func() { _ = k.deleteIngress(ing.GetName()) })
+	}
+	return cleanUps, nil
+}
+
+func (k *kubernetesClient) deleteIngress(name string) error {
 	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	err := ingress.Delete(deploymentName, &v1.DeleteOptions{
+	err := ingress.Delete(name, &v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	})
 	if k8serrors.IsNotFound(err) {
@@ -2380,6 +2417,7 @@ type workloadSpec struct {
 	ServiceAccounts           []serviceAccountSpecGetter
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 	CustomResources           map[string][]unstructured.Unstructured
+	Ingresses                 []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2451,6 +2489,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
+			spec.Ingresses = k8sResources.Ingresses
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
