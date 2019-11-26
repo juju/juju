@@ -793,6 +793,8 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
 		return errors.Trace(err)
 	}
+
+	// TODO: remove INGRESSES !!!!!!
 	return nil
 }
 
@@ -1809,23 +1811,24 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				}}},
 		},
 	}
-	return k.ensureIngress(spec)
+	_, err = k.ensureIngress(spec)
+	return errors.Trace(err)
 }
 
 // UnexposeService removes external access to the specified service.
 func (k *kubernetesClient) UnexposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
 	deploymentName := k.deploymentName(appName)
-	return k.deleteIngress(deploymentName)
+	return errors.Trace(k.deleteIngress(deploymentName, nil))
 }
 
-func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
+func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) (*v1beta1.Ingress, error) {
 	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	_, err := ingress.Update(spec)
+	ing, err := ingress.Update(spec)
 	if k8serrors.IsNotFound(err) {
-		_, err = ingress.Create(spec)
+		ing, err = ingress.Create(spec)
 	}
-	return errors.Trace(err)
+	return ing, errors.Trace(err)
 }
 
 func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
@@ -1846,19 +1849,18 @@ func (k *kubernetesClient) ensureIngresses(
 			},
 			Spec: v.Spec,
 		}
-		if err := k.ensureIngress(ing); err != nil {
+		out, err := k.ensureIngress(ing)
+		if err != nil {
 			return cleanUps, errors.Trace(err)
 		}
-		cleanUps = append(cleanUps, func() { _ = k.deleteIngress(ing.GetName()) })
+		cleanUps = append(cleanUps, func() { _ = k.deleteIngress(out.GetName(), out.GetUID()) })
 	}
 	return cleanUps, nil
 }
 
-func (k *kubernetesClient) deleteIngress(name string) error {
+func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	err := ingress.Delete(name, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
+	err := ingress.Delete(name, newPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
