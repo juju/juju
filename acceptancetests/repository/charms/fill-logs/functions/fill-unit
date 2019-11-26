@@ -26,16 +26,16 @@ getPage() {
 
 CURRENTSIZE=0
 EXPECTED=$(action-get megs)
-action-log "start to fill $EXPECTED Mi log."
+function-log "start to fill $EXPECTED Mi log."
 EXPECTED=$((EXPECTED*1024*1024))
 
 page=$(getPage)
 pageSize=$(getStrLen ''"$page"'')
 
 while [[ "$CURRENTSIZE" -lt "$EXPECTED" ]]; do
-    action-log "writing $pageSize bytes"
+    function-log "writing $pageSize bytes"
     juju-log ''"$page"''
     let CURRENTSIZE+="$pageSize"
 done
 
-action-log "filled $CURRENTSIZE bytes log."
+function-log "filled $CURRENTSIZE bytes log."
