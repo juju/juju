@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
@@ -249,7 +250,7 @@ func validateIngressNetworks(backend Backend, networks []string) error {
 	}
 
 	// Check that the required ingress is allowed.
-	rule, err := backend.FirewallRule(state.JujuApplicationOfferRule)
+	rule, err := backend.FirewallRule(firewall.JujuApplicationOfferRule)
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}

@@ -29,6 +29,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -1214,7 +1215,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
 	fwRules := state.NewFirewallRules(s.State)
-	err := fwRules.Save(state.NewFirewallRule(state.JujuApplicationOfferRule, []string{"192.168.1.0/16"}))
+	err := fwRules.Save(state.NewFirewallRule(firewall.JujuApplicationOfferRule, []string{"192.168.1.0/16"}))
 	c.Assert(err, jc.ErrorIsNil)
 	var ingress []string
 	for i := 1; i < 30; i++ {

@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -370,7 +371,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 
 	c.Assert(err, jc.ErrorIsNil)
 	rule := state.NewFirewallRule("", []string{"10.1.1.1/8"})
-	s.st.firewallRules[state.JujuApplicationOfferRule] = &rule
+	s.st.firewallRules[corefirewall.JujuApplicationOfferRule] = &rule
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
 		Changes: []params.IngressNetworksChangeEvent{
 			{

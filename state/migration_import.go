@@ -191,6 +191,9 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.remoteApplications(); err != nil {
 		return nil, nil, errors.Annotate(err, "remoteapplications")
 	}
+	if err := restore.firewallRules(); err != nil {
+		return nil, nil, errors.Annotate(err, "firewallrules")
+	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
@@ -1249,6 +1252,38 @@ func (i *importer) remoteApplications() error {
 	return nil
 }
 
+func (i *importer) firewallRules() error {
+	i.logger.Debugf("importing firewall rules")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
+	}
+	migration.Add(func() error {
+		m := ImportFirewallRules{}
+		return m.Execute(stateDocumentFactoryShim{
+			stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			},
+			i,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing remote applications succeeded")
+	return nil
+}
+
+// makeStatusDoc assumes status is non-nil.
+func (i *importer) makeFirewallRuleDoc(firewallRule description.FirewallRule) *firewallRulesDoc {
+	return &firewallRulesDoc{
+		Id:               firewallRule.ID(),
+		WellKnownService: firewallRule.WellKnownService(),
+		WhitelistCIDRS:   firewallRule.WhitelistCIDRs(),
+	}
+}
+
 // StateDocumentFactory creates documents that are useful with in the state
 // package. In essence this just allows us to model our dependencies correctly
 // without having to construct dependencies everywhere.
@@ -1258,6 +1293,7 @@ type StateDocumentFactory interface {
 	MakeRemoteApplicationDoc(description.RemoteApplication) *remoteApplicationDoc
 	MakeStatusDoc(description.Status) statusDoc
 	MakeStatusOp(string, statusDoc) txn.Op
+	MakeFirewallRuleDoc(description.FirewallRule) *firewallRulesDoc
 }
 
 // RemoteApplicationsDescription defines an inplace usage for reading remote
@@ -1269,7 +1305,7 @@ type RemoteApplicationsDescription interface {
 }
 
 // stateDocumentFactoryShim is required to allow the new vertical boundary
-// around importing a remoteApplication, from being accessed by the existing
+// around importing a remoteApplication and firewallRules, from being accessed by the existing
 // state package code.
 // That way we can keep the importing code clean from the proliferation of state
 // code in the juju code base.
@@ -1294,15 +1330,42 @@ func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) 
 	return createStatusOp(s.importer.st, globalKey, doc)
 }
 
+func (s stateDocumentFactoryShim) MakeFirewallRuleDoc(rule description.FirewallRule) *firewallRulesDoc {
+	return s.importer.makeFirewallRuleDoc(rule)
+}
+
+// ImportFirewallRules describes a way to import firewallRules from a
+// description.
+type ImportFirewallRules struct{}
+
+func (rules ImportFirewallRules) Execute(src stateDocumentFactoryShim, runner TransactionRunner) error {
+	firewallRules := src.FirewallRules()
+	if len(firewallRules) == 0 {
+		return nil
+	}
+	firewallState := NewFirewallRules(src.st)
+	ops := make([]txn.Op, 0)
+	for _, rule := range firewallRules {
+		firewallRule := src.MakeFirewallRuleDoc(rule).toRule()
+		op, err := firewallState.GetSaveTransactionOps(*firewallRule, true)
+		if err != nil {
+			return err
+		}
+		ops = append(ops, op...)
+	}
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // ImportRemoteApplications describes a way to import remote applications from a
 // description.
 type ImportRemoteApplications struct{}
 
 // Execute the import on the remote entities description, carefully modelling
 // the dependencies we have.
-func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription,
-	runner TransactionRunner,
-) error {
+func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription, runner TransactionRunner) error {
 	remoteApplications := src.RemoteApplications()
 	if len(remoteApplications) == 0 {
 		return nil
@@ -1312,7 +1375,7 @@ func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription,
 		appDoc := src.MakeRemoteApplicationDoc(app)
 
 		// Status maybe empty for some remoteApplications. Ensure we handle
-		// that correctly by checking if we get one before mkaing a new
+		// that correctly by checking if we get one before making a new
 		// StatusDoc
 		var appStatusDoc *statusDoc
 		if status := app.Status(); status != nil {

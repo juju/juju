@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/state"
 )
 
@@ -169,7 +170,7 @@ func (s stateShim) IngressNetworks(relationKey string) (state.RelationNetworks, 
 	return api.Networks(relationKey)
 }
 
-func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+func (s stateShim) FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	api := state.NewFirewallRules(s.State)
 	return api.Rule(service)
 }

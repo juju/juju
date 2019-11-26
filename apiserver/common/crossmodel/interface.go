@@ -9,6 +9,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -83,7 +84,7 @@ type Backend interface {
 	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
 
 	// FirewallRule returns the firewall rule for the specified service.
-	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
+	FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error)
 
 	// ApplyOperation applies a model operation to the state.
 	ApplyOperation(op state.ModelOperation) error

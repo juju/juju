@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
@@ -87,7 +88,7 @@ func (api *API) SetFirewallRules(args params.FirewallRuleArgs) (params.ErrorResu
 	for i, arg := range args.Args {
 		logger.Debugf("saving firewall rule %+v", arg)
 		err := api.backend.SaveFirewallRule(state.NewFirewallRule(
-			state.WellKnownServiceType(arg.KnownService), arg.WhitelistCIDRS))
+			firewall.WellKnownServiceType(arg.KnownService), arg.WhitelistCIDRS))
 		results[i].Error = common.ServerError(err)
 	}
 	errResults.Results = results
@@ -107,7 +108,7 @@ func (api *API) ListFirewallRules() (params.ListFirewallRulesResults, error) {
 	listResults.Rules = make([]params.FirewallRule, len(rules))
 	for i, r := range rules {
 		listResults.Rules[i] = params.FirewallRule{
-			KnownService:   params.KnownServiceValue(r.WellKnownServiceType()),
+			KnownService:   params.KnownServiceValue(r.WellKnownService()),
 			WhitelistCIDRS: r.WhitelistCIDRs(),
 		}
 	}

@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"github.com/juju/juju/core/firewall"
 	"io/ioutil"
 	"math/rand"
 	"sort"
@@ -848,11 +849,10 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestFirewallRules(c *gc.C) {
-	service := "ssh"
 	cidrs := []string{"192.168.1.0/16"}
 
 	frst := state.NewFirewallRules(s.State)
-	rule := state.NewFirewallRule(state.WellKnownServiceType(service), cidrs)
+	rule := state.NewFirewallRule(firewall.SSHRule, cidrs)
 	err := frst.Save(rule)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -863,7 +863,7 @@ func (s *MigrationExportSuite) TestFirewallRules(c *gc.C) {
 	c.Assert(firewallRules, gc.HasLen, 1)
 
 	entity := firewallRules[0]
-	c.Assert(entity.WellKnownService(), gc.Equals, service)
+	c.Assert(entity.WellKnownService(), gc.Equals, string(firewall.SSHRule))
 	c.Assert(entity.WhitelistCIDRs(), gc.DeepEquals, cidrs)
 }
 
