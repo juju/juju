@@ -219,16 +219,33 @@ type AdoptResourcesArgs struct {
 	SourceControllerVersion version.Number `json:"source-controller-version"`
 }
 
-// RelationsForMigrationResult holds information for cross-model relations for
-// which consuming models need to be updated as part of a model migration.
-type RelationsForMigrationResult struct {
-	// External controllers are all the external
-	// controllers that his model knows of.
-	ExternalControllers []ExternalControllerInfo `json:"external-controllers"`
+// MigratingOfferConnection transports offer connection details for consumed
+// relations that are being migrated to a new model.
+type MigratingOfferConnection struct {
+	// OfferUUID uniquely identifies the offer being consumed.
+	OfferUUID string `json:"offer-uuid"`
 
+	// SourceModelTag identifies the model
+	// from which the relation was consumed.
+	SourceModelTag string `json:"source-model-tag"`
+
+	// RelationID is the ID of the relation to which this connection pertains.
+	RelationID int `json:"relation-id"`
+
+	// UserName is the name of the user who created this connection.
+	UserName string `json:"username"`
+}
+
+// MigratingCrossModelResult holds information for cross-model relations for
+// which consuming models need to be updated as part of a model migration.
+type MigratingCrossModelResult struct {
 	// OfferConnections are all the relations that have been established from
 	// other models to offers made from this model.
-	OfferConnections []OfferConnection `json:"offer-connections"`
+	OfferConnections []MigratingOfferConnection `json:"offer-connections"`
+
+	// External controllers is a map of model tag to controller info for models
+	// consuming relations in the migrating model.
+	ExternalControllers map[string]ExternalControllerInfo `json:"external-controllers"`
 
 	// Error is non-nil if an error occurred processing the request.
 	Error *Error `json:"error,omitempty"`
