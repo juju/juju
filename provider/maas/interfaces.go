@@ -255,8 +255,10 @@ func maasObjectNetworkInterfaces(
 				// We set it here initially without a space, just so we don't
 				// lose it when we have no linked subnet below.
 				//
-				// NOTE(achilleasa): the original code used a last-write-wins
-				// policy. Do we need to append link addresses to the list?
+				// NOTE(achilleasa): this bit of code preserves the
+				// long-standing last-write-wins behavior that was
+				// present in the original code. Do we need to revisit
+				// this in the future and append link addresses to the list?
 				nicInfo.Addresses = corenetwork.ProviderAddresses{
 					corenetwork.NewProviderAddress(link.IPAddress),
 				}
