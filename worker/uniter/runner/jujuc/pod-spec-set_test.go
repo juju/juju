@@ -16,15 +16,15 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type ContainerspecSetSuite struct {
+type PodSpecSetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&ContainerspecSetSuite{})
+var _ = gc.Suite(&PodSpecSetSuite{})
 
 var (
-	containerSpecYaml = `
-containerspec:
+	podSpecYaml = `
+podSpec:
   foo: bar
 `[1:]
 
@@ -54,15 +54,15 @@ kubernetesResources:
 `[1:]
 )
 
-var containerSpecSetInitTests = []struct {
+var podSpecSetInitTests = []struct {
 	args []string
 	err  string
 }{
 	{[]string{"--file", "file", "extra"}, `unrecognized args: \["extra"\]`},
 }
 
-func (s *ContainerspecSetSuite) TestContainerSpecSetInit(c *gc.C) {
-	for i, t := range containerSpecSetInitTests {
+func (s *PodSpecSetSuite) TestPodSpecSetInit(c *gc.C) {
+	for i, t := range podSpecSetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "pod-spec-set")
@@ -71,7 +71,7 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetInit(c *gc.C) {
 	}
 }
 
-func (s *ContainerspecSetSuite) TestHelp(c *gc.C) {
+func (s *PodSpecSetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 	c.Assert(err, jc.ErrorIsNil)
@@ -98,7 +98,7 @@ func (s *ContainerspecSetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-func (s *ContainerspecSetSuite) TestContainerSpecSetNoData(c *gc.C) {
+func (s *PodSpecSetSuite) TestPodSpecSetNoData(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "pod-spec-set")
 	c.Assert(err, jc.ErrorIsNil)
@@ -112,37 +112,37 @@ func (s *ContainerspecSetSuite) TestContainerSpecSetNoData(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 }
 
-func (s *ContainerspecSetSuite) TestContainerSpecSet(c *gc.C) {
-	s.assertContainerSpecSet(c, "specfile.yaml", false)
+func (s *PodSpecSetSuite) TestPodSpecSet(c *gc.C) {
+	s.assertPodSpecSet(c, "specfile.yaml", false)
 }
 
-func (s *ContainerspecSetSuite) TestContainerSpecSetStdIn(c *gc.C) {
-	s.assertContainerSpecSet(c, "-", false)
+func (s *PodSpecSetSuite) TestPodSpecSetStdIn(c *gc.C) {
+	s.assertPodSpecSet(c, "-", false)
 }
 
-func (s *ContainerspecSetSuite) TestContainerSpecSetWithK8sResource(c *gc.C) {
-	s.assertContainerSpecSet(c, "specfile.yaml", true)
+func (s *PodSpecSetSuite) TestPodSpecSetWithK8sResource(c *gc.C) {
+	s.assertPodSpecSet(c, "specfile.yaml", true)
 }
 
-func (s *ContainerspecSetSuite) TestContainerSpecSetStdInWithK8sResource(c *gc.C) {
-	s.assertContainerSpecSet(c, "-", true)
+func (s *PodSpecSetSuite) TestPodSpecSetStdInWithK8sResource(c *gc.C) {
+	s.assertPodSpecSet(c, "-", true)
 }
 
-func (s *ContainerspecSetSuite) assertContainerSpecSet(c *gc.C, filename string, withK8sResource bool) {
+func (s *PodSpecSetSuite) assertPodSpecSet(c *gc.C, filename string, withK8sResource bool) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, args, ctx := s.initCommand(c, hctx, containerSpecYaml, filename, withK8sResource)
+	com, args, ctx := s.initCommand(c, hctx, podSpecYaml, filename, withK8sResource)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
-	expectedSpecYaml := containerSpecYaml
+	expectedSpecYaml := podSpecYaml
 	if withK8sResource {
 		expectedSpecYaml += k8sResourcesYaml
 	}
-	c.Assert(hctx.info.ContainerSpec, gc.Equals, expectedSpecYaml)
+	c.Assert(hctx.info.PodSpec, gc.Equals, expectedSpecYaml)
 }
 
-func (s *ContainerspecSetSuite) initCommand(
+func (s *PodSpecSetSuite) initCommand(
 	c *gc.C, hctx jujuc.Context, yaml string, filename string, withK8sResource bool,
 ) (cmd.Command, []string, *cmd.Context) {
 	com, err := jujuc.NewCommand(hctx, "pod-spec-set")

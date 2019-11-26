@@ -63,6 +63,7 @@ Currently available charm hook tools are:
     network-get              get network config
     open-port                register a port or range to open
     opened-ports             lists all ports or ranges opened by the unit
+    pod-spec-get             get pod spec information
     pod-spec-set             set pod spec information
     relation-get             get relation settings
     relation-ids             list all relation ids with the given relation name
@@ -107,6 +108,7 @@ var expectedCommands = []string{
 	"payload-register",
 	"payload-status-set",
 	"payload-unregister",
+	"pod-spec-get",
 	"pod-spec-set",
 	"relation-get",
 	"relation-ids",

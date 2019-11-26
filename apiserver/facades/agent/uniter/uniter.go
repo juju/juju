@@ -36,8 +36,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v13) of the Uniter API,
-// which adds UpdateNetworkInfo.
+// UniterAPI implements the latest version (v14) of the Uniter API,
+// which adds GetPodSpec.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -74,13 +74,18 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV13 implements version (v13) of the Uniter API,
+// which adds UpdateNetworkInfo.
+type UniterAPIV13 struct {
+	UniterAPI
+}
+
 // UniterAPIV12 implements version (v12) of the Uniter API,
 // Removes the embedded LXDProfileAPI, which in turn removes the following;
 // RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
 // and WatchLXDProfileUpgradeNotifications
 type UniterAPIV12 struct {
-	*LXDProfileAPI
-	UniterAPI
+	UniterAPIV13
 }
 
 // UniterAPIV11 implements version (v11) of the Uniter API, which adds
@@ -222,19 +227,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV12 creates an instance of the V12 uniter API.
-func NewUniterAPIV12(context facade.Context) (*UniterAPIV12, error) {
+// NewUniterAPIV13 creates an instance of the V13 uniter API.
+func NewUniterAPIV13(context facade.Context) (*UniterAPIV13, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	authorizer := context.Auth()
-	st := context.State()
-	resources := context.Resources()
-	accessUnit := unitAccessor(authorizer, st)
+	return &UniterAPIV13{
+		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV12 creates an instance of the V12 uniter API.
+func NewUniterAPIV12(context facade.Context) (*UniterAPIV12, error) {
+	uniterAPI, err := NewUniterAPIV13(context)
+	if err != nil {
+		return nil, err
+	}
 	return &UniterAPIV12{
-		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
-		UniterAPI:     *uniterAPI,
+		UniterAPIV13: *uniterAPI,
 	}, nil
 }
 
@@ -2659,6 +2670,57 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 		results.Results[i].Error = common.ServerError(
 			cm.SetPodSpec(tag, arg.Value),
 		)
+	}
+	return results, nil
+}
+
+// Mask the GetPodSpec method from the v13 API. The API reflection code
+// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
+// this removes the method as far as the RPC machinery is concerned.
+
+// GetPodSpec isn't on the v13 API.
+func (u *UniterAPIV13) GetPodSpec(_, _ struct{}) {}
+
+// GetPodSpec gets the pod specs for a set of applications.
+func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, error) {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	authTag := u.auth.GetAuthTag()
+	canAccess := func(tag names.Tag) bool {
+		if tag, ok := tag.(names.ApplicationTag); ok {
+			switch authTag.(type) {
+			case names.UnitTag:
+				appName, err := names.UnitApplication(authTag.Id())
+				return err == nil && appName == tag.Id()
+			case names.ApplicationTag:
+				return tag == authTag
+			}
+		}
+		return false
+	}
+
+	for i, arg := range args.Entities {
+		tag, err := names.ParseApplicationTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		cm, err := u.m.CAASModel()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		spec, err := cm.PodSpec(tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = spec
 	}
 	return results, nil
 }

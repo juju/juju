@@ -3516,6 +3516,16 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	c.Assert(spec, gc.Equals, podSpec)
 }
 
+func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
+	u, cm, app, _ := s.setupCAASModel(c)
+
+	err := cm.SetPodSpec(app.ApplicationTag(), podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	spec, err := u.GetPodSpec(app.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, podSpec)
+}
+
 type unitMetricBatchesSuite struct {
 	uniterSuiteBase
 	*commontesting.ModelWatcherTest

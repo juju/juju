@@ -541,6 +541,7 @@ func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 	return &ctx.goalState, nil
 }
 
+// SetPodSpec sets the podspec for the unit's application.
 func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	entityName := ctx.unitName
 	isLeader, err := ctx.IsLeader()
@@ -557,6 +558,12 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	}
 	ctx.podSpecYaml = &specYaml
 	return nil
+}
+
+// GetPodSpec returns the podspec for the unit's application.
+func (ctx *HookContext) GetPodSpec() (string, error) {
+	appName := ctx.unit.ApplicationName()
+	return ctx.state.GetPodSpec(appName)
 }
 
 // CloudSpec return the cloud specification for the running unit's model
