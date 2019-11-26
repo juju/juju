@@ -45,15 +45,19 @@ Juju charms can access a series of built-in helpers called 'hook-tools'.
 These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
-    action-fail              set action fail status with message
-    action-get               get action parameters
-    action-log               record a progress message for the current action
-    action-set               set action results
+    action-fail              set action/function fail status with message
+    action-get               get action/function parameters
+    action-log               record a progress message for the current action/function
+    action-set               set action/function results
     add-metric               add metrics
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
     config-get               print application configuration
     credential-get           access cloud credentials
+    function-fail            set action/function fail status with message
+    function-get             get action/function parameters
+    function-log             record a progress message for the current action/function
+    function-set             set action/function results
     goal-state               print the status of the charm's peers and related units
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
@@ -95,6 +99,10 @@ var expectedCommands = []string{
 	"close-port",
 	"config-get",
 	"credential-get",
+	"function-fail",
+	"function-get",
+	"function-log",
+	"function-set",
 	"goal-state",
 	"is-leader",
 	"juju-log",

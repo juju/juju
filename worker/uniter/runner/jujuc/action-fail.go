@@ -4,37 +4,39 @@
 package jujuc
 
 import (
+	"fmt"
+
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
 )
 
-// ActionFailCommand implements the action-fail command.
+// ActionFailCommand implements the action-fail/function-fail command.
 type ActionFailCommand struct {
 	cmd.CommandBase
 	ctx         Context
+	name        string
 	failMessage string
 }
 
 // NewActionFailCommand returns a new ActionFailCommand with the given context.
-func NewActionFailCommand(ctx Context) (cmd.Command, error) {
-	return &ActionFailCommand{ctx: ctx}, nil
+func NewActionFailCommand(ctx Context, name string) (cmd.Command, error) {
+	return &ActionFailCommand{ctx: ctx, name: name}, nil
 }
 
 // Info returns the content for --help.
 func (c *ActionFailCommand) Info() *cmd.Info {
 	doc := `
-action-fail sets the action's fail state with a given error message.  Using
-action-fail without a failure message will set a default message indicating a
-problem with the action.
+%s sets the fail state of the action/function with a given error message.  Using
+%s without a failure message will set a default message indicating a
+problem with the action/function.
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "action-fail",
+		Name:    c.name,
 		Args:    "[\"<failure message>\"]",
-		Purpose: "set action fail status with message",
-		Doc:     doc,
-		Aliases: []string{"function-fail"},
+		Purpose: "set action/function fail status with message",
+		Doc:     fmt.Sprintf(doc, c.name, c.name),
 	})
 }
 
@@ -45,7 +47,7 @@ func (c *ActionFailCommand) SetFlags(f *gnuflag.FlagSet) {
 // Init sets the fail message and checks for malformed invocations.
 func (c *ActionFailCommand) Init(args []string) error {
 	if len(args) == 0 {
-		c.failMessage = "action failed without reason given, check action for errors"
+		c.failMessage = "action/function failed without reason given, check action/function for errors"
 		return nil
 	}
 	c.failMessage = args[0]
