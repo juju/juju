@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -89,6 +90,22 @@ func (sa K8sServiceAccountSpec) Validate() error {
 	return errors.Trace(sa.RBACSpec.Validate())
 }
 
+// K8sIngressSpec defines spec for creating or updating an ingress resource.
+type K8sIngressSpec struct {
+	Name        string              `json:"name" yaml:"name"`
+	Labels      map[string]string   `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	Spec        v1beta1.IngressSpec `json:"spec" yaml:"spec"`
+}
+
+// Validate returns an error if the spec is not valid.
+func (ing K8sIngressSpec) Validate() error {
+	if ing.Name == "" {
+		return errors.New("ingress name is missing")
+	}
+	return nil
+}
+
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
@@ -98,6 +115,7 @@ type KubernetesResources struct {
 	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
 	ServiceAccounts []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
+	Ingresses       []K8sIngressSpec        `json:"ingresses,omitempty" yaml:"ingresses,omitempty"`
 }
 
 func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
@@ -126,6 +144,12 @@ func (krs *KubernetesResources) Validate() error {
 
 	for _, sa := range krs.ServiceAccounts {
 		if err := sa.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	for _, ing := range krs.Ingresses {
+		if err := ing.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}
