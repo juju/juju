@@ -35,7 +35,6 @@ type PrecheckBackend interface {
 	ControllerBackend() (PrecheckBackend, error)
 	CloudCredential(tag names.CloudCredentialTag) (state.Credential, error)
 	ListPendingResources(string) ([]resource.Resource, error)
-	AllOfferConnections() ([]PrecheckOfferConnection, error)
 }
 
 // Pool defines the interface to a StatePool used by the migration
@@ -105,25 +104,6 @@ type PrecheckRelation interface {
 type PrecheckRelationUnit interface {
 	Valid() (bool, error)
 	InScope() (bool, error)
-}
-
-// PrecheckOfferConnection describes methods offer connection methods
-// required for migration pre-checks.
-type PrecheckOfferConnection interface {
-	// OfferUUID uniquely identifies the relation offer.
-	OfferUUID() string
-
-	// UserName returns the name of the user who created this connection.
-	UserName() string
-
-	// RelationId is the id of the relation to which this connection pertains.
-	RelationId() int
-
-	// SourceModelUUID is the uuid of the consuming model.
-	SourceModelUUID() string
-
-	// RelationKey is the key of the relation to which this connection pertains.
-	RelationKey() string
 }
 
 // ModelPresence represents the API server connections for a model.
