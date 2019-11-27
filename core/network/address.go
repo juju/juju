@@ -548,6 +548,23 @@ func (sas SpaceAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) SpaceAddre
 	return out
 }
 
+// EqualTo returns true if this set of SpaceAddresses is equal to other.
+func (sas SpaceAddresses) EqualTo(other SpaceAddresses) bool {
+	if len(sas) != len(other) {
+		return false
+	}
+
+	SortAddresses(sas)
+	SortAddresses(other)
+	for i := 0; i < len(sas); i++ {
+		if sas[i].String() != other[i].String() {
+			return false
+		}
+	}
+
+	return true
+}
+
 // DeriveAddressType attempts to detect the type of address given.
 func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
