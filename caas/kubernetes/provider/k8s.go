@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -1789,7 +1790,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	spec := &v1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: resourceTags,
+			Labels: k8slabels.Merge(resourceTags, k.getIngressLabels(appName)),
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/rewrite-target":  "",
 				"ingress.kubernetes.io/ssl-redirect":    strconv.FormatBool(ingressSSLRedirect),
@@ -1811,7 +1812,9 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				}}},
 		},
 	}
-	_, err = k.ensureIngress(spec)
+	// TODO(caas): refactor juju expose to solve potential conflict with ingress definition in podspec.
+	// https://bugs.launchpad.net/juju/+bug/1854123
+	_, err = k.ensureIngress(appName, spec, true)
 	return errors.Trace(err)
 }
 
@@ -1819,52 +1822,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 func (k *kubernetesClient) UnexposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
 	deploymentName := k.deploymentName(appName)
-	return errors.Trace(k.deleteIngress(deploymentName, nil))
-}
-
-func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) (*v1beta1.Ingress, error) {
-	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	ing, err := ingress.Update(spec)
-	if k8serrors.IsNotFound(err) {
-		ing, err = ingress.Create(spec)
-	}
-	return ing, errors.Trace(err)
-}
-
-func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
-	return map[string]string{
-		labelApplication: appName,
-	}
-}
-
-func (k *kubernetesClient) ensureIngresses(
-	appName string, annotations k8sannotations.Annotation, ingSpecs []k8sspecs.K8sIngressSpec,
-) (cleanUps []func(), err error) {
-	for _, v := range ingSpecs {
-		ing := &v1beta1.Ingress{
-			ObjectMeta: v1.ObjectMeta{
-				Name:        v.Name,
-				Labels:      k.getIngressLabels(appName),
-				Annotations: k8sannotations.New(v.Annotations).Merge(annotations),
-			},
-			Spec: v.Spec,
-		}
-		out, err := k.ensureIngress(ing)
-		if err != nil {
-			return cleanUps, errors.Trace(err)
-		}
-		cleanUps = append(cleanUps, func() { _ = k.deleteIngress(out.GetName(), out.GetUID()) })
-	}
-	return cleanUps, nil
-}
-
-func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
-	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	err := ingress.Delete(name, newPreconditionDeleteOptions(uid))
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
+	return errors.Trace(k.deleteIngress(deploymentName, ""))
 }
 
 func operatorSelector(appName string) string {
