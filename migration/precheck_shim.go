@@ -99,20 +99,6 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 	return out, nil
 }
 
-// AllOfferConnections (PrecheckBackend) returns all CMR offer consumptions
-// for the model.
-func (s *precheckShim) AllOfferConnections() ([]PrecheckOfferConnection, error) {
-	conns, err := s.State.AllOfferConnections()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	out := make([]PrecheckOfferConnection, len(conns))
-	for i, conn := range conns {
-		out[i] = conn
-	}
-	return out, nil
-}
-
 // ListPendingResources implements PrecheckBackend.
 func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
 	resources, err := s.resourcesSt.ListPendingResources(app)
