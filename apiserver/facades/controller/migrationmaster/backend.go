@@ -13,7 +13,7 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/backend.go github.com/juju/juju/apiserver/facades/controller/migrationmaster Backend,OfferConnection
 //go:generate mockgen -package mocks -destination mocks/precheckbackend.go github.com/juju/juju/migration PrecheckBackend
-//go:generate mockgen -package mocks -destination mocks/state.go github.com/juju/juju/state ModelMigration,NotifyWatcher
+//go:generate mockgen -package mocks -destination mocks/state.go github.com/juju/juju/state ModelMigration,NotifyWatcher,ExternalController
 
 // Backend defines the state functionality required by the
 // migrationmaster facade.
@@ -28,6 +28,7 @@ type Backend interface {
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
 	AllOfferConnections() ([]OfferConnection, error)
+	ControllerForModel(string) (state.ExternalController, error)
 }
 
 // OfferConnection describes methods offer connection methods

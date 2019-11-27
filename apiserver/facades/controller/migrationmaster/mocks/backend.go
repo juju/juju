@@ -67,6 +67,21 @@ func (mr *MockBackendMockRecorder) AllOfferConnections() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllOfferConnections", reflect.TypeOf((*MockBackend)(nil).AllOfferConnections))
 }
 
+// ControllerForModel mocks base method
+func (m *MockBackend) ControllerForModel(arg0 string) (state.ExternalController, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerForModel", arg0)
+	ret0, _ := ret[0].(state.ExternalController)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerForModel indicates an expected call of ControllerForModel
+func (mr *MockBackendMockRecorder) ControllerForModel(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockBackend)(nil).ControllerForModel), arg0)
+}
+
 // Export mocks base method
 func (m *MockBackend) Export() (description.Model, error) {
 	m.ctrl.T.Helper()

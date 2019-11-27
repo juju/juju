@@ -46,7 +46,7 @@ func NewMigrationMasterFacadeV2(ctx facade.Context) (*API, error) {
 		return nil, errors.Annotate(err, "creating precheck backend")
 	}
 	return NewAPI(
-		&backendShim{ctx.State()},
+		newBacked(ctx.State()),
 		precheckBackend,
 		migration.PoolShim(ctx.StatePool()),
 		ctx.Resources(),
@@ -210,6 +210,67 @@ func (api *API) Prechecks() error {
 	)
 }
 
+// PrechecksCrossModel is masked on older versions of the migration master API.
+func (api *APIV1) PrechecksCrossModel(_, _ struct{}) {}
+
+// PrechecksCrossModel iterates over cross-model relations consumed externally.
+// It accrues and returns information required by the worker to conduct
+// pre-checks in models consuming the relations.
+func (api *API) PrechecksCrossModel() (params.MigratingCrossModelResult, error) {
+	result := params.MigratingCrossModelResult{}
+
+	conns, err := api.backend.AllOfferConnections()
+	if err != nil {
+		result.Error = common.ServerError(err)
+		return result, nil
+	}
+
+	// Accrue all the offer connections and unique consuming models.
+	pConns := make([]params.MigratingOfferConnection, len(conns))
+	models := set.NewStrings()
+	for i, conn := range conns {
+		models.Add(conn.SourceModelUUID())
+
+		pConns[i] = params.MigratingOfferConnection{
+			OfferUUID:      conn.OfferUUID(),
+			SourceModelTag: names.NewModelTag(conn.SourceModelUUID()).String(),
+			RelationID:     conn.RelationId(),
+			UserName:       conn.UserName(),
+		}
+	}
+
+	// For each consuming model, locate its controller.
+	controllers := make(map[string]params.ExternalControllerInfo)
+	for _, model := range models.Values() {
+		tag := names.NewModelTag(model).String()
+
+		controller, err := api.backend.ControllerForModel(model)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// A CMR with no external controller
+				// is a model in *this* controller.
+				// We will verify this when we precheck using the data.
+				controllers[tag] = params.ExternalControllerInfo{}
+				continue
+			}
+			result.Error = common.ServerError(err)
+			return result, nil
+		}
+
+		info := controller.ControllerInfo()
+		controllers[tag] = params.ExternalControllerInfo{
+			ControllerTag: names.NewControllerAgentTag(controller.Id()).String(),
+			Alias:         info.Alias,
+			Addrs:         info.Addrs,
+			CACert:        info.CACert,
+		}
+	}
+
+	result.OfferConnections = pConns
+	result.ExternalControllers = controllers
+	return result, nil
+}
+
 // SetStatusMessage sets a human readable status message containing
 // information about the migration's progress. This will be shown in
 // status output shown to the end user.
@@ -256,7 +317,7 @@ func (api *API) ProcessRelations(args params.ProcessRelations) error {
 // Reap removes all documents for the model associated with the API
 // connection.
 func (api *API) Reap() error {
-	migration, err := api.backend.LatestMigration()
+	mig, err := api.backend.LatestMigration()
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -267,7 +328,7 @@ func (api *API) Reap() error {
 	// We need to mark the migration as complete here, since removing
 	// the model might kill the worker before it has a chance to set
 	// the phase itself.
-	return errors.Trace(migration.SetPhase(coremigration.DONE))
+	return errors.Trace(mig.SetPhase(coremigration.DONE))
 }
 
 // WatchMinionReports sets up a watcher which reports when a report
