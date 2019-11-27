@@ -328,13 +328,15 @@ type mockRelation struct {
 	units           map[string]commoncrossmodel.RelationUnit
 	endpoints       []state.Endpoint
 	watchers        map[string]*mockUnitsWatcher
+	appSettings     map[string]map[string]interface{}
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:       id,
-		units:    make(map[string]commoncrossmodel.RelationUnit),
-		watchers: make(map[string]*mockUnitsWatcher),
+		id:          id,
+		units:       make(map[string]commoncrossmodel.RelationUnit),
+		watchers:    make(map[string]*mockUnitsWatcher),
+		appSettings: make(map[string]map[string]interface{}),
 	}
 }
 

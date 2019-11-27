@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
@@ -257,4 +258,10 @@ type RemoteApplication interface {
 	// remote application to terminated and leave it in a state
 	// enabling it to be removed cleanly.
 	TerminateOperation(string) state.ModelOperation
+}
+
+// RelationChangesWatcher is a watcher that exposes relation unit
+// changes as RemoteRelationChangeEvents.
+type RelationChangesWatcher interface {
+	Changes() <-chan params.RemoteRelationChangeEvent
 }

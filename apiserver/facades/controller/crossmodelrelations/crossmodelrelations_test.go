@@ -6,6 +6,7 @@ package crossmodelrelations_test
 import (
 	"bytes"
 	"regexp"
+	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -599,7 +601,129 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 }
 
 func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
-	c.Fatalf("writeme")
+	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
+	s.st.applications["django"] = &mockApplication{}
+	s.st.remoteEntities[names.NewApplicationTag("django")] = "token-django"
+	rel := newMockRelation(1)
+	ru1 := newMockRelationUnit()
+	ru2 := newMockRelationUnit()
+
+	ru1.settings["che-fu"] = "fade away"
+
+	rel.endpoints = append(rel.endpoints,
+		state.Endpoint{ApplicationName: "db2"},
+		state.Endpoint{ApplicationName: "django"},
+	)
+	rel.units["django/1"] = ru1
+	rel.units["django/2"] = ru2
+
+	w := &mockUnitsWatcher{
+		mockWatcher: &mockWatcher{
+			stopped: make(chan struct{}),
+		},
+		changes: make(chan watcher.RelationUnitsChange, 1),
+	}
+	w.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
+			"django/1": watcher.UnitSettings{Version: 100},
+		},
+		AppChanged: map[string]int64{
+			"django": 123,
+		},
+		Departed: []string{"django/0", "django/2"},
+	}
+	rel.watchers["django"] = w
+
+	rel.appSettings["django"] = map[string]interface{}{
+		"majoribanks": "mt victoria",
+	}
+
+	s.st.relations["db2:db django:db"] = rel
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	mac, err := s.bakery.NewMacaroon(
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := s.api.WatchRelationChanges(params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{{
+			Token:     "token-db2:db django:db",
+			Macaroons: macaroon.Slice{mac},
+		}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.RemoteRelationWatchResults{
+		Results: []params.RemoteRelationWatchResult{{
+			RemoteRelationWatcherId: "1",
+			Changes: params.RemoteRelationChangeEvent{
+				RelationToken:    "token-db2:db django:db",
+				ApplicationToken: "token-django",
+				Macaroons:        nil,
+				Settings: map[string]interface{}{
+					"majoribanks": "mt victoria",
+				},
+				ChangedUnits: []params.RemoteRelationUnitChange{{
+					UnitId: 1,
+					Settings: map[string]interface{}{
+						"che-fu": "fade away",
+					},
+				}},
+				DepartedUnits: []int{0, 2},
+			},
+		}},
+	})
+
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	outw, ok := resource.(commoncrossmodel.RelationChangesWatcher)
+	c.Assert(ok, gc.Equals, true)
+
+	// TODO(babbageclunk): add locking around updating mock
+	// relation/relunit settings.
+	rel.appSettings["django"]["majoribanks"] = "roxburgh"
+	change := watcher.RelationUnitsChange{
+		AppChanged: map[string]int64{"django": 124},
+	}
+	select {
+	case w.changes <- change:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out sending event to internal watcher")
+	}
+
+	select {
+	case event := <-outw.Changes():
+		c.Assert(event, gc.DeepEquals, params.RemoteRelationChangeEvent{
+			RelationToken:    "token-db2:db django:db",
+			ApplicationToken: "token-django",
+			Macaroons:        nil,
+			Settings: map[string]interface{}{
+				"majoribanks": "mt victoria",
+			},
+			ChangedUnits: []params.RemoteRelationUnitChange{{
+				UnitId: 1,
+				Settings: map[string]interface{}{
+					"che-fu": "fade away",
+				},
+			}},
+			DepartedUnits: []int{0, 2},
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out receiving change event")
+	}
+
 }
 
 func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
