@@ -229,11 +229,12 @@ func (api *API) PrechecksCrossModel() (params.MigratingCrossModelResult, error) 
 	pConns := make([]params.MigratingOfferConnection, len(conns))
 	models := set.NewStrings()
 	for i, conn := range conns {
-		models.Add(conn.SourceModelUUID())
+		modelUUID := conn.SourceModelUUID()
+		models.Add(modelUUID)
 
 		pConns[i] = params.MigratingOfferConnection{
 			OfferUUID:      conn.OfferUUID(),
-			SourceModelTag: names.NewModelTag(conn.SourceModelUUID()).String(),
+			SourceModelTag: names.NewModelTag(modelUUID).String(),
 			RelationID:     conn.RelationId(),
 			UserName:       conn.UserName(),
 		}
@@ -249,7 +250,7 @@ func (api *API) PrechecksCrossModel() (params.MigratingCrossModelResult, error) 
 			if errors.IsNotFound(err) {
 				// A CMR with no external controller
 				// is a model in *this* controller.
-				// We will verify this when we precheck using the data.
+				// We will verify this when we pre-check using the data.
 				controllers[tag] = params.ExternalControllerInfo{}
 				continue
 			}
@@ -259,7 +260,7 @@ func (api *API) PrechecksCrossModel() (params.MigratingCrossModelResult, error) 
 
 		info := controller.ControllerInfo()
 		controllers[tag] = params.ExternalControllerInfo{
-			ControllerTag: names.NewControllerAgentTag(controller.Id()).String(),
+			ControllerTag: names.NewControllerTag(controller.Id()).String(),
 			Alias:         info.Alias,
 			Addrs:         info.Addrs,
 			CACert:        info.CACert,
