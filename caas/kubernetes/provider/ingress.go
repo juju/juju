@@ -61,7 +61,7 @@ func (k *kubernetesClient) ensureIngress(appName string, spec *v1beta1.Ingress, 
 		if err != nil {
 			return cleanUp, errors.Trace(err)
 		}
-		if !k8slabels.AreLabelsInWhiteList(k.getIngressLabels(appName), existing.GetLabels()) {
+		if len(existing.GetLabels()) == 0 || !k8slabels.AreLabelsInWhiteList(k.getIngressLabels(appName), existing.GetLabels()) {
 			return cleanUp, errors.NewAlreadyExists(nil, fmt.Sprintf("existing ingress %q found which does not belong to %q", spec.GetName(), appName))
 		}
 	}

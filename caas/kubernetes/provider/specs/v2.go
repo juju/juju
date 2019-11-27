@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"k8s.io/api/extensions/v1beta1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
@@ -92,10 +92,10 @@ func (sa K8sServiceAccountSpec) Validate() error {
 
 // K8sIngressSpec defines spec for creating or updating an ingress resource.
 type K8sIngressSpec struct {
-	Name        string              `json:"name" yaml:"name"`
-	Labels      map[string]string   `json:"labels,omitempty" yaml:"labels,omitempty"`
-	Annotations map[string]string   `json:"annotations,omitempty" yaml:"annotations,omitempty"`
-	Spec        v1beta1.IngressSpec `json:"spec" yaml:"spec"`
+	Name        string                        `json:"name" yaml:"name"`
+	Labels      map[string]string             `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string             `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	Spec        extensionsv1beta1.IngressSpec `json:"spec" yaml:"spec"`
 }
 
 // Validate returns an error if the spec is not valid.
