@@ -32,6 +32,9 @@ type SubnetInfo struct {
 	// CIDR of the network, in 123.45.67.89/24 format.
 	CIDR string
 
+	// Memoized value for the parsed network for the above CIDR.
+	parsedCIDRNetwork *net.IPNet
+
 	// ProviderId is a provider-specific subnet ID.
 	ProviderId Id
 
@@ -97,13 +100,10 @@ func (s *SubnetInfo) FanOverlay() string {
 
 // Validate validates the subnet, checking the CIDR, and VLANTag, if present.
 func (s *SubnetInfo) Validate() error {
-	if s.CIDR != "" {
-		_, _, err := net.ParseCIDR(s.CIDR)
-		if err != nil {
-			return errors.Trace(err)
-		}
-	} else {
+	if s.CIDR == "" {
 		return errors.Errorf("missing CIDR")
+	} else if _, err := s.ParsedCIDRNetwork(); err != nil {
+		return errors.Trace(err)
 	}
 
 	if s.VLANTag < 0 || s.VLANTag > 4094 {
@@ -111,6 +111,21 @@ func (s *SubnetInfo) Validate() error {
 	}
 
 	return nil
+}
+
+// ParsedCIDRNetwork returns the network represented by the CIDR field.
+func (s *SubnetInfo) ParsedCIDRNetwork() (*net.IPNet, error) {
+	// Memoize the CIDR the first time this method is called or if the
+	// CIDR field has changed.
+	if s.parsedCIDRNetwork == nil || s.parsedCIDRNetwork.String() != s.CIDR {
+		_, ipNet, err := net.ParseCIDR(s.CIDR)
+		if err != nil {
+			return nil, err
+		}
+
+		s.parsedCIDRNetwork = ipNet
+	}
+	return s.parsedCIDRNetwork, nil
 }
 
 // IsValidCidr returns whether cidr is a valid subnet CIDR.

@@ -5,7 +5,10 @@ package network
 
 import (
 	"fmt"
+	"net"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 const (
@@ -46,6 +49,13 @@ type SpaceInfo struct {
 
 // SpaceInfos is a collection of spaces.
 type SpaceInfos []SpaceInfo
+
+// AllSpaceInfos satisfies the SpaceLookup interface.
+// It is useful for passing to conversions where we already have the spaces
+// materialised and don't need to pull them from the DB again.
+func (s SpaceInfos) AllSpaceInfos() (SpaceInfos, error) {
+	return s, nil
+}
 
 // String returns returns a quoted, comma-delimited names of the spaces in the
 // collection, or <none> if the collection is empty.
@@ -123,4 +133,52 @@ func (s SpaceInfos) Minus(other SpaceInfos) SpaceInfos {
 		}
 	}
 	return result
+}
+
+func (s SpaceInfos) InferSpaceFromAddress(addr string) (*SpaceInfo, error) {
+	var (
+		ip    = net.ParseIP(addr)
+		match *SpaceInfo
+	)
+
+nextSpace:
+	for spIndex, space := range s {
+		for _, subnet := range space.Subnets {
+			ipNet, err := subnet.ParsedCIDRNetwork()
+			if err != nil {
+				// Subnets should always have a valid CIDR
+				return nil, errors.Trace(err)
+			}
+
+			if ipNet.Contains(ip) {
+				if match == nil {
+					match = &s[spIndex]
+
+					// We still need to check other spaces
+					// in case we have multiple networks
+					// with the same subnet CIDRs
+					continue nextSpace
+				}
+
+				return nil, errors.Errorf("unable to infer space for address %q: address matches the same CIDR in multiple spaces", addr)
+			}
+		}
+	}
+
+	if match == nil {
+		return nil, errors.NewNotFound(nil, fmt.Sprintf("unable to infer space for address %q", addr))
+	}
+	return match, nil
+}
+
+func (s SpaceInfos) InferSpaceFromCIDRAndSubnetID(cidr, providerSubnetID string) (*SpaceInfo, error) {
+	for _, space := range s {
+		for _, subnet := range space.Subnets {
+			if subnet.CIDR == cidr && string(subnet.ProviderId) == providerSubnetID {
+				return &space, nil
+			}
+		}
+	}
+
+	return nil, errors.NewNotFound(nil, fmt.Sprintf("unable to infer space for CIDR %q and provider subnet ID %q", cidr, providerSubnetID))
 }
