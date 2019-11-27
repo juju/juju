@@ -48,7 +48,6 @@ import (
 	"github.com/juju/juju/juju/keys"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	"github.com/juju/juju/storage"
@@ -1675,7 +1674,7 @@ func (t *localServerSuite) TestNetworkInterfaces(c *gc.C) {
 	t.assertInterfaceLooksValid(c, 0, 0, list[0])
 }
 
-func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDevIndex int, iface network.InterfaceInfo) {
+func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDevIndex int, iface corenetwork.InterfaceInfo) {
 	// The CIDR isn't predictable, but it is in the 10.10.x.0/24 format
 	// The subnet ID is in the form "subnet-x", where x matches the same
 	// number from the CIDR. The interfaces address is part of the CIDR.
@@ -1696,7 +1695,7 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 	re = regexp.MustCompile("test-available|test-unavailable|test-impaired")
 	c.Assert(re.Match([]byte(zones[0])), jc.IsTrue)
 
-	expectedInterface := network.InterfaceInfo{
+	expectedInterface := corenetwork.InterfaceInfo{
 		DeviceIndex:      expDevIndex,
 		MACAddress:       iface.MACAddress,
 		CIDR:             cidr,
@@ -1706,8 +1705,8 @@ func (t *localServerSuite) assertInterfaceLooksValid(c *gc.C, expIfaceID, expDev
 		InterfaceName:    "unsupported0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
-		InterfaceType:    network.EthernetInterface,
+		ConfigType:       corenetwork.ConfigDHCP,
+		InterfaceType:    corenetwork.EthernetInterface,
 		Addresses: corenetwork.ProviderAddresses{
 			corenetwork.NewScopedProviderAddress(addr, corenetwork.ScopeCloudLocal),
 		},

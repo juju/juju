@@ -14,14 +14,13 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	jujustorage "github.com/juju/juju/storage"
 )
 
 type allInstancesFunc func(context.ProviderCallContext) ([]instances.Instance, error)
 type instancesFunc func(context.ProviderCallContext, []instance.Id) ([]instances.Instance, error)
-type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error)
+type startInstanceFunc func(context.ProviderCallContext, environs.StartInstanceParams) (instances.Instance, *instance.HardwareCharacteristics, []corenetwork.InterfaceInfo, error)
 type stopInstancesFunc func(context.ProviderCallContext, []instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config

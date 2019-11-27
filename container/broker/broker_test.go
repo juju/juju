@@ -91,7 +91,7 @@ type fakeAPI struct {
 	*gitjujutesting.Stub
 
 	fakeContainerConfig params.ContainerConfig
-	fakeInterfaceInfo   network.InterfaceInfo
+	fakeInterfaceInfo   corenetwork.InterfaceInfo
 	fakeDeviceToBridge  network.DeviceToBridge
 	fakeBridger         network.Bridger
 	fakePreparer        broker.PrepareHostFunc
@@ -99,7 +99,7 @@ type fakeAPI struct {
 
 var _ broker.APICalls = (*fakeAPI)(nil)
 
-var fakeInterfaceInfo = network.InterfaceInfo{
+var fakeInterfaceInfo = corenetwork.InterfaceInfo{
 	DeviceIndex:    0,
 	MACAddress:     "aa:bb:cc:dd:ee:ff",
 	CIDR:           "0.1.2.0/24",
@@ -144,20 +144,20 @@ func (f *fakeAPI) ContainerConfig() (params.ContainerConfig, error) {
 	return f.fakeContainerConfig, nil
 }
 
-func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (f *fakeAPI) PrepareContainerInterfaceInfo(tag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
 	f.MethodCall(f, "PrepareContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}
-	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil
+	return []corenetwork.InterfaceInfo{f.fakeInterfaceInfo}, nil
 }
 
-func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (f *fakeAPI) GetContainerInterfaceInfo(tag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
 	f.MethodCall(f, "GetContainerInterfaceInfo", tag)
 	if err := f.NextErr(); err != nil {
 		return nil, err
 	}
-	return []network.InterfaceInfo{f.fakeInterfaceInfo}, nil
+	return []corenetwork.InterfaceInfo{f.fakeInterfaceInfo}, nil
 }
 
 func (f *fakeAPI) ReleaseContainerAddresses(tag names.MachineTag) error {

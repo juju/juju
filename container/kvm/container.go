@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/kvm/libvirt"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/imagedownloads"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/network"
 )
 
 type kvmContainer struct {
@@ -143,7 +143,7 @@ func (c *kvmContainer) String() string {
 }
 
 type interfaceInfo struct {
-	config network.InterfaceInfo
+	config corenetwork.InterfaceInfo
 }
 
 // MACAddress returns the embedded MacAddress value.

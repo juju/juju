@@ -24,7 +24,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju/keys"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
@@ -239,7 +238,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectInfo := []network.InterfaceInfo{{
+	expectInfo := []corenetwork.InterfaceInfo{{
 		ProviderId:       "dummy-eth0",
 		ProviderSubnetId: "dummy-private",
 		CIDR:             "0.10.0.0/24",
@@ -250,7 +249,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f0",
 		Disabled:         false,
 		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
+		ConfigType:       corenetwork.ConfigDHCP,
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.10.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.10.0.1"),
@@ -265,7 +264,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
 		Disabled:         false,
 		NoAutoStart:      true,
-		ConfigType:       network.ConfigDHCP,
+		ConfigType:       corenetwork.ConfigDHCP,
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.20.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.20.0.1"),
@@ -280,7 +279,7 @@ func (s *suite) TestNetworkInterfaces(c *gc.C) {
 		MACAddress:       "aa:bb:cc:dd:ee:f2",
 		Disabled:         true,
 		NoAutoStart:      false,
-		ConfigType:       network.ConfigDHCP,
+		ConfigType:       corenetwork.ConfigDHCP,
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.30.0.2")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.dummy", "ns2.dummy"),
 		GatewayAddress:   corenetwork.NewProviderAddress("0.30.0.1"),
@@ -346,7 +345,7 @@ func (s *suite) TestSubnets(c *gc.C) {
 	c.Assert(netInfo, gc.HasLen, 0)
 }
 
-func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []network.InterfaceInfo) {
+func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectInfo []corenetwork.InterfaceInfo) {
 	select {
 	case op := <-opc:
 		netOp, ok := op.(dummy.OpNetworkInterfaces)

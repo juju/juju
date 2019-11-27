@@ -8,12 +8,11 @@ import (
 	"fmt"
 	"strings"
 
+	corenetwork "github.com/juju/juju/core/network"
 	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/packaging"
 	"github.com/juju/packaging/config"
 	"gopkg.in/yaml.v2"
-
-	"github.com/juju/juju/network"
 )
 
 //PackageHelper is the interface for configuring specific parameter of the package manager
@@ -260,6 +259,6 @@ func (cfg *centOSCloudConfig) updateProxySettings(PackageManagerProxyConfig) err
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.
 // TODO(wpk) This has to be implemented for CentOS on VSphere to work properly!
-func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInfo) error {
+func (cfg *centOSCloudConfig) AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error {
 	return nil
 }

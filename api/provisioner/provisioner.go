@@ -245,13 +245,13 @@ func (st *State) ReleaseContainerAddresses(containerTag names.MachineTag) (err e
 
 // PrepareContainerInterfaceInfo allocates an address and returns information to
 // configure networking for a container. It accepts container tags as arguments.
-func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) PrepareContainerInterfaceInfo(containerTag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, true)
 }
 
 // GetContainerInterfaceInfo returns information to configure networking
 // for a container. It accepts container tags as arguments.
-func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]network.InterfaceInfo, error) {
+func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]corenetwork.InterfaceInfo, error) {
 	return st.prepareOrGetContainerInterfaceInfo(containerTag, false)
 }
 
@@ -264,7 +264,7 @@ func (st *State) GetContainerInterfaceInfo(containerTag names.MachineTag) ([]net
 // InterfaceConfig.
 func (st *State) prepareOrGetContainerInterfaceInfo(
 	containerTag names.MachineTag, allocateNewAddress bool) (
-	[]network.InterfaceInfo, error) {
+	[]corenetwork.InterfaceInfo, error) {
 	var result params.MachineNetworkConfigResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: containerTag.String()}},
@@ -285,11 +285,11 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		return nil, err
 	}
 	machineConf := result.Results[0]
-	ifaceInfo := make([]network.InterfaceInfo, len(machineConf.Config))
+	ifaceInfo := make([]corenetwork.InterfaceInfo, len(machineConf.Config))
 	for i, cfg := range machineConf.Config {
-		routes := make([]network.Route, len(cfg.Routes))
+		routes := make([]corenetwork.Route, len(cfg.Routes))
 		for j, route := range cfg.Routes {
-			routes[j] = network.Route{
+			routes[j] = corenetwork.Route{
 				DestinationCIDR: route.DestinationCIDR,
 				GatewayIP:       route.GatewayIP,
 				Metric:          route.Metric,
@@ -297,7 +297,7 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 		}
 		// TODO(achilleasa): do we need to define interfaces for the
 		// non-primary private addresses (if present)?
-		ifaceInfo[i] = network.InterfaceInfo{
+		ifaceInfo[i] = corenetwork.InterfaceInfo{
 			DeviceIndex:         cfg.DeviceIndex,
 			MACAddress:          cfg.MACAddress,
 			CIDR:                cfg.CIDR,
@@ -310,10 +310,10 @@ func (st *State) prepareOrGetContainerInterfaceInfo(
 			VLANTag:             cfg.VLANTag,
 			InterfaceName:       cfg.InterfaceName,
 			ParentInterfaceName: cfg.ParentInterfaceName,
-			InterfaceType:       network.InterfaceType(cfg.InterfaceType),
+			InterfaceType:       corenetwork.InterfaceType(cfg.InterfaceType),
 			Disabled:            cfg.Disabled,
 			NoAutoStart:         cfg.NoAutoStart,
-			ConfigType:          network.InterfaceConfigType(cfg.ConfigType),
+			ConfigType:          corenetwork.InterfaceConfigType(cfg.ConfigType),
 			Addresses:           corenetwork.ProviderAddresses{corenetwork.NewProviderAddress(cfg.Address)},
 			DNSServers:          corenetwork.NewProviderAddresses(cfg.DNSServers...),
 			DNSSearchDomains:    cfg.DNSSearchDomains,

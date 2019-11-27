@@ -13,6 +13,7 @@ import (
 	cloud "github.com/juju/juju/cloud"
 	constraints "github.com/juju/juju/core/constraints"
 	instance "github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	network "github.com/juju/juju/core/network"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
@@ -1386,9 +1387,9 @@ func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v3.MachineTag, arg3 []network0.InterfaceInfo) ([]network0.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v3.MachineTag, arg3 []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].([]network0.InterfaceInfo)
+	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1537,9 +1538,9 @@ func (mr *MockNetworkingEnvironMockRecorder) MaintainInstance(arg0, arg1 interfa
 }
 
 // NetworkInterfaces mocks base method
-func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 instance.Id) ([]network0.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 instance.Id) ([]corenetwork.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
-	ret0, _ := ret[0].([]network0.InterfaceInfo)
+	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

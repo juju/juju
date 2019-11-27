@@ -19,11 +19,11 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/cloudconfig/providerinit"
 	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
 	"github.com/juju/juju/tools"
@@ -147,11 +147,11 @@ func (env *sessionEnviron) newRawInstance(
 		return nil, nil, errors.Trace(err)
 	}
 
-	interfaces := []network.InterfaceInfo{{
+	interfaces := []corenetwork.InterfaceInfo{{
 		InterfaceName: "eth0",
 		MACAddress:    internalMac,
-		InterfaceType: network.EthernetInterface,
-		ConfigType:    network.ConfigDHCP,
+		InterfaceType: corenetwork.EthernetInterface,
+		ConfigType:    corenetwork.ConfigDHCP,
 	}}
 	networkDevices := []vsphereclient.NetworkDevice{{MAC: internalMac, Network: env.ecfg.primaryNetwork()}}
 
@@ -163,11 +163,11 @@ func (env *sessionEnviron) newRawInstance(
 		if err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		interfaces = append(interfaces, network.InterfaceInfo{
+		interfaces = append(interfaces, corenetwork.InterfaceInfo{
 			InterfaceName: "eth1",
 			MACAddress:    externalMac,
-			InterfaceType: network.EthernetInterface,
-			ConfigType:    network.ConfigDHCP,
+			InterfaceType: corenetwork.EthernetInterface,
+			ConfigType:    corenetwork.ConfigDHCP,
 		})
 		networkDevices = append(networkDevices, vsphereclient.NetworkDevice{MAC: externalMac, Network: externalNetwork})
 	}

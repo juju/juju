@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -113,7 +114,7 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 			nicConfig.GatewayAddress = defaultRoute.String()
 		}
 
-		if nicType == network.BridgeInterface {
+		if nicType == corenetwork.BridgeInterface {
 			updateParentForBridgePorts(nic.Name, sysClassNetPath, nameToConfigs)
 		}
 
@@ -167,18 +168,18 @@ func GetObservedNetworkConfig(source NetworkConfigSource) ([]params.NetworkConfi
 	return observedConfig, nil
 }
 
-func interfaceToNetworkConfig(nic net.Interface, nicType network.InterfaceType) params.NetworkConfig {
-	configType := network.ConfigManual // assume manual initially, until we parse the address.
+func interfaceToNetworkConfig(nic net.Interface, nicType corenetwork.InterfaceType) params.NetworkConfig {
+	configType := corenetwork.ConfigManual // assume manual initially, until we parse the address.
 	isUp := nic.Flags&net.FlagUp > 0
 	isLoopback := nic.Flags&net.FlagLoopback > 0
-	isUnknown := nicType == network.UnknownInterface
+	isUnknown := nicType == corenetwork.UnknownInterface
 
 	switch {
 	case isUnknown && isLoopback:
-		nicType = network.LoopbackInterface
-		configType = network.ConfigLoopback
+		nicType = corenetwork.LoopbackInterface
+		configType = corenetwork.ConfigLoopback
 	case isUnknown:
-		nicType = network.EthernetInterface
+		nicType = corenetwork.EthernetInterface
 	}
 
 	return params.NetworkConfig{
@@ -235,8 +236,8 @@ func interfaceAddressToNetworkConfig(interfaceName, configType string, address n
 		config.CIDR = ipNet.String()
 	}
 	config.Address = ip.String()
-	if configType != string(network.ConfigLoopback) {
-		config.ConfigType = string(network.ConfigStatic)
+	if configType != string(corenetwork.ConfigLoopback) {
+		config.ConfigType = string(corenetwork.ConfigStatic)
 	}
 
 	// TODO(dimitern): Add DNS servers, search domains, and gateway

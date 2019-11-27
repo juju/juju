@@ -193,14 +193,14 @@ const SysClassNetPath = "/sys/class/net"
 // UnknownInterface if the type cannot be reliably determined for any reason.
 //
 // Example call: network.ParseInterfaceType(network.SysClassNetPath, "br-eth1")
-func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
+func ParseInterfaceType(sysPath, interfaceName string) network.InterfaceType {
 	const deviceType = "DEVTYPE="
 	location := filepath.Join(sysPath, interfaceName, "uevent")
 
 	data, err := ioutil.ReadFile(location)
 	if err != nil {
 		logger.Debugf("ignoring error reading %q: %v", location, err)
-		return UnknownInterface
+		return network.UnknownInterface
 	}
 
 	devtype := ""
@@ -213,11 +213,11 @@ func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
 		devtype = strings.TrimPrefix(line, deviceType)
 		switch devtype {
 		case "bridge":
-			return BridgeInterface
+			return network.BridgeInterface
 		case "vlan":
-			return VLAN_8021QInterface
+			return network.VLAN_8021QInterface
 		case "bond":
-			return BondInterface
+			return network.BondInterface
 		case "":
 			// DEVTYPE is not present for some types, like Ethernet and loopback
 			// interfaces, so if missing do not try to guess.
@@ -225,7 +225,7 @@ func ParseInterfaceType(sysPath, interfaceName string) InterfaceType {
 		}
 	}
 
-	return UnknownInterface
+	return network.UnknownInterface
 }
 
 // GetBridgePorts extracts and returns the names of all interfaces configured as

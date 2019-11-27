@@ -161,9 +161,9 @@ func (e Environ) getSubnetInfo() ([]corenetwork.SubnetInfo, error) {
 }
 
 // NetworkInterfaces is defined on the environs.Networking interface.
-func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	var (
-		infos = make([][]network.InterfaceInfo, len(ids))
+		infos = make([][]corenetwork.InterfaceInfo, len(ids))
 		err   error
 	)
 
@@ -176,14 +176,14 @@ func (e Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instan
 	return infos, nil
 }
 
-func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
 	instance, err := e.env.Details(instId)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(instance.Networking) == 0 {
-		return []network.InterfaceInfo{}, nil
+		return []corenetwork.InterfaceInfo{}, nil
 	}
 	subnetInfo, err := e.getSubnetInfoAsMap()
 	if err != nil {
@@ -191,7 +191,7 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 	}
 	nicAttributes := e.getNicAttributes(instance)
 
-	interfaces := make([]network.InterfaceInfo, 0, len(instance.Networking))
+	interfaces := make([]corenetwork.InterfaceInfo, 0, len(instance.Networking))
 	idx := 0
 	for nicName, nicObj := range instance.Networking {
 		// gsamfira: While the API may hold any alphanumeric NIC name
@@ -218,7 +218,7 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 		if err != nil {
 			return nil, err
 		}
-		nic := network.InterfaceInfo{
+		nic := corenetwork.InterfaceInfo{
 			InterfaceName: name,
 			DeviceIndex:   deviceIndex,
 			ProviderId:    corenetwork.Id(deviceAttributes.Id),
@@ -226,7 +226,7 @@ func (e Environ) networkInterfacesForInstance(ctx context.ProviderCallContext, i
 			Addresses: corenetwork.ProviderAddresses{
 				corenetwork.NewScopedProviderAddress(ip, corenetwork.ScopeCloudLocal),
 			},
-			InterfaceType: network.EthernetInterface,
+			InterfaceType: corenetwork.EthernetInterface,
 		}
 
 		for _, ipAssocName := range deviceAttributes.Ipassociations {
@@ -327,8 +327,8 @@ func (e Environ) AllocateContainerAddresses(
 	ctx context.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
-	preparedInfo []network.InterfaceInfo,
-) ([]network.InterfaceInfo, error) {
+	preparedInfo []corenetwork.InterfaceInfo,
+) ([]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("containers")
 }
 

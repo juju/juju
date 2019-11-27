@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/tools"
 )
@@ -68,7 +67,7 @@ type StartInstanceParams struct {
 
 	// NetworkInfo is an optional list of network interface details,
 	// necessary to configure on the instance.
-	NetworkInfo []network.InterfaceInfo
+	NetworkInfo []corenetwork.InterfaceInfo
 
 	// SubnetsToZones is an optional map of provider-specific subnet
 	// id to a list of availability zone names the subnet is available
@@ -126,7 +125,7 @@ type StartInstanceResult struct {
 	// interfaces on the instance. Depending on the provider, this
 	// might be the same StartInstanceParams.NetworkInfo or may be
 	// modified as needed.
-	NetworkInfo []network.InterfaceInfo
+	NetworkInfo []corenetwork.InterfaceInfo
 
 	// Volumes contains a list of volumes created, each one having the
 	// same Name as one of the VolumeParams in StartInstanceParams.Volumes.

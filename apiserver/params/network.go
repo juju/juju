@@ -66,7 +66,7 @@ type NetworkRoute struct {
 
 // NetworkConfig describes the necessary information to configure
 // a single network interface on a machine. This mostly duplicates
-// network.InterfaceInfo type and it's defined here so it can be kept
+// corenetwork.InterfaceInfo type and it's defined here so it can be kept
 // separate and stable as definition to ensure proper wire-format for
 // the API.
 type NetworkConfig struct {

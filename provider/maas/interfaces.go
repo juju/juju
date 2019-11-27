@@ -15,7 +15,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -88,7 +87,7 @@ type maasSubnet struct {
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces.
-func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	switch len(ids) {
 	case 0:
 		return nil, environs.ErrNoInstances
@@ -97,7 +96,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 		if err != nil {
 			return nil, err
 		}
-		return [][]network.InterfaceInfo{ifList}, nil
+		return [][]corenetwork.InterfaceInfo{ifList}, nil
 	}
 
 	// Fetch instance information for the IDs we are interested in.
@@ -115,7 +114,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([][]network.InterfaceInfo, len(ids))
+	infos := make([][]corenetwork.InterfaceInfo, len(ids))
 	if env.usingMAAS2() {
 		dnsSearchDomains, err := env.Domains(ctx)
 		if err != nil {
@@ -152,7 +151,7 @@ func (env *maasEnviron) NetworkInterfaces(ctx context.ProviderCallContext, ids [
 	return infos, err
 }
 
-func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
 	inst, err := env.getInstance(ctx, instId)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -180,7 +179,7 @@ func (env *maasEnviron) networkInterfacesForInstance(ctx context.ProviderCallCon
 // "interface_set" node details field.
 func maasObjectNetworkInterfaces(
 	_ context.ProviderCallContext, maasObject *gomaasapi.MAASObject, subnetsMap map[string]corenetwork.Id,
-) ([]network.InterfaceInfo, error) {
+) ([]corenetwork.InterfaceInfo, error) {
 	interfaceSet, ok := maasObject.GetMap()["interface_set"]
 	if !ok || interfaceSet.IsNil() {
 		// This means we're using an older MAAS API.
@@ -203,14 +202,14 @@ func maasObjectNetworkInterfaces(
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([]network.InterfaceInfo, 0, len(interfaces))
+	infos := make([]corenetwork.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents, "")
-		var nicType network.InterfaceType
+		var nicType corenetwork.InterfaceType
 		switch iface.Type {
 		case typePhysical:
-			nicType = network.EthernetInterface
+			nicType = corenetwork.EthernetInterface
 			children := strings.Join(iface.Children, "")
 			if parentName == "" && len(iface.Children) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -220,14 +219,14 @@ func maasObjectNetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = network.BondInterface
+			nicType = corenetwork.BondInterface
 		case typeVLAN:
-			nicType = network.VLAN_8021QInterface
+			nicType = corenetwork.VLAN_8021QInterface
 		case typeBridge:
-			nicType = network.BridgeInterface
+			nicType = corenetwork.BridgeInterface
 		}
 
-		nicInfo := network.InterfaceInfo{
+		nicInfo := corenetwork.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress,
 			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID)),
@@ -313,17 +312,17 @@ func maas2NetworkInterfaces(
 	instance *maas2Instance,
 	subnetsMap map[string]corenetwork.Id,
 	dnsSearchDomains ...string,
-) ([]network.InterfaceInfo, error) {
+) ([]corenetwork.InterfaceInfo, error) {
 	interfaces := instance.machine.InterfaceSet()
-	infos := make([]network.InterfaceInfo, 0, len(interfaces))
+	infos := make([]corenetwork.InterfaceInfo, 0, len(interfaces))
 	for i, iface := range interfaces {
 
 		// The below works for all types except bonds and their members.
 		parentName := strings.Join(iface.Parents(), "")
-		var nicType network.InterfaceType
+		var nicType corenetwork.InterfaceType
 		switch maasInterfaceType(iface.Type()) {
 		case typePhysical:
-			nicType = network.EthernetInterface
+			nicType = corenetwork.EthernetInterface
 			children := strings.Join(iface.Children(), "")
 			if parentName == "" && len(iface.Children()) == 1 && strings.HasPrefix(children, "bond") {
 				// FIXME: Verify the bond exists, regardless of its name.
@@ -333,18 +332,18 @@ func maas2NetworkInterfaces(
 			}
 		case typeBond:
 			parentName = ""
-			nicType = network.BondInterface
+			nicType = corenetwork.BondInterface
 		case typeVLAN:
-			nicType = network.VLAN_8021QInterface
+			nicType = corenetwork.VLAN_8021QInterface
 		case typeBridge:
-			nicType = network.BridgeInterface
+			nicType = corenetwork.BridgeInterface
 		}
 
 		vlanTag := 0
 		if iface.VLAN() != nil {
 			vlanTag = iface.VLAN().VID()
 		}
-		nicInfo := network.InterfaceInfo{
+		nicInfo := corenetwork.InterfaceInfo{
 			DeviceIndex:         i,
 			MACAddress:          iface.MACAddress(),
 			ProviderId:          corenetwork.Id(fmt.Sprintf("%v", iface.ID())),
@@ -432,17 +431,17 @@ func parseInterfaces(jsonBytes []byte) ([]maasInterface, error) {
 	return interfaces, nil
 }
 
-func maasLinkToInterfaceConfigType(mode string) network.InterfaceConfigType {
+func maasLinkToInterfaceConfigType(mode string) corenetwork.InterfaceConfigType {
 	switch maasLinkMode(mode) {
 	case modeUnknown:
-		return network.ConfigUnknown
+		return corenetwork.ConfigUnknown
 	case modeDHCP:
-		return network.ConfigDHCP
+		return corenetwork.ConfigDHCP
 	case modeStatic, modeAuto:
-		return network.ConfigStatic
+		return corenetwork.ConfigStatic
 	case modeLinkUp:
 	default:
 	}
 
-	return network.ConfigManual
+	return corenetwork.ConfigManual
 }

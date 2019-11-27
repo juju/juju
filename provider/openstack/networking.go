@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 )
 
 // Networking is an interface providing networking-related operations
@@ -44,7 +43,7 @@ type Networking interface {
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given list of instances.
 	// Needed for Environ.Networking
-	NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error)
+	NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error)
 }
 
 // NetworkingDecorator is an interface that provides a means of overriding
@@ -124,7 +123,7 @@ func (n *switchingNetworking) Subnets(
 }
 
 // NetworkInterfaces is part of the Networking interface
-func (n *switchingNetworking) NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (n *switchingNetworking) NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	if err := n.initNetworking(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -425,6 +424,6 @@ func noNetConfigMsg(err error) string {
 		err.Error())
 }
 
-func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (n *NeutronNetworking) NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("neutron network interfaces")
 }

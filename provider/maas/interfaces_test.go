@@ -11,7 +11,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -417,7 +416,7 @@ const exampleInterfaceSetJSON = `
         }
 ]`
 
-var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
+var exampleParsedInterfaceSetJSON = []corenetwork.InterfaceInfo{{
 	DeviceIndex:       0,
 	MACAddress:        "52:54:00:70:9b:fe",
 	CIDR:              "10.20.19.0/24",
@@ -935,7 +934,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
 	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
 
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
@@ -1085,7 +1084,7 @@ func (s *interfacesSuite) TestMAAS2InterfacesNilVLAN(c *gc.C) {
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
 
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",

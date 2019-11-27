@@ -155,9 +155,9 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	}
 }
 
-// NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
+// NetworkConfigFromInterfaceInfo converts a slice of corenetwork.InterfaceInfo into
 // the equivalent params.NetworkConfig slice.
-func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []params.NetworkConfig {
+func NetworkConfigFromInterfaceInfo(interfaceInfos []corenetwork.InterfaceInfo) []params.NetworkConfig {
 	result := make([]params.NetworkConfig, len(interfaceInfos))
 	for i, v := range interfaceInfos {
 		var dnsServers []string

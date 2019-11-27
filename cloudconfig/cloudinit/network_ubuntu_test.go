@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/container"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -33,7 +32,7 @@ type NetworkUbuntuSuite struct {
 	systemNetworkInterfacesFile string
 	jujuNetplanFile             string
 
-	fakeInterfaces []network.InterfaceInfo
+	fakeInterfaces []corenetwork.InterfaceInfo
 
 	expectedSampleConfigHeader      string
 	expectedSampleConfigTemplate    string
@@ -67,10 +66,10 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	s.networkInterfacesPythonFile = filepath.Join(networkFolder, "system-interfaces.py")
 	s.jujuNetplanFile = filepath.Join(netplanFolder, "79-juju.yaml")
 
-	s.fakeInterfaces = []network.InterfaceInfo{{
+	s.fakeInterfaces = []corenetwork.InterfaceInfo{{
 		InterfaceName:    "any0",
 		CIDR:             "0.1.2.0/24",
-		ConfigType:       network.ConfigStatic,
+		ConfigType:       corenetwork.ConfigStatic,
 		NoAutoStart:      false,
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
@@ -81,36 +80,36 @@ func (s *NetworkUbuntuSuite) SetUpTest(c *gc.C) {
 	}, {
 		InterfaceName:    "any1",
 		CIDR:             "0.2.2.0/24",
-		ConfigType:       network.ConfigStatic,
+		ConfigType:       corenetwork.ConfigStatic,
 		NoAutoStart:      false,
 		Addresses:        corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.2.2.4")},
 		DNSServers:       corenetwork.NewProviderAddresses("ns1.invalid", "ns2.invalid"),
 		DNSSearchDomains: []string{"foo", "bar"},
 		GatewayAddress:   corenetwork.NewProviderAddress("0.2.2.1"),
 		MACAddress:       "aa:bb:cc:dd:ee:f1",
-		Routes: []network.Route{{
+		Routes: []corenetwork.Route{{
 			DestinationCIDR: "0.5.6.0/24",
 			GatewayIP:       "0.2.2.1",
 			Metric:          50,
 		}},
 	}, {
 		InterfaceName: "any2",
-		ConfigType:    network.ConfigDHCP,
+		ConfigType:    corenetwork.ConfigDHCP,
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		NoAutoStart:   true,
 	}, {
 		InterfaceName: "any3",
-		ConfigType:    network.ConfigDHCP,
+		ConfigType:    corenetwork.ConfigDHCP,
 		MACAddress:    "aa:bb:cc:dd:ee:f3",
 		NoAutoStart:   false,
 	}, {
 		InterfaceName: "any4",
-		ConfigType:    network.ConfigManual,
+		ConfigType:    corenetwork.ConfigManual,
 		MACAddress:    "aa:bb:cc:dd:ee:f4",
 		NoAutoStart:   true,
 	}, {
 		InterfaceName:  "any5",
-		ConfigType:     network.ConfigStatic,
+		ConfigType:     corenetwork.ConfigStatic,
 		MACAddress:     "aa:bb:cc:dd:ee:f5",
 		NoAutoStart:    false,
 		CIDR:           "2001:db8::/64",

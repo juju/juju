@@ -2059,7 +2059,7 @@ func (e *Environ) Subnets(
 }
 
 // NetworkInterfaces is specified on environs.Networking.
-func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	infos, err := e.networking.NetworkInterfaces(ids)
 	if err != nil {
 		handleCredentialError(err, ctx)
@@ -2104,7 +2104,7 @@ func (e *Environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 }
 
 // AllocateContainerAddresses is specified on environs.Networking.
-func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *Environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("allocate container address")
 }
 

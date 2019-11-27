@@ -16,6 +16,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/container/broker"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -153,10 +154,10 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	MTU:                 1500,
 	InterfaceName:       "lo",
 	ParentInterfaceName: "",
-	InterfaceType:       string(network.LoopbackInterface),
+	InterfaceType:       string(corenetwork.LoopbackInterface),
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          string(network.ConfigLoopback),
+	ConfigType:          string(corenetwork.ConfigLoopback),
 }, {
 	DeviceIndex:         1,
 	MACAddress:          "bb:cc:dd:ee:ff:00",
@@ -164,10 +165,10 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	MTU:                 1500,
 	InterfaceName:       "eth0",
 	ParentInterfaceName: "br-eth0",
-	InterfaceType:       string(network.EthernetInterface),
+	InterfaceType:       string(corenetwork.EthernetInterface),
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          string(network.ConfigStatic),
+	ConfigType:          string(corenetwork.ConfigStatic),
 }, {
 	DeviceIndex:         2,
 	MACAddress:          "bb:cc:dd:ee:ff:00",
@@ -175,10 +176,10 @@ var cannedObservedNetworkConfig = []params.NetworkConfig{{
 	MTU:                 1500,
 	InterfaceName:       "br-eth0",
 	ParentInterfaceName: "",
-	InterfaceType:       string(network.BridgeInterface),
+	InterfaceType:       string(corenetwork.BridgeInterface),
 	Disabled:            false,
 	NoAutoStart:         false,
-	ConfigType:          string(network.ConfigStatic),
+	ConfigType:          string(corenetwork.ConfigStatic),
 }}
 
 func (s *hostPreparerSuite) TestPrepareHostCreateBridge(c *gc.C) {

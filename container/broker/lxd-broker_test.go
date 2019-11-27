@@ -30,7 +30,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -117,7 +116,7 @@ func (s *lxdBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
 	iface := result.NetworkInfo[0]
-	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+	c.Assert(iface, jc.DeepEquals, corenetwork.InterfaceInfo{
 		DeviceIndex:         0,
 		CIDR:                "0.1.2.0/24",
 		InterfaceName:       "dummy0",
@@ -221,7 +220,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithLXDProfile(c *gc.C) {
 	containerTag := names.NewMachineTag("1-lxd-0")
 
 	mockApi := mocks.NewMockAPICalls(ctlr)
-	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]network.InterfaceInfo{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]corenetwork.InterfaceInfo{fakeInterfaceInfo}, nil)
 	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
 
 	put := &charm.LXDProfile{
@@ -268,7 +267,7 @@ func (s *lxdBrokerSuite) TestStartInstanceWithNoNameLXDProfile(c *gc.C) {
 	containerTag := names.NewMachineTag("1-lxd-0")
 
 	mockApi := mocks.NewMockAPICalls(ctlr)
-	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]network.InterfaceInfo{fakeInterfaceInfo}, nil)
+	mockApi.EXPECT().PrepareContainerInterfaceInfo(gomock.Eq(containerTag)).Return([]corenetwork.InterfaceInfo{fakeInterfaceInfo}, nil)
 	mockApi.EXPECT().ContainerConfig().Return(fakeContainerConfig(), nil)
 
 	put := &charm.LXDProfile{
