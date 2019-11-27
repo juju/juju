@@ -52,3 +52,17 @@ func (s *backendShim) AgentVersion() (version.Number, error) {
 	}
 	return vers, nil
 }
+
+// AllOfferConnections (Backend) returns all CMR offer consumptions
+// for the model.
+func (s *backendShim) AllOfferConnections() ([]OfferConnection, error) {
+	conns, err := s.State.AllOfferConnections()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	out := make([]OfferConnection, len(conns))
+	for i, conn := range conns {
+		out[i] = conn
+	}
+	return out, nil
+}
