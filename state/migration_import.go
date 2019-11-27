@@ -13,6 +13,7 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
@@ -22,6 +23,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -906,6 +908,10 @@ func (i *importer) application(a description.Application) error {
 		}
 	}
 
+	if err := i.applicationOffers(a); err != nil {
+		return errors.Trace(err)
+	}
+
 	return nil
 }
 
@@ -1224,6 +1230,170 @@ func (i *importer) unitStorageAttachmentCount(unit names.UnitTag) int {
 		}
 	}
 	return count
+}
+
+// stateApplicationOfferDocumentFactoryShim is required to allow the new
+// vertical boundary around importing a applicationOffer, from being accessed by
+// the existing state package code.
+// That way we can keep the importing code clean from the proliferation of state
+// code in the juju code base.
+type stateApplicationOfferDocumentFactoryShim struct {
+	stateModelNamspaceShim
+	importer *importer
+}
+
+func (s stateApplicationOfferDocumentFactoryShim) NewApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
+	ao := &applicationOffers{st: s.importer.st}
+	return ao.makeApplicationOffer(doc)
+}
+
+func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOfferDoc(app description.ApplicationOffer) (applicationOfferDoc, error) {
+	// We need the original OfferUUID, so that needs threading through.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return applicationOfferDoc{}, errors.Trace(err)
+	}
+
+	// This feels wrong, we should be getting back what we put in, it's not very
+	// idempotent
+	eps := make(map[string]string, len(app.Endpoints()))
+	for _, endpoint := range app.Endpoints() {
+		url, err := crossmodel.ParseOfferURL(endpoint)
+		if err != nil {
+			return applicationOfferDoc{}, errors.Trace(err)
+		}
+		eps[url.ApplicationName] = url.String()
+	}
+
+	ao := &applicationOffers{st: s.importer.st}
+	return ao.makeApplicationOfferDoc(s.importer.st, uuid.String(), crossmodel.AddApplicationOfferArgs{
+		OfferName: app.OfferName(),
+		Endpoints: eps,
+	}), nil
+}
+
+func (s stateApplicationOfferDocumentFactoryShim) MakeIncApplicationOffersRefOp(name string) (txn.Op, error) {
+	return incApplicationOffersRefOp(s.importer.st, name)
+}
+
+type applicationDescriptionShim struct {
+	stateApplicationOfferDocumentFactoryShim
+	ApplicationDescription
+}
+
+// ApplicationDescription is an in-place description of an application
+type ApplicationDescription interface {
+	Offers() []description.ApplicationOffer
+}
+
+func (i *importer) applicationOffers(app ApplicationDescription) error {
+	i.logger.Debugf("importing application offer")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
+	}
+	migration.Add(func() error {
+		m := ImportApplicationOffer{}
+		// The following shims compose a model and series of methods that should
+		// be public, but are private (for unit/mock testing) and we encapsulate
+		// that as one thing.
+		return m.Execute(applicationDescriptionShim{
+			stateApplicationOfferDocumentFactoryShim{
+				stateModelNamspaceShim{
+					Model: migration.src,
+					st:    i.st,
+				},
+				i,
+			},
+			app,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing application offer succeeded")
+	return nil
+}
+
+// ApplicationOfferStateDocumentFactory creates documents that are useful with
+// in the state package. In essence this just allows us to model our
+// dependencies correctly without having to construct dependencies everywhere.
+// Note: we need public methods here because gomock doesn't mock private methods
+type ApplicationOfferStateDocumentFactory interface {
+	NewApplicationOffer(applicationOfferDoc) (*crossmodel.ApplicationOffer, error)
+	MakeApplicationOfferDoc(description.ApplicationOffer) (applicationOfferDoc, error)
+	MakeIncApplicationOffersRefOp(string) (txn.Op, error)
+}
+
+// ApplicationOfferDescription defines an in-place usage for reading
+// application offers.
+type ApplicationOfferDescription interface {
+	DocModelNamespace
+	ApplicationOfferStateDocumentFactory
+	Offers() []description.ApplicationOffer
+}
+
+// ImportApplicationOffer describes a way to import application offers from a
+// description.
+type ImportApplicationOffer struct {
+}
+
+// Execute the import on the application offer description, carefully modelling
+// the dependencies we have.
+func (i ImportApplicationOffer) Execute(src ApplicationOfferDescription,
+	runner TransactionRunner,
+) error {
+	offers := src.Offers()
+	if len(offers) == 0 {
+		return nil
+	}
+	ops := make([]txn.Op, 0)
+	for _, offer := range offers {
+		appDoc, err := src.MakeApplicationOfferDoc(offer)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		app, err := src.NewApplicationOffer(appDoc)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		appOps, err := i.addApplicationOfferOps(src, app, addApplicationOfferOpsArgs{
+			applicationOfferDoc: appDoc,
+		})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		ops = append(ops, appOps...)
+	}
+	if err := runner.RunTransaction(ops); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
+type addApplicationOfferOpsArgs struct {
+	applicationOfferDoc applicationOfferDoc
+}
+
+func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferDescription,
+	app *crossmodel.ApplicationOffer,
+	args addApplicationOfferOpsArgs,
+) ([]txn.Op, error) {
+	incRefOp, err := src.MakeIncApplicationOffersRefOp(app.ApplicationName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	docID := src.DocID(app.ApplicationName)
+	ops := []txn.Op{
+		{
+			C:      applicationOffersC,
+			Id:     docID,
+			Assert: txn.DocMissing,
+			Insert: args.applicationOfferDoc,
+		},
+		incRefOp,
+	}
+	return ops, nil
 }
 
 func (i *importer) remoteApplications() error {
