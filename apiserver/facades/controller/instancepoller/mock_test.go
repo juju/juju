@@ -33,6 +33,8 @@ type mockState struct {
 
 	config   *config.Config
 	machines map[string]*mockMachine
+
+	spaceInfos network.SpaceInfos
 }
 
 func NewMockState() *mockState {
@@ -224,7 +226,14 @@ func (m *mockState) Machine(id string) (instancepoller.StateMachine, error) {
 // This method never throws an error.
 func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
 	m.MethodCall(m, "AllSpaceInfos")
-	return network.SpaceInfos{}, nil
+	return m.spaceInfos, nil
+}
+
+// SetSpaceInfo updates the mocked space infos returned by AllSpaceInfos()
+func (m *mockState) SetSpaceInfo(infos network.SpaceInfos) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.spaceInfos = infos
 }
 
 // StartSync implements statetesting.SyncStarter, so mockState can be

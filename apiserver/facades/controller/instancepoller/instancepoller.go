@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
@@ -124,6 +125,128 @@ func (a *InstancePollerAPI) getOneMachine(tag string, canAccess common.AuthFunc)
 		)
 	}
 	return machine, nil
+}
+
+// SetProviderNetworkConfig updates the provider addresses for one or more
+// machines.
+func (a *InstancePollerAPI) SetProviderNetworkConfig(req params.SetProviderNetworkConfig) (params.SetProviderNetworkConfigResults, error) {
+	result := params.SetProviderNetworkConfigResults{
+		Results: make([]params.SetProviderNetworkConfigResult, len(req.Args)),
+	}
+
+	canAccess, err := a.accessMachine()
+	if err != nil {
+		return result, err
+	}
+
+	spaceInfos, err := a.st.AllSpaceInfos()
+	if err != nil {
+		return result, err
+	}
+
+	for i, arg := range req.Args {
+		machine, err := a.getOneMachine(arg.Tag, canAccess)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		newProviderAddrs, err := mapNetworkConfigsToProviderAddresses(arg.Configs, spaceInfos)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		// spaceIDs have already been resolved for us by the above
+		// function call; we can safely provide a nil lookup to the
+		// converter and ignore errors.
+		newSpaceAddrs, _ := newProviderAddrs.ToSpaceAddresses(nil)
+
+		modified, err := maybeUpdateMachineProviderAddresses(machine, newSpaceAddrs)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		result.Results[i].Modified = modified
+		result.Results[i].Addresses = params.FromProviderAddresses(newProviderAddrs...)
+	}
+	return result, nil
+}
+
+func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.SpaceAddresses) (bool, error) {
+	curSpaceAddrs := m.ProviderAddresses()
+	if curSpaceAddrs.EqualTo(newSpaceAddrs) {
+		return false, nil
+	}
+
+	return true, m.SetProviderAddresses(newSpaceAddrs...)
+}
+
+// mapNetworkConfigsToProviderAddresses iterates the list of incoming network
+// configuration parameters, extracts all usable private/shadow IP addresses,
+// attempts to resolve each one to a known space and returns back a list of
+// scoped, space-aware ProviderAddresses.
+func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfos network.SpaceInfos) (network.ProviderAddresses, error) {
+	addrs := make(network.ProviderAddresses, 0, len(cfgs))
+
+	alphaSpaceInfo := spaceInfos.GetByID(network.AlphaSpaceId)
+	if alphaSpaceInfo == nil {
+		return network.ProviderAddresses{}, errors.New("BUG: space infos lack entry for alpha space")
+	}
+
+	for _, cfg := range cfgs {
+		// Private addresses use the same CIDR; try to resolve them
+		// to a space and create a scoped network address
+		for _, addr := range params.ToProviderAddresses(cfg.Addresses...) {
+			spaceInfo, err := spaceInfoForAddress(spaceInfos, cfg.CIDR, cfg.ProviderSubnetId, addr.Value)
+			if err != nil {
+				// If we were unable to infer the space using the
+				// currently available subnet information, use
+				// alpha space as a fall-back
+				if !errors.IsNotFound(err) {
+					return network.ProviderAddresses{}, err
+				}
+				spaceInfo = alphaSpaceInfo
+			}
+
+			addrs = append(
+				addrs,
+				network.NewScopedProviderAddressFromSpaceInfo(addr.Value, addr.Scope, spaceInfo),
+			)
+		}
+
+		for _, addr := range params.ToProviderAddresses(cfg.ShadowAddresses...) {
+			// Try to infer space from the address value only; The CIDR
+			// information from cfg does not apply to these addresses.
+			spaceInfo, err := spaceInfoForAddress(spaceInfos, "", "", addr.Value)
+			if err != nil {
+				// Space inference will always fail for public shadow addresses.
+				// For those cases we auto-assign the alpha space. In the
+				// future we might want to consider defining a public-alpha
+				// space.
+				if !errors.IsNotFound(err) {
+					return network.ProviderAddresses{}, err
+				}
+				spaceInfo = alphaSpaceInfo
+			}
+			addrs = append(
+				addrs,
+				network.NewScopedProviderAddressFromSpaceInfo(addr.Value, addr.Scope, spaceInfo),
+			)
+		}
+	}
+
+	return addrs, nil
+}
+
+func spaceInfoForAddress(spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string) (*network.SpaceInfo, error) {
+	if CIDR != "" && providerSubnetID != "" {
+		return spaceInfos.InferSpaceFromCIDRAndSubnetID(CIDR, providerSubnetID)
+	} else if CIDR != "" {
+		return spaceInfos.InferSpaceFromCIDR(CIDR)
+	}
+	return spaceInfos.InferSpaceFromAddress(addr)
 }
 
 // ProviderAddresses returns the list of all known provider addresses

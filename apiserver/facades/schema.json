@@ -17632,7 +17632,7 @@
     },
     {
         "Name": "InstancePoller",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -17688,17 +17688,6 @@
                         }
                     }
                 },
-                "ProviderAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/MachineAddressesResults"
-                        }
-                    }
-                },
                 "SetInstanceStatus": {
                     "type": "object",
                     "properties": {
@@ -17710,14 +17699,14 @@
                         }
                     }
                 },
-                "SetProviderAddresses": {
+                "SetProviderNetworkConfig": {
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SetMachinesAddresses"
+                            "$ref": "#/definitions/SetProviderNetworkConfig"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ErrorResults"
+                            "$ref": "#/definitions/SetProviderNetworkConfigResults"
                         }
                     }
                 },
@@ -17950,58 +17939,6 @@
                         "results"
                     ]
                 },
-                "MachineAddresses": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag",
-                        "addresses"
-                    ]
-                },
-                "MachineAddressesResult": {
-                    "type": "object",
-                    "properties": {
-                        "addresses": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Address"
-                            }
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "addresses"
-                    ]
-                },
-                "MachineAddressesResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MachineAddressesResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "ModelConfigResult": {
                     "type": "object",
                     "properties": {
@@ -18020,6 +17957,139 @@
                         "config"
                     ]
                 },
+                "NetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string"
+                        },
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
+                            "type": "string"
+                        },
+                        "device-index": {
+                            "type": "integer"
+                        },
+                        "disabled": {
+                            "type": "boolean"
+                        },
+                        "dns-search-domains": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "dns-servers": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "gateway-address": {
+                            "type": "string"
+                        },
+                        "interface-name": {
+                            "type": "string"
+                        },
+                        "interface-type": {
+                            "type": "string"
+                        },
+                        "is-default-gateway": {
+                            "type": "boolean"
+                        },
+                        "mac-address": {
+                            "type": "string"
+                        },
+                        "mtu": {
+                            "type": "integer"
+                        },
+                        "no-auto-start": {
+                            "type": "boolean"
+                        },
+                        "parent-interface-name": {
+                            "type": "string"
+                        },
+                        "provider-address-id": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
+                        "provider-vlan-id": {
+                            "type": "string"
+                        },
+                        "routes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "device-index",
+                        "mac-address",
+                        "cidr",
+                        "mtu",
+                        "provider-id",
+                        "provider-network-id",
+                        "provider-subnet-id",
+                        "provider-space-id",
+                        "provider-address-id",
+                        "provider-vlan-id",
+                        "vlan-tag",
+                        "interface-name",
+                        "parent-interface-name",
+                        "interface-type",
+                        "disabled"
+                    ]
+                },
+                "NetworkRoute": {
+                    "type": "object",
+                    "properties": {
+                        "destination-cidr": {
+                            "type": "string"
+                        },
+                        "gateway-ip": {
+                            "type": "string"
+                        },
+                        "metric": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "destination-cidr",
+                        "gateway-ip",
+                        "metric"
+                    ]
+                },
                 "NotifyWatchResult": {
                     "type": "object",
                     "properties": {
@@ -18035,19 +18105,75 @@
                         "NotifyWatcherId"
                     ]
                 },
-                "SetMachinesAddresses": {
+                "ProviderNetworkConfig": {
                     "type": "object",
                     "properties": {
-                        "machine-addresses": {
+                        "config": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/MachineAddresses"
+                                "$ref": "#/definitions/NetworkConfig"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "config"
+                    ]
+                },
+                "SetProviderNetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ProviderNetworkConfig"
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "machine-addresses"
+                        "args"
+                    ]
+                },
+                "SetProviderNetworkConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "modified": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "addresses",
+                        "modified"
+                    ]
+                },
+                "SetProviderNetworkConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetProviderNetworkConfigResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "SetStatus": {
@@ -20559,17 +20685,6 @@
                         }
                     }
                 },
-                "SetProviderNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
                 "SetStatus": {
                     "type": "object",
                     "properties": {
@@ -20885,6 +21000,12 @@
                         "address": {
                             "type": "string"
                         },
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
                         "cidr": {
                             "type": "string"
                         },
@@ -20955,6 +21076,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
                             }
                         },
                         "vlan-tag": {
@@ -25901,17 +26028,6 @@
                         }
                     }
                 },
-                "SetProviderNetworkConfig": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/Entities"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
                 "SetStatus": {
                     "type": "object",
                     "properties": {
@@ -27065,6 +27181,12 @@
                         "address": {
                             "type": "string"
                         },
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
                         "cidr": {
                             "type": "string"
                         },
@@ -27135,6 +27257,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
                             }
                         },
                         "vlan-tag": {

@@ -561,6 +561,36 @@ type UnitNetworkConfig struct {
 	BindingName string `json:"binding-name"`
 }
 
+// SetProviderNetworkConfigs holds a machine tag and a list of network interface
+// info obtained by querying the provider.
+type SetProviderNetworkConfig struct {
+	Args []ProviderNetworkConfig `json:"args"`
+}
+
+// ProviderNetworkConfig holds a machine tag and a list of network interface
+// info obtained by querying the provider.
+type ProviderNetworkConfig struct {
+	Tag     string          `json:"tag"`
+	Configs []NetworkConfig `json:"config"`
+}
+
+// SetProviderNetworkConfigResults holds a list of SetProviderNetwork config
+// results.
+type SetProviderNetworkConfigResults struct {
+	Results []SetProviderNetworkConfigResult `json:"results"`
+}
+
+// SetProviderNetworkConfigResult holds a list of provider addresses or an
+// error.
+type SetProviderNetworkConfigResult struct {
+	Error     *Error    `json:"error,omitempty"`
+	Addresses []Address `json:"addresses"`
+
+	// Modified will be set to true if the provider address list has been
+	// updated.
+	Modified bool `json:"modified"`
+}
+
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
 	Tag       string    `json:"tag"`

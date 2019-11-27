@@ -740,6 +740,180 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 	s.st.CheckFindEntityCall(c, 3, "3")
 }
 
+func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
+	s.st.SetSpaceInfo(network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
+		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"}}},
+	})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+
+	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{
+			{
+				Tag: "machine-1",
+				Configs: []params.NetworkConfig{
+					{
+						Addresses: []params.Address{
+							{
+								Value: "10.0.0.42",
+								Scope: "local-cloud",
+							},
+							{
+								Value:           "10.73.37.111",
+								Scope:           "local-cloud",
+								ProviderSpaceID: "my-space-on-maas",
+							},
+							// This address does not match any of the CIDRs in
+							// the known spaces; we expect this to end up in
+							// alpha space.
+							{
+								Value: "192.168.0.1",
+								Scope: "local-cloud",
+							},
+						},
+						ShadowAddresses: []params.Address{
+							{
+								Value: "1.1.1.42",
+								Scope: "public",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Modified, jc.IsTrue)
+	c.Assert(result.Addresses, gc.HasLen, 4)
+	c.Assert(result.Addresses[0], gc.DeepEquals, params.Address{
+		Value:     "10.0.0.42",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "space1",
+	})
+	c.Assert(result.Addresses[1], gc.DeepEquals, params.Address{
+		Value:     "10.73.37.111",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "my-space-on-maas",
+	})
+	c.Assert(result.Addresses[2], gc.DeepEquals, params.Address{
+		Value:     "192.168.0.1",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "alpha",
+	})
+	c.Assert(result.Addresses[3], gc.DeepEquals, params.Address{
+		Value:     "1.1.1.42",
+		Type:      "ipv4",
+		Scope:     "public",
+		SpaceName: "alpha",
+	})
+
+	machine, err := s.st.Machine("1")
+	c.Assert(err, jc.ErrorIsNil)
+	providerAddrs := machine.ProviderAddresses()
+
+	c.Assert(providerAddrs, gc.DeepEquals, network.SpaceAddresses{
+		makeSpaceAddress("10.0.0.42", network.ScopeCloudLocal, "1"),
+		makeSpaceAddress("10.73.37.111", network.ScopeCloudLocal, "2"),
+		makeSpaceAddress("192.168.0.1", network.ScopeCloudLocal, network.AlphaSpaceId),
+		makeSpaceAddress("1.1.1.42", network.ScopePublic, network.AlphaSpaceId),
+	})
+}
+
+func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
+	s.st.SetSpaceInfo(network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
+		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"}}},
+	})
+	s.st.SetMachineInfo(c, machineInfo{
+		id:             "1",
+		instanceStatus: statusInfo("foo"),
+		providerAddresses: network.SpaceAddresses{
+			makeSpaceAddress("10.0.0.42", network.ScopeCloudLocal, "1"),
+			makeSpaceAddress("10.73.37.111", network.ScopeCloudLocal, "2"),
+			makeSpaceAddress("192.168.0.1", network.ScopeCloudLocal, network.AlphaSpaceId),
+			makeSpaceAddress("1.1.1.42", network.ScopePublic, network.AlphaSpaceId),
+		},
+	})
+
+	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{
+			{
+				Tag: "machine-1",
+				Configs: []params.NetworkConfig{
+					{
+						Addresses: []params.Address{
+							{
+								Value: "10.0.0.42",
+								Scope: "local-cloud",
+							},
+							{
+								Value:           "10.73.37.111",
+								Scope:           "local-cloud",
+								ProviderSpaceID: "my-space-on-maas",
+							},
+							// This address does not match any of the CIDRs in
+							// the known spaces; we expect this to end up in
+							// alpha space.
+							{
+								Value: "192.168.0.1",
+								Scope: "local-cloud",
+							},
+						},
+						ShadowAddresses: []params.Address{
+							{
+								Value: "1.1.1.42",
+								Scope: "public",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Modified, jc.IsFalse)
+	c.Assert(result.Addresses, gc.HasLen, 4)
+	c.Assert(result.Addresses[0], gc.DeepEquals, params.Address{
+		Value:     "10.0.0.42",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "space1",
+	})
+	c.Assert(result.Addresses[1], gc.DeepEquals, params.Address{
+		Value:     "10.73.37.111",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "my-space-on-maas",
+	})
+	c.Assert(result.Addresses[2], gc.DeepEquals, params.Address{
+		Value:     "192.168.0.1",
+		Type:      "ipv4",
+		Scope:     "local-cloud",
+		SpaceName: "alpha",
+	})
+	c.Assert(result.Addresses[3], gc.DeepEquals, params.Address{
+		Value:     "1.1.1.42",
+		Type:      "ipv4",
+		Scope:     "public",
+		SpaceName: "alpha",
+	})
+}
+
+func makeSpaceAddress(ip string, scope network.Scope, spaceID string) network.SpaceAddress {
+	addr := network.NewScopedSpaceAddress(ip, scope)
+	addr.SpaceID = spaceID
+	return addr
+}
+
 func statusInfo(st string) status.StatusInfo {
 	return status.StatusInfo{Status: status.Status(st)}
 }
