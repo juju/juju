@@ -116,3 +116,16 @@ func (k *kubernetesClient) listIngresses(labels map[string]string) ([]v1beta1.In
 	}
 	return ingList.Items, nil
 }
+
+func (k *kubernetesClient) deleteIngresses(appName string) error {
+	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getIngressLabels(appName)),
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
+}

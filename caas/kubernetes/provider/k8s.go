@@ -795,7 +795,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 
-	// TODO: remove INGRESSES !!!!!!
+	if err := k.deleteIngresses(appName); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
