@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/juju/core/crossmodel"
-
 	"github.com/golang/mock/gomock"
 	"github.com/juju/description"
 	"github.com/juju/errors"
@@ -25,6 +23,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/crossmodel"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
