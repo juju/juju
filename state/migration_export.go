@@ -1196,8 +1196,6 @@ type remoteEntitiesShim struct {
 }
 
 // AllRemoteEntities returns all remote entities in the model.
-// Macaroons are omitted with the assumption that they
-// will be automatically re-minted later.
 func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEntity, error) {
 	entities, err := s.st.AllRemoteEntities()
 	if err != nil {
@@ -1205,7 +1203,6 @@ func (s remoteEntitiesShim) AllRemoteEntities() ([]migrations.MigrationRemoteEnt
 	}
 	result := make([]migrations.MigrationRemoteEntity, len(entities))
 	for k, v := range entities {
-		v.macaroon = ""
 		result[k] = v
 	}
 	return result, nil
@@ -1921,8 +1918,6 @@ type remoteApplicationsShim struct {
 }
 
 // AllRemoteApplications returns all remote applications in the model.
-// Macaroons are omitted with the assumption that they
-// will be automatically re-minted later.
 func (s remoteApplicationsShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
 	remoteApps, err := s.st.AllRemoteApplications()
 	if err != nil {
@@ -1930,7 +1925,6 @@ func (s remoteApplicationsShim) AllRemoteApplications() ([]migrations.MigrationR
 	}
 	result := make([]migrations.MigrationRemoteApplication, len(remoteApps))
 	for k, v := range remoteApps {
-		v.doc.Macaroon = ""
 		result[k] = remoteApplicationShim{RemoteApplication: v}
 	}
 	return result, nil
