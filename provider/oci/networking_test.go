@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 )
 
 type networkingSuite struct {
@@ -250,7 +249,7 @@ func (n *networkingSuite) TestNetworkInterfaces(c *gc.C) {
 	c.Assert(info[0].DeviceIndex, gc.Equals, 0)
 	c.Assert(info[0].ProviderId, gc.Equals, corenetwork.Id(vnicID))
 	c.Assert(info[0].MACAddress, gc.Equals, "aa:aa:aa:aa:aa:aa")
-	c.Assert(info[0].InterfaceType, gc.Equals, network.EthernetInterface)
+	c.Assert(info[0].InterfaceType, gc.Equals, corenetwork.EthernetInterface)
 	c.Assert(info[0].ProviderSubnetId, gc.Equals, corenetwork.Id("fakeSubnetId"))
 	c.Assert(info[0].CIDR, gc.Equals, "1.0.0.0/8")
 }

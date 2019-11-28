@@ -5,9 +5,8 @@
 package cloudinit
 
 import (
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/packaging"
-
-	"github.com/juju/juju/network"
 )
 
 // windowsCloudConfig is the cloudconfig type specific to Windows machines.
@@ -123,6 +122,6 @@ func (cfg *windowsCloudConfig) updateProxySettings(PackageManagerProxyConfig) er
 }
 
 // AddNetworkConfig is defined on the NetworkingConfig interface.
-func (cfg *windowsCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInfo) error {
+func (cfg *windowsCloudConfig) AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error {
 	return nil
 }

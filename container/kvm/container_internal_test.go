@@ -7,7 +7,7 @@ import (
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/network"
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 // gocheck boilerplate.
@@ -18,7 +18,7 @@ type containerInternalSuite struct {
 var _ = gc.Suite(&containerInternalSuite{})
 
 func (containerInternalSuite) TestInterfaceInfo(c *gc.C) {
-	i := interfaceInfo{config: network.InterfaceInfo{
+	i := interfaceInfo{config: corenetwork.InterfaceInfo{
 		MACAddress: "mac", ParentInterfaceName: "piname", InterfaceName: "iname"}}
 	c.Check(i.InterfaceName(), gc.Equals, "iname")
 	c.Check(i.ParentInterfaceName(), gc.Equals, "piname")

@@ -23,6 +23,7 @@ import (
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
@@ -113,10 +114,10 @@ func prepInstanceConfig(c *gc.C) *instancecfg.InstanceConfig {
 }
 
 func prepNetworkConfig() *container.NetworkConfig {
-	return container.BridgeNetworkConfig("eth0", 1500, []network.InterfaceInfo{{
+	return container.BridgeNetworkConfig("eth0", 1500, []corenetwork.InterfaceInfo{{
 		InterfaceName:       "eth0",
-		InterfaceType:       network.EthernetInterface,
-		ConfigType:          network.ConfigDHCP,
+		InterfaceType:       corenetwork.EthernetInterface,
+		ConfigType:          corenetwork.ConfigDHCP,
 		ParentInterfaceName: "eth0",
 	}})
 }
@@ -207,10 +208,10 @@ func (s *managerSuite) TestContainerCreateUpdateIPv4Network(c *gc.C) {
 
 	// Supplying config for a single device with default bridge and without a
 	// CIDR will cause the default bridge to be updated with IPv4 config.
-	netConfig := container.BridgeNetworkConfig("eth0", 1500, []network.InterfaceInfo{{
+	netConfig := container.BridgeNetworkConfig("eth0", 1500, []corenetwork.InterfaceInfo{{
 		InterfaceName:       "eth0",
-		InterfaceType:       network.EthernetInterface,
-		ConfigType:          network.ConfigDHCP,
+		InterfaceType:       corenetwork.EthernetInterface,
+		ConfigType:          corenetwork.ConfigDHCP,
 		ParentInterfaceName: network.DefaultLXDBridge,
 	}})
 	_, _, err = s.manager.CreateContainer(
@@ -335,7 +336,7 @@ func (s *managerSuite) TestIsInitialized(c *gc.C) {
 func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	interfaces := []network.InterfaceInfo{{
+	interfaces := []corenetwork.InterfaceInfo{{
 		InterfaceName: "eth1",
 		InterfaceType: "ethernet",
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
@@ -353,7 +354,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithEmptyParentDevice(c *gc.C
 func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	interfaces := []network.InterfaceInfo{{
+	interfaces := []corenetwork.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",
@@ -385,7 +386,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigWithParentDevice(c *gc.C) {
 func (s *managerSuite) TestNetworkDevicesFromConfigUnknownCIDR(c *gc.C) {
 	defer s.setup(c).Finish()
 
-	interfaces := []network.InterfaceInfo{{
+	interfaces := []corenetwork.InterfaceInfo{{
 		ParentInterfaceName: "br-eth0",
 		InterfaceName:       "eth0",
 		InterfaceType:       "ethernet",

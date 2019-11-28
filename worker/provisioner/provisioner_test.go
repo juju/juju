@@ -44,7 +44,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/network"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -219,7 +218,7 @@ func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) i
 func (s *CommonProvisionerSuite) checkStartInstanceCustom(
 	c *gc.C, m *state.Machine,
 	secret string, cons constraints.Value,
-	networkInfo []network.InterfaceInfo,
+	networkInfo []corenetwork.InterfaceInfo,
 	subnetsToZones map[corenetwork.Id][]string,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,
@@ -242,7 +241,7 @@ func (s *CommonProvisionerSuite) checkStartInstances(c *gc.C, machines []*state.
 func (s *CommonProvisionerSuite) checkStartInstancesCustom(
 	c *gc.C, machines []*state.Machine,
 	secret string, cons constraints.Value,
-	networkInfo []network.InterfaceInfo,
+	networkInfo []corenetwork.InterfaceInfo,
 	subnetsToZones map[corenetwork.Id][]string,
 	volumes []storage.Volume,
 	volumeAttachments []storage.VolumeAttachment,

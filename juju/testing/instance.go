@@ -24,7 +24,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
@@ -99,7 +98,7 @@ func AssertStartInstance(
 func StartInstance(
 	env environs.Environ, ctx context.ProviderCallContext, controllerUUID, machineId string,
 ) (
-	instances.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
+	instances.Instance, *instance.HardwareCharacteristics, []corenetwork.InterfaceInfo, error,
 ) {
 	return StartInstanceWithConstraints(env, ctx, controllerUUID, machineId, constraints.Value{})
 }
@@ -126,7 +125,7 @@ func StartInstanceWithConstraints(
 	ctx context.ProviderCallContext,
 	controllerUUID, machineId string, cons constraints.Value,
 ) (
-	instances.Instance, *instance.HardwareCharacteristics, []network.InterfaceInfo, error,
+	instances.Instance, *instance.HardwareCharacteristics, []corenetwork.InterfaceInfo, error,
 ) {
 	params := environs.StartInstanceParams{ControllerUUID: controllerUUID, Constraints: cons, StatusCallback: fakeCallback}
 	result, err := StartInstanceWithParams(env, ctx, machineId, params)

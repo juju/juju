@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/container/lxd"
 	lxdtesting "github.com/juju/juju/container/lxd/testing"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/network"
 )
 
@@ -329,17 +330,17 @@ func (s *networkSuite) TestInterfaceInfoFromDevices(c *gc.C) {
 	info, err := lxd.InterfaceInfoFromDevices(nics)
 	c.Assert(err, jc.ErrorIsNil)
 
-	exp := []network.InterfaceInfo{
+	exp := []corenetwork.InterfaceInfo{
 		{
 			InterfaceName:       "eno9",
 			MACAddress:          "00:16:3e:00:00:3e",
-			ConfigType:          network.ConfigDHCP,
+			ConfigType:          corenetwork.ConfigDHCP,
 			ParentInterfaceName: "br1",
 		},
 		{
 			InterfaceName:       "eth0",
 			MACAddress:          "00:16:3e:00:00:00",
-			ConfigType:          network.ConfigDHCP,
+			ConfigType:          corenetwork.ConfigDHCP,
 			ParentInterfaceName: network.DefaultLXDBridge,
 		},
 	}

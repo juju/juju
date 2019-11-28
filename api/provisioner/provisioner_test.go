@@ -902,7 +902,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoNoValues(c 
 
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
-	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{})
+	c.Check(networkInfo, jc.DeepEquals, []corenetwork.InterfaceInfo{})
 }
 
 func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c *gc.C) {
@@ -952,7 +952,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 	provisionerApi := provisioner.NewStateFromFacade(facadeCaller)
 	networkInfo, err := provisionerApi.PrepareContainerInterfaceInfo(s.containerTag)
 	c.Assert(err, gc.IsNil)
-	c.Check(networkInfo, jc.DeepEquals, []network.InterfaceInfo{{
+	c.Check(networkInfo, jc.DeepEquals, []corenetwork.InterfaceInfo{{
 		DeviceIndex:         1,
 		MACAddress:          "de:ad:be:ff:11:22",
 		CIDR:                "192.168.0.5/24",
@@ -973,7 +973,7 @@ func (s *provisionerContainerSuite) TestPrepareContainerInterfaceInfoSingleNIC(c
 		DNSServers:          corenetwork.NewProviderAddresses("8.8.8.8"),
 		DNSSearchDomains:    []string{"mydomain"},
 		GatewayAddress:      corenetwork.NewProviderAddress("192.168.0.1"),
-		Routes: []network.Route{{
+		Routes: []corenetwork.Route{{
 			DestinationCIDR: "10.0.0.0/16",
 			GatewayIP:       "192.168.0.1",
 			Metric:          55,

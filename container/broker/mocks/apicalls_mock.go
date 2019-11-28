@@ -5,12 +5,14 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/provisioner"
 	params "github.com/juju/juju/apiserver/params"
+	corenetwork "github.com/juju/juju/core/network"
 	network "github.com/juju/juju/network"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
 )
 
 // MockAPICalls is a mock of APICalls interface
@@ -50,9 +52,9 @@ func (mr *MockAPICallsMockRecorder) ContainerConfig() *gomock.Call {
 }
 
 // GetContainerInterfaceInfo mocks base method
-func (m *MockAPICalls) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
+func (m *MockAPICalls) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]corenetwork.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "GetContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].([]network.InterfaceInfo)
+	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -90,9 +92,9 @@ func (mr *MockAPICallsMockRecorder) HostChangesForContainer(arg0 interface{}) *g
 }
 
 // PrepareContainerInterfaceInfo mocks base method
-func (m *MockAPICalls) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
+func (m *MockAPICalls) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]corenetwork.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].([]network.InterfaceInfo)
+	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/containerizer"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -1052,7 +1052,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		askProviderForAddress = environs.SupportsContainerAddresses(callContext, env)
 	}
 
-	preparedInfo := make([]network.InterfaceInfo, len(containerDevices))
+	preparedInfo := make([]corenetwork.InterfaceInfo, len(containerDevices))
 	for i, device := range containerDevices {
 		info, err := ctx.infoForDevice(device, askProviderForAddress)
 		if err != nil {
@@ -1081,7 +1081,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		logger.Debugf("using dhcp allocated addresses")
 	}
 
-	allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
+	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
 	logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil
@@ -1089,22 +1089,22 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 
 // infoForDevice returns interface information for a link-layer device.
 func (ctx *prepareOrGetContext) infoForDevice(
-	device containerizer.LinkLayerDevice, askProviderForAddress bool) (network.InterfaceInfo, error) {
+	device containerizer.LinkLayerDevice, askProviderForAddress bool) (corenetwork.InterfaceInfo, error) {
 	parentDevice, err := device.ParentDevice()
 	if err != nil || parentDevice == nil {
-		return network.InterfaceInfo{}, errors.Errorf("cannot get parent %q of container device %q: %v",
+		return corenetwork.InterfaceInfo{}, errors.Errorf("cannot get parent %q of container device %q: %v",
 			device.ParentName(), device.Name(), err)
 	}
 	parentAddrs, err := parentDevice.Addresses()
 	if err != nil {
-		return network.InterfaceInfo{}, errors.Trace(err)
+		return corenetwork.InterfaceInfo{}, errors.Trace(err)
 	}
 
-	info := network.InterfaceInfo{
+	info := corenetwork.InterfaceInfo{
 		InterfaceName:       device.Name(),
 		MACAddress:          device.MACAddress(),
-		ConfigType:          network.ConfigManual,
-		InterfaceType:       network.InterfaceType(device.Type()),
+		ConfigType:          corenetwork.ConfigManual,
+		InterfaceType:       corenetwork.InterfaceType(device.Type()),
 		NoAutoStart:         !device.IsAutoStart(),
 		Disabled:            !device.IsUp(),
 		MTU:                 int(device.MTU()),
@@ -1122,13 +1122,13 @@ func (ctx *prepareOrGetContext) infoForDevice(
 					firstAddress.SubnetCIDR(), firstAddress.Value(), parentDevice.Name(),
 				)
 			}
-			info.ConfigType = network.ConfigStatic
+			info.ConfigType = corenetwork.ConfigStatic
 			info.CIDR = parentDeviceSubnet.CIDR()
 			info.ProviderSubnetId = parentDeviceSubnet.ProviderId()
 			info.VLANTag = parentDeviceSubnet.VLANTag()
 			info.IsDefaultGateway = firstAddress.IsDefaultGateway()
 		} else {
-			info.ConfigType = network.ConfigDHCP
+			info.ConfigType = corenetwork.ConfigDHCP
 			info.CIDR = firstAddress.SubnetCIDR()
 			info.ProviderSubnetId = ""
 			info.VLANTag = 0
@@ -1137,7 +1137,7 @@ func (ctx *prepareOrGetContext) infoForDevice(
 		logger.Infof("host machine device %q has no addresses %v", parentDevice.Name(), parentAddrs)
 		// TODO(jam): 2017-02-15, have a concrete test for this case, as it
 		// seems to be the common case in the wild.
-		info.ConfigType = network.ConfigDHCP
+		info.ConfigType = corenetwork.ConfigDHCP
 		info.ProviderSubnetId = ""
 		info.VLANTag = 0
 	}

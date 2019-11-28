@@ -139,7 +139,7 @@ func (e *environ) getInstanceSubnets(
 }
 
 // NetworkInterfaces implements environs.NetworkingEnviron.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	if len(ids) == 0 {
 		return nil, environs.ErrNoInstances
 	}
@@ -176,7 +176,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		return nil, errors.Trace(err)
 	}
 
-	infos := make([][]network.InterfaceInfo, len(ids))
+	infos := make([][]corenetwork.InterfaceInfo, len(ids))
 	for idx, inst := range insts {
 		if inst == nil {
 			continue // no instance with this ID known by provider
@@ -205,7 +205,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 				)
 			}
 
-			infos[idx] = append(infos[idx], network.InterfaceInfo{
+			infos[idx] = append(infos[idx], corenetwork.InterfaceInfo{
 				DeviceIndex: i,
 				CIDR:        details.cidr,
 				// The network interface has no id in GCE so it's
@@ -219,10 +219,10 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 					corenetwork.NewScopedProviderAddress(iface.NetworkIP, corenetwork.ScopeCloudLocal),
 				},
 				ShadowAddresses: shadowAddrs,
-				InterfaceType:   network.EthernetInterface,
+				InterfaceType:   corenetwork.EthernetInterface,
 				Disabled:        false,
 				NoAutoStart:     false,
-				ConfigType:      network.ConfigDHCP,
+				ConfigType:      corenetwork.ConfigDHCP,
 			})
 		}
 	}
@@ -340,7 +340,7 @@ func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (b
 }
 
 // AllocateContainerAddresses implements environs.NetworkingEnviron.
-func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(context.ProviderCallContext, instance.Id, names.MachineTag, []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container addresses")
 }
 

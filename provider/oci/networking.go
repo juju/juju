@@ -1047,9 +1047,9 @@ func (e *Environ) SuperSubnets(ctx envcontext.ProviderCallContext) ([]string, er
 	return nil, errors.NotSupportedf("super subnets")
 }
 
-func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	var (
-		infos = make([][]network.InterfaceInfo, len(ids))
+		infos = make([][]corenetwork.InterfaceInfo, len(ids))
 		err   error
 	)
 
@@ -1062,14 +1062,14 @@ func (e *Environ) NetworkInterfaces(ctx envcontext.ProviderCallContext, ids []in
 	return infos, nil
 }
 
-func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
 	oInst, err := e.getOCIInstance(ctx, instId)
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
 		return nil, errors.Trace(err)
 	}
 
-	info := []network.InterfaceInfo{}
+	info := []corenetwork.InterfaceInfo{}
 	vnics, err := oInst.getVnics()
 	if err != nil {
 		providerCommon.HandleCredentialError(err, ctx)
@@ -1088,7 +1088,7 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 		if !ok || subnet.CidrBlock == nil {
 			continue
 		}
-		nic := network.InterfaceInfo{
+		nic := corenetwork.InterfaceInfo{
 			InterfaceName: fmt.Sprintf("unsupported%d", iface.Idx),
 			DeviceIndex:   iface.Idx,
 			ProviderId:    corenetwork.Id(*iface.Vnic.Id),
@@ -1099,7 +1099,7 @@ func (e *Environ) networkInterfacesForInstance(ctx envcontext.ProviderCallContex
 					corenetwork.ScopeCloudLocal,
 				),
 			},
-			InterfaceType:    network.EthernetInterface,
+			InterfaceType:    corenetwork.EthernetInterface,
 			ProviderSubnetId: corenetwork.Id(*iface.Vnic.SubnetId),
 			CIDR:             *subnet.CidrBlock,
 		}
@@ -1146,8 +1146,8 @@ func (e *Environ) AllocateContainerAddresses(
 	ctx envcontext.ProviderCallContext,
 	hostInstanceID instance.Id,
 	containerTag names.MachineTag,
-	preparedInfo []network.InterfaceInfo,
-) ([]network.InterfaceInfo, error) {
+	preparedInfo []corenetwork.InterfaceInfo,
+) ([]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("AllocateContainerAddresses")
 }
 

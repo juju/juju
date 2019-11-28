@@ -982,7 +982,7 @@ func (suite *maas2EnvironSuite) TestStartInstanceNetworkInterfaces(c *gc.C) {
 	params := environs.StartInstanceParams{ControllerUUID: suite.controllerUUID}
 	result, err := jujutesting.StartInstanceWithParams(env, suite.callCtx, "1", params)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "52:54:00:70:9b:fe",
 		CIDR:              "10.20.19.0/24",
@@ -1149,7 +1149,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []network.InterfaceInfo{{
+	prepared := []corenetwork.InterfaceInfo{{
 		MACAddress:    "52:54:00:70:9b:fe",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1157,7 +1157,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "192.168.1.0/24",
@@ -1173,7 +1173,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSingleNic(c *gc.C)
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "192.168.1.1"),
-		Routes: []network.Route{{
+		Routes: []corenetwork.Route{{
 			DestinationCIDR: subnet1.CIDR(),
 			GatewayIP:       "192.168.1.1",
 			Metric:          100,
@@ -1278,7 +1278,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []network.InterfaceInfo{{
+	prepared := []corenetwork.InterfaceInfo{{
 		MACAddress:    "52:54:00:70:9b:fe",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1286,7 +1286,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 	ignored := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "10.20.19.0/24",
@@ -1302,7 +1302,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesNoStaticRoutesAPI(
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "10.20.19.2"),
-		Routes:            []network.Route{},
+		Routes:            []corenetwork.Route{},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -1372,7 +1372,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesStaticRoutesDenied
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []network.InterfaceInfo{{
+	prepared := []corenetwork.InterfaceInfo{{
 		MACAddress:    "52:54:00:70:9b:fe",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1518,7 +1518,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
 
-	prepared := []network.InterfaceInfo{{
+	prepared := []corenetwork.InterfaceInfo{{
 		MACAddress:    "53:54:00:70:9b:ff",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1527,7 +1527,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		CIDR:          "192.168.1.0/24",
 		InterfaceName: "eth1",
 	}}
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "10.20.19.0/24",
@@ -1557,7 +1557,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "192.168.1.1"),
-		Routes: []network.Route{{
+		Routes: []corenetwork.Route{{
 			DestinationCIDR: "10.20.19.0/24",
 			GatewayIP:       "192.168.1.1",
 			Metric:          100,
@@ -1569,9 +1569,9 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesDualNic(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, controller *fakeController, prepared []network.InterfaceInfo, errorMatches string) {
+func (suite *maas2EnvironSuite) assertAllocateContainerAddressesFails(c *gc.C, controller *fakeController, prepared []corenetwork.InterfaceInfo, errorMatches string) {
 	if prepared == nil {
-		prepared = []network.InterfaceInfo{{}}
+		prepared = []corenetwork.InterfaceInfo{{}}
 	}
 	suite.injectController(controller)
 	env := suite.makeEnviron(c, nil)
@@ -1634,7 +1634,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesMachinesError(c *g
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []network.InterfaceInfo{
+	prepared := []corenetwork.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1669,7 +1669,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateDeviceError(
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []network.InterfaceInfo{
+	prepared := []corenetwork.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
@@ -1748,14 +1748,14 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesSubnetMissing(c *g
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []network.InterfaceInfo{
+	prepared := []corenetwork.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "", MACAddress: "DEADBEEE"},
 	}
 	ignored := names.NewMachineTag("1/lxd/0")
 	allocated, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), ignored, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(allocated, jc.DeepEquals, []network.InterfaceInfo{{
+	c.Assert(allocated, jc.DeepEquals, []corenetwork.InterfaceInfo{{
 		DeviceIndex:    0,
 		MACAddress:     "53:54:00:70:9b:ff",
 		ProviderId:     "93",
@@ -1810,7 +1810,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesCreateInterfaceErr
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []network.InterfaceInfo{
+	prepared := []corenetwork.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
@@ -1860,7 +1860,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerAddressesLinkSubnetError(c 
 	}
 	suite.injectController(controller)
 	env = suite.makeEnviron(c, nil)
-	prepared := []network.InterfaceInfo{
+	prepared := []corenetwork.InterfaceInfo{
 		{InterfaceName: "eth0", CIDR: "10.20.19.0/24", MACAddress: "DEADBEEF"},
 		{InterfaceName: "eth1", CIDR: "10.20.20.0/24", MACAddress: "DEADBEEE"},
 	}
@@ -1974,7 +1974,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []network.InterfaceInfo{{
+	prepared := []corenetwork.InterfaceInfo{{
 		MACAddress:    "53:54:00:70:9b:ff",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -1982,7 +1982,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 	containerTag := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:9b:ff",
 		CIDR:              "10.20.19.0/24",
@@ -1998,7 +1998,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerReuseExistingDevice(c *gc.C
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("space-1", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("space-1", "10.20.19.2"),
-		Routes:            []network.Route{},
+		Routes:            []corenetwork.Route{},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }
@@ -2169,7 +2169,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 	suite.setupFakeTools(c)
 	env = suite.makeEnviron(c, nil)
 
-	prepared := []network.InterfaceInfo{{
+	prepared := []corenetwork.InterfaceInfo{{
 		MACAddress:    "53:54:00:70:88:aa",
 		CIDR:          "10.20.19.0/24",
 		InterfaceName: "eth0",
@@ -2181,7 +2181,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 	containerTag := names.NewMachineTag("1/lxd/0")
 	result, err := env.AllocateContainerAddresses(suite.callCtx, instance.Id("1"), containerTag, prepared)
 	c.Assert(err, jc.ErrorIsNil)
-	expected := []network.InterfaceInfo{{
+	expected := []corenetwork.InterfaceInfo{{
 		DeviceIndex:       0,
 		MACAddress:        "53:54:00:70:88:aa",
 		CIDR:              "10.20.19.0/24",
@@ -2197,7 +2197,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("freckles", "10.20.19.2", "10.20.19.3"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "10.20.19.2"),
-		Routes:            []network.Route{},
+		Routes:            []corenetwork.Route{},
 	}, {
 		DeviceIndex:       1,
 		MACAddress:        "53:54:00:70:88:bb",
@@ -2214,7 +2214,7 @@ func (suite *maas2EnvironSuite) TestAllocateContainerRefusesReuseInvalidNIC(c *g
 		DNSServers:        corenetwork.NewProviderAddressesInSpace("freckles", "192.168.1.2"),
 		MTU:               1500,
 		GatewayAddress:    corenetwork.NewProviderAddressInSpace("freckles", "192.168.1.1"),
-		Routes:            []network.Route{},
+		Routes:            []corenetwork.Route{},
 	}}
 	c.Assert(result, jc.DeepEquals, expected)
 }

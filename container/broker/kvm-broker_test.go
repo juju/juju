@@ -26,7 +26,6 @@ import (
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -220,7 +219,7 @@ func (s *kvmBrokerSuite) TestStartInstancePopulatesNetworkInfo(c *gc.C) {
 
 	c.Assert(result.NetworkInfo, gc.HasLen, 1)
 	iface := result.NetworkInfo[0]
-	c.Assert(iface, jc.DeepEquals, network.InterfaceInfo{
+	c.Assert(iface, jc.DeepEquals, corenetwork.InterfaceInfo{
 		DeviceIndex:         0,
 		CIDR:                "0.1.2.0/24",
 		InterfaceName:       "dummy0",

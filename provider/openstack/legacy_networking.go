@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 )
 
 // LegacyNovaNetworking is an implementation of Networking that uses the legacy
@@ -88,6 +87,6 @@ func (n *LegacyNovaNetworking) Subnets(
 }
 
 // NetworkInterfaces is part of the Networking interface.
-func (n *LegacyNovaNetworking) NetworkInterfaces(ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (n *LegacyNovaNetworking) NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("nova network interfaces")
 }

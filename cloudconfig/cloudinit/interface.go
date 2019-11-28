@@ -9,6 +9,7 @@ package cloudinit
 
 import (
 	"github.com/juju/errors"
+	corenetwork "github.com/juju/juju/core/network"
 	jujupackaging "github.com/juju/juju/packaging"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
@@ -17,8 +18,6 @@ import (
 	"github.com/juju/packaging/config"
 	"github.com/juju/proxy"
 	"github.com/juju/utils/shell"
-
-	"github.com/juju/juju/network"
 )
 
 // CloudConfig is the interface of all cloud-init cloudconfig options.
@@ -415,7 +414,7 @@ type HostnameConfig interface {
 // NetworkingConfig is the interface for managing configuration of network
 type NetworkingConfig interface {
 	// AddNetworkConfig adds network config from interfaces to the container.
-	AddNetworkConfig(interfaces []network.InterfaceInfo) error
+	AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error
 }
 
 // New returns a new Config with no options set.

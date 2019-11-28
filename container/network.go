@@ -4,7 +4,7 @@
 package container
 
 import (
-	"github.com/juju/juju/network"
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 const (
@@ -18,15 +18,15 @@ type NetworkConfig struct {
 	Device      string
 	MTU         int
 
-	Interfaces []network.InterfaceInfo
+	Interfaces []corenetwork.InterfaceInfo
 }
 
 // FallbackInterfaceInfo returns a single "eth0" interface configured with DHCP.
-func FallbackInterfaceInfo() []network.InterfaceInfo {
-	return []network.InterfaceInfo{{
+func FallbackInterfaceInfo() []corenetwork.InterfaceInfo {
+	return []corenetwork.InterfaceInfo{{
 		InterfaceName: "eth0",
-		InterfaceType: network.EthernetInterface,
-		ConfigType:    network.ConfigDHCP,
+		InterfaceType: corenetwork.EthernetInterface,
+		ConfigType:    corenetwork.ConfigDHCP,
 	}}
 }
 
@@ -35,7 +35,7 @@ func FallbackInterfaceInfo() []network.InterfaceInfo {
 // configuration for the container's network interfaces and default MTU to use.
 // If interfaces is empty, FallbackInterfaceInfo() is used to get the a sane
 // default
-func BridgeNetworkConfig(device string, mtu int, interfaces []network.InterfaceInfo) *NetworkConfig {
+func BridgeNetworkConfig(device string, mtu int, interfaces []corenetwork.InterfaceInfo) *NetworkConfig {
 	if len(interfaces) == 0 {
 		interfaces = FallbackInterfaceInfo()
 	}

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/loggo"
 
 	corenetwork "github.com/juju/juju/core/network"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/network/netplan"
 )
 
@@ -29,7 +28,7 @@ var (
 
 // GenerateENITemplate renders an e/n/i template config for one or more network
 // interfaces, using the given non-empty interfaces list.
-func GenerateENITemplate(interfaces []network.InterfaceInfo) (string, error) {
+func GenerateENITemplate(interfaces []corenetwork.InterfaceInfo) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -68,7 +67,7 @@ func GenerateENITemplate(interfaces []network.InterfaceInfo) (string, error) {
 		if !hasAddress {
 			output.WriteString("iface " + name + " inet manual\n")
 			continue
-		} else if address == string(network.ConfigDHCP) {
+		} else if address == string(corenetwork.ConfigDHCP) {
 			output.WriteString("iface " + name + " inet dhcp\n")
 			// We're expecting to get a default gateway
 			// from the DHCP lease.
@@ -138,7 +137,7 @@ func GenerateENITemplate(interfaces []network.InterfaceInfo) (string, error) {
 
 // GenerateNetplan renders a netplan file for one or more network
 // interfaces, using the given non-empty list of interfaces.
-func GenerateNetplan(interfaces []network.InterfaceInfo) (string, error) {
+func GenerateNetplan(interfaces []corenetwork.InterfaceInfo) (string, error) {
 	if len(interfaces) == 0 {
 		return "", errors.Errorf("missing container network config")
 	}
@@ -150,7 +149,7 @@ func GenerateNetplan(interfaces []network.InterfaceInfo) (string, error) {
 		var iface netplan.Ethernet
 		if cidr := info.CIDRAddress(); cidr != "" {
 			iface.Addresses = append(iface.Addresses, cidr)
-		} else if info.ConfigType == network.ConfigDHCP {
+		} else if info.ConfigType == corenetwork.ConfigDHCP {
 			t := true
 			iface.DHCP4 = &t
 		}
@@ -202,7 +201,7 @@ type PreparedConfig struct {
 	DNSServers       []string
 	DNSSearchDomains []string
 	NameToAddress    map[string]string
-	NameToRoutes     map[string][]network.Route
+	NameToRoutes     map[string][]corenetwork.Route
 	NameToMTU        map[string]int
 	Gateway4Address  string
 	Gateway6Address  string
@@ -211,14 +210,14 @@ type PreparedConfig struct {
 // PrepareNetworkConfigFromInterfaces collects the necessary information to
 // render a persistent network config from the given slice of
 // network.InterfaceInfo. The result always includes the loopback interface.
-func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *PreparedConfig {
+func PrepareNetworkConfigFromInterfaces(interfaces []corenetwork.InterfaceInfo) *PreparedConfig {
 	dnsServers := set.NewStrings()
 	dnsSearchDomains := set.NewStrings()
 	gateway4Address := ""
 	gateway6Address := ""
 	namesInOrder := make([]string, 1, len(interfaces)+1)
 	nameToAddress := make(map[string]string)
-	nameToRoutes := make(map[string][]network.Route)
+	nameToRoutes := make(map[string][]corenetwork.Route)
 	nameToMTU := make(map[string]int)
 
 	// Always include the loopback.
@@ -250,8 +249,8 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 
 		if cidr := info.CIDRAddress(); cidr != "" {
 			nameToAddress[ifaceName] = cidr
-		} else if info.ConfigType == network.ConfigDHCP {
-			nameToAddress[ifaceName] = string(network.ConfigDHCP)
+		} else if info.ConfigType == corenetwork.ConfigDHCP {
+			nameToAddress[ifaceName] = string(corenetwork.ConfigDHCP)
 		}
 		nameToRoutes[ifaceName] = info.Routes
 
@@ -297,7 +296,7 @@ func PrepareNetworkConfigFromInterfaces(interfaces []network.InterfaceInfo) *Pre
 // AddNetworkConfig adds configuration scripts for specified interfaces
 // to cloudconfig - using boot textfiles and boot commands. It currently
 // supports e/n/i and netplan.
-func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces []network.InterfaceInfo) error {
+func (cfg *ubuntuCloudConfig) AddNetworkConfig(interfaces []corenetwork.InterfaceInfo) error {
 	if len(interfaces) != 0 {
 		eni, err := GenerateENITemplate(interfaces)
 		if err != nil {

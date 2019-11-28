@@ -28,8 +28,8 @@ var logger = loggo.GetLogger("juju.container.broker")
 //go:generate mockgen -package mocks -destination mocks/apicalls_mock.go github.com/juju/juju/container/broker APICalls
 type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
-	PrepareContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
-	GetContainerInterfaceInfo(names.MachineTag) ([]network.InterfaceInfo, error)
+	PrepareContainerInterfaceInfo(names.MachineTag) ([]corenetwork.InterfaceInfo, error)
+	GetContainerInterfaceInfo(names.MachineTag) ([]corenetwork.InterfaceInfo, error)
 	GetContainerProfileInfo(names.MachineTag) ([]*apiprovisioner.LXDProfileResult, error)
 	ReleaseContainerAddresses(names.MachineTag) error
 	SetHostMachineNetworkConfig(names.MachineTag, []params.NetworkConfig) error
@@ -45,7 +45,7 @@ func prepareOrGetContainerInterfaceInfo(
 	machineID string,
 	allocateOrMaintain bool,
 	log loggo.Logger,
-) ([]network.InterfaceInfo, error) {
+) ([]corenetwork.InterfaceInfo, error) {
 	maintain := !allocateOrMaintain
 
 	if maintain {
@@ -73,14 +73,14 @@ func prepareOrGetContainerInterfaceInfo(
 // bridgeDevice is used for ParentInterfaceName, while the DNS config is
 // discovered using network.ParseResolvConf(). If interfaces has zero length,
 // container.FallbackInterfaceInfo() is used as fallback.
-func finishNetworkConfig(bridgeDevice string, interfaces []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func finishNetworkConfig(bridgeDevice string, interfaces []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
 	haveNameservers, haveSearchDomains := false, false
 	if len(interfaces) == 0 {
 		// Use the fallback network config as a last resort.
 		interfaces = container.FallbackInterfaceInfo()
 	}
 
-	results := make([]network.InterfaceInfo, len(interfaces))
+	results := make([]corenetwork.InterfaceInfo, len(interfaces))
 	for i, info := range interfaces {
 		if info.ParentInterfaceName == "" {
 			info.ParentInterfaceName = bridgeDevice

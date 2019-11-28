@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/cloudinit"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/network"
+	corenetwork "github.com/juju/juju/core/network"
 )
 
 var (
@@ -58,7 +58,7 @@ func CloudInitUserData(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var interfaces []network.InterfaceInfo
+	var interfaces []corenetwork.InterfaceInfo
 	if networkConfig != nil {
 		interfaces = networkConfig.Interfaces
 	}

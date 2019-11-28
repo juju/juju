@@ -978,7 +978,7 @@ func (e *environ) gatherInstances(
 }
 
 // NetworkInterfaces implements NetworkingEnviron.NetworkInterfaces.
-func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error) {
+func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
 	switch len(ids) {
 	case 0:
 		return nil, environs.ErrNoInstances
@@ -987,7 +987,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		if err != nil {
 			return nil, err
 		}
-		return [][]network.InterfaceInfo{ifList}, nil
+		return [][]corenetwork.InterfaceInfo{ifList}, nil
 	}
 
 	// Collect all available subnets into a map where keys are subnet IDs
@@ -998,7 +998,7 @@ func (e *environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 		return nil, errors.Annotate(maybeConvertCredentialError(err, ctx), "failed to retrieve subnet info")
 	}
 
-	infos := make([][]network.InterfaceInfo, len(ids))
+	infos := make([][]corenetwork.InterfaceInfo, len(ids))
 	idToInfosIndex := make(map[string]int)
 	for idx, id := range ids {
 		idToInfosIndex[string(id)] = idx
@@ -1063,7 +1063,7 @@ func (e *environ) subnetMap() (map[string]ec2.Subnet, error) {
 func (e *environ) gatherNetworkInterfaceInfo(
 	ctx context.ProviderCallContext,
 	filter *ec2.Filter,
-	infos [][]network.InterfaceInfo,
+	infos [][]corenetwork.InterfaceInfo,
 	idToInfosIndex map[string]int,
 	subMap map[string]ec2.Subnet,
 ) error {
@@ -1107,7 +1107,7 @@ func (e *environ) gatherNetworkInterfaceInfo(
 	return nil
 }
 
-func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]network.InterfaceInfo, error) {
+func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, instId instance.Id) ([]corenetwork.InterfaceInfo, error) {
 	var err error
 	var networkInterfacesResp *ec2.NetworkInterfacesResp
 	for a := shortAttempt.Start(); a.Next(); {
@@ -1138,7 +1138,7 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 		return nil, errors.Annotatef(err, "cannot get instance %q network interfaces", instId)
 	}
 	ec2Interfaces := networkInterfacesResp.Interfaces
-	result := make([]network.InterfaceInfo, len(ec2Interfaces))
+	result := make([]corenetwork.InterfaceInfo, len(ec2Interfaces))
 	for i, iface := range ec2Interfaces {
 		resp, err := e.ec2.Subnets([]string{iface.SubnetId}, nil)
 		if err != nil {
@@ -1153,8 +1153,8 @@ func (e *environ) networkInterfacesForInstance(ctx context.ProviderCallContext, 
 	return result, nil
 }
 
-func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) network.InterfaceInfo {
-	ni := network.InterfaceInfo{
+func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) corenetwork.InterfaceInfo {
+	ni := corenetwork.InterfaceInfo{
 		DeviceIndex:       iface.Attachment.DeviceIndex,
 		MACAddress:        iface.MACAddress,
 		CIDR:              subnet.CIDRBlock,
@@ -1166,8 +1166,8 @@ func mapNetworkInterface(iface ec2.NetworkInterface, subnet ec2.Subnet) network.
 		InterfaceName: fmt.Sprintf("unsupported%d", iface.Attachment.DeviceIndex),
 		Disabled:      false,
 		NoAutoStart:   false,
-		ConfigType:    network.ConfigDHCP,
-		InterfaceType: network.EthernetInterface,
+		ConfigType:    corenetwork.ConfigDHCP,
+		InterfaceType: corenetwork.EthernetInterface,
 		// The describe interface responses that we get back from EC2
 		// define a *list* of private IP addresses with one entry that
 		// is tagged as primary and whose value is encoded in the
@@ -2167,7 +2167,7 @@ func ec2ErrCode(err error) string {
 	return ec2err.Code
 }
 
-func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (e *environ) AllocateContainerAddresses(ctx context.ProviderCallContext, hostInstanceID instance.Id, containerTag names.MachineTag, preparedInfo []corenetwork.InterfaceInfo) ([]corenetwork.InterfaceInfo, error) {
 	return nil, errors.NotSupportedf("container address allocation")
 }
 

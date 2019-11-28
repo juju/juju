@@ -19,22 +19,22 @@ import (
 )
 
 type InterfaceInfoSuite struct {
-	info []network.InterfaceInfo
+	info []corenetwork.InterfaceInfo
 }
 
 var _ = gc.Suite(&InterfaceInfoSuite{})
 
 func (s *InterfaceInfoSuite) SetUpTest(c *gc.C) {
-	s.info = []network.InterfaceInfo{
+	s.info = []corenetwork.InterfaceInfo{
 		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
-		{ConfigType: network.ConfigDHCP, NoAutoStart: true},
+		{ConfigType: corenetwork.ConfigDHCP, NoAutoStart: true},
 		{Addresses: corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")}},
 		{DNSServers: corenetwork.NewProviderAddresses("1.1.1.1", "2.2.2.2")},
 		{GatewayAddress: corenetwork.NewProviderAddress("4.3.2.1")},
 		{AvailabilityZones: []string{"foo", "bar"}},
-		{Routes: []network.Route{{
+		{Routes: []corenetwork.Route{{
 			DestinationCIDR: "0.1.2.3/24",
 			GatewayIP:       "0.1.2.1",
 			Metric:          0,
@@ -61,13 +61,13 @@ func (s *InterfaceInfoSuite) TestIsVLAN(c *gc.C) {
 }
 
 func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
-	c.Check(s.info[3].ConfigType, gc.Equals, network.ConfigDHCP)
+	c.Check(s.info[3].ConfigType, gc.Equals, corenetwork.ConfigDHCP)
 	c.Check(s.info[3].NoAutoStart, jc.IsTrue)
 	c.Check(s.info[4].Addresses, jc.DeepEquals, corenetwork.ProviderAddresses{corenetwork.NewProviderAddress("0.1.2.3")})
 	c.Check(s.info[5].DNSServers, jc.DeepEquals, corenetwork.NewProviderAddresses("1.1.1.1", "2.2.2.2"))
 	c.Check(s.info[6].GatewayAddress, jc.DeepEquals, corenetwork.NewProviderAddress("4.3.2.1"))
 	c.Check(s.info[7].AvailabilityZones, jc.DeepEquals, []string{"foo", "bar"})
-	c.Check(s.info[8].Routes, jc.DeepEquals, []network.Route{{
+	c.Check(s.info[8].Routes, jc.DeepEquals, []corenetwork.Route{{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1",
 		Metric:          0,
@@ -75,17 +75,17 @@ func (s *InterfaceInfoSuite) TestAdditionalFields(c *gc.C) {
 }
 
 func (s *InterfaceInfoSuite) TestSortInterfaceInfo(c *gc.C) {
-	info := []network.InterfaceInfo{
+	info := []corenetwork.InterfaceInfo{
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
 	}
-	expectedInfo := []network.InterfaceInfo{
+	expectedInfo := []corenetwork.InterfaceInfo{
 		{VLANTag: 1, DeviceIndex: 0, InterfaceName: "eth0"},
 		{VLANTag: 0, DeviceIndex: 1, InterfaceName: "eth1"},
 		{VLANTag: 42, DeviceIndex: 2, InterfaceName: "br2"},
 	}
-	network.SortInterfaceInfo(info)
+	corenetwork.SortInterfaceInfo(info)
 	c.Assert(info, jc.DeepEquals, expectedInfo)
 }
 
@@ -93,18 +93,18 @@ type RouteSuite struct{}
 
 var _ = gc.Suite(&RouteSuite{})
 
-func checkRouteIsValid(c *gc.C, r network.Route) {
+func checkRouteIsValid(c *gc.C, r corenetwork.Route) {
 	c.Check(r.Validate(), jc.ErrorIsNil)
 }
 
-func checkRouteErrEquals(c *gc.C, r network.Route, errString string) {
+func checkRouteErrEquals(c *gc.C, r corenetwork.Route, errString string) {
 	err := r.Validate()
 	c.Assert(err, gc.NotNil)
 	c.Check(err.Error(), gc.Equals, errString)
 }
 
 func (s *RouteSuite) TestValidIPv4(c *gc.C) {
-	checkRouteIsValid(c, network.Route{
+	checkRouteIsValid(c, corenetwork.Route{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1",
 		Metric:          20,
@@ -112,7 +112,7 @@ func (s *RouteSuite) TestValidIPv4(c *gc.C) {
 }
 
 func (s *RouteSuite) TestValidIPv6(c *gc.C) {
-	checkRouteIsValid(c, network.Route{
+	checkRouteIsValid(c, corenetwork.Route{
 		DestinationCIDR: "2001:db8:a0b:12f0::1/64",
 		GatewayIP:       "2001:db8:a0b:12f0::1",
 		Metric:          10,
@@ -120,12 +120,12 @@ func (s *RouteSuite) TestValidIPv6(c *gc.C) {
 }
 
 func (s *RouteSuite) TestInvalidMixedIP(c *gc.C) {
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "2001:db8::1",
 		Metric:          10,
 	}, "DestinationCIDR is IPv4 (0.1.2.3/24) but GatewayIP is IPv6 (2001:db8::1)")
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "2001:db8::1/64",
 		GatewayIP:       "0.1.2.1",
 		Metric:          10,
@@ -133,12 +133,12 @@ func (s *RouteSuite) TestInvalidMixedIP(c *gc.C) {
 }
 
 func (s *RouteSuite) TestInvalidNotCIDR(c *gc.C) {
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "0.1.2.3",
 		GatewayIP:       "0.1.2.1",
 		Metric:          10,
 	}, "DestinationCIDR not valid: invalid CIDR address: 0.1.2.3")
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "2001:db8::2",
 		GatewayIP:       "2001:db8::1",
 		Metric:          10,
@@ -146,17 +146,17 @@ func (s *RouteSuite) TestInvalidNotCIDR(c *gc.C) {
 }
 
 func (s *RouteSuite) TestInvalidNotIP(c *gc.C) {
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1/16",
 		Metric:          10,
 	}, `GatewayIP is not a valid IP address: "0.1.2.1/16"`)
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "",
 		Metric:          10,
 	}, `GatewayIP is not a valid IP address: ""`)
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "2001:db8::2/64",
 		GatewayIP:       "",
 		Metric:          10,
@@ -164,7 +164,7 @@ func (s *RouteSuite) TestInvalidNotIP(c *gc.C) {
 }
 
 func (s *RouteSuite) TestInvalidMetric(c *gc.C) {
-	checkRouteErrEquals(c, network.Route{
+	checkRouteErrEquals(c, corenetwork.Route{
 		DestinationCIDR: "0.1.2.3/24",
 		GatewayIP:       "0.1.2.1",
 		Metric:          -1,

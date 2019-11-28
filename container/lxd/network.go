@@ -408,15 +408,15 @@ func ipv6BridgeConfigError(fileName string, installedViaSnap bool) error {
 // input LXD NIC devices.
 // The output is used to generate cloud-init user-data congruent with the NICs
 // that end up in the container.
-func InterfaceInfoFromDevices(nics map[string]device) ([]network.InterfaceInfo, error) {
-	interfaces := make([]network.InterfaceInfo, len(nics))
+func InterfaceInfoFromDevices(nics map[string]device) ([]corenetwork.InterfaceInfo, error) {
+	interfaces := make([]corenetwork.InterfaceInfo, len(nics))
 	var i int
 	for name, device := range nics {
-		iInfo := network.InterfaceInfo{
+		iInfo := corenetwork.InterfaceInfo{
 			InterfaceName:       name,
 			ParentInterfaceName: device["parent"],
 			MACAddress:          device["hwaddr"],
-			ConfigType:          network.ConfigDHCP,
+			ConfigType:          corenetwork.ConfigDHCP,
 		}
 		if device["mtu"] != "" {
 			mtu, err := strconv.Atoi(device["mtu"])
@@ -434,7 +434,7 @@ func InterfaceInfoFromDevices(nics map[string]device) ([]network.InterfaceInfo, 
 	return interfaces, nil
 }
 
-type interfaceInfoSlice []network.InterfaceInfo
+type interfaceInfoSlice []corenetwork.InterfaceInfo
 
 func (s interfaceInfoSlice) Len() int      { return len(s) }
 func (s interfaceInfoSlice) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
@@ -442,7 +442,7 @@ func (s interfaceInfoSlice) Less(i, j int) bool {
 	return s[i].InterfaceName < s[j].InterfaceName
 }
 
-func sortInterfacesByName(interfaces []network.InterfaceInfo) {
+func sortInterfacesByName(interfaces []corenetwork.InterfaceInfo) {
 	sort.Sort(interfaceInfoSlice(interfaces))
 }
 
@@ -453,15 +453,15 @@ const errIPV6NotSupported = `socket: address family not supported by protocol`
 // DevicesFromInterfaceInfo uses the input interface info collection to create a
 // map of network device configuration in the LXD format.
 // Names for any networks without a known CIDR are returned in a slice.
-func DevicesFromInterfaceInfo(interfaces []network.InterfaceInfo) (map[string]device, []string, error) {
+func DevicesFromInterfaceInfo(interfaces []corenetwork.InterfaceInfo) (map[string]device, []string, error) {
 	nics := make(map[string]device, len(interfaces))
 	var unknown []string
 
 	for _, v := range interfaces {
-		if v.InterfaceType == network.LoopbackInterface {
+		if v.InterfaceType == corenetwork.LoopbackInterface {
 			continue
 		}
-		if v.InterfaceType != network.EthernetInterface {
+		if v.InterfaceType != corenetwork.EthernetInterface {
 			return nil, nil, errors.Errorf("interface type %q not supported", v.InterfaceType)
 		}
 		if v.ParentInterfaceName == "" {
