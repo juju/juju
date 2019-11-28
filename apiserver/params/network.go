@@ -141,7 +141,23 @@ type NetworkConfig struct {
 	// Address contains an optional static IP address to configure for
 	// this network interface. The subnet mask to set will be inferred
 	// from the CIDR value.
+	//
+	// NOTE(achilleasa) this field is retained for backwards compatibility
+	// purposes and will be removed in juju 3. New features should use
+	// the Addresses field below which also include scope information.
 	Address string `json:"address,omitempty"`
+
+	// Addresses contains an optional list of static IP address to
+	// configure for this network interface. The subnet mask to set will be
+	// inferred from the CIDR value of the first entry which is always
+	// assumed to be the primary IP address for the interface.
+	Addresses []Address `json:"addresses,omitempty"`
+
+	// ShadowAddresses contains an optional list of additional IP addresses
+	// that the underlying network provider associates with this network
+	// interface instance. These IP addresses are not typically visible
+	// to the machine that the interface is connected to.
+	ShadowAddresses []Address `json:"shadow-addresses,omitempty"`
 
 	// DNSServers contains an optional list of IP addresses and/or
 	// hostnames to configure as DNS servers for this network
@@ -184,9 +200,6 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []Ne
 			}
 		}
 
-		// TODO(achilleasa): we currently only emit a NetworkConfig for
-		// the primary address. We need to revisit this and emit configs
-		// for each Address/ShadowAddress entry.
 		result[i] = NetworkConfig{
 			DeviceIndex:         v.DeviceIndex,
 			MACAddress:          v.MACAddress,
@@ -205,12 +218,17 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []Ne
 			Disabled:            v.Disabled,
 			NoAutoStart:         v.NoAutoStart,
 			ConfigType:          string(v.ConfigType),
-			Address:             v.PrimaryAddress().Value,
-			DNSServers:          dnsServers,
-			DNSSearchDomains:    v.DNSSearchDomains,
-			GatewayAddress:      v.GatewayAddress.Value,
-			Routes:              routes,
-			IsDefaultGateway:    v.IsDefaultGateway,
+			// This field is retained for compatibility purposes.
+			// New code should instead use Addresses which includes
+			// scope and space information.
+			Address:          v.PrimaryAddress().Value,
+			Addresses:        FromProviderAddresses(v.Addresses...),
+			ShadowAddresses:  FromProviderAddresses(v.ShadowAddresses...),
+			DNSServers:       dnsServers,
+			DNSSearchDomains: v.DNSSearchDomains,
+			GatewayAddress:   v.GatewayAddress.Value,
+			Routes:           routes,
+			IsDefaultGateway: v.IsDefaultGateway,
 		}
 	}
 	return result
