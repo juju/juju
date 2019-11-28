@@ -114,8 +114,8 @@ type KubernetesResources struct {
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
-	ServiceAccounts []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
-	Ingresses       []K8sIngressSpec        `json:"ingresses,omitempty" yaml:"ingresses,omitempty"`
+	ServiceAccounts  []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
+	IngressResources []K8sIngressSpec        `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
 
 func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
@@ -148,7 +148,7 @@ func (krs *KubernetesResources) Validate() error {
 		}
 	}
 
-	for _, ing := range krs.Ingresses {
+	for _, ing := range krs.IngressResources {
 		if err := ing.Validate(); err != nil {
 			return errors.Trace(err)
 		}

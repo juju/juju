@@ -1,4 +1,4 @@
-// Copyright 2017 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package provider
@@ -25,7 +25,7 @@ func (k *kubernetesClient) getIngressLabels(appName string) map[string]string {
 
 // TODO(caas): should we overwrite the existing `juju expose` created ingress if user runs upgrade-charm with new ingress podspec v2.
 // https://bugs.launchpad.net/juju/+bug/1854123
-func (k *kubernetesClient) ensureIngresses(
+func (k *kubernetesClient) ensureIngressResources(
 	appName string, annotations k8sannotations.Annotation, ingSpecs []k8sspecs.K8sIngressSpec,
 ) (cleanUps []func(), err error) {
 	for _, v := range ingSpecs {
@@ -73,7 +73,7 @@ func (k *kubernetesClient) createIngress(ingress *v1beta1.Ingress) (*v1beta1.Ing
 	purifyResource(ingress)
 	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Create(ingress)
 	if k8serrors.IsAlreadyExists(err) {
-		return nil, errors.AlreadyExistsf("ingress %q", ingress.GetName())
+		return nil, errors.AlreadyExistsf("ingress resource %q", ingress.GetName())
 	}
 	return out, errors.Trace(err)
 }
@@ -81,7 +81,7 @@ func (k *kubernetesClient) createIngress(ingress *v1beta1.Ingress) (*v1beta1.Ing
 func (k *kubernetesClient) getIngress(name string) (*v1beta1.Ingress, error) {
 	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Get(name, v1.GetOptions{IncludeUninitialized: true})
 	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("ingress %q", name)
+		return nil, errors.NotFoundf("ingress resource %q", name)
 	}
 	return out, errors.Trace(err)
 }
@@ -89,7 +89,7 @@ func (k *kubernetesClient) getIngress(name string) (*v1beta1.Ingress, error) {
 func (k *kubernetesClient) updateIngress(ingress *v1beta1.Ingress) (*v1beta1.Ingress, error) {
 	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Update(ingress)
 	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("ingress %q", ingress.GetName())
+		return nil, errors.NotFoundf("ingress resource %q", ingress.GetName())
 	}
 	return out, errors.Trace(err)
 }
@@ -102,7 +102,7 @@ func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) listIngresses(labels map[string]string) ([]v1beta1.Ingress, error) {
+func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1beta1.Ingress, error) {
 	listOps := v1.ListOptions{
 		LabelSelector:        labelsToSelector(labels),
 		IncludeUninitialized: true,
@@ -117,7 +117,7 @@ func (k *kubernetesClient) listIngresses(labels map[string]string) ([]v1beta1.In
 	return ingList.Items, nil
 }
 
-func (k *kubernetesClient) deleteIngresses(appName string) error {
+func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{

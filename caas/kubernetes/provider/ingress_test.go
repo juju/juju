@@ -22,12 +22,11 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertIngresses(c *gc.C, ingresses []k8sspecs.K8sIngressSpec, expectedErrString string, assertCalls ...*gomock.Call) {
-
+func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8sspecs.K8sIngressSpec, expectedErrString string, assertCalls ...*gomock.Call) {
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			Ingresses: ingresses,
+			IngressResources: IngressResources,
 		},
 	}
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
@@ -125,7 +124,7 @@ func (s *K8sBrokerSuite) assertIngresses(c *gc.C, ingresses []k8sspecs.K8sIngres
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressesCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -157,7 +156,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressesCreate(c *gc.C) {
 		},
 	}
 
-	ingresses := []k8sspecs.K8sIngressSpec{ingress1}
+	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
 	ingress := &extensionsv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-ingress",
@@ -174,13 +173,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressesCreate(c *gc.C) {
 			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
-	s.assertIngresses(
-		c, ingresses, "",
+	s.assertIngressResources(
+		c, IngressResources, "",
 		s.mockIngressInterface.EXPECT().Create(ingress).Return(ingress, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressesUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -212,7 +211,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressesUpdate(c *gc.C) {
 		},
 	}
 
-	ingresses := []k8sspecs.K8sIngressSpec{ingress1}
+	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
 	ingress := &extensionsv1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-ingress",
@@ -229,15 +228,15 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressesUpdate(c *gc.C) {
 			Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
 		},
 	}
-	s.assertIngresses(
-		c, ingresses, "",
+	s.assertIngressResources(
+		c, IngressResources, "",
 		s.mockIngressInterface.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{IncludeUninitialized: true}).Return(ingress, nil),
 		s.mockIngressInterface.EXPECT().Update(ingress).Return(ingress, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceIngressesUpdateConflictWithExistingNonJujuManagedIngress(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceIngressResourcesUpdateConflictWithExistingNonJujuManagedIngress(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -269,7 +268,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressesUpdateConflictWithExistingNon
 		},
 	}
 
-	ingresses := []k8sspecs.K8sIngressSpec{ingress1}
+	IngressResources := []k8sspecs.K8sIngressSpec{ingress1}
 
 	getIngress := func() *extensionsv1beta1.Ingress {
 		return &extensionsv1beta1.Ingress{
@@ -292,8 +291,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceIngressesUpdateConflictWithExistingNon
 	ingress := getIngress()
 	existingNonJujuManagedIngress := getIngress()
 	existingNonJujuManagedIngress.SetLabels(map[string]string{})
-	s.assertIngresses(
-		c, ingresses, `creating or updating ingress resources: existing ingress "test-ingress" found which does not belong to "app-name"`,
+	s.assertIngressResources(
+		c, IngressResources, `creating or updating ingress resources: existing ingress "test-ingress" found which does not belong to "app-name"`,
 		s.mockIngressInterface.EXPECT().Create(ingress).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockIngressInterface.EXPECT().Get("test-ingress", v1.GetOptions{IncludeUninitialized: true}).Return(existingNonJujuManagedIngress, nil),
 	)

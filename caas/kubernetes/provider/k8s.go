@@ -795,7 +795,7 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 
-	if err := k.deleteIngresses(appName); err != nil {
+	if err := k.deleteIngressResources(appName); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
@@ -994,9 +994,9 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	// ensure ingress resources.
-	ings := workloadSpec.Ingresses
+	ings := workloadSpec.IngressResources
 	if len(ings) > 0 {
-		ingCleanUps, err := k.ensureIngresses(appName, annotations, workloadSpec.Ingresses)
+		ingCleanUps, err := k.ensureIngressResources(appName, annotations, workloadSpec.IngressResources)
 		cleanups = append(cleanups, ingCleanUps...)
 		if err != nil {
 			return errors.Annotate(err, "creating or updating ingress resources")
@@ -2379,7 +2379,7 @@ type workloadSpec struct {
 	ServiceAccounts           []serviceAccountSpecGetter
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 	CustomResources           map[string][]unstructured.Unstructured
-	Ingresses                 []k8sspecs.K8sIngressSpec
+	IngressResources          []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2451,7 +2451,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
-			spec.Ingresses = k8sResources.Ingresses
+			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds

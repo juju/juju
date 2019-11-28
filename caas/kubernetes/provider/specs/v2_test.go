@@ -229,7 +229,7 @@ kubernetesResources:
                   containers:
                     - name: tensorflow
                       image: kubeflow/tf-dist-mnist-test:1.0
-  ingresses:
+  ingressResources:
     - name: test-ingress
       labels:
         foo: bar
@@ -562,7 +562,7 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				Ingresses: []k8sspecs.K8sIngressSpec{ingress1},
+				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
 			},
 		}
 		return pSpecs
@@ -701,7 +701,7 @@ kubernetesResources:
 	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
 }
 
-func (s *v2SpecsSuite) TestValidateIngresses(c *gc.C) {
+func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
 	specStr := versionHeader + `
 containers:
   - name: gitlab-helper
@@ -710,7 +710,7 @@ containers:
     - containerPort: 8080
       protocol: TCP
 kubernetesResources:
-  ingresses:
+  ingressResources:
     - labels:
         foo: bar
       annotations:
