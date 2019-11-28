@@ -51,7 +51,7 @@ type applicationOfferDoc struct {
 	// typically copied from the charm metadata.
 	ApplicationDescription string `bson:"application-description"`
 
-	// Endpoints are the charm endpoints supported by the applicationbob.
+	// Endpoints are the charm endpoints supported by the application.
 	Endpoints map[string]string `bson:"endpoints"`
 }
 

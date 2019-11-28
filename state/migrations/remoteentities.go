@@ -35,7 +35,7 @@ type ExportRemoteEntities struct{}
 // Execute the migration of the remote entities using typed interfaces, to
 // ensure we don't loose any type safety.
 // This doesn't conform to an interface because go doesn't have generics, but
-// when this does arrive this would be an execellent place to use them.
+// when this does arrive this would be an excellent place to use them.
 func (ExportRemoteEntities) Execute(src RemoteEntitiesSource, dst RemoteEntitiesModel) error {
 	entities, err := src.AllRemoteEntities()
 	if err != nil {

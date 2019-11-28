@@ -296,7 +296,7 @@ func (ctx *precheckContext) checkMachines() error {
 	if err != nil {
 		return errors.Annotate(err, "retrieving machines")
 	}
-	modelPresenceContext := common.ModelPresenceContext{ctx.presence}
+	modelPresenceContext := common.ModelPresenceContext{Presence: ctx.presence}
 	for _, machine := range machines {
 		if machine.Life() != state.Alive {
 			return errors.Errorf("machine %s is %s", machine.Id(), machine.Life())

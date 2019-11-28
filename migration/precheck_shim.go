@@ -35,10 +35,7 @@ type precheckShim struct {
 // Model implements PrecheckBackend.
 func (s *precheckShim) Model() (PrecheckModel, error) {
 	model, err := s.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return model, nil
+	return model, errors.Trace(err)
 }
 
 // IsMigrationActive implements PrecheckBackend.
@@ -70,9 +67,9 @@ func (s *precheckShim) AllMachines() ([]PrecheckMachine, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckMachine, 0, len(machines))
-	for _, machine := range machines {
-		out = append(out, machine)
+	out := make([]PrecheckMachine, len(machines))
+	for i, machine := range machines {
+		out[i] = machine
 	}
 	return out, nil
 }
@@ -83,9 +80,9 @@ func (s *precheckShim) AllApplications() ([]PrecheckApplication, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckApplication, 0, len(apps))
-	for _, app := range apps {
-		out = append(out, &precheckAppShim{app})
+	out := make([]PrecheckApplication, len(apps))
+	for i, app := range apps {
+		out[i] = &precheckAppShim{app}
 	}
 	return out, nil
 }
@@ -95,9 +92,9 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var out []PrecheckRelation
-	for _, rel := range rels {
-		out = append(out, &precheckRelationShim{rel})
+	out := make([]PrecheckRelation, len(rels))
+	for i, rel := range rels {
+		out[i] = &precheckRelationShim{rel}
 	}
 	return out, nil
 }
@@ -105,10 +102,7 @@ func (s *precheckShim) AllRelations() ([]PrecheckRelation, error) {
 // ListPendingResources implements PrecheckBackend.
 func (s *precheckShim) ListPendingResources(app string) ([]resource.Resource, error) {
 	resources, err := s.resourcesSt.ListPendingResources(app)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return resources, nil
+	return resources, errors.Trace(err)
 }
 
 // ControllerBackend implements PrecheckBackend.
@@ -144,9 +138,9 @@ func (s *precheckAppShim) AllUnits() ([]PrecheckUnit, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	out := make([]PrecheckUnit, 0, len(units))
-	for _, unit := range units {
-		out = append(out, unit)
+	out := make([]PrecheckUnit, len(units))
+	for i, unit := range units {
+		out[i] = unit
 	}
 	return out, nil
 }
@@ -163,14 +157,11 @@ func (s *precheckRelationShim) Unit(pu PrecheckUnit) (PrecheckRelationUnit, erro
 		return nil, errors.Errorf("got %T instead of *state.Unit", pu)
 	}
 	ru, err := s.Relation.Unit(u)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ru, nil
+	return ru, errors.Trace(err)
 }
 
 // IsCrossModel implements PreCheckRelation.
 func (s *precheckRelationShim) IsCrossModel() (bool, error) {
 	_, result, err := s.Relation.RemoteApplication()
-	return result, err
+	return result, errors.Trace(err)
 }
