@@ -99,6 +99,9 @@ func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst Remot
 
 func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSource, dst RemoteApplicationModel, app MigrationRemoteApplication) error {
 	url, _ := app.URL()
+
+	// Note that remote applications do not include a macaroon member at all.
+	// These are not intended for export.
 	args := description.RemoteApplicationArgs{
 		Tag:             app.Tag().(names.ApplicationTag),
 		OfferUUID:       app.OfferUUID(),

@@ -183,7 +183,10 @@ func (s *MigrationExportSuite) TestModelInfo(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	machineSeq := s.setRandSequenceValue(c, "machine")
 	fooSeq := s.setRandSequenceValue(c, "application-foo")
-	s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
+
+	err = s.State.SwitchBlockOn(state.ChangeBlock, "locked down")
+	c.Assert(err, jc.ErrorIsNil)
+
 	environVersion := 123
 	err = s.Model.SetEnvironVersion(environVersion)
 	c.Assert(err, jc.ErrorIsNil)
