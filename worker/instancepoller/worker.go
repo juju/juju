@@ -21,7 +21,6 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
-	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -49,7 +48,7 @@ var (
 // poller.
 type Environ interface {
 	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
-	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]jujunetwork.InterfaceInfo, error)
+	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]network.InterfaceInfo, error)
 }
 
 // Machine specifies an interface for machine instances processed by the
@@ -57,8 +56,7 @@ type Environ interface {
 type Machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
-	ProviderAddresses() (network.ProviderAddresses, error)
-	SetProviderAddresses(...network.ProviderAddress) error
+	SetProviderNetworkConfig([]network.InterfaceInfo) (network.ProviderAddresses, bool, error)
 	InstanceStatus() (params.StatusResult, error)
 	SetInstanceStatus(status.Status, string, map[string]interface{}) error
 	String() string
@@ -358,9 +356,15 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 	}
 
 	infoList, err := u.config.Environ.Instances(u.callContext, instList)
-	if err != nil && !(err == environs.ErrPartialInstances || err == environs.ErrNoInstances) {
+	if err != nil && !isPartialOrNoInstancesError(err) {
 		return errors.Trace(err)
 	}
+
+	netList, err := u.config.Environ.NetworkInterfaces(u.callContext, instList)
+	if err != nil && !(errors.IsNotSupported(errors.Cause(err)) || isPartialOrNoInstancesError(err)) {
+		return errors.Trace(err)
+	}
+
 	for idx, info := range infoList {
 		// No details found for this instance. This most probably means
 		// that the unit has been killed and we haven't been notified
@@ -370,8 +374,13 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 			continue
 		}
 
+		var ifList []network.InterfaceInfo
+		if netList != nil {
+			ifList = netList[idx]
+		}
+
 		entry := u.instanceIDToGroupEntry[instList[idx]]
-		providerStatus, err := u.processProviderInfo(entry, info)
+		providerStatus, providerAddrCount, err := u.processProviderInfo(entry, info, ifList)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -380,7 +389,8 @@ func (u *updaterWorker) pollGroupMembers(groupType pollGroupType) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		u.maybeSwitchPollGroup(groupType, entry, providerStatus, status.Status(machineStatus.Status))
+
+		u.maybeSwitchPollGroup(groupType, entry, providerStatus, status.Status(machineStatus.Status), providerAddrCount)
 	}
 
 	return nil
@@ -401,14 +411,18 @@ func (u *updaterWorker) resolveInstanceID(entry *pollGroupEntry) error {
 	return nil
 }
 
-func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance) (status.Status, error) {
+// processProviderInfo updates an entry's machine status and set of provider
+// addresses based on the information collected from the provider. It returns
+// back the *instance* status and the number of provider addresses currently
+// known for the machine.
+func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instances.Instance, providerIfaceList []network.InterfaceInfo) (status.Status, int, error) {
 	curStatus, err := entry.m.InstanceStatus()
 	if err != nil {
 		// This should never occur since the machine is provisioned. If
 		// it does occur, report an unknown status to move the machine to
 		// the short poll group.
 		u.config.Logger.Warningf("cannot get current instance status for machine %v (instance ID %q): %v", entry.m.Id(), entry.instanceID, err)
-		return status.Unknown, nil
+		return status.Unknown, -1, nil
 	}
 
 	// Check for status changes
@@ -422,7 +436,7 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 		u.config.Logger.Infof("machine %q (instance ID %q) instance status changed from %q to %q", entry.m.Id(), entry.instanceID, curInstStatus, providerStatus)
 		if err = entry.m.SetInstanceStatus(providerStatus.Status, providerStatus.Message, nil); err != nil {
 			u.config.Logger.Errorf("cannot set instance status on %q: %v", entry.m, err)
-			return status.Unknown, errors.Trace(err)
+			return status.Unknown, -1, errors.Trace(err)
 		}
 
 		// If the instance is now running, we should reset the poll
@@ -436,45 +450,77 @@ func (u *updaterWorker) processProviderInfo(entry *pollGroupEntry, info instance
 	// We don't care about dead machines; they will be cleaned up when we
 	// process the following machine watcher events.
 	if entry.m.Life() == life.Dead {
-		return status.Unknown, nil
+		return status.Unknown, -1, nil
 	}
 
-	// Compare the addreses reported by the provider with the ones recorded
-	// at the machine model and trigger an update if required.
-	curAddresses, err := entry.m.ProviderAddresses()
+	// Check whether the provider addresses for this machine need to be
+	// updated.
+	addrCount, err := u.syncProviderAddresses(entry, info, providerIfaceList)
 	if err != nil {
-		return status.Unknown, errors.Trace(err)
+		return status.Unknown, -1, err
 	}
 
-	providerAddresses, err := info.Addresses(u.callContext)
+	return providerStatus.Status, addrCount, nil
+}
+
+// syncProviderAddresses updates the provider addresses for this entry's machine
+// using either the provider interface list or falling back to the collected
+// instance information.
+//
+// The call returns back the count of provider addresses for the machine.
+func (u *updaterWorker) syncProviderAddresses(entry *pollGroupEntry, instInfo instances.Instance, providerIfaceList []network.InterfaceInfo) (int, error) {
+	// If the provider does not support NetworkInterfaces, we will get an
+	// empty providerIfaceList; if that's the case, populate a minimal
+	// interface list from the instance info
+	// the info we need from the instance.
+	if len(providerIfaceList) == 0 {
+		addrs, err := instInfo.Addresses(u.callContext)
+		if err != nil {
+			return -1, errors.Trace(err)
+		}
+		providerIfaceList = fakeInterfacesFromInstanceAddrs(addrs)
+	}
+
+	addrs, modified, err := entry.m.SetProviderNetworkConfig(providerIfaceList)
 	if err != nil {
-		return status.Unknown, errors.Trace(err)
+		return -1, errors.Trace(err)
+	} else if modified {
+		u.config.Logger.Infof("machine %q (instance ID %q) has new addresses: %v", entry.m.Id(), entry.instanceID, addrs)
 	}
 
-	if !addressesEqual(curAddresses, providerAddresses) {
-		u.config.Logger.Infof("machine %q (instance ID %q) has new addresses: %v", entry.m.Id(), entry.instanceID, providerAddresses)
-		if err := entry.m.SetProviderAddresses(providerAddresses...); err != nil {
-			u.config.Logger.Errorf("cannot set addresses on %q: %v", entry.m, err)
-			return status.Unknown, errors.Trace(err)
+	return len(addrs), nil
+}
+
+// fakeInterfacesFromInstanceAddrs serves a fall-back for providers that don't
+// provide us with network interface information. For these providers we fetch
+// the reported instance addresses and coerce them into a list of InterfaceInfo
+// that we can send to the instancepoller facade.
+func fakeInterfacesFromInstanceAddrs(addrs []network.ProviderAddress) []network.InterfaceInfo {
+	instIfaceList := make([]network.InterfaceInfo, len(addrs))
+	for i, addr := range addrs {
+		instIfaceList[i].DeviceIndex = i
+		switch addr.Scope {
+		case network.ScopePublic:
+			instIfaceList[i].ShadowAddresses = append(instIfaceList[i].ShadowAddresses, addr)
+		default:
+			instIfaceList[i].Addresses = append(instIfaceList[i].Addresses, addr)
 		}
 	}
 
-	return providerStatus.Status, nil
+	return instIfaceList
 }
 
-func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *pollGroupEntry, curProviderStatus, curMachineStatus status.Status) {
+func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *pollGroupEntry, curProviderStatus, curMachineStatus status.Status, providerAddrCount int) {
 	if curProviderStatus == status.Allocating || curProviderStatus == status.Pending {
 		// Keep the machine in the short poll group until it settles
 		entry.bumpShortPollInterval(u.config.Clock)
 		return
 	}
 
-	machAddrs, _ := entry.m.ProviderAddresses()
-
 	// If the machine is currently in the long poll group and it has an
 	// unknown status or suddenly has no network addresses, move it back to
 	// the short poll group.
-	if curGroup == longPollGroup && (curProviderStatus == status.Unknown || len(machAddrs) == 0) {
+	if curGroup == longPollGroup && (curProviderStatus == status.Unknown || providerAddrCount == 0) {
 		u.moveEntryToPollGroup(shortPollGroup, entry)
 		u.config.Logger.Debugf("moving machine %q (instance ID %q) back to short poll group", entry.m, entry.instanceID)
 		return
@@ -482,7 +528,7 @@ func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *poll
 
 	// The machine has started and we have at least one address; move to
 	// the long poll group
-	if len(machAddrs) > 0 && curMachineStatus == status.Started {
+	if providerAddrCount > 0 && curMachineStatus == status.Started {
 		u.moveEntryToPollGroup(longPollGroup, entry)
 		if curGroup != longPollGroup {
 			u.config.Logger.Debugf("moving machine %q (instance ID %q) to long poll group", entry.m, entry.instanceID)
@@ -497,21 +543,7 @@ func (u *updaterWorker) maybeSwitchPollGroup(curGroup pollGroupType, entry *poll
 	}
 }
 
-// addressesEqual compares the addresses of the machine and the instance information.
-func addressesEqual(addrs0, addrs1 network.ProviderAddresses) bool {
-	if len(addrs0) != len(addrs1) {
-		return false
-	}
-
-nextAddr:
-	for _, a0 := range addrs0 {
-		for _, a1 := range addrs1 {
-			if a0 == a1 {
-				continue nextAddr
-			}
-		}
-		return false
-	}
-
-	return true
+func isPartialOrNoInstancesError(err error) bool {
+	cause := errors.Cause(err)
+	return cause == environs.ErrPartialInstances || cause == environs.ErrNoInstances
 }
