@@ -39,6 +39,19 @@ var phaseNames = []string{
 	"ABORTDONE",
 }
 
+// Those phases are only used to get a complete successful round for testing purposes.
+func SuccessfulMigrationPhases() []Phase {
+	return []Phase{
+		IMPORT,
+		PROCESSRELATIONS,
+		VALIDATION,
+		SUCCESS,
+		LOGTRANSFER,
+		REAP,
+		DONE,
+	}
+}
+
 // String returns the name of an model migration phase constant.
 func (p Phase) String() string {
 	i := int(p)

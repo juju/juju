@@ -6,7 +6,7 @@ Package core exists to hold concepts and pure logic pertaining to juju's domain.
 We'd call it "model code" if we weren't planning to rename "environ" to "model";
 but that'd be quite needlessly confusing, so "core" it is.
 
-This is a necessarily broad brush; if anything, it's mmost important to be aware
+This is a necessarily broad brush; if anything, it's most important to be aware
 what should *not* go here. In particular:
 
   * if it makes any reference to MongoDB, it should not be in here.
@@ -48,7 +48,7 @@ because:
 
 ...but plenty of other bits will *not* be easy: in particular, all the business
 rules that concern consistency are really tricky, and somewhat dangerous, to
-extract, because (while those rules and relationshipps *are* business logic) we
+extract, because (while those rules and relationships *are* business logic) we
 need to be able to *render* them into a mgo/txn representation to ensure DB
 consistency. If we just depend on implementing the state bits to match, rather
 than *use*, the core logic, we're basically completely screwed.
