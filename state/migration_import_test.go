@@ -22,6 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
@@ -764,6 +765,61 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
+}
+
+func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
+	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
+	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+	adminSpace, err := s.State.AddSpace("server-admin", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	testCharm := s.AddTestingCharm(c, "mysql")
+	application := s.AddTestingApplicationWithBindings(c, "mysql",
+		testCharm,
+		map[string]string{
+			"server":       serverSpace.Id(),
+			"server-admin": adminSpace.Id(),
+		},
+	)
+
+	stOffers := state.NewApplicationOffers(s.State)
+	_, err = stOffers.AddOffer(
+		crossmodel.AddApplicationOfferArgs{
+			OfferName:       "my-offer",
+			Owner:           "admin",
+			ApplicationName: application.Name(),
+			Endpoints: map[string]string{
+				"server":       serverSpace.Name(),
+				"server-admin": adminSpace.Name(),
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Allow "foo" to consume offer
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("my-offer"),
+		fooUser.UserTag(),
+		permission.ConsumeAccess,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateOffers := state.NewApplicationOffers(s.State)
+	exportedOffers, err := stateOffers.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exportedOffers, gc.HasLen, 1)
+	exported := exportedOffers[0]
+
+	_, newSt := s.importModel(c, s.State)
+
+	newStateOffers := state.NewApplicationOffers(newSt)
+	importedOffers, err := newStateOffers.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedOffers, gc.HasLen, 1)
+	imported := importedOffers[0]
+	c.Assert(exported.OfferName, gc.Equals, imported.OfferName)
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {

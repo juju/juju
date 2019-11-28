@@ -1257,18 +1257,21 @@ func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOfferDoc(app de
 	// This feels wrong, we should be getting back what we put in, it's not very
 	// idempotent
 	eps := make(map[string]string, len(app.Endpoints()))
-	for _, endpoint := range app.Endpoints() {
-		url, err := crossmodel.ParseOfferURL(endpoint)
-		if err != nil {
-			return applicationOfferDoc{}, errors.Trace(err)
-		}
-		eps[url.ApplicationName] = url.String()
+	/*for _, endpoint := range app.Endpoints() {
+			url, err := crossmodel.ParseOfferURL(endpoint)
+			if err != nil {
+				return applicationOfferDoc{}, errors.Trace(err)
+			}
+			eps[url.ApplicationName] = url.String()
 	}
+	*/
 
 	ao := &applicationOffers{st: s.importer.st}
 	return ao.makeApplicationOfferDoc(s.importer.st, uuid.String(), crossmodel.AddApplicationOfferArgs{
-		OfferName: app.OfferName(),
-		Endpoints: eps,
+		OfferName:              app.OfferName(),
+		ApplicationName:        "mysql",
+		ApplicationDescription: "fake-app-description",
+		Endpoints:              eps,
 	}), nil
 }
 
@@ -1714,8 +1717,8 @@ func (i *importer) remoteEntities() error {
 	return nil
 }
 
-//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace,RemoteEntitiesDescription,RelationNetworksDescription,RemoteApplicationsDescription
-//go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
+//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace,RemoteEntitiesDescription,RelationNetworksDescription,RemoteApplicationsDescription,ApplicationOfferStateDocumentFactory,ApplicationOfferDescription
+//go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description ApplicationOffer,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 
 // TransactionRunner is an inplace usage for running transactions to a
 // persistence store.
