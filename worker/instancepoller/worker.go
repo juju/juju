@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/instances"
+	jujunetwork "github.com/juju/juju/network"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -48,6 +49,7 @@ var (
 // poller.
 type Environ interface {
 	Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error)
+	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]jujunetwork.InterfaceInfo, error)
 }
 
 // Machine specifies an interface for machine instances processed by the
