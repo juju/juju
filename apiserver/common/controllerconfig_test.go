@@ -6,21 +6,23 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type controllerConfigSuite struct {
@@ -145,4 +147,41 @@ func (s *controllerInfoSuite) TestControllerInfoExternalModel(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, 1)
 	c.Assert(results.Results[0].Addresses, gc.DeepEquals, info.Addrs)
 	c.Assert(results.Results[0].CACert, gc.Equals, info.CACert)
+}
+
+func (s *controllerInfoSuite) TestControllerInfoMigratedController(c *gc.C) {
+	cc := common.NewStateControllerConfig(s.State)
+	modelState := s.Factory.MakeModel(c, &factory.ModelParams{})
+	model, err := modelState.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+	defer modelState.Close()
+
+	// Migrate the model and delete it from the state
+	controllerIP := "1.2.3.4:5555"
+	mig, err := modelState.CreateMigration(state.MigrationSpec{
+		InitiatedBy: names.NewUserTag("admin"),
+		TargetInfo: migration.TargetInfo{
+			ControllerTag:   targetControllerTag,
+			ControllerAlias: "target",
+			Addrs:           []string{controllerIP},
+			CACert:          "",
+			AuthTag:         names.NewUserTag("user2"),
+			Password:        "secret",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	for _, phase := range migration.SuccessfulMigrationPhases() {
+		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
+	}
+
+	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
+	c.Assert(modelState.RemoveDyingModel(), jc.ErrorIsNil)
+
+	externalControllerInfo, err := cc.ControllerAPIInfoForModels(params.Entities{
+		Entities: []params.Entity{{Tag: names.NewModelTag(model.UUID()).String()}}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(externalControllerInfo.Results), gc.Equals, 1)
+	c.Assert(externalControllerInfo.Results[0].Addresses[0], gc.Equals, controllerIP)
 }

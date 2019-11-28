@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -76,9 +77,38 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 		return StateControllerInfo(s.State)
 	}
 
-	// Now check any external controllers.
 	ec := state.NewExternalControllers(s.State)
 	info, err := ec.ControllerForModel(modelUUID)
+
+	// the model on this controller may have been migrated, if that is the case we try to get the information.
+	// If that is true we try to save the migration controller as an external controller.
+	// This does not take cmr across controller into consideration controller a (consumer) --> b (offer).
+	// If a cross controller model has been migrated b (offer moving) --> c (new offer).
+	// There will be no migration information on this collection on controller a (consumer)
+	// about the migrated offer from b to c
+	if errors.IsNotFound(err) {
+		migration, err := s.State.CompletedMigration(modelUUID)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		target, err := migration.TargetInfo()
+		if err != nil {
+			return nil, "", errors.Trace(err)
+
+		}
+		logger.Debugf("found migrated model on another controller, saving the information")
+		_, err = ec.Save(crossmodel.ControllerInfo{
+			ControllerTag: target.ControllerTag,
+			Alias:         target.ControllerAlias,
+			Addrs:         target.Addrs,
+			CACert:        target.CACert,
+		}, modelUUID)
+		if err != nil {
+			return nil, "", errors.Trace(err)
+		}
+		return target.Addrs, target.CACert, nil
+	}
+
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}

@@ -349,7 +349,7 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 	// Check if the model was not found because it was migrated to another
 	// controller. If that is the case and the user was able to access it
 	// before the migration return back a RedirectError.
-	mig, err := st.LatestRemovedModelMigration()
+	mig, err := st.CompletedMigrationForModel()
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
