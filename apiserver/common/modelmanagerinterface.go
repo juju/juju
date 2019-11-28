@@ -169,7 +169,7 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 
 		// Check if this model has been migrated and this user had
 		// access to it before its migration.
-		mig, mErr := otherState.LatestRemovedModelMigration()
+		mig, mErr := otherState.CompletedMigrationForModel()
 		if mErr != nil && !errors.IsNotFound(mErr) {
 			return nil, nil, errors.Trace(mErr)
 		}
