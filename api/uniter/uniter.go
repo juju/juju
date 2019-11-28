@@ -508,6 +508,33 @@ func (st *State) SetPodSpec(appName string, spec string) error {
 	return result.OneError()
 }
 
+// GetPodSpec gets the pod spec of the specified application.
+func (st *State) GetPodSpec(appName string) (string, error) {
+	if !names.IsValidApplication(appName) {
+		return "", errors.NotValidf("application name %q", appName)
+	}
+	tag := names.NewApplicationTag(appName)
+	var result params.StringResults
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: tag.String(),
+		}},
+	}
+	if err := st.facade.FacadeCall("GetPodSpec", args, &result); err != nil {
+		return "", errors.Trace(err)
+	}
+	if len(result.Results) != 1 {
+		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		if params.IsCodeNotFound(result.Results[0].Error) {
+			return "", errors.NotFoundf("podspec for application %s", appName)
+		}
+		return "", err
+	}
+	return result.Results[0].Result, nil
+}
+
 // CloudSpec returns the cloud spec for the model that calling unit or
 // application resides in.
 // If the application has not been authorised to access its cloud spec,

@@ -62,6 +62,7 @@ var baseCommands = map[string]creator{
 	"network-get" + cmdSuffix:             NewNetworkGetCommand,
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
 	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
+	"pod-spec-get" + cmdSuffix:            NewPodSpecGetCommand,
 	"goal-state" + cmdSuffix:              NewGoalStateCommand,
 	"credential-get" + cmdSuffix:          NewCredentialGetCommand,
 
