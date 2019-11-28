@@ -19,7 +19,6 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/container"
@@ -1170,7 +1169,7 @@ func (task *provisionerTask) startMachine(
 		}
 	}
 
-	networkConfig := networkingcommon.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
+	networkConfig := params.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToAPIServer(result.Volumes)
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIServer(result.VolumeAttachments)
 

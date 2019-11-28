@@ -1081,7 +1081,7 @@ func (ctx *prepareOrGetContext) ProcessOneContainer(
 		logger.Debugf("using dhcp allocated addresses")
 	}
 
-	allocatedConfig := networkingcommon.NetworkConfigFromInterfaceInfo(allocatedInfo)
+	allocatedConfig := params.NetworkConfigFromInterfaceInfo(allocatedInfo)
 	logger.Debugf("allocated network config: %+v", allocatedConfig)
 	ctx.result.Results[idx].Config = allocatedConfig
 	return nil

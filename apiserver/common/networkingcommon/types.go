@@ -155,56 +155,6 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	}
 }
 
-// NetworkConfigFromInterfaceInfo converts a slice of corenetwork.InterfaceInfo into
-// the equivalent params.NetworkConfig slice.
-func NetworkConfigFromInterfaceInfo(interfaceInfos []corenetwork.InterfaceInfo) []params.NetworkConfig {
-	result := make([]params.NetworkConfig, len(interfaceInfos))
-	for i, v := range interfaceInfos {
-		var dnsServers []string
-		for _, nameserver := range v.DNSServers {
-			dnsServers = append(dnsServers, nameserver.Value)
-		}
-		routes := make([]params.NetworkRoute, len(v.Routes))
-		for j, route := range v.Routes {
-			routes[j] = params.NetworkRoute{
-				DestinationCIDR: route.DestinationCIDR,
-				GatewayIP:       route.GatewayIP,
-				Metric:          route.Metric,
-			}
-		}
-
-		// TODO(achilleasa): we currently only emit a NetworkConfig for
-		// the primary address. We need to revisit this and emit configs
-		// for each Address/ShadowAddress entry.
-		result[i] = params.NetworkConfig{
-			DeviceIndex:         v.DeviceIndex,
-			MACAddress:          v.MACAddress,
-			CIDR:                v.CIDR,
-			MTU:                 v.MTU,
-			ProviderId:          string(v.ProviderId),
-			ProviderNetworkId:   string(v.ProviderNetworkId),
-			ProviderSubnetId:    string(v.ProviderSubnetId),
-			ProviderSpaceId:     string(v.ProviderSpaceId),
-			ProviderVLANId:      string(v.ProviderVLANId),
-			ProviderAddressId:   string(v.ProviderAddressId),
-			VLANTag:             v.VLANTag,
-			InterfaceName:       v.InterfaceName,
-			ParentInterfaceName: v.ParentInterfaceName,
-			InterfaceType:       string(v.InterfaceType),
-			Disabled:            v.Disabled,
-			NoAutoStart:         v.NoAutoStart,
-			ConfigType:          string(v.ConfigType),
-			Address:             v.PrimaryAddress().Value,
-			DNSServers:          dnsServers,
-			DNSSearchDomains:    v.DNSSearchDomains,
-			GatewayAddress:      v.GatewayAddress.Value,
-			Routes:              routes,
-			IsDefaultGateway:    v.IsDefaultGateway,
-		}
-	}
-	return result
-}
-
 // NetworkConfigsToStateArgs splits the given networkConfig into a slice of
 // state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress. The
 // input is expected to come from MergeProviderAndObservedNetworkConfigs and to

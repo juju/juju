@@ -66,7 +66,7 @@ type NetworkRoute struct {
 
 // NetworkConfig describes the necessary information to configure
 // a single network interface on a machine. This mostly duplicates
-// corenetwork.InterfaceInfo type and it's defined here so it can be kept
+// network.InterfaceInfo type and it's defined here so it can be kept
 // separate and stable as definition to ensure proper wire-format for
 // the API.
 type NetworkConfig struct {
@@ -164,6 +164,56 @@ type NetworkConfig struct {
 
 	// IsDefaultGateway marks an interface that is a default gateway for a machine.
 	IsDefaultGateway bool `json:"is-default-gateway,omitempty"`
+}
+
+// NetworkConfigFromInterfaceInfo converts a slice of network.InterfaceInfo into
+// the equivalent NetworkConfig slice.
+func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []NetworkConfig {
+	result := make([]NetworkConfig, len(interfaceInfos))
+	for i, v := range interfaceInfos {
+		var dnsServers []string
+		for _, nameserver := range v.DNSServers {
+			dnsServers = append(dnsServers, nameserver.Value)
+		}
+		routes := make([]NetworkRoute, len(v.Routes))
+		for j, route := range v.Routes {
+			routes[j] = NetworkRoute{
+				DestinationCIDR: route.DestinationCIDR,
+				GatewayIP:       route.GatewayIP,
+				Metric:          route.Metric,
+			}
+		}
+
+		// TODO(achilleasa): we currently only emit a NetworkConfig for
+		// the primary address. We need to revisit this and emit configs
+		// for each Address/ShadowAddress entry.
+		result[i] = NetworkConfig{
+			DeviceIndex:         v.DeviceIndex,
+			MACAddress:          v.MACAddress,
+			CIDR:                v.CIDR,
+			MTU:                 v.MTU,
+			ProviderId:          string(v.ProviderId),
+			ProviderNetworkId:   string(v.ProviderNetworkId),
+			ProviderSubnetId:    string(v.ProviderSubnetId),
+			ProviderSpaceId:     string(v.ProviderSpaceId),
+			ProviderVLANId:      string(v.ProviderVLANId),
+			ProviderAddressId:   string(v.ProviderAddressId),
+			VLANTag:             v.VLANTag,
+			InterfaceName:       v.InterfaceName,
+			ParentInterfaceName: v.ParentInterfaceName,
+			InterfaceType:       string(v.InterfaceType),
+			Disabled:            v.Disabled,
+			NoAutoStart:         v.NoAutoStart,
+			ConfigType:          string(v.ConfigType),
+			Address:             v.PrimaryAddress().Value,
+			DNSServers:          dnsServers,
+			DNSSearchDomains:    v.DNSSearchDomains,
+			GatewayAddress:      v.GatewayAddress.Value,
+			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
+		}
+	}
+	return result
 }
 
 // DeviceBridgeInfo lists the host device and the expected bridge to be

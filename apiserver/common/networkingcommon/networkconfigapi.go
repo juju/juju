@@ -228,7 +228,7 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 		return nil, nil
 	}
 
-	providerConfig := NetworkConfigFromInterfaceInfo(interfaceInfos[0])
+	providerConfig := params.NetworkConfigFromInterfaceInfo(interfaceInfos[0])
 	logger.Tracef("provider network config instance %q: %+v", instId, providerConfig)
 
 	return providerConfig, nil
