@@ -157,10 +157,11 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(req params.SetProviderNetwo
 			continue
 		}
 
-		// spaceIDs have already been resolved for us by the above
-		// function call; we can safely provide a nil lookup to the
-		// converter and ignore errors.
-		newSpaceAddrs, _ := newProviderAddrs.ToSpaceAddresses(nil)
+		newSpaceAddrs, err := newProviderAddrs.ToSpaceAddresses(spaceInfos)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
 
 		modified, err := maybeUpdateMachineProviderAddresses(machine, newSpaceAddrs)
 		if err != nil {
@@ -212,7 +213,7 @@ func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfo
 
 			addrs = append(
 				addrs,
-				network.NewScopedProviderAddressFromSpaceInfo(addr.Value, addr.Scope, spaceInfo),
+				network.NewScopedProviderAddressInSpace(string(spaceInfo.Name), addr.Value, addr.Scope),
 			)
 		}
 
@@ -232,7 +233,7 @@ func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfo
 			}
 			addrs = append(
 				addrs,
-				network.NewScopedProviderAddressFromSpaceInfo(addr.Value, addr.Scope, spaceInfo),
+				network.NewScopedProviderAddressInSpace(string(spaceInfo.Name), addr.Value, addr.Scope),
 			)
 		}
 	}
@@ -241,10 +242,8 @@ func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfo
 }
 
 func spaceInfoForAddress(spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string) (*network.SpaceInfo, error) {
-	if CIDR != "" && providerSubnetID != "" {
+	if CIDR != "" {
 		return spaceInfos.InferSpaceFromCIDRAndSubnetID(CIDR, providerSubnetID)
-	} else if CIDR != "" {
-		return spaceInfos.InferSpaceFromCIDR(CIDR)
 	}
 	return spaceInfos.InferSpaceFromAddress(addr)
 }

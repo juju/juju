@@ -101,18 +101,12 @@ var machineErrorTests = []struct {
 	},
 	resultsRef: params.ErrorResults{},
 }, {
-	method: "ToProviderAddresses",
+	method: "SetProviderNetworkConfig",
 	wrapper: func(m *instancepoller.Machine) error {
-		_, err := m.ProviderAddresses()
+		_, _, err := m.SetProviderNetworkConfig(nil)
 		return err
 	},
-	resultsRef: params.MachineAddressesResults{},
-}, {
-	method: "SetProviderAddresses",
-	wrapper: func(m *instancepoller.Machine) error {
-		return m.SetProviderAddresses()
-	},
-	resultsRef: params.ErrorResults{},
+	resultsRef: params.SetProviderNetworkConfigResults{},
 }}
 
 func (s *MachineSuite) TestClientError(c *gc.C) {
@@ -231,33 +225,26 @@ func (s *MachineSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }
 
-func (s *MachineSuite) TestProviderAddressesSuccess(c *gc.C) {
-	addresses := network.NewProviderAddresses("2001:db8::1", "0.1.2.3")
-	results := params.MachineAddressesResults{
-		Results: []params.MachineAddressesResult{{
-			Addresses: params.FromProviderAddresses(addresses...),
-		}}}
-	apiCaller := successAPICaller(c, "ProviderAddresses", entitiesArgs, results)
-	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	addrs, err := machine.ProviderAddresses()
-	c.Check(err, jc.ErrorIsNil)
-	c.Check(addrs, jc.DeepEquals, addresses)
-	c.Check(apiCaller.CallCount, gc.Equals, 1)
-}
-
-func (s *MachineSuite) TestSetProviderAddressesSuccess(c *gc.C) {
-	addresses := network.NewProviderAddresses("2001:db8::1", "0.1.2.3")
-	expectArgs := params.SetMachinesAddresses{
-		MachineAddresses: []params.MachineAddresses{{
-			Tag:       "machine-42",
-			Addresses: params.FromProviderAddresses(addresses...),
-		}}}
-	results := params.ErrorResults{
-		Results: []params.ErrorResult{{Error: nil}},
+func (s *MachineSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
+	cfg := []network.InterfaceInfo{{
+		DeviceIndex: 0,
+		CIDR:        "10.0.0.0/24",
+		Addresses: []network.ProviderAddress{
+			network.NewProviderAddress("10.0.0.42"),
+		},
+	}}
+	expectArgs := params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{{
+			Tag:     "machine-42",
+			Configs: params.NetworkConfigFromInterfaceInfo(cfg),
+		}},
 	}
-	apiCaller := successAPICaller(c, "SetProviderAddresses", expectArgs, results)
+	results := params.SetProviderNetworkConfigResults{
+		Results: []params.SetProviderNetworkConfigResult{{Error: nil}},
+	}
+	apiCaller := successAPICaller(c, "SetProviderNetworkConfig", expectArgs, results)
 	machine := instancepoller.NewMachine(apiCaller, s.tag, life.Alive)
-	err := machine.SetProviderAddresses(addresses...)
+	_, _, err := machine.SetProviderNetworkConfig(cfg)
 	c.Check(err, jc.ErrorIsNil)
 	c.Check(apiCaller.CallCount, gc.Equals, 1)
 }

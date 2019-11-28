@@ -333,12 +333,20 @@ func NewScopedProviderAddress(value string, scope Scope) ProviderAddress {
 	return ProviderAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
 }
 
-// NewProviderAddressInSpace creates a new ProviderAddress,
-// deriving its type and scope from the value,
-// and associating it with the given space name.
+// NewProviderAddressInSpace creates a new ProviderAddress, deriving its type
+// and scope from the value, and associating it with the given space name.
 func NewProviderAddressInSpace(spaceName string, value string) ProviderAddress {
 	return ProviderAddress{
 		MachineAddress: NewMachineAddress(value),
+		SpaceName:      SpaceName(spaceName),
+	}
+}
+
+// NewScopedProviderAddressInSpace creates a new ProviderAddress, deriving its
+// type from the value, and associating it with the given scope and space name.
+func NewScopedProviderAddressInSpace(spaceName string, value string, scope Scope) ProviderAddress {
+	return ProviderAddress{
+		MachineAddress: NewScopedMachineAddress(value, scope),
 		SpaceName:      SpaceName(spaceName),
 	}
 }
