@@ -139,12 +139,13 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 // NewModelHookContext exists purely to set the fields used in rs.
 // The returned value is not otherwise valid.
 func NewModelHookContext(
-	id, modelUUID, modelName, unitName, meterCode, meterInfo, slaLevel, availZone string,
+	id, hookName, modelUUID, modelName, unitName, meterCode, meterInfo, slaLevel, availZone string,
 	apiAddresses []string, legacyProxySettings proxy.Settings, jujuProxySettings proxy.Settings,
 	machineTag names.MachineTag,
 ) *HookContext {
 	return &HookContext{
 		id:                  id,
+		hookName:            hookName,
 		unitName:            unitName,
 		uuid:                modelUUID,
 		modelName:           modelName,
