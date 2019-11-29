@@ -220,14 +220,14 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name: vmName,
 		Folder: path.Join(
-			env.ecfg.VMFolder(),
+			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
 			controllerFolderName(args.ControllerUUID),
 			env.modelFolderName(),
 		),
 		Series:                 series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
-		VMDKDirectory:          vmdkDirectoryName(env.ecfg.VMFolder(), args.ControllerUUID),
+		VMDKDirectory:          vmdkDirectoryName(env.environ.cloud.Credential.Attributes()[credAttrVMFolder], args.ControllerUUID),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -283,7 +283,7 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []i
 // AllInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
 	modelFolderPath := path.Join(
-		env.ecfg.VMFolder(),
+		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
 		controllerFolderName("*"),
 		env.modelFolderName(),
 	)
@@ -324,7 +324,7 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instan
 // StopInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
 	modelFolderPath := path.Join(
-		env.ecfg.VMFolder(),
+		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
 		controllerFolderName("*"),
 		env.modelFolderName(),
 	)
