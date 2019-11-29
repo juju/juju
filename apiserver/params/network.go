@@ -234,6 +234,59 @@ func NetworkConfigFromInterfaceInfo(interfaceInfos []network.InterfaceInfo) []Ne
 	return result
 }
 
+// InterfaceInfoFromNetworkConfig converts a slice of NetworkConfig into the
+// equivalent network.InterfaceInfo slice.
+func InterfaceInfoFromNetworkConfig(configs []NetworkConfig) []network.InterfaceInfo {
+	result := make([]network.InterfaceInfo, len(configs))
+	for i, v := range configs {
+		routes := make([]network.Route, len(v.Routes))
+		for j, route := range v.Routes {
+			routes[j] = network.Route{
+				DestinationCIDR: route.DestinationCIDR,
+				GatewayIP:       route.GatewayIP,
+				Metric:          route.Metric,
+			}
+		}
+
+		result[i] = network.InterfaceInfo{
+			DeviceIndex:         v.DeviceIndex,
+			MACAddress:          v.MACAddress,
+			CIDR:                v.CIDR,
+			MTU:                 v.MTU,
+			ProviderId:          network.Id(v.ProviderId),
+			ProviderNetworkId:   network.Id(v.ProviderNetworkId),
+			ProviderSubnetId:    network.Id(v.ProviderSubnetId),
+			ProviderSpaceId:     network.Id(v.ProviderSpaceId),
+			ProviderVLANId:      network.Id(v.ProviderVLANId),
+			ProviderAddressId:   network.Id(v.ProviderAddressId),
+			VLANTag:             v.VLANTag,
+			InterfaceName:       v.InterfaceName,
+			ParentInterfaceName: v.ParentInterfaceName,
+			InterfaceType:       network.InterfaceType(v.InterfaceType),
+			Disabled:            v.Disabled,
+			NoAutoStart:         v.NoAutoStart,
+			ConfigType:          network.InterfaceConfigType(v.ConfigType),
+			Addresses:           ToProviderAddresses(v.Addresses...),
+			ShadowAddresses:     ToProviderAddresses(v.ShadowAddresses...),
+			DNSServers:          network.NewProviderAddresses(v.DNSServers...),
+			DNSSearchDomains:    v.DNSSearchDomains,
+			GatewayAddress:      network.NewProviderAddress(v.GatewayAddress),
+			Routes:              routes,
+			IsDefaultGateway:    v.IsDefaultGateway,
+		}
+
+		// Compatibility layer for older clients that do not populate
+		// Addresses/ShadowAddresses.
+		if len(result[i].Addresses) == 0 && v.Address != "" {
+			result[i].Addresses = append(
+				result[i].Addresses,
+				network.NewProviderAddress(v.Address),
+			)
+		}
+	}
+	return result
+}
+
 // DeviceBridgeInfo lists the host device and the expected bridge to be
 // created.
 type DeviceBridgeInfo struct {
