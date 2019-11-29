@@ -375,6 +375,20 @@ func NewProviderAddressesInSpace(spaceName string, inAddresses ...string) (outAd
 	return outAddresses
 }
 
+// ToIPAddresses transforms the ProviderAddresses to a string slice containing
+// their raw IP values.
+func (pas ProviderAddresses) ToIPAddresses() []string {
+	if pas == nil {
+		return nil
+	}
+
+	ips := make([]string, len(pas))
+	for i, addr := range pas {
+		ips[i] = addr.Value
+	}
+	return ips
+}
+
 // ToSpaceAddresses transforms the ProviderAddresses to SpaceAddresses by using
 // the input lookup for conversion of space name to space ID.
 func (pas ProviderAddresses) ToSpaceAddresses(lookup SpaceLookup) (SpaceAddresses, error) {

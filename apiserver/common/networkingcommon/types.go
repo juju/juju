@@ -155,64 +155,62 @@ func BackingSubnetToParamsSubnet(subnet BackingSubnet) params.Subnet {
 	}
 }
 
-// NetworkConfigsToStateArgs splits the given networkConfig into a slice of
-// state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress. The
-// input is expected to come from MergeProviderAndObservedNetworkConfigs and to
-// be sorted.
-func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
+// NetworkInterfacesToStateArgs splits the given interface list into a slice of
+// state.LinkLayerDeviceArgs and a slice of state.LinkLayerDeviceAddress.
+func NetworkInterfacesToStateArgs(ifaces []corenetwork.InterfaceInfo) (
 	[]state.LinkLayerDeviceArgs,
 	[]state.LinkLayerDeviceAddress,
 ) {
 	var devicesArgs []state.LinkLayerDeviceArgs
 	var devicesAddrs []state.LinkLayerDeviceAddress
 
-	logger.Tracef("transforming network config to state args: %+v", networkConfig)
+	logger.Tracef("transforming network interface list to state args: %+v", ifaces)
 	seenDeviceNames := set.NewStrings()
-	for _, netConfig := range networkConfig {
-		logger.Tracef("transforming device %q", netConfig.InterfaceName)
-		if !seenDeviceNames.Contains(netConfig.InterfaceName) {
+	for _, iface := range ifaces {
+		logger.Tracef("transforming device %q", iface.InterfaceName)
+		if !seenDeviceNames.Contains(iface.InterfaceName) {
 			// First time we see this, add it to devicesArgs.
-			seenDeviceNames.Add(netConfig.InterfaceName)
+			seenDeviceNames.Add(iface.InterfaceName)
 			var mtu uint
-			if netConfig.MTU >= 0 {
-				mtu = uint(netConfig.MTU)
+			if iface.MTU >= 0 {
+				mtu = uint(iface.MTU)
 			}
 			args := state.LinkLayerDeviceArgs{
-				Name:        netConfig.InterfaceName,
+				Name:        iface.InterfaceName,
 				MTU:         mtu,
-				ProviderID:  corenetwork.Id(netConfig.ProviderId),
-				Type:        corenetwork.LinkLayerDeviceType(netConfig.InterfaceType),
-				MACAddress:  netConfig.MACAddress,
-				IsAutoStart: !netConfig.NoAutoStart,
-				IsUp:        !netConfig.Disabled,
-				ParentName:  netConfig.ParentInterfaceName,
+				ProviderID:  corenetwork.Id(iface.ProviderId),
+				Type:        corenetwork.LinkLayerDeviceType(iface.InterfaceType),
+				MACAddress:  iface.MACAddress,
+				IsAutoStart: !iface.NoAutoStart,
+				IsUp:        !iface.Disabled,
+				ParentName:  iface.ParentInterfaceName,
 			}
 			logger.Tracef("state device args for device: %+v", args)
 			devicesArgs = append(devicesArgs, args)
 		}
 
-		if netConfig.CIDR == "" || netConfig.Address == "" {
+		if iface.CIDR == "" || iface.PrimaryAddress().Value == "" {
 			logger.Tracef(
 				"skipping empty CIDR %q and/or Address %q of %q",
-				netConfig.CIDR, netConfig.Address, netConfig.InterfaceName,
+				iface.CIDR, iface.PrimaryAddress(), iface.InterfaceName,
 			)
 			continue
 		}
-		_, ipNet, err := net.ParseCIDR(netConfig.CIDR)
+		_, ipNet, err := net.ParseCIDR(iface.CIDR)
 		if err != nil {
-			logger.Warningf("FIXME: ignoring unexpected CIDR format %q: %v", netConfig.CIDR, err)
+			logger.Warningf("FIXME: ignoring unexpected CIDR format %q: %v", iface.CIDR, err)
 			continue
 		}
-		ipAddr := net.ParseIP(netConfig.Address)
+		ipAddr := net.ParseIP(iface.PrimaryAddress().Value)
 		if ipAddr == nil {
-			logger.Warningf("FIXME: ignoring unexpected Address format %q", netConfig.Address)
+			logger.Warningf("FIXME: ignoring unexpected Address format %q", iface.PrimaryAddress().Value)
 			continue
 		}
 		ipNet.IP = ipAddr
 		cidrAddress := ipNet.String()
 
 		var derivedConfigMethod state.AddressConfigMethod
-		switch method := state.AddressConfigMethod(netConfig.ConfigType); method {
+		switch method := state.AddressConfigMethod(iface.ConfigType); method {
 		case state.StaticAddress, state.DynamicAddress,
 			state.LoopbackAddress, state.ManualAddress:
 			derivedConfigMethod = method
@@ -223,22 +221,22 @@ func NetworkConfigsToStateArgs(networkConfig []params.NetworkConfig) (
 		}
 
 		addr := state.LinkLayerDeviceAddress{
-			DeviceName:        netConfig.InterfaceName,
-			ProviderID:        corenetwork.Id(netConfig.ProviderAddressId),
-			ProviderNetworkID: corenetwork.Id(netConfig.ProviderNetworkId),
-			ProviderSubnetID:  corenetwork.Id(netConfig.ProviderSubnetId),
+			DeviceName:        iface.InterfaceName,
+			ProviderID:        corenetwork.Id(iface.ProviderAddressId),
+			ProviderNetworkID: corenetwork.Id(iface.ProviderNetworkId),
+			ProviderSubnetID:  corenetwork.Id(iface.ProviderSubnetId),
 			ConfigMethod:      derivedConfigMethod,
 			CIDRAddress:       cidrAddress,
-			DNSServers:        netConfig.DNSServers,
-			DNSSearchDomains:  netConfig.DNSSearchDomains,
-			GatewayAddress:    netConfig.GatewayAddress,
-			IsDefaultGateway:  netConfig.IsDefaultGateway,
+			DNSServers:        iface.DNSServers.ToIPAddresses(),
+			DNSSearchDomains:  iface.DNSSearchDomains,
+			GatewayAddress:    iface.GatewayAddress.Value,
+			IsDefaultGateway:  iface.IsDefaultGateway,
 		}
 		logger.Tracef("state address args for device: %+v", addr)
 		devicesAddrs = append(devicesAddrs, addr)
 	}
 	logger.Tracef("seen devices: %+v", seenDeviceNames.SortedValues())
-	logger.Tracef("network config transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
+	logger.Tracef("network interface list transformed to state args:\n%+v\n%+v", devicesArgs, devicesAddrs)
 	return devicesArgs, devicesAddrs
 }
 

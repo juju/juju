@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -71,7 +72,8 @@ func (api *NetworkConfigAPI) SetObservedNetworkConfig(args params.SetMachineNetw
 		return errors.Trace(err)
 	}
 
-	return api.setOneMachineNetworkConfig(m, mergedConfig)
+	ifaces := params.InterfaceInfoFromNetworkConfig(mergedConfig)
+	return api.setOneMachineNetworkInterfaces(m, ifaces)
 }
 
 // fixUpFanSubnets takes network config and updates FAN subnets with proper CIDR, providerId and providerSubnetId.
@@ -137,7 +139,8 @@ func (api *NetworkConfigAPI) SetProviderNetworkConfig(args params.Entities) (par
 		}
 		logger.Tracef("provider network config for %q: %+v", m.Id(), providerConfig)
 
-		if err := api.setOneMachineNetworkConfig(m, providerConfig); err != nil {
+		ifaces := params.InterfaceInfoFromNetworkConfig(providerConfig)
+		if err := api.setOneMachineNetworkInterfaces(m, ifaces); err != nil {
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -234,10 +237,10 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	return providerConfig, nil
 }
 
-func (api *NetworkConfigAPI) setOneMachineNetworkConfig(
-	m *state.Machine, networkConfig []params.NetworkConfig,
+func (api *NetworkConfigAPI) setOneMachineNetworkInterfaces(
+	m *state.Machine, ifaces []network.InterfaceInfo,
 ) error {
-	devicesArgs, devicesAddrs := NetworkConfigsToStateArgs(networkConfig)
+	devicesArgs, devicesAddrs := NetworkInterfacesToStateArgs(ifaces)
 
 	logger.Debugf("setting devices: %+v", devicesArgs)
 	if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devicesArgs); err != nil {
