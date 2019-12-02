@@ -17,7 +17,7 @@ add_multi_nic_machine() {
 
   # Hotplug the second network device to the machine
   echo "[+] hotplugging second NIC with ID ${hotplug_nic_id} to machine ${juju_machine_id}..."
-  # shellcheck disable=SC2046
+  # shellcheck disable=SC2046,SC2086
   aws ec2 attach-network-interface --device-index 1 \
     --network-interface-id ${hotplug_nic_id} \
     --instance-id $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
