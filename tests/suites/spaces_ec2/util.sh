@@ -7,6 +7,8 @@
 # restart the machine agent and wait for juju to detect the new interface
 # before returning.
 add_multi_nic_machine() {
+  hotplug_nic_id=$1
+
   juju add-machine
   juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
   echo "[+] waiting for machine ${juju_machine_id} to start..."
@@ -14,10 +16,10 @@ add_multi_nic_machine() {
   wait_for_machine_agent_status "$juju_machine_id" "started"
 
   # Hotplug the second network device to the machine
-  echo "[+] hotplugging second NIC to machine ${juju_machine_id}..."
+  echo "[+] hotplugging second NIC with ID ${hotplug_nic_id} to machine ${juju_machine_id}..."
   # shellcheck disable=SC2046
   aws ec2 attach-network-interface --device-index 1 \
-    --network-interface-id $(aws ec2 describe-network-interfaces --filters Name=tag:nic-type,Values=hotpluggable | jq -r '.NetworkInterfaces[0].NetworkInterfaceId') \
+    --network-interface-id ${hotplug_nic_id} \
     --instance-id $(juju show-machine --format json | jq -r ".[\"machines\"] | .[\"${juju_machine_id}\"] | .[\"instance-id\"]")
 
   # Add an entry to netplan and apply it so the second interface comes online

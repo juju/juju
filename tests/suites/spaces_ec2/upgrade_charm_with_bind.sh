@@ -9,8 +9,11 @@ run_upgrade_charm_with_bind() {
     juju reload-spaces
     juju add-space isolated 172.31.254.0/24
 
-    ## Create machine
-    add_multi_nic_machine
+    # Create machine
+    # Note that due to the way that run_* funcs are executed, $1 holds the
+    # test name so the NIC ID is actually provided in $2
+    hotplug_nic_id=$2
+    add_multi_nic_machine "$hotplug_nic_id"
     juju_machine_id=$(juju show-machine --format json | jq -r '.["machines"] | keys[0]')
 
     # Deploy test charm to dual-nic machine
@@ -52,6 +55,6 @@ test_upgrade_charm_with_bind() {
 
         cd .. || exit
 
-        run "run_upgrade_charm_with_bind"
+        run "run_upgrade_charm_with_bind" "$@"
     )
 }
