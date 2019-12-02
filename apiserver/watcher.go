@@ -199,7 +199,7 @@ func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
 // and changes to the settings of those units known to have entered.
 type srvRelationUnitsWatcher struct {
 	watcherCommon
-	watcher state.RelationUnitsWatcher
+	watcher common.RelationUnitsWatcher
 }
 
 func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
@@ -212,7 +212,7 @@ func newRelationUnitsWatcher(context facade.Context) (facade.Facade, error) {
 	if auth.GetAuthTag() != nil && !isAgent(auth) {
 		return nil, common.ErrPerm
 	}
-	watcher, ok := resources.Get(id).(state.RelationUnitsWatcher)
+	watcher, ok := resources.Get(id).(common.RelationUnitsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}

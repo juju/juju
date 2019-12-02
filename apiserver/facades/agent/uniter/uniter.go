@@ -2119,7 +2119,11 @@ func (u *UniterAPIV8) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 }
 
 func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
-	watch := relUnit.Watch()
+	stateWatcher := relUnit.Watch()
+	watch, err := common.RelationUnitsWatcherFromState(stateWatcher)
+	if err != nil {
+		return params.RelationUnitsWatchResult{}, errors.Trace(err)
+	}
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.RelationUnitsWatchResult{

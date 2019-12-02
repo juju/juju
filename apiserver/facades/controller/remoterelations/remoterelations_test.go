@@ -17,6 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -110,8 +111,8 @@ func (s *remoteRelationsSuite) TestWatchRemoteRelations(c *gc.C) {
 
 func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	djangoRelationUnitsWatcher := newMockRelationUnitsWatcher()
-	djangoRelationUnitsWatcher.changes <- params.RelationUnitsChange{
-		Changed:    map[string]params.UnitSettings{"django/0": {Version: 1}},
+	djangoRelationUnitsWatcher.changes <- watcher.RelationUnitsChange{
+		Changed:    map[string]watcher.UnitSettings{"django/0": {Version: 1}},
 		AppChanged: map[string]int64{"django": 0},
 	}
 	djangoRelation := newMockRelation(123)
