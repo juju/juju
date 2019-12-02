@@ -13,9 +13,8 @@ import os
 import subprocess
 import sys
 import tempfile
-from time import sleep
-
 import yaml
+from time import sleep
 
 if __name__ != "__main__":
     print(__file__, "must be run as a script", file=sys.stderr)
@@ -229,6 +228,9 @@ def parse_args():
                               help="Path to agent to use when bootstrapping with devel binary (Relevant only for the upgrade test)")
     pass_through.add_argument("--stable-juju-agent",
                               help="Path to agent to use when bootstrapping with stable binary (Relevant only for the upgrade test)")
+    pass_through.add_argument("--cloud-city",
+                              help="Path to cloud-city folder where our test data usually lies. Makes it easy to "
+                                   "replay jenkins test locally.")
     pass_through.add_argument("--reboot", action="store_true",
                               help="Reboot machines and re-run tests (Relevant only in the network_health test)")
     pass_through.add_argument("--maas", action="store_true",
@@ -265,11 +267,11 @@ def parse_args():
 
     caas_opts = arg_parser.add_argument_group("options common to CaaS acceptance tests")
     caas_opts.add_argument("--caas-provider",
-                              help="Provider for CaaS models. (Relevant only for caas_deploy_charms test) [default: microk8s]",
-                              choices=["microk8s", "k8s"])
+                           help="Provider for CaaS models. (Relevant only for caas_deploy_charms test) [default: microk8s]",
+                           choices=["microk8s", "k8s"])
     caas_opts.add_argument('--caas-image-repo',
-                              help="Docker image repo to use. (Relevant only for caas_deploy_charms test) [default: jujuqabot]",
-                              default="jujuqabot")
+                           help="Docker image repo to use. (Relevant only for caas_deploy_charms test) [default: jujuqabot]",
+                           default="jujuqabot")
 
     cloud_opts = arg_parser.add_argument_group("options to pass through to the cloud substrate")
     cloud_opts.add_argument("--cloud-region", metavar="REGION",
@@ -376,6 +378,8 @@ def main():
         "--series", args.series,
         "--logging-config", args.logging_config,
     ]
+    if args.cloud_city:
+        testrun_argv += ["--cloud-city", args.cloud_city]
     if args.debug:
         testrun_argv += ["--debug"]
     if args.verbose:
@@ -390,7 +394,6 @@ def main():
         testrun_argv += ["--agent-url", args.agent_url]
     if args.agent_stream:
         testrun_argv += ["--agent-stream", args.agent_stream]
-
 
     # These are our snowflake tests. They define their own
     # arguments. Usually that's because they've added their
@@ -549,5 +552,6 @@ def main():
         for line in iter(proc.stdout.readline, ''):
             print(line, end='')
     return proc.wait()
+
 
 sys.exit(main())

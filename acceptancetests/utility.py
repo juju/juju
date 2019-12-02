@@ -1,20 +1,21 @@
-from contextlib import contextmanager
-from datetime import (
-    datetime,
-    timedelta,
-)
 import errno
 import json
 import logging
 import os
 import re
-import subprocess
 import socket
+import subprocess
 import sys
+from contextlib import contextmanager
+from datetime import (
+    datetime,
+    timedelta,
+)
 from time import (
     sleep,
     time,
 )
+
 from jujupy.utility import (
     ensure_deleted,
     ensure_dir,
@@ -44,7 +45,6 @@ __all__ = [
     'temp_dir',
     'temp_yaml_file',
 ]
-
 
 # Equivalent of socket.EAI_NODATA when using windows sockets
 # <https://msdn.microsoft.com/ms740668#WSANO_DATA>
@@ -202,9 +202,9 @@ def generate_default_clean_dir(temp_env_name):
         if e.errno == errno.EEXIST:
             logging.warn('"Directory {} already exists'.format(log_dir))
         else:
-            raise('Failed to create logging directory: {} ' +
-                  log_dir +
-                  '. Please specify empty folder or try again')
+            raise ('Failed to create logging directory: {} ' +
+                   log_dir +
+                   '. Please specify empty folder or try again')
     return log_dir
 
 
@@ -223,7 +223,7 @@ def _to_deadline(timeout):
 def add_arg_juju_bin(parser):
     parser.add_argument('juju_bin', nargs='?',
                         help='Full path to the Juju binary. By default, this'
-                        ' will use $PATH/juju',
+                             ' will use $PATH/juju',
                         default=None)
 
 
@@ -264,13 +264,13 @@ def add_basic_testing_arguments(
     add_arg_juju_bin(parser)
     parser.add_argument('logs', nargs='?', type=_clean_dir,
                         help='A directory in which to store logs. By default,'
-                        ' this will use the current directory',
+                             ' this will use the current directory',
                         default=None)
     parser.add_argument('temp_env_name', nargs='?',
                         help='A temporary test environment name. By default, '
-                        ' this will generate an enviroment name using the '
-                        ' timestamp and testname. '
-                        ' test_name_timestamp_temp_env',
+                             ' this will generate an enviroment name using the '
+                             ' timestamp and testname. '
+                             ' test_name_timestamp_temp_env',
                         default=_generate_default_temp_env_name())
 
     # Optional keyword arguments.
@@ -294,14 +294,17 @@ def add_basic_testing_arguments(
     parser.add_argument('--bootstrap-host',
                         help='The host to use for bootstrap.')
     parser.add_argument('--machine', help='A machine to add or when used with '
-                        'KVM based MaaS, a KVM image to start.',
+                                          'KVM based MaaS, a KVM image to start.',
                         action='append', default=[])
     parser.add_argument('--keep-env', action='store_true',
                         help='Keep the Juju environment after the test'
-                        ' completes.')
+                             ' completes.')
     parser.add_argument('--logging-config',
                         help="Override logging configuration for a deployment.",
                         default="<root>=INFO;unit=INFO")
+    parser.add_argument('--cloud-city', help="Directory of cloud city. It is not used during integrationtest runs. "
+                                             "One can override this arg for local runs.", default=None)
+
     if existing:
         parser.add_argument(
             '--existing',

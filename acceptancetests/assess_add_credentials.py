@@ -5,28 +5,27 @@ from __future__ import print_function
 
 import argparse
 import logging
-import sys
 import os
-import yaml
 import pexpect
 import shutil
+import sys
+import yaml
 
 from deploy_stack import (
     BootstrapManager,
-    )
+)
 from utility import (
     configure_logging,
     add_basic_testing_arguments,
     JujuAssertionError,
     temp_dir,
-    )
+)
 
 __metaclass__ = type
 
-
 log = logging.getLogger("assess_add_credentials")
 
-cloud_city = os.environ.get('JUJU_HOME')
+juju_home = os.environ.get('JUJU_HOME')
 
 
 def assess_add_credentials(args):
@@ -43,17 +42,23 @@ def assess_add_credentials(args):
         env = 'maas'
     elif 'gce' in args.env:
         env = 'google'
+    elif 'aws' in args.env:
+        env = 'aws'
     else:
         env = args.env.split('parallel-')[1]
 
-    # Grab the credentials from cloud-city
-    cred = get_credentials(env)
+    # If no cloud-city path is given, we grab the credentials from env juju_home.
+    # Else we override the path where we read the credentials yaml for testing purposes.
+    if args.cloud_city is not None:
+        cred = get_credentials(env, args.cloud_city)
+    else:
+        cred = get_credentials(env)
 
-    # Fix the keypath to reflect local username
+        # Fix the keypath to reflect local username
     key_path = cred['credentials'].get('private-key-path')
     if key_path:
         cred['credentials']['private-key-path'] = os.path.join(
-            cloud_city, '{}-key'.format(env))
+            juju_home, '{}-key'.format(env))
 
     verify_add_credentials(args, env, cred)
     verify_credentials_match(env, cred)
@@ -76,11 +81,11 @@ def verify_add_credentials(args, env, cred):
         'maas': add_maas,
         'joyent': add_joyent,
         'azure': add_azure
-        }
+    }
 
     log.info("Adding {} credential from /cloud-city/credentials.yaml "
              "into testing instance".format(args.env))
-    with pexpect.spawn('juju add-credential {}'.format(env)) as child:
+    with pexpect.spawn('juju add-credential {} --client'.format(env)) as child:
         try:
             testing_variations[env](child, env, cred)
         except pexpect.TIMEOUT:
@@ -90,12 +95,12 @@ def verify_add_credentials(args, env, cred):
                 'Registering user failed: pexpect session timed out')
 
 
-def get_credentials(env):
+def get_credentials(env, creds_path=juju_home):
     """Gets the stored test credentials.
 
     :return: Dict of credential information
     """
-    with open(os.path.join(cloud_city, 'credentials.yaml')) as f:
+    with open(os.path.join(creds_path, 'credentials.yaml')) as f:
         creds_dict = yaml.load(f)
     cred = creds_dict['credentials'][env]
     return cred
@@ -137,7 +142,7 @@ def end_session(session):
         log.error('Buffer: {}'.format(session.buffer))
         log.error('Before: {}'.format(session.before))
         raise Exception('pexpect process exited with {}'.format(
-                session.exitstatus))
+            session.exitstatus))
 
 
 def add_aws(child, env, cred):
@@ -152,6 +157,8 @@ def add_aws(child, env, cred):
 
     child.expect('Enter credential name:')
     child.sendline(env)
+    child.expect('Regions')
+    child.sendline()
     child.expect('Enter access-key:')
     child.sendline(access_key)
     child.expect('Enter secret-key:')
@@ -287,7 +294,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(
         description='Test if juju properly adds credentials with the '
-        'add-credential command.')
+                    'add-credential command.')
     add_basic_testing_arguments(parser, existing=False)
     return parser.parse_args(argv)
 
