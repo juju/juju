@@ -132,7 +132,8 @@ def parse_args():
     env_opts = arg_parser.add_argument_group("main testing environment options")
 
     env_opts.add_argument("--juju-home", metavar="HOME_DIR",
-                          help="JUJU_HOME environment variable to be used for test [default: create a new directory in /tmp/juju-ci/* (randomly generated)]")
+                          help="JUJU_HOME environment variable to be used for test "
+                               "[default: create a new directory in /tmp/juju-ci/* (randomly generated)]")
     env_opts.add_argument("--juju-data", metavar="DATA_DIR", required=False,
                           help="JUJU_DATA environment variable to be used for test [default: HOME_DIR/data]")
     env_opts.add_argument("--juju-repository", metavar="REPO_DIR", required=False,
@@ -236,7 +237,8 @@ def parse_args():
     pass_through.add_argument("--maas", action="store_true",
                               help="Run test under MAAS (Relevant only in the network_health test)")
     pass_through.add_argument("--model", help="Model to test against (Relevant only in the network_health test)")
-    # pass_through.add_argument("--stack", choices={"maas", "iaas", "caas"}, help="(Relevant only in the network_health, webscale_deploy tests)") # TODO(tsm) add when relevant
+    # pass_through.add_argument("--stack", choices={"maas", "iaas", "caas"}, help="(Relevant only in the
+    # network_health, webscale_deploy tests)") # TODO(tsm) add when relevant
     pass_through.add_argument("--proxy-scenario", "--proxy-test",
                               choices={'both-proxied', 'client-proxied', 'controller-proxied'}, dest="proxy_scenario",
                               help="Sub-test to run (Only relevant in proxy test)", default="both-proxied")
@@ -254,11 +256,14 @@ def parse_args():
     pass_through.add_argument('--large', '--large-test-enabled', action='store_true', dest="large_test_enabled",
                               help="Use a large file for testing. (Relevant only with resources test)")
     pass_through.add_argument('--agent-timeout', metavar="S", type=int, default=1800,
-                              help='The time to wait for agents to start (Relevant only with resources test) [default: 1800]')
+                              help='The time to wait for agents to start'
+                                   ' (Relevant only with resources test) [default: 1800]')
     pass_through.add_argument('--resource-timeout', metavar="S", type=int, default=1800,
-                              help='The time to wait for agents to start (Relevant only with resources test) [default: 1800]')
+                              help='The time to wait for agents to start (Relevant only with resources test) ['
+                                   'default: 1800]')
     pass_through.add_argument("--clean-environment",
-                              help="Clean up a the environments between runs, rather than creating one from scratch (Only relevant for spaces_subnets test)",
+                              help="Clean up a the environments between runs, rather than creating one from scratch ("
+                                   "Only relevant for spaces_subnets test)",
                               action="store_true")
     pass_through.add_argument('--from-series', default="xenial",
                               help='Series to start machine and units with')
@@ -267,10 +272,12 @@ def parse_args():
 
     caas_opts = arg_parser.add_argument_group("options common to CaaS acceptance tests")
     caas_opts.add_argument("--caas-provider",
-                           help="Provider for CaaS models. (Relevant only for caas_deploy_charms test) [default: microk8s]",
+                           help="Provider for CaaS models. (Relevant only for caas_deploy_charms test) [default: "
+                                "microk8s]",
                            choices=["microk8s", "k8s"])
     caas_opts.add_argument('--caas-image-repo',
-                           help="Docker image repo to use. (Relevant only for caas_deploy_charms test) [default: jujuqabot]",
+                           help="Docker image repo to use. (Relevant only for caas_deploy_charms test) [default: "
+                                "jujuqabot]",
                            default="jujuqabot")
 
     cloud_opts = arg_parser.add_argument_group("options to pass through to the cloud substrate")
@@ -296,11 +303,11 @@ def parse_args():
         args.juju_home = juju_home
 
     if not args.juju_data:
-        juju_data = os.path.join(juju_home, 'data')
+        juju_data = os.path.join(args.juju_home, 'data')
         args.juju_data = juju_data
 
     if not args.log_dir:
-        log_dir = os.path.join(juju_home, 'log')
+        log_dir = os.path.join(args.juju_home, 'log')
         args.log_dir = log_dir
 
     valid_regions = find_valid_regions(args.substrate)
@@ -337,7 +344,12 @@ def setup(juju_home, juju_data, log_dir, series, substrate, region):
 
     user_home = os.environ.get('HOME') or os.environ["XDG_CONFIG_HOME"]
     user_config = join(user_home, '.local', 'share', 'juju')
-    os.symlink(join(user_config, "credentials.yaml"), join(juju_home, "credentials.yaml"))
+
+    # on err this file already exists, so we don't need to link them.
+    try:
+        os.symlink(join(user_config, "credentials.yaml"), join(juju_home, "credentials.yaml"))
+    except OSError as exc:
+        pass
 
     envs = ENVIRONMENT_TEMPLATE.format(series)
 

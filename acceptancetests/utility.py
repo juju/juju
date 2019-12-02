@@ -302,8 +302,8 @@ def add_basic_testing_arguments(
     parser.add_argument('--logging-config',
                         help="Override logging configuration for a deployment.",
                         default="<root>=INFO;unit=INFO")
-    parser.add_argument('--cloud-city', help="Directory of cloud city. It is not used during integrationtest runs. "
-                                             "One can override this arg for local runs.", default=None)
+    parser.add_argument('--juju-home', help="Directory of juju home. It is not used during integration test runs. "
+                                            "One can override this arg for local runs.", default=None)
 
     if existing:
         parser.add_argument(

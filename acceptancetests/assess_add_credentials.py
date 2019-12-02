@@ -49,8 +49,8 @@ def assess_add_credentials(args):
 
     # If no cloud-city path is given, we grab the credentials from env juju_home.
     # Else we override the path where we read the credentials yaml for testing purposes.
-    if args.cloud_city is not None:
-        cred = get_credentials(env, args.cloud_city)
+    if args.juju_home is not None:
+        cred = get_credentials(env, args.juju_home)
     else:
         cred = get_credentials(env)
 
