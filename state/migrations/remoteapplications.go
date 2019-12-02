@@ -10,7 +10,7 @@ import (
 	"gopkg.in/juju/names.v3"
 )
 
-// MigrationRemoteApplication is an implace representation of the state.RemoteApplication
+// MigrationRemoteApplication is an in-place representation of the state.RemoteApplication
 type MigrationRemoteApplication interface {
 	Tag() names.Tag
 	OfferUUID() string
@@ -23,7 +23,7 @@ type MigrationRemoteApplication interface {
 	GlobalKey() string
 }
 
-// MigrationRemoteEndpoint is an implace representation of the state.Endpoint
+// MigrationRemoteEndpoint is an in-place representation of the state.Endpoint
 type MigrationRemoteEndpoint struct {
 	Name      string
 	Role      charm.RelationRole
@@ -49,13 +49,13 @@ type MigrationRemoteSubnet struct {
 	ProviderNetworkId string
 }
 
-// AllRemoteApplicationSource defines an inplace usage for reading all the
+// AllRemoteApplicationSource defines an in-place usage for reading all the
 // remote application.
 type AllRemoteApplicationSource interface {
 	AllRemoteApplications() ([]MigrationRemoteApplication, error)
 }
 
-// StatusSource defines an inplace usage for reading in the status for a given
+// StatusSource defines an in-place usage for reading in the status for a given
 // entity.
 type StatusSource interface {
 	StatusArgs(string) (description.StatusArgs, error)
@@ -68,7 +68,7 @@ type RemoteApplicationSource interface {
 	StatusSource
 }
 
-// RemoteApplicationModel defines an inplace usage for adding a remote entity
+// RemoteApplicationModel defines an in-place usage for adding a remote entity
 // to a model.
 type RemoteApplicationModel interface {
 	AddRemoteApplication(description.RemoteApplicationArgs) description.RemoteApplication

@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facades/client/firewallrules"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/state"
 )
 
@@ -32,19 +33,17 @@ func (m *mockBackend) ModelTag() names.ModelTag {
 func (m *mockBackend) SaveFirewallRule(rule state.FirewallRule) error {
 	m.MethodCall(m, "SaveFirewallRule")
 	m.PopNoErr()
-	m.rules[string(rule.WellKnownService)] = rule
+	m.rules[string(rule.WellKnownService())] = rule
 	return nil
 }
 
 func (m *mockBackend) ListFirewallRules() ([]*state.FirewallRule, error) {
 	m.MethodCall(m, "ListFirewallRules")
 	m.PopNoErr()
-	return []*state.FirewallRule{
-		{
-			WellKnownService: state.JujuApplicationOfferRule,
-			WhitelistCIDRs:   []string{"1.2.3.4/8"},
-		},
-	}, nil
+	frls := make([]*state.FirewallRule, 1)
+	firewareRule := state.NewFirewallRule(firewall.JujuApplicationOfferRule, []string{"1.2.3.4/8"})
+	frls[0] = &firewareRule
+	return frls, nil
 }
 
 type mockBlockChecker struct {

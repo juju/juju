@@ -10,6 +10,8 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/firewall"
 )
 
 // FirewallRule instances describe the ingress networks
@@ -26,11 +28,29 @@ import (
 // - juju-controller
 // - juju-application-offer
 type FirewallRule struct {
-	// WellKnownService is the known service for the firewall rules entity.
-	WellKnownService WellKnownServiceType
+	id string
 
-	// WhitelistCIDRS is the whitelist CIDRs for the rule.
-	WhitelistCIDRs []string
+	wellKnownService firewall.WellKnownServiceType
+
+	whitelistCIDRs []string
+}
+
+func NewFirewallRule(serviceType firewall.WellKnownServiceType, cidrs []string) FirewallRule {
+	return FirewallRule{whitelistCIDRs: cidrs, wellKnownService: serviceType}
+}
+
+func (f FirewallRule) ID() string {
+	return f.id
+}
+
+// WellKnownService is the known service for the firewall rules entity.
+func (f FirewallRule) WellKnownService() firewall.WellKnownServiceType {
+	return f.wellKnownService
+}
+
+// WhitelistCIDRS is the whitelist CIDRs for the rule.
+func (f FirewallRule) WhitelistCIDRs() []string {
+	return f.whitelistCIDRs
 }
 
 type firewallRulesDoc struct {
@@ -41,38 +61,17 @@ type firewallRulesDoc struct {
 
 func (r *firewallRulesDoc) toRule() *FirewallRule {
 	return &FirewallRule{
-		WellKnownService: WellKnownServiceType(r.WellKnownService),
-		WhitelistCIDRs:   r.WhitelistCIDRS,
+		id:               r.Id,
+		wellKnownService: firewall.WellKnownServiceType(r.WellKnownService),
+		whitelistCIDRs:   r.WhitelistCIDRS,
 	}
 }
 
 // FirewallRuler instances provide access to firewall rules in state.
 type FirewallRuler interface {
-	Save(service WellKnownServiceType, whiteListCidrs []string) (FirewallRule, error)
-	Rule(service WellKnownServiceType) (FirewallRule, error)
+	Save(service firewall.WellKnownServiceType, whiteListCidrs []string) (FirewallRule, error)
+	Rule(service firewall.WellKnownServiceType) (FirewallRule, error)
 	AllRules() ([]FirewallRule, error)
-}
-
-const (
-	// SSHRule is a rule for SSH connections.
-	SSHRule = WellKnownServiceType("ssh")
-
-	// JujuControllerRule is a rule for connections to the Juju controller.
-	JujuControllerRule = WellKnownServiceType("juju-controller")
-
-	// JujuApplicationOfferRule is a rule for connections to a Juju offer.
-	JujuApplicationOfferRule = WellKnownServiceType("juju-application-offer")
-)
-
-// WellKnownServiceType defines a service for which firewall rules may be applied.
-type WellKnownServiceType string
-
-func (v WellKnownServiceType) validate() error {
-	switch v {
-	case SSHRule, JujuControllerRule, JujuApplicationOfferRule:
-		return nil
-	}
-	return errors.NotValidf("well known service type %q", v)
 }
 
 type firewallRulesState struct {
@@ -86,53 +85,11 @@ func NewFirewallRules(st *State) *firewallRulesState {
 
 // Save stores the specified firewall rule.
 func (fw *firewallRulesState) Save(rule FirewallRule) error {
-	if err := rule.WellKnownService.validate(); err != nil {
+	if err := checkModelActive(fw.st); err != nil {
 		return errors.Trace(err)
 	}
-	for _, cidr := range rule.WhitelistCIDRs {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return errors.NotValidf("CIDR %q", cidr)
-		}
-	}
-	serviceStr := string(rule.WellKnownService)
-	doc := firewallRulesDoc{
-		Id:               serviceStr,
-		WellKnownService: serviceStr,
-		WhitelistCIDRS:   rule.WhitelistCIDRs,
-	}
 	buildTxn := func(int) ([]txn.Op, error) {
-		model, err := fw.st.Model()
-		if err != nil {
-			return nil, errors.Annotate(err, "failed to load model")
-		}
-		if err := checkModelActive(fw.st); err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		_, err = fw.Rule(rule.WellKnownService)
-		if err != nil && !errors.IsNotFound(err) {
-			return nil, errors.Trace(err)
-		}
-		var ops []txn.Op
-		if err == nil {
-			ops = []txn.Op{{
-				C:      firewallRulesC,
-				Id:     serviceStr,
-				Assert: txn.DocExists,
-				Update: bson.D{
-					{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs}}},
-				},
-			}, model.assertActiveOp()}
-		} else {
-			doc.WhitelistCIDRS = rule.WhitelistCIDRs
-			ops = []txn.Op{{
-				C:      firewallRulesC,
-				Id:     doc.Id,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}, model.assertActiveOp()}
-		}
-		return ops, nil
+		return fw.GetSaveTransactionOps(rule, false)
 	}
 	if err := fw.st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "failed to create firewall rules")
@@ -141,8 +98,57 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 	return nil
 }
 
+func (fw *firewallRulesState) GetSaveTransactionOps(rule FirewallRule, isMigrating bool) ([]txn.Op, error) {
+	if err := rule.WellKnownService().Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, cidr := range rule.WhitelistCIDRs() {
+		if _, _, err := net.ParseCIDR(cidr); err != nil {
+			return nil, errors.NotValidf("CIDR %q", cidr)
+		}
+	}
+	serviceStr := string(rule.WellKnownService())
+	doc := firewallRulesDoc{
+		Id:               serviceStr,
+		WellKnownService: serviceStr,
+		WhitelistCIDRS:   rule.WhitelistCIDRs(),
+	}
+
+	model, err := fw.st.Model()
+	if err != nil {
+		return nil, errors.Annotate(err, "failed to load model")
+	}
+	_, err = fw.Rule(rule.WellKnownService())
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	var ops []txn.Op
+	if err == nil {
+		ops = []txn.Op{{
+			C:      firewallRulesC,
+			Id:     serviceStr,
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs()}}},
+			},
+		}}
+	} else {
+		doc.WhitelistCIDRS = rule.WhitelistCIDRs()
+		ops = []txn.Op{{
+			C:      firewallRulesC,
+			Id:     doc.Id,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}
+	}
+	if !isMigrating {
+		ops = append(ops, model.assertActiveOp())
+	}
+	return ops, nil
+}
+
 // Rule returns the firewall rule for the specified service.
-func (fw *firewallRulesState) Rule(service WellKnownServiceType) (*FirewallRule, error) {
+func (fw *firewallRulesState) Rule(service firewall.WellKnownServiceType) (*FirewallRule, error) {
 	coll, closer := fw.st.db().GetCollection(firewallRulesC)
 	defer closer()
 

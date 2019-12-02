@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"bytes"
+	"github.com/juju/juju/core/firewall"
 	"io/ioutil"
 	"math/rand"
 	"sort"
@@ -845,6 +846,25 @@ func (s *MigrationExportSuite) TestEndpointBindings(c *gc.C) {
 	// There are empty values for every charm endpoint, but we only care about the
 	// db endpoint.
 	c.Assert(bindings["db"], gc.Equals, oneSpace.Id())
+}
+
+func (s *MigrationExportSuite) TestFirewallRules(c *gc.C) {
+	cidrs := []string{"192.168.1.0/16"}
+
+	frst := state.NewFirewallRules(s.State)
+	rule := state.NewFirewallRule(firewall.SSHRule, cidrs)
+	err := frst.Save(rule)
+	c.Assert(err, jc.ErrorIsNil)
+
+	model, err := s.State.Export()
+	c.Assert(err, jc.ErrorIsNil)
+
+	firewallRules := model.FirewallRules()
+	c.Assert(firewallRules, gc.HasLen, 1)
+
+	entity := firewallRules[0]
+	c.Assert(entity.WellKnownService(), gc.Equals, string(firewall.SSHRule))
+	c.Assert(entity.WhitelistCIDRs(), gc.DeepEquals, cidrs)
 }
 
 func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {

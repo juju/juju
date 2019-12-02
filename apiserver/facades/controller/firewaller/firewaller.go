@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
@@ -488,7 +489,7 @@ func (f *FirewallerAPIV4) SetRelationsStatus(args params.SetStatus) (params.Erro
 func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.ListFirewallRulesResults, error) {
 	var result params.ListFirewallRulesResults
 	for _, knownService := range args.KnownServices {
-		rule, err := f.st.FirewallRule(state.WellKnownServiceType(knownService))
+		rule, err := f.st.FirewallRule(corefirewall.WellKnownServiceType(knownService))
 		if err != nil && !errors.IsNotFound(err) {
 			return result, common.ServerError(err)
 		}
@@ -497,7 +498,7 @@ func (f *FirewallerAPIV4) FirewallRules(args params.KnownServiceArgs) (params.Li
 		}
 		result.Rules = append(result.Rules, params.FirewallRule{
 			KnownService:   knownService,
-			WhitelistCIDRS: rule.WhitelistCIDRs,
+			WhitelistCIDRS: rule.WhitelistCIDRs(),
 		})
 	}
 	return result, nil

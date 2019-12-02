@@ -8,6 +8,7 @@ import (
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/apiserver/common/firewall"
+	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/state"
 )
 
@@ -24,7 +25,7 @@ type State interface {
 
 	FindEntity(tag names.Tag) (state.Entity, error)
 
-	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
+	FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error)
 
 	Subnet(id string) (Subnet, error)
 
@@ -58,7 +59,7 @@ func (st stateShim) WatchOpenedPorts() state.StringsWatcher {
 	return st.st.WatchOpenedPorts()
 }
 
-func (st stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+func (st stateShim) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	api := state.NewFirewallRules(st.st)
 	return api.Rule(service)
 }
