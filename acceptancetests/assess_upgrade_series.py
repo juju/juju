@@ -65,8 +65,18 @@ def do_release_upgrade(client, machine):
 
 
 def reboot_machine(client, machine):
+    """Issue a reboot command to the machine via `juju run`.
+    The issued command may exit with SIGTERM as the machine goes down.
+    We ignore this.
+    """
     log.info("Restarting: {}".format(machine))
-    client.juju('run', ('--machine', machine, 'sudo shutdown -r now'))
+
+    try:
+        client.juju('run', ('--machine', machine, 'sudo shutdown -r now'))
+    except subprocess.CalledProcessError as e:
+        if e.returncode != 143:
+            raise e
+        log.info("Ignoring SIGTERM raised during `juju run`")
 
     log.info("wait_for_started()")
     client.wait_for_started()
