@@ -305,17 +305,17 @@ func (c *cacheWorker) handleWatcherErr(err error) {
 func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 	id := d.Entity.EntityID()
 	switch id.Kind {
-	case "model":
+	case multiwatcher.ModelKind:
 		return c.translateModel(d)
-	case "application":
+	case multiwatcher.ApplicationKind:
 		return c.translateApplication(d)
-	case "machine":
+	case multiwatcher.MachineKind:
 		return c.translateMachine(d)
-	case "unit":
+	case multiwatcher.UnitKind:
 		return c.translateUnit(d)
-	case "charm":
+	case multiwatcher.CharmKind:
 		return c.translateCharm(d)
-	case "generation":
+	case multiwatcher.BranchKind:
 		// Generation deltas are processed as cache branch changes,
 		// as only "in-flight" branches should ever be in the cache.
 		return c.translateBranch(d)

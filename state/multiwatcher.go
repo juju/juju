@@ -11,7 +11,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -56,32 +56,6 @@ func (w *Multiwatcher) Stop() error {
 	return errors.Trace(w.all.tomb.Err())
 }
 
-// stopped represents an error when state is supported.
-type stopped struct {
-	errors.Err
-}
-
-// ErrStoppedf returns an error which satisfies IsErrStopped().
-func ErrStoppedf(format string, args ...interface{}) error {
-	newErr := errors.NewErr(format+" was stopped", args...)
-	newErr.SetLocation(2)
-	return &stopped{newErr}
-}
-
-// NewErrStopped returns an error which wraps err and satisfies IsErrStopped().
-func NewErrStopped() error {
-	newErr := errors.NewErr("watcher was stopped")
-	newErr.SetLocation(2)
-	return &stopped{newErr}
-}
-
-// IsErrStopped reports whether the error was created with ErrStoppedf() or NewErrStopped().
-func IsErrStopped(err error) bool {
-	err = errors.Cause(err)
-	_, ok := err.(*stopped)
-	return ok
-}
-
 // Next retrieves all changes that have happened since the last
 // time it was called, blocking until there are some changes available.
 //
@@ -91,7 +65,7 @@ func IsErrStopped(err error) bool {
 // return the deltas that represent the model's complete state at that
 // moment, even when the model is empty. In that empty model case an
 // empty set of deltas is returned.
-func (w *Multiwatcher) Next() ([]params.Delta, error) {
+func (w *Multiwatcher) Next() ([]multiwatcher.Delta, error) {
 	req := &request{
 		w:     w,
 		reply: make(chan bool),
@@ -105,7 +79,7 @@ func (w *Multiwatcher) Next() ([]params.Delta, error) {
 	case <-w.all.tomb.Dying():
 		err := w.all.tomb.Err()
 		if err == nil {
-			err = ErrStoppedf("shared state watcher")
+			err = multiwatcher.ErrStoppedf("shared state watcher")
 		}
 		return nil, err
 	case w.all.request <- req:
@@ -119,15 +93,15 @@ func (w *Multiwatcher) Next() ([]params.Delta, error) {
 	case <-w.all.tomb.Dying():
 		err := w.all.tomb.Err()
 		if err == nil {
-			err = ErrStoppedf("shared state watcher")
+			err = multiwatcher.ErrStoppedf("shared state watcher")
 		}
 		return nil, err
 	case ok := <-req.reply:
 		if !ok {
-			return nil, errors.Trace(NewErrStopped())
+			return nil, errors.Trace(multiwatcher.NewErrStopped())
 		}
 	case <-req.noChanges:
-		return []params.Delta{}, nil
+		return []multiwatcher.Delta{}, nil
 	}
 	return req.changes, nil
 }
@@ -148,7 +122,7 @@ type storeManager struct {
 	all *multiwatcherStore
 
 	// Each entry in the waiting map holds a linked list of Next requests
-	// outstanding for the associated params.
+	// outstanding for the associated watcher.
 	waiting map[*Multiwatcher]*request
 }
 
@@ -195,7 +169,7 @@ type request struct {
 
 	// On reply, changes will hold changes that have occurred since
 	// the last replied-to Next request.
-	changes []params.Delta
+	changes []multiwatcher.Delta
 
 	// next points to the next request in the list of outstanding
 	// requests on a given watcher.  It is used only by the central
@@ -409,7 +383,7 @@ func (sm *storeManager) leave(w *Multiwatcher) {
 }
 
 // entityEntry holds an entry in the linked list of all entities known
-// to a params.
+// to a store.
 type entityEntry struct {
 	// The revno holds the local idea of the latest change to the
 	// given entity.  It is not the same as the transaction revno -
@@ -434,11 +408,10 @@ type entityEntry struct {
 	refCount int
 
 	// info holds the actual information on the entity.
-	info params.EntityInfo
+	info multiwatcher.EntityInfo
 }
 
-// multiwatcherStore holds a list of all entities known
-// to a params.
+// multiwatcherStore holds a list of all entities it knows.
 type multiwatcherStore struct {
 	latestRevno int64
 	entities    map[interface{}]*list.Element
@@ -457,8 +430,8 @@ func newStore() *multiwatcherStore {
 
 // All returns all the entities stored in the Store,
 // oldest first. It is only exposed for testing purposes.
-func (a *multiwatcherStore) All() []params.EntityInfo {
-	entities := make([]params.EntityInfo, 0, a.list.Len())
+func (a *multiwatcherStore) All() []multiwatcher.EntityInfo {
+	entities := make([]multiwatcher.EntityInfo, 0, a.list.Len())
 	for e := a.list.Front(); e != nil; e = e.Next() {
 		entry := e.Value.(*entityEntry)
 		if entry.removed {
@@ -471,7 +444,7 @@ func (a *multiwatcherStore) All() []params.EntityInfo {
 
 // add adds a new entity with the given id and associated
 // information to the list.
-func (a *multiwatcherStore) add(id interface{}, info params.EntityInfo) {
+func (a *multiwatcherStore) add(id interface{}, info multiwatcher.EntityInfo) {
 	if _, ok := a.entities[id]; ok {
 		panic("adding new entry with duplicate id")
 	}
@@ -496,7 +469,7 @@ func (a *multiwatcherStore) decRef(entry *entityEntry) {
 	if !entry.removed {
 		return
 	}
-	id := entry.info.EntityId()
+	id := entry.info.EntityID()
 	elem, ok := a.entities[id]
 	if !ok {
 		panic("delete of non-existent entry")
@@ -506,7 +479,7 @@ func (a *multiwatcherStore) decRef(entry *entityEntry) {
 }
 
 // delete deletes the entry with the given info id.
-func (a *multiwatcherStore) delete(id params.EntityId) {
+func (a *multiwatcherStore) delete(id multiwatcher.EntityID) {
 	elem, ok := a.entities[id]
 	if !ok {
 		return
@@ -518,7 +491,7 @@ func (a *multiwatcherStore) delete(id params.EntityId) {
 // Remove marks that the entity with the given id has
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
-func (a *multiwatcherStore) Remove(id params.EntityId) {
+func (a *multiwatcherStore) Remove(id multiwatcher.EntityID) {
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -536,8 +509,8 @@ func (a *multiwatcherStore) Remove(id params.EntityId) {
 }
 
 // Update updates the information for the given entity.
-func (a *multiwatcherStore) Update(info params.EntityInfo) {
-	id := info.EntityId()
+func (a *multiwatcherStore) Update(info multiwatcher.EntityInfo) {
+	id := info.EntityID()
 	elem, ok := a.entities[id]
 	if !ok {
 		a.add(id, info)
@@ -560,7 +533,7 @@ func (a *multiwatcherStore) Update(info params.EntityInfo) {
 
 // Get returns the stored entity with the given id, or nil if none was found.
 // The contents of the returned entity MUST not be changed.
-func (a *multiwatcherStore) Get(id params.EntityId) params.EntityInfo {
+func (a *multiwatcherStore) Get(id multiwatcher.EntityID) multiwatcher.EntityInfo {
 	e, ok := a.entities[id]
 	if !ok {
 		return nil
@@ -570,7 +543,7 @@ func (a *multiwatcherStore) Get(id params.EntityId) params.EntityInfo {
 
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
-func (a *multiwatcherStore) ChangesSince(revno int64) []params.Delta {
+func (a *multiwatcherStore) ChangesSince(revno int64) []multiwatcher.Delta {
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -588,7 +561,7 @@ func (a *multiwatcherStore) ChangesSince(revno int64) []params.Delta {
 		e = a.list.Back()
 		n++
 	}
-	changes := make([]params.Delta, 0, n)
+	changes := make([]multiwatcher.Delta, 0, n)
 	for ; e != nil; e = e.Prev() {
 		entry := e.Value.(*entityEntry)
 		if entry.removed && entry.creationRevno > revno {
@@ -596,7 +569,7 @@ func (a *multiwatcherStore) ChangesSince(revno int64) []params.Delta {
 			// and removed since the revno.
 			continue
 		}
-		changes = append(changes, params.Delta{
+		changes = append(changes, multiwatcher.Delta{
 			Removed: entry.removed,
 			Entity:  entry.info,
 		})

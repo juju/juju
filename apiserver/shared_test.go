@@ -17,6 +17,7 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
@@ -43,7 +44,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
 		InitializedGate: initialized,
 		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() modelcache.BackingWatcher {
+		WatcherFactory: func() multiwatcher.Watcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
 		PrometheusRegisterer: noopRegisterer{},

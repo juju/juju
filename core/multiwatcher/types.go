@@ -30,13 +30,6 @@ const (
 	UnitKind              = "unit"
 )
 
-// Factory is used to create multiwatchers.
-type Factory interface {
-	// TODO: WatchUsersModels to filter just the user's models
-	WatchModel(modelUUID string) Watcher
-	WatchController() Watcher
-}
-
 // Watcher is the way a caller can find out what changes have happened
 // on one or more models.
 type Watcher interface {

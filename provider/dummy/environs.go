@@ -65,6 +65,7 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/multiwatcher"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -931,7 +932,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			modelCache, err := modelcache.NewWorker(modelcache.Config{
 				InitializedGate: initialized,
 				Logger:          loggo.GetLogger("dummy"),
-				WatcherFactory: func() modelcache.BackingWatcher {
+				WatcherFactory: func() multiwatcher.Watcher {
 					return statePool.SystemState().WatchAllModels(statePool)
 				},
 				PrometheusRegisterer: noopRegisterer{},

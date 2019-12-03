@@ -110,7 +110,7 @@ func (aw *SrvAllWatcher) translate(deltas []multiwatcher.Delta) []params.Delta {
 			converted = aw.translateCharm(delta.Entity)
 		case multiwatcher.RelationKind:
 			converted = aw.translateRelation(delta.Entity)
-		case multiwatcher.BlockKind:
+		case multiwatcher.BranchKind:
 			converted = aw.translateBranch(delta.Entity)
 		case multiwatcher.AnnotationKind: // THIS SEEMS WEIRD
 			// FIXME: annotations should be part of the underlying entity.
