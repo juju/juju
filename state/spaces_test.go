@@ -648,14 +648,14 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 		ID:         space.Id(),
 		ProviderId: args.ProviderId,
 		Subnets: []network.SubnetInfo{
-			network.SubnetInfo{
+			{
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "1.1.1.0/24",
 				VLANTag:           79,
 				AvailabilityZones: []string{"AvailabilityZone"},
 			},
-			network.SubnetInfo{
+			{
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "253.1.0.0/16",
@@ -666,7 +666,7 @@ func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
 					FanOverlay:       "253.0.0.0/8",
 				},
 			},
-			network.SubnetInfo{
+			{
 				SpaceID:           space.Id(),
 				SpaceName:         "space1",
 				CIDR:              "2001:cbd0::/32",

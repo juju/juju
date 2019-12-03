@@ -41,7 +41,7 @@ var (
 	}
 
 	testNetIfs = []network.InterfaceInfo{
-		network.InterfaceInfo{
+		{
 			DeviceIndex:   0,
 			InterfaceName: "eth0",
 			MACAddress:    "de:ad:be:ef:00:00",
@@ -56,13 +56,13 @@ var (
 	}
 
 	testCoercedNetIfs = []network.InterfaceInfo{
-		network.InterfaceInfo{
+		{
 			DeviceIndex: 0,
 			Addresses: network.ProviderAddresses{
 				network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
 			},
 		},
-		network.InterfaceInfo{
+		{
 			DeviceIndex: 1,
 			ShadowAddresses: network.ProviderAddresses{
 				network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
