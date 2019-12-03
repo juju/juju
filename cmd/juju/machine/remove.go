@@ -41,7 +41,7 @@ Machines are specified by their numbers, which may be retrieved from the
 output of ` + "`juju status`." + `
 
 It is possible to remove machine from Juju model without affecting
-the corresponding cloud instnace by using --keep-instance option.
+the corresponding cloud instance by using --keep-instance option.
 
 Machines responsible for the model cannot be removed.
 
