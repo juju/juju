@@ -17688,11 +17688,33 @@
                         }
                     }
                 },
+                "ProviderAddresses": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/MachineAddressesResults"
+                        }
+                    }
+                },
                 "SetInstanceStatus": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/SetStatus"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "SetProviderAddresses": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetMachinesAddresses"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -17939,6 +17961,58 @@
                         "results"
                     ]
                 },
+                "MachineAddresses": {
+                    "type": "object",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "addresses"
+                    ]
+                },
+                "MachineAddressesResult": {
+                    "type": "object",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "addresses"
+                    ]
+                },
+                "MachineAddressesResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MachineAddressesResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "ModelConfigResult": {
                     "type": "object",
                     "properties": {
@@ -18122,6 +18196,21 @@
                     "required": [
                         "tag",
                         "config"
+                    ]
+                },
+                "SetMachinesAddresses": {
+                    "type": "object",
+                    "properties": {
+                        "machine-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MachineAddresses"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "machine-addresses"
                     ]
                 },
                 "SetProviderNetworkConfig": {
@@ -20682,6 +20771,17 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/SetMachineNetworkConfig"
+                        }
+                    }
+                },
+                "SetProviderNetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
                         }
                     }
                 },
@@ -26022,6 +26122,17 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/EntityPasswords"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "SetProviderNetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
