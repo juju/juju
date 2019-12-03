@@ -814,10 +814,10 @@ func checkTargetController(st *State, targetControllerTag names.ControllerTag) e
 // LatestMigration returns the most recent ModelMigration (if any) for a model
 // that has not been removed from the state. Callers interested in
 // ModelMigrations for models that have been removed after a successful
-// migration to another controller should use LatestRemovedModelMigration
+// migration to another controller should use CompletedMigrationForModel
 // instead.
 func (st *State) LatestMigration() (ModelMigration, error) {
-	mig, phase, err := st.latestMigration()
+	mig, phase, err := st.latestMigration(st.ModelUUID())
 	if err != nil {
 		return nil, err
 	}
@@ -837,11 +837,11 @@ func (st *State) LatestMigration() (ModelMigration, error) {
 	return mig, nil
 }
 
-// LatestRemovedModelMigration returns the most recent ModelMigration (if any)
-// for a model that has been removed from the state after a successful
-// migration to another controller.
-func (st *State) LatestRemovedModelMigration() (ModelMigration, error) {
-	mig, phase, err := st.latestMigration()
+// CompletedMigrationForModel returns the most recent ModelMigration (if any)
+// for a model that has been removed from the state after
+// it reached the DONE phase and caused the model to be relocated.
+func (st *State) CompletedMigrationForModel() (ModelMigration, error) {
+	mig, phase, err := st.latestMigration(st.ModelUUID())
 	if err != nil {
 		return nil, err
 	}
@@ -856,12 +856,33 @@ func (st *State) LatestRemovedModelMigration() (ModelMigration, error) {
 	return mig, nil
 }
 
+// CompletedMigration returns the most recent ModelMigration (if any)
+// for input model UUID that has been removed from the state after
+// it reached the DONE phase and caused the model to be relocated.
+func (st *State) CompletedMigration(modelUUID string) (ModelMigration, error) {
+	mig, phase, err := st.latestMigration(modelUUID)
+	if err != nil {
+		return nil, err
+	}
+	// Return NotFound if the model still modelExists or the migration is not
+	// flagged as completed.
+	modelExists, err := st.ModelExists(modelUUID)
+	if err != nil {
+		return nil, err
+	}
+	if phase != migration.DONE || modelExists {
+		return nil, errors.NotFoundf("migration")
+	}
+
+	return mig, nil
+}
+
 // latestMigration returns the most recent ModelMigration for a model
 // (if any).
-func (st *State) latestMigration() (ModelMigration, migration.Phase, error) {
+func (st *State) latestMigration(modelUUID string) (ModelMigration, migration.Phase, error) {
 	migColl, closer := st.db().GetCollection(migrationsC)
 	defer closer()
-	query := migColl.Find(bson.M{"model-uuid": st.ModelUUID()})
+	query := migColl.Find(bson.M{"model-uuid": modelUUID})
 	query = query.Sort("-attempt").Limit(1)
 	mig, err := st.migrationFromQuery(query)
 	if err != nil {
