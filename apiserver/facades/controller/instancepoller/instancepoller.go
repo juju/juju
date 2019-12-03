@@ -4,10 +4,9 @@
 package instancepoller
 
 import (
-	"fmt"
-
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -17,6 +16,8 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.instancepoller")
 
 // InstancePollerAPI provides access to the InstancePoller API facade.
 type InstancePollerAPI struct {
@@ -114,21 +115,16 @@ func (a *InstancePollerAPI) getOneMachine(tag string, canAccess common.AuthFunc)
 	if !canAccess(machineTag) {
 		return nil, common.ErrPerm
 	}
-	entity, err := a.st.FindEntity(machineTag)
-	if err != nil {
-		return nil, err
-	}
-	machine, ok := entity.(StateMachine)
-	if !ok {
-		return nil, common.NotSupportedError(
-			machineTag, fmt.Sprintf("expected machine, got %T", entity),
-		)
-	}
-	return machine, nil
+	return a.st.Machine(machineTag.Id())
 }
 
 // SetProviderNetworkConfig updates the provider addresses for one or more
 // machines.
+//
+// What's more, if the client request includes provider-specific IDs (e.g.
+// network, subnet or address IDs), this method will also iterate any present
+// link layer devices (and their addresses) and backfill any missing
+// provider-specific information.
 func (a *InstancePollerAPI) SetProviderNetworkConfig(req params.SetProviderNetworkConfig) (params.SetProviderNetworkConfigResults, error) {
 	result := params.SetProviderNetworkConfigResults{
 		Results: make([]params.SetProviderNetworkConfigResult, len(req.Args)),
@@ -171,6 +167,19 @@ func (a *InstancePollerAPI) SetProviderNetworkConfig(req params.SetProviderNetwo
 
 		result.Results[i].Modified = modified
 		result.Results[i].Addresses = params.FromProviderAddresses(newProviderAddrs...)
+
+		// If we were able to acquire full network device information
+		// from the provider which includes provider-specific IDs that
+		// are not visible to the machiner worker (primary source for
+		// link layer devices/addresses), we can attempt to backfill
+		// the missing provider IDs.
+		if containsProviderIDs(arg.Configs) {
+			// Treat errors as transient; the purpose of this API
+			// method is to simply update the provider addresses.
+			if err := backfillProviderIDs(machine, params.InterfaceInfoFromNetworkConfig(arg.Configs)); err != nil {
+				logger.Errorf("link layer device backfill attempt for machine %v failed due to error: %v; waiting until next instancepoller run to retry", machine.Id(), err)
+			}
+		}
 	}
 	return result, nil
 }
@@ -182,6 +191,84 @@ func maybeUpdateMachineProviderAddresses(m StateMachine, newSpaceAddrs network.S
 	}
 
 	return true, m.SetProviderAddresses(newSpaceAddrs...)
+}
+
+func backfillProviderIDs(m StateMachine, ifaces []network.InterfaceInfo) error {
+	existingDevs, err := m.AllLinkLayerDevices()
+	if err != nil {
+		return err
+	}
+
+	// Since the device name might be different (i.e. providers
+	// like AWS do not report device names) we can only reliably
+	// match on the device address.
+	addrToIfaceMap := make(map[string]network.InterfaceInfo)
+	for _, iface := range ifaces {
+		addrToIfaceMap[iface.PrimaryAddress().Value] = iface
+	}
+
+	var (
+		devUpdates  []state.LinkLayerDeviceArgs
+		addrUpdates []state.LinkLayerDeviceAddress
+	)
+	for _, existingDev := range existingDevs {
+		devAddrs, err := existingDev.Addresses()
+		if err != nil {
+			return err
+		}
+
+		for _, addr := range devAddrs {
+			iface, matched := addrToIfaceMap[addr.Value()]
+			if !matched {
+				continue
+			}
+
+			// Re-use the primary information persisted by the
+			// machiner but populate the provider-related ID fields
+			// with the data obtained by the network provider.
+			devUpdates = append(devUpdates, state.LinkLayerDeviceArgs{
+				Name:        existingDev.Name(),
+				MTU:         existingDev.MTU(),
+				ProviderID:  iface.ProviderId,
+				Type:        existingDev.Type(),
+				MACAddress:  existingDev.MACAddress(),
+				IsAutoStart: existingDev.IsAutoStart(),
+				IsUp:        existingDev.IsUp(),
+				ParentName:  existingDev.ParentName(),
+			})
+
+			addrUpdates = append(addrUpdates, state.LinkLayerDeviceAddress{
+				DeviceName:        existingDev.Name(),
+				ConfigMethod:      addr.ConfigMethod(),
+				ProviderID:        iface.ProviderAddressId,
+				ProviderNetworkID: iface.ProviderNetworkId,
+				ProviderSubnetID:  iface.ProviderSubnetId,
+				CIDRAddress:       addr.SubnetCIDR(),
+				DNSServers:        addr.DNSServers(),
+				DNSSearchDomains:  addr.DNSSearchDomains(),
+				GatewayAddress:    addr.GatewayAddress(),
+				IsDefaultGateway:  addr.IsDefaultGateway(),
+			})
+
+			break
+		}
+	}
+
+	if len(devUpdates) != 0 {
+		logger.Debugf("merging the following link layer devices into device list for machine %v: %+v", m.Id(), devUpdates)
+		if err := m.SetParentLinkLayerDevicesBeforeTheirChildren(devUpdates); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if len(addrUpdates) != 0 {
+		logger.Debugf("merging the following link layer device addresses into address list for machine %v: %+v", m.Id(), addrUpdates)
+		if err := m.SetDevicesAddressesIdempotently(addrUpdates); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	return nil
 }
 
 // mapNetworkConfigsToProviderAddresses iterates the list of incoming network
@@ -239,6 +326,15 @@ func mapNetworkConfigsToProviderAddresses(cfgs []params.NetworkConfig, spaceInfo
 	}
 
 	return addrs, nil
+}
+
+func containsProviderIDs(cfgs []params.NetworkConfig) bool {
+	for _, cfg := range cfgs {
+		if cfg.ProviderId != "" || cfg.ProviderSubnetId != "" || cfg.ProviderAddressId != "" || cfg.ProviderNetworkId != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func spaceInfoForAddress(spaceInfos network.SpaceInfos, CIDR, providerSubnetID, addr string) (*network.SpaceInfo, error) {

@@ -446,12 +446,12 @@ func (s *InstancePollerSuite) TestProviderAddressesSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "ProviderAddresses")
 	s.st.CheckCall(c, 2, "AllSpaceInfos")
-	s.st.CheckFindEntityCall(c, 3, "2")
+	s.st.CheckMachineCall(c, 3, "2")
 	s.st.CheckCall(c, 4, "ProviderAddresses")
-	s.st.CheckFindEntityCall(c, 5, "42")
+	s.st.CheckMachineCall(c, 5, "42")
 }
 
 func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
@@ -474,10 +474,10 @@ func (s *InstancePollerSuite) TestProviderAddressesFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
 	s.st.CheckCall(c, 2, "ProviderAddresses")
-	s.st.CheckFindEntityCall(c, 3, "3")
+	s.st.CheckMachineCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
@@ -501,12 +501,12 @@ func (s *InstancePollerSuite) TestSetProviderAddressesSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckSetProviderAddressesCall(c, 1, []network.SpaceAddress{})
-	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckMachineCall(c, 2, "2")
 	s.st.CheckCall(c, 3, "AllSpaceInfos")
 	s.st.CheckSetProviderAddressesCall(c, 4, newAddrs)
-	s.st.CheckFindEntityCall(c, 5, "42")
+	s.st.CheckMachineCall(c, 5, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
@@ -540,11 +540,11 @@ func (s *InstancePollerSuite) TestSetProviderAddressesFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(result, jc.DeepEquals, s.machineErrorResults)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
 	s.st.CheckCall(c, 2, "AllSpaceInfos")
 	s.st.CheckSetProviderAddressesCall(c, 3, newAddrs)
-	s.st.CheckFindEntityCall(c, 4, "3")
+	s.st.CheckMachineCall(c, 4, "3")
 
 	// Ensure machine 2 wasn't updated.
 	machine, err := s.st.Machine("2")
@@ -584,11 +584,11 @@ func (s *InstancePollerSuite) TestInstanceStatusSuccess(c *gc.C) {
 	},
 	)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "InstanceStatus")
-	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckMachineCall(c, 2, "2")
 	s.st.CheckCall(c, 3, "InstanceStatus")
-	s.st.CheckFindEntityCall(c, 4, "42")
+	s.st.CheckMachineCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
@@ -611,10 +611,10 @@ func (s *InstancePollerSuite) TestInstanceStatusFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
 	s.st.CheckCall(c, 2, "InstanceStatus")
-	s.st.CheckFindEntityCall(c, 3, "3")
+	s.st.CheckMachineCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
@@ -637,11 +637,11 @@ func (s *InstancePollerSuite) TestSetInstanceStatusSuccess(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, s.mixedErrorResults)
 
 	now := s.clock.Now()
-	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "SetInstanceStatus", status.StatusInfo{Status: status.Status(""), Since: &now})
-	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckMachineCall(c, 2, "2")
 	s.st.CheckCall(c, 3, "SetInstanceStatus", status.StatusInfo{Status: status.Status("new status"), Since: &now})
-	s.st.CheckFindEntityCall(c, 4, "42")
+	s.st.CheckMachineCall(c, 4, "42")
 
 	// Ensure machines were updated.
 	machine, err := s.st.Machine("1")
@@ -681,11 +681,11 @@ func (s *InstancePollerSuite) TestSetInstanceStatusFailure(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, s.machineErrorResults)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
 	now := s.clock.Now()
 	s.st.CheckCall(c, 2, "SetInstanceStatus", status.StatusInfo{Status: "invalid", Since: &now})
-	s.st.CheckFindEntityCall(c, 3, "3")
+	s.st.CheckMachineCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
@@ -707,11 +707,11 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedSuccess(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 0, "1")
 	s.st.CheckCall(c, 1, "IsManual")
-	s.st.CheckFindEntityCall(c, 2, "2")
+	s.st.CheckMachineCall(c, 2, "2")
 	s.st.CheckCall(c, 3, "IsManual")
-	s.st.CheckFindEntityCall(c, 4, "42")
+	s.st.CheckMachineCall(c, 4, "42")
 }
 
 func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
@@ -734,10 +734,10 @@ func (s *InstancePollerSuite) TestAreManuallyProvisionedFailure(c *gc.C) {
 		}},
 	)
 
-	s.st.CheckFindEntityCall(c, 0, "1")
-	s.st.CheckFindEntityCall(c, 1, "2")
+	s.st.CheckMachineCall(c, 0, "1")
+	s.st.CheckMachineCall(c, 1, "2")
 	s.st.CheckCall(c, 2, "IsManual")
-	s.st.CheckFindEntityCall(c, 3, "3")
+	s.st.CheckMachineCall(c, 3, "3")
 }
 
 func (s *InstancePollerSuite) TestSetProviderNetworkConfigSuccess(c *gc.C) {
@@ -905,6 +905,108 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigNoChange(c *gc.C) {
 		Type:      "ipv4",
 		Scope:     "public",
 		SpaceName: "alpha",
+	})
+}
+
+func (s *InstancePollerSuite) TestSetProviderNetworkConfigBackfillsProviderIDs(c *gc.C) {
+	s.st.SetSpaceInfo(network.SpaceInfos{
+		{ID: network.AlphaSpaceId, Name: network.AlphaSpaceName},
+		{ID: "1", Name: "space1", Subnets: []network.SubnetInfo{{CIDR: "10.0.0.0/24"}}},
+		{ID: "2", Name: "my-space-on-maas", Subnets: []network.SubnetInfo{{CIDR: "10.73.37.0/24", ProviderId: "my-space-on-maas"}}},
+	})
+	s.st.SetMachineInfo(c, machineInfo{id: "1", instanceStatus: statusInfo("foo")})
+	s.st.SetMachineLinkLayerDevices(c, "1", []instancepoller.StateLinkLayerDevice{
+		// This device will be matched and its provider IDs backfilled
+		mockLinkLayerDevice{
+			name:        "foo0",
+			mtu:         1234,
+			devType:     network.EthernetDevice,
+			macAddress:  "aa:bb:cc:dd:ee:ff",
+			isAutoStart: true,
+			isUp:        true,
+			parentName:  "bond0",
+			addresses: []instancepoller.StateLinkLayerDeviceAddress{
+				&mockLinkLayerDeviceAddress{
+					configMethod:     state.StaticAddress,
+					subnetCIDR:       "172.31.32.0/24",
+					dnsServers:       []string{"1.1.1.1"},
+					dnsSearchDomains: []string{"cloud"},
+					gatewayAddress:   "172.31.32.1",
+					isDefaultGateway: true,
+					value:            "172.31.32.33",
+				},
+			},
+		},
+		// This device will not be matched
+		mockLinkLayerDevice{
+			name:        "lo",
+			mtu:         1234,
+			devType:     network.EthernetDevice,
+			macAddress:  "aa:bb:cc:dd:ee:00",
+			isAutoStart: true,
+			addresses: []instancepoller.StateLinkLayerDeviceAddress{
+				&mockLinkLayerDeviceAddress{
+					configMethod:     state.LoopbackAddress,
+					subnetCIDR:       "127.0.0.0/24",
+					dnsServers:       []string{"1.1.1.1"},
+					dnsSearchDomains: []string{"cloud"},
+					gatewayAddress:   "172.31.32.1",
+					isDefaultGateway: false,
+					value:            "127.0.0.1",
+				},
+			},
+		},
+	})
+
+	results, err := s.api.SetProviderNetworkConfig(params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{
+			{
+				Tag: "machine-1",
+				Configs: []params.NetworkConfig{
+					{
+						ProviderId:        "eni-1234",
+						ProviderAddressId: "addr-404",
+						ProviderSubnetId:  "subnet-f00f",
+						ProviderNetworkId: "net-cafe",
+						Addresses: []params.Address{
+							{
+								Value: "172.31.32.33",
+								Scope: "local-cloud",
+							},
+						},
+					},
+				},
+			},
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Modified, jc.IsTrue)
+
+	// Verify that the provider IDs were indeed backfilled for the matched
+	// ethernet device.
+	s.st.CheckCall(c, 6, "SetParentLinkLayerDevicesBeforeTheirChildren", state.LinkLayerDeviceArgs{
+		Name:        "foo0",
+		MTU:         1234,
+		ProviderID:  "eni-1234", // backfilled
+		Type:        network.EthernetDevice,
+		MACAddress:  "aa:bb:cc:dd:ee:ff",
+		IsAutoStart: true,
+		IsUp:        true,
+		ParentName:  "bond0",
+	})
+	s.st.CheckCall(c, 8, "SetDevicesAddressesIdempotently", state.LinkLayerDeviceAddress{
+		DeviceName:        "foo0",
+		ConfigMethod:      state.StaticAddress,
+		ProviderID:        "addr-404",    // backfilled
+		ProviderNetworkID: "net-cafe",    // backfilled
+		ProviderSubnetID:  "subnet-f00f", //backfilled
+		CIDRAddress:       "172.31.32.0/24",
+		DNSServers:        []string{"1.1.1.1"},
+		DNSSearchDomains:  []string{"cloud"},
+		GatewayAddress:    "172.31.32.1",
+		IsDefaultGateway:  true,
 	})
 }
 
