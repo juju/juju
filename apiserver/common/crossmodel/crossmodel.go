@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.common.crossmodel")
