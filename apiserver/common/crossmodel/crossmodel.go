@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/firewall"
@@ -165,7 +166,7 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 }
 
 // WatchRelationUnits returns a watcher for changes to the units on the specified relation.
-func WatchRelationUnits(backend Backend, tag names.RelationTag) (state.RelationUnitsWatcher, error) {
+func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.RelationUnitsWatcher, error) {
 	relation, err := backend.KeyRelation(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -182,7 +183,11 @@ func WatchRelationUnits(backend Backend, tag names.RelationTag) (state.RelationU
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		return w, nil
+		wrapped, err := common.RelationUnitsWatcherFromState(w)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return wrapped, nil
 	}
 	return nil, errors.NotFoundf("local application for %s", names.ReadableString(tag))
 }

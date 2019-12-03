@@ -279,7 +279,7 @@ func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-get [options] [<key>[.<key>.<key>...]]
 
 Summary:
-get action parameters
+get action/function parameters
 
 Options:
 --format  (= smart)
@@ -291,8 +291,6 @@ Details:
 action-get will print the value of the parameter at the given key, serialized
 as YAML.  If multiple keys are passed, action-get will recurse into the param
 map as needed.
-
-Aliases: function-get
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

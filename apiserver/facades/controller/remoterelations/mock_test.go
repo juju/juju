@@ -15,10 +15,10 @@ import (
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -456,12 +456,12 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockRelationUnitsWatcher struct {
 	mockWatcher
-	changes chan params.RelationUnitsChange
+	changes chan watcher.RelationUnitsChange
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{
-		changes: make(chan params.RelationUnitsChange, 1),
+		changes: make(chan watcher.RelationUnitsChange, 1),
 	}
 	w.Tomb.Go(func() error {
 		<-w.Tomb.Dying()
@@ -470,7 +470,7 @@ func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	return w
 }
 
-func (w *mockRelationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }
