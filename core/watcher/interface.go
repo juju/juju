@@ -27,6 +27,11 @@ import (
 //      sensible clients will still check for closed channels (never trust a
 //      contract...) but can treat that scenario as a simple error.
 //
+//     (This rule only applies to watchers outside the API; watchers inside the
+//     API boundary need to close their changes channel so that the .Next()
+//     method implementations inside the API server (see apiserver/watcher.go)
+//     finish correctly.)
+//
 // To convert a state/watcher.Watcher to a CoreWatcher, ensure that the watcher
 // no longer closes its Changes() channel; and replace Stop() and Err() with the
 // usual worker boilerplate. Namely:

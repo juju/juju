@@ -123,7 +123,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionsCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -233,7 +233,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionsCreate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionsUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -543,7 +543,7 @@ func getCR2() unstructured.Unstructured {
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourcesCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -662,7 +662,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourcesCreate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourcesUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

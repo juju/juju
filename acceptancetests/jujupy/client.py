@@ -20,11 +20,13 @@ import errno
 import json
 import logging
 import os
+import pexpect
 import re
 import shutil
 import subprocess
 import sys
 import time
+import yaml
 from collections import (
     defaultdict,
     namedtuple,
@@ -35,9 +37,6 @@ from contextlib import (
 from copy import deepcopy
 from itertools import chain
 from locale import getpreferredencoding
-
-import pexpect
-import yaml
 
 from jujupy.backend import (
     JujuBackend,

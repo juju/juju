@@ -109,6 +109,9 @@ type ContextUnit interface {
 	// SetPodSpec updates the yaml spec used to create a pod.
 	SetPodSpec(specYaml string) error
 
+	// GetPodSpec returns the yaml spec used to create a pod.
+	GetPodSpec() (string, error)
+
 	// CloudSpec returns the unit's cloud specification
 	CloudSpec() (*params.CloudSpec, error)
 }

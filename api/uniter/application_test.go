@@ -41,6 +41,7 @@ func (s *applicationSuite) TestNameTagAndString(c *gc.C) {
 }
 
 func (s *applicationSuite) TestWatch(c *gc.C) {
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	c.Assert(s.apiApplication.Life(), gc.Equals, life.Alive)
 
 	w, err := s.apiApplication.Watch()

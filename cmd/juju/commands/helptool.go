@@ -31,6 +31,9 @@ func (dummyHookContext) UnitName() string {
 func (dummyHookContext) SetPodSpec(specYaml string) error {
 	return nil
 }
+func (dummyHookContext) GetPodSpec() (string, error) {
+	return "", nil
+}
 func (dummyHookContext) PublicAddress() (string, error) {
 	return "", errors.NotFoundf("PublicAddress")
 }

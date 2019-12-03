@@ -30,21 +30,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
 	corenetwork "github.com/juju/juju/core/network"
+	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/watcher"
-
-	// TODO(fwereade): 2015-11-18 lp:1517428
-	//
-	// This gets an import block of its own because it's such staggeringly bad
-	// practice. It's here because (1) it always has been, just not quite so
-	// explicitly and (2) even if we had the state watchers implemented as
-	// juju/watcher~s rather than juju/state/watcher~s -- which we don't, so
-	// it's misleading to use those *Chan types etc -- we don't yet have any
-	// ability to transform watcher output in the apiserver layer, so we're
-	// kinda stuck producing what we always have.
-	//
-	// See RelationUnitsWatcher below.
-	"github.com/juju/juju/apiserver/params"
 )
 
 var watchLogger = loggo.GetLogger("juju.state.watch")
@@ -85,12 +73,7 @@ type StringsWatcher interface {
 type RelationUnitsWatcher interface {
 	Watcher
 
-	// Note that it's not very nice exposing a params type directly here. This
-	// is a continuation of existing bad behaviour and not good practice; do
-	// not use this as a model. (FWIW, it used to be in multiwatcher; which is
-	// also api-ey; and the multiwatcher type was used directly in params
-	// anyway.)
-	Changes() <-chan params.RelationUnitsChange
+	Changes() corewatcher.RelationUnitsChannel
 }
 
 // newCommonWatcher exists so that all embedders have a place from which
@@ -1208,7 +1191,7 @@ type relationUnitsWatcher struct {
 	updates         chan watcher.Change
 	appSettingsKeys []string
 	appUpdates      chan watcher.Change
-	out             chan params.RelationUnitsChange
+	out             chan corewatcher.RelationUnitsChange
 	logger          loggo.Logger
 }
 
@@ -1252,7 +1235,7 @@ func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher, app
 		watching:        make(set.Strings),
 		updates:         make(chan watcher.Change),
 		appUpdates:      make(chan watcher.Change),
-		out:             make(chan params.RelationUnitsChange),
+		out:             make(chan corewatcher.RelationUnitsChange),
 		logger:          logger.Child("relationunits"),
 	}
 	w.tomb.Go(func() error {
@@ -1266,24 +1249,24 @@ func newRelationUnitsWatcher(backend modelBackend, sw *RelationScopeWatcher, app
 // counterpart units in a relation. The first event on the
 // channel holds the initial state of the relation in its
 // Changed field.
-func (w *relationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+func (w *relationUnitsWatcher) Changes() corewatcher.RelationUnitsChannel {
 	return w.out
 }
 
-func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
+func emptyRelationUnitsChanges(changes *corewatcher.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.AppChanged)+len(changes.Departed) == 0
 }
 
-func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key string, version int64) {
+func setRelationUnitChangeVersion(changes *corewatcher.RelationUnitsChange, key string, version int64) {
 	name := unitNameFromScopeKey(key)
-	settings := params.UnitSettings{Version: version}
+	settings := corewatcher.UnitSettings{Version: version}
 	if changes.Changed == nil {
-		changes.Changed = map[string]params.UnitSettings{}
+		changes.Changed = map[string]corewatcher.UnitSettings{}
 	}
 	changes.Changed[name] = settings
 }
 
-func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationUnitsChange) error {
+func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *corewatcher.RelationUnitsChange) error {
 	idsAsInterface := make([]interface{}, len(w.appSettingsKeys))
 	for i, key := range w.appSettingsKeys {
 		idsAsInterface[i] = w.backend.docID(key)
@@ -1305,7 +1288,7 @@ func (w *relationUnitsWatcher) watchRelatedAppSettings(changes *params.RelationU
 // mergeSettings reads the relation settings node for the unit with the
 // supplied key, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
-func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange, key string) error {
+func (w *relationUnitsWatcher) mergeSettings(changes *corewatcher.RelationUnitsChange, key string) error {
 	version, err := readSettingsDocVersion(w.backend.db(), settingsC, key)
 	if err != nil {
 		w.logger.Tracef("relationUnitsWatcher %q merging key %q (not found)", w.sw.prefix, key)
@@ -1316,7 +1299,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 	return nil
 }
 
-func (w *relationUnitsWatcher) mergeAppSettings(changes *params.RelationUnitsChange, key string) error {
+func (w *relationUnitsWatcher) mergeAppSettings(changes *corewatcher.RelationUnitsChange, key string) error {
 	version, err := readSettingsDocVersion(w.backend.db(), settingsC, key)
 	if err != nil {
 		w.logger.Tracef("relationUnitsWatcher %q merging app key %q (not found)", w.sw.prefix, key)
@@ -1335,7 +1318,7 @@ func (w *relationUnitsWatcher) mergeAppSettings(changes *params.RelationUnitsCha
 // mergeScope starts and stops settings watches on the units entering and
 // leaving the scope in the supplied RelationScopeChange event, and applies
 // the expressed changes to the supplied RelationUnitsChange event.
-func (w *relationUnitsWatcher) mergeScope(changes *params.RelationUnitsChange, c *RelationScopeChange) error {
+func (w *relationUnitsWatcher) mergeScope(changes *corewatcher.RelationUnitsChange, c *RelationScopeChange) error {
 	docIds := make([]interface{}, len(c.Entered))
 	for i, name := range c.Entered {
 		key := w.sw.prefix + name
@@ -1399,8 +1382,8 @@ func (w *relationUnitsWatcher) loop() (err error) {
 	var (
 		gotInitialScopeWatcher bool
 		sentInitial            bool
-		changes                params.RelationUnitsChange
-		out                    chan<- params.RelationUnitsChange
+		changes                corewatcher.RelationUnitsChange
+		out                    chan<- corewatcher.RelationUnitsChange
 	)
 	// Note that w.ScopeWatcher *does* trigger an initial event, while
 	// WatchMulti from raw document watchers does *not*. (raw database watchers
@@ -1458,7 +1441,7 @@ func (w *relationUnitsWatcher) loop() (err error) {
 		case out <- changes:
 			w.logger.Tracef("relationUnitsWatcher %q sent changes %# v", w.sw.prefix, pretty.Formatter(changes))
 			sentInitial = true
-			changes = params.RelationUnitsChange{}
+			changes = corewatcher.RelationUnitsChange{}
 			out = nil
 		}
 	}
