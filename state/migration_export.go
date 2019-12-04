@@ -1182,7 +1182,7 @@ func (e *exporter) firewallRules() error {
 		dst: e.model,
 	}
 	migration.Add(func() error {
-		m := migrations.ExportFirewallRule{}
+		m := migrations.ExportFirewallRules{}
 		return m.Execute(firewallRulesShim{
 			st: migration.src,
 		}, migration.dst)

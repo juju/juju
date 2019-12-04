@@ -35,6 +35,7 @@ func (m *MockMigrationRemoteEntity) EXPECT() *MockMigrationRemoteEntityMockRecor
 
 // ID mocks base method
 func (m *MockMigrationRemoteEntity) ID() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ID")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockMigrationRemoteEntity) ID() string {
 
 // ID indicates an expected call of ID
 func (mr *MockMigrationRemoteEntityMockRecorder) ID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockMigrationRemoteEntity)(nil).ID))
 }
 
 // Macaroon mocks base method
 func (m *MockMigrationRemoteEntity) Macaroon() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Macaroon")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -54,11 +57,13 @@ func (m *MockMigrationRemoteEntity) Macaroon() string {
 
 // Macaroon indicates an expected call of Macaroon
 func (mr *MockMigrationRemoteEntityMockRecorder) Macaroon() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Macaroon", reflect.TypeOf((*MockMigrationRemoteEntity)(nil).Macaroon))
 }
 
 // Token mocks base method
 func (m *MockMigrationRemoteEntity) Token() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Token")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -66,6 +71,7 @@ func (m *MockMigrationRemoteEntity) Token() string {
 
 // Token indicates an expected call of Token
 func (mr *MockMigrationRemoteEntityMockRecorder) Token() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Token", reflect.TypeOf((*MockMigrationRemoteEntity)(nil).Token))
 }
 
@@ -94,6 +100,7 @@ func (m *MockRemoteEntitiesSource) EXPECT() *MockRemoteEntitiesSourceMockRecorde
 
 // AllRemoteEntities mocks base method
 func (m *MockRemoteEntitiesSource) AllRemoteEntities() ([]MigrationRemoteEntity, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRemoteEntities")
 	ret0, _ := ret[0].([]MigrationRemoteEntity)
 	ret1, _ := ret[1].(error)
@@ -102,6 +109,7 @@ func (m *MockRemoteEntitiesSource) AllRemoteEntities() ([]MigrationRemoteEntity,
 
 // AllRemoteEntities indicates an expected call of AllRemoteEntities
 func (mr *MockRemoteEntitiesSourceMockRecorder) AllRemoteEntities() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRemoteEntities", reflect.TypeOf((*MockRemoteEntitiesSource)(nil).AllRemoteEntities))
 }
 
@@ -130,6 +138,7 @@ func (m *MockRemoteEntitiesModel) EXPECT() *MockRemoteEntitiesModelMockRecorder 
 
 // AddRemoteEntity mocks base method
 func (m *MockRemoteEntitiesModel) AddRemoteEntity(arg0 description.RemoteEntityArgs) description.RemoteEntity {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRemoteEntity", arg0)
 	ret0, _ := ret[0].(description.RemoteEntity)
 	return ret0
@@ -137,5 +146,6 @@ func (m *MockRemoteEntitiesModel) AddRemoteEntity(arg0 description.RemoteEntityA
 
 // AddRemoteEntity indicates an expected call of AddRemoteEntity
 func (mr *MockRemoteEntitiesModelMockRecorder) AddRemoteEntity(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRemoteEntity", reflect.TypeOf((*MockRemoteEntitiesModel)(nil).AddRemoteEntity), arg0)
 }
