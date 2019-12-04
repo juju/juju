@@ -6,17 +6,16 @@ package migrations
 import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
 )
 
 // MigrationOfferConnection is an in-place representation of the
 // state.OfferConnection
 type MigrationOfferConnection interface {
 	OfferUUID() string
-	RelationID() int
+	RelationId() int
 	RelationKey() string
 	UserName() string
-	SourceModel() names.ModelTag
+	SourceModelUUID() string
 }
 
 // AllOfferConnectionSource defines an in-place usage for reading all the
@@ -61,11 +60,11 @@ func (m ExportOfferConnections) Execute(src OfferConnectionSource, dst OfferConn
 
 func (m ExportOfferConnections) addOfferConnection(src OfferConnectionSource, dst OfferConnectionModel, offer MigrationOfferConnection) error {
 	_ = dst.AddOfferConnection(description.OfferConnectionArgs{
-		OfferUUID:   offer.OfferUUID(),
-		RelationID:  offer.RelationID(),
-		RelationKey: offer.RelationKey(),
-		SourceModel: offer.SourceModel(),
-		UserName:    offer.UserName(),
+		OfferUUID:       offer.OfferUUID(),
+		RelationID:      offer.RelationId(),
+		RelationKey:     offer.RelationKey(),
+		SourceModelUUID: offer.SourceModelUUID(),
+		UserName:        offer.UserName(),
 	})
 	return nil
 }
