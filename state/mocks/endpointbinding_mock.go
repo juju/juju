@@ -5,9 +5,11 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
-	state "github.com/juju/juju/state"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
+	"github.com/juju/juju/core/network"
+	state "github.com/juju/juju/state"
 )
 
 // MockEndpointBinding is a mock of EndpointBinding interface
@@ -33,8 +35,24 @@ func (m *MockEndpointBinding) EXPECT() *MockEndpointBindingMockRecorder {
 	return m.recorder
 }
 
+// AllSpaceInfos mocks base method
+func (m *MockEndpointBinding) AllSpaceInfos() (network.SpaceInfos, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllSpaceInfos")
+	ret0, _ := ret[0].(network.SpaceInfos)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllSpaceInfos indicates an expected call of AllSpaceInfos
+func (mr *MockEndpointBindingMockRecorder) AllSpaceInfos() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaceInfos", reflect.TypeOf((*MockEndpointBinding)(nil).AllSpaceInfos))
+}
+
 // DefaultEndpointBindingSpace mocks base method
 func (m *MockEndpointBinding) DefaultEndpointBindingSpace() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DefaultEndpointBindingSpace")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -43,11 +61,13 @@ func (m *MockEndpointBinding) DefaultEndpointBindingSpace() (string, error) {
 
 // DefaultEndpointBindingSpace indicates an expected call of DefaultEndpointBindingSpace
 func (mr *MockEndpointBindingMockRecorder) DefaultEndpointBindingSpace() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultEndpointBindingSpace", reflect.TypeOf((*MockEndpointBinding)(nil).DefaultEndpointBindingSpace))
 }
 
 // Space mocks base method
 func (m *MockEndpointBinding) Space(arg0 string) (*state.Space, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Space", arg0)
 	ret0, _ := ret[0].(*state.Space)
 	ret1, _ := ret[1].(error)
@@ -56,6 +76,7 @@ func (m *MockEndpointBinding) Space(arg0 string) (*state.Space, error) {
 
 // Space indicates an expected call of Space
 func (mr *MockEndpointBindingMockRecorder) Space(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Space", reflect.TypeOf((*MockEndpointBinding)(nil).Space), arg0)
 }
 

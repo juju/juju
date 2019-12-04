@@ -826,9 +826,9 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	// Populate offer list
 	for _, offer := range ctx.offers {
-		endpoints := make([]string, 0, len(offer.Endpoints))
-		for _, ep := range offer.Endpoints {
-			endpoints = append(endpoints, ep.Name)
+		endpoints := make(map[string]string, len(offer.Endpoints))
+		for k, ep := range offer.Endpoints {
+			endpoints[k] = ep.Name
 		}
 
 		userMap, err := e.st.GetOfferUsers(offer.OfferUUID)
@@ -847,7 +847,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
 			OfferUUID:              offer.OfferUUID,
 			OfferName:              offer.OfferName,
-			Endpoints:              endpoints,
+			EndpointsMap:           endpoints,
 			ACL:                    acl,
 			ApplicationName:        offer.ApplicationName,
 			ApplicationDescription: offer.ApplicationDescription,

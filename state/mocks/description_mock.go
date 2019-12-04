@@ -36,6 +36,7 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 
 // AddBlockDevice mocks base method
 func (m *MockMachine) AddBlockDevice(arg0 description.BlockDeviceArgs) description.BlockDevice {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddBlockDevice", arg0)
 	ret0, _ := ret[0].(description.BlockDevice)
 	return ret0
@@ -43,11 +44,13 @@ func (m *MockMachine) AddBlockDevice(arg0 description.BlockDeviceArgs) descripti
 
 // AddBlockDevice indicates an expected call of AddBlockDevice
 func (mr *MockMachineMockRecorder) AddBlockDevice(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddBlockDevice", reflect.TypeOf((*MockMachine)(nil).AddBlockDevice), arg0)
 }
 
 // AddContainer mocks base method
 func (m *MockMachine) AddContainer(arg0 description.MachineArgs) description.Machine {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddContainer", arg0)
 	ret0, _ := ret[0].(description.Machine)
 	return ret0
@@ -55,11 +58,13 @@ func (m *MockMachine) AddContainer(arg0 description.MachineArgs) description.Mac
 
 // AddContainer indicates an expected call of AddContainer
 func (mr *MockMachineMockRecorder) AddContainer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddContainer", reflect.TypeOf((*MockMachine)(nil).AddContainer), arg0)
 }
 
 // AddOpenedPorts mocks base method
 func (m *MockMachine) AddOpenedPorts(arg0 description.OpenedPortsArgs) description.OpenedPorts {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddOpenedPorts", arg0)
 	ret0, _ := ret[0].(description.OpenedPorts)
 	return ret0
@@ -67,11 +72,13 @@ func (m *MockMachine) AddOpenedPorts(arg0 description.OpenedPortsArgs) descripti
 
 // AddOpenedPorts indicates an expected call of AddOpenedPorts
 func (mr *MockMachineMockRecorder) AddOpenedPorts(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddOpenedPorts", reflect.TypeOf((*MockMachine)(nil).AddOpenedPorts), arg0)
 }
 
 // Annotations mocks base method
 func (m *MockMachine) Annotations() map[string]string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Annotations")
 	ret0, _ := ret[0].(map[string]string)
 	return ret0
@@ -79,11 +86,13 @@ func (m *MockMachine) Annotations() map[string]string {
 
 // Annotations indicates an expected call of Annotations
 func (mr *MockMachineMockRecorder) Annotations() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Annotations", reflect.TypeOf((*MockMachine)(nil).Annotations))
 }
 
 // BlockDevices mocks base method
 func (m *MockMachine) BlockDevices() []description.BlockDevice {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BlockDevices")
 	ret0, _ := ret[0].([]description.BlockDevice)
 	return ret0
@@ -91,11 +100,13 @@ func (m *MockMachine) BlockDevices() []description.BlockDevice {
 
 // BlockDevices indicates an expected call of BlockDevices
 func (mr *MockMachineMockRecorder) BlockDevices() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BlockDevices", reflect.TypeOf((*MockMachine)(nil).BlockDevices))
 }
 
 // Constraints mocks base method
 func (m *MockMachine) Constraints() description.Constraints {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Constraints")
 	ret0, _ := ret[0].(description.Constraints)
 	return ret0
@@ -103,11 +114,13 @@ func (m *MockMachine) Constraints() description.Constraints {
 
 // Constraints indicates an expected call of Constraints
 func (mr *MockMachineMockRecorder) Constraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockMachine)(nil).Constraints))
 }
 
 // ContainerType mocks base method
 func (m *MockMachine) ContainerType() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerType")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -115,11 +128,13 @@ func (m *MockMachine) ContainerType() string {
 
 // ContainerType indicates an expected call of ContainerType
 func (mr *MockMachineMockRecorder) ContainerType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMachine)(nil).ContainerType))
 }
 
 // Containers mocks base method
 func (m *MockMachine) Containers() []description.Machine {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Containers")
 	ret0, _ := ret[0].([]description.Machine)
 	return ret0
@@ -127,11 +142,13 @@ func (m *MockMachine) Containers() []description.Machine {
 
 // Containers indicates an expected call of Containers
 func (mr *MockMachineMockRecorder) Containers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Containers", reflect.TypeOf((*MockMachine)(nil).Containers))
 }
 
 // Id mocks base method
 func (m *MockMachine) Id() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -139,11 +156,13 @@ func (m *MockMachine) Id() string {
 
 // Id indicates an expected call of Id
 func (mr *MockMachineMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockMachine)(nil).Id))
 }
 
 // Instance mocks base method
 func (m *MockMachine) Instance() description.CloudInstance {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Instance")
 	ret0, _ := ret[0].(description.CloudInstance)
 	return ret0
@@ -151,11 +170,13 @@ func (m *MockMachine) Instance() description.CloudInstance {
 
 // Instance indicates an expected call of Instance
 func (mr *MockMachineMockRecorder) Instance() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Instance", reflect.TypeOf((*MockMachine)(nil).Instance))
 }
 
 // Jobs mocks base method
 func (m *MockMachine) Jobs() []string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Jobs")
 	ret0, _ := ret[0].([]string)
 	return ret0
@@ -163,11 +184,13 @@ func (m *MockMachine) Jobs() []string {
 
 // Jobs indicates an expected call of Jobs
 func (mr *MockMachineMockRecorder) Jobs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Jobs", reflect.TypeOf((*MockMachine)(nil).Jobs))
 }
 
 // MachineAddresses mocks base method
 func (m *MockMachine) MachineAddresses() []description.Address {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MachineAddresses")
 	ret0, _ := ret[0].([]description.Address)
 	return ret0
@@ -175,11 +198,13 @@ func (m *MockMachine) MachineAddresses() []description.Address {
 
 // MachineAddresses indicates an expected call of MachineAddresses
 func (mr *MockMachineMockRecorder) MachineAddresses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MachineAddresses", reflect.TypeOf((*MockMachine)(nil).MachineAddresses))
 }
 
 // Nonce mocks base method
 func (m *MockMachine) Nonce() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Nonce")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -187,11 +212,13 @@ func (m *MockMachine) Nonce() string {
 
 // Nonce indicates an expected call of Nonce
 func (mr *MockMachineMockRecorder) Nonce() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Nonce", reflect.TypeOf((*MockMachine)(nil).Nonce))
 }
 
 // OpenedPorts mocks base method
 func (m *MockMachine) OpenedPorts() []description.OpenedPorts {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenedPorts")
 	ret0, _ := ret[0].([]description.OpenedPorts)
 	return ret0
@@ -199,11 +226,13 @@ func (m *MockMachine) OpenedPorts() []description.OpenedPorts {
 
 // OpenedPorts indicates an expected call of OpenedPorts
 func (mr *MockMachineMockRecorder) OpenedPorts() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenedPorts", reflect.TypeOf((*MockMachine)(nil).OpenedPorts))
 }
 
 // PasswordHash mocks base method
 func (m *MockMachine) PasswordHash() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PasswordHash")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -211,11 +240,13 @@ func (m *MockMachine) PasswordHash() string {
 
 // PasswordHash indicates an expected call of PasswordHash
 func (mr *MockMachineMockRecorder) PasswordHash() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PasswordHash", reflect.TypeOf((*MockMachine)(nil).PasswordHash))
 }
 
 // Placement mocks base method
 func (m *MockMachine) Placement() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Placement")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -223,11 +254,13 @@ func (m *MockMachine) Placement() string {
 
 // Placement indicates an expected call of Placement
 func (mr *MockMachineMockRecorder) Placement() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Placement", reflect.TypeOf((*MockMachine)(nil).Placement))
 }
 
 // PreferredPrivateAddress mocks base method
 func (m *MockMachine) PreferredPrivateAddress() description.Address {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreferredPrivateAddress")
 	ret0, _ := ret[0].(description.Address)
 	return ret0
@@ -235,11 +268,13 @@ func (m *MockMachine) PreferredPrivateAddress() description.Address {
 
 // PreferredPrivateAddress indicates an expected call of PreferredPrivateAddress
 func (mr *MockMachineMockRecorder) PreferredPrivateAddress() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreferredPrivateAddress", reflect.TypeOf((*MockMachine)(nil).PreferredPrivateAddress))
 }
 
 // PreferredPublicAddress mocks base method
 func (m *MockMachine) PreferredPublicAddress() description.Address {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PreferredPublicAddress")
 	ret0, _ := ret[0].(description.Address)
 	return ret0
@@ -247,11 +282,13 @@ func (m *MockMachine) PreferredPublicAddress() description.Address {
 
 // PreferredPublicAddress indicates an expected call of PreferredPublicAddress
 func (mr *MockMachineMockRecorder) PreferredPublicAddress() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreferredPublicAddress", reflect.TypeOf((*MockMachine)(nil).PreferredPublicAddress))
 }
 
 // ProviderAddresses mocks base method
 func (m *MockMachine) ProviderAddresses() []description.Address {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProviderAddresses")
 	ret0, _ := ret[0].([]description.Address)
 	return ret0
@@ -259,11 +296,13 @@ func (m *MockMachine) ProviderAddresses() []description.Address {
 
 // ProviderAddresses indicates an expected call of ProviderAddresses
 func (mr *MockMachineMockRecorder) ProviderAddresses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderAddresses", reflect.TypeOf((*MockMachine)(nil).ProviderAddresses))
 }
 
 // Series mocks base method
 func (m *MockMachine) Series() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Series")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -271,91 +310,109 @@ func (m *MockMachine) Series() string {
 
 // Series indicates an expected call of Series
 func (mr *MockMachineMockRecorder) Series() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Series", reflect.TypeOf((*MockMachine)(nil).Series))
 }
 
 // SetAddresses mocks base method
 func (m *MockMachine) SetAddresses(arg0, arg1 []description.AddressArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetAddresses", arg0, arg1)
 }
 
 // SetAddresses indicates an expected call of SetAddresses
 func (mr *MockMachineMockRecorder) SetAddresses(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAddresses", reflect.TypeOf((*MockMachine)(nil).SetAddresses), arg0, arg1)
 }
 
 // SetAnnotations mocks base method
 func (m *MockMachine) SetAnnotations(arg0 map[string]string) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetAnnotations", arg0)
 }
 
 // SetAnnotations indicates an expected call of SetAnnotations
 func (mr *MockMachineMockRecorder) SetAnnotations(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAnnotations", reflect.TypeOf((*MockMachine)(nil).SetAnnotations), arg0)
 }
 
 // SetConstraints mocks base method
 func (m *MockMachine) SetConstraints(arg0 description.ConstraintsArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetConstraints", arg0)
 }
 
 // SetConstraints indicates an expected call of SetConstraints
 func (mr *MockMachineMockRecorder) SetConstraints(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConstraints", reflect.TypeOf((*MockMachine)(nil).SetConstraints), arg0)
 }
 
 // SetInstance mocks base method
 func (m *MockMachine) SetInstance(arg0 description.CloudInstanceArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetInstance", arg0)
 }
 
 // SetInstance indicates an expected call of SetInstance
 func (mr *MockMachineMockRecorder) SetInstance(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstance", reflect.TypeOf((*MockMachine)(nil).SetInstance), arg0)
 }
 
 // SetPreferredAddresses mocks base method
 func (m *MockMachine) SetPreferredAddresses(arg0, arg1 description.AddressArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetPreferredAddresses", arg0, arg1)
 }
 
 // SetPreferredAddresses indicates an expected call of SetPreferredAddresses
 func (mr *MockMachineMockRecorder) SetPreferredAddresses(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPreferredAddresses", reflect.TypeOf((*MockMachine)(nil).SetPreferredAddresses), arg0, arg1)
 }
 
 // SetStatus mocks base method
 func (m *MockMachine) SetStatus(arg0 description.StatusArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetStatus", arg0)
 }
 
 // SetStatus indicates an expected call of SetStatus
 func (mr *MockMachineMockRecorder) SetStatus(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatus", reflect.TypeOf((*MockMachine)(nil).SetStatus), arg0)
 }
 
 // SetStatusHistory mocks base method
 func (m *MockMachine) SetStatusHistory(arg0 []description.StatusArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetStatusHistory", arg0)
 }
 
 // SetStatusHistory indicates an expected call of SetStatusHistory
 func (mr *MockMachineMockRecorder) SetStatusHistory(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatusHistory", reflect.TypeOf((*MockMachine)(nil).SetStatusHistory), arg0)
 }
 
 // SetTools mocks base method
 func (m *MockMachine) SetTools(arg0 description.AgentToolsArgs) {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "SetTools", arg0)
 }
 
 // SetTools indicates an expected call of SetTools
 func (mr *MockMachineMockRecorder) SetTools(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetTools", reflect.TypeOf((*MockMachine)(nil).SetTools), arg0)
 }
 
 // Status mocks base method
 func (m *MockMachine) Status() description.Status {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Status")
 	ret0, _ := ret[0].(description.Status)
 	return ret0
@@ -363,11 +420,13 @@ func (m *MockMachine) Status() description.Status {
 
 // Status indicates an expected call of Status
 func (mr *MockMachineMockRecorder) Status() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockMachine)(nil).Status))
 }
 
 // StatusHistory mocks base method
 func (m *MockMachine) StatusHistory() []description.Status {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatusHistory")
 	ret0, _ := ret[0].([]description.Status)
 	return ret0
@@ -375,11 +434,13 @@ func (m *MockMachine) StatusHistory() []description.Status {
 
 // StatusHistory indicates an expected call of StatusHistory
 func (mr *MockMachineMockRecorder) StatusHistory() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusHistory", reflect.TypeOf((*MockMachine)(nil).StatusHistory))
 }
 
 // SupportedContainers mocks base method
 func (m *MockMachine) SupportedContainers() ([]string, bool) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SupportedContainers")
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(bool)
@@ -388,11 +449,13 @@ func (m *MockMachine) SupportedContainers() ([]string, bool) {
 
 // SupportedContainers indicates an expected call of SupportedContainers
 func (mr *MockMachineMockRecorder) SupportedContainers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportedContainers", reflect.TypeOf((*MockMachine)(nil).SupportedContainers))
 }
 
 // Tag mocks base method
 func (m *MockMachine) Tag() names_v3.MachineTag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
 	ret0, _ := ret[0].(names_v3.MachineTag)
 	return ret0
@@ -400,11 +463,13 @@ func (m *MockMachine) Tag() names_v3.MachineTag {
 
 // Tag indicates an expected call of Tag
 func (mr *MockMachineMockRecorder) Tag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockMachine)(nil).Tag))
 }
 
 // Tools mocks base method
 func (m *MockMachine) Tools() description.AgentTools {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tools")
 	ret0, _ := ret[0].(description.AgentTools)
 	return ret0
@@ -412,11 +477,13 @@ func (m *MockMachine) Tools() description.AgentTools {
 
 // Tools indicates an expected call of Tools
 func (mr *MockMachineMockRecorder) Tools() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tools", reflect.TypeOf((*MockMachine)(nil).Tools))
 }
 
 // Validate mocks base method
 func (m *MockMachine) Validate() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Validate")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -424,6 +491,7 @@ func (m *MockMachine) Validate() error {
 
 // Validate indicates an expected call of Validate
 func (mr *MockMachineMockRecorder) Validate() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Validate", reflect.TypeOf((*MockMachine)(nil).Validate))
 }
 
@@ -452,6 +520,7 @@ func (m *MockOpenedPorts) EXPECT() *MockOpenedPortsMockRecorder {
 
 // OpenPorts mocks base method
 func (m *MockOpenedPorts) OpenPorts() []description.PortRange {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenPorts")
 	ret0, _ := ret[0].([]description.PortRange)
 	return ret0
@@ -459,11 +528,13 @@ func (m *MockOpenedPorts) OpenPorts() []description.PortRange {
 
 // OpenPorts indicates an expected call of OpenPorts
 func (mr *MockOpenedPortsMockRecorder) OpenPorts() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenPorts", reflect.TypeOf((*MockOpenedPorts)(nil).OpenPorts))
 }
 
 // SubnetID mocks base method
 func (m *MockOpenedPorts) SubnetID() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubnetID")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -471,5 +542,6 @@ func (m *MockOpenedPorts) SubnetID() string {
 
 // SubnetID indicates an expected call of SubnetID
 func (mr *MockOpenedPortsMockRecorder) SubnetID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetID", reflect.TypeOf((*MockOpenedPorts)(nil).SubnetID))
 }
