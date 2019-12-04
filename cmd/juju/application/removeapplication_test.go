@@ -8,16 +8,9 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3"
 
-	"github.com/juju/juju/api/annotations"
-	"github.com/juju/juju/api/application"
-	"github.com/juju/juju/api/charms"
-	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
@@ -144,47 +137,4 @@ func (s *RemoveApplicationSuite) TestInvalidArgs(c *gc.C) {
 func (s *RemoveApplicationSuite) TestNoWaitWithoutForce(c *gc.C) {
 	_, err := runRemoveApplication(c, "gargleblaster", "--no-wait")
 	c.Assert(err, gc.ErrorMatches, `--no-wait without --force not valid`)
-}
-
-//TODO(tsm) remove unused RemoveCharmStoreCharmsSuite
-type RemoveCharmStoreCharmsSuite struct {
-	legacyCharmStoreSuite
-	ctx *cmd.Context
-}
-
-var _ = gc.Suite(&RemoveCharmStoreCharmsSuite{})
-
-func (s *RemoveCharmStoreCharmsSuite) SetUpTest(c *gc.C) {
-	s.legacyCharmStoreSuite.SetUpTest(c)
-
-	s.ctx = cmdtesting.Context(c)
-
-	testcharms.UploadCharmWithSeries(c, s.client, "cs:quantal/metered-1", "metered", "bionic")
-	deployCmd := &DeployCommand{}
-	cmd := modelcmd.Wrap(deployCmd)
-	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		bakeryClient, err := deployCmd.BakeryClient()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		cstoreClient := newCharmStoreClient(bakeryClient, s.srv.URL).WithChannel(deployCmd.Channel)
-		return &deployAPIAdapter{
-			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: apiRoot.Client()},
-			charmsClient:      &charmsClient{Client: charms.NewClient(apiRoot)},
-			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
-			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
-		}, nil
-	}
-
-	_, err := cmdtesting.RunCommand(c, cmd, "cs:quantal/metered-1")
-	c.Assert(err, jc.ErrorIsNil)
-
 }

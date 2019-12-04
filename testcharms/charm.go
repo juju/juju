@@ -9,7 +9,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"fmt"
-	"github.com/juju/utils/fs"
 	"io"
 	"io/ioutil"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"gopkg.in/juju/charm.v6"
@@ -86,25 +86,6 @@ type CharmstoreClient interface {
 	ListResources(id *charm.URL) ([]params.Resource, error)
 	AddDockerResource(id *charm.URL, resourceName string, imageName, digest string) (revision int, err error)
 	WithChannel(channel params.Channel) CharmstoreClient
-}
-
-// UploadCharmWithMeta pushes a new charm to the charmstore.
-// The uploaded charm takes the supplied charmURL with metadata.yaml and metrics.yaml
-// to define the charm, rather than relying on the charm to exist on disk.
-// This allows you to create charm definitions directly in yaml and have them uploaded
-// here for us in tests.
-//
-// For convenience the charm is also made public
-func UploadCharmWithMeta(c *gc.C, client CharmstoreClient, charmURL, meta, metrics string, revision int) (*charm.URL, charm.Charm) {
-	ch := testing.NewCharm(c, testing.CharmSpec{
-		Meta:     meta,
-		Metrics:  metrics,
-		Revision: revision,
-	})
-	chURL, err := client.UploadCharm(charm.MustParseURL(charmURL), ch)
-	c.Assert(err, jc.ErrorIsNil)
-	SetPublic(c, client, chURL)
-	return chURL, ch
 }
 
 // UploadCharm sets default series to defaultSeries
@@ -186,33 +167,6 @@ func UploadCharmMultiSeriesWithSeries(c *gc.C, client CharmstoreClient, url, nam
 
 	// Return the charm and its URL.
 	return curl, ch
-}
-
-// UploadBundle sets default series to defaultSeries
-func UploadBundle(c *gc.C, client CharmstoreClient, url, name string) (*charm.URL, charm.Bundle) {
-	return UploadBundleWithSeries(c, client, url, name, defaultSeries)
-}
-
-// UploadBundleWithSeries uploads a bundle using the given charm store client, and
-// returns the resulting bundle URL and bundle.
-func UploadBundleWithSeries(c *gc.C, client CharmstoreClient, url, name, series string) (*charm.URL, charm.Bundle) {
-	id := charm.MustParseURL(url)
-	promulgatedRevision := -1
-	if id.User == "" {
-		// We still need a user even if we are uploading a promulgated bundle.
-		id.User = "who"
-		promulgatedRevision = id.Revision
-	}
-	b := RepoForSeries(series).BundleArchive(c.MkDir(), name)
-
-	// Upload the bundle.
-	err := client.UploadBundleWithRevision(id, b, promulgatedRevision)
-	c.Assert(err, jc.ErrorIsNil)
-
-	SetPublic(c, client, id)
-
-	// Return the bundle and its URL.
-	return id, b
 }
 
 // SetPublicWithResources sets the charm or bundle with the given id to be

@@ -29,6 +29,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
@@ -433,6 +434,9 @@ func (r Repository) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSerie
 //
 // Part of the cmd/juju/application.DeployAPI interface
 func (r Repository) ResolveWithPreferredChannel(ref *charm.URL, preferredChannel params.Channel) (*charm.URL, params.Channel, []string, error) {
+	if strings.Contains(ref.String(), "missing") {
+		return nil, "", nil, errors.NotFoundf("cannot resolve URL %q: charm or bundle", ref)
+	}
 	return r.addRevision(ref), preferredChannel, []string{"trusty", "wily", "quantal"}, nil
 }
 
