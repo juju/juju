@@ -647,6 +647,12 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 	sort.Strings(endpoints)
 	c.Assert(endpoints, gc.DeepEquals, []string{"server", adminSpace.Name()})
 
+	endpointsMap := appOffers[0].EndpointsMap()
+	c.Assert(endpointsMap, gc.DeepEquals, map[string]string{
+		"server":       serverSpace.Name(),
+		"server-admin": adminSpace.Name(),
+	})
+
 	appACL := appOffers[0].ACL()
 	c.Assert(appACL, gc.DeepEquals, map[string]string{
 		"admin": "admin",
