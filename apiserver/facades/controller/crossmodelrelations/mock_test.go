@@ -441,6 +441,18 @@ func (r *mockRelation) WatchUnits(appName string) (state.RelationUnitsWatcher, e
 	return w, nil
 }
 
+func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	r.MethodCall(r, "ApplicationSettings", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	settings, found := r.appSettings[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake settings for %q", appName)
+	}
+	return settings, nil
+}
+
 type mockRemoteApplication struct {
 	commoncrossmodel.RemoteApplication
 	testing.Stub

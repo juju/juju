@@ -8,7 +8,6 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/permission"
@@ -144,6 +143,10 @@ type Relation interface {
 	// ReplaceSettings replaces the application's settings within the
 	// relation.
 	ReplaceSettings(appName string, settings map[string]interface{}) error
+
+	// ApplicationSettings returns the settings for the specified
+	// application in the relation.
+	ApplicationSettings(appName string) (map[string]interface{}, error)
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,
@@ -258,10 +261,4 @@ type RemoteApplication interface {
 	// remote application to terminated and leave it in a state
 	// enabling it to be removed cleanly.
 	TerminateOperation(string) state.ModelOperation
-}
-
-// RelationChangesWatcher is a watcher that exposes relation unit
-// changes as RemoteRelationChangeEvents.
-type RelationChangesWatcher interface {
-	Changes() <-chan params.RemoteRelationChangeEvent
 }

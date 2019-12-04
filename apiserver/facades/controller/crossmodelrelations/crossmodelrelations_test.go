@@ -688,8 +688,9 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
-	outw, ok := resource.(commoncrossmodel.RelationChangesWatcher)
+	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
 	c.Assert(ok, gc.Equals, true)
+	c.Assert(outw.RelationTag, gc.Equals, names.NewRelationTag("db2:db django:db"))
 
 	// TODO(babbageclunk): add locking around updating mock
 	// relation/relunit settings.
@@ -705,20 +706,8 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 
 	select {
 	case event := <-outw.Changes():
-		c.Assert(event, gc.DeepEquals, params.RemoteRelationChangeEvent{
-			RelationToken:    "token-db2:db django:db",
-			ApplicationToken: "token-django",
-			Macaroons:        nil,
-			Settings: map[string]interface{}{
-				"majoribanks": "mt victoria",
-			},
-			ChangedUnits: []params.RemoteRelationUnitChange{{
-				UnitId: 1,
-				Settings: map[string]interface{}{
-					"che-fu": "fade away",
-				},
-			}},
-			DepartedUnits: []int{0, 2},
+		c.Assert(event, gc.DeepEquals, params.RelationUnitsChange{
+			AppChanged: map[string]int64{"django": 124},
 		})
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out receiving change event")

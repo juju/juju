@@ -361,7 +361,54 @@ func (api *CrossModelRelationsAPIv1) WatchRelationUnits(remoteRelationArgs param
 func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs params.RemoteEntityArgs) (
 	params.RemoteRelationWatchResults, error,
 ) {
-	return params.RemoteRelationWatchResults{}, errors.NotImplementedf("WatchRelationChanges")
+	results := params.RemoteRelationWatchResults{
+		Results: make([]params.RemoteRelationWatchResult, len(remoteRelationArgs.Args)),
+	}
+
+	watchOne := func(arg params.RemoteEntityArg) (common.RelationUnitsWatcher, params.RemoteRelationChangeEvent, error) {
+		var empty params.RemoteRelationChangeEvent
+		tag, err := api.st.GetRemoteEntity(arg.Token)
+		if err != nil {
+			return nil, empty, errors.Trace(err)
+		}
+		if err := api.checkMacaroonsForRelation(tag, arg.Macaroons); err != nil {
+			return nil, empty, errors.Trace(err)
+		}
+		relationTag, ok := tag.(names.RelationTag)
+		if !ok {
+			return nil, empty, common.ErrPerm
+		}
+		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
+		if err != nil {
+			return nil, empty, errors.Trace(err)
+		}
+		change, ok := <-w.Changes()
+		if !ok {
+			return nil, empty, watcher.EnsureErr(w)
+		}
+		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationTag, change)
+		if err != nil {
+			w.Kill()
+			return nil, empty, errors.Trace(err)
+		}
+		wrapped := &commoncrossmodel.WrappedUnitsWatcher{
+			RelationUnitsWatcher: w,
+			RelationTag:          relationTag,
+		}
+		return wrapped, fullChange, nil
+	}
+
+	for i, arg := range remoteRelationArgs.Args {
+		w, changes, err := watchOne(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		results.Results[i].RemoteRelationWatcherId = api.resources.Register(w)
+		results.Results[i].Changes = changes
+	}
+	return results, nil
 }
 
 // Mask out new methods from the old API versions. The API reflection

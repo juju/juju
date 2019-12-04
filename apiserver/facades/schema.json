@@ -28239,6 +28239,153 @@
         }
     },
     {
+        "Name": "RemoteRelationWatcher",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/RemoteRelationWatchResult"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
+                },
+                "RemoteRelationChangeEvent": {
+                    "type": "object",
+                    "properties": {
+                        "application-token": {
+                            "type": "string"
+                        },
+                        "changed-units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteRelationUnitChange"
+                            }
+                        },
+                        "departed-units": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "force-cleanup": {
+                            "type": "boolean"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "macaroons": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Macaroon"
+                            }
+                        },
+                        "relation-token": {
+                            "type": "string"
+                        },
+                        "settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "suspended": {
+                            "type": "boolean"
+                        },
+                        "suspended-reason": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation-token",
+                        "application-token",
+                        "life"
+                    ]
+                },
+                "RemoteRelationUnitChange": {
+                    "type": "object",
+                    "properties": {
+                        "settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "unit-id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "unit-id"
+                    ]
+                },
+                "RemoteRelationWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "$ref": "#/definitions/RemoteRelationChangeEvent"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "RemoteRelations",
         "Version": 1,
         "Schema": {

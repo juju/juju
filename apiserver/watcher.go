@@ -238,6 +238,61 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 	return params.RelationUnitsWatchResult{}, err
 }
 
+// srvRemoteRelationWatcher defines the API wrapping a
+// state.RelationUnitsWatcher but serving the events it emits as
+// fully-expanded params.RemoteRelationChangeEvents so they can be
+// used across model/controller boundaries.
+type srvRemoteRelationWatcher struct {
+	watcherCommon
+	st      *state.State
+	watcher *crossmodel.WrappedUnitsWatcher
+}
+
+func newRemoteRelationWatcher(context facade.Context) (facade.Facade, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	// TODO(wallyworld) - enhance this watcher to support
+	// anonymous api calls with macaroons.
+	if auth.GetAuthTag() != nil && !isAgent(auth) {
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(*crossmodel.WrappedUnitsWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
+	}
+	return &srvRemoteRelationWatcher{
+		watcherCommon: newWatcherCommon(context),
+		st:            context.State(),
+		watcher:       watcher,
+	}, nil
+}
+
+func (w *srvRemoteRelationWatcher) Next() (params.RemoteRelationWatchResult, error) {
+	if change, ok := <-w.watcher.Changes(); ok {
+		// Expand the change into a cross-model event.
+		expanded, err := crossmodel.ExpandChange(
+			crossmodel.GetBackend(w.st),
+			w.watcher.RelationTag,
+			change,
+		)
+		if err != nil {
+			return params.RemoteRelationWatchResult{
+				Error: common.ServerError(err),
+			}, nil
+		}
+		return params.RemoteRelationWatchResult{
+			Changes: expanded,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RemoteRelationWatchResult{}, err
+}
+
 // srvRelationStatusWatcher defines the API wrapping a state.RelationStatusWatcher.
 type srvRelationStatusWatcher struct {
 	watcherCommon
