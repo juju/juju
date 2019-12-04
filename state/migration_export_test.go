@@ -621,6 +621,7 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 		SkipMachineAgentBinaries: true,
 		SkipRelationData:         true,
 		SkipInstanceData:         true,
+		SkipOfferConnections:     true,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -651,6 +652,45 @@ func (s *MigrationExportSuite) TestApplicationExposingOffers(c *gc.C) {
 		"admin": "admin",
 		"foo":   "consume",
 	})
+}
+
+func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
+	stOffer, err := s.State.AddOfferConnection(state.AddOfferConnectionParams{
+		OfferUUID:       "offer-uuid",
+		RelationId:      1,
+		RelationKey:     "relation-key",
+		SourceModelUUID: "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+		Username:        "fred",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We only care for the offer connections
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipActions:              true,
+		SkipAnnotations:          true,
+		SkipCloudImageMetadata:   true,
+		SkipCredentials:          true,
+		SkipIPAddresses:          true,
+		SkipSettings:             true,
+		SkipSSHHostKeys:          true,
+		SkipStatusHistory:        true,
+		SkipLinkLayerDevices:     true,
+		SkipUnitAgentBinaries:    true,
+		SkipMachineAgentBinaries: true,
+		SkipRelationData:         true,
+		SkipInstanceData:         true,
+		SkipApplicationOffers:    true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	offers := model.OfferConnections()
+	c.Assert(offers, gc.HasLen, 1)
+	offer := offers[0]
+	c.Assert(offer.OfferUUID(), gc.Equals, stOffer.OfferUUID())
+	c.Assert(offer.RelationID(), gc.Equals, stOffer.RelationId())
+	c.Assert(offer.RelationKey(), gc.Equals, stOffer.RelationKey())
+	c.Assert(offer.SourceModelUUID(), gc.Equals, stOffer.SourceModelUUID())
+	c.Assert(offer.UserName(), gc.Equals, stOffer.UserName())
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
