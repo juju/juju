@@ -31,19 +31,23 @@ import (
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
-func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
+func DefaultServerConfig(c *gc.C, clocks ...clock.Clock) apiserver.ServerConfig {
+	// FIXME: make clock required
+	var testClock clock.Clock = clock.WallClock
+	if len(clocks) > 0 {
+		testClock = clocks[0]
+	}
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
-		Clock:           clock.WallClock,
+		Clock:           testClock,
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,
 		Controller:      &cache.Controller{}, // Not useful for anything except providing a default.
-		Presence:        presence.New(clock.WallClock),
+		Presence:        presence.New(testClock),
 		LeaseManager:    apitesting.StubLeaseManager{},
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },
 		UpgradeComplete: func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {

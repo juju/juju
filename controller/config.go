@@ -43,6 +43,14 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
+	// AgentRateLimitMax is the maximum size of the token bucket used to
+	// ratelimit the agent connections.
+	AgentRateLimitMax = "agent-ratelimit-max"
+
+	// AgentRateLimitRate is the time taken to add a new token to the bucket.
+	// This effectively says that we can have a new agent connect per duration specified.
+	AgentRateLimitRate = "agent-ratelimit-rate"
+
 	// APIPortOpenDelay is a duration that the controller will wait
 	// between when the controller has been deemed to be ready to open
 	// the api-port and when the api-port is actually opened. This value
@@ -171,6 +179,14 @@ const (
 
 	// Attribute Defaults
 
+	// DefaultAgentRateLimitMax allows the first 10 agents to connect without any
+	// issue. After that the rate limiting kicks in.
+	DefaultAgentRateLimitMax = 10
+
+	// DefaultAgentRateLimitRate will allow four agents to connect every second.
+	// A token is added to the ratelimit token bucket every 250ms.
+	DefaultAgentRateLimitRate = 250 * time.Millisecond
+
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
 	DefaultAuditingEnabled = true
@@ -267,6 +283,8 @@ var (
 	// for a controller, never a model.
 	ControllerOnlyConfigAttributes = []string{
 		AllowModelAccessKey,
+		AgentRateLimitMax,
+		AgentRateLimitRate,
 		APIPort,
 		APIPortOpenDelay,
 		AutocertDNSNameKey,
@@ -306,6 +324,8 @@ var (
 	// config attributes that are allowed to be updated after the
 	// controller has been created.
 	AllowedUpdateConfigAttributes = set.NewStrings(
+		AgentRateLimitMax,
+		AgentRateLimitRate,
 		APIPortOpenDelay,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -459,6 +479,22 @@ func (c Config) ControllerAPIPort() int {
 	// will be 0, which is what we want here.
 	value, _ := c[ControllerAPIPort].(int)
 	return value
+}
+
+// AgentRateLimitMax is the initial size of the token bucket that is used to
+// rate limit agent connections.
+func (c Config) AgentRateLimitMax() int {
+	return c.intOrDefault(AgentRateLimitMax, DefaultAgentRateLimitMax)
+}
+
+// AgentRateLimitRate is the time taken to add a token into the token bucket
+// that is used to rate limit agent connections.
+func (c Config) AgentRateLimitRate() time.Duration {
+	duration, ok := c[AgentRateLimitRate].(time.Duration)
+	if !ok {
+		duration = DefaultAgentRateLimitRate
+	}
+	return duration
 }
 
 // AuditingEnabled returns whether or not auditing has been enabled
@@ -731,6 +767,23 @@ func Validate(c Config) error {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
+	if v, ok := c[AgentRateLimitMax].(int); ok {
+		if v <= 0 {
+			return errors.NotValidf("non-positive %s (%d)", AgentRateLimitMax, v)
+		}
+	}
+	if v, ok := c[AgentRateLimitRate].(time.Duration); ok {
+		if v == 0 {
+			return errors.Errorf("%s cannot be zero", AgentRateLimitRate)
+		}
+		if v < 0 {
+			return errors.Errorf("%s cannot be negative", AgentRateLimitRate)
+		}
+		if v > time.Minute {
+			return errors.Errorf("%s must be between 0..1m", AgentRateLimitRate)
+		}
+	}
+
 	if mgoMemProfile, ok := c[MongoMemoryProfile].(string); ok {
 		if mgoMemProfile != MongoProfLow && mgoMemProfile != MongoProfDefault {
 			return errors.Errorf("mongo-memory-profile: expected one of %q or %q got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
@@ -913,6 +966,8 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
+	AgentRateLimitMax:       schema.ForceInt(),
+	AgentRateLimitRate:      schema.TimeDuration(),
 	AuditingEnabled:         schema.Bool(),
 	AuditLogCaptureArgs:     schema.Bool(),
 	AuditLogMaxSize:         schema.String(),
@@ -946,6 +1001,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CharmStoreURL:           schema.String(),
 	MeteringURL:             schema.String(),
 }, schema.Defaults{
+	AgentRateLimitMax:       schema.Omit,
+	AgentRateLimitRate:      schema.Omit,
 	APIPort:                 DefaultAPIPort,
 	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
 	ControllerAPIPort:       schema.Omit,
@@ -983,6 +1040,15 @@ var configChecker = schema.FieldMap(schema.Fields{
 // ConfigSchema holds information on all the fields defined by
 // the config package.
 var ConfigSchema = environschema.Fields{
+
+	AgentRateLimitMax: {
+		Description: "The maximum size of the token bucket used to ratelimit agent connections",
+		Type:        environschema.Tint,
+	},
+	AgentRateLimitRate: {
+		Description: "The time taken to add a new token to the ratelimit bucket",
+		Type:        environschema.Tstring,
+	},
 	AuditingEnabled: {
 		Description: "Determines if the controller records auditing information",
 		Type:        environschema.Tbool,

@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"time"
+
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -32,8 +34,9 @@ func APIHandlerWithEntity(entity state.Entity) *apiHandler {
 }
 
 const (
-	LoginRateLimit = defaultLoginRateLimit
-	LoginRetyPause = defaultLoginRetryPause
+	// REMOVE ME:
+	LoginRateLimit = 10
+	LoginRetyPause = time.Second
 )
 
 func NewErrRoot(err error) *errRoot {
