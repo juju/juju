@@ -35,6 +35,7 @@ func (m *MockMigrationRelationNetworks) EXPECT() *MockMigrationRelationNetworksM
 
 // CIDRS mocks base method
 func (m *MockMigrationRelationNetworks) CIDRS() []string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CIDRS")
 	ret0, _ := ret[0].([]string)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockMigrationRelationNetworks) CIDRS() []string {
 
 // CIDRS indicates an expected call of CIDRS
 func (mr *MockMigrationRelationNetworksMockRecorder) CIDRS() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CIDRS", reflect.TypeOf((*MockMigrationRelationNetworks)(nil).CIDRS))
 }
 
 // Id mocks base method
 func (m *MockMigrationRelationNetworks) Id() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -54,11 +57,13 @@ func (m *MockMigrationRelationNetworks) Id() string {
 
 // Id indicates an expected call of Id
 func (mr *MockMigrationRelationNetworksMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockMigrationRelationNetworks)(nil).Id))
 }
 
 // RelationKey mocks base method
 func (m *MockMigrationRelationNetworks) RelationKey() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RelationKey")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -66,6 +71,7 @@ func (m *MockMigrationRelationNetworks) RelationKey() string {
 
 // RelationKey indicates an expected call of RelationKey
 func (mr *MockMigrationRelationNetworksMockRecorder) RelationKey() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationKey", reflect.TypeOf((*MockMigrationRelationNetworks)(nil).RelationKey))
 }
 
@@ -94,6 +100,7 @@ func (m *MockRelationNetworksSource) EXPECT() *MockRelationNetworksSourceMockRec
 
 // AllRelationNetworks mocks base method
 func (m *MockRelationNetworksSource) AllRelationNetworks() ([]MigrationRelationNetworks, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllRelationNetworks")
 	ret0, _ := ret[0].([]MigrationRelationNetworks)
 	ret1, _ := ret[1].(error)
@@ -102,6 +109,7 @@ func (m *MockRelationNetworksSource) AllRelationNetworks() ([]MigrationRelationN
 
 // AllRelationNetworks indicates an expected call of AllRelationNetworks
 func (mr *MockRelationNetworksSourceMockRecorder) AllRelationNetworks() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRelationNetworks", reflect.TypeOf((*MockRelationNetworksSource)(nil).AllRelationNetworks))
 }
 
@@ -130,6 +138,7 @@ func (m *MockRelationNetworksModel) EXPECT() *MockRelationNetworksModelMockRecor
 
 // AddRelationNetwork mocks base method
 func (m *MockRelationNetworksModel) AddRelationNetwork(arg0 description.RelationNetworkArgs) description.RelationNetwork {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddRelationNetwork", arg0)
 	ret0, _ := ret[0].(description.RelationNetwork)
 	return ret0
@@ -137,5 +146,6 @@ func (m *MockRelationNetworksModel) AddRelationNetwork(arg0 description.Relation
 
 // AddRelationNetwork indicates an expected call of AddRelationNetwork
 func (mr *MockRelationNetworksModelMockRecorder) AddRelationNetwork(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddRelationNetwork", reflect.TypeOf((*MockRelationNetworksModel)(nil).AddRelationNetwork), arg0)
 }

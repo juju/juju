@@ -13,6 +13,7 @@ import (
 //go:generate mockgen -package migrations -destination remoteapplications_mock_test.go github.com/juju/juju/state/migrations MigrationRemoteApplication,AllRemoteApplicationSource,StatusSource,RemoteApplicationSource,RemoteApplicationModel
 //go:generate mockgen -package migrations -destination remoteentities_mock_test.go github.com/juju/juju/state/migrations MigrationRemoteEntity,RemoteEntitiesSource,RemoteEntitiesModel
 //go:generate mockgen -package migrations -destination description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
+//go:generate mockgen -package migrations -destination firewallrules_mock_test.go -source=firewallrules.go
 
 func TestPackage(t *testing.T) {
 	gc.TestingT(t)
