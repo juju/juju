@@ -7,7 +7,6 @@ package migrations
 import (
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
-	names_v3 "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -48,18 +47,18 @@ func (mr *MockMigrationOfferConnectionMockRecorder) OfferUUID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OfferUUID", reflect.TypeOf((*MockMigrationOfferConnection)(nil).OfferUUID))
 }
 
-// RelationID mocks base method
-func (m *MockMigrationOfferConnection) RelationID() int {
+// RelationId mocks base method
+func (m *MockMigrationOfferConnection) RelationId() int {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RelationID")
+	ret := m.ctrl.Call(m, "RelationId")
 	ret0, _ := ret[0].(int)
 	return ret0
 }
 
-// RelationID indicates an expected call of RelationID
-func (mr *MockMigrationOfferConnectionMockRecorder) RelationID() *gomock.Call {
+// RelationId indicates an expected call of RelationId
+func (mr *MockMigrationOfferConnectionMockRecorder) RelationId() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationID", reflect.TypeOf((*MockMigrationOfferConnection)(nil).RelationID))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationId", reflect.TypeOf((*MockMigrationOfferConnection)(nil).RelationId))
 }
 
 // RelationKey mocks base method
@@ -76,18 +75,18 @@ func (mr *MockMigrationOfferConnectionMockRecorder) RelationKey() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RelationKey", reflect.TypeOf((*MockMigrationOfferConnection)(nil).RelationKey))
 }
 
-// SourceModel mocks base method
-func (m *MockMigrationOfferConnection) SourceModel() names_v3.ModelTag {
+// SourceModelUUID mocks base method
+func (m *MockMigrationOfferConnection) SourceModelUUID() string {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SourceModel")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret := m.ctrl.Call(m, "SourceModelUUID")
+	ret0, _ := ret[0].(string)
 	return ret0
 }
 
-// SourceModel indicates an expected call of SourceModel
-func (mr *MockMigrationOfferConnectionMockRecorder) SourceModel() *gomock.Call {
+// SourceModelUUID indicates an expected call of SourceModelUUID
+func (mr *MockMigrationOfferConnectionMockRecorder) SourceModelUUID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SourceModel", reflect.TypeOf((*MockMigrationOfferConnection)(nil).SourceModel))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SourceModelUUID", reflect.TypeOf((*MockMigrationOfferConnection)(nil).SourceModelUUID))
 }
 
 // UserName mocks base method

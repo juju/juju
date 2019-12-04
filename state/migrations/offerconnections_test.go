@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
 )
 
 type OfferConnectionsExportSuite struct{}
@@ -23,9 +22,9 @@ func (s *OfferConnectionsExportSuite) TestExportOfferConnection(c *gc.C) {
 	entities := []MigrationOfferConnection{
 		s.migrationOfferConnection(ctrl, func(expect *MockMigrationOfferConnectionMockRecorder) {
 			expect.OfferUUID().Return("offer-uuid")
-			expect.RelationID().Return(1)
+			expect.RelationId().Return(1)
 			expect.RelationKey().Return("relation-key")
-			expect.SourceModel().Return(names.NewModelTag("source-model"))
+			expect.SourceModelUUID().Return("source-model-uuid")
 			expect.UserName().Return("fred")
 		}),
 	}
@@ -37,11 +36,11 @@ func (s *OfferConnectionsExportSuite) TestExportOfferConnection(c *gc.C) {
 
 	model := NewMockOfferConnectionModel(ctrl)
 	model.EXPECT().AddOfferConnection(description.OfferConnectionArgs{
-		OfferUUID:   "offer-uuid",
-		RelationID:  1,
-		RelationKey: "relation-key",
-		SourceModel: names.NewModelTag("source-model"),
-		UserName:    "fred",
+		OfferUUID:       "offer-uuid",
+		RelationID:      1,
+		RelationKey:     "relation-key",
+		SourceModelUUID: "source-model-uuid",
+		UserName:        "fred",
 	}).Return(offerConnection)
 
 	migration := ExportOfferConnections{}

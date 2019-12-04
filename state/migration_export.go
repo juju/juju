@@ -67,6 +67,7 @@ type ExportConfig struct {
 	SkipRelationData         bool
 	SkipInstanceData         bool
 	SkipApplicationOffers    bool
+	SkipOfferConnections     bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -1252,6 +1253,10 @@ func (s offerConnectionsShim) AllOfferConnections() ([]migrations.MigrationOffer
 }
 
 func (e *exporter) offerConnections() error {
+	if e.cfg.SkipOfferConnections {
+		return nil
+	}
+
 	e.logger.Debugf("reading offer connections")
 	migration := &ExportStateMigration{
 		src: e.st,
