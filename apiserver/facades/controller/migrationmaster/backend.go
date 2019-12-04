@@ -27,8 +27,6 @@ type Backend interface {
 	ModelOwner() (names.UserTag, error)
 	AgentVersion() (version.Number, error)
 	RemoveExportingModelDocs() error
-	AllOfferConnections() ([]OfferConnection, error)
-	ControllerForModel(string) (state.ExternalController, error)
 }
 
 // OfferConnection describes methods offer connection methods

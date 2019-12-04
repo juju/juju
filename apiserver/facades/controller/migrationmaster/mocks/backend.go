@@ -7,7 +7,6 @@ package mocks
 import (
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
-	migrationmaster "github.com/juju/juju/apiserver/facades/controller/migrationmaster"
 	state "github.com/juju/juju/state"
 	version "github.com/juju/version"
 	names_v3 "gopkg.in/juju/names.v3"
@@ -50,36 +49,6 @@ func (m *MockBackend) AgentVersion() (version.Number, error) {
 func (mr *MockBackendMockRecorder) AgentVersion() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AgentVersion", reflect.TypeOf((*MockBackend)(nil).AgentVersion))
-}
-
-// AllOfferConnections mocks base method
-func (m *MockBackend) AllOfferConnections() ([]migrationmaster.OfferConnection, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllOfferConnections")
-	ret0, _ := ret[0].([]migrationmaster.OfferConnection)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// AllOfferConnections indicates an expected call of AllOfferConnections
-func (mr *MockBackendMockRecorder) AllOfferConnections() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllOfferConnections", reflect.TypeOf((*MockBackend)(nil).AllOfferConnections))
-}
-
-// ControllerForModel mocks base method
-func (m *MockBackend) ControllerForModel(arg0 string) (state.ExternalController, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ControllerForModel", arg0)
-	ret0, _ := ret[0].(state.ExternalController)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ControllerForModel indicates an expected call of ControllerForModel
-func (mr *MockBackendMockRecorder) ControllerForModel(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockBackend)(nil).ControllerForModel), arg0)
 }
 
 // Export mocks base method
