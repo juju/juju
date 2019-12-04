@@ -30,15 +30,15 @@ type FirewallRulesModel interface {
 	AddFirewallRule(args description.FirewallRuleArgs) description.FirewallRule
 }
 
-// ExportFirewallRule describes a way to execute a migration for exporting
-// remote entities.
-type ExportFirewallRule struct{}
+// ExportFirewallRules describes a way to execute a migration for exporting
+// firewall rules.
+type ExportFirewallRules struct{}
 
 // Execute the migration of the remote entities using typed interfaces, to
 // ensure we don't loose any type safety.
 // This doesn't conform to an interface because go doesn't have generics, but
 // when this does arrive this would be an execellent place to use them.
-func (ExportFirewallRule) Execute(src FirewallRuleSource, dst FirewallRulesModel) error {
+func (ExportFirewallRules) Execute(src FirewallRuleSource, dst FirewallRulesModel) error {
 	firewallRules, err := src.AllFirewallRules()
 	if err != nil {
 		return errors.Trace(err)
