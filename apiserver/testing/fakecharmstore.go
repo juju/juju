@@ -95,8 +95,3 @@ func (s *CharmStoreSuite) UploadCharmMultiSeries(c *gc.C, url, name string) (*ch
 	client := &charmstoreClientShim{s.Client}
 	return testcharms.UploadCharmMultiSeries(c, client, url, name)
 }
-
-func (s *CharmStoreSuite) UploadCharmWithSeries(c *gc.C, url, name, series string) (*charm.URL, charm.Charm) {
-	client := &charmstoreClientShim{s.Client}
-	return testcharms.UploadCharmWithSeries(c, client, url, name, series)
-}
