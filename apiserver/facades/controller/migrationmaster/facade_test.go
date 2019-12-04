@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/apiserver/facades/controller/migrationmaster/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/core/crossmodel"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
@@ -519,98 +518,6 @@ func (s *Suite) TestMinionReports(c *gc.C) {
 			u1.String(),
 		},
 	})
-}
-
-func (s *Suite) TestPrechecksCrossModel(c *gc.C) {
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	user := "some-random-cat"
-
-	// These UUIDs are used for both the model and the offer.
-	id1 := utils.MustNewUUID().String()
-	id2 := utils.MustNewUUID().String()
-	id3 := utils.MustNewUUID().String()
-
-	c1 := mocks.NewMockOfferConnection(ctrl)
-	c1Exp := c1.EXPECT()
-	c1Exp.SourceModelUUID().Return(id1)
-	c1Exp.UserName().Return(user)
-	c1Exp.RelationId().Return(1)
-	c1Exp.OfferUUID().Return(id1)
-
-	c2 := mocks.NewMockOfferConnection(ctrl)
-	c2Exp := c2.EXPECT()
-	c2Exp.SourceModelUUID().Return(id2)
-	c2Exp.UserName().Return(user)
-	c2Exp.RelationId().Return(2)
-	c2Exp.OfferUUID().Return(id2)
-
-	c3 := mocks.NewMockOfferConnection(ctrl)
-	c3Exp := c3.EXPECT()
-	c3Exp.SourceModelUUID().Return(id3)
-	c3Exp.UserName().Return(user)
-	c3Exp.RelationId().Return(3)
-	c3Exp.OfferUUID().Return(id3)
-
-	bExp := s.backend.EXPECT()
-	bExp.AllOfferConnections().Return([]migrationmaster.OfferConnection{c1, c2, c3}, nil)
-
-	// m1 will be a model in the same controller.
-	// m2 and m3 will be on an external controller.
-	cont := mocks.NewMockExternalController(ctrl)
-	cID := utils.MustNewUUID().String()
-
-	cont.EXPECT().Id().Return(cID).Times(2)
-	cont.EXPECT().ControllerInfo().Return(crossmodel.ControllerInfo{
-		ControllerTag: names.NewControllerTag(cID),
-		Alias:         "controller-alias",
-		Addrs:         []string{"1.1.1.1:1"},
-		CACert:        "some-cert-string",
-	}).Times(2)
-
-	bExp.ControllerForModel(id1).Return(nil, errors.NotFoundf(""))
-	bExp.ControllerForModel(id2).Return(cont, nil)
-	bExp.ControllerForModel(id3).Return(cont, nil)
-
-	result, err := s.mustMakeAPI(c).PrechecksCrossModel()
-	c.Assert(err, jc.ErrorIsNil)
-
-	expectedCInfo := params.ExternalControllerInfo{
-		ControllerTag: names.NewControllerTag(cID).String(),
-		Alias:         "controller-alias",
-		Addrs:         []string{"1.1.1.1:1"},
-		CACert:        "some-cert-string",
-	}
-	expectedResult := params.MigratingCrossModelResult{
-		OfferConnections: []params.MigratingOfferConnection{
-			{
-				OfferUUID:      id1,
-				SourceModelTag: names.NewModelTag(id1).String(),
-				RelationID:     1,
-				UserName:       user,
-			},
-			{
-				OfferUUID:      id2,
-				SourceModelTag: names.NewModelTag(id2).String(),
-				RelationID:     2,
-				UserName:       user,
-			},
-			{
-				OfferUUID:      id3,
-				SourceModelTag: names.NewModelTag(id3).String(),
-				RelationID:     3,
-				UserName:       user,
-			},
-		},
-		ExternalControllers: map[string]params.ExternalControllerInfo{
-			names.NewModelTag(id1).String(): {},
-			names.NewModelTag(id2).String(): expectedCInfo,
-			names.NewModelTag(id3).String(): expectedCInfo,
-		},
-		Error: nil,
-	}
-	c.Check(result, jc.DeepEquals, expectedResult)
 }
 
 func (s *Suite) setupMocks(c *gc.C) *gomock.Controller {

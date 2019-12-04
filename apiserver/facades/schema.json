@@ -21778,14 +21778,6 @@
                 "Prechecks": {
                     "type": "object"
                 },
-                "PrechecksCrossModel": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/MigratingCrossModelResult"
-                        }
-                    }
-                },
                 "ProcessRelations": {
                     "type": "object",
                     "properties": {
@@ -21856,33 +21848,6 @@
                         "code"
                     ]
                 },
-                "ExternalControllerInfo": {
-                    "type": "object",
-                    "properties": {
-                        "addrs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "ca-cert": {
-                            "type": "string"
-                        },
-                        "controller-alias": {
-                            "type": "string"
-                        },
-                        "controller-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "controller-tag",
-                        "controller-alias",
-                        "addrs",
-                        "ca-cert"
-                    ]
-                },
                 "MasterMigrationStatus": {
                     "type": "object",
                     "properties": {
@@ -21906,57 +21871,6 @@
                         "migration-id",
                         "phase",
                         "phase-changed-time"
-                    ]
-                },
-                "MigratingCrossModelResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "external-controllers": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/ExternalControllerInfo"
-                                }
-                            }
-                        },
-                        "offer-connections": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MigratingOfferConnection"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "offer-connections",
-                        "external-controllers"
-                    ]
-                },
-                "MigratingOfferConnection": {
-                    "type": "object",
-                    "properties": {
-                        "offer-uuid": {
-                            "type": "string"
-                        },
-                        "relation-id": {
-                            "type": "integer"
-                        },
-                        "source-model-tag": {
-                            "type": "string"
-                        },
-                        "username": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "offer-uuid",
-                        "source-model-tag",
-                        "relation-id",
-                        "username"
                     ]
                 },
                 "MigrationModelInfo": {
