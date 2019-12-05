@@ -158,24 +158,6 @@ func (s *WorkerValidationSuite) testValidateError(c *gc.C, f func(*apiserver.Con
 	c.Check(err, gc.ErrorMatches, expect)
 }
 
-func (s *WorkerValidationSuite) TestValidateRateLimitConfig(c *gc.C) {
-	s.testValidateRateLimitConfig(c, agent.AgentLoginRateLimit, "foo", "parsing AGENT_LOGIN_RATE_LIMIT: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentLoginMinPause, "foo", "parsing AGENT_LOGIN_MIN_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentLoginMaxPause, "foo", "parsing AGENT_LOGIN_MAX_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentLoginRetryPause, "foo", "parsing AGENT_LOGIN_RETRY_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnMinPause, "foo", "parsing AGENT_CONN_MIN_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnMaxPause, "foo", "parsing AGENT_CONN_MAX_PAUSE: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnLookbackWindow, "foo", "parsing AGENT_CONN_LOOKBACK_WINDOW: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnLowerThreshold, "foo", "parsing AGENT_CONN_LOWER_THRESHOLD: .*")
-	s.testValidateRateLimitConfig(c, agent.AgentConnUpperThreshold, "foo", "parsing AGENT_CONN_UPPER_THRESHOLD: .*")
-}
-
-func (s *WorkerValidationSuite) testValidateRateLimitConfig(c *gc.C, key, value, expect string) {
-	s.agentConfig.values = map[string]string{key: value}
-	_, err := apiserver.NewWorker(s.config)
-	c.Check(err, gc.ErrorMatches, "getting rate limit config: "+expect)
-}
-
 func (s *WorkerValidationSuite) TestValidateLogSinkConfig(c *gc.C) {
 	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerBufferSize, "foo", "parsing LOGSINK_DBLOGGER_BUFFER_SIZE: .*")
 	s.testValidateLogSinkConfig(c, agent.LogSinkDBLoggerFlushInterval, "foo", "parsing LOGSINK_DBLOGGER_FLUSH_INTERVAL: .*")

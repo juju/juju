@@ -11,76 +11,9 @@ import (
 
 // These vars define how we rate limit incoming connections.
 const (
-	defaultLoginRateLimit         = 10 // concurrent login operations
-	defaultLoginMinPause          = 100 * time.Millisecond
-	defaultLoginMaxPause          = 1 * time.Second
-	defaultLoginRetryPause        = 5 * time.Second
-	defaultConnMinPause           = 0 * time.Millisecond
-	defaultConnMaxPause           = 5 * time.Second
-	defaultConnLookbackWindow     = 1 * time.Second
-	defaultConnLowerThreshold     = 1000   // connections per second
-	defaultConnUpperThreshold     = 100000 // connections per second
 	defaultLogSinkRateLimitBurst  = 1000
 	defaultLogSinkRateLimitRefill = time.Millisecond
 )
-
-// RateLimitConfig holds parameters to control
-// aspects of rate limiting connections and logins.
-type RateLimitConfig struct {
-	LoginRateLimit     int
-	LoginMinPause      time.Duration
-	LoginMaxPause      time.Duration
-	LoginRetryPause    time.Duration
-	ConnMinPause       time.Duration
-	ConnMaxPause       time.Duration
-	ConnLookbackWindow time.Duration
-	ConnLowerThreshold int
-	ConnUpperThreshold int
-}
-
-// DefaultRateLimitConfig returns a RateLimtConfig struct with
-// all attributes set to their default values.
-func DefaultRateLimitConfig() RateLimitConfig {
-	return RateLimitConfig{
-		LoginRateLimit:     defaultLoginRateLimit,
-		LoginMinPause:      defaultLoginMinPause,
-		LoginMaxPause:      defaultLoginMaxPause,
-		LoginRetryPause:    defaultLoginRetryPause,
-		ConnMinPause:       defaultConnMinPause,
-		ConnMaxPause:       defaultConnMaxPause,
-		ConnLookbackWindow: defaultConnLookbackWindow,
-		ConnLowerThreshold: defaultConnLowerThreshold,
-		ConnUpperThreshold: defaultConnUpperThreshold,
-	}
-}
-
-// Validate validates the rate limit configuration.
-// We apply arbitrary but sensible upper limits to prevent
-// typos from introducing obviously bad config.
-func (c RateLimitConfig) Validate() error {
-	if c.LoginRateLimit <= 0 || c.LoginRateLimit > 100 {
-		return errors.NotValidf("login-rate-limit %d <= 0 or > 100", c.LoginRateLimit)
-	}
-	if c.LoginMinPause < 0 || c.LoginMinPause > 100*time.Millisecond {
-		return errors.NotValidf("login-min-pause %d < 0 or > 100ms", c.LoginMinPause)
-	}
-	if c.LoginMaxPause < 0 || c.LoginMaxPause > 5*time.Second {
-		return errors.NotValidf("login-max-pause %d < 0 or > 5s", c.LoginMaxPause)
-	}
-	if c.LoginRetryPause < 0 || c.LoginRetryPause > 10*time.Second {
-		return errors.NotValidf("login-retry-pause %d < 0 or > 10s", c.LoginRetryPause)
-	}
-	if c.ConnMinPause < 0 || c.ConnMinPause > 100*time.Millisecond {
-		return errors.NotValidf("conn-min-pause %d < 0 or > 100ms", c.ConnMinPause)
-	}
-	if c.ConnMaxPause < 0 || c.ConnMaxPause > 10*time.Second {
-		return errors.NotValidf("conn-max-pause %d < 0 or > 10s", c.ConnMaxPause)
-	}
-	if c.ConnLookbackWindow < 0 || c.ConnLookbackWindow > 5*time.Second {
-		return errors.NotValidf("conn-lookback-window %d < 0 or > 5s", c.ConnMaxPause)
-	}
-	return nil
-}
 
 // LogSinkConfig holds parameters to control the API server's
 // logsink endpoint behaviour.

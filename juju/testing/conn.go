@@ -534,6 +534,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	for key, value := range s.ControllerConfigAttrs {
 		s.ControllerConfig[key] = value
 	}
+	// Explicitly disable rate limiting.
+	s.ControllerConfig[controller.AgentRateLimitMax] = 0
 	cloudSpec := dummy.SampleCloudSpec()
 	bootstrapEnviron, err := bootstrap.PrepareController(
 		false,

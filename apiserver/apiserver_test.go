@@ -17,7 +17,6 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -117,7 +116,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		LeaseManager:    apitesting.StubLeaseManager{},
 		Mux:             s.mux,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 		UpgradeComplete: func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
@@ -299,16 +297,4 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 
 	err = workertest.CheckKilled(c, s.apiServer)
 	c.Assert(err, gc.Equals, dependency.ErrBounce)
-}
-
-type noopRegisterer struct {
-	prometheus.Registerer
-}
-
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
-}
-
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
 }
