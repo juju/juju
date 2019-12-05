@@ -1142,6 +1142,15 @@ class ModelClient:
         """
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
+        return self.get_raw_juju_output(self, command, model, *args, **kwargs)
+
+    def get_raw_juju_output(self, command, model, *args, **kwargs):
+        """Call a juju command without calling a model for it's values first.
+
+        Sub process will be called as 'juju <command> <args> <kwargs>'. Note
+        that <command> may be a space delimited list of arguments. The -e
+        <environment> flag will be placed after <command> and before args.
+        """
         pass_kwargs = dict(
             (k, kwargs[k]) for k in kwargs if k in ['timeout', 'merge_stderr'])
         return self._backend.get_juju_output(
