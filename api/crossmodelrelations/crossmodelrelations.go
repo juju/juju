@@ -228,8 +228,11 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 	return result, nil
 }
 
-// WatchRelationUnits returns a watcher that notifies of changes to the
-// units in the remote model for the relation with the given remote token.
+// WatchRelationUnits returns a watcher that notifies of changes to
+// the units in the remote model for the relation with the given
+// remote token.
+// TODO(babbageclunk): remove this once the worker is updated to use
+// WatchRelationChanges.
 func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	// Use any previously cached discharge macaroons.

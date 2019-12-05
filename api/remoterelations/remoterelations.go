@@ -205,8 +205,10 @@ func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.St
 	return w, nil
 }
 
-// WatchLocalRelationUnits returns a watcher that notifies of changes to the
-// local units in the relation with the given key.
+// WatchLocalRelationUnits returns a watcher that notifies of changes
+// to the local units in the relation with the given key.
+// TODO(babbageclunk): remove this once the worker is updated to use
+// WatchLocalRelationChanges.
 func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
 	if !names.IsValidRelation(relationKey) {
 		return nil, errors.NotValidf("relation key %q", relationKey)
@@ -228,6 +230,33 @@ func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUn
 		return nil, result.Error
 	}
 	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchLocalRelationChanges returns a watcher that emits
+// fully-expanded changes (suitable for shipping over to a different
+// controller) to the local units in the relation with the given key.
+func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.RemoteRelationWatcher, error) {
+	if !names.IsValidRelation(relationKey) {
+		return nil, errors.NotValidf("relation key %q", relationKey)
+	}
+	relationTag := names.NewRelationTag(relationKey)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: relationTag.String()}},
+	}
+	var results params.RemoteRelationWatchResults
+	err := c.facade.FacadeCall("WatchLocalRelationChanges", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := apiwatcher.NewRemoteRelationWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
