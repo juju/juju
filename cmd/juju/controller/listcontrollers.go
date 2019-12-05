@@ -83,7 +83,7 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Annotate(err, "failed to list controllers")
 	}
-	if len(controllers) == 0 && c.out.Name() == "tabular" {
+	if len(controllers) == 0 {
 		return errors.Trace(modelcmd.ErrNoControllersDefined)
 	}
 	if c.refresh && len(controllers) > 0 {
