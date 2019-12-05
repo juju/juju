@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -71,6 +70,7 @@ type Client struct {
 	newEnviron  func() (environs.BootstrapEnviron, error)
 	check       *common.BlockChecker
 	callContext context.ProviderCallContext
+	openCSRepo  application.OpenCSRepoFunc
 }
 
 // ClientV1 serves the (v1) client-specific API methods.
@@ -201,6 +201,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		state.CallContext(st),
 		leadershipReader,
 		modelCache,
+		application.OpenCSRepo,
 	)
 }
 
@@ -219,6 +220,7 @@ func NewClient(
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
 	modelCache *cache.Model,
+	openCSRepo application.OpenCSRepoFunc,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -239,6 +241,7 @@ func NewClient(
 		newEnviron:  newEnviron,
 		check:       blockChecker,
 		callContext: callCtx,
+		openCSRepo:  openCSRepo,
 	}
 	return client, nil
 }
@@ -723,7 +726,7 @@ func (c *Client) AddCharm(args params.AddCharm) error {
 		URL:     args.URL,
 		Channel: args.Channel,
 		Force:   args.Force,
-	})
+	}, c.openCSRepo)
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
@@ -738,7 +741,7 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 	}
 
 	shim := application.NewStateShim(c.api.state())
-	return application.AddCharmWithAuthorization(shim, args)
+	return application.AddCharmWithAuthorization(shim, args, c.openCSRepo)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
@@ -749,7 +752,7 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	}
 
 	shim := application.NewStateShim(c.api.state())
-	return application.ResolveCharms(shim, args)
+	return application.ResolveCharms(shim, args, c.openCSRepo)
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.

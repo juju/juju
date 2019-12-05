@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/controller"
-	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
@@ -34,7 +33,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -51,9 +49,6 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 		NewCharmUpgradeClient: func(conn base.APICallCloser) CharmAPIClient {
 			return application.NewClient(conn)
 		},
-		NewModelConfigGetter: func(conn base.APICallCloser) ModelConfigGetter {
-			return modelconfig.NewClient(conn)
-		},
 		NewResourceLister: func(conn base.APICallCloser) (ResourceLister, error) {
 			resclient, err := resourceadapters.NewAPIClient(conn)
 			if err != nil {
@@ -69,9 +64,8 @@ func newUpgradeCharmCommand() *upgradeCharmCommand {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-			modelConfig *config.Config,
 		) charmrepoForDeploy {
-			return getCharmStore(bakeryClient, csURL, channel, modelConfig)
+			return getCharmStore(bakeryClient, csURL, channel)
 		},
 	}
 }
@@ -118,7 +112,6 @@ type NewCharmStoreFunc func(
 	*httpbakery.Client,
 	string, // Charmstore API URL
 	csclientparams.Channel,
-	*config.Config,
 ) charmrepoForDeploy
 
 // UpgradeCharm is responsible for upgrading an application's charm.
@@ -131,7 +124,6 @@ type upgradeCharmCommand struct {
 	NewCharmStore         NewCharmStoreFunc
 	NewCharmClient        func(base.APICallCloser) CharmClient
 	NewCharmUpgradeClient func(base.APICallCloser) CharmAPIClient
-	NewModelConfigGetter  func(base.APICallCloser) ModelConfigGetter
 	NewResourceLister     func(base.APICallCloser) (ResourceLister, error)
 	NewSpacesClient       func(base.APICallCloser) SpacesAPI
 	CharmStoreURLGetter   func(base.APICallCloser) (string, error)
@@ -349,11 +341,6 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// First, ensure the charm is added to the model.
-	modelConfigGetter := c.NewModelConfigGetter(apiRoot)
-	modelConfig, err := getModelConfig(modelConfigGetter)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	bakeryClient, err := c.BakeryClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -378,9 +365,8 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 
 	chID, csMac, err := c.addCharm(addCharmParams{
 		charmAdder:     c.NewCharmAdder(apiRoot),
-		charmRepo:      c.NewCharmStore(bakeryClient, csURL, c.Channel, modelConfig),
+		charmRepo:      c.NewCharmStore(bakeryClient, csURL, c.Channel),
 		authorizer:     newCharmStoreClient(bakeryClient, csURL),
-		modelConfig:    modelConfig,
 		oldURL:         oldURL,
 		newCharmRef:    newRef,
 		deployedSeries: applicationInfo.Series,
@@ -636,13 +622,9 @@ func getCharmStore(
 	bakeryClient *httpbakery.Client,
 	csURL string,
 	channel csclientparams.Channel,
-	modelConfig *config.Config,
 ) charmrepoForDeploy {
 	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
-	return config.SpecializeCharmRepo(
-		charmrepo.NewCharmStoreFromClient(csClient),
-		modelConfig,
-	).(*charmrepo.CharmStore)
+	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
 // getCharmStoreAPIURL consults the controller config for the charmstore api url to use.
@@ -659,7 +641,6 @@ type addCharmParams struct {
 	charmAdder     CharmAdder
 	authorizer     macaroonGetter
 	charmRepo      charmrepoForDeploy
-	modelConfig    *config.Config
 	oldURL         *charm.URL
 	newCharmRef    string
 	deployedSeries string

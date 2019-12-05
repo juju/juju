@@ -38,15 +38,7 @@ import (
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
 
-// NewCharmStoreRepo instantiates a new charm store repository.
-// It is exported for testing purposes.
-var NewCharmStoreRepo = newCharmStoreFromClient
-
 var newStateStorage = storage.NewStorage
-
-func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
-	return charmrepo.NewCharmStoreFromClient(csClient)
-}
 
 // StateCharm represents a Charm from the state package
 type StateCharm interface {
@@ -190,7 +182,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) error {
+func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, openCSRepo OpenCSRepoFunc) error {
 	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
 		// determine which charmstore api url to use.
 		controllerCfg, err := st.ControllerConfig()
@@ -198,34 +190,33 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) 
 			return nil, err
 		}
 
-		repo, err := openCSRepo(controllerCfg.CharmStoreURL(), args)
-		if err != nil {
-			return nil, err
-		}
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		modelConfig, err := model.ModelConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
-		return repo, nil
+		return openCSRepo(OpenCSRepoParams{
+			CSURL:              controllerCfg.CharmStoreURL(),
+			Channel:            args.Channel,
+			CharmStoreMacaroon: args.CharmStoreMacaroon,
+		})
 	})
 }
 
-func openCSRepo(csURL string, args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
-	csClient, err := openCSClient(csURL, args)
+type OpenCSRepoFunc func(args OpenCSRepoParams) (charmrepo.Interface, error)
+
+type OpenCSRepoParams struct {
+	CSURL              string
+	Channel            string
+	CharmStoreMacaroon *macaroon.Macaroon
+}
+
+var OpenCSRepo = func(args OpenCSRepoParams) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(args)
 	if err != nil {
 		return nil, err
 	}
-	repo := NewCharmStoreRepo(csClient)
+	repo := charmrepo.NewCharmStoreFromClient(csClient)
 	return repo, nil
 }
 
-func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*csclient.Client, error) {
-	csURL, err := url.Parse(csAPIURL)
+func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
+	csURL, err := url.Parse(args.CSURL)
 	if err != nil {
 		return nil, err
 	}
@@ -372,27 +363,16 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func ResolveCharms(st State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
+func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFunc) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
-	model, err := st.Model()
-	if err != nil {
-		return params.ResolveCharmResults{}, errors.Trace(err)
-	}
-	envConfig, err := model.ModelConfig()
-	if err != nil {
-		return params.ResolveCharmResults{}, err
-	}
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	csParams := csclient.Params{
-		URL: controllerCfg.CharmStoreURL(),
-	}
-	repo := config.SpecializeCharmRepo(
-		NewCharmStoreRepo(csclient.New(csParams)),
-		envConfig)
+	repo, err := openCSRepo(OpenCSRepoParams{
+		CSURL: controllerCfg.CharmStoreURL(),
+	})
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}

@@ -13,16 +13,19 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -63,7 +66,6 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
-	//s.State.StartSync()
 	s.client = s.clientForState(c, s.State)
 }
 
@@ -764,35 +766,56 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 	s.assertResolvedBlocked(c, u, "TestBlockChangeUnitResolved")
 }
 
+type mockRepo struct {
+	charmrepo.Interface
+	*jtesting.CallMocker
+}
+
+func (m *mockRepo) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error) {
+	results := m.MethodCall(m, "Resolve", ref)
+	if results == nil {
+		entity := "charm or bundle"
+		if ref.Series != "" {
+			entity = "charm"
+		}
+		return nil, nil, errors.NotFoundf(`cannot resolve URL %q: %s`, ref, entity)
+	}
+	return results[0].(*charm.URL), []string{"bionic"}, nil
+}
+
 type clientRepoSuite struct {
 	baseSuite
-	testing.CharmStoreSuite
+	repo *mockRepo
 }
 
 var _ = gc.Suite(&clientRepoSuite{})
 
-func (s *clientRepoSuite) SetUpSuite(c *gc.C) {
-	s.CharmStoreSuite.SetUpSuite(c)
-	s.baseSuite.SetUpSuite(c)
-
-}
-
-func (s *clientRepoSuite) TearDownSuite(c *gc.C) {
-	s.CharmStoreSuite.TearDownSuite(c)
-	s.baseSuite.TearDownSuite(c)
-}
-
 func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.CharmStoreSuite.Session = s.baseSuite.Session
-	s.CharmStoreSuite.SetUpTest(c)
-
 	c.Assert(s.APIState, gc.NotNil)
+
+	var logger loggo.Logger
+	s.repo = &mockRepo{
+		CallMocker: jtesting.NewCallMocker(logger),
+	}
+
+	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+		return s.repo, nil
+	})
 }
 
-func (s *clientRepoSuite) TearDownTest(c *gc.C) {
-	s.CharmStoreSuite.TearDownTest(c)
-	s.baseSuite.TearDownTest(c)
+func (s *clientRepoSuite) UploadCharm(url string) {
+	resultURL := charm.MustParseURL(url)
+	baseURL := *resultURL
+	baseURL.Series = ""
+	baseURL.Revision = -1
+	norevURL := *resultURL
+	norevURL.Revision = -1
+	for _, url := range []*charm.URL{resultURL, &baseURL, &norevURL} {
+		s.repo.Call("Resolve", url).Returns(
+			resultURL,
+		)
+	}
 }
 
 func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
@@ -1484,10 +1507,6 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		url:      "cs:mysql",
 		resolved: "cs:precise/mysql",
 	}, {
-		about:    "riak resolved",
-		url:      "cs:riak",
-		resolved: "cs:trusty/riak",
-	}, {
 		about:    "fully qualified char reference",
 		url:      "cs:utopic/riak-5",
 		resolved: "cs:utopic/riak-5",
@@ -1522,7 +1541,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		"trusty/riak-4",
 		"utopic/riak-5",
 	} {
-		s.UploadCharm(c, url, "wordpress")
+		s.UploadCharm(url)
 	}
 
 	// Run the tests.

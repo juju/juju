@@ -66,14 +66,20 @@ func newCachingClient(
 	return Client{client, jar}, nil
 }
 
+func NewCustomClient(base csWrapper) Client {
+	return Client{
+		csWrapper: base,
+	}
+}
+
 // TODO(natefinch): we really shouldn't let something like a bakeryclient
 // leak out of our abstraction like this. Instead, pass more salient details.
 
-// NewCustomClient returns a juju charmstore client that relies on the passed-in
+// NewCustomClientAtURL returns a juju charmstore client that relies on the passed-in
 // httpbakery.Client to store and retrieve macaroons.  If not nil, the client
 // will use server as the charmstore url, otherwise it will default to the
 // standard juju charmstore url.
-func NewCustomClient(bakeryClient *httpbakery.Client, server string) (Client, error) {
+func NewCustomClientAtURL(bakeryClient *httpbakery.Client, server string) (Client, error) {
 	return newCustomClient(bakeryClient, server, makeWrapper)
 }
 

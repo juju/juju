@@ -31,11 +31,6 @@ func (s *MachineWithCharmsSuite) SetUpSuite(c *gc.C) {
 	s.CharmSuite.SetUpSuite(c, &s.commonMachineSuite.JujuConnSuite)
 }
 
-func (s *MachineWithCharmsSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
-	s.commonMachineSuite.TearDownSuite(c)
-}
-
 func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	s.ControllerConfigAttrs = map[string]interface{}{
 		// TODO(raftlease): setting this temporarily until the startup
@@ -44,11 +39,6 @@ func (s *MachineWithCharmsSuite) SetUpTest(c *gc.C) {
 	}
 	s.commonMachineSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
-}
-
-func (s *MachineWithCharmsSuite) TearDownTest(c *gc.C) {
-	s.CharmSuite.TearDownTest(c)
-	s.commonMachineSuite.TearDownTest(c)
 }
 
 func (s *MachineWithCharmsSuite) TestManageModelRunsCharmRevisionUpdater(c *gc.C) {

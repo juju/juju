@@ -171,7 +171,7 @@ func (c *baseCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := charmstore.NewCustomClient(bakeryClient, csURL)
+	client, err := charmstore.NewCustomClientAtURL(bakeryClient, csURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
