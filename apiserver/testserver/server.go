@@ -31,21 +31,19 @@ import (
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
-func DefaultServerConfig(c *gc.C, clocks ...clock.Clock) apiserver.ServerConfig {
-	// FIXME: make clock required
-	var testClock clock.Clock = clock.WallClock
-	if len(clocks) > 0 {
-		testClock = clocks[0]
+func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig {
+	if testclock == nil {
+		testclock = clock.WallClock
 	}
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
-		Clock:           testClock,
+		Clock:           testclock,
 		Tag:             names.NewMachineTag("0"),
 		LogDir:          c.MkDir(),
 		Hub:             hub,
 		Controller:      &cache.Controller{}, // Not useful for anything except providing a default.
-		Presence:        presence.New(testClock),
+		Presence:        presence.New(testclock),
 		LeaseManager:    apitesting.StubLeaseManager{},
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
 		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },
@@ -65,7 +63,7 @@ func DefaultServerConfig(c *gc.C, clocks ...clock.Clock) apiserver.ServerConfig 
 // without any authentication information or model tag, and the server
 // that's been started.
 func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller) *Server {
-	config := DefaultServerConfig(c)
+	config := DefaultServerConfig(c, nil)
 	config.Controller = controller
 	return NewServerWithConfig(c, statePool, config)
 }

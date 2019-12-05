@@ -68,7 +68,7 @@ func (s *baseLoginSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *baseLoginSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
-	return s.newServerWithConfig(c, testserver.DefaultServerConfig(c))
+	return s.newServerWithConfig(c, testserver.DefaultServerConfig(c, nil))
 }
 
 func (s *baseLoginSuite) newServerWithConfig(c *gc.C, cfg apiserver.ServerConfig) (*api.Info, *apiserver.Server) {
@@ -244,15 +244,10 @@ func (s *loginSuite) TestLoginAddressesForAgents(c *gc.C) {
 	// The agent login tests also check the management space.
 	mgmtSpace := s.setupManagementSpace(c)
 
-	machine, password := s.Factory.MakeMachineReturningPassword(
-		c, &factory.MachineParams{Nonce: "fake_nonce"})
-
 	info := s.newServer(c)
-	info.Tag = machine.Tag()
-	info.Password = password
-	info.Nonce = "fake_nonce"
+	machine := s.infoForNewMachine(c, info)
 
-	s.assertAgentLogin(c, info, mgmtSpace)
+	s.assertAgentLogin(c, machine, mgmtSpace)
 }
 
 func (s *loginSuite) loginHostPorts(
@@ -317,12 +312,7 @@ func (s *loginSuite) TestLoginAddressesForClients(c *gc.C) {
 	mgmtSpace := s.setupManagementSpace(c)
 
 	info := s.newServer(c)
-
-	// Login with a user tag to simulate a client connection.
-	password := "secret"
-	user := s.Factory.MakeUser(c, &factory.UserParams{Password: password})
-	info.Tag = user.Tag()
-	info.Password = password
+	info = s.infoForNewUser(c, info)
 
 	server1Addresses := network.SpaceAddresses{
 		network.NewScopedSpaceAddress("server-1", network.ScopePublic),
@@ -1355,7 +1345,7 @@ func (s *macaroonLoginSuite) TestRemoteUserLoginToModelWithExplicitAccessAndAllo
 }
 
 func (s *macaroonLoginSuite) testRemoteUserLoginToModelWithExplicitAccess(c *gc.C, allowModelAccess bool) {
-	cfg := testserver.DefaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c, nil)
 	cfg.AllowModelAccess = allowModelAccess
 	cfg.Controller = s.Controller
 	srv := testserver.NewServerWithConfig(c, s.StatePool, cfg)
