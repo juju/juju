@@ -1913,12 +1913,10 @@ func (s *localHTTPSServerSuite) TestMustDisableSSLVerify(c *gc.C) {
 	newattrs["ssl-hostname-verification"] = true
 	cfg, err := config.New(config.NoDefaults, newattrs)
 	c.Assert(err, jc.ErrorIsNil)
-	env, err := environs.New(environs.OpenParams{
+	_, err = environs.New(environs.OpenParams{
 		Cloud:  makeCloudSpec(s.cred),
 		Config: cfg,
 	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.AllRunningInstances(s.callCtx)
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*x509: certificate signed by unknown authority")
 }
 
