@@ -7,6 +7,7 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -19,13 +20,23 @@ func (s *MigrationImportSuite) TestImportApplicationOffers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.applicationOffer(ctrl)
-	entities := []description.ApplicationOffer{
-		entity0,
+	offerUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	runner := ImportApplicationOfferRunner{
+		OfferUUID: offerUUID.String(),
+		model:     NewMockApplicationOfferDescription(ctrl),
+		runner:    NewMockTransactionRunner(ctrl),
 	}
 
+	entity := s.applicationOffer(ctrl, func(expect *MockApplicationOfferMockRecorder) {
+		expect.ACL().Return(map[string]string{
+			"foo": "consume",
+		})
+		expect.OfferUUID().Return(offerUUID.String())
+	})
 	offerDoc := applicationOfferDoc{
-		OfferUUID:              "1234-4312-1231",
+		OfferUUID:              offerUUID.String(),
 		OfferName:              "offer-name-foo",
 		ApplicationName:        "foo",
 		ApplicationDescription: "foo app description",
@@ -34,35 +45,146 @@ func (s *MigrationImportSuite) TestImportApplicationOffers(c *gc.C) {
 		},
 	}
 
-	op := txn.Op{
-		Assert: txn.DocExists,
+	runner.Add(runner.applicationOffers(entity))
+	runner.Add(runner.applicationOfferDoc(offerDoc, entity))
+	runner.Add(runner.docID)
+
+	refOp := txn.Op{
+		Assert: txn.DocMissing,
 	}
+	runner.Add(runner.applicationOffersRefOp(refOp))
+	permOp := txn.Op{
+		Assert: txn.DocMissing,
+	}
+	runner.Add(runner.permissionOp(permOp))
+	runner.Add(runner.transaction(offerDoc, refOp, permOp))
 
-	model := NewMockApplicationOfferDescription(ctrl)
-	model.EXPECT().Offers().Return(entities)
-	model.EXPECT().MakeApplicationOfferDoc(entity0).Return(offerDoc, nil)
-	model.EXPECT().MakeIncApplicationOffersRefOp("foo").Return(op, nil)
-	model.EXPECT().DocID("foo").Return("ao#foo")
-
-	runner := NewMockTransactionRunner(ctrl)
-	runner.EXPECT().RunTransaction([]txn.Op{
-		{
-			C:      applicationOffersC,
-			Id:     "ao#foo",
-			Assert: txn.DocMissing,
-			Insert: offerDoc,
-		},
-		op,
-	}).Return(nil)
-
-	m := ImportApplicationOffer{}
-	err := m.Execute(model, runner)
+	err = runner.Run(ctrl)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *MigrationImportSuite) applicationOffer(ctrl *gomock.Controller) description.ApplicationOffer {
+func (s *MigrationImportSuite) TestImportApplicationOffersTransactionFailure(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	offerUUID, err := utils.NewUUID()
+	c.Assert(err, jc.ErrorIsNil)
+
+	runner := ImportApplicationOfferRunner{
+		OfferUUID: offerUUID.String(),
+		model:     NewMockApplicationOfferDescription(ctrl),
+		runner:    NewMockTransactionRunner(ctrl),
+	}
+
+	entity := s.applicationOffer(ctrl, func(expect *MockApplicationOfferMockRecorder) {
+		expect.ACL().Return(map[string]string{
+			"foo": "consume",
+		})
+		expect.OfferUUID().Return(offerUUID.String())
+	})
+	offerDoc := applicationOfferDoc{
+		OfferUUID:              offerUUID.String(),
+		OfferName:              "offer-name-foo",
+		ApplicationName:        "foo",
+		ApplicationDescription: "foo app description",
+		Endpoints: map[string]string{
+			"db": "db",
+		},
+	}
+
+	runner.Add(runner.applicationOffers(entity))
+	runner.Add(runner.applicationOfferDoc(offerDoc, entity))
+	runner.Add(runner.docID)
+
+	refOp := txn.Op{
+		Assert: txn.DocMissing,
+	}
+	runner.Add(runner.applicationOffersRefOp(refOp))
+	permOp := txn.Op{
+		Assert: txn.DocMissing,
+	}
+	runner.Add(runner.permissionOp(permOp))
+	runner.Add(runner.transactionWithError(errors.New("fail")))
+
+	err = runner.Run(ctrl)
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+type ImportApplicationOfferRunner struct {
+	OfferUUID string
+	model     *MockApplicationOfferDescription
+	runner    *MockTransactionRunner
+	ops       []func(*gomock.Controller)
+}
+
+func (s *ImportApplicationOfferRunner) Add(fn func(*gomock.Controller)) {
+	s.ops = append(s.ops, fn)
+}
+
+func (s *ImportApplicationOfferRunner) Run(ctrl *gomock.Controller) error {
+	for _, v := range s.ops {
+		v(ctrl)
+	}
+
+	m := ImportApplicationOffer{}
+	return m.Execute(s.model, s.runner)
+}
+
+func (s *ImportApplicationOfferRunner) applicationOffers(entity description.ApplicationOffer) func(ctrl *gomock.Controller) {
+	return func(ctrl *gomock.Controller) {
+		entities := []description.ApplicationOffer{
+			entity,
+		}
+		s.model.EXPECT().Offers().Return(entities)
+	}
+}
+
+func (s *ImportApplicationOfferRunner) applicationOfferDoc(offerDoc applicationOfferDoc, entity description.ApplicationOffer) func(ctrl *gomock.Controller) {
+	return func(ctrl *gomock.Controller) {
+
+		s.model.EXPECT().MakeApplicationOfferDoc(entity).Return(offerDoc, nil)
+	}
+}
+
+func (s *ImportApplicationOfferRunner) applicationOffersRefOp(op txn.Op) func(ctrl *gomock.Controller) {
+	return func(ctrl *gomock.Controller) {
+		s.model.EXPECT().MakeIncApplicationOffersRefOp("foo").Return(op, nil)
+	}
+}
+
+func (s *ImportApplicationOfferRunner) permissionOp(op txn.Op) func(ctrl *gomock.Controller) {
+	return func(ctrl *gomock.Controller) {
+		s.model.EXPECT().MakePermissionOp(s.OfferUUID, "foo", "consume").Return(op, nil)
+	}
+}
+
+func (s *ImportApplicationOfferRunner) docID(ctrl *gomock.Controller) {
+	s.model.EXPECT().DocID("foo").Return("ao#foo")
+}
+
+func (s *MigrationImportSuite) applicationOffer(ctrl *gomock.Controller, fn func(*MockApplicationOfferMockRecorder)) description.ApplicationOffer {
 	entity := NewMockApplicationOffer(ctrl)
+	fn(entity.EXPECT())
 	return entity
+}
+
+func (s *ImportApplicationOfferRunner) transaction(offerDoc applicationOfferDoc, ops ...txn.Op) func(ctrl *gomock.Controller) {
+	return func(ctrl *gomock.Controller) {
+		s.runner.EXPECT().RunTransaction(append([]txn.Op{
+			{
+				C:      applicationOffersC,
+				Id:     "ao#foo",
+				Assert: txn.DocMissing,
+				Insert: offerDoc,
+			},
+		}, ops...)).Return(nil)
+	}
+}
+
+func (s *ImportApplicationOfferRunner) transactionWithError(err error) func(ctrl *gomock.Controller) {
+	return func(ctrl *gomock.Controller) {
+		s.runner.EXPECT().RunTransaction(gomock.Any()).Return(err)
+	}
 }
 
 func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
