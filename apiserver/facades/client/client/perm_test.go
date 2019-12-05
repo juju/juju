@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/api/modelconfig"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/rpc"
@@ -31,6 +32,14 @@ type permSuite struct {
 }
 
 var _ = gc.Suite(&permSuite{})
+
+func (s *permSuite) SetUpTest(c *gc.C) {
+	// We want to avoid rate limiting our login tests below.
+	s.JujuConnSuite.ControllerConfigAttrs = map[string]interface{}{
+		controller.AgentRateLimitMax: 1000,
+	}
+	s.JujuConnSuite.SetUpTest(c)
+}
 
 // Most (if not all) of the permission tests below aim to test
 // end-to-end operations execution through the API, but do not care

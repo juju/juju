@@ -102,7 +102,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 	c.Assert(config.Presence, gc.NotNil)
 	config.Presence = nil
 
-	rateLimitConfig := coreapiserver.DefaultRateLimitConfig()
 	logSinkConfig := coreapiserver.DefaultLogSinkConfig()
 
 	c.Assert(config, jc.DeepEquals, coreapiserver.ServerConfig{
@@ -117,7 +116,6 @@ func (s *WorkerStateSuite) TestStart(c *gc.C) {
 		Hub:              &s.hub,
 		PublicDNSName:    "",
 		AllowModelAccess: false,
-		RateLimitConfig:  rateLimitConfig,
 		LogSinkConfig:    &logSinkConfig,
 		LeaseManager:     s.leaseManager,
 		MetricsCollector: s.metricsCollector,

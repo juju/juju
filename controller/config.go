@@ -447,6 +447,22 @@ func (c Config) mustString(name string) string {
 	return value
 }
 
+func (c Config) durationOrDefault(name string, defaultVal time.Duration) time.Duration {
+	switch v := c[name].(type) {
+	case string:
+		if v != "" {
+			// Value has already been validated.
+			value, _ := time.ParseDuration(v)
+			return value
+		}
+	case time.Duration:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return defaultVal
+}
+
 // StatePort returns the mongo server port for the environment.
 func (c Config) StatePort() int {
 	return c.mustInt(StatePort)
@@ -490,11 +506,7 @@ func (c Config) AgentRateLimitMax() int {
 // AgentRateLimitRate is the time taken to add a token into the token bucket
 // that is used to rate limit agent connections.
 func (c Config) AgentRateLimitRate() time.Duration {
-	duration, ok := c[AgentRateLimitRate].(time.Duration)
-	if !ok {
-		duration = DefaultAgentRateLimitRate
-	}
-	return duration
+	return c.durationOrDefault(AgentRateLimitRate, DefaultAgentRateLimitRate)
 }
 
 // AuditingEnabled returns whether or not auditing has been enabled

@@ -703,3 +703,17 @@ func (s *ConfigSuite) TestModelLogfileBackupErr(c *gc.C) {
 	)
 	c.Assert(err.Error(), gc.Equals, `model-logfile-max-backups: expected number, got string("two")`)
 }
+
+func (s *ConfigSuite) TestAgentRateLimitRate(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
+
+	cfg[controller.AgentRateLimitRate] = time.Second
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, time.Second)
+
+	cfg[controller.AgentRateLimitRate] = "500ms"
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, 500*time.Millisecond)
+}

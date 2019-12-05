@@ -524,7 +524,7 @@ func (s *loginSuite) TestMachineLoginDuringMaintenance(c *gc.C) {
 	info := s.newServer(c)
 	machine := s.infoForNewMachine(c, info)
 	_, err := api.Open(machine, fastDialOpts)
-	c.Assert(err, gc.ErrorMatches, "login for machine "+machine.Id()+" blocked because upgrade is in progress")
+	c.Assert(err, gc.ErrorMatches, `login for machine \d+ blocked because upgrade is in progress`)
 }
 
 func (s *loginSuite) TestControllerMachineLoginDuringMaintenance(c *gc.C) {
