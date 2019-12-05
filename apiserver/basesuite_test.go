@@ -59,14 +59,14 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.cfg.Controller = s.controller
 }
 
-func (s *baseSuite) newServer(c *gc.C) (*api.Info, *apiserver.Server) {
+func (s *baseSuite) newServer(c *gc.C) *api.Info {
 	server := testserver.NewServerWithConfig(c, s.StatePool, s.cfg)
 	s.AddCleanup(func(c *gc.C) {
 		workertest.CleanKill(c, server.APIServer)
 		server.HTTPServer.Close()
 	})
 	server.Info.ModelTag = s.Model.ModelTag()
-	return server.Info, server.APIServer
+	return server.Info
 }
 
 func (s *baseSuite) openAPIWithoutLogin(c *gc.C, info0 *api.Info) api.Connection {
@@ -89,7 +89,7 @@ type derivedSuite struct {
 var _ = gc.Suite(&derivedSuite{})
 
 func (s *derivedSuite) TestNewServer(c *gc.C) {
-	_, _ = s.newServer(c)
+	_ = s.newServer(c)
 }
 
 type noopRegisterer struct {
