@@ -8,8 +8,8 @@ import (
 
 	"github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
-	charm "gopkg.in/juju/charm.v6"
-	charmrepo "gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/testing"

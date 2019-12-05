@@ -16,6 +16,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v3"
 	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
@@ -973,4 +974,18 @@ type mockGeneration struct {
 func (g *mockGeneration) AssignApplication(appName string) error {
 	g.MethodCall(g, "AssignApplication", appName)
 	return g.NextErr()
+}
+
+type mockRepo struct {
+	charmrepo.Interface
+	*jtesting.CallMocker
+	revisions map[string]int
+}
+
+func (m *mockRepo) Get(curl *charm.URL) (charm.Charm, error) {
+	results := m.MethodCall(m, "Get", curl)
+	if results == nil {
+		return nil, errors.NotFoundf(`cannot retrieve %q: charm`, curl)
+	}
+	return results[0].(charm.Charm), jtesting.TypeAssertError(results[1])
 }

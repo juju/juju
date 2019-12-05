@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
@@ -174,7 +173,6 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-			modelConfig *config.Config,
 		) charmrepoForDeploy {
 			s.AddCall("NewCharmStore", csURL)
 			repo := jjcharmstore.NewRepository()
@@ -194,10 +192,6 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			s.AddCall("NewCharmAPIClient", conn)
 			s.PopNoErr()
 			return &s.charmAPIClient
-		},
-		func(conn base.APICallCloser) ModelConfigGetter {
-			s.AddCall("NewModelConfigGetter", conn)
-			return &s.modelConfigGetter
 		},
 		func(conn base.APICallCloser) (ResourceLister, error) {
 			s.AddCall("NewResourceLister", conn)
@@ -368,7 +362,6 @@ func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-			modelConfig *config.Config,
 		) charmrepoForDeploy {
 			return repo
 		},
@@ -482,7 +475,6 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-			modelConfig *config.Config,
 		) charmrepoForDeploy {
 			return repo
 		},

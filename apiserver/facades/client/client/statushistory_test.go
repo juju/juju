@@ -46,6 +46,7 @@ func (s *statusHistoryTestSuite) SetUpTest(c *gc.C) {
 		context.NewCloudCallContext(), // ProviderCallContext
 		nil,
 		nil,
+		nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 }

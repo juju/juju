@@ -177,10 +177,6 @@
   revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
   name = "k8s.io/apimachinery"
 
-[[constraint]]
-  name = "gopkg.in/juju/charmstore.v5"
-  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
-
 [[override]]
   name = "github.com/masterzen/xmlpath"
   revision = "13f4951698adc0fa9c1dda3e275d489a24201161"

@@ -17,7 +17,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/environs/config"
@@ -631,9 +630,6 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
-
-	testmode, _ := test.attrs["test-mode"].(bool)
-	c.Assert(cfg.TestMode(), gc.Equals, testmode)
 
 	seriesAttr, _ := test.attrs["default-series"].(string)
 	defaultSeries, ok := cfg.DefaultSeries()
@@ -1411,39 +1407,6 @@ func (s *ConfigSuite) TestCoerceForStorage(c *gc.C) {
 		tagsMap[parts[0]] = parts[1]
 	}
 	c.Assert(tagsMap, gc.DeepEquals, expectedTags)
-}
-
-var specializeCharmRepoTests = []struct {
-	about    string
-	testMode bool
-	repo     charmrepo.Interface
-}{{
-	about: "test mode disabled, charm store",
-	repo:  &specializedCharmRepo{},
-}, {
-	about:    "test mode enabled, charm store",
-	testMode: true,
-	repo:     &specializedCharmRepo{},
-}}
-
-func (s *ConfigSuite) TestSpecializeCharmRepo(c *gc.C) {
-	for i, test := range specializeCharmRepoTests {
-		c.Logf("test %d: %s", i, test.about)
-		cfg := newTestConfig(c, testing.Attrs{"test-mode": test.testMode})
-		repo := config.SpecializeCharmRepo(test.repo, cfg)
-		store := repo.(*specializedCharmRepo)
-		c.Assert(store.testMode, gc.Equals, test.testMode)
-	}
-}
-
-type specializedCharmRepo struct {
-	*charmrepo.CharmStore
-	testMode bool
-}
-
-func (s *specializedCharmRepo) WithTestMode() charmrepo.Interface {
-	s.testMode = true
-	return s
 }
 
 var serverKey2 = `

@@ -10,8 +10,6 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/charmrepo.v3/csclient/params"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api"
@@ -26,7 +24,6 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/testcharms"
 )
 
 // NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
@@ -167,7 +164,6 @@ func NewUpgradeCharmCommandForTest(
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) CharmClient,
 	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
-	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
 	newResourceLister func(base.APICallCloser) (ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
@@ -178,7 +174,6 @@ func NewUpgradeCharmCommandForTest(
 		NewCharmAdder:         newCharmAdder,
 		NewCharmClient:        newCharmClient,
 		NewCharmUpgradeClient: newCharmUpgradeClient,
-		NewModelConfigGetter:  newModelConfigGetter,
 		NewResourceLister:     newResourceLister,
 		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
@@ -352,15 +347,6 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
-type charmstoreClientToTestcharmsClientShim struct {
-	*csclient.Client
-}
-
-func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
-	client := c.Client.WithChannel(channel)
-	return charmstoreClientToTestcharmsClientShim{client}
-}
-
 // RepoSuiteBaseSuite allows the patching of the supported juju suite for
 // each test.
 type RepoSuiteBaseSuite struct {
@@ -369,19 +355,6 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
-	})
-}
-
-// JujuConnBaseSuite allows the patching of the supported juju suite for
-// each test.
-type JujuConnBaseSuite struct {
-	jujutesting.JujuConnSuite
-}
-
-func (s *JujuConnBaseSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&supportedJujuSeries, func() []string {
 		return defaultSupportedJujuSeries
 	})

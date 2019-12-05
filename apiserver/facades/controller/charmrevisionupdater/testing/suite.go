@@ -5,30 +5,69 @@ package testing
 
 import (
 	"fmt"
-	"net/http/httptest"
 
+	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/charmstore.v5"
+	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
 
 	"github.com/juju/juju/apiserver/facades/controller/charmrevisionupdater"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
+	"github.com/juju/juju/version"
 )
 
-type charmSuiteClientShim struct {
-	*csclient.Client
+type store interface {
+	Latest(channel csparams.Channel, ids []*charm.URL, headers map[string][]string) ([]csparams.CharmRevision, error)
+	ListResources(channel csparams.Channel, id *charm.URL) ([]csparams.Resource, error)
+	GetResource(channel csparams.Channel, id *charm.URL, name string, revision int) (csclient.ResourceData, error)
+	ResourceMeta(channel csparams.Channel, id *charm.URL, name string, revision int) (csparams.Resource, error)
+	ServerURL() string
 }
 
-func (c charmSuiteClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
-	client := c.Client.WithChannel(channel)
-	return charmSuiteClientShim{client}
+type mockStore struct {
+	store
+	*jtesting.CallMocker
+	errors map[string]error
+}
+
+func (m *mockStore) UploadCharm(url string, headers map[string][]string) {
+	curl := charm.MustParseURL(url)
+	rev := curl.Revision
+	curl.Revision = -1
+	err := m.errors[curl.Name]
+	m.Call("Latest", csparams.NoChannel, curl, headers).Returns(
+		rev,
+		err,
+	)
+}
+
+func (m *mockStore) Latest(channel csparams.Channel, ids []*charm.URL, headers map[string][]string) ([]csparams.CharmRevision, error) {
+	var revs []csparams.CharmRevision
+	for _, id := range ids {
+		curl := *id
+		curl.Revision = -1
+		var rev csparams.CharmRevision
+		results := m.MethodCall(m, "Latest", channel, &curl, headers)
+		if results == nil {
+			rev.Err = errors.NotFoundf("charm %s", curl)
+		} else {
+			rev.Revision = results[0].(int)
+		}
+		revs = append(revs, rev)
+	}
+	return revs, nil
+}
+
+func (m *mockStore) ListResources(channel csparams.Channel, id *charm.URL) ([]csparams.Resource, error) {
+	return nil, nil
 }
 
 // CharmSuite provides infrastructure to set up and perform tests associated
@@ -37,33 +76,15 @@ func (c charmSuiteClientShim) WithChannel(channel params.Channel) testcharms.Cha
 type CharmSuite struct {
 	jcSuite *jujutesting.JujuConnSuite
 
-	Handler charmstore.HTTPCloseHandler
-	Server  *httptest.Server
-	Client  *csclient.Client
-	charms  map[string]*state.Charm
+	charms map[string]*state.Charm
+	store  *mockStore
 }
 
 func (s *CharmSuite) SetUpSuite(c *gc.C, jcSuite *jujutesting.JujuConnSuite) {
 	s.jcSuite = jcSuite
 }
 
-func (s *CharmSuite) TearDownSuite(c *gc.C) {}
-
 func (s *CharmSuite) SetUpTest(c *gc.C) {
-	db := s.jcSuite.Session.DB("juju-testing")
-	params := charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
-	c.Assert(err, jc.ErrorIsNil)
-	s.Handler = handler
-	s.Server = httptest.NewServer(handler)
-	s.Client = csclient.New(csclient.Params{
-		URL:      s.Server.URL,
-		User:     params.AuthUsername,
-		Password: params.AuthPassword,
-	})
 	urls := map[string]string{
 		"mysql":     "quantal/mysql-23",
 		"dummy":     "quantal/dummy-24",
@@ -71,22 +92,43 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 		"wordpress": "quantal/wordpress-26",
 		"logging":   "quantal/logging-27",
 	}
-	for name, url := range urls {
-		client := &charmSuiteClientShim{s.Client}
-		testcharms.UploadCharm(c, client, url, name)
+	var logger loggo.Logger
+	s.store = &mockStore{
+		CallMocker: jtesting.NewCallMocker(logger),
+		errors:     make(map[string]error),
+	}
+	model, err := s.jcSuite.State.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cloud, err := s.jcSuite.State.Cloud(model.Cloud())
+	c.Assert(err, jc.ErrorIsNil)
+	headers := []string{
+		"arch=amd64", // This is the architecture of the deployed applications.
+		"cloud=" + model.Cloud(),
+		"cloud_region=" + model.CloudRegion(),
+		"controller_uuid=" + s.jcSuite.State.ControllerUUID(),
+		"controller_version=" + version.Current.String(),
+		"environment_uuid=" + model.UUID(),
+		"is_controller=true",
+		"model_uuid=" + model.UUID(),
+		"provider=" + cloud.Type,
+		"series=quantal",
+	}
+	for _, url := range urls {
+		s.store.UploadCharm(url, map[string][]string{
+			"Juju-Metadata": headers,
+		})
 	}
 	s.jcSuite.PatchValue(&charmrepo.CacheDir, c.MkDir())
 	// Patch the charm repo initializer function: it is replaced with a charm
 	// store repo pointing to the testing server.
 	s.jcSuite.PatchValue(&charmrevisionupdater.NewCharmStoreClient, func(st *state.State) (jujucharmstore.Client, error) {
-		return jujucharmstore.NewCachingClient(state.MacaroonCache{st}, s.Server.URL)
+		return jujucharmstore.NewCustomClient(s.store), nil
 	})
 	s.charms = make(map[string]*state.Charm)
 }
 
-func (s *CharmSuite) TearDownTest(c *gc.C) {
-	s.Handler.Close()
-	s.Server.Close()
+func (s *CharmSuite) SetStoreError(name string, err error) {
+	s.store.errors[name] = err
 }
 
 // AddMachine adds a new machine to state.

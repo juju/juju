@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/api/base"
 	jjcharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/testcharms"
 )
@@ -247,7 +246,6 @@ Deploying charm "cs:bionic/starsay-1".`
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
-			modelConfig *config.Config,
 		) charmrepoForDeploy {
 			return repo
 		},

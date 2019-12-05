@@ -1517,30 +1517,6 @@
   revision = "5ca139ef9e6bd138ab2ff3c59aee3c472d12ac89"
 
 [[projects]]
-  digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"
-  name = "gopkg.in/juju/charmstore.v5"
-  packages = [
-    ".",
-    "audit",
-    "elasticsearch",
-    "internal/blobstore",
-    "internal/cache",
-    "internal/charmstore",
-    "internal/dockerauth",
-    "internal/entitycache",
-    "internal/legacy",
-    "internal/mongodoc",
-    "internal/monitoring",
-    "internal/router",
-    "internal/series",
-    "internal/v4",
-    "internal/v5",
-    "version",
-  ]
-  pruneopts = ""
-  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
-
-[[projects]]
   digest = "1:7654e769ed719c292d72af4420ca772d9c850299271e15c6f5af4fb89526c3fd"
   name = "gopkg.in/juju/environschema.v1"
   packages = [
@@ -2086,7 +2062,6 @@
     "gopkg.in/juju/charmrepo.v3/csclient",
     "gopkg.in/juju/charmrepo.v3/csclient/params",
     "gopkg.in/juju/charmrepo.v3/testing",
-    "gopkg.in/juju/charmstore.v5",
     "gopkg.in/juju/environschema.v1",
     "gopkg.in/juju/environschema.v1/form",
     "gopkg.in/juju/names.v3",
