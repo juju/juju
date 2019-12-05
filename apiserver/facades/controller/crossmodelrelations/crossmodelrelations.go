@@ -44,7 +44,7 @@ type CrossModelRelationsAPI struct {
 	offerStatusWatcher    offerStatusWatcherFunc
 }
 
-// CrossModelRelationsAPI has WatchRelationUnits rather than WatchRelationChanges.
+// CrossModelRelationsAPIv1 has WatchRelationUnits rather than WatchRelationChanges.
 type CrossModelRelationsAPIv1 struct {
 	*CrossModelRelationsAPI
 }

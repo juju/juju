@@ -281,7 +281,8 @@ func AllFacades() *facade.Registry {
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 	reg("Reboot", 2, reboot.NewRebootAPI)
-	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
+	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPIv1)
+	reg("RemoteRelations", 2, remoterelations.NewStateRemoteRelationsAPI) // Adds WatchLocalRelationChanges, removes WatchLocalRelationUnits.
 
 	reg("Resources", 1, resources.NewPublicFacade)
 	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
