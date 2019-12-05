@@ -15,6 +15,56 @@ type MigrationImportSuite struct{}
 
 var _ = gc.Suite(&MigrationImportSuite{})
 
+func (s *MigrationImportSuite) TestImportApplicationOffers(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.applicationOffer(ctrl)
+	entities := []description.ApplicationOffer{
+		entity0,
+	}
+
+	offerDoc := applicationOfferDoc{
+		OfferUUID:              "1234-4312-1231",
+		OfferName:              "offer-name-foo",
+		ApplicationName:        "foo",
+		ApplicationDescription: "foo app description",
+		Endpoints: map[string]string{
+			"db": "db",
+		},
+	}
+
+	op := txn.Op{
+		Assert: txn.DocExists,
+	}
+
+	model := NewMockApplicationOfferDescription(ctrl)
+	model.EXPECT().Offers().Return(entities)
+	model.EXPECT().MakeApplicationOfferDoc(entity0).Return(offerDoc, nil)
+	model.EXPECT().MakeIncApplicationOffersRefOp("foo").Return(op, nil)
+	model.EXPECT().DocID("foo").Return("ao#foo")
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      applicationOffersC,
+			Id:     "ao#foo",
+			Assert: txn.DocMissing,
+			Insert: offerDoc,
+		},
+		op,
+	}).Return(nil)
+
+	m := ImportApplicationOffer{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportSuite) applicationOffer(ctrl *gomock.Controller) description.ApplicationOffer {
+	entity := NewMockApplicationOffer(ctrl)
+	return entity
+}
+
 func (s *MigrationImportSuite) TestImportRemoteApplications(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

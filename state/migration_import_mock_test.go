@@ -7,7 +7,6 @@ package state
 import (
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
-	crossmodel "github.com/juju/juju/core/crossmodel"
 	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
@@ -455,21 +454,6 @@ func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) MakeIncApplicati
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIncApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).MakeIncApplicationOffersRefOp), arg0)
 }
 
-// NewApplicationOffer mocks base method
-func (m *MockApplicationOfferStateDocumentFactory) NewApplicationOffer(arg0 applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewApplicationOffer", arg0)
-	ret0, _ := ret[0].(*crossmodel.ApplicationOffer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewApplicationOffer indicates an expected call of NewApplicationOffer
-func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) NewApplicationOffer(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewApplicationOffer", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).NewApplicationOffer), arg0)
-}
-
 // MockApplicationOfferDescription is a mock of ApplicationOfferDescription interface
 type MockApplicationOfferDescription struct {
 	ctrl     *gomock.Controller
@@ -535,21 +519,6 @@ func (m *MockApplicationOfferDescription) MakeIncApplicationOffersRefOp(arg0 str
 func (mr *MockApplicationOfferDescriptionMockRecorder) MakeIncApplicationOffersRefOp(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIncApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferDescription)(nil).MakeIncApplicationOffersRefOp), arg0)
-}
-
-// NewApplicationOffer mocks base method
-func (m *MockApplicationOfferDescription) NewApplicationOffer(arg0 applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewApplicationOffer", arg0)
-	ret0, _ := ret[0].(*crossmodel.ApplicationOffer)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// NewApplicationOffer indicates an expected call of NewApplicationOffer
-func (mr *MockApplicationOfferDescriptionMockRecorder) NewApplicationOffer(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewApplicationOffer", reflect.TypeOf((*MockApplicationOfferDescription)(nil).NewApplicationOffer), arg0)
 }
 
 // Offers mocks base method

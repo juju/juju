@@ -847,7 +847,7 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
 			OfferUUID:              offer.OfferUUID,
 			OfferName:              offer.OfferName,
-			EndpointsMap:           endpoints,
+			Endpoints:              endpoints,
 			ACL:                    acl,
 			ApplicationName:        offer.ApplicationName,
 			ApplicationDescription: offer.ApplicationDescription,
