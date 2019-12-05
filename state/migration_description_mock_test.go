@@ -78,10 +78,10 @@ func (mr *MockApplicationOfferMockRecorder) ApplicationName() *gomock.Call {
 }
 
 // Endpoints mocks base method
-func (m *MockApplicationOffer) Endpoints() []string {
+func (m *MockApplicationOffer) Endpoints() map[string]string {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Endpoints")
-	ret0, _ := ret[0].([]string)
+	ret0, _ := ret[0].(map[string]string)
 	return ret0
 }
 
@@ -89,20 +89,6 @@ func (m *MockApplicationOffer) Endpoints() []string {
 func (mr *MockApplicationOfferMockRecorder) Endpoints() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Endpoints", reflect.TypeOf((*MockApplicationOffer)(nil).Endpoints))
-}
-
-// EndpointsMap mocks base method
-func (m *MockApplicationOffer) EndpointsMap() map[string]string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "EndpointsMap")
-	ret0, _ := ret[0].(map[string]string)
-	return ret0
-}
-
-// EndpointsMap indicates an expected call of EndpointsMap
-func (mr *MockApplicationOfferMockRecorder) EndpointsMap() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndpointsMap", reflect.TypeOf((*MockApplicationOffer)(nil).EndpointsMap))
 }
 
 // OfferName mocks base method

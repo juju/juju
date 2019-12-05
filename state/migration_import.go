@@ -911,7 +911,8 @@ func (i *importer) application(a description.Application) error {
 	}
 
 	if err := i.applicationOffers(a); err != nil {
-		return errors.Trace(err)
+		i.logger.Errorf("error importing application %s: %s", app.Name(), err)
+		return errors.Annotate(err, app.Name())
 	}
 
 	return nil
@@ -938,7 +939,7 @@ func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOfferDoc(app de
 		OfferName:              app.OfferName(),
 		ApplicationName:        app.ApplicationName(),
 		ApplicationDescription: app.ApplicationDescription(),
-		Endpoints:              app.EndpointsMap(),
+		Endpoints:              app.Endpoints(),
 	}), nil
 }
 
@@ -990,7 +991,6 @@ func (i *importer) applicationOffers(app ApplicationDescription) error {
 // dependencies correctly without having to construct dependencies everywhere.
 // Note: we need public methods here because gomock doesn't mock private methods
 type ApplicationOfferStateDocumentFactory interface {
-	NewApplicationOffer(applicationOfferDoc) (*crossmodel.ApplicationOffer, error)
 	MakeApplicationOfferDoc(description.ApplicationOffer) (applicationOfferDoc, error)
 	MakeIncApplicationOffersRefOp(string) (txn.Op, error)
 }
@@ -1023,11 +1023,7 @@ func (i ImportApplicationOffer) Execute(src ApplicationOfferDescription,
 		if err != nil {
 			return errors.Trace(err)
 		}
-		app, err := src.NewApplicationOffer(appDoc)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		appOps, err := i.addApplicationOfferOps(src, app, addApplicationOfferOpsArgs{
+		appOps, err := i.addApplicationOfferOps(src, addApplicationOfferOpsArgs{
 			applicationOfferDoc: appDoc,
 		})
 		if err != nil {
@@ -1046,14 +1042,14 @@ type addApplicationOfferOpsArgs struct {
 }
 
 func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferDescription,
-	app *crossmodel.ApplicationOffer,
 	args addApplicationOfferOpsArgs,
 ) ([]txn.Op, error) {
-	incRefOp, err := src.MakeIncApplicationOffersRefOp(app.ApplicationName)
+	appName := args.applicationOfferDoc.ApplicationName
+	incRefOp, err := src.MakeIncApplicationOffersRefOp(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	docID := src.DocID(app.ApplicationName)
+	docID := src.DocID(appName)
 	ops := []txn.Op{
 		{
 			C:      applicationOffersC,

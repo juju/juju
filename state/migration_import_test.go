@@ -773,17 +773,22 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
 	serverSpace, err := s.State.AddSpace("server", "", nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	adminSpace, err := s.State.AddSpace("server-admin", "", nil, true)
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, jc.ErrorIsNil)
 
 	testCharm := s.AddTestingCharm(c, "mysql")
 	application := s.AddTestingApplicationWithBindings(c, "mysql",
 		testCharm,
 		map[string]string{
-			"server":       serverSpace.Id(),
-			"server-admin": adminSpace.Id(),
+			"server": serverSpace.Id(),
 		},
 	)
+	applicationEP, err := application.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, applicationEP)
+	c.Assert(err, jc.ErrorIsNil)
 
 	stOffers := state.NewApplicationOffers(s.State)
 	_, err = stOffers.AddOffer(
@@ -792,8 +797,7 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 			Owner:           "admin",
 			ApplicationName: application.Name(),
 			Endpoints: map[string]string{
-				"server":       serverSpace.Name(),
-				"server-admin": adminSpace.Name(),
+				"server": serverSpace.Name(),
 			},
 		},
 	)
@@ -815,12 +819,18 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 
 	_, newSt := s.importModel(c, s.State)
 
+	// The following is required because we don't add charms during an import,
+	// these are added at a later date. When constructing an application offer,
+	// the charm is required for the charm.Relation, so we need to inject it
+	// into the new state.
+	state.AddTestingCharm(c, newSt, "mysql")
+
 	newStateOffers := state.NewApplicationOffers(newSt)
 	importedOffers, err := newStateOffers.AllApplicationOffers()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(importedOffers, gc.HasLen, 1)
 	imported := importedOffers[0]
-	c.Assert(exported.OfferName, gc.Equals, imported.OfferName)
+	c.Assert(exported, gc.DeepEquals, imported)
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {

@@ -533,8 +533,13 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		if offerList := application.Offers(); offerList != nil {
 			newApplication.Offers = make(map[string]*charm.OfferSpec)
 			for _, offer := range offerList {
+				endpoints := offer.Endpoints()
+				exposedEndpointName := make([]string, 0, len(endpoints))
+				for _, ep := range endpoints {
+					exposedEndpointName = append(exposedEndpointName, ep)
+				}
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
-					Endpoints: offer.Endpoints(),
+					Endpoints: exposedEndpointName,
 					ACL:       b.filterOfferACL(offer.ACL()),
 				}
 			}
