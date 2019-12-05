@@ -4,7 +4,6 @@
 package openstack
 
 import (
-	"fmt"
 	"regexp"
 
 	"gopkg.in/goose.v2/neutron"
@@ -64,37 +63,28 @@ func (fakeNamespace) Value(s string) string {
 }
 
 func SetUpGlobalGroup(e environs.Environ, ctx context.ProviderCallContext, name string, apiPort int) (neutron.SecurityGroupV2, error) {
-	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	if err := switching.initFirewaller(ctx); err != nil {
-		return neutron.SecurityGroupV2{}, err
-	}
-	return switching.fw.(*neutronFirewaller).setUpGlobalGroup(name, apiPort)
+	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
+	return switching.setUpGlobalGroup(name, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, ctx context.ProviderCallContext, name string, rules []neutron.RuleInfoV2) (neutron.SecurityGroupV2, error) {
-	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	if err := switching.initFirewaller(ctx); err != nil {
-		return neutron.SecurityGroupV2{}, err
-	}
-	return switching.fw.(*neutronFirewaller).ensureGroup(name, rules)
+	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
+	return switching.ensureGroup(name, rules)
 }
 
 func MachineGroupRegexp(e environs.Environ, machineId string) string {
-	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	return switching.fw.(*neutronFirewaller).machineGroupRegexp(machineId)
+	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
+	return switching.machineGroupRegexp(machineId)
 }
 
 func MachineGroupName(e environs.Environ, controllerUUID, machineId string) string {
-	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	return switching.fw.(*neutronFirewaller).machineGroupName(controllerUUID, machineId)
+	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
+	return switching.machineGroupName(controllerUUID, machineId)
 }
 
 func MatchingGroup(e environs.Environ, ctx context.ProviderCallContext, nameRegExp string) (neutron.SecurityGroupV2, error) {
-	switching := e.(*Environ).firewaller.(*switchingFirewaller)
-	if err := switching.initFirewaller(ctx); err != nil {
-		return neutron.SecurityGroupV2{}, err
-	}
-	return switching.fw.(*neutronFirewaller).matchingGroup(ctx, nameRegExp)
+	switching := &neutronFirewaller{firewallerBase: firewallerBase{environ: e.(*Environ)}}
+	return switching.matchingGroup(ctx, nameRegExp)
 }
 
 // ImageMetadataStorage returns a Storage object pointing where the goose
@@ -150,11 +140,7 @@ var GetVolumeEndpointURL = getVolumeEndpointURL
 
 func GetModelGroupNames(e environs.Environ) ([]string, error) {
 	env := e.(*Environ)
-	rawFirewaller := env.firewaller.(*switchingFirewaller).fw
-	neutronFw, ok := rawFirewaller.(*neutronFirewaller)
-	if !ok {
-		return nil, fmt.Errorf("requires an env with a neutron firewaller")
-	}
+	neutronFw := env.firewaller.(*neutronFirewaller)
 	groups, err := env.neutron().ListSecurityGroupsV2()
 	if err != nil {
 		return nil, err
@@ -175,9 +161,4 @@ func GetModelGroupNames(e environs.Environ) ([]string, error) {
 func GetFirewaller(e environs.Environ) Firewaller {
 	env := e.(*Environ)
 	return env.firewaller
-}
-
-func GetNetworking(e environs.Environ) Networking {
-	env := e.(*Environ)
-	return env.networking
 }

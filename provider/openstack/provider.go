@@ -179,17 +179,6 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		configurator: p.Configurator,
 		flavorFilter: p.FlavorFilter,
 	}
-	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
-
-	var networking Networking = &switchingNetworking{env: e}
-	if p.NetworkingDecorator != nil {
-		var err error
-		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	e.networking = networking
 
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
@@ -198,7 +187,47 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		return nil, errors.Trace(err)
 	}
 
+	e.networking, e.firewaller, err = p.getEnvironNetworkingFirewaller(e)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return e, nil
+}
+
+// getEnvironNetworkingFirewaller returns Networking and Firewaller for the
+// new Environ.  Both require Neutron to be support by the OpenStack cloud,
+// so create together.
+func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking, Firewaller, error) {
+	// TODO (hml) 2019-12-05
+	// We want to ensure a failure if an old nova networking OpenStack is
+	// added as a new model to a multi-cloud controller.  However the
+	// current OpenStack testservice does not implement EndpointsForRegions(),
+	// thus causing failures and panics in the setup of the majority of
+	// provider unit tests.  Or a rewrite of code and/or tests.
+	// See LP:1855343
+	if err := authenticateClient(e.client()); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if !e.supportsNeutron() {
+		// This should turn into a failure, left as an Error message for now to help
+		// provide context for failing networking calls by this environ.  Previously
+		// this was covered by switchingNetworking{} and switchingFirewaller{}.
+		logger.Errorf("Using unsupported OpenStack APIs. Neutron networking " +
+			"is not supported by this OpenStack cloud.\n  Please use OpenStack Queens or " +
+			"newer to maintain compatibility.")
+	}
+	networking := newNetworking(e)
+	if p.NetworkingDecorator != nil {
+		var err error
+		// The NetworkingDecorator is used by the rackspace provider, which
+		// uses a majority of this provider's code.
+		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+	return networking, p.FirewallerFactory.GetFirewaller(e), nil
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -703,7 +732,7 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 		return err
 	}
 	if !e.supportsNeutron() {
-		logger.Warningf(`Using unsupported OpenStack APIs.
+		logger.Errorf(`Using unsupported OpenStack APIs.
 
   Neutron networking is not supported by this OpenStack cloud.
 
