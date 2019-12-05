@@ -609,10 +609,11 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	c.Assert(params.ErrCode(errors.Cause(err)), gc.Equals, params.CodeUnauthorized)
 
 	// Attempt to open an API connection to the migrated model as the
-	// anonymous user; this should also fail with a not-authorized error
+	// anonymous user; this should also be allowed on account of CMRs.
 	info.Tag = names.NewUserTag(api.AnonymousUsername)
 	_, err = api.Open(info, fastDialOpts)
-	c.Assert(params.ErrCode(errors.Cause(err)), gc.Equals, params.CodeUnauthorized)
+	redirErr, ok = errors.Cause(err).(*api.RedirectError)
+	c.Assert(ok, gc.Equals, true)
 }
 
 func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
@@ -621,7 +622,7 @@ func (s *loginSuite) TestAnonymousModelLogin(c *gc.C) {
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag: names.NewUserTag("jujuanonymous").String(),
+		AuthTag: names.NewUserTag(api.AnonymousUsername).String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
@@ -648,7 +649,7 @@ func (s *loginSuite) TestAnonymousControllerLogin(c *gc.C) {
 
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag: names.NewUserTag("jujuanonymous").String(),
+		AuthTag: names.NewUserTag(api.AnonymousUsername).String(),
 	}
 	err := conn.APICall("Admin", 3, "", "Login", request, &result)
 	c.Assert(err, jc.ErrorIsNil)
