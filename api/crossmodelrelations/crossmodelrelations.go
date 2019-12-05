@@ -279,6 +279,61 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 	return w, nil
 }
 
+// WatchRelationChanges returns a watcher that notifies of changes to
+// the units or application settings in the remote model for the
+// relation with the given remote token.
+func (c *Client) WatchRelationChanges(remoteRelationArg params.RemoteEntityArg) (apiwatcher.RemoteRelationWatcher, error) {
+	// TODO(babbageclunk): backfill with a converting watcher when
+	// talking to a v1 API from a v2 client.
+
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch relation changes", remoteRelationArg.Token); ok {
+		args.Args[0].Macaroons = ms
+	}
+
+	var results params.RemoteRelationWatchResults
+	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RemoteRelationWatchResults{}
+		if err := c.facade.FacadeCall("WatchRelationChanges", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		if len(results.Results) != 1 {
+			return errors.Errorf("expected 1 result, got %d", len(results.Results))
+		}
+		return nil
+	}
+
+	// Make the api call the first time.
+	if err := apiCall(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// On error, possibly discharge the macaroon and retry.
+	result := results.Results[0]
+	if result.Error != nil {
+		mac, err := c.handleError(result.Error)
+		if err != nil {
+			result.Error.Message = err.Error()
+			return nil, result.Error
+		}
+		args.Args[0].Macaroons = mac
+		c.cache.Upsert(args.Args[0].Token, mac)
+
+		if err := apiCall(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = results.Results[0]
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	w := apiwatcher.NewRemoteRelationWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
 // RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
 func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
 	var (

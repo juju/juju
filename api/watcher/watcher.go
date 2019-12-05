@@ -315,6 +315,70 @@ func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.out
 }
 
+// RemoteRelationWatcher is a worker that emits remote relation change
+// events. It's not defined in core/watcher because it emits params
+// structs - this makes more sense than converting to a core struct
+// just to convert back when the event is published to the other
+// model's API.
+type RemoteRelationWatcher interface {
+	watcher.CoreWatcher
+	Changes() <-chan params.RemoteRelationChangeEvent
+}
+
+// remoteRelationWatcher sends notifications of units entering and
+// leaving scope of a relation and changes to unit/application
+// settings, but yielding fleshed-out events so the caller doesn't
+// need to call back to get the settings values.
+type remoteRelationWatcher struct {
+	commonWatcher
+	caller                  base.APICaller
+	remoteRelationWatcherId string
+	out                     chan params.RemoteRelationChangeEvent
+}
+
+func NewRemoteRelationWatcher(caller base.APICaller, result params.RemoteRelationWatchResult) RemoteRelationWatcher {
+	w := &remoteRelationWatcher{
+		caller:                  caller,
+		remoteRelationWatcherId: result.RemoteRelationWatcherId,
+		out:                     make(chan params.RemoteRelationChangeEvent),
+	}
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
+	return w
+}
+
+func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEvent) error {
+	change := initialChange
+	w.newResult = func() interface{} { return new(params.RemoteRelationWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationWatcher", w.remoteRelationWatcherId)
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	for {
+		select {
+		// Send out the initial event or subsequent change.
+		case w.out <- change:
+		case <-w.tomb.Dying():
+			return nil
+		}
+
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error at
+			// this point, so just return.
+			return nil
+		}
+		change = data.(*params.RemoteRelationWatchResult).Changes
+	}
+}
+
+// Changes returns a channel that will emit changes to the remote
+// relation units.
+func (w *remoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEvent {
+	return w.out
+}
+
 // relationStatusWatcher will sends notifications of changes to
 // relation life and suspended status.
 type relationStatusWatcher struct {
