@@ -61,7 +61,7 @@ type ControllerHost interface {
 }
 
 type Space interface {
-	NetworkSpace() network.SpaceInfo
+	NetworkSpace() (network.SpaceInfo, error)
 }
 
 type MongoSession interface {
@@ -757,7 +757,7 @@ func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}
-	return space.NetworkSpace(), nil
+	return space.NetworkSpace()
 }
 
 // setHasVote sets the HasVote status of all the given nodes to hasVote.

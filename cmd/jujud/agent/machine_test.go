@@ -248,6 +248,7 @@ func (s *MachineLegacyLeasesSuite) TestDyingMachine(c *gc.C) {
 
 func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	s.AgentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
+	s.AgentSuite.PatchValue(&instancepoller.ShortPollCap, 500*time.Millisecond)
 	usefulVersion := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
@@ -278,9 +279,24 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 	insts, err := s.Environ.Instances(context.NewCloudCallContext(), []instance.Id{instId})
 	c.Assert(err, jc.ErrorIsNil)
 
-	addr := "1.2.3.4"
-	addrs := network.NewProviderAddresses(addr)
-	dummy.SetInstanceAddresses(insts[0], addrs)
+	netEnv, ok := s.Environ.(environs.Networking)
+	c.Assert(ok, jc.IsTrue, gc.Commentf("expected an environ instance that supports the Networking interface"))
+
+	// Since the dummy environ implements the environ.NetworkingEnviron,
+	// the instancepoller will pull the provider addresses directly from
+	// the environ and resolve their space ID.
+	ifLists, err := netEnv.NetworkInterfaces(context.NewCloudCallContext(), []instance.Id{instId})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ifLists, gc.HasLen, 1)
+
+	var expAddrs network.SpaceAddresses
+	for _, iface := range ifLists[0] {
+		for _, addr := range append(iface.Addresses, iface.ShadowAddresses...) {
+			sAddr := network.NewSpaceAddress(addr.Value)
+			sAddr.SpaceID = network.AlphaSpaceId
+			expAddrs = append(expAddrs, sAddr)
+		}
+	}
 	dummy.SetInstanceStatus(insts[0], "running")
 
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
@@ -293,8 +309,8 @@ func (s *MachineLegacyLeasesSuite) TestManageModelRunsInstancePoller(c *gc.C) {
 		instStatus, err := m.InstanceStatus()
 		c.Assert(err, jc.ErrorIsNil)
 		c.Logf("found status is %q %q", instStatus.Status, instStatus.Message)
-		if reflect.DeepEqual(m.Addresses(), network.NewSpaceAddresses(addr)) && instStatus.Message == "running" {
-			c.Logf("machine %q address updated: %+v", m.Id(), addrs)
+		if reflect.DeepEqual(m.Addresses(), expAddrs) && instStatus.Message == "running" {
+			c.Logf("machine %q addresses updated: %+v", m.Id(), expAddrs)
 			break
 		}
 		c.Logf("waiting for machine %q address to be updated", m.Id())

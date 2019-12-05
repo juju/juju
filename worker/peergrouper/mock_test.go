@@ -467,8 +467,8 @@ type fakeSpace struct {
 	network.SpaceInfo
 }
 
-func (s *fakeSpace) NetworkSpace() network.SpaceInfo {
-	return s.SpaceInfo
+func (s *fakeSpace) NetworkSpace() (network.SpaceInfo, error) {
+	return s.SpaceInfo, nil
 }
 
 type fakeMongoSession struct {

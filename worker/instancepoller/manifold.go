@@ -12,8 +12,12 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
+	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/worker/common"
 )
 
@@ -37,6 +41,23 @@ func (s facadeShim) WatchModelMachines() (watcher.StringsWatcher, error) {
 	return s.api.WatchModelMachines()
 }
 
+var errNetworkingNotSupported = errors.NotSupportedf("networking")
+
+// environWithoutNetworking wraps a environs.Environ instance that does not
+// support environs.Networking so that calls to NetworkInterfaces always
+// return a NotSupported error.
+type environWithoutNetworking struct {
+	env environs.Environ
+}
+
+func (e environWithoutNetworking) Instances(ctx context.ProviderCallContext, ids []instance.Id) ([]instances.Instance, error) {
+	return e.env.Instances(ctx, ids)
+}
+
+func (e environWithoutNetworking) NetworkInterfaces(context.ProviderCallContext, []instance.Id) ([][]network.InterfaceInfo, error) {
+	return nil, errNetworkingNotSupported
+}
+
 // ManifoldConfig describes the resources used by the instancepoller worker.
 type ManifoldConfig struct {
 	APICallerName string
@@ -57,6 +78,13 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	// If the current environment does not support networking use a shim
+	// whose NetworkInterfaces method always returns a NotSupported error.
+	netEnv, supported := environ.(Environ)
+	if !supported {
+		netEnv = &environWithoutNetworking{env: environ}
+	}
+
 	var apiCaller base.APICaller
 	if err := context.Get(config.APICallerName, &apiCaller); err != nil {
 		return nil, errors.Trace(err)
@@ -72,7 +100,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Facade: facadeShim{
 			api: instancepoller.NewAPI(apiCaller),
 		},
-		Environ:       environ,
+		Environ:       netEnv,
 		Logger:        config.Logger,
 		CredentialAPI: credentialAPI,
 	})

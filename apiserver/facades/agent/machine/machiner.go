@@ -150,7 +150,7 @@ func (api *MachinerAPI) RecordAgentStartTime(args params.Entities) (params.Error
 	return results, nil
 }
 
-// MachinerAPI implements the V1 API used by the machiner worker. Compared to
+// MachinerAPIV1 implements the V1 API used by the machiner worker. Compared to
 // V2, it lacks the RecordAgentStartTime method.
 type MachinerAPIV1 struct {
 	*MachinerAPI

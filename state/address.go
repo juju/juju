@@ -197,7 +197,10 @@ func (st *State) filterHostPortsForManagementSpace(
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		spaceInfo := sp.NetworkSpace()
+		spaceInfo, err := sp.NetworkSpace()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 
 		hostPortsForAgents = make([]network.SpaceHostPorts, len(apiHostPorts))
 		for i := range apiHostPorts {

@@ -217,7 +217,7 @@ func AllFacades() *facade.Registry {
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
 
-	reg("InstancePoller", 3, instancepoller.NewFacade)
+	reg("InstancePoller", 4, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
 

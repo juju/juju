@@ -6,6 +6,7 @@ package state_test
 import (
 	"fmt"
 	"net"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -616,4 +617,68 @@ func (s *SpacesSuite) TestFanSubnetInheritsSpace(c *gc.C) {
 	}
 	c.Assert(foundSubnet, gc.NotNil)
 	c.Assert(foundSubnet.SpaceID(), gc.Equals, space.Id())
+}
+
+func (s *SpacesSuite) TestSpaceToNetworkSpace(c *gc.C) {
+	args := addSpaceArgs{
+		Name:        "space1",
+		ProviderId:  network.Id("some id 2"),
+		SubnetCIDRs: []string{"1.1.1.0/24", "2001:cbd0::/32"},
+	}
+	space, err := s.addSpaceWithSubnets(c, args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSpaceMatchesArgs(c, space, args)
+	info := network.SubnetInfo{
+		CIDR:              "253.1.0.0/16",
+		VLANTag:           79,
+		AvailabilityZones: []string{"AvailabilityZone"},
+	}
+	info.SetFan("1.1.1.0/24", "253.0.0.0/8")
+	_, err = s.State.AddSubnet(info)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = space.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	spaceInfo, err := space.NetworkSpace()
+	c.Assert(err, jc.ErrorIsNil)
+
+	expSpaceInfo := network.SpaceInfo{
+		Name:       "space1",
+		ID:         space.Id(),
+		ProviderId: args.ProviderId,
+		Subnets: []network.SubnetInfo{
+			{
+				SpaceID:           space.Id(),
+				SpaceName:         "space1",
+				CIDR:              "1.1.1.0/24",
+				VLANTag:           79,
+				AvailabilityZones: []string{"AvailabilityZone"},
+			},
+			{
+				SpaceID:           space.Id(),
+				SpaceName:         "space1",
+				CIDR:              "253.1.0.0/16",
+				VLANTag:           79,
+				AvailabilityZones: []string{"AvailabilityZone"},
+				FanInfo: &network.FanCIDRs{
+					FanLocalUnderlay: "1.1.1.0/24",
+					FanOverlay:       "253.0.0.0/8",
+				},
+			},
+			{
+				SpaceID:           space.Id(),
+				SpaceName:         "space1",
+				CIDR:              "2001:cbd0::/32",
+				VLANTag:           79,
+				AvailabilityZones: []string{"AvailabilityZone"},
+			},
+		},
+	}
+
+	// Sort subnets by CIDR to avoid flaky tests
+	sort.Slice(spaceInfo.Subnets, func(l, r int) bool { return spaceInfo.Subnets[l].CIDR < spaceInfo.Subnets[r].CIDR })
+	sort.Slice(expSpaceInfo.Subnets, func(l, r int) bool { return expSpaceInfo.Subnets[l].CIDR < expSpaceInfo.Subnets[r].CIDR })
+
+	c.Assert(spaceInfo, gc.DeepEquals, expSpaceInfo)
 }

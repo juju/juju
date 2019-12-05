@@ -644,7 +644,9 @@ func (s *linkLayerDevicesStateSuite) createSpaceAndSubnet(c *gc.C, spaceName, CI
 func (s *linkLayerDevicesStateSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
 	space, err := s.State.AddSpace(spaceName, corenetwork.Id(spaceName), nil, true)
 	c.Assert(err, jc.ErrorIsNil)
-	s.spaces[spaceName] = space.NetworkSpace()
+	spaceInfo, err := space.NetworkSpace()
+	c.Assert(err, gc.IsNil)
+	s.spaces[spaceName] = spaceInfo
 
 	_, err = s.State.AddSubnet(corenetwork.SubnetInfo{
 		CIDR:       CIDR,
