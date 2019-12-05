@@ -50,29 +50,15 @@ func (t configTest) check(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, jc.ErrorIsNil)
 
-	credential := cloud.NewCredential(cloud.UserPassAuthType, map[string]string{
-		"username":    "user",
-		"password":    "secret",
-		"tenant-name": "sometenant",
-	})
-	cloudSpec := environs.CloudSpec{
-		Type:       "openstack",
-		Name:       "openstack",
-		Endpoint:   "http://auth",
-		Region:     "Configtest",
-		Credential: &credential,
-	}
+	e := &Environ{}
+	err = e.SetConfig(cfg)
 
-	e, err := environs.New(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: cfg,
-	})
 	if t.change != nil {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
-		osenv := e.(*Environ)
+		osenv := e
 		old = osenv.ecfg().Config
 		changed, err = old.Apply(t.change)
 		c.Assert(err, jc.ErrorIsNil)
@@ -89,7 +75,7 @@ func (t configTest) check(c *gc.C) {
 	}
 	c.Assert(err, jc.ErrorIsNil)
 
-	ecfg := e.(*Environ).ecfg()
+	ecfg := e.ecfg()
 	c.Assert(ecfg.Name(), gc.Equals, "testmodel")
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
