@@ -4,20 +4,14 @@
 package remoterelations
 
 import (
-	"strconv"
-	"strings"
-
-	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon.v2-unstable"
 
+	"github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/watcher"
 )
-
-type relationUnitsSettingsFunc func([]string) ([]params.SettingsResult, error)
 
 // relationUnitsWorker uses instances of watcher.RelationUnitsWatcher to
 // listen to changes to relation settings in a model, local or remote.
@@ -26,42 +20,31 @@ type relationUnitsSettingsFunc func([]string) ([]params.SettingsResult, error)
 type relationUnitsWorker struct {
 	catacomb    catacomb.Catacomb
 	relationTag names.RelationTag
-	ruw         watcher.RelationUnitsWatcher
+	rrw         watcher.RemoteRelationWatcher
 	changes     chan<- params.RemoteRelationChangeEvent
-
-	applicationToken    string
-	macaroon            *macaroon.Macaroon
-	remoteRelationToken string
-
-	unitSettingsFunc relationUnitsSettingsFunc
+	macaroon    *macaroon.Macaroon
 
 	logger Logger
 }
 
 func newRelationUnitsWorker(
 	relationTag names.RelationTag,
-	applicationToken string,
 	macaroon *macaroon.Macaroon,
-	remoteRelationToken string,
-	ruw watcher.RelationUnitsWatcher,
+	rrw watcher.RemoteRelationWatcher,
 	changes chan<- params.RemoteRelationChangeEvent,
-	unitSettingsFunc relationUnitsSettingsFunc,
 	logger Logger,
 ) (*relationUnitsWorker, error) {
 	w := &relationUnitsWorker{
-		relationTag:         relationTag,
-		applicationToken:    applicationToken,
-		macaroon:            macaroon,
-		remoteRelationToken: remoteRelationToken,
-		ruw:                 ruw,
-		changes:             changes,
-		unitSettingsFunc:    unitSettingsFunc,
-		logger:              logger,
+		relationTag: relationTag,
+		macaroon:    macaroon,
+		rrw:         rrw,
+		changes:     changes,
+		logger:      logger,
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
 		Work: w.loop,
-		Init: []worker.Worker{ruw},
+		Init: []worker.Worker{rrw},
 	})
 	return w, err
 }
@@ -81,98 +64,39 @@ func (w *relationUnitsWorker) Wait() error {
 }
 
 func (w *relationUnitsWorker) loop() error {
-	var (
-		changes chan<- params.RemoteRelationChangeEvent
-		event   params.RemoteRelationChangeEvent
-	)
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case change, ok := <-w.ruw.Changes():
+		case change, ok := <-w.rrw.Changes():
 			if !ok {
 				// We are dying.
 				return w.catacomb.ErrDying()
 			}
 			w.logger.Debugf("relation units changed for %v: %#v", w.relationTag, change)
-			if evt, err := w.relationUnitsChangeEvent(change); err != nil {
-				return errors.Trace(err)
-			} else {
-				if evt == nil {
-					continue
-				}
-				event = *evt
-				changes = w.changes
+			if isEmpty(change) {
+				continue
 			}
-		case changes <- event:
-			changes = nil
+
+			// Add macaroon in case this event is sent to a remote
+			// facade.
+
+			// TODO(babbageclunk): move this so it happens just before
+			// the event is published to the remote facade.
+			change.Macaroons = macaroon.Slice{w.macaroon}
+
+			// Send in lockstep so we don't drop events (otherwise
+			// we'd need to merge them - not too hard in this
+			// case but probably not needed).
+			select {
+			case <-w.catacomb.Dying():
+				return w.catacomb.ErrDying()
+			case w.changes <- change:
+			}
 		}
 	}
 }
 
-func (w *relationUnitsWorker) relationUnitsChangeEvent(
-	change watcher.RelationUnitsChange,
-) (*params.RemoteRelationChangeEvent, error) {
-	w.logger.Debugf("update relation units for %v", w.relationTag)
-	if len(change.Changed)+len(change.AppChanged)+len(change.Departed) == 0 {
-		return nil, nil
-	}
-	// Ensure all the changed units have been exported.
-	changedUnitNames := make([]string, 0, len(change.Changed))
-	for name := range change.Changed {
-		changedUnitNames = append(changedUnitNames, name)
-	}
-	// TODO(jam): 2019-10-21 Handle change.AppChanged
-
-	// unitNum parses a unit name and extracts the unit number.
-	unitNum := func(unitName string) (int, error) {
-		parts := strings.Split(unitName, "/")
-		if len(parts) < 2 {
-			return -1, errors.NotValidf("unit name %v", unitName)
-		}
-		return strconv.Atoi(parts[1])
-	}
-
-	// Construct the event to send to the remote model.
-	event := &params.RemoteRelationChangeEvent{
-		RelationToken:    w.remoteRelationToken,
-		ApplicationToken: w.applicationToken,
-		Macaroons:        macaroon.Slice{w.macaroon},
-		DepartedUnits:    make([]int, len(change.Departed)),
-	}
-	for i, u := range change.Departed {
-		num, err := unitNum(u)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		event.DepartedUnits[i] = num
-	}
-
-	if len(changedUnitNames) > 0 {
-		// For changed units, we publish/consume the current settings values.
-		results, err := w.unitSettingsFunc(changedUnitNames)
-		if err != nil {
-			return nil, errors.Annotate(err, "fetching relation units settings")
-		}
-		for i, result := range results {
-			if result.Error != nil {
-				return nil, errors.Annotatef(result.Error, "fetching relation unit settings for %v", changedUnitNames[i])
-			}
-		}
-		for i, result := range results {
-			num, err := unitNum(changedUnitNames[i])
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			change := params.RemoteRelationUnitChange{
-				UnitId:   num,
-				Settings: make(map[string]interface{}),
-			}
-			for k, v := range result.Settings {
-				change.Settings[k] = v
-			}
-			event.ChangedUnits = append(event.ChangedUnits, change)
-		}
-	}
-	return event, nil
+func isEmpty(change params.RemoteRelationChangeEvent) bool {
+	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.Settings == nil
 }

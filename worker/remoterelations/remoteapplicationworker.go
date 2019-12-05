@@ -189,6 +189,8 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 		case change := <-w.localRelationChanges:
 			w.logger.Debugf("local relation units changed -> publishing: %#v", change)
+			// TODO(babbageclunk): add macaroons to event here instead
+			// of in the relation units worker.
 			if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 				w.checkOfferPermissionDenied(err, change.ApplicationToken, change.RelationToken)
 				if params.IsCodeNotFound(err) || params.IsCodeCannotEnterScope(err) {
@@ -332,36 +334,21 @@ func (w *remoteApplicationWorker) relationChanged(
 // one worker is for the local model, the other for the remote model.
 func (w *remoteApplicationWorker) startUnitsWorkers(
 	relationTag names.RelationTag,
-	applicationToken, relationToken, remoteAppToken string,
+	relationToken, remoteAppToken string,
 	applicationName string,
 	mac *macaroon.Macaroon,
 ) (*relationUnitsWorker, *relationUnitsWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the local model.
-	localRelationUnitsWatcher, err := w.localModelFacade.WatchLocalRelationUnits(relationTag.Id())
+	localRelationUnitsWatcher, err := w.localModelFacade.WatchLocalRelationChanges(relationTag.Id())
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "watching local side of relation %v", relationTag.Id())
 	}
 
-	// localUnitSettingsFunc converts relations units watcher results from the local model
-	// into settings params using an api call to the local model.
-	localUnitSettingsFunc := func(changedUnitNames []string) ([]params.SettingsResult, error) {
-		relationUnits := make([]params.RelationUnit, len(changedUnitNames))
-		for i, changedName := range changedUnitNames {
-			relationUnits[i] = params.RelationUnit{
-				Relation: relationTag.String(),
-				Unit:     names.NewUnitTag(changedName).String(),
-			}
-		}
-		return w.localModelFacade.RelationUnitSettings(relationUnits)
-	}
 	localUnitsWorker, err := newRelationUnitsWorker(
 		relationTag,
-		applicationToken,
 		mac,
-		relationToken,
 		localRelationUnitsWatcher,
 		w.localRelationChanges,
-		localUnitSettingsFunc,
 		w.logger,
 	)
 	if err != nil {
@@ -372,7 +359,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 	}
 
 	// Start a watcher to track changes to the units in the relation in the remote model.
-	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(params.RemoteEntityArg{
+	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(params.RemoteEntityArg{
 		Token:     relationToken,
 		Macaroons: macaroon.Slice{mac},
 	})
@@ -383,27 +370,11 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 			applicationName, relationTag.Id())
 	}
 
-	// remoteUnitSettingsFunc converts relations units watcher results from the remote model
-	// into settings params using an api call to the remote model.
-	remoteUnitSettingsFunc := func(changedUnitNames []string) ([]params.SettingsResult, error) {
-		relationUnits := make([]params.RemoteRelationUnit, len(changedUnitNames))
-		for i, changedName := range changedUnitNames {
-			relationUnits[i] = params.RemoteRelationUnit{
-				RelationToken: relationToken,
-				Unit:          names.NewUnitTag(changedName).String(),
-				Macaroons:     macaroon.Slice{mac},
-			}
-		}
-		return w.remoteModelFacade.RelationUnitSettings(relationUnits)
-	}
 	remoteUnitsWorker, err := newRelationUnitsWorker(
 		relationTag,
-		remoteAppToken,
 		mac,
-		relationToken,
 		remoteRelationUnitsWatcher,
 		w.remoteRelationChanges,
-		remoteUnitSettingsFunc,
 		w.logger,
 	)
 	if err != nil {
@@ -481,7 +452,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	if r.localRuw == nil && !remoteRelation.Suspended {
 		// Also start the units watchers (local and remote).
 		localUnitsWorker, remoteUnitsWorker, err := w.startUnitsWorkers(
-			relationTag, applicationToken, relationToken, remoteAppToken, remoteRelation.ApplicationName, mac)
+			relationTag, relationToken, remoteAppToken, remoteRelation.ApplicationName, mac)
 		if err != nil {
 			return errors.Annotate(err, "starting relation units workers")
 		}
