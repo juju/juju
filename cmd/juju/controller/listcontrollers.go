@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -84,7 +85,9 @@ func (c *listControllersCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to list controllers")
 	}
 	if len(controllers) == 0 && c.out.Name() == "tabular" {
-		return errors.Trace(modelcmd.ErrNoControllersDefined)
+		w := ansiterm.NewWriter(ctx.Stderr)
+		fmt.Fprintf(w, "%s\n", modelcmd.ErrNoControllersDefined)
+		return cmd.NewRcPassthroughError(1)
 	}
 	if c.refresh && len(controllers) > 0 {
 		var wg sync.WaitGroup

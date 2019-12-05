@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -170,9 +171,22 @@ func (c *ControllerCommandBase) SetControllerName(controllerName string, allowDe
 func (c *ControllerCommandBase) ControllerName() (string, error) {
 	c.assertRunStarted()
 	if err := c.initController(); err != nil {
-		return "", errors.Trace(err)
+		if errors.Cause(err) != ErrNoControllersDefined {
+			return "", errors.Trace(err)
+		} else {
+			return "", handleErrNoController()
+		}
 	}
 	return c._controllerName, nil
+}
+
+// We don't want to show that no controller is defined as an error to the user as this can be confusing.
+// Hence we just print the information and exit with non 0.
+// We check ctx != nil, as refactoring can lead to a nil ctx
+func handleErrNoController() error {
+	w := ansiterm.NewWriter(os.Stderr)
+	fmt.Fprintf(w, "%s\n", ErrNoControllersDefined.Error())
+	return cmd.NewRcPassthroughError(1)
 }
 
 func (c *ControllerCommandBase) BakeryClient() (*httpbakery.Client, error) {
@@ -380,7 +394,7 @@ func translateControllerError(store jujuclient.ClientStore, err error) error {
 		return err2
 	}
 	if len(controllers) == 0 {
-		return errors.Wrap(err, ErrNoControllersDefined)
+		return handleErrNoController()
 	}
 	return errors.Wrap(err, ErrNoCurrentController)
 }
