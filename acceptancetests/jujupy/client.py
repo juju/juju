@@ -1142,7 +1142,7 @@ class ModelClient:
         """
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
-        return self.get_raw_juju_output(self, command, model, *args, **kwargs)
+        return self.get_raw_juju_output(command, model, *args, **kwargs)
 
     def get_raw_juju_output(self, command, model, *args, **kwargs):
         """Call a juju command without calling a model for it's values first.
