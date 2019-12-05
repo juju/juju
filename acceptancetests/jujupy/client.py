@@ -1142,10 +1142,15 @@ class ModelClient:
         """
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
+        # Get the model here first, before using the get_raw_juju_output, so
+        # we can ensure that the model exists on the controller.
         return self.get_raw_juju_output(command, model, *args, **kwargs)
 
     def get_raw_juju_output(self, command, model, *args, **kwargs):
         """Call a juju command without calling a model for it's values first.
+        Passing in the model, ensures that we target the juju command with the
+        right model. For global commands that aren't model specific, then you
+        can pass None.
 
         Sub process will be called as 'juju <command> <args> <kwargs>'. Note
         that <command> may be a space delimited list of arguments. The -e
