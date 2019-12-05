@@ -412,8 +412,12 @@ func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
 	defer srv.mu.Unlock()
 	srv.agentRateLimitMax = cfg.AgentRateLimitMax()
 	srv.agentRateLimitRate = cfg.AgentRateLimitRate()
-	srv.agentRateLimit = ratelimit.NewBucketWithClock(
-		srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{srv.clock})
+	if srv.agentRateLimitMax > 0 {
+		srv.agentRateLimit = ratelimit.NewBucketWithClock(
+			srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{srv.clock})
+	} else {
+		srv.agentRateLimit = nil
+	}
 }
 
 type rateClock struct {
@@ -427,6 +431,11 @@ func (rateClock) Sleep(time.Duration) {
 func (srv *Server) getAgentToken() error {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
+	// agentRateLimit is nil if rate limiting is disabled.
+	if srv.agentRateLimit == nil {
+		return nil
+	}
+
 	// Try to take one token, but don't wait any time for it.
 	if _, ok := srv.agentRateLimit.TakeMaxDuration(1, 0); !ok {
 		return common.ErrTryAgain

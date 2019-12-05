@@ -500,7 +500,15 @@ func (c Config) ControllerAPIPort() int {
 // AgentRateLimitMax is the initial size of the token bucket that is used to
 // rate limit agent connections.
 func (c Config) AgentRateLimitMax() int {
-	return c.intOrDefault(AgentRateLimitMax, DefaultAgentRateLimitMax)
+	switch v := c[AgentRateLimitMax].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return DefaultAgentRateLimitMax
 }
 
 // AgentRateLimitRate is the time taken to add a token into the token bucket
@@ -780,8 +788,8 @@ func Validate(c Config) error {
 	}
 
 	if v, ok := c[AgentRateLimitMax].(int); ok {
-		if v <= 0 {
-			return errors.NotValidf("non-positive %s (%d)", AgentRateLimitMax, v)
+		if v < 0 {
+			return errors.NotValidf("negative %s (%d)", AgentRateLimitMax, v)
 		}
 	}
 	if v, ok := c[AgentRateLimitRate].(time.Duration); ok {

@@ -308,17 +308,11 @@ var newConfigTests = []struct {
 	},
 	expectError: `agent-ratelimit-max: expected number, got string\("ten"\)`,
 }, {
-	about: "agent-ratelimit-max zero",
-	config: controller.Config{
-		controller.AgentRateLimitMax: "0",
-	},
-	expectError: `non-positive agent-ratelimit-max \(0\) not valid`,
-}, {
 	about: "agent-ratelimit-max negative",
 	config: controller.Config{
 		controller.AgentRateLimitMax: "-5",
 	},
-	expectError: `non-positive agent-ratelimit-max \(-5\) not valid`,
+	expectError: `negative agent-ratelimit-max \(-5\) not valid`,
 }, {
 	about: "agent-ratelimit-rate missing unit",
 	config: controller.Config{
@@ -702,6 +696,18 @@ func (s *ConfigSuite) TestModelLogfileBackupErr(c *gc.C) {
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `model-logfile-max-backups: expected number, got string("two")`)
+}
+
+func (s *ConfigSuite) TestAgentRateLimitMax(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"agent-ratelimit-max": "0",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitMax(), gc.Equals, 0)
 }
 
 func (s *ConfigSuite) TestAgentRateLimitRate(c *gc.C) {
