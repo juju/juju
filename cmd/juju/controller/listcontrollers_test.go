@@ -6,6 +6,7 @@ package controller_test
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
@@ -30,8 +31,11 @@ var _ = gc.Suite(&ListControllersSuite{})
 
 func (s *ListControllersSuite) TestListControllersEmptyStore(c *gc.C) {
 	s.store = jujuclient.NewMemStore()
-	_, err := s.runListControllers(c)
-	c.Check(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
+	ctx, err := s.runListControllers(c)
+	c.Check(err, gc.NotNil)
+	actual := strings.Trim(cmdtesting.Stderr(ctx), "\n")
+	expected := strings.Trim(modelcmd.ErrNoControllersDefined.Error(), "\n")
+	c.Check(actual, gc.Equals, expected)
 }
 
 func (s *ListControllersSuite) TestListControllers(c *gc.C) {
@@ -308,11 +312,7 @@ func (s *ListControllersSuite) TestListControllersUnrecognizedOptionFlag(c *gc.C
 func (s *ListControllersSuite) TestListControllersNoControllers(c *gc.C) {
 	store := s.createTestClientStore(c)
 	store.Controllers = map[string]jujuclient.ControllerDetails{}
-	s.expectedErr = `No controllers registered.
-
-Please either create a new controller using "juju bootstrap" or connect to
-another controller that you have been given access to using "juju register".
-`
+	s.expectedErr = cmd.NewRcPassthroughError(1).Error()
 	s.assertListControllersFailed(c)
 }
 

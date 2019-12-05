@@ -32,7 +32,7 @@ func (s *ControllerCommandSuite) TestControllerCommandNoneSpecified(c *gc.C) {
 	command, err := runTestControllerCommand(c, jujuclient.NewMemStore())
 	c.Assert(err, jc.ErrorIsNil)
 	controllerName, err := command.ControllerName()
-	c.Assert(errors.Cause(err), gc.Equals, modelcmd.ErrNoControllersDefined)
+	c.Assert(errors.Cause(err), gc.DeepEquals, cmd.NewRcPassthroughError(1))
 	c.Assert(controllerName, gc.Equals, "")
 }
 
