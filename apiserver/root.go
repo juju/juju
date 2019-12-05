@@ -82,7 +82,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		// migrated allow clients to connect and wait for a login
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
-		if _, migErr := st.CompletedMigrationForModel(); migErr != nil {
+		if _, migErr := st.CompletedMigration(); migErr != nil {
 			return nil, errors.Trace(err) // return original NotFound error
 		}
 	}

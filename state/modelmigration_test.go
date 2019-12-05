@@ -335,15 +335,15 @@ func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
 		c.Assert(mig1.SetPhase(phase), jc.ErrorIsNil)
 	}
 
-	// CompletedMigrationForModel should fail as the model docs are still there
-	_, err = s.State2.CompletedMigrationForModel()
+	// CompletedMigration should fail as the model docs are still there
+	_, err = s.State2.CompletedMigration()
 	c.Assert(errors.IsNotFound(err), gc.Equals, true)
 
 	// Delete the model and check that we get back the MigrationModel
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(s.State2.RemoveDyingModel(), jc.ErrorIsNil)
 
-	mig2, err := s.State2.CompletedMigrationForModel()
+	mig2, err := s.State2.CompletedMigration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig2, jc.DeepEquals, mig1)
 }
