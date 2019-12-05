@@ -114,16 +114,20 @@ func removePermissionOp(objectGlobalKey, subjectGlobalKey string) txn.Op {
 
 }
 func createPermissionOp(objectGlobalKey, subjectGlobalKey string, access permission.Access) txn.Op {
-	doc := &permissionDoc{
-		ID:               permissionID(objectGlobalKey, subjectGlobalKey),
-		SubjectGlobalKey: subjectGlobalKey,
-		ObjectGlobalKey:  objectGlobalKey,
-		Access:           accessToString(access),
-	}
+	doc := makePermissionDoc(objectGlobalKey, subjectGlobalKey, access)
 	return txn.Op{
 		C:      permissionsC,
 		Id:     permissionID(objectGlobalKey, subjectGlobalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
+	}
+}
+
+func makePermissionDoc(objectGlobalKey, subjectGlobalKey string, access permission.Access) *permissionDoc {
+	return &permissionDoc{
+		ID:               permissionID(objectGlobalKey, subjectGlobalKey),
+		SubjectGlobalKey: subjectGlobalKey,
+		ObjectGlobalKey:  objectGlobalKey,
+		Access:           accessToString(access),
 	}
 }

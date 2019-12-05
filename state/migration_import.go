@@ -928,11 +928,6 @@ type stateApplicationOfferDocumentFactoryShim struct {
 	importer *importer
 }
 
-func (s stateApplicationOfferDocumentFactoryShim) NewApplicationOffer(doc applicationOfferDoc) (*crossmodel.ApplicationOffer, error) {
-	ao := &applicationOffers{st: s.importer.st}
-	return ao.makeApplicationOffer(doc)
-}
-
 func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOfferDoc(app description.ApplicationOffer) (applicationOfferDoc, error) {
 	ao := &applicationOffers{st: s.importer.st}
 	return ao.makeApplicationOfferDoc(s.importer.st, app.OfferUUID(), crossmodel.AddApplicationOfferArgs{
@@ -945,6 +940,10 @@ func (s stateApplicationOfferDocumentFactoryShim) MakeApplicationOfferDoc(app de
 
 func (s stateApplicationOfferDocumentFactoryShim) MakeIncApplicationOffersRefOp(name string) (txn.Op, error) {
 	return incApplicationOffersRefOp(s.importer.st, name)
+}
+
+func (s stateApplicationOfferDocumentFactoryShim) MakePermissionOp(offerUUID, user, access string) (txn.Op, error) {
+	return createPermissionOp(applicationOfferKey(offerUUID), userGlobalKey(user), stringToAccess(access)), nil
 }
 
 type applicationDescriptionShim struct {
@@ -993,6 +992,7 @@ func (i *importer) applicationOffers(app ApplicationDescription) error {
 type ApplicationOfferStateDocumentFactory interface {
 	MakeApplicationOfferDoc(description.ApplicationOffer) (applicationOfferDoc, error)
 	MakeIncApplicationOffersRefOp(string) (txn.Op, error)
+	MakePermissionOp(string, string, string) (txn.Op, error)
 }
 
 // ApplicationOfferDescription defines an in-place usage for reading
@@ -1030,6 +1030,15 @@ func (i ImportApplicationOffer) Execute(src ApplicationOfferDescription,
 			return errors.Trace(err)
 		}
 		ops = append(ops, appOps...)
+
+		// Ensure we add each ACL permissions during adding application offers.
+		for user, access := range offer.ACL() {
+			permissionOps, err := src.MakePermissionOp(offer.OfferUUID(), user, access)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			ops = append(ops, permissionOps)
+		}
 	}
 	if err := runner.RunTransaction(ops); err != nil {
 		return errors.Trace(err)
