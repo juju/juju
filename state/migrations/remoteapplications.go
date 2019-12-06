@@ -10,7 +10,8 @@ import (
 	"gopkg.in/juju/names.v3"
 )
 
-// MigrationRemoteApplication is an in-place representation of the state.RemoteApplication
+// MigrationRemoteApplication is an in-place representation of the
+// state.RemoteApplication
 type MigrationRemoteApplication interface {
 	Tag() names.Tag
 	OfferUUID() string
@@ -81,7 +82,7 @@ type ExportRemoteApplications struct{}
 // Execute the migration of the remote entities using typed interfaces, to
 // ensure we don't loose any type safety.
 // This doesn't conform to an interface because go doesn't have generics, but
-// when this does arrive this would be an execellent place to use them.
+// when this does arrive this would be an excellent place to use them.
 func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst RemoteApplicationModel) error {
 	remoteApps, err := src.AllRemoteApplications()
 	if err != nil {
@@ -89,8 +90,7 @@ func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst Remot
 	}
 
 	for _, remoteApp := range remoteApps {
-		err := m.addRemoteApplication(src, dst, remoteApp)
-		if err != nil {
+		if err := m.addRemoteApplication(src, dst, remoteApp); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -98,6 +98,8 @@ func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst Remot
 }
 
 func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSource, dst RemoteApplicationModel, app MigrationRemoteApplication) error {
+	// Note the ignore case is not an error, but a bool indicating if it's valid
+	// or not. For this scenario, we're happy to ignore that situation.
 	url, _ := app.URL()
 
 	// Note that remote applications do not include a macaroon member at all.

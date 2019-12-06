@@ -179,6 +179,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.firewallRules(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.offerConnections(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.relationNetworks(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -841,9 +844,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 
 		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
-			OfferName: offer.OfferName,
-			Endpoints: endpoints,
-			ACL:       acl,
+			OfferUUID:              offer.OfferUUID,
+			OfferName:              offer.OfferName,
+			Endpoints:              endpoints,
+			ACL:                    acl,
+			ApplicationName:        offer.ApplicationName,
+			ApplicationDescription: offer.ApplicationDescription,
 		})
 	}
 
@@ -1222,6 +1228,38 @@ func (e *exporter) remoteEntities() error {
 		return m.Execute(remoteEntitiesShim{
 			st: migration.src,
 		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// offerConnectionsShim provides a way to model our dependencies by providing
+// a shim layer to manage the covariance of the state package to the migration
+// package.
+type offerConnectionsShim struct {
+	st *State
+}
+
+func (s offerConnectionsShim) AllOfferConnections() ([]migrations.MigrationOfferConnection, error) {
+	conns, err := s.st.AllOfferConnections()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationOfferConnection, len(conns))
+	for k, v := range conns {
+		result[k] = v
+	}
+	return result, nil
+}
+
+func (e *exporter) offerConnections() error {
+	e.logger.Debugf("reading offer connections")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportOfferConnections{}
+		return m.Execute(offerConnectionsShim{st: migration.src}, migration.dst)
 	})
 	return migration.Run()
 }
