@@ -834,7 +834,10 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-offer",
-		Endpoints: []string{"endpoint-1", "endpoint-2"},
+		Endpoints: map[string]string{
+			"endpoint-1": "endpoint-1",
+			"endpoint-2": "endpoint-2",
+		},
 		ACL: map[string]string{
 			"admin": "admin",
 			"foo":   "consume",
@@ -843,7 +846,10 @@ func (s *bundleSuite) TestExportBundleWithApplicationOffers(c *gc.C) {
 
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-other-offer",
-		Endpoints: []string{"endpoint-1", "endpoint-2"},
+		Endpoints: map[string]string{
+			"endpoint-1": "endpoint-1",
+			"endpoint-2": "endpoint-2",
+		},
 	})
 
 	// Add second app without an offer
