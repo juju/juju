@@ -1240,6 +1240,9 @@ type offerConnectionsShim struct {
 	st *State
 }
 
+// AllOfferConnections returns all offer connections in the model.
+// The offer connection shim converts a state.OfferConnection to a
+// migrations.MigrationOfferConnection.
 func (s offerConnectionsShim) AllOfferConnections() ([]migrations.MigrationOfferConnection, error) {
 	conns, err := s.st.AllOfferConnections()
 	if err != nil {
