@@ -791,7 +791,7 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	stOffers := state.NewApplicationOffers(s.State)
-	_, err = stOffers.AddOffer(
+	stOffer, err := stOffers.AddOffer(
 		crossmodel.AddApplicationOfferArgs{
 			OfferName:       "my-offer",
 			Owner:           "admin",
@@ -831,6 +831,14 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 	c.Assert(importedOffers, gc.HasLen, 1)
 	imported := importedOffers[0]
 	c.Assert(exported, gc.DeepEquals, imported)
+
+	users, err := newSt.GetOfferUsers(stOffer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 2)
+	c.Assert(users, gc.DeepEquals, map[string]permission.Access{
+		"admin": "admin",
+		"foo":   "consume",
+	})
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
