@@ -32,6 +32,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -83,7 +84,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
 		InitializedGate: initialized,
 		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() modelcache.BackingWatcher {
+		WatcherFactory: func() multiwatcher.Watcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
 		PrometheusRegisterer: noopRegisterer{},

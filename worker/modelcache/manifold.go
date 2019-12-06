@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/worker/gate"
 	workerstate "github.com/juju/juju/worker/state"
 )
@@ -89,7 +90,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	w, err := config.NewWorker(Config{
 		InitializedGate:      unlocker,
 		Logger:               config.Logger,
-		WatcherFactory:       func() BackingWatcher { return pool.SystemState().WatchAllModels(pool) },
+		WatcherFactory:       func() multiwatcher.Watcher { return pool.SystemState().WatchAllModels(pool) },
 		PrometheusRegisterer: config.PrometheusRegisterer,
 		Cleanup:              func() { _ = stTracker.Done() },
 	}.WithDefaultRestartStrategy())

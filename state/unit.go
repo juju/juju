@@ -79,7 +79,7 @@ type port struct {
 }
 
 // unitDoc represents the internal state of a unit in MongoDB.
-// Note the correspondence with UnitInfo in apiserver/params.
+// Note the correspondence with UnitInfo in core/multiwatcher.
 type unitDoc struct {
 	DocID                  string `bson:"_id"`
 	Name                   string `bson:"name"`

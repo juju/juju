@@ -38,7 +38,7 @@ func relationKey(endpoints []Endpoint) string {
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
-// Note the correspondence with RelationInfo in apiserver/params.
+// Note the correspondence with RelationInfo in core/multiwatcher.
 type relationDoc struct {
 	DocID           string     `bson:"_id"`
 	Key             string     `bson:"key"`

@@ -14,22 +14,13 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
-	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/state"
 )
-
-// BackingWatcher describes watcher methods that supply deltas from state to
-// this worker. In-theatre it is satisfied by a state.Multiwatcher.
-type BackingWatcher interface {
-	Next() ([]params.Delta, error)
-	Stop() error
-}
 
 // Unlocker is used to indicate that the model cache is ready to be used.
 type Unlocker interface {
@@ -59,7 +50,7 @@ type Config struct {
 	// We use a factory because we do not allow the worker loop to be crashed
 	// by a watcher that stops in an error state.
 	// Watcher acquisition my occur multiple times during a worker life-cycle.
-	WatcherFactory func() BackingWatcher
+	WatcherFactory func() multiwatcher.Watcher
 
 	// WatcherRestartDelayMin is the minimum duration of the worker pause
 	// before instantiating a new all-watcher when the previous one returns an
@@ -120,7 +111,7 @@ type cacheWorker struct {
 	catacomb            catacomb.Catacomb
 	controller          *cache.Controller
 	changes             chan interface{}
-	watcher             BackingWatcher
+	watcher             multiwatcher.Watcher
 	watcherRestartDelay time.Duration
 	mu                  sync.Mutex
 }
@@ -175,7 +166,7 @@ func (c *cacheWorker) loop() error {
 	defer c.config.PrometheusRegisterer.Unregister(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(collector)
 
-	watcherChanges := make(chan []params.Delta)
+	watcherChanges := make(chan []multiwatcher.Delta)
 	// This worker needs to be robust with respect to the multiwatcher errors.
 	// If we get an unexpected error we should get a new allWatcher.
 	// We don't want a weird error in the multiwatcher taking down the apiserver,
@@ -263,7 +254,7 @@ func (c *cacheWorker) loop() error {
 	}
 }
 
-func (c *cacheWorker) processWatcher(watcherChanges chan<- []params.Delta) error {
+func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta) error {
 	for {
 		deltas, err := c.watcher.Next()
 		if err != nil {
@@ -284,7 +275,7 @@ func (c *cacheWorker) handleWatcherErr(err error) {
 	// been told to die, then we exit cleanly. Otherwise die with an
 	// error and let the dependency engine handle starting us up
 	// again.
-	if state.IsErrStopped(err) {
+	if multiwatcher.IsErrStopped(err) {
 		select {
 		case <-c.catacomb.Dying():
 			return
@@ -311,20 +302,20 @@ func (c *cacheWorker) handleWatcherErr(err error) {
 	}
 }
 
-func (c *cacheWorker) translate(d params.Delta) interface{} {
-	id := d.Entity.EntityId()
+func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
+	id := d.Entity.EntityID()
 	switch id.Kind {
-	case "model":
+	case multiwatcher.ModelKind:
 		return c.translateModel(d)
-	case "application":
+	case multiwatcher.ApplicationKind:
 		return c.translateApplication(d)
-	case "machine":
+	case multiwatcher.MachineKind:
 		return c.translateMachine(d)
-	case "unit":
+	case multiwatcher.UnitKind:
 		return c.translateUnit(d)
-	case "charm":
+	case multiwatcher.CharmKind:
 		return c.translateCharm(d)
-	case "generation":
+	case multiwatcher.BranchKind:
 		// Generation deltas are processed as cache branch changes,
 		// as only "in-flight" branches should ever be in the cache.
 		return c.translateBranch(d)
@@ -333,16 +324,16 @@ func (c *cacheWorker) translate(d params.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateModel(d params.Delta) interface{} {
+func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 	e := d.Entity
 
 	if d.Removed {
 		return cache.RemoveModel{
-			ModelUUID: e.EntityId().ModelUUID,
+			ModelUUID: e.EntityID().ModelUUID,
 		}
 	}
 
-	value, ok := e.(*params.ModelUpdate)
+	value, ok := e.(*multiwatcher.ModelUpdate)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -359,18 +350,18 @@ func (c *cacheWorker) translateModel(d params.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateApplication(d params.Delta) interface{} {
+func (c *cacheWorker) translateApplication(d multiwatcher.Delta) interface{} {
 	e := d.Entity
-	id := e.EntityId()
+	id := e.EntityID()
 
 	if d.Removed {
 		return cache.RemoveApplication{
 			ModelUUID: id.ModelUUID,
-			Name:      id.Id,
+			Name:      id.ID,
 		}
 	}
 
-	value, ok := e.(*params.ApplicationInfo)
+	value, ok := e.(*multiwatcher.ApplicationInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -391,18 +382,18 @@ func (c *cacheWorker) translateApplication(d params.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateMachine(d params.Delta) interface{} {
+func (c *cacheWorker) translateMachine(d multiwatcher.Delta) interface{} {
 	e := d.Entity
-	id := e.EntityId()
+	id := e.EntityID()
 
 	if d.Removed {
 		return cache.RemoveMachine{
 			ModelUUID: id.ModelUUID,
-			Id:        id.Id,
+			Id:        id.ID,
 		}
 	}
 
-	value, ok := e.(*params.MachineInfo)
+	value, ok := e.(*multiwatcher.MachineInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -410,8 +401,8 @@ func (c *cacheWorker) translateMachine(d params.Delta) interface{} {
 
 	return cache.MachineChange{
 		ModelUUID:                value.ModelUUID,
-		Id:                       value.Id,
-		InstanceId:               value.InstanceId,
+		Id:                       value.ID,
+		InstanceId:               value.InstanceID,
 		AgentStatus:              coreStatus(value.AgentStatus),
 		Life:                     life.Value(value.Life),
 		Config:                   value.Config,
@@ -421,24 +412,24 @@ func (c *cacheWorker) translateMachine(d params.Delta) interface{} {
 		SupportedContainersKnown: value.SupportedContainersKnown,
 		HardwareCharacteristics:  value.HardwareCharacteristics,
 		CharmProfiles:            value.CharmProfiles,
-		Addresses:                providerAddresses(value.Addresses),
+		Addresses:                value.Addresses,
 		HasVote:                  value.HasVote,
 		WantsVote:                value.WantsVote,
 	}
 }
 
-func (c *cacheWorker) translateUnit(d params.Delta) interface{} {
+func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 	e := d.Entity
-	id := e.EntityId()
+	id := e.EntityID()
 
 	if d.Removed {
 		return cache.RemoveUnit{
 			ModelUUID: id.ModelUUID,
-			Name:      id.Id,
+			Name:      id.ID,
 		}
 	}
 
-	value, ok := e.(*params.UnitInfo)
+	value, ok := e.(*multiwatcher.UnitInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -453,9 +444,9 @@ func (c *cacheWorker) translateUnit(d params.Delta) interface{} {
 		Life:           life.Value(value.Life),
 		PublicAddress:  value.PublicAddress,
 		PrivateAddress: value.PrivateAddress,
-		MachineId:      value.MachineId,
-		Ports:          networkPorts(value.Ports),
-		PortRanges:     networkPortRanges(value.PortRanges),
+		MachineId:      value.MachineID,
+		Ports:          value.Ports,
+		PortRanges:     value.PortRanges,
 		Principal:      value.Principal,
 		Subordinate:    value.Subordinate,
 		WorkloadStatus: coreStatus(value.WorkloadStatus),
@@ -463,18 +454,18 @@ func (c *cacheWorker) translateUnit(d params.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateCharm(d params.Delta) interface{} {
+func (c *cacheWorker) translateCharm(d multiwatcher.Delta) interface{} {
 	e := d.Entity
-	id := e.EntityId()
+	id := e.EntityID()
 
 	if d.Removed {
 		return cache.RemoveCharm{
 			ModelUUID: id.ModelUUID,
-			CharmURL:  id.Id,
+			CharmURL:  id.ID,
 		}
 	}
 
-	value, ok := e.(*params.CharmInfo)
+	value, ok := e.(*multiwatcher.CharmInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -488,18 +479,18 @@ func (c *cacheWorker) translateCharm(d params.Delta) interface{} {
 	}
 }
 
-func (c *cacheWorker) translateBranch(d params.Delta) interface{} {
+func (c *cacheWorker) translateBranch(d multiwatcher.Delta) interface{} {
 	e := d.Entity
-	id := e.EntityId()
+	id := e.EntityID()
 
 	if d.Removed {
 		return cache.RemoveBranch{
 			ModelUUID: id.ModelUUID,
-			Id:        id.Id,
+			Id:        id.ID,
 		}
 	}
 
-	value, ok := e.(*params.GenerationInfo)
+	value, ok := e.(*multiwatcher.BranchInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
@@ -512,21 +503,21 @@ func (c *cacheWorker) translateBranch(d params.Delta) interface{} {
 	if value.Completed > 0 {
 		return cache.RemoveBranch{
 			ModelUUID: id.ModelUUID,
-			Id:        id.Id,
+			Id:        id.ID,
 		}
 	}
 
 	return cache.BranchChange{
 		ModelUUID:     value.ModelUUID,
 		Name:          value.Name,
-		Id:            value.Id,
+		Id:            value.ID,
 		AssignedUnits: value.AssignedUnits,
 		Config:        coreItemChanges(value.Config),
 		Created:       value.Created,
 		CreatedBy:     value.CreatedBy,
 		Completed:     value.Completed,
 		CompletedBy:   value.CompletedBy,
-		GenerationId:  value.GenerationId,
+		GenerationId:  value.GenerationID,
 	}
 }
 
@@ -540,7 +531,7 @@ func (c *cacheWorker) Wait() error {
 	return c.catacomb.Wait()
 }
 
-func coreStatus(info params.StatusInfo) status.StatusInfo {
+func coreStatus(info multiwatcher.StatusInfo) status.StatusInfo {
 	return status.StatusInfo{
 		Status:  info.Current,
 		Message: info.Message,
@@ -549,46 +540,7 @@ func coreStatus(info params.StatusInfo) status.StatusInfo {
 	}
 }
 
-func networkPorts(delta []params.Port) []network.Port {
-	ports := make([]network.Port, len(delta))
-	for i, d := range delta {
-		ports[i] = network.Port{
-			Protocol: d.Protocol,
-			Number:   d.Number,
-		}
-	}
-	return ports
-}
-
-func networkPortRanges(delta []params.PortRange) []network.PortRange {
-	ports := make([]network.PortRange, len(delta))
-	for i, d := range delta {
-		ports[i] = network.PortRange{
-			Protocol: d.Protocol,
-			FromPort: d.FromPort,
-			ToPort:   d.ToPort,
-		}
-	}
-	return ports
-}
-
-func providerAddresses(delta []params.Address) network.ProviderAddresses {
-	addresses := make(network.ProviderAddresses, len(delta))
-	for i, d := range delta {
-		addresses[i] = network.ProviderAddress{
-			MachineAddress: network.MachineAddress{
-				Value: d.Value,
-				Type:  network.AddressType(d.Type),
-				Scope: network.Scope(d.Scope),
-			},
-			SpaceName:       network.SpaceName(d.SpaceName),
-			ProviderSpaceID: network.Id(d.ProviderSpaceID),
-		}
-	}
-	return addresses
-}
-
-func coreLXDProfile(delta *params.Profile) lxdprofile.Profile {
+func coreLXDProfile(delta *multiwatcher.Profile) lxdprofile.Profile {
 	if delta == nil {
 		return lxdprofile.Profile{}
 	}
@@ -599,7 +551,7 @@ func coreLXDProfile(delta *params.Profile) lxdprofile.Profile {
 	}
 }
 
-func coreItemChanges(delta map[string][]params.ItemChange) map[string]settings.ItemChanges {
+func coreItemChanges(delta map[string][]multiwatcher.ItemChange) map[string]settings.ItemChanges {
 	if delta == nil {
 		return nil
 	}

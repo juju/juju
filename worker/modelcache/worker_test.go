@@ -17,10 +17,10 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -49,7 +49,7 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.config = modelcache.Config{
 		InitializedGate: s.gate,
 		Logger:          s.logger,
-		WatcherFactory: func() modelcache.BackingWatcher {
+		WatcherFactory: func() multiwatcher.Watcher {
 			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
 		},
 		PrometheusRegisterer:   noopRegisterer{},
@@ -547,18 +547,18 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	fakeModelSent := false
 	errorSent := false
 
-	s.config.WatcherFactory = func() modelcache.BackingWatcher {
+	s.config.WatcherFactory = func() multiwatcher.Watcher {
 		return testingMultiwatcher{
-			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
-			manipulate: func(deltas []params.Delta) ([]params.Delta, error) {
+			Watcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
+			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
 				if !fakeModelSent || !errorSent {
 					for _, delta := range deltas {
 						// The first time we see a model, add an extra model delta.
 						// This will be cached even though it does not exist in state.
-						if delta.Entity.EntityId().Kind == "model" && !fakeModelSent {
+						if delta.Entity.EntityID().Kind == "model" && !fakeModelSent {
 							fakeModelSent = true
-							return append(deltas, params.Delta{
-								Entity: &params.ModelUpdate{
+							return append(deltas, multiwatcher.Delta{
+								Entity: &multiwatcher.ModelUpdate{
 									ModelUUID: "fake-ass-model-uuid",
 									Name:      "evict-this-cat",
 								},
@@ -569,7 +569,7 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 						// This will restart the watcher and cause a cache refresh.
 						// We expect after this that the application will reside in
 						// the cache and our fake model will be removed.
-						if delta.Entity.EntityId().Kind == "application" && !errorSent {
+						if delta.Entity.EntityID().Kind == "application" && !errorSent {
 							errorSent = true
 							return nil, errors.New("boom")
 						}
@@ -627,10 +627,10 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	maxErrors := 7
 
 	var errCount int
-	s.config.WatcherFactory = func() modelcache.BackingWatcher {
+	s.config.WatcherFactory = func() multiwatcher.Watcher {
 		return testingMultiwatcher{
-			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
-			manipulate: func(deltas []params.Delta) ([]params.Delta, error) {
+			Watcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
+			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
 				if errCount < maxErrors {
 					errCount++
 					return nil, errors.New("boom")
@@ -671,7 +671,7 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 
 func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
 	mw := s.StatePool.SystemState().WatchAllModels(s.StatePool)
-	s.config.WatcherFactory = func() modelcache.BackingWatcher { return mw }
+	s.config.WatcherFactory = func() multiwatcher.Watcher { return mw }
 
 	config := s.config
 	config.Notify = s.notify
@@ -683,7 +683,7 @@ func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
 
 	// Check that the worker is killed.
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.Satisfies, state.IsErrStopped)
+	c.Assert(err, jc.Satisfies, multiwatcher.IsErrStopped)
 }
 
 func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
@@ -732,18 +732,18 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 }
 
 // testingMultiwatcher is a wrapper for multiwatcher that satisfies the
-// modelcache.BackingWatcher interface.
+// multiwatcher.Watcher interface.
 // It allows us to test watcher failure scenarios and manipulate the deltas.
 type testingMultiwatcher struct {
-	*state.Multiwatcher
+	multiwatcher.Watcher
 
 	// manipulate gives us the opportunity of manipulating the result of a call
 	// to the multi-watcher's "Next" method.
-	manipulate func([]params.Delta) ([]params.Delta, error)
+	manipulate func([]multiwatcher.Delta) ([]multiwatcher.Delta, error)
 }
 
-func (w testingMultiwatcher) Next() ([]params.Delta, error) {
-	delta, err := w.Multiwatcher.Next()
+func (w testingMultiwatcher) Next() ([]multiwatcher.Delta, error) {
+	delta, err := w.Watcher.Next()
 	if err == nil && w.manipulate != nil {
 		return w.manipulate(delta)
 	}

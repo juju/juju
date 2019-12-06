@@ -242,7 +242,7 @@ type RemoveMachine struct {
 }
 
 // BranchChange represents a change to an active model branch.
-// Note that this corresponds to a multi-watcher GenerationInfo payload,
+// Note that this corresponds to a multi-watcher BranchInfo payload,
 // and that the cache behaviour differs from other entities;
 // when a generation is completed (aborted or committed),
 // it is no longer an active branch and will be removed from the cache.
