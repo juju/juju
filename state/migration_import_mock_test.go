@@ -454,21 +454,6 @@ func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) MakeIncApplicati
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIncApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).MakeIncApplicationOffersRefOp), arg0)
 }
 
-// MakePermissionOp mocks base method
-func (m *MockApplicationOfferStateDocumentFactory) MakePermissionOp(arg0, arg1, arg2 string) (txn.Op, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakePermissionOp", arg0, arg1, arg2)
-	ret0, _ := ret[0].(txn.Op)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MakePermissionOp indicates an expected call of MakePermissionOp
-func (mr *MockApplicationOfferStateDocumentFactoryMockRecorder) MakePermissionOp(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakePermissionOp", reflect.TypeOf((*MockApplicationOfferStateDocumentFactory)(nil).MakePermissionOp), arg0, arg1, arg2)
-}
-
 // MockApplicationOfferDescription is a mock of ApplicationOfferDescription interface
 type MockApplicationOfferDescription struct {
 	ctrl     *gomock.Controller
@@ -534,21 +519,6 @@ func (m *MockApplicationOfferDescription) MakeIncApplicationOffersRefOp(arg0 str
 func (mr *MockApplicationOfferDescriptionMockRecorder) MakeIncApplicationOffersRefOp(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakeIncApplicationOffersRefOp", reflect.TypeOf((*MockApplicationOfferDescription)(nil).MakeIncApplicationOffersRefOp), arg0)
-}
-
-// MakePermissionOp mocks base method
-func (m *MockApplicationOfferDescription) MakePermissionOp(arg0, arg1, arg2 string) (txn.Op, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MakePermissionOp", arg0, arg1, arg2)
-	ret0, _ := ret[0].(txn.Op)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// MakePermissionOp indicates an expected call of MakePermissionOp
-func (mr *MockApplicationOfferDescriptionMockRecorder) MakePermissionOp(arg0, arg1, arg2 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MakePermissionOp", reflect.TypeOf((*MockApplicationOfferDescription)(nil).MakePermissionOp), arg0, arg1, arg2)
 }
 
 // Offers mocks base method
