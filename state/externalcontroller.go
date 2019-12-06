@@ -201,6 +201,19 @@ func (ec *externalControllers) ControllerForModel(modelUUID string) (ExternalCon
 	return nil, errors.Errorf("expected 1 controller with model %v, got %d", modelUUID, len(doc))
 }
 
+// AllExternalControllers retrieves all ExternalController for a given model.
+func (ec *externalControllers) AllExternalControllers() ([]externalControllerDoc, error) {
+	coll, closer := ec.st.db().GetCollection(externalControllersC)
+	defer closer()
+
+	var docs []externalControllerDoc
+	err := coll.Find(bson.M{}).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return docs, nil
+}
+
 // Watch returns a strings watcher that watches for addition and removal of
 // external controller documents. The strings returned will be the controller
 // UUIDs.
