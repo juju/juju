@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/ansiterm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
@@ -29,11 +28,11 @@ var (
 	// ErrNoControllersDefined is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller.
-	ErrNoControllersDefined = errors.New(`No controllers registered.
-
-Please either create a new controller using "juju bootstrap" or connect to
-another controller that you have been given access to using "juju register".
-`)
+	ErrNoControllersDefined = &cmd.ErrSilentPrint{Msg: `No controllers registered.
+	
+	Please either create a new controller using "juju bootstrap" or connect to
+	another controller that you have been given access to using "juju register".
+	`, Code: 1}
 	// ErrNoCurrentController is returned by commands that operate on
 	// a controller if there is no current controller, no controller has been
 	// explicitly specified, and there is no default controller but there are
@@ -171,22 +170,9 @@ func (c *ControllerCommandBase) SetControllerName(controllerName string, allowDe
 func (c *ControllerCommandBase) ControllerName() (string, error) {
 	c.assertRunStarted()
 	if err := c.initController(); err != nil {
-		if errors.Cause(err) != ErrNoControllersDefined {
-			return "", errors.Trace(err)
-		} else {
-			return "", handleErrNoController()
-		}
+		return "", errors.Trace(err)
 	}
 	return c._controllerName, nil
-}
-
-// We don't want to show that no controller is defined as an error to the user as this can be confusing.
-// Hence we just print the information and exit with non 0.
-// We check ctx != nil, as refactoring can lead to a nil ctx
-func handleErrNoController() error {
-	w := ansiterm.NewWriter(os.Stderr)
-	fmt.Fprintf(w, "%s\n", ErrNoControllersDefined.Error())
-	return cmd.NewRcPassthroughError(1)
 }
 
 func (c *ControllerCommandBase) BakeryClient() (*httpbakery.Client, error) {
@@ -394,7 +380,7 @@ func translateControllerError(store jujuclient.ClientStore, err error) error {
 		return err2
 	}
 	if len(controllers) == 0 {
-		return handleErrNoController()
+		return ErrNoControllersDefined
 	}
 	return errors.Wrap(err, ErrNoCurrentController)
 }
