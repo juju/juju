@@ -30,7 +30,7 @@ type OfferConnectionSource interface {
 	AllOfferConnectionSource
 }
 
-// OfferConnectionModel defines an in-place usage for adding a offer connection.
+// OfferConnectionModel defines an in-place usage for adding a offer connection
 // to a model.
 type OfferConnectionModel interface {
 	AddOfferConnection(description.OfferConnectionArgs) description.OfferConnection
