@@ -29,12 +29,7 @@ func (s *MigrationImportSuite) TestImportApplicationOffers(c *gc.C) {
 		runner:    NewMockTransactionRunner(ctrl),
 	}
 
-	entity := s.applicationOffer(ctrl, func(expect *MockApplicationOfferMockRecorder) {
-		expect.ACL().Return(map[string]string{
-			"foo": "consume",
-		})
-		expect.OfferUUID().Return(offerUUID.String())
-	})
+	entity := s.applicationOffer(ctrl)
 	offerDoc := applicationOfferDoc{
 		OfferUUID:              offerUUID.String(),
 		OfferName:              "offer-name-foo",
@@ -53,11 +48,7 @@ func (s *MigrationImportSuite) TestImportApplicationOffers(c *gc.C) {
 		Assert: txn.DocMissing,
 	}
 	runner.Add(runner.applicationOffersRefOp(refOp))
-	permOp := txn.Op{
-		Assert: txn.DocMissing,
-	}
-	runner.Add(runner.permissionOp(permOp))
-	runner.Add(runner.transaction(offerDoc, refOp, permOp))
+	runner.Add(runner.transaction(offerDoc, refOp))
 
 	err = runner.Run(ctrl)
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,12 +67,7 @@ func (s *MigrationImportSuite) TestImportApplicationOffersTransactionFailure(c *
 		runner:    NewMockTransactionRunner(ctrl),
 	}
 
-	entity := s.applicationOffer(ctrl, func(expect *MockApplicationOfferMockRecorder) {
-		expect.ACL().Return(map[string]string{
-			"foo": "consume",
-		})
-		expect.OfferUUID().Return(offerUUID.String())
-	})
+	entity := s.applicationOffer(ctrl)
 	offerDoc := applicationOfferDoc{
 		OfferUUID:              offerUUID.String(),
 		OfferName:              "offer-name-foo",
@@ -100,10 +86,6 @@ func (s *MigrationImportSuite) TestImportApplicationOffersTransactionFailure(c *
 		Assert: txn.DocMissing,
 	}
 	runner.Add(runner.applicationOffersRefOp(refOp))
-	permOp := txn.Op{
-		Assert: txn.DocMissing,
-	}
-	runner.Add(runner.permissionOp(permOp))
 	runner.Add(runner.transactionWithError(errors.New("fail")))
 
 	err = runner.Run(ctrl)
@@ -152,20 +134,12 @@ func (s *ImportApplicationOfferRunner) applicationOffersRefOp(op txn.Op) func(ct
 	}
 }
 
-func (s *ImportApplicationOfferRunner) permissionOp(op txn.Op) func(ctrl *gomock.Controller) {
-	return func(ctrl *gomock.Controller) {
-		s.model.EXPECT().MakePermissionOp(s.OfferUUID, "foo", "consume").Return(op, nil)
-	}
-}
-
 func (s *ImportApplicationOfferRunner) docID(ctrl *gomock.Controller) {
 	s.model.EXPECT().DocID("foo").Return("ao#foo")
 }
 
-func (s *MigrationImportSuite) applicationOffer(ctrl *gomock.Controller, fn func(*MockApplicationOfferMockRecorder)) description.ApplicationOffer {
-	entity := NewMockApplicationOffer(ctrl)
-	fn(entity.EXPECT())
-	return entity
+func (s *MigrationImportSuite) applicationOffer(ctrl *gomock.Controller) description.ApplicationOffer {
+	return NewMockApplicationOffer(ctrl)
 }
 
 func (s *ImportApplicationOfferRunner) transaction(offerDoc applicationOfferDoc, ops ...txn.Op) func(ctrl *gomock.Controller) {
