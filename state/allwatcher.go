@@ -313,12 +313,8 @@ func (i *backingInstanceData) updated(ctx *allWatcherContext) error {
 		return nil
 	case *multiwatcher.MachineInfo:
 		newInfo := *info
-		// TODO: do we really need to reget the details???
-		instanceData, err := ctx.getInstanceData(newInfo.Id)
-		if err != nil {
-			return err
-		}
-		newInfo.HardwareCharacteristics = hardwareCharacteristics(instanceData)
+		var instanceData *instanceData = (*instanceData)(i)
+		newInfo.HardwareCharacteristics = hardwareCharacteristics(*instanceData)
 		newInfo.CharmProfiles = instanceData.CharmProfiles
 		info0 = &newInfo
 	default:
@@ -384,15 +380,10 @@ func (u *backingUnit) unitAndAgentStatus(unit *Unit, info *multiwatcher.UnitInfo
 	return nil
 }
 
-func (u *backingUnit) updateAgentVersion(unit *Unit, info *multiwatcher.UnitInfo) error {
-	t, err := unit.AgentTools()
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Annotatef(err, "retrieving agent tools for unit %q", u.Name)
+func (u *backingUnit) updateAgentVersion(info *multiwatcher.UnitInfo) {
+	if u.Tools != nil {
+		info.AgentStatus.Version = u.Tools.Version.Number.String()
 	}
-	if t != nil {
-		info.AgentStatus.Version = t.Version.Number.String()
-	}
-	return nil
 }
 
 func (u *backingUnit) updated(ctx *allWatcherContext) error {
@@ -420,6 +411,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	oldInfo := ctx.store.Get(info.EntityId())
 	if oldInfo == nil {
 		logger.Debugf("new unit %q added to backing state", u.Name)
+
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status and opened ports.
 		err := u.unitAndAgentStatus(unit, info)
@@ -442,11 +434,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		info.PortRanges = oldInfo.PortRanges
 	}
 
-	// try to update agent version
-	err = u.updateAgentVersion(unit, info)
-	if err != nil {
-		return errors.Annotatef(err, "retrieve agent version for unit %q", u.Name)
-	}
+	u.updateAgentVersion(info)
 
 	publicAddress, privateAddress, err := getUnitAddresses(unit)
 	if err != nil {
@@ -464,11 +452,11 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 func getUnitAddresses(u *Unit) (string, string, error) {
 	publicAddress, err := u.PublicAddress()
 	if err != nil {
-		logger.Infof("getting a public address for unit %q failed: %q", u.Name(), err)
+		logger.Tracef("getting a public address for unit %q failed: %q", u.Name(), err)
 	}
 	privateAddress, err := u.PrivateAddress()
 	if err != nil {
-		logger.Infof("getting a private address for unit %q failed: %q", u.Name(), err)
+		logger.Tracef("getting a private address for unit %q failed: %q", u.Name(), err)
 	}
 	return publicAddress.Value, privateAddress.Value, nil
 }
@@ -930,6 +918,7 @@ func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus mul
 		}
 		return errors.Annotatef(err, "cannot retrieve unit %q", newInfo.Name)
 	}
+
 	// A change in a unit's status might also affect its application.
 	application, err := unit.Application()
 	if err != nil {
