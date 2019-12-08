@@ -152,8 +152,7 @@ func (env *sessionEnviron) Bootstrap(
 }
 
 func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
-	_, err := env.client.EnsureVMFolder(env.ctx, path.Join(
-		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
+	_, err := env.client.EnsureVMFolder(env.ctx, env.environ.cloud.Credential.Attributes()[credAttrVMFolder], path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
@@ -236,7 +235,9 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		HandleCredentialError(err, ctx)
 		return errors.Annotate(err, "removing VMs")
 	}
-	if err := env.client.DestroyVMFolder(env.ctx, controllerFolderName); err != nil {
+	if err := env.client.DestroyVMFolder(env.ctx, path.Join(
+		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
+		controllerFolderName)); err != nil {
 		HandleCredentialError(err, ctx)
 		return errors.Annotate(err, "destroying VM folder")
 	}

@@ -88,10 +88,10 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 	}
 }
 
-// FindFolder should be able to search for both entire filepaths
+// findFolder should be able to search for both entire filepaths
 // or relative (.) filepaths. Only ".." not supported as per:
 // https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
-func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+func (c *Client) findFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
 	finder := find.NewFinder(c.client.Client, true)
 	datacenter, err := finder.Datacenter(ctx, c.datacenter)
 	if err != nil {
@@ -280,7 +280,10 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 
 // EnsureVMFolder creates the a VM folder with the given path if it doesn't
 // already exist.
-func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object.Folder, error) {
+// LP: #1849194
+// Two string arguments needed: folderPath will be split on "/"
+// whereas credAttrFolder is added as subfolder structure from DC's root-folder
+func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, folderPath string) (*object.Folder, error) {
 	finder, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -301,7 +304,20 @@ func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object
 		return folder, err
 	}
 
-	parentFolder := folders.VmFolder
+	// LP: #1849194
+	// User do not necessarily own permission to create credAttrFolder
+	// since that demands Add_folder permissions from the root-folder's DC
+	// Join paths for folders.VMFolder and credentials attribute
+	parentFolder, err := c.findFolder(ctx, path.Join(
+		folders.VmFolder.InventoryPath,
+		credAttrFolder,
+	))
+	// Consider the case where folder from credential attribute comes empty:
+	// path.Join ignores empty entries
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Creating "Juju Controller (...)" folder and then model folder, for example
 	for _, name := range strings.Split(folderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {

@@ -27,7 +27,7 @@ type Client interface {
 	Datastores(context.Context) ([]*mo.Datastore, error)
 	DeleteDatastoreFile(context.Context, string) error
 	DestroyVMFolder(context.Context, string) error
-	EnsureVMFolder(context.Context, string) (*object.Folder, error)
+	EnsureVMFolder(context.Context, string, string) (*object.Folder, error)
 	MoveVMFolderInto(context.Context, string, string) error
 	MoveVMsInto(context.Context, string, ...types.ManagedObjectReference) error
 	RemoveVirtualMachines(context.Context, string) error
