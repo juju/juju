@@ -183,7 +183,7 @@ func (c *Client) ensureTemplateVM(
 		return nil, errors.Annotate(err, "creating import spec")
 	}
 
-	vmFolder, err := c.EnsureVMFolder(ctx, vmTemplatePath(args))
+	vmFolder, err := c.EnsureVMFolder(ctx, args.Folder, vmTemplatePath(args))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

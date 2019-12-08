@@ -103,7 +103,16 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 			controllerFolderName(step.controllerUUID),
 			env.modelFolderName(),
 		)
-		if _, err := env.client.EnsureVMFolder(env.ctx, modelFolderPath); err != nil {
+
+		// EnsureVMFolder needs credential attributes to be defined separatedly
+		// from the folders it is supposed to create
+		if _, err := env.client.EnsureVMFolder(
+			env.ctx,
+			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
+			path.Join(
+				controllerFolderName(step.controllerUUID),
+				env.modelFolderName(),
+			)); err != nil {
 			HandleCredentialError(err, ctx)
 			return errors.Annotate(err, "creating model folder")
 		}
