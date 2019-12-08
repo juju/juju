@@ -879,7 +879,10 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 		if strings.HasSuffix(ctx.id, "#instance") {
 			newInfo.InstanceStatus = s.toStatusInfo()
 		} else {
+			// Preserve the agent version that is set on the agent status.
+			agentVersion := newInfo.AgentStatus.Version
 			newInfo.AgentStatus = s.toStatusInfo()
+			newInfo.AgentStatus.Version = agentVersion
 		}
 		info0 = &newInfo
 	default:
@@ -896,6 +899,8 @@ func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus mul
 	if strings.HasSuffix(ctx.id, "#charm") || s.Status == status.Error {
 		newInfo.WorkloadStatus = s.toStatusInfo()
 	} else {
+		// Preserve the agent version that is set on the agent status.
+		agentVersion := newInfo.AgentStatus.Version
 		newInfo.AgentStatus = s.toStatusInfo()
 		// If the unit was in error and now it's not, we need to reset its
 		// status back to what was previously recorded.
@@ -905,6 +910,7 @@ func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus mul
 			newInfo.WorkloadStatus.Data = unitStatus.Data
 			newInfo.WorkloadStatus.Since = unitStatus.Since
 		}
+		newInfo.AgentStatus.Version = agentVersion
 	}
 
 	// Retrieve the unit.
@@ -938,6 +944,8 @@ func (s *backingStatus) updatedUnitStatus(ctx *allWatcherContext, unitStatus mul
 	if applicationInfo == nil {
 		return nil
 	}
+	// TODO: this is very inefficient if there are many units and no application
+	// status set.
 	status, err := application.Status()
 	if err != nil {
 		return errors.Trace(err)
