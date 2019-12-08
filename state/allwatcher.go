@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 
@@ -131,12 +130,7 @@ func (e *backingModel) isNotFoundAndModelDead(err error) bool {
 }
 
 func (e *backingModel) updated(ctx *allWatcherContext) error {
-	m, err := ctx.state.Model()
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	cfg, err := m.ModelConfig()
+	settings, err := ctx.getSettings(modelGlobalKey)
 	if e.isNotFoundAndModelDead(err) {
 		// Treat it as if the model is removed.
 		// TODO: ensure that the model UUID is passed in as the ID
@@ -145,6 +139,11 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	cfg, err := config.New(config.NoDefaults, settings)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	info := &multiwatcher.ModelInfo{
 		ModelUUID:      e.UUID,
 		Name:           e.Name,
@@ -191,51 +190,25 @@ func (e *backingModel) mongoID() string {
 
 type backingMachine machineDoc
 
-func (m *backingMachine) updateAgentVersion(entity Entity, info *multiwatcher.MachineInfo) error {
-	if agentTooler, ok := entity.(AgentTooler); ok {
-		t, err := agentTooler.AgentTools()
-		if err != nil && !errors.IsNotFound(err) {
-			return errors.Annotatef(err, "retrieving agent tools for machine %q", m.Id)
-		}
-		if t != nil {
-			info.AgentStatus.Version = t.Version.Number.String()
-		}
+func (m *backingMachine) updateAgentVersion(info *multiwatcher.MachineInfo) {
+	if m.Tools != nil {
+		info.AgentStatus.Version = m.Tools.Version.Number.String()
 	}
-	return nil
-}
-
-func (m *backingMachine) machineAndAgentStatus(entity Entity, info *multiwatcher.MachineInfo) error {
-	machine, ok := entity.(status.StatusGetter)
-	if !ok {
-		return errors.Errorf("the given entity does not support Status %v", entity)
-	}
-
-	agentStatus, err := machine.Status()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving agent status for machine %q", m.Id)
-	}
-	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatus, nil)
-
-	inst, ok := machine.(status.InstanceStatusGetter)
-	if !ok {
-		return errors.Errorf("the given entity does not support InstanceStatus %v", entity)
-	}
-	instanceStatusResult, err := inst.InstanceStatus()
-	if err != nil {
-		return errors.Annotatef(err, "retrieving instance status for machine %q", m.Id)
-	}
-	info.InstanceStatus = multiwatcher.NewStatusInfo(instanceStatusResult, nil)
-	return nil
 }
 
 func (m *backingMachine) updated(ctx *allWatcherContext) error {
-	// TODO: look at this for optimisation
-	node, err := ctx.state.ControllerNode(m.Id)
-	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
+	wantsVote := false
+	hasVote := false
+	if ctx.state.IsController() {
+		// We can handle an extra query here as long as it is only for controller
+		// machines. Could potentially optimize further if necessary for initial load.
+		node, err := ctx.state.ControllerNode(m.Id)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
+		}
+		wantsVote = err == nil && node.WantsVote()
+		hasVote = err == nil && node.HasVote()
 	}
-	wantsVote := err == nil && node.WantsVote()
-	hasVote := err == nil && node.HasVote()
 	info := &multiwatcher.MachineInfo{
 		ModelUUID:                m.ModelUUID,
 		Id:                       m.Id,
@@ -269,34 +242,33 @@ func (m *backingMachine) updated(ctx *allWatcherContext) error {
 
 		info.Addresses = append(info.Addresses, mAddr)
 	}
-	// Almost all of this could be optimised.
 
-	// fetch the associated machine.
-	entity, err := ctx.state.FindEntity(names.NewMachineTag(m.Id))
-	if err != nil {
-		return errors.Annotatef(err, "retrieving machine %q", m.Id)
-	}
 	oldInfo := ctx.store.Get(info.EntityId())
 	if oldInfo == nil {
-		err := m.machineAndAgentStatus(entity, info)
+		key := machineGlobalKey(m.Id)
+		agentStatus, err := ctx.getStatus(key, "machine")
 		if err != nil {
-			return errors.Annotatef(err, "retrieve machine and agent status for %q", m.Id)
+			return errors.Annotatef(err, "reading machine agent for key %s", key)
 		}
+		info.AgentStatus = agentStatus
+
+		key = machineGlobalInstanceKey(m.Id)
+		instanceStatus, err := ctx.getStatus(key, "machine")
+		if err != nil {
+			return errors.Annotatef(err, "reading machine instance for key %s", key)
+		}
+		info.InstanceStatus = instanceStatus
 	} else {
 		// The entry already exists, so preserve the current status and
-		// instance data.
-		// This is definitely suspect...
+		// instance data. These will be updated as necessary as the status and instance data
+		// updates come through.
 		oldInfo := oldInfo.(*multiwatcher.MachineInfo)
 		info.AgentStatus = oldInfo.AgentStatus
 		info.InstanceStatus = oldInfo.InstanceStatus
 		info.InstanceId = oldInfo.InstanceId
 		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
-	// try to update agent version
-	err = m.updateAgentVersion(entity, info)
-	if err != nil {
-		return errors.Annotatef(err, "retrieve agent version for machine %q", m.Id)
-	}
+	m.updateAgentVersion(info)
 
 	// If the machine is been provisioned, fetch the instance id as required,
 	// and set instance id and hardware characteristics.
@@ -560,11 +532,11 @@ func (app *backingApplication) updated(ctx *allWatcherContext) error {
 		info.Status = appInfo.Status
 	}
 	if needConfig {
-		doc, err := ctx.readSettingsDoc(applicationCharmConfigKey(app.Name, app.CharmURL))
+		config, err := ctx.getSettings(applicationCharmConfigKey(app.Name, app.CharmURL))
 		if err != nil {
 			return errors.Annotatef(err, "application %q", app.Name)
 		}
-		info.Config = doc.Settings
+		info.Config = config
 	}
 	ctx.store.Update(info)
 	return nil
@@ -882,6 +854,9 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 		return nil
 	}
 	info0 := ctx.store.Get(parentID)
+	// NOTE: for both the machine and the unit, where the version
+	// is set in the agent status, we need to copy across the version from
+	// the existing info.
 	switch info := info0.(type) {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
@@ -1492,7 +1467,6 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 		// in the process of being removed.
 		if errors.IsNotFound(err) {
 			// The entity's model is gone so remove the entity from the store.
-			// NOTE: some removed methods actually try to use the state that is nil here!!!
 			_ = doc.removed(ctx)
 			return nil
 		}
@@ -1609,9 +1583,15 @@ func (ctx *allWatcherContext) removeFromStore(kind string) {
 	})
 }
 
-func (ctx *allWatcherContext) readSettingsDoc(key string) (*settingsDoc, error) {
+func (ctx *allWatcherContext) getSettings(key string) (map[string]interface{}, error) {
 	// ADD cache check
-	return readSettingsDoc(ctx.state.db(), settingsC, key)
+	doc, err := readSettingsDoc(ctx.state.db(), settingsC, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// The copyMap does the key translation for dots and dollars.
+	settings := copyMap(doc.Settings, nil)
+	return settings, nil
 }
 
 func (ctx *allWatcherContext) readConstraints(key string) (constraints.Value, error) {
