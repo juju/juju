@@ -652,36 +652,42 @@ func (b *BundleAPI) constraints(cons description.Constraints) []string {
 		return []string{}
 	}
 
-	var constraints []string
+	var result []string
 	if arch := cons.Architecture(); arch != "" {
-		constraints = append(constraints, "arch="+arch)
+		result = append(result, "arch="+arch)
 	}
 	if cores := cons.CpuCores(); cores != 0 {
-		constraints = append(constraints, "cpu-cores="+strconv.Itoa(int(cores)))
+		result = append(result, "cpu-cores="+strconv.Itoa(int(cores)))
 	}
 	if power := cons.CpuPower(); power != 0 {
-		constraints = append(constraints, "cpu-power="+strconv.Itoa(int(power)))
+		result = append(result, "cpu-power="+strconv.Itoa(int(power)))
 	}
 	if mem := cons.Memory(); mem != 0 {
-		constraints = append(constraints, "mem="+strconv.Itoa(int(mem)))
+		result = append(result, "mem="+strconv.Itoa(int(mem)))
 	}
 	if disk := cons.RootDisk(); disk != 0 {
-		constraints = append(constraints, "root-disk="+strconv.Itoa(int(disk)))
+		result = append(result, "root-disk="+strconv.Itoa(int(disk)))
 	}
 	if instType := cons.InstanceType(); instType != "" {
-		constraints = append(constraints, "instance-type="+instType)
+		result = append(result, "instance-type="+instType)
 	}
 	if container := cons.Container(); container != "" {
-		constraints = append(constraints, "container="+container)
+		result = append(result, "container="+container)
 	}
 	if virtType := cons.VirtType(); virtType != "" {
-		constraints = append(constraints, "virt-type="+virtType)
+		result = append(result, "virt-type="+virtType)
 	}
 	if tags := cons.Tags(); len(tags) != 0 {
-		constraints = append(constraints, "tags="+strings.Join(tags, ","))
+		result = append(result, "tags="+strings.Join(tags, ","))
 	}
 	if spaces := cons.Spaces(); len(spaces) != 0 {
-		constraints = append(constraints, "spaces="+strings.Join(spaces, ","))
+		result = append(result, "spaces="+strings.Join(spaces, ","))
 	}
-	return constraints
+	if zones := cons.Zones(); len(zones) != 0 {
+		result = append(result, "zones="+strings.Join(zones, ","))
+	}
+	if rootDiskSource := cons.RootDiskSource(); rootDiskSource != "" {
+		result = append(result, "root-disk-source="+rootDiskSource)
+	}
+	return result
 }
