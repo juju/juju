@@ -1,4 +1,4 @@
-run_export_overlay() {
+run_cmr_bundles_export_overlay() {
     echo
 
     file="${TEST_DIR}/test-cmr-bundles-export-overlay.txt"
@@ -35,10 +35,11 @@ EOT
     echo "${OUT}" | grep "raw: my-include"
 
     destroy_model "cmr-bundles-test-export-overlay"
+    destroy_model "test1"
 }
 
-test_export_overlay() {
-    if [ "$(skip 'test_export_overlay')" ]; then
+test_cmr_bundles_export_overlay() {
+    if [ "$(skip 'test_cmr_bundles_export_overlay')" ]; then
         echo "==> TEST SKIPPED: CMR bundle deploy tests"
         return
     fi
@@ -48,6 +49,6 @@ test_export_overlay() {
 
         cd .. || exit
 
-        run "run_export_overlay"
+        run "run_cmr_bundles_export_overlay"
     )
 }
