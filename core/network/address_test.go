@@ -849,3 +849,28 @@ func (s *AddressSuite) TestSpaceAddressesToProviderAddresses(c *gc.C) {
 	_, err = addrs.ToProviderAddresses(stubLookup{})
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
+
+func (s *AddressSuite) TestIPToCIDRNotation(c *gc.C) {
+	type test struct {
+		IP   string
+		CIDR string
+		exp  string
+	}
+
+	tests := []test{{
+		IP:   "172.31.37.53",
+		CIDR: "172.31.32.0/20",
+		exp:  "172.31.37.53/20",
+	}, {
+		IP:   "192.168.0.1",
+		CIDR: "192.168.0.0/31",
+		exp:  "192.168.0.1/31",
+	}}
+
+	for i, t := range tests {
+		c.Logf("test %d: IPToCIDRNotation(%q, %q)", i, t.IP, t.CIDR)
+		got, err := network.IPToCIDRNotation(t.IP, t.CIDR)
+		c.Check(err, jc.ErrorIsNil)
+		c.Check(got, gc.Equals, t.exp)
+	}
+}
