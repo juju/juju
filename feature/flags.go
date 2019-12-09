@@ -48,7 +48,11 @@ const OldPresence = "old-presence"
 const LegacyLeases = "legacy-leases"
 
 // Generations will allow for model generation functionality to be used.
-const Generations = "generations"
+var generations = []string{"generations", "branches"}
+
+func Generations() []string {
+	return generations
+}
 
 // MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
 // it from APT.

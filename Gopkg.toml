@@ -118,8 +118,9 @@
   name = "github.com/juju/testing"
 
 [[constraint]]
-  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
+  revision = "7cdacdd61e9f9435f1cdd2781757c89e42db4922"
   name = "github.com/juju/utils"
+  source = "github.com/nammn/utils"
 
 [[constraint]]
   revision = "54b8c57083b4afb7dc75da7f13e2967b2606a507"

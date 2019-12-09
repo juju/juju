@@ -126,7 +126,7 @@ func (c *configCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.configFile, "file", "path to yaml-formatted application config")
 	f.Var(cmd.NewAppendStringsValue(&c.reset), "reset", "Reset the provided comma delimited keys")
 
-	if featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(feature.Generations()) {
 		f.StringVar(&c.branchName, "branch", "", "Specifically target config for the supplied branch")
 	}
 }
@@ -190,7 +190,7 @@ func (c *configCommand) validateGeneration() error {
 	// during development. When we remove the flag, there will be tests
 	// (particularly feature tests) that will need to accommodate a value
 	// for branch in the local store.
-	if !featureflag.Enabled(feature.Generations) && c.branchName == "" {
+	if !featureflag.Enabled(feature.Generations()) && c.branchName == "" {
 		c.branchName = model.GenerationMaster
 	}
 
@@ -429,7 +429,7 @@ func (c *configCommand) getConfig(client applicationAPI, ctx *cmd.Context) error
 
 	err = c.out.Write(ctx, resultsMap)
 
-	if featureflag.Enabled(feature.Generations) && err == nil {
+	if featureflag.Enabled(feature.Generations()) && err == nil {
 		var gen string
 		gen, err = c.ActiveBranch()
 		if err == nil {
