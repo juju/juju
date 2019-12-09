@@ -428,11 +428,9 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	if err != nil {
 		return err
 	}
+
 	applicationTag := application.Tag()
 	unitTag := unit.Tag()
-	if err != nil {
-		return err
-	}
 	unitd := &unitData{
 		fw:   fw,
 		unit: unit,
