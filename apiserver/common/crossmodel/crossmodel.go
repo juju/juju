@@ -176,6 +176,28 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	return nil
 }
 
+// GetRelationTokens returns the tokens for the relation and the local
+// application of the passed in tag.
+func GetRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
+	relation, err := backend.KeyRelation(tag.Id())
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	localAppName, err := getLocalApplicationName(backend, relation)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	relationToken, err := backend.GetToken(tag)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	appToken, err := backend.GetToken(names.NewApplicationTag(localAppName))
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return relationToken, appToken, nil
+}
+
 func getLocalApplicationName(backend Backend, relation Relation) (string, error) {
 	for _, ep := range relation.Endpoints() {
 		_, err := backend.Application(ep.ApplicationName)
@@ -221,33 +243,55 @@ func unitNum(unitName string) (int, error) {
 
 // ExpandChange converts a params.RelationUnitsChange into a
 // params.RemoteRelationChangeEvent by filling out the extra
-// information from the passed backend.
+// information from the passed backend. This takes relation and
+// application token so that it can still return sensible results if
+// the relation has been removed (just departing units).
 func ExpandChange(
 	backend Backend,
-	tag names.RelationTag,
+	relationToken string,
+	appToken string,
 	change params.RelationUnitsChange,
 ) (params.RemoteRelationChangeEvent, error) {
 	var empty params.RemoteRelationChangeEvent
-	relation, err := backend.KeyRelation(tag.Id())
+
+	var departed []int
+	for _, unitName := range change.Departed {
+		num, err := unitNum(unitName)
+		if err != nil {
+			return empty, errors.Trace(err)
+		}
+		departed = append(departed, num)
+	}
+
+	relationTag, err := backend.GetRemoteEntity(relationToken)
+	if errors.IsNotFound(err) {
+		// This can happen when the last unit leaves scope on a dying
+		// relation and the relation is removed. In that case there
+		// aren't any application- or unit-level settings to send; we
+		// just send the departed units so they can leave scope on
+		// the other side of a cross-model relation.
+		return params.RemoteRelationChangeEvent{
+			RelationToken:    relationToken,
+			ApplicationToken: appToken,
+			DepartedUnits:    departed,
+		}, nil
+
+	} else if err != nil {
+		return empty, errors.Trace(err)
+	}
+
+	relation, err := backend.KeyRelation(relationTag.Id())
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	relationToken, err := backend.GetToken(tag)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	localAppName, err := getLocalApplicationName(backend, relation)
-	if err != nil {
-		return empty, errors.Trace(err)
-	}
-	appToken, err := backend.GetToken(names.NewApplicationTag(localAppName))
+	localAppTag, err := backend.GetRemoteEntity(appToken)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
 
 	var settings map[string]interface{}
 	if len(change.AppChanged) > 0 {
-		settings, err = relation.ApplicationSettings(localAppName)
+		settings, err = relation.ApplicationSettings(localAppTag.Id())
 		if err != nil {
 			return empty, errors.Trace(err)
 		}
@@ -257,11 +301,11 @@ func ExpandChange(
 	for unitName := range change.Changed {
 		relUnit, err := relation.Unit(unitName)
 		if err != nil {
-			return empty, errors.Annotatef(err, "getting unit %q in %q", unitName, tag.Id())
+			return empty, errors.Annotatef(err, "getting unit %q in %q", unitName, relationTag.Id())
 		}
 		unitSettings, err := relUnit.Settings()
 		if err != nil {
-			return empty, errors.Annotatef(err, "getting settings for %q in %q", unitName, tag.Id())
+			return empty, errors.Annotatef(err, "getting settings for %q in %q", unitName, relationTag.Id())
 		}
 		num, err := unitNum(unitName)
 		if err != nil {
@@ -271,15 +315,6 @@ func ExpandChange(
 			UnitId:   num,
 			Settings: unitSettings,
 		})
-	}
-
-	var departed []int
-	for _, unitName := range change.Departed {
-		num, err := unitNum(unitName)
-		if err != nil {
-			return empty, errors.Trace(err)
-		}
-		departed = append(departed, num)
 	}
 
 	result := params.RemoteRelationChangeEvent{
@@ -294,11 +329,12 @@ func ExpandChange(
 }
 
 // WrappedUnitsWatcher is a relation units watcher that remembers
-// which relation it came from so changes can be expanded for sending
-// outside this model.
+// details about the relation it came from so changes can be expanded
+// for sending outside this model.
 type WrappedUnitsWatcher struct {
 	common.RelationUnitsWatcher
-	RelationTag names.RelationTag
+	RelationToken    string
+	ApplicationToken string
 }
 
 // RelationUnitSettings returns the unit settings for the specified relation unit.

@@ -274,7 +274,8 @@ func (w *srvRemoteRelationWatcher) Next() (params.RemoteRelationWatchResult, err
 		// Expand the change into a cross-model event.
 		expanded, err := crossmodel.ExpandChange(
 			crossmodel.GetBackend(w.st),
-			w.watcher.RelationTag,
+			w.watcher.RelationToken,
+			w.watcher.ApplicationToken,
 			change,
 		)
 		if err != nil {

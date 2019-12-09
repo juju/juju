@@ -378,6 +378,10 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if !ok {
 			return nil, empty, common.ErrPerm
 		}
+		relationToken, appToken, err := commoncrossmodel.GetRelationTokens(api.st, relationTag)
+		if err != nil {
+			return nil, empty, errors.Trace(err)
+		}
 		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
 		if err != nil {
 			return nil, empty, errors.Trace(err)
@@ -386,14 +390,15 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if !ok {
 			return nil, empty, watcher.EnsureErr(w)
 		}
-		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationTag, change)
+		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, appToken, change)
 		if err != nil {
 			w.Kill()
 			return nil, empty, errors.Trace(err)
 		}
 		wrapped := &commoncrossmodel.WrappedUnitsWatcher{
 			RelationUnitsWatcher: w,
-			RelationTag:          relationTag,
+			RelationToken:        relationToken,
+			ApplicationToken:     appToken,
 		}
 		return wrapped, fullChange, nil
 	}
