@@ -200,7 +200,10 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 		if err != nil {
 			return params.FindTagsResults{}, errors.Trace(err)
 		}
-		found := m.FindActionTagsById(prefix)
+		found, err := m.FindActionTagsById(prefix)
+		if err != nil {
+			return params.FindTagsResults{}, errors.Trace(err)
+		}
 		matches := make([]params.Entity, len(found))
 		for i, tag := range found {
 			matches[i] = params.Entity{Tag: tag.String()}

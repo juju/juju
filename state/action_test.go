@@ -6,12 +6,15 @@ package state_test
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -321,6 +324,16 @@ func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
 	}
 }
 
+func (s *ActionSuite) toSupportOldActionID(c *gc.C) {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(version.MustParse("2.6.0"), true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
 	s.toSupportNewActionID(c)
 
@@ -573,10 +586,51 @@ func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
 		c.Check(err, gc.Equals, nil)
 	}
 
-	tags := s.model.FindActionTagsById("1")
+	tags, err := s.model.FindActionTagsById("1")
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(tags), gc.Equals, 1)
 	c.Assert(tags[0].Id(), gc.Equals, "1")
+}
+
+func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
+	// Create an action with an old id (uuid).
+	s.toSupportOldActionID(c)
+	var actionToUse state.Action
+	var uuid string
+	for {
+		a, err := s.model.EnqueueAction(s.unit.Tag(), "action-1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		if unicode.IsDigit(rune(a.Id()[0])) {
+			actionToUse = a
+			uuid = a.Id()
+			break
+		}
+	}
+
+	// Ensure there's a new action with a numeric id which
+	// matches the starting digit of the uuid above.
+	s.toSupportNewActionID(c)
+	idNum, _ := strconv.Atoi(actionToUse.Id()[0:1])
+	for i := 1; i <= idNum; i++ {
+		_, err := s.model.EnqueueAction(s.unit.Tag(), "action-1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Searching for that numeric id only matches the id.
+	idStr := fmt.Sprintf("%d", idNum)
+	tags, err := s.model.FindActionTagsById(idStr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(tags), gc.Equals, 1)
+	c.Assert(tags[0].Id(), gc.Equals, idStr)
+
+	// Searching for legacy prefix still works.
+	tags, err = s.model.FindActionTagsById(uuid[0:9])
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(tags), gc.Equals, 1)
+	c.Assert(tags[0].Id(), gc.Equals, uuid)
 }
 
 func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
