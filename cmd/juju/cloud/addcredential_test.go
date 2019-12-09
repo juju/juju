@@ -851,7 +851,7 @@ credentials:
 	sourceFile := s.createTestCredentialFile(c, expectedContents)
 
 	called := false
-	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	s.api.addCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
 		c.Assert(cloudCredentials, gc.HasLen, 1)
 		called = true
 		expectedTag := names.NewCloudCredentialTag(fmt.Sprintf("%v/admin@local/blah", cloudName)).String()
