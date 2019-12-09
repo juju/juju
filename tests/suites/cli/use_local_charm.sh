@@ -67,12 +67,10 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
   echo 123 >version
   VERSION_OUTPUT=\""$(cat version)"\"
 
-  DEPLOY_OUTPUT=$(juju deploy --debug . 2>&1)
+  juju deploy --debug .
 
   wait_for "ntp" ".applications | keys[0]"
   CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
-
-  check_contains "${DEPLOY_OUTPUT}" "charm is not in version control and uses a version file"
 
   if [ "${VERSION_OUTPUT}" != "${CURRENT_CHARM_SHA}" ]; then
     echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${VERSION_OUTPUT}"
