@@ -1525,6 +1525,10 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 		store:     all,
 		modelUUID: st.ModelUUID(),
 	}
+	// TODO: make it multimuodel aware
+	if err := ctx.loadSubsidiaryCollections(); err != nil {
+		return errors.Annotate(err, "loading subsidiary collections")
+	}
 
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range collectionByName {
@@ -1570,6 +1574,34 @@ type allWatcherContext struct {
 	store     *multiwatcherStore
 	modelUUID string
 	id        string
+
+	settings map[string]*settingsDoc
+}
+
+func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
+	if err := ctx.loadSettings(); err != nil {
+		return errors.Annotatef(err, "cache settings")
+	}
+	return nil
+}
+
+func (ctx *allWatcherContext) loadSettings() error {
+	col, closer := ctx.state.db().GetCollection(settingsC)
+	defer closer()
+
+	var docs []settingsDoc
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Errorf("cannot read all settings")
+	}
+
+	ctx.settings = make(map[string]*settingsDoc)
+	for _, doc := range docs {
+		logger.Criticalf("adding settings %q", doc.DocID)
+		docCopy := doc
+		ctx.settings[doc.DocID] = &docCopy
+	}
+
+	return nil
 }
 
 func (ctx *allWatcherContext) removeFromStore(kind string) {
@@ -1581,10 +1613,24 @@ func (ctx *allWatcherContext) removeFromStore(kind string) {
 }
 
 func (ctx *allWatcherContext) getSettings(key string) (map[string]interface{}, error) {
-	// ADD cache check
-	doc, err := readSettingsDoc(ctx.state.db(), settingsC, key)
-	if err != nil {
-		return nil, errors.Trace(err)
+	logger.Criticalf("getSettings(%q)", key)
+	var doc *settingsDoc
+	var err error
+	if ctx.settings != nil {
+		gKey := ensureModelUUID(ctx.modelUUID, key)
+		cDoc, found := ctx.settings[gKey]
+		if !found {
+			logger.Criticalf("didn't find settings %q", gKey)
+			return nil, errors.NotFoundf("settings doc %q", gKey)
+		}
+		logger.Criticalf("found settings %q", gKey)
+		doc = cDoc
+	} else {
+
+		doc, err = readSettingsDoc(ctx.state.db(), settingsC, key)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 	// The copyMap does the key translation for dots and dollars.
 	settings := copyMap(doc.Settings, nil)
