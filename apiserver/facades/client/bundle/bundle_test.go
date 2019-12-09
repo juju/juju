@@ -1046,10 +1046,7 @@ relations:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) addSubordinateEndpoints(
-	c *gc.C,
-	rel description.Relation, app string,
-) (description.Endpoint, description.Endpoint) {
+func (s *bundleSuite) addSubordinateEndpoints(rel description.Relation, app string) (description.Endpoint, description.Endpoint) {
 	appEndpoint := rel.AddEndpoint(description.EndpointArgs{
 		ApplicationName: app,
 		Name:            "logging",
@@ -1074,7 +1071,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 		Id:  43,
 		Key: "some key",
 	})
-	wordpressEndpoint, loggingEndpoint := s.addSubordinateEndpoints(c, rel, "wordpress")
+	wordpressEndpoint, loggingEndpoint := s.addSubordinateEndpoints(rel, "wordpress")
 	s.setEndpointSettings(wordpressEndpoint, "wordpress/0", "wordpress/1")
 	s.setEndpointSettings(loggingEndpoint, "logging/0", "logging/1")
 
@@ -1082,7 +1079,7 @@ func (s *bundleSuite) TestExportBundleModelRelationsWithSubordinates(c *gc.C) {
 		Id:  44,
 		Key: "other key",
 	})
-	mysqlEndpoint, loggingEndpoint := s.addSubordinateEndpoints(c, rel, "mysql")
+	mysqlEndpoint, loggingEndpoint := s.addSubordinateEndpoints(rel, "mysql")
 	s.setEndpointSettings(mysqlEndpoint, "mysql/0")
 	s.setEndpointSettings(loggingEndpoint, "logging/2")
 
@@ -1178,7 +1175,7 @@ applications:
 	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
 }
 
-func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(c *gc.C, all, oneOff string) {
+func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(all, oneOff string) {
 	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
 		Config: map[string]interface{}{
 			"name": "awesome",
@@ -1213,7 +1210,7 @@ func (s *bundleSuite) setupExportBundleEndpointBindingsPrinted(c *gc.C, all, one
 }
 
 func (s *bundleSuite) TestExportBundleNoEndpointBindingsPrinted(c *gc.C) {
-	s.setupExportBundleEndpointBindingsPrinted(c, "0", "0")
+	s.setupExportBundleEndpointBindingsPrinted("0", "0")
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1233,7 +1230,7 @@ applications:
 }
 
 func (s *bundleSuite) TestExportBundleEndpointBindingsPrinted(c *gc.C) {
-	s.setupExportBundleEndpointBindingsPrinted(c, "0", "1")
+	s.setupExportBundleEndpointBindingsPrinted("0", "1")
 	result, err := s.facade.ExportBundle()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1307,16 +1304,18 @@ func (s *bundleSuite) addMinimalMachineWithConstraints(model description.Model, 
 		Jobs:         []string{"host-units"},
 	})
 	args := description.ConstraintsArgs{
-		Architecture: "amd64",
-		Memory:       8 * 1024,
-		RootDisk:     40 * 1024,
-		CpuCores:     2,
-		CpuPower:     100,
-		InstanceType: "big-inst",
-		Tags:         []string{"foo", "bar"},
-		VirtType:     "pv",
-		Container:    "kvm",
-		Spaces:       []string{"internal"},
+		Architecture:   "amd64",
+		Memory:         8 * 1024,
+		RootDisk:       40 * 1024,
+		CpuCores:       2,
+		CpuPower:       100,
+		InstanceType:   "big-inst",
+		Tags:           []string{"foo", "bar"},
+		VirtType:       "pv",
+		Container:      "kvm",
+		Spaces:         []string{"internal"},
+		Zones:          []string{"zone-a"},
+		RootDiskSource: "source-of-all-evil",
 	}
 	m.SetConstraints(args)
 	m.SetStatus(minimalStatusArgs())
@@ -1349,10 +1348,10 @@ applications:
 machines:
   "0":
     constraints: arch=amd64 cpu-cores=2 cpu-power=100 mem=8192 root-disk=40960 instance-type=big-inst
-      container=kvm virt-type=pv tags=foo,bar spaces=internal
+      container=kvm virt-type=pv tags=foo,bar spaces=internal zones=zone-a root-disk-source=source-of-all-evil
   "1":
     constraints: arch=amd64 cpu-cores=2 cpu-power=100 mem=8192 root-disk=40960 instance-type=big-inst
-      container=kvm virt-type=pv tags=foo,bar spaces=internal
+      container=kvm virt-type=pv tags=foo,bar spaces=internal zones=zone-a root-disk-source=source-of-all-evil
 relations:
 - - mediawiki:db
   - mysql:mysql
