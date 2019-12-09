@@ -146,8 +146,11 @@ func (api *RemoteRelationsAPI) SaveMacaroons(args params.EntityMacaroonArgs) (pa
 	return results, nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
-func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
+// RelationUnitSettings returns the relation unit settings for the
+// given relation units in the local model. (Removed in v2 of the API
+// - the settings are included in the events from
+// WatchLocalRelationChanges.)
+func (api *RemoteRelationsAPIv1) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
 	results := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
 	}

@@ -423,8 +423,10 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 // WatchRelationChanges doesn't exist before the v2 API.
 func (api *CrossModelRelationsAPIv1) WatchRelationChanges(_, _ struct{}) {}
 
-// RelationUnitSettings returns the relation unit settings for the given relation units.
-func (api *CrossModelRelationsAPI) RelationUnitSettings(relationUnits params.RemoteRelationUnits) (params.SettingsResults, error) {
+// RelationUnitSettings returns the relation unit settings for the
+// given relation units. (Removed in v2 of the API, the events
+// returned by WatchRelationChanges include the full settings.)
+func (api *CrossModelRelationsAPIv1) RelationUnitSettings(relationUnits params.RemoteRelationUnits) (params.SettingsResults, error) {
 	results := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
 	}

@@ -13722,17 +13722,6 @@
                         }
                     }
                 },
-                "RelationUnitSettings": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RemoteRelationUnits"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/SettingsResults"
-                        }
-                    }
-                },
                 "WatchEgressAddressesForRelations": {
                     "type": "object",
                     "properties": {
@@ -14262,28 +14251,6 @@
                         "relation-token"
                     ]
                 },
-                "RemoteRelationUnit": {
-                    "type": "object",
-                    "properties": {
-                        "macaroons": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Macaroon"
-                            }
-                        },
-                        "relation-token": {
-                            "type": "string"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation-token",
-                        "unit"
-                    ]
-                },
                 "RemoteRelationUnitChange": {
                     "type": "object",
                     "properties": {
@@ -14303,21 +14270,6 @@
                     "additionalProperties": false,
                     "required": [
                         "unit-id"
-                    ]
-                },
-                "RemoteRelationUnits": {
-                    "type": "object",
-                    "properties": {
-                        "relation-units": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RemoteRelationUnit"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation-units"
                     ]
                 },
                 "RemoteRelationWatchResult": {
@@ -14401,41 +14353,6 @@
                         "provider-id",
                         "provider-attributes",
                         "subnets"
-                    ]
-                },
-                "SettingsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "settings"
-                    ]
-                },
-                "SettingsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SettingsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "StringsWatchResult": {
@@ -28454,17 +28371,6 @@
                         }
                     }
                 },
-                "RelationUnitSettings": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RelationUnits"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/SettingsResults"
-                        }
-                    }
-                },
                 "Relations": {
                     "type": "object",
                     "properties": {
@@ -28771,37 +28677,6 @@
                 "Macaroon": {
                     "type": "object",
                     "additionalProperties": false
-                },
-                "RelationUnit": {
-                    "type": "object",
-                    "properties": {
-                        "relation": {
-                            "type": "string"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation",
-                        "unit"
-                    ]
-                },
-                "RelationUnits": {
-                    "type": "object",
-                    "properties": {
-                        "relation-units": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RelationUnit"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation-units"
-                    ]
                 },
                 "RemoteApplication": {
                     "type": "object",
@@ -29121,41 +28996,6 @@
                     "additionalProperties": false,
                     "required": [
                         "entities"
-                    ]
-                },
-                "SettingsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "settings"
-                    ]
-                },
-                "SettingsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SettingsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "StringResult": {
