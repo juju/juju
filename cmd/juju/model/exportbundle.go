@@ -23,11 +23,11 @@ import (
 
 // NewExportBundleCommand returns a fully constructed export bundle command.
 func NewExportBundleCommand() cmd.Command {
-	cmd := &exportBundleCommand{}
-	cmd.newAPIFunc = func() (ExportBundleAPI, ConfigAPI, error) {
-		return cmd.getAPIs()
+	command := &exportBundleCommand{}
+	command.newAPIFunc = func() (ExportBundleAPI, ConfigAPI, error) {
+		return command.getAPIs()
 	}
-	return modelcmd.Wrap(cmd)
+	return modelcmd.Wrap(command)
 }
 
 type exportBundleCommand struct {
@@ -122,7 +122,7 @@ func (c *exportBundleCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	filename := c.Filename
-	file, err := os.Create(filename)
+	file, err := os.OpenFile(filename, os.O_CREATE, 0600)
 	if err != nil {
 		return errors.Annotate(err, "while creating local file")
 	}
