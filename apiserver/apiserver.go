@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
+	"github.com/juju/ratelimit"
 	"github.com/juju/utils"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v3"
@@ -37,11 +38,13 @@ import (
 	"github.com/juju/juju/apiserver/observer"
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/apiserver/websocket"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/apiserver"
+	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/rpc"
@@ -67,7 +70,6 @@ type Server struct {
 	dataDir                string
 	logDir                 string
 	limiter                utils.Limiter
-	loginRetryPause        time.Duration
 	facades                *facade.Registry
 	authenticator          httpcontext.LocalMacaroonAuthenticator
 	offerAuthCtxt          *crossmodel.AuthContext
@@ -92,6 +94,14 @@ type Server struct {
 	// certificate is explicitly set, hence it's here guarded by the
 	// mutex.
 	publicDNSName_ string
+
+	// agentRateLimitMax and agentRateLimitRate are values used to create
+	// the token bucket that ratelimits the agent connections. These values
+	// come from controller config, and can be updated on the fly to adjust
+	// the rate limiting.
+	agentRateLimitMax  int
+	agentRateLimitRate time.Duration
+	agentRateLimit     *ratelimit.Bucket
 
 	// registerIntrospectionHandlers is a function that will
 	// call a function with (path, http.Handler) tuples. This
@@ -154,10 +164,6 @@ type ServerConfig struct {
 	// "/introspection" prefix.
 	RegisterIntrospectionHandlers func(func(string, http.Handler))
 
-	// RateLimitConfig holds parameters to control
-	// aspects of rate limiting connections and logins.
-	RateLimitConfig RateLimitConfig
-
 	// LogSinkConfig holds parameters to control the API server's
 	// logsink endpoint behaviour. If this is nil, the values from
 	// DefaultLogSinkConfig() will be used.
@@ -212,9 +218,6 @@ func (c ServerConfig) Validate() error {
 	if c.GetAuditConfig == nil {
 		return errors.NotValidf("missing GetAuditConfig")
 	}
-	if err := c.RateLimitConfig.Validate(); err != nil {
-		return errors.Annotate(err, "validating rate limit configuration")
-	}
 	if c.LogSinkConfig != nil {
 		if err := c.LogSinkConfig.Validate(); err != nil {
 			return errors.Annotate(err, "validating logsink configuration")
@@ -253,17 +256,19 @@ func NewServer(cfg ServerConfig) (*Server, error) {
 const readyTimeout = time.Second * 30
 
 func newServer(cfg ServerConfig) (_ *Server, err error) {
-	limiter := utils.NewLimiterWithPause(
-		cfg.RateLimitConfig.LoginRateLimit, cfg.RateLimitConfig.LoginMinPause,
-		cfg.RateLimitConfig.LoginMaxPause, clock.WallClock)
+	controllerConfig, err := cfg.StatePool.SystemState().ControllerConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "unable to get controller config")
+	}
 
-	shared, err := newSharedServerContex(sharedServerConfig{
-		statePool:    cfg.StatePool,
-		controller:   cfg.Controller,
-		centralHub:   cfg.Hub,
-		presence:     cfg.Presence,
-		leaseManager: cfg.LeaseManager,
-		logger:       loggo.GetLogger("juju.apiserver"),
+	shared, err := newSharedServerContext(sharedServerConfig{
+		statePool:        cfg.StatePool,
+		controller:       cfg.Controller,
+		centralHub:       cfg.Hub,
+		presence:         cfg.Presence,
+		leaseManager:     cfg.LeaseManager,
+		controllerConfig: controllerConfig,
+		logger:           loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -276,8 +281,6 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		tag:                           cfg.Tag,
 		dataDir:                       cfg.DataDir,
 		logDir:                        cfg.LogDir,
-		limiter:                       limiter,
-		loginRetryPause:               cfg.RateLimitConfig.LoginRetryPause,
 		upgradeComplete:               cfg.UpgradeComplete,
 		restoreStatus:                 cfg.RestoreStatus,
 		facades:                       AllFacades(),
@@ -299,6 +302,25 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		},
 		metricsCollector: cfg.MetricsCollector,
 	}
+	srv.updateAgentRateLimiter(controllerConfig)
+
+	// We are able to get the current controller config before subscribing to changes
+	// because the changes are only ever published in response to an API call,
+	// and we know that we can't make any API calls until the server has started.
+	unsubscribeControllerConfig, err := cfg.Hub.Subscribe(
+		controllermsg.ConfigChanged,
+		func(topic string, data controllermsg.ConfigChangedMessage, err error) {
+			if err != nil {
+				logger.Criticalf("programming error in %s message data: %v", topic, err)
+				return
+			}
+			srv.updateAgentRateLimiter(data.Config)
+		})
+	if err != nil {
+		logger.Criticalf("programming error in subscribe function: %v", err)
+		return nil, errors.Trace(err)
+	}
+
 	srv.shared.cancel = srv.tomb.Dying()
 
 	// The auth context for authenticating access to application offers.
@@ -334,6 +356,7 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 		defer srv.logSinkWriter.Close()
 		defer srv.shared.Close()
 		defer unsubscribe()
+		defer unsubscribeControllerConfig()
 		return srv.loop(ready)
 	})
 
@@ -345,6 +368,21 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	return srv, nil
+}
+
+// Report is shown in the juju_engine_report.
+func (srv *Server) Report() map[string]interface{} {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	result := map[string]interface{}{
+		"agent-ratelimit-max":  srv.agentRateLimitMax,
+		"agent-ratelimit-rate": srv.agentRateLimitRate,
+	}
+
+	if srv.publicDNSName_ != "" {
+		result["public-dns-name"] = srv.publicDNSName_
+	}
+	return result
 }
 
 // Dead returns a channel that signals when the server has exited.
@@ -367,6 +405,42 @@ func (srv *Server) Kill() {
 // Wait implements worker.Worker.Wait.
 func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
+}
+
+func (srv *Server) updateAgentRateLimiter(cfg controller.Config) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.agentRateLimitMax = cfg.AgentRateLimitMax()
+	srv.agentRateLimitRate = cfg.AgentRateLimitRate()
+	if srv.agentRateLimitMax > 0 {
+		srv.agentRateLimit = ratelimit.NewBucketWithClock(
+			srv.agentRateLimitRate, int64(srv.agentRateLimitMax), rateClock{srv.clock})
+	} else {
+		srv.agentRateLimit = nil
+	}
+}
+
+type rateClock struct {
+	clock.Clock
+}
+
+func (rateClock) Sleep(time.Duration) {
+	// no-op, we don't sleep.
+}
+
+func (srv *Server) getAgentToken() error {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	// agentRateLimit is nil if rate limiting is disabled.
+	if srv.agentRateLimit == nil {
+		return nil
+	}
+
+	// Try to take one token, but don't wait any time for it.
+	if _, ok := srv.agentRateLimit.TakeMaxDuration(1, 0); !ok {
+		return common.ErrTryAgain
+	}
+	return nil
 }
 
 // loggoWrapper is an io.Writer() that forwards the messages to a loggo.Logger.

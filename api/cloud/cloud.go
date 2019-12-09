@@ -96,10 +96,20 @@ func (c *Client) UserCredentials(user names.UserTag, cloud names.CloudTag) ([]na
 
 // UpdateCloudsCredentials updates clouds credentials content on the controller.
 // Passed in credentials are keyed on the credential tag.
-func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
-	var tagged []params.TaggedCredential
+// This operation can be forced to ignore validation checks.
+func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
+	return c.internalUpdateCloudsCredentials(params.UpdateCredentialArgs{Force: force}, cloudCredentials)
+}
+
+// AddCloudsCredentials adds/uploads clouds credentials content to the controller.
+// Passed in credentials are keyed on the credential tag.
+func (c *Client) AddCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	return c.internalUpdateCloudsCredentials(params.UpdateCredentialArgs{}, cloudCredentials)
+}
+
+func (c *Client) internalUpdateCloudsCredentials(in params.UpdateCredentialArgs, cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
 	for tag, credential := range cloudCredentials {
-		tagged = append(tagged, params.TaggedCredential{
+		in.Credentials = append(in.Credentials, params.TaggedCredential{
 			Tag: tag,
 			Credential: params.CloudCredential{
 				AuthType:   string(credential.AuthType()),
@@ -107,7 +117,6 @@ func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.C
 			},
 		})
 	}
-	in := params.UpdateCredentialArgs{Credentials: tagged}
 	count := len(cloudCredentials)
 
 	countErr := func(got int) error {
@@ -127,7 +136,7 @@ func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.C
 		}
 		converted := make([]params.UpdateCredentialResult, count)
 		for i, one := range out.Results {
-			converted[i] = params.UpdateCredentialResult{CredentialTag: tagged[i].Tag, Error: one.Error}
+			converted[i] = params.UpdateCredentialResult{CredentialTag: in.Credentials[i].Tag, Error: one.Error}
 		}
 		return converted, nil
 	}
@@ -146,7 +155,7 @@ func (c *Client) UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.C
 // stored on the controller. This call validates that the new content works
 // for all models that are using this credential.
 func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, credential jujucloud.Credential) ([]params.UpdateCredentialModelResult, error) {
-	out, err := c.UpdateCloudsCredentials(map[string]jujucloud.Credential{tag.String(): credential})
+	out, err := c.UpdateCloudsCredentials(map[string]jujucloud.Credential{tag.String(): credential}, false)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -158,7 +167,7 @@ func (c *Client) UpdateCredentialsCheckModels(tag names.CloudCredentialTag, cred
 }
 
 // RevokeCredential revokes/deletes a cloud credential.
-func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
+func (c *Client) RevokeCredential(tag names.CloudCredentialTag, force bool) error {
 	var results params.ErrorResults
 
 	if c.facade.BestAPIVersion() < 3 {
@@ -175,7 +184,7 @@ func (c *Client) RevokeCredential(tag names.CloudCredentialTag) error {
 
 	args := params.RevokeCredentialArgs{
 		Credentials: []params.RevokeCredentialArg{
-			{Tag: tag.String()},
+			{Tag: tag.String(), Force: force},
 		},
 	}
 	if err := c.facade.FacadeCall("RevokeCredentialsCheckModels", args, &results); err != nil {
