@@ -1002,7 +1002,7 @@ func (s *InstancePollerSuite) TestSetProviderNetworkConfigBackfillsProviderIDs(c
 		ProviderID:        "addr-404",    // backfilled
 		ProviderNetworkID: "net-cafe",    // backfilled
 		ProviderSubnetID:  "subnet-f00f", //backfilled
-		CIDRAddress:       "172.31.32.0/24",
+		CIDRAddress:       "172.31.32.33/24",
 		DNSServers:        []string{"1.1.1.1"},
 		DNSSearchDomains:  []string{"cloud"},
 		GatewayAddress:    "172.31.32.1",

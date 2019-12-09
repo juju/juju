@@ -760,3 +760,15 @@ func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []Space
 	}
 	return merged
 }
+
+// IPToCIDRNotation receives as input an IP and a CIDR value and returns back
+// the IP in CIDR notation.
+func IPToCIDRNotation(ip, cidr string) (string, error) {
+	_, netIP, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	netIP.IP = net.ParseIP(ip)
+	return netIP.String(), nil
+}

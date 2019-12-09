@@ -237,13 +237,18 @@ func backfillProviderIDs(m StateMachine, ifaces []network.InterfaceInfo) error {
 				ParentName:  existingDev.ParentName(),
 			})
 
+			addrInCIDRNotation, err := network.IPToCIDRNotation(addr.Value(), addr.SubnetCIDR())
+			if err != nil {
+				return err
+			}
+
 			addrUpdates = append(addrUpdates, state.LinkLayerDeviceAddress{
 				DeviceName:        existingDev.Name(),
 				ConfigMethod:      addr.ConfigMethod(),
 				ProviderID:        iface.ProviderAddressId,
 				ProviderNetworkID: iface.ProviderNetworkId,
 				ProviderSubnetID:  iface.ProviderSubnetId,
-				CIDRAddress:       addr.SubnetCIDR(),
+				CIDRAddress:       addrInCIDRNotation,
 				DNSServers:        addr.DNSServers(),
 				DNSSearchDomains:  addr.DNSSearchDomains(),
 				GatewayAddress:    addr.GatewayAddress(),
