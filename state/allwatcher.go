@@ -1575,12 +1575,16 @@ type allWatcherContext struct {
 	modelUUID string
 	id        string
 
-	settings map[string]*settingsDoc
+	settings    map[string]*settingsDoc
+	constraints map[string]constraints.Value
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	if err := ctx.loadSettings(); err != nil {
 		return errors.Annotatef(err, "cache settings")
+	}
+	if err := ctx.loadConstraints(); err != nil {
+		return errors.Annotatef(err, "cache constraints")
 	}
 	return nil
 }
@@ -1596,9 +1600,30 @@ func (ctx *allWatcherContext) loadSettings() error {
 
 	ctx.settings = make(map[string]*settingsDoc)
 	for _, doc := range docs {
-		logger.Criticalf("adding settings %q", doc.DocID)
 		docCopy := doc
 		ctx.settings[doc.DocID] = &docCopy
+	}
+
+	return nil
+}
+
+type constraintsWithID struct {
+	DocID  string         `bson:"_id"`
+	Nested constraintsDoc `bson:",inline"`
+}
+
+func (ctx *allWatcherContext) loadConstraints() error {
+	col, closer := ctx.state.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsWithID
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Errorf("cannot read all constraints")
+	}
+
+	ctx.constraints = make(map[string]constraints.Value)
+	for _, doc := range docs {
+		ctx.constraints[doc.DocID] = doc.Nested.value()
 	}
 
 	return nil
@@ -1613,20 +1638,16 @@ func (ctx *allWatcherContext) removeFromStore(kind string) {
 }
 
 func (ctx *allWatcherContext) getSettings(key string) (map[string]interface{}, error) {
-	logger.Criticalf("getSettings(%q)", key)
 	var doc *settingsDoc
 	var err error
 	if ctx.settings != nil {
 		gKey := ensureModelUUID(ctx.modelUUID, key)
 		cDoc, found := ctx.settings[gKey]
 		if !found {
-			logger.Criticalf("didn't find settings %q", gKey)
 			return nil, errors.NotFoundf("settings doc %q", gKey)
 		}
-		logger.Criticalf("found settings %q", gKey)
 		doc = cDoc
 	} else {
-
 		doc, err = readSettingsDoc(ctx.state.db(), settingsC, key)
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -1638,8 +1659,16 @@ func (ctx *allWatcherContext) getSettings(key string) (map[string]interface{}, e
 }
 
 func (ctx *allWatcherContext) readConstraints(key string) (constraints.Value, error) {
-	// ADD cache check
-	return readConstraints(ctx.state, key)
+	if ctx.constraints != nil {
+		gKey := ensureModelUUID(ctx.modelUUID, key)
+		value, found := ctx.constraints[gKey]
+		if !found {
+			return constraints.Value{}, errors.NotFoundf("constraints %q", gKey)
+		}
+		return value, nil
+	}
+	value, err := readConstraints(ctx.state, key)
+	return value, err
 }
 
 func (ctx *allWatcherContext) getStatus(key, badge string) (multiwatcher.StatusInfo, error) {
