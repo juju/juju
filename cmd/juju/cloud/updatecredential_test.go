@@ -336,7 +336,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteCredentialWithFilePath(c *gc.C) 
 	// Double check credential from local cache does not contain contents. We expect it to be file path.
 	c.Assert(s.store.Credentials["google"].AuthCredentials["gce"].Attributes()["file"], gc.Not(gc.Equals), string(contents))
 
-	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
 		c.Assert(cloudCredentials, gc.HasLen, 1)
 		for k, v := range cloudCredentials {
 			c.Assert(k, gc.DeepEquals, names.NewCloudCredentialTag("google/admin@local/gce").String())
@@ -391,7 +391,7 @@ credentials:
 }
 
 func (s *updateCredentialSuite) TestUpdateRemote(c *gc.C) {
-	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
 		c.Assert(cloudCredentials, gc.HasLen, 1)
 		expectedTag := names.NewCloudCredentialTag("aws/admin@local/my-credential").String()
 		for k, v := range cloudCredentials {
@@ -461,7 +461,7 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultNotUserCloudError(c *gc.C)
 }
 
 func (s *updateCredentialSuite) TestUpdateRemoteResultError(c *gc.C) {
-	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
 		return nil, errors.New("kaboom")
 	}
 	s.storeWithCredentials(c)
@@ -471,8 +471,18 @@ func (s *updateCredentialSuite) TestUpdateRemoteResultError(c *gc.C) {
 	c.Assert(c.GetTestLog(), jc.Contains, `Could not update credentials remotely, on controller "controller"`)
 }
 
+func (s *updateCredentialSuite) TestUpdateRemoteForce(c *gc.C) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
+		c.Assert(f, jc.IsTrue)
+		return nil, nil
+	}
+	s.storeWithCredentials(c)
+	_, err := cmdtesting.RunCommand(c, s.testCommand, "aws", "my-credential", "-c", "controller", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *updateCredentialSuite) TestUpdateRemoteWithModels(c *gc.C) {
-	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	s.api.updateCloudsCredentials = func(cloudCredentials map[string]jujucloud.Credential, f bool) ([]params.UpdateCredentialResult, error) {
 		return []params.UpdateCredentialResult{
 			{
 				CredentialTag: names.NewCloudCredentialTag("aws/admin/my-credential").String(),
@@ -519,7 +529,8 @@ Use ‘juju set-credential’ to change credential for these models before repea
 
 type fakeUpdateCredentialAPI struct {
 	v                       int
-	updateCloudsCredentials func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
+	updateCloudsCredentials func(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
+	addCloudsCredentials    func(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
 	clouds                  func() (map[names.CloudTag]jujucloud.Cloud, error)
 }
 
@@ -531,8 +542,12 @@ func (f *fakeUpdateCredentialAPI) BestAPIVersion() int {
 	return f.v
 }
 
-func (f *fakeUpdateCredentialAPI) UpdateCloudsCredentials(c map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
-	return f.updateCloudsCredentials(c)
+func (f *fakeUpdateCredentialAPI) UpdateCloudsCredentials(c map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error) {
+	return f.updateCloudsCredentials(c, force)
+}
+
+func (f *fakeUpdateCredentialAPI) AddCloudsCredentials(c map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error) {
+	return f.addCloudsCredentials(c)
 }
 
 func (f *fakeUpdateCredentialAPI) Clouds() (map[names.CloudTag]jujucloud.Cloud, error) {

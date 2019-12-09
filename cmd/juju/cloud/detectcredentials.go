@@ -491,7 +491,7 @@ func (c *detectCredentialsCommand) addRemoteCredentials(ctxt *cmd.Context, cloud
 			if len(verified) == 0 {
 				return erred
 			}
-			result, err := client.UpdateCloudsCredentials(verified)
+			result, err := client.AddCloudsCredentials(verified)
 			if err != nil {
 				logger.Errorf("%v", err)
 				ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)
