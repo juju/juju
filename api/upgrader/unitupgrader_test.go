@@ -56,6 +56,8 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	// Create the upgrader facade.
 	s.st = s.stateAPI.Upgrader()
 	c.Assert(s.st, gc.NotNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 }
 
 func (s *unitUpgraderSuite) addMachineApplicationCharmAndUnit(c *gc.C, appName string) (*state.Machine, *state.Application, *state.Charm, *state.Unit) {

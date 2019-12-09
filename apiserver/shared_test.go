@@ -56,14 +56,18 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	err = modelcache.ExtractCacheController(modelCache, &controller)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
-		statePool:    s.StatePool,
-		controller:   controller,
-		centralHub:   s.hub,
-		presence:     presence.New(clock.WallClock),
-		leaseManager: &lease.Manager{},
-		logger:       loggo.GetLogger("test"),
+		statePool:        s.StatePool,
+		controller:       controller,
+		centralHub:       s.hub,
+		presence:         presence.New(clock.WallClock),
+		leaseManager:     &lease.Manager{},
+		controllerConfig: controllerConfig,
+		logger:           loggo.GetLogger("test"),
 	}
 }
 
@@ -95,16 +99,23 @@ func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
 }
 
+func (s *sharedServerContextSuite) TestConfigNoControllerconfig(c *gc.C) {
+	s.config.controllerConfig = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil controllerConfig not valid")
+}
+
 func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
 	s.config.statePool = nil
-	ctx, err := newSharedServerContex(s.config)
+	ctx, err := newSharedServerContext(s.config)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
 	c.Check(ctx, gc.IsNil)
 }
 
 func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
-	ctx, err := newSharedServerContex(s.config)
+	ctx, err := newSharedServerContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	// Normally you wouldn't directly access features.
 	c.Assert(ctx.features, gc.HasLen, 0)
@@ -112,7 +123,7 @@ func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
 }
 
 func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
-	ctx, err := newSharedServerContex(s.config)
+	ctx, err := newSharedServerContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { ctx.Close() })
 	return ctx
@@ -184,10 +195,13 @@ func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
 		"features": []string{feature.OldPresence},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	// Removing the feature.OldPresence to the feature list will cause
 	// a message to be published on the hub to request an apiserver restart.
 	stub := &stubHub{StructuredHub: s.hub}
 	s.config.centralHub = stub
+	s.config.controllerConfig = controllerConfig
 	s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{

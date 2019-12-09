@@ -53,12 +53,13 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool    *state.StatePool
-	controller   *cache.Controller
-	centralHub   SharedHub
-	presence     presence.Recorder
-	leaseManager lease.Manager
-	logger       loggo.Logger
+	statePool        *state.StatePool
+	controller       *cache.Controller
+	centralHub       SharedHub
+	presence         presence.Recorder
+	leaseManager     lease.Manager
+	controllerConfig jujucontroller.Config
+	logger           loggo.Logger
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -77,16 +78,15 @@ func (c *sharedServerConfig) validate() error {
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
 	}
+	if c.controllerConfig == nil {
+		return errors.NotValidf("nil controllerConfig")
+	}
 	return nil
 }
 
-func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, error) {
+func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
-	}
-	controllerConfig, err := config.statePool.SystemState().ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
 	}
 	ctx := &sharedServerContext{
 		statePool:        config.statePool,
@@ -95,18 +95,19 @@ func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, err
 		presence:         config.presence,
 		leaseManager:     config.leaseManager,
 		logger:           config.logger,
-		controllerConfig: controllerConfig,
+		controllerConfig: config.controllerConfig,
 	}
-	ctx.features = controllerConfig.Features()
+	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes
 	// because the changes are only ever published in response to an API call, and
 	// this function is called in the newServer call to create the API server,
 	// and we know that we can't make any API calls until the server has started.
-	ctx.unsubscribe, err = ctx.centralHub.Subscribe(controller.ConfigChanged, ctx.onConfigChanged)
+	unsubscribe, err := ctx.centralHub.Subscribe(controller.ConfigChanged, ctx.onConfigChanged)
 	if err != nil {
 		ctx.logger.Criticalf("programming error in subscribe function: %v", err)
 		return nil, errors.Trace(err)
 	}
+	ctx.unsubscribe = unsubscribe
 	return ctx, nil
 }
 

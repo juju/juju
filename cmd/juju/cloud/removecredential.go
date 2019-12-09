@@ -31,6 +31,9 @@ type removeCredentialCommand struct {
 	remoteCloudFound  bool
 	localCloudFound   bool
 	credentialAPIFunc func() (RemoveCredentialAPI, error)
+
+	// Force determines whether the remove will be forced on the controller side.
+	Force bool
 }
 
 // RemoveCredentialAPI defines api Cloud facade that can remove a remote credential.
@@ -38,7 +41,7 @@ type RemoveCredentialAPI interface {
 	// Clouds returns all remote clouds that the currently logged-in user can access.
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
 	// RevokeCredential removes remote credential.
-	RevokeCredential(tag names.CloudCredentialTag) error
+	RevokeCredential(tag names.CloudCredentialTag, force bool) error
 	// BestAPIVersion returns current best api version.
 	BestAPIVersion() int
 	// Close closes api client.
@@ -55,19 +58,31 @@ material, can be listed with `[1:] + "`juju credentials`" + `.
 
 Use --controller option to remove credentials from a controller. 
 
+When removing cloud credential from a controller, Juju performs additional
+checks to ensure that there are no models using this credential.
+Occasionally, these check may not be desired by the user and can be by-passed using --force. 
+If force remove was performed and some models were still using the credential, these models 
+will be left with un-reachable machines.
+Consequently, it is not recommended as a default remove action.
+Models with un-reachable machines are most commonly fixed by using another cloud credential, 
+see ' + "'juju set-credential'" + ' for more information.
+
+
 Use --client option to remove credentials from the current client.
 
 Examples:
     juju remove-credential rackspace credential_name
     juju remove-credential rackspace credential_name --client
     juju remove-credential rackspace credential_name -c mycontroller
+    juju remove-credential rackspace credential_name -c mycontroller --force
 
 See also: 
-    credentials
     add-credential
-    update-credential
+    autoload-credentials
+    credentials
     default-credential
-    autoload-credentials`
+    set-credential
+    update-credential`
 
 // NewRemoveCredentialCommand returns a command to remove a named credential for a cloud.
 func NewRemoveCredentialCommand() cmd.Command {
@@ -113,6 +128,7 @@ func (c *removeCredentialCommand) Init(args []string) (err error) {
 
 func (c *removeCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.OptionalControllerCommand.SetFlags(f)
+	f.BoolVar(&c.Force, "force", false, "Force remove controller side credential, ignore validation errors")
 }
 
 func (c *removeCredentialCommand) Run(ctxt *cmd.Context) error {
@@ -204,7 +220,7 @@ func (c *removeCredentialCommand) removeFromController(ctxt *cmd.Context, client
 		ctxt.Warningf("Could not remove controller credential %v for user %v on cloud %v: %v", c.credential, accountDetails.User, c.cloud, errors.NotValidf("cloud credential ID %q", id))
 		return cmd.ErrSilent
 	}
-	if err := client.RevokeCredential(names.NewCloudCredentialTag(id)); err != nil {
+	if err := client.RevokeCredential(names.NewCloudCredentialTag(id), c.Force); err != nil {
 		return errors.Annotate(err, "could not remove remote credential")
 	}
 	ctxt.Infof("Credential %q for cloud %q removed from the controller %q.", c.credential, c.cloud, c.ControllerName)
