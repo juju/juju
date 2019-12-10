@@ -51,14 +51,14 @@ func (m ExportOfferConnections) Execute(src OfferConnectionSource, dst OfferConn
 	}
 
 	for _, offerConnection := range offerConnections {
-		if err := m.addOfferConnection(src, dst, offerConnection); err != nil {
+		if err := m.addOfferConnection(dst, offerConnection); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (m ExportOfferConnections) addOfferConnection(src OfferConnectionSource, dst OfferConnectionModel, offer MigrationOfferConnection) error {
+func (m ExportOfferConnections) addOfferConnection(dst OfferConnectionModel, offer MigrationOfferConnection) error {
 	_ = dst.AddOfferConnection(description.OfferConnectionArgs{
 		OfferUUID:       offer.OfferUUID(),
 		RelationID:      offer.RelationId(),

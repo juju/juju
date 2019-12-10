@@ -687,6 +687,43 @@ func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
 	c.Assert(offer.UserName(), gc.Equals, stOffer.UserName())
 }
 
+func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
+	ec := state.NewExternalControllers(s.State)
+	stCtrl, err := ec.Save(crossmodel.ControllerInfo{
+		Addrs:         []string{"10.224.0.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+		ControllerTag: names.NewControllerTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	// We only care for the offer connections
+	model, err := s.State.ExportPartial(state.ExportConfig{
+		SkipActions:              true,
+		SkipAnnotations:          true,
+		SkipCloudImageMetadata:   true,
+		SkipCredentials:          true,
+		SkipIPAddresses:          true,
+		SkipSettings:             true,
+		SkipSSHHostKeys:          true,
+		SkipStatusHistory:        true,
+		SkipLinkLayerDevices:     true,
+		SkipUnitAgentBinaries:    true,
+		SkipMachineAgentBinaries: true,
+		SkipRelationData:         true,
+		SkipInstanceData:         true,
+		SkipApplicationOffers:    true,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrls := model.ExternalControllers()
+	c.Assert(ctrls, gc.HasLen, 1)
+	ctrl := ctrls[0]
+	c.Assert(ctrl.Addrs(), gc.DeepEquals, stCtrl.ControllerInfo().Addrs)
+	c.Assert(ctrl.Alias(), gc.Equals, stCtrl.ControllerInfo().Alias)
+	c.Assert(ctrl.CACert(), gc.Equals, stCtrl.ControllerInfo().CACert)
+}
+
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
 	s.assertMigrateUnits(c, s.State)
 }
