@@ -68,6 +68,7 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 
 func (m ExportExternalControllers) addExternalController(dst ExternalControllerModel, ctrl MigrationExternalController) error {
 	_ = dst.AddExternalController(description.ExternalControllerArgs{
+		// ID: ctrl.ID(),
 		Addrs:  ctrl.Addrs(),
 		Alias:  ctrl.Alias(),
 		CACert: ctrl.CACert(),
