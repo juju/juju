@@ -48,7 +48,10 @@ const OldPresence = "old-presence"
 const LegacyLeases = "legacy-leases"
 
 // Generations will allow for model generation functionality to be used.
-const Generations = "generations"
+const Generations = "branches"
+
+// AltGenerations is the old flag name used for generations feature
+const AltGenerations = "generations"
 
 // MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
 // it from APT.
