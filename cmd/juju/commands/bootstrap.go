@@ -502,7 +502,7 @@ func (c *bootstrapCommand) initializeHostedModel(
 		ModelType: hostedModelType,
 	}
 
-	if featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.OldBranchesName) {
 		modelDetails.ActiveBranch = model.GenerationMaster
 	}
 

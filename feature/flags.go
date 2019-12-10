@@ -47,8 +47,12 @@ const OldPresence = "old-presence"
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"
 
-// Generations will allow for model generation functionality to be used.
-const Generations = "generations"
+// Branches will allow for model branches functionality to be used.
+// Historically branches feature was called generations.
+const Branches = "branches"
+
+// OldBranchesName is the old flag name used for generations feature
+const OldBranchesName = "generations"
 
 // MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
 // it from APT.
