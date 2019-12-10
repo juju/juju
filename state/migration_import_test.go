@@ -22,6 +22,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
@@ -765,6 +766,79 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(appStatus.Status, gc.Equals, status.Active)
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
+}
+
+func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
+	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
+	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	testCharm := s.AddTestingCharm(c, "mysql")
+	application := s.AddTestingApplicationWithBindings(c, "mysql",
+		testCharm,
+		map[string]string{
+			"server": serverSpace.Id(),
+		},
+	)
+	applicationEP, err := application.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, applicationEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stOffers := state.NewApplicationOffers(s.State)
+	stOffer, err := stOffers.AddOffer(
+		crossmodel.AddApplicationOfferArgs{
+			OfferName:       "my-offer",
+			Owner:           "admin",
+			ApplicationName: application.Name(),
+			Endpoints: map[string]string{
+				"server": serverSpace.Name(),
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Allow "foo" to consume offer
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("my-offer"),
+		fooUser.UserTag(),
+		permission.ConsumeAccess,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateOffers := state.NewApplicationOffers(s.State)
+	exportedOffers, err := stateOffers.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exportedOffers, gc.HasLen, 1)
+	exported := exportedOffers[0]
+
+	_, newSt := s.importModel(c, s.State)
+
+	// The following is required because we don't add charms during an import,
+	// these are added at a later date. When constructing an application offer,
+	// the charm is required for the charm.Relation, so we need to inject it
+	// into the new state.
+	state.AddTestingCharm(c, newSt, "mysql")
+
+	newStateOffers := state.NewApplicationOffers(newSt)
+	importedOffers, err := newStateOffers.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedOffers, gc.HasLen, 1)
+	imported := importedOffers[0]
+	c.Assert(exported, gc.DeepEquals, imported)
+
+	users, err := newSt.GetOfferUsers(stOffer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 2)
+	c.Assert(users, gc.DeepEquals, map[string]permission.Access{
+		"admin": "admin",
+		"foo":   "consume",
+	})
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {

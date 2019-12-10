@@ -7,6 +7,7 @@ package bundle
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -533,8 +534,14 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		if offerList := application.Offers(); offerList != nil {
 			newApplication.Offers = make(map[string]*charm.OfferSpec)
 			for _, offer := range offerList {
+				endpoints := offer.Endpoints()
+				exposedEndpointNames := make([]string, 0, len(endpoints))
+				for _, ep := range endpoints {
+					exposedEndpointNames = append(exposedEndpointNames, ep)
+				}
+				sort.Strings(exposedEndpointNames)
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
-					Endpoints: offer.Endpoints(),
+					Endpoints: exposedEndpointNames,
 					ACL:       b.filterOfferACL(offer.ACL()),
 				}
 			}
