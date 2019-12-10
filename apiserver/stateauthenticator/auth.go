@@ -186,7 +186,7 @@ func (a *Authenticator) checkCreds(
 		// TODO log or return error returned by
 		// UpdateLastLogin? Old code didn't do
 		// anything with it.
-		entity.UpdateLastLogin()
+		_ = entity.UpdateLastLogin()
 	}
 	return authInfo, nil
 }
@@ -197,9 +197,11 @@ func (a *Authenticator) checkCreds(
 func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	authHeader := req.Header.Get("Authorization")
 	macaroons := httpbakery.RequestMacaroons(req)
+
 	if authHeader == "" {
 		return params.LoginRequest{Macaroons: macaroons}, nil
 	}
+
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
@@ -221,10 +223,11 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	if _, err := names.ParseTag(tagPass[0]); err != nil {
 		return params.LoginRequest{}, errors.Trace(err)
 	}
+
 	return params.LoginRequest{
 		AuthTag:     tagPass[0],
 		Credentials: tagPass[1],
-		Macaroons:   httpbakery.RequestMacaroons(req),
+		Macaroons:   macaroons,
 		Nonce:       req.Header.Get(params.MachineNonceHeader),
 	}, nil
 }
