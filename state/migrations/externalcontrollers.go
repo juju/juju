@@ -3,7 +3,10 @@
 
 package migrations
 
-import "github.com/juju/description"
+import (
+	"github.com/juju/description"
+	"github.com/juju/errors"
+)
 
 // MigrationExternalController represents a state.ExternalController
 // Point of use interface to enable better encapsulation.
@@ -50,5 +53,25 @@ type ExportExternalControllers struct{}
 // This doesn't conform to an interface because go doesn't have generics, but
 // when this does arrive this would be an excellent place to use them.
 func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst ExternalControllerModel) error {
+	externalControllers, err := src.AllExternalControllers()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, externalController := range externalControllers {
+		if err := m.addExternalController(dst, externalController); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func (m ExportExternalControllers) addExternalController(dst ExternalControllerModel, ctrl MigrationExternalController) error {
+	_ = dst.AddExternalController(description.ExternalControllerArgs{
+		Addrs:  ctrl.Addrs(),
+		Alias:  ctrl.Alias(),
+		CACert: ctrl.CACert(),
+		// Models: ctrl.Models(),
+	})
 	return nil
 }
