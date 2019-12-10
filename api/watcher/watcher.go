@@ -4,12 +4,11 @@
 package watcher
 
 import (
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
@@ -465,7 +464,7 @@ func (w *remoteRelationCompatWatcher) expandChange(change params.RelationUnitsCh
 			return empty, errors.Annotatef(err, "getting relation unit settings for %q", unitNames)
 		}
 		for i, result := range results {
-			num, err := unitNum(unitNames[i])
+			num, err := names.UnitNumber(unitNames[i])
 			if err != nil {
 				return empty, errors.Trace(err)
 			}
@@ -482,7 +481,7 @@ func (w *remoteRelationCompatWatcher) expandChange(change params.RelationUnitsCh
 
 	var departedUnits []int
 	for _, unit := range change.Departed {
-		num, err := unitNum(unit)
+		num, err := names.UnitNumber(unit)
 		if err != nil {
 			return empty, errors.Trace(err)
 		}
@@ -499,15 +498,6 @@ func (w *remoteRelationCompatWatcher) expandChange(change params.RelationUnitsCh
 	// app settings.
 	return expanded, nil
 
-}
-
-// TODO(babbageclunk): remove this once names.UnitNumber lands.
-func unitNum(unitName string) (int, error) {
-	parts := strings.Split(unitName, "/")
-	if len(parts) < 2 {
-		return -1, errors.NotValidf("unit name %v", unitName)
-	}
-	return strconv.Atoi(parts[1])
 }
 
 // Changes returns a channel that will emit changes to the remote
