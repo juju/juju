@@ -6,8 +6,6 @@ package crossmodel
 import (
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -233,14 +231,6 @@ func WatchRelationUnits(backend Backend, tag names.RelationTag) (common.Relation
 	return wrapped, nil
 }
 
-func unitNum(unitName string) (int, error) {
-	parts := strings.Split(unitName, "/")
-	if len(parts) < 2 {
-		return -1, errors.NotValidf("unit name %v", unitName)
-	}
-	return strconv.Atoi(parts[1])
-}
-
 // ExpandChange converts a params.RelationUnitsChange into a
 // params.RemoteRelationChangeEvent by filling out the extra
 // information from the passed backend. This takes relation and
@@ -256,7 +246,7 @@ func ExpandChange(
 
 	var departed []int
 	for _, unitName := range change.Departed {
-		num, err := unitNum(unitName)
+		num, err := names.UnitNumber(unitName)
 		if err != nil {
 			return empty, errors.Trace(err)
 		}
@@ -307,7 +297,7 @@ func ExpandChange(
 		if err != nil {
 			return empty, errors.Annotatef(err, "getting settings for %q in %q", unitName, relationTag.Id())
 		}
-		num, err := unitNum(unitName)
+		num, err := names.UnitNumber(unitName)
 		if err != nil {
 			return empty, errors.Trace(err)
 		}
