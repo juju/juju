@@ -78,41 +78,40 @@ func (s *controllerStateShim) ControllerInfo(modelUUID string) (addrs []string, 
 	}
 
 	ec := state.NewExternalControllers(s.State)
-	info, err := ec.ControllerForModel(modelUUID)
-
-	// the model on this controller may have been migrated, if that is the case we try to get the information.
-	// If that is true we try to save the migration controller as an external controller.
-	// This does not take cmr across controller into consideration controller a (consumer) --> b (offer).
-	// If a cross controller model has been migrated b (offer moving) --> c (new offer).
-	// There will be no migration information on this collection on controller a (consumer)
-	// about the migrated offer from b to c
-	if errors.IsNotFound(err) {
-		migration, err := s.State.CompletedMigration(modelUUID)
-		if err != nil {
-			return nil, "", errors.Trace(err)
-		}
-		target, err := migration.TargetInfo()
-		if err != nil {
-			return nil, "", errors.Trace(err)
-
-		}
-		logger.Debugf("found migrated model on another controller, saving the information")
-		_, err = ec.Save(crossmodel.ControllerInfo{
-			ControllerTag: target.ControllerTag,
-			Alias:         target.ControllerAlias,
-			Addrs:         target.Addrs,
-			CACert:        target.CACert,
-		}, modelUUID)
-		if err != nil {
-			return nil, "", errors.Trace(err)
-		}
-		return target.Addrs, target.CACert, nil
+	ctrl, err := ec.ControllerForModel(modelUUID)
+	if err == nil {
+		return ctrl.ControllerInfo().Addrs, ctrl.ControllerInfo().CACert, nil
+	}
+	if !errors.IsNotFound(err) {
+		return nil, "", errors.Trace(err)
 	}
 
+	// The model may have been migrated from this controller to another.
+	// If so, save the target as an external controller.
+	// This will preserve cross-model relation consumers for models that were
+	// on the same controller as migrated model, but not for consumers on other
+	// controllers.
+	// They will have to follow redirects and update their own relation data.
+	mig, err := s.State.CompletedMigrationForModel(modelUUID)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
-	return info.ControllerInfo().Addrs, info.ControllerInfo().CACert, nil
+	target, err := mig.TargetInfo()
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+
+	logger.Debugf("found migrated model on another controller, saving the information")
+	_, err = ec.Save(crossmodel.ControllerInfo{
+		ControllerTag: target.ControllerTag,
+		Alias:         target.ControllerAlias,
+		Addrs:         target.Addrs,
+		CACert:        target.CACert,
+	}, modelUUID)
+	if err != nil {
+		return nil, "", errors.Trace(err)
+	}
+	return target.Addrs, target.CACert, nil
 }
 
 // StateControllerInfo returns the local controller details for the given State.

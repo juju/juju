@@ -234,6 +234,19 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		}
 	}
 
+	// If the login attempt is for a migrated model,
+	// a.root.model will be nil as the model document does not exist on this
+	// controller and a.root.modelUUID cannot be resolved.
+	// In this case use the requested model UUID to check if we need to return
+	// a redirect error.
+	modelUUID := a.root.modelUUID
+	if a.root.model != nil {
+		modelUUID = a.root.model.UUID()
+	}
+	if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	switch result.tag.(type) {
 	case nil:
 		// Macaroon logins are always for users.
@@ -246,41 +259,21 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		result.userLogin = false
 	}
 
+	// Anonymous logins come from other controllers (in cross-model relations).
+	// We don't need to start pingers because we don't maintain presence
+	// information for them.
+	startPinger := !result.anonymousLogin
+
 	// Only attempt to login with credentials if we are not doing an anonymous login.
-	var (
-		lastConnection *time.Time
-		// Anonymous logins are for other controllers (for cross-model
-		// relations) - we don't need to start pingers because we
-		// don't maintain presence information for them.
-		startPinger = !result.anonymousLogin
-	)
-
 	if !result.anonymousLogin {
-		// If the user attempted to login to a migrated model,
-		// a.root.model will be nil as the model document does not
-		// exist on this controller and a.root.modelUUID cannot be
-		// resolved. In this case use the requested model UUID to check
-		// if we need to redirect the user.
-		modelUUID := a.root.modelUUID
-		if a.root.model != nil {
-			modelUUID = a.root.model.UUID()
-		}
-
-		if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
-			return nil, err
-		}
-
-		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(
-			a.root.serverHost,
-			modelUUID,
-			req,
-		)
+		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(a.root.serverHost, modelUUID, req)
 		if err != nil {
 			return nil, a.handleAuthError(err)
 		}
+
 		result.controllerMachineLogin = authInfo.Controller
-		// controllerConn is used to indicate a connection from the controller
-		// to a non-controller model.
+		// controllerConn is used to indicate a connection from
+		// the controller to a non-controller model.
 		controllerConn := false
 		if authInfo.Controller && !a.root.state.IsController() {
 			// We only need to run a pinger for controller machine
@@ -288,16 +281,13 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			startPinger = false
 			controllerConn = true
 		}
-		a.root.entity = authInfo.Entity
+
 		// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-		a.apiObserver.Login(
-			authInfo.Entity.Tag(),
-			a.root.model.ModelTag(),
-			controllerConn,
-			req.UserData,
-		)
-	} else if a.root.model == nil { // anonymous login to unknown model
-		// Hide the fact that the model does not exist
+		a.root.entity = authInfo.Entity
+		a.apiObserver.Login(authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
+	} else if a.root.model == nil {
+		// Anonymous login to unknown model.
+		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
 	a.loggedIn = true
@@ -315,6 +305,8 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			return nil, errors.Trace(err)
 		}
 	}
+
+	var lastConnection *time.Time
 	if err := a.fillLoginDetails(result, lastConnection); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -338,15 +330,18 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 		return nil
 	}
 
-	// Check if the model was not found because it was migrated to another
-	// controller. If that is the case and the user was able to access it
-	// before the migration return back a RedirectError.
-	mig, err := st.CompletedMigrationForModel()
+	// Check if the model was not found due to
+	// being migrated to another controller.
+	mig, err := st.CompletedMigration()
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	if mig == nil || mig.ModelUserAccess(userTag) == permission.NoAccess {
+	// If a user is trying to access a migrated model to which they are not
+	// granted access, do not return a redirect error.
+	// We need to return redirects if possible for anonymous logins in order
+	// to ensure post-migration operation of CMRs.
+	if mig == nil || userTag.Id() != api.AnonymousUsername && mig.ModelUserAccess(userTag) == permission.NoAccess {
 		return nil
 	}
 
@@ -359,6 +354,7 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	return &common.RedirectError{
 		Servers:         []network.ProviderHostPorts{hps},
 		CACert:          target.CACert,
