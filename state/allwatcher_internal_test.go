@@ -898,18 +898,12 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
-		C:  "settings",
-		Id: s.state.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+		C:  "applications",
+		Id: s.state.docID("dummy-application"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
-	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.ApplicationInfo{
-			ModelUUID: s.state.ModelUUID(),
-			Name:      "dummy-application",
-			CharmURL:  "local:quantal/quantal-dummy-1",
-		},
-	})
+	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{})
 }
 
 // TestStateWatcher tests the integration of the state watcher

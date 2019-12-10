@@ -82,6 +82,7 @@ func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStat
 			collection.docType = reflect.TypeOf(backingRelation{})
 		case annotationsC:
 			collection.docType = reflect.TypeOf(backingAnnotation{})
+			// TODO: this should be a subsidiary too.
 		case blocksC:
 			collection.docType = reflect.TypeOf(backingBlock{})
 		case statusesC:
@@ -1052,22 +1053,7 @@ func (s *backingSettings) updated(ctx *allWatcherContext) error {
 }
 
 func (s *backingSettings) removed(ctx *allWatcherContext) error {
-	parentID, url, ok := ctx.entityIDForSettingsKey(ctx.id)
-	if !ok {
-		// Application is already gone along with its settings.
-		return nil
-	}
-	// NOTE: not sure if this is actually necessary...
-	parent := ctx.store.Get(parentID)
-	if info, ok := parent.(*multiwatcher.ApplicationInfo); ok {
-		if info.CharmURL != url {
-			return nil
-		}
-		newInfo := *info
-		newInfo.Config = s.Settings
-		parent = &newInfo
-		ctx.store.Update(parent)
-	}
+	// Settings docs are only removed when the principle doc is removed. Nothing to do here.
 	return nil
 }
 
@@ -1525,12 +1511,11 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 		store:     all,
 		modelUUID: st.ModelUUID(),
 	}
-	// TODO: make it multimuodel aware
+	// TODO(thumper): make it multimodel aware
 	if err := ctx.loadSubsidiaryCollections(); err != nil {
 		return errors.Annotate(err, "loading subsidiary collections")
 	}
 
-	// TODO(rog) fetch collections concurrently?
 	for _, c := range collectionByName {
 		if c.subsidiary {
 			continue
@@ -1577,6 +1562,8 @@ type allWatcherContext struct {
 
 	settings    map[string]*settingsDoc
 	constraints map[string]constraints.Value
+	statuses    map[string]status.StatusInfo
+	instances   map[string]instanceData
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
@@ -1585,6 +1572,12 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	}
 	if err := ctx.loadConstraints(); err != nil {
 		return errors.Annotatef(err, "cache constraints")
+	}
+	if err := ctx.loadStatuses(); err != nil {
+		return errors.Annotatef(err, "cache statuses")
+	}
+	if err := ctx.loadInstanceData(); err != nil {
+		return errors.Annotatef(err, "cache instance data")
 	}
 	return nil
 }
@@ -1602,6 +1595,41 @@ func (ctx *allWatcherContext) loadSettings() error {
 	for _, doc := range docs {
 		docCopy := doc
 		ctx.settings[doc.DocID] = &docCopy
+	}
+
+	return nil
+}
+
+func (ctx *allWatcherContext) loadStatuses() error {
+	col, closer := ctx.state.db().GetCollection(statusesC)
+	defer closer()
+
+	var docs []statusDocWithID
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Errorf("cannot read all statuses")
+	}
+
+	ctx.statuses = make(map[string]status.StatusInfo)
+	for _, doc := range docs {
+		ctx.statuses[doc.ID] = doc.asStatusInfo()
+	}
+
+	return nil
+}
+
+func (ctx *allWatcherContext) loadInstanceData() error {
+	col, closer := ctx.state.db().GetCollection(instanceDataC)
+	defer closer()
+
+	var docs []instanceData
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Errorf("cannot read all instance data")
+	}
+
+	ctx.instances = make(map[string]instanceData)
+	for _, doc := range docs {
+		docCopy := doc
+		ctx.instances[doc.DocID] = docCopy
 	}
 
 	return nil
@@ -1672,7 +1700,19 @@ func (ctx *allWatcherContext) readConstraints(key string) (constraints.Value, er
 }
 
 func (ctx *allWatcherContext) getStatus(key, badge string) (multiwatcher.StatusInfo, error) {
-	modelStatus, err := getStatus(ctx.state.db(), key, badge)
+	var modelStatus status.StatusInfo
+	var err error
+	if ctx.statuses != nil {
+		gKey := ensureModelUUID(ctx.modelUUID, key)
+		cached, found := ctx.statuses[gKey]
+		if found {
+			modelStatus = cached
+		} else {
+			err = errors.NotFoundf("status doc %q", gKey)
+		}
+	} else {
+		modelStatus, err = getStatus(ctx.state.db(), key, badge)
+	}
 	if err != nil {
 		return multiwatcher.StatusInfo{}, errors.Trace(err)
 	}
@@ -1685,7 +1725,15 @@ func (ctx *allWatcherContext) getStatus(key, badge string) (multiwatcher.StatusI
 }
 
 func (ctx *allWatcherContext) getInstanceData(id string) (instanceData, error) {
-	// ADD cache check
+	if ctx.instances != nil {
+		gKey := ensureModelUUID(ctx.modelUUID, id)
+		cached, found := ctx.instances[gKey]
+		if found {
+			return cached, nil
+		} else {
+			return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
+		}
+	}
 	return getInstanceData(ctx.state, id)
 }
 
@@ -1701,7 +1749,7 @@ func (ctx *allWatcherContext) entityIDForGlobalKey(key string) (multiwatcher.Ent
 	} else if len(key) < 3 || key[1] != '#' {
 		return multiwatcher.EntityId{}, false
 	}
-	// NOTE: we shoudl probably have a single place where we have all the global key functions
+	// NOTE: we should probably have a single place where we have all the global key functions
 	// so we can check coverage both ways.
 	id := key[2:]
 	switch key[0] {
