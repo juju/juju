@@ -338,7 +338,13 @@ func (i *backingInstanceData) mongoID() string {
 type backingUnit unitDoc
 
 func getUnitPortRangesAndPorts(unit *Unit) ([]network.PortRange, []network.Port, error) {
-	// TODO: check this call for extra calls
+	// NOTE(thumper) 2019-12-10: this is pretty horrible. unit.OpenedPorts needs to find the machine that it is
+	// deployed on, which means if it is a subordinate, it needs to load the principal unit.
+	// Since we have a ratio of somewhere between 3..8 of subordinates to principals, we are
+	// loading a lot of units when we initally populate the cache. Ideally we'd have smarter
+	// laoding and load all the principals first, then when looking up the values, use the store
+	// itself as the local cache to avoid hitting the database again. However this is out of scope
+	// for this initial pass of speedups.
 	portRanges, err := unit.OpenedPorts()
 	// Since the port ranges are associated with the unit's machine,
 	// we need to check for NotAssignedError.
@@ -366,18 +372,31 @@ func getUnitPortRangesAndPorts(unit *Unit) ([]network.PortRange, []network.Port,
 	return portRanges, compatiblePorts, nil
 }
 
-func (u *backingUnit) unitAndAgentStatus(unit *Unit, info *multiwatcher.UnitInfo) error {
-	unitStatusResult, err := unit.Status()
+func (u *backingUnit) unitAndAgentStatus(ctx *allWatcherContext, info *multiwatcher.UnitInfo) error {
+	unitStatusResult, err := ctx.getStatus(unitGlobalKey(u.Name), "unit")
 	if err != nil {
 		return errors.Trace(err)
 	}
-	agentStatusResult, err := unit.AgentStatus()
+
+	agentStatusResult, err := ctx.getStatus(unitAgentGlobalKey(u.Name), "unit")
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// NOTE: c.f. *Unit.Status(), we need to deal with the error state.
+	if agentStatusResult.Current == status.Error {
+		since := agentStatusResult.Since
+		unitStatusResult = agentStatusResult
+		agentStatusResult = multiwatcher.StatusInfo{
+			Current: status.Idle,
+			Data:    normaliseStatusData(nil),
+			Since:   since,
+		}
+	}
+
 	// Unit and workload status.
-	info.WorkloadStatus = multiwatcher.NewStatusInfo(unitStatusResult, nil)
-	info.AgentStatus = multiwatcher.NewStatusInfo(agentStatusResult, nil)
+	info.WorkloadStatus = unitStatusResult
+	info.AgentStatus = agentStatusResult
 	return nil
 }
 
@@ -404,6 +423,11 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 
 	// fetch the associated unit to get possible updated status.
 	// TODO: kill this, we have only just read it.
+	// Can't even fake it for now because creating a unit requires knowing the model
+	// type, and we can't be sure that the model is loaded into the store yet.
+	// So... read the damn database again. Note that this not only hits the database
+	// for the unit, but the model as well.
+	// TODO: add the model type to the state object when we create the state object.
 	unit, err := ctx.state.Unit(u.Name)
 	if err != nil {
 		return errors.Annotatef(err, "get unit %q", u.Name)
@@ -415,7 +439,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 
 		// We're adding the entry for the first time,
 		// so fetch the associated unit status and opened ports.
-		err := u.unitAndAgentStatus(unit, info)
+		err := u.unitAndAgentStatus(ctx, info)
 		if err != nil {
 			return errors.Annotatef(err, "retrieve unit and agent status for %q", u.Name)
 		}
@@ -437,6 +461,10 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 
 	u.updateAgentVersion(info)
 
+	// This is horrible as we are loading the machine twice for every unit.
+	// Can't optimize this yet.
+	// TODO: deprecate this ASAP and remove ASAP. It is only there for backwards
+	// compatibility to 1.18.
 	publicAddress, privateAddress, err := getUnitAddresses(unit)
 	if err != nil {
 		return errors.Annotatef(err, "get addresses for %q", u.Name)
@@ -1090,7 +1118,8 @@ func (p *backingOpenedPorts) updated(ctx *allWatcherContext) error {
 }
 
 func (p *backingOpenedPorts) removed(ctx *allWatcherContext) error {
-	// Determine if this is really needed, when will the doc be removed?
+	// This magic is needed as an open ports doc may be removed if all
+	// open ports on the subnet are removed.
 	parentID, ok := ctx.entityIDForOpenedPortsKey(ctx.id)
 	if !ok {
 		return nil
