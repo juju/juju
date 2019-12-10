@@ -362,7 +362,7 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(params.RemoteEntityArg{
 		Token:     relationToken,
 		Macaroons: macaroon.Slice{mac},
-	})
+	}, remoteAppToken)
 	if err != nil {
 		w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
 		return nil, nil, errors.Annotatef(

@@ -7,6 +7,7 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
 	"github.com/juju/juju/api/base"
@@ -228,12 +229,11 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 	return result, nil
 }
 
-// WatchRelationUnits returns a watcher that notifies of changes to
+// watchRelationUnits returns a watcher that notifies of changes to
 // the units in the remote model for the relation with the given
-// remote token.
-// TODO(babbageclunk): remove this once the worker is updated to use
-// WatchRelationChanges.
-func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
+// remote token. It's used for backwards compatibility when the
+// controller we're talking to only supports v1 of the API.
+func (c *Client) watchRelationUnits(remoteRelationArg params.RemoteEntityArg, applicationToken string) (apiwatcher.RemoteRelationWatcher, error) {
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation units", remoteRelationArg.Token); ok {
@@ -278,16 +278,32 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 		return nil, result.Error
 	}
 
-	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
+	// Callback so the watcher can get the unit settings for the
+	// change events that come back from the internal watcher.
+	getSettings := func(unitNames []string) ([]params.SettingsResult, error) {
+		return c.relationUnitSettings(unitNames, remoteRelationArg.Token, remoteRelationArg.Macaroons)
+	}
+
+	// Return the units watcher wrapped in a compatibility watcher so
+	// it emits RemoteRelationChangeEvents.
+	w := apiwatcher.NewRemoteRelationCompatWatcher(
+		c.facade.RawAPICaller(),
+		result,
+		remoteRelationArg.Token,
+		applicationToken,
+		getSettings,
+	)
 	return w, nil
 }
 
 // WatchRelationChanges returns a watcher that notifies of changes to
 // the units or application settings in the remote model for the
 // relation with the given remote token.
-func (c *Client) WatchRelationChanges(remoteRelationArg params.RemoteEntityArg) (apiwatcher.RemoteRelationWatcher, error) {
-	// TODO(babbageclunk): backfill with a converting watcher when
-	// talking to a v1 API from a v2 client.
+func (c *Client) WatchRelationChanges(remoteRelationArg params.RemoteEntityArg, applicationToken string) (apiwatcher.RemoteRelationWatcher, error) {
+	if c.BestAPIVersion() < 2 {
+		logger.Debugf("best API version %d - falling back to v1 CMR API", c.BestAPIVersion())
+		return c.watchRelationUnits(remoteRelationArg, applicationToken)
+	}
 
 	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
 	// Use any previously cached discharge macaroons.
@@ -337,22 +353,26 @@ func (c *Client) WatchRelationChanges(remoteRelationArg params.RemoteEntityArg) 
 	return w, nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
-func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
+// relationUnitSettings returns the relation unit settings for the given relation units in the remote model.
+func (c *Client) relationUnitSettings(unitNames []string, relationToken string, macs macaroon.Slice) ([]params.SettingsResult, error) {
 	var (
 		args         params.RemoteRelationUnits
 		retryIndices []int
 	)
 
-	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
-	// Use any previously cached discharge macaroons.
-	for i, arg := range args.RelationUnits {
-		if ms, ok := c.getCachedMacaroon("relation unit settings", arg.RelationToken); ok {
-			newArg := arg
-			newArg.Macaroons = ms
-			args.RelationUnits[i] = newArg
+	if newMacs, ok := c.getCachedMacaroon("relation unit settings", relationToken); ok {
+		macs = newMacs
+	}
+
+	relationUnits := make([]params.RemoteRelationUnit, len(unitNames))
+	for i, unit := range unitNames {
+		relationUnits[i] = params.RemoteRelationUnit{
+			RelationToken: relationToken,
+			Unit:          names.NewUnitTag(unit).String(),
+			Macaroons:     macs,
 		}
 	}
+	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
 
 	var results params.SettingsResults
 	apiCall := func() error {

@@ -45,9 +45,13 @@ type RemoteModelRelationsFacade interface {
 	// model hosting the remote application involved in the relation.
 	PublishRelationChange(params.RemoteRelationChangeEvent) error
 
-	// WatchRelationUnits returns a watcher that notifies of changes to the
-	// units in the remote model for the relation with the given remote token.
-	WatchRelationChanges(arg params.RemoteEntityArg) (apiwatcher.RemoteRelationWatcher, error)
+	// WatchRelationUnits returns a watcher that notifies of changes
+	// to the units in the remote model for the relation with the
+	// given remote token. We need to pass the application token for
+	// the case where we're talking to a v1 API and the client needs
+	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
+	// as they come in.
+	WatchRelationChanges(arg params.RemoteEntityArg, applicationToken string) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
