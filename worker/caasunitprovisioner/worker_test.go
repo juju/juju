@@ -390,11 +390,13 @@ func (s *WorkerSuite) TestScaleChangedInCluster(c *gc.C) {
 	}
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		if len(s.containerBroker.Calls()) > 0 {
+		if len(s.containerBroker.Calls()) >= 2 {
 			break
 		}
 	}
-	s.containerBroker.CheckCallNames(c, "Units", "AnnotateUnit")
+	if !s.containerBroker.CheckCallNames(c, "Units", "AnnotateUnit") {
+		return
+	}
 	c.Assert(s.containerBroker.Calls()[0].Args, jc.DeepEquals, []interface{}{"gitlab"})
 	c.Assert(s.containerBroker.Calls()[1].Args, jc.DeepEquals, []interface{}{"gitlab", "u1", names.NewUnitTag("gitlab/0")})
 

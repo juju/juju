@@ -22,6 +22,7 @@ import (
 
 type InitializeArgs struct {
 	Owner                     names.UserTag
+	AdminPassword             string
 	InitialConfig             *config.Config
 	ControllerConfig          map[string]interface{}
 	ControllerInheritedConfig map[string]interface{}
@@ -52,6 +53,9 @@ func Initialize(c *gc.C, owner names.UserTag, cfg *config.Config, controllerInhe
 func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 	if args.InitialConfig == nil {
 		args.InitialConfig = testing.ModelConfig(c)
+	}
+	if args.AdminPassword == "" {
+		args.AdminPassword = "admin-secret"
 	}
 
 	session, err := jujutesting.MgoServer.Dial()
@@ -111,7 +115,7 @@ func InitializeWithArgs(c *gc.C, args InitializeArgs) *state.Controller {
 		},
 		MongoSession:  session,
 		NewPolicy:     args.NewPolicy,
-		AdminPassword: "admin-secret",
+		AdminPassword: args.AdminPassword,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	return ctlr

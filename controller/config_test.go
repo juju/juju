@@ -97,17 +97,36 @@ var validateTests = []struct {
 		controller.CACertKey:         testing.CACert,
 	},
 	expectError: `controller-uuid: expected UUID, got string\("xxx"\)`,
-}, {
+}}
+
+func (s *ConfigSuite) TestValidate(c *gc.C) {
+	// Normally Validate is only called as part of the NewConfig call, which
+	// also does schema coercing. The NewConfig method takes the controller uuid
+	// and cacert as separate args, so to get invalid ones, we skip that part.
+	for i, test := range validateTests {
+		c.Logf("test %d: %v", i, test.about)
+		err := test.config.Validate()
+		if test.expectError != "" {
+			c.Check(err, gc.ErrorMatches, test.expectError)
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+		}
+	}
+}
+
+var newConfigTests = []struct {
+	about       string
+	config      controller.Config
+	expectError string
+}{{
 	about: "HTTPS identity URL OK",
 	config: controller.Config{
 		controller.IdentityURL: "https://0.1.2.3/foo",
-		controller.CACertKey:   testing.CACert,
 	},
 }, {
 	about: "HTTP identity URL requires public key",
 	config: controller.Config{
 		controller.IdentityURL: "http://0.1.2.3/foo",
-		controller.CACertKey:   testing.CACert,
 	},
 	expectError: `URL needs to be https when identity-public-key not provided`,
 }, {
@@ -115,61 +134,52 @@ var validateTests = []struct {
 	config: controller.Config{
 		controller.IdentityPublicKey: `o/yOqSNWncMo1GURWuez/dGR30TscmmuIxgjztpoHEY=`,
 		controller.IdentityURL:       "http://0.1.2.3/foo",
-		controller.CACertKey:         testing.CACert,
 	},
 }, {
 	about: "invalid identity public key",
 	config: controller.Config{
 		controller.IdentityPublicKey: `xxxx`,
-		controller.CACertKey:         testing.CACert,
 	},
 	expectError: `invalid identity public key: wrong length for base64 key, got 3 want 32`,
 }, {
 	about: "invalid management space name - whitespace",
 	config: controller.Config{
-		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: " ",
 	},
 	expectError: `juju mgmt space name " " not valid`,
 }, {
 	about: "invalid management space name - caps",
 	config: controller.Config{
-		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: "CAPS",
 	},
 	expectError: `juju mgmt space name "CAPS" not valid`,
 }, {
 	about: "invalid management space name - carriage return",
 	config: controller.Config{
-		controller.CACertKey:           testing.CACert,
 		controller.JujuManagementSpace: "\n",
 	},
 	expectError: `juju mgmt space name "\\n" not valid`,
 }, {
 	about: "invalid HA space name - number",
 	config: controller.Config{
-		controller.CACertKey:   testing.CACert,
 		controller.JujuHASpace: 666,
 	},
-	expectError: `type for juju HA space name 666 not valid`,
+	expectError: `juju-ha-space: expected string, got int\(666\)`,
 }, {
 	about: "invalid HA space name - bool",
 	config: controller.Config{
-		controller.CACertKey:   testing.CACert,
 		controller.JujuHASpace: true,
 	},
-	expectError: `type for juju HA space name true not valid`,
+	expectError: `juju-ha-space: expected string, got bool\(true\)`,
 }, {
 	about: "invalid audit log max size",
 	config: controller.Config{
-		controller.CACertKey:       testing.CACert,
 		controller.AuditLogMaxSize: "abcd",
 	},
 	expectError: `invalid audit log max size in configuration: expected a non-negative number, got "abcd"`,
 }, {
 	about: "zero audit log max size",
 	config: controller.Config{
-		controller.CACertKey:       testing.CACert,
 		controller.AuditingEnabled: true,
 		controller.AuditLogMaxSize: "0M",
 	},
@@ -177,77 +187,66 @@ var validateTests = []struct {
 }, {
 	about: "invalid audit log max backups",
 	config: controller.Config{
-		controller.CACertKey:          testing.CACert,
 		controller.AuditLogMaxBackups: -10,
 	},
 	expectError: `invalid audit log max backups: should be a number of files \(or 0 to keep all\), got -10`,
 }, {
 	about: "invalid audit log exclude",
 	config: controller.Config{
-		controller.CACertKey:              testing.CACert,
 		controller.AuditLogExcludeMethods: []interface{}{"Dap.Kings", "ReadOnlyMethods", "Sharon Jones"},
 	},
 	expectError: `invalid audit log exclude methods: should be a list of "Facade.Method" names \(or "ReadOnlyMethods"\), got "Sharon Jones" at position 3`,
 }, {
 	about: "invalid model log max size",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.ModelLogsSize: "abcd",
 	},
 	expectError: `invalid model logs size in configuration: expected a non-negative number, got "abcd"`,
 }, {
 	about: "zero model log max size",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.ModelLogsSize: "0",
 	},
 	expectError: "model logs size less than 1 MB not valid",
 }, {
 	about: "invalid CAAS docker image repo",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.CAASImageRepo: "foo?bar",
 	},
 	expectError: `docker image path "foo\?bar" not valid`,
 }, {
 	about: "invalid CAAS operator docker image repo - leading colon",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.CAASImageRepo: ":foo",
 	},
 	expectError: `docker image path ":foo" not valid`,
 }, {
 	about: "invalid CAAS docker image repo - trailing colon",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.CAASImageRepo: "foo:",
 	},
 	expectError: `docker image path "foo:" not valid`,
 }, {
 	about: "invalid CAAS docker image repo - extra colon",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.CAASImageRepo: "foo::bar",
 	},
 	expectError: `docker image path "foo::bar" not valid`,
 }, {
 	about: "invalid CAAS docker image repo - leading /",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.CAASImageRepo: "/foo",
 	},
 	expectError: `docker image path "/foo" not valid`,
 }, {
 	about: "invalid CAAS docker image repo - extra /",
 	config: controller.Config{
-		controller.CACertKey:     testing.CACert,
 		controller.CAASImageRepo: "foo//bar",
 	},
 	expectError: `docker image path "foo//bar" not valid`,
 }, {
 	about: "negative controller-api-port",
 	config: controller.Config{
-		controller.CACertKey:         testing.CACert,
 		controller.ControllerAPIPort: -5,
 	},
 	expectError: `non-positive integer for controller-api-port not valid`,
@@ -255,7 +254,6 @@ var validateTests = []struct {
 	about: "controller-api-port matching api-port",
 	config: controller.Config{
 		controller.APIPort:           12345,
-		controller.CACertKey:         testing.CACert,
 		controller.ControllerAPIPort: 12345,
 	},
 	expectError: `controller-api-port matching api-port not valid`,
@@ -264,58 +262,93 @@ var validateTests = []struct {
 	config: controller.Config{
 		controller.APIPort:           12345,
 		controller.StatePort:         54321,
-		controller.CACertKey:         testing.CACert,
 		controller.ControllerAPIPort: 54321,
 	},
 	expectError: `controller-api-port matching state-port not valid`,
 }, {
 	about: "api-port-open-delay not a duration",
 	config: controller.Config{
-		controller.CACertKey:        testing.CACert,
 		controller.APIPortOpenDelay: "15",
 	},
 	expectError: `api-port-open-delay value "15" must be a valid duration`,
 }, {
 	about: "txn-prune-sleep-time not a duration",
 	config: controller.Config{
-		controller.CACertKey:         testing.CACert,
 		controller.PruneTxnSleepTime: "15",
 	},
 	expectError: `prune-txn-sleep-time must be a valid duration \(eg "10ms"\): time: missing unit in duration 15`,
 }, {
 	about: "mongo-memory-profile not valid",
 	config: controller.Config{
-		controller.CACertKey:          testing.CACert,
 		controller.MongoMemoryProfile: "not-valid",
 	},
 	expectError: `mongo-memory-profile: expected one of "low" or "default" got string\("not-valid"\)`,
 }, {
 	about: "max-debug-log-duration not valid",
 	config: controller.Config{
-		controller.CACertKey:           testing.CACert,
 		controller.MaxDebugLogDuration: time.Duration(0),
 	},
 	expectError: `max-debug-log-duration cannot be zero`,
 }, {
 	about: "model-logfile-max-backups not valid",
 	config: controller.Config{
-		controller.CACertKey:              testing.CACert,
 		controller.ModelLogfileMaxBackups: -1,
 	},
 	expectError: `negative model-logfile-max-backups not valid`,
 }, {
 	about: "model-logfile-max-size not valid",
 	config: controller.Config{
-		controller.CACertKey:           testing.CACert,
 		controller.ModelLogfileMaxSize: "0",
 	},
 	expectError: `model-logfile-max-size less than 1 MB not valid`,
+}, {
+	about: "agent-ratelimit-max non-int",
+	config: controller.Config{
+		controller.AgentRateLimitMax: "ten",
+	},
+	expectError: `agent-ratelimit-max: expected number, got string\("ten"\)`,
+}, {
+	about: "agent-ratelimit-max negative",
+	config: controller.Config{
+		controller.AgentRateLimitMax: "-5",
+	},
+	expectError: `negative agent-ratelimit-max \(-5\) not valid`,
+}, {
+	about: "agent-ratelimit-rate missing unit",
+	config: controller.Config{
+		controller.AgentRateLimitRate: "150",
+	},
+	expectError: `agent-ratelimit-rate: conversion to duration: time: missing unit in duration 150`,
+}, {
+	about: "agent-ratelimit-rate bad type, int",
+	config: controller.Config{
+		controller.AgentRateLimitRate: 150,
+	},
+	expectError: `agent-ratelimit-rate: expected string or time.Duration, got int\(150\)`,
+}, {
+	about: "agent-ratelimit-rate zero",
+	config: controller.Config{
+		controller.AgentRateLimitRate: "0s",
+	},
+	expectError: `agent-ratelimit-rate cannot be zero`,
+}, {
+	about: "agent-ratelimit-rate negative",
+	config: controller.Config{
+		controller.AgentRateLimitRate: "-5s",
+	},
+	expectError: `agent-ratelimit-rate cannot be negative`,
+}, {
+	about: "agent-ratelimit-rate too large",
+	config: controller.Config{
+		controller.AgentRateLimitRate: "4h",
+	},
+	expectError: `agent-ratelimit-rate must be between 0..1m`,
 }}
 
-func (s *ConfigSuite) TestValidate(c *gc.C) {
-	for i, test := range validateTests {
+func (s *ConfigSuite) TestNewConfig(c *gc.C) {
+	for i, test := range newConfigTests {
 		c.Logf("test %d: %v", i, test.about)
-		err := test.config.Validate()
+		_, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, test.config)
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 		} else {
@@ -633,6 +666,8 @@ func (s *ConfigSuite) TestDefaults(c *gc.C) {
 		map[string]interface{}{},
 	)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitMax(), gc.Equals, controller.DefaultAgentRateLimitMax)
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
 	c.Assert(cfg.MaxDebugLogDuration(), gc.Equals, controller.DefaultMaxDebugLogDuration)
 	c.Assert(cfg.ModelLogfileMaxBackups(), gc.Equals, controller.DefaultModelLogfileMaxBackups)
 	c.Assert(cfg.ModelLogfileMaxSizeMB(), gc.Equals, controller.DefaultModelLogfileMaxSize)
@@ -661,4 +696,30 @@ func (s *ConfigSuite) TestModelLogfileBackupErr(c *gc.C) {
 		},
 	)
 	c.Assert(err.Error(), gc.Equals, `model-logfile-max-backups: expected number, got string("two")`)
+}
+
+func (s *ConfigSuite) TestAgentRateLimitMax(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			"agent-ratelimit-max": "0",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitMax(), gc.Equals, 0)
+}
+
+func (s *ConfigSuite) TestAgentRateLimitRate(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, controller.DefaultAgentRateLimitRate)
+
+	cfg[controller.AgentRateLimitRate] = time.Second
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, time.Second)
+
+	cfg[controller.AgentRateLimitRate] = "500ms"
+	c.Assert(cfg.AgentRateLimitRate(), gc.Equals, 500*time.Millisecond)
 }

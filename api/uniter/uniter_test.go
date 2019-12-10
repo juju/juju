@@ -68,6 +68,8 @@ func (s *uniterSuite) setUpTest(c *gc.C, addController bool) {
 	s.uniter, err = s.st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.uniter, gc.NotNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 }
 
 func (s *uniterSuite) addMachineBoundAppCharmAndUnit(

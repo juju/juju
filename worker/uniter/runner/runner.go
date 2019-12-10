@@ -515,6 +515,8 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 		runner.context.SetProcess(hookProcess{ps.Process})
 		// Block until execution finishes
 		exitErr = ps.Wait()
+	} else {
+		exitErr = err
 	}
 	// Ensure hook loggers are stopped before reading stdout/stderr
 	// so all the output is captured.

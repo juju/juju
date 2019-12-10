@@ -345,7 +345,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 }
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
-	cfg := testserver.DefaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c, nil)
 	cfg.Controller = s.Controller
 	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, server)
