@@ -110,20 +110,6 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 	return nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
-func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
-	args := params.RelationUnits{relationUnits}
-	var results params.SettingsResults
-	err := c.facade.FacadeCall("RelationUnitSettings", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(relationUnits) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(relationUnits), len(results.Results))
-	}
-	return results.Results, nil
-}
-
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
 func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error) {
@@ -202,34 +188,6 @@ func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.St
 		return nil, result.Error
 	}
 	w := apiwatcher.NewStringsWatcher(c.facade.RawAPICaller(), result)
-	return w, nil
-}
-
-// WatchLocalRelationUnits returns a watcher that notifies of changes
-// to the local units in the relation with the given key.
-// TODO(babbageclunk): remove this once the worker is updated to use
-// WatchLocalRelationChanges.
-func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
-	if !names.IsValidRelation(relationKey) {
-		return nil, errors.NotValidf("relation key %q", relationKey)
-	}
-	relationTag := names.NewRelationTag(relationKey)
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: relationTag.String()}},
-	}
-	var results params.RelationUnitsWatchResults
-	err := c.facade.FacadeCall("WatchLocalRelationUnits", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 
