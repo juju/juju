@@ -1505,6 +1505,11 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 	// Use a single new MongoDB connection for all the work here.
 	db, closer := st.newDB()
 	defer closer()
+	start := st.clock().Now()
+	defer func() {
+		elapsed := st.clock().Now().Sub(start)
+		logger.Infof("allwatcher loaded for model %q in %s", st.ModelUUID(), elapsed)
+	}()
 
 	ctx := &allWatcherContext{
 		state:     st,
