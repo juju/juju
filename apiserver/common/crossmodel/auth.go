@@ -218,7 +218,6 @@ func (a *AuthContext) CreateConsumeOfferMacaroon(offer *params.ApplicationOfferD
 			checkers.DeclaredCaveat(offeruuidKey, offer.OfferUUID),
 			checkers.DeclaredCaveat(usernameKey, username),
 		})
-
 }
 
 // CreateRemoteRelationMacaroon creates a macaroon that authorises access to the specified relation.
