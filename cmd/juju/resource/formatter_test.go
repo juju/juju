@@ -183,8 +183,7 @@ func (s *DetailFormatterSuite) TestFormatDetail(c *gc.C) {
 	}
 	tag := names.NewUnitTag("a-application/55")
 
-	d, err := resourcecmd.FormatDetailResource(tag, svc, unit, 8)
-	c.Assert(err, jc.ErrorIsNil)
+	d := resourcecmd.FormatDetailResource(tag, svc, unit, 8)
 	c.Assert(d, gc.Equals,
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
@@ -223,8 +222,7 @@ func (s *DetailFormatterSuite) TestFormatDetailEmpty(c *gc.C) {
 	unit := resource.Resource{}
 	tag := names.NewUnitTag("a-application/55")
 
-	d, err := resourcecmd.FormatDetailResource(tag, svc, unit, 0)
-	c.Assert(err, jc.ErrorIsNil)
+	d := resourcecmd.FormatDetailResource(tag, svc, unit, 0)
 	c.Assert(d, gc.Equals,
 		resourcecmd.FormattedDetailResource{
 			UnitNumber:  55,
