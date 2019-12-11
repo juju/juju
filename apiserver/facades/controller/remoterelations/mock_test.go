@@ -208,6 +208,14 @@ func (st *mockState) ApplyOperation(op state.ModelOperation) error {
 	return st.NextErr()
 }
 
+func (st *mockState) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+	st.MethodCall(st, "UpdateControllerForModel", controller, modelUUID)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type mockControllerInfo struct {
 	uuid string
 	info crossmodel.ControllerInfo
