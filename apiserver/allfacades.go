@@ -282,8 +282,8 @@ func AllFacades() *facade.Registry {
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 	reg("Reboot", 2, reboot.NewRebootAPI)
-	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPIV1)
-	reg("RemoteRelations", 2, remoterelations.NewStateRemoteRelationsAPI) // Adds WatchLocalRelationChanges, removes WatchLocalRelationUnits.
+	reg("RemoteRelations", 1, remoterelations.NewAPIv1)
+	reg("RemoteRelations", 2, remoterelations.NewAPI) // Adds UpdateControllersForModels.
 
 	reg("Resources", 1, resources.NewPublicFacade)
 	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
@@ -305,7 +305,7 @@ func AllFacades() *facade.Registry {
 	reg("Storage", 3, storage.NewStorageAPIV3)
 	reg("Storage", 4, storage.NewStorageAPIV4) // changes Destroy() method signature.
 	reg("Storage", 5, storage.NewStorageAPIV5) // Update and Delete storage pools and CreatePool bulk calls.
-	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; adde DetachStorage to support force and maxWait.
+	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
 
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
