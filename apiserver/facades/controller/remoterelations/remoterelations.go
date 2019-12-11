@@ -341,7 +341,7 @@ func (api *API) WatchLocalRelationUnits(args params.Entities) (params.RelationUn
 // WatchLocalRelationChanges starts a RemoteRelationWatcher for each
 // specified relation, returning the watcher IDs and initial values,
 // or an error if the remote relations couldn't be watched.
-func (api *RemoteRelationsAPI) WatchLocalRelationChanges(args params.Entities) (params.RemoteRelationWatchResults, error) {
+func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRelationWatchResults, error) {
 	results := params.RemoteRelationWatchResults{
 		make([]params.RemoteRelationWatchResult, len(args.Entities)),
 	}
@@ -395,7 +395,7 @@ func (api *RemoteRelationsAPI) WatchLocalRelationChanges(args params.Entities) (
 // so this removes the method as far as the RPC machinery is concerned.
 //
 // WatchLocalRelationChanges doesn't exist before the v2 API.
-func (api *RemoteRelationsAPIV1) WatchLocalRelationChanges(_, _ struct{}) {}
+func (api *APIv1) WatchLocalRelationChanges(_, _ struct{}) {}
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 // each specified application in the local model, and returns the watcher IDs
