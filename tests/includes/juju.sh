@@ -64,7 +64,7 @@ bootstrap() {
     output=${1}
     shift
 
-    rnd=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1)
+    rnd=$(head /dev/urandom | tr -dc a-z0-9 | head -c 8; echo '')
     name="ctrl-${rnd}"
 
     if [ ! -f "${TEST_DIR}/jujus" ]; then
