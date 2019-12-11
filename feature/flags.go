@@ -48,11 +48,11 @@ const OldPresence = "old-presence"
 const LegacyLeases = "legacy-leases"
 
 // Branches will allow for model branches functionality to be used.
-// Historically branches feature was called generations.
 const Branches = "branches"
 
-// OldBranchesName is the old flag name used for generations feature
-const OldBranchesName = "generations"
+// Generations will allow for model generation functionality to be used.
+// This is a deprecated flag name and is synonymous with "branches" above.
+const Generations = "generations"
 
 // MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
 // it from APT.

@@ -368,7 +368,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
 	r.Register(model.NewModelCredentialCommand())
-	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.OldBranchesName) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		r.Register(model.NewAddBranchCommand())
 		r.Register(model.NewCommitCommand())
 		r.Register(model.NewTrackBranchCommand())
