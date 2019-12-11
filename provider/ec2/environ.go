@@ -2253,3 +2253,26 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 	}
 	return []string{cidr}, nil
 }
+
+// SetCloudSpec is specified in the environs.Environ interface.
+func (e *environ) SetCloudSpec(spec environs.CloudSpec) error {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+
+	e.cloud = spec
+	// The endpoints in public-clouds.yaml from 2.0-rc2
+	// and before were wrong, so we use whatever is defined
+	// in goamz/aws if available.
+	if isBrokenCloud(e.cloud) {
+		if region, ok := aws.Regions[e.cloud.Region]; ok {
+			e.cloud.Endpoint = region.EC2Endpoint
+		}
+	}
+
+	var err error
+	e.ec2, err = awsClient(e.cloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

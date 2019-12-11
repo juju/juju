@@ -57,10 +57,6 @@ func (s *ConstraintsSuite) TestParseConstraintsOptions(c *gc.C) {
 		Count: 1,
 		Size:  1,
 	})
-	s.testParse(c, "p,anyoldjunk", storage.Constraints{
-		Pool:  "p",
-		Count: 1,
-	})
 }
 
 func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
@@ -73,6 +69,18 @@ func (s *ConstraintsSuite) TestParseConstraintsCountRange(c *gc.C) {
 
 func (s *ConstraintsSuite) TestParseConstraintsSizeRange(c *gc.C) {
 	s.testParseError(c, "p,-100M", `cannot parse size: expected a non-negative number, got "-100M"`)
+}
+
+func (s *ConstraintsSuite) TestParseMultiplePoolNames(c *gc.C) {
+	s.testParseError(c, "pool1,anyoldjunk", `pool name is already set to "pool1", new value "anyoldjunk" not valid`)
+	s.testParseError(c, "pool1,pool2", `pool name is already set to "pool1", new value "pool2" not valid`)
+	s.testParseError(c, "pool1,pool2,pool3", `pool name is already set to "pool1", new value "pool2" not valid`)
+}
+
+func (s *ConstraintsSuite) TestParseConstraintsUnknown(c *gc.C) {
+	// Regression test for #1855181
+	s.testParseError(c, "p,100M database-b", `unrecognized storage constraint "100M database-b" not valid`)
+	s.testParseError(c, "p,$1234", `unrecognized storage constraint "\$1234" not valid`)
 }
 
 func (*ConstraintsSuite) testParse(c *gc.C, s string, expect storage.Constraints) {

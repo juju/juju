@@ -601,12 +601,13 @@ func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
 	for {
 		a, err := s.model.EnqueueAction(s.unit.Tag(), "action-1", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		if unicode.IsDigit(rune(a.Id()[0])) {
+		if unicode.IsDigit(rune(a.Id()[0])) && a.Id()[0] != '0' {
 			actionToUse = a
 			uuid = a.Id()
 			break
 		}
 	}
+	c.Logf(uuid)
 
 	// Ensure there's a new action with a numeric id which
 	// matches the starting digit of the uuid above.

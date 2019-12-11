@@ -39,22 +39,10 @@ func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error
 	logger.Infof("opening model %q", args.Config.Name())
 
 	e := new(environ)
-	e.cloud = args.Cloud
 	e.name = args.Config.Name()
 
-	// The endpoints in public-clouds.yaml from 2.0-rc2
-	// and before were wrong, so we use whatever is defined
-	// in goamz/aws if available.
-	if isBrokenCloud(e.cloud) {
-		if region, ok := aws.Regions[e.cloud.Region]; ok {
-			e.cloud.Endpoint = region.EC2Endpoint
-		}
-	}
-
-	var err error
-	e.ec2, err = awsClient(e.cloud)
-	if err != nil {
-		return nil, errors.Trace(err)
+	if err := e.SetCloudSpec(args.Cloud); err != nil {
+		return nil, err
 	}
 
 	if err := e.SetConfig(args.Config); err != nil {
