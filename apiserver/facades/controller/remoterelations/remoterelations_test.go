@@ -4,8 +4,10 @@
 package remoterelations_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
@@ -31,7 +33,7 @@ type remoteRelationsSuite struct {
 	resources  *common.Resources
 	authorizer *apiservertesting.FakeAuthorizer
 	st         *mockState
-	api        *remoterelations.RemoteRelationsAPI
+	api        *remoterelations.API
 }
 
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
@@ -70,7 +72,7 @@ func (s *remoteRelationsSuite) TestWatchRemoteApplicationRelations(c *gc.C) {
 	db2RelationsWatcher.changes <- []string{"db2:db django:db"}
 	s.st.applicationRelationsWatchers["db2"] = db2RelationsWatcher
 
-	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{[]params.Entity{
+	results, err := s.api.WatchRemoteApplicationRelations(params.Entities{Entities: []params.Entity{
 		{"application-db2"},
 		{"application-hadoop"},
 		{"machine-42"},
@@ -127,7 +129,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	s.st.relations["django:db db2:db"] = djangoRelation
 	s.st.applications["django"] = newMockApplication("django")
 
-	results, err := s.api.WatchLocalRelationUnits(params.Entities{[]params.Entity{
+	results, err := s.api.WatchLocalRelationUnits(params.Entities{Entities: []params.Entity{
 		{"relation-django:db#db2:db"},
 		{"relation-hadoop:db#db2:db"},
 		{"machine-42"},
@@ -449,4 +451,58 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationsStatusTerminated(c *gc.C
 	c.Assert(remoteApp.terminated, gc.Equals, true)
 	s.st.CheckCallNames(c, "RemoteApplication", "ApplyOperation")
 	s.st.CheckCall(c, 1, "ApplyOperation", &mockOperation{message: "killer whales"})
+}
+
+func (s *remoteRelationsSuite) TestUpdateControllersForModels(c *gc.C) {
+	mod1 := utils.MustNewUUID().String()
+	c1 := names.NewControllerTag(utils.MustNewUUID().String())
+	mod2 := utils.MustNewUUID().String()
+	c2 := names.NewControllerTag(utils.MustNewUUID().String())
+
+	// Return an error for the first of the arguments.
+	s.st.SetErrors(errors.New("whack"))
+
+	res, err := s.api.UpdateControllersForModels(params.UpdateControllersForModelsParams{
+		Changes: []params.UpdateControllerForModel{
+			{
+				ModelTag: names.NewModelTag(mod1).String(),
+				Info: params.ExternalControllerInfo{
+					ControllerTag: c1.String(),
+					Alias:         "alias1",
+					Addrs:         []string{"1.1.1.1:1"},
+					CACert:        "cert1",
+				},
+			},
+			{
+				ModelTag: names.NewModelTag(mod2).String(),
+				Info: params.ExternalControllerInfo{
+					ControllerTag: c2.String(),
+					Alias:         "alias2",
+					Addrs:         []string{"2.2.2.2:2"},
+					CACert:        "cert2",
+				},
+			},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	s.st.CheckCallNames(c, "UpdateControllerForModel", "UpdateControllerForModel")
+
+	s.st.CheckCall(c, 0, "UpdateControllerForModel", crossmodel.ControllerInfo{
+		ControllerTag: c1,
+		Alias:         "alias1",
+		Addrs:         []string{"1.1.1.1:1"},
+		CACert:        "cert1",
+	}, mod1)
+
+	s.st.CheckCall(c, 1, "UpdateControllerForModel", crossmodel.ControllerInfo{
+		ControllerTag: c2,
+		Alias:         "alias2",
+		Addrs:         []string{"2.2.2.2:2"},
+		CACert:        "cert2",
+	}, mod2)
+
+	c.Assert(res.Results, gc.HasLen, 2)
+	c.Assert(res.Results[0].Error.Message, gc.Equals, "whack")
+	c.Assert(res.Results[1].Error, gc.IsNil)
 }
