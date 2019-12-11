@@ -14183,6 +14183,15 @@
                 "RemoteRelationChangeEvent": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
                         "application-token": {
                             "type": "string"
                         },
@@ -14212,15 +14221,6 @@
                         },
                         "relation-token": {
                             "type": "string"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
                         },
                         "suspended": {
                             "type": "boolean"
@@ -28206,6 +28206,15 @@
                 "RemoteRelationChangeEvent": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
                         "application-token": {
                             "type": "string"
                         },
@@ -28235,15 +28244,6 @@
                         },
                         "relation-token": {
                             "type": "string"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
                         },
                         "suspended": {
                             "type": "boolean"
@@ -28836,6 +28836,15 @@
                 "RemoteRelationChangeEvent": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
                         "application-token": {
                             "type": "string"
                         },
@@ -28865,15 +28874,6 @@
                         },
                         "relation-token": {
                             "type": "string"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
                         },
                         "suspended": {
                             "type": "boolean"

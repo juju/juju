@@ -296,7 +296,9 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 		})
 
 	c.Assert(err, jc.ErrorIsNil)
-	result, err := s.api.RelationUnitSettings(params.RemoteRelationUnits{
+	// RelationUnitSettings isn't available on the V2 API.
+	api := &crossmodelrelations.CrossModelRelationsAPIV1{s.api}
+	result, err := api.RelationUnitSettings(params.RemoteRelationUnits{
 		RelationUnits: []params.RemoteRelationUnit{{
 			RelationToken: "token-db2",
 			Unit:          "unit-django-0",
@@ -566,7 +568,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 				Life:             params.Alive,
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
-				Settings: map[string]interface{}{
+				ApplicationSettings: map[string]interface{}{
 					"slaughterhouse": "the-tongue",
 				},
 				ChangedUnits: []params.RemoteRelationUnitChange{{
@@ -594,8 +596,8 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	ru2.CheckCalls(c, []testing.StubCall{
 		{"LeaveScope", []interface{}{}},
 	})
-	rel.CheckCallNames(c, "Suspended", "ReplaceSettings", "RemoteUnit", "RemoteUnit")
-	rel.CheckCall(c, 1, "ReplaceSettings", "db2", map[string]interface{}{
+	rel.CheckCallNames(c, "Suspended", "ReplaceApplicationSettings", "RemoteUnit", "RemoteUnit")
+	rel.CheckCall(c, 1, "ReplaceApplicationSettings", "db2", map[string]interface{}{
 		"slaughterhouse": "the-tongue",
 	})
 }
@@ -670,7 +672,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 				RelationToken:    "token-db2:db django:db",
 				ApplicationToken: "token-django",
 				Macaroons:        nil,
-				Settings: map[string]interface{}{
+				ApplicationSettings: map[string]interface{}{
 					"majoribanks": "mt victoria",
 				},
 				ChangedUnits: []params.RemoteRelationUnitChange{{
@@ -690,7 +692,8 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 
 	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
 	c.Assert(ok, gc.Equals, true)
-	c.Assert(outw.RelationTag, gc.Equals, names.NewRelationTag("db2:db django:db"))
+	c.Assert(outw.RelationToken, gc.Equals, "token-db2:db django:db")
+	c.Assert(outw.ApplicationToken, gc.Equals, "token-django")
 
 	// TODO(babbageclunk): add locking around updating mock
 	// relation/relunit settings.
@@ -760,7 +763,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 
-	apiV1 := &crossmodelrelations.CrossModelRelationsAPIv1{s.api}
+	apiV1 := &crossmodelrelations.CrossModelRelationsAPIV1{s.api}
 
 	result, err := apiV1.WatchRelationUnits(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{{

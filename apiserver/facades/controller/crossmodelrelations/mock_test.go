@@ -419,8 +419,8 @@ func (r *mockRelation) Unit(unitId string) (commoncrossmodel.RelationUnit, error
 	return u, nil
 }
 
-func (r *mockRelation) ReplaceSettings(appName string, values map[string]interface{}) error {
-	r.MethodCall(r, "ReplaceSettings", appName, values)
+func (r *mockRelation) ReplaceApplicationSettings(appName string, values map[string]interface{}) error {
+	r.MethodCall(r, "ReplaceApplicationSettings", appName, values)
 	return r.NextErr()
 }
 

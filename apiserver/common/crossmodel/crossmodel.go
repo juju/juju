@@ -123,10 +123,10 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 		relationTag.Id(), applicationTag.Id(), backend.ModelUUID())
 
 	// Allow sending an empty non-nil map to clear all the settings.
-	if change.Settings != nil {
+	if change.ApplicationSettings != nil {
 		logger.Debugf("remote application %v in %v settings changed to %v",
-			applicationTag.Id(), relationTag.Id(), change.Settings)
-		err := rel.ReplaceSettings(applicationTag.Id(), change.Settings)
+			applicationTag.Id(), relationTag.Id(), change.ApplicationSettings)
+		err := rel.ReplaceApplicationSettings(applicationTag.Id(), change.ApplicationSettings)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -279,9 +279,9 @@ func ExpandChange(
 		return empty, errors.Trace(err)
 	}
 
-	var settings map[string]interface{}
+	var appSettings map[string]interface{}
 	if len(change.AppChanged) > 0 {
-		settings, err = relation.ApplicationSettings(localAppTag.Id())
+		appSettings, err = relation.ApplicationSettings(localAppTag.Id())
 		if err != nil {
 			return empty, errors.Trace(err)
 		}
@@ -308,11 +308,11 @@ func ExpandChange(
 	}
 
 	result := params.RemoteRelationChangeEvent{
-		RelationToken:    relationToken,
-		ApplicationToken: appToken,
-		Settings:         settings,
-		ChangedUnits:     unitChanges,
-		DepartedUnits:    departed,
+		RelationToken:       relationToken,
+		ApplicationToken:    appToken,
+		ApplicationSettings: appSettings,
+		ChangedUnits:        unitChanges,
+		DepartedUnits:       departed,
 	}
 
 	return result, nil

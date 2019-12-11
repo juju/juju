@@ -211,7 +211,7 @@ func (r relationShim) Unit(unitId string) (RelationUnit, error) {
 	return relationUnitShim{ru}, nil
 }
 
-func (r relationShim) ReplaceSettings(appName string, values map[string]interface{}) error {
+func (r relationShim) ReplaceApplicationSettings(appName string, values map[string]interface{}) error {
 	currentSettings, err := r.ApplicationSettings(appName)
 	if err != nil {
 		return errors.Trace(err)

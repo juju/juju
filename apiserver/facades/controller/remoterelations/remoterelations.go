@@ -23,8 +23,8 @@ type RemoteRelationsAPI struct {
 	authorizer facade.Authorizer
 }
 
-// RemoteRelationsAPIv1 has WatchRelationUnits rather than WatchRelationChanges.
-type RemoteRelationsAPIv1 struct {
+// RemoteRelationsAPIV1 has WatchRelationUnits rather than WatchRelationChanges.
+type RemoteRelationsAPIV1 struct {
 	*RemoteRelationsAPI
 }
 
@@ -39,13 +39,13 @@ func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error)
 
 }
 
-// NewStateRemoteRelationsAPIv1 creates a new server-side RemoteRelations v1 API facade backed by state.
-func NewStateRemoteRelationsAPIv1(ctx facade.Context) (*RemoteRelationsAPIv1, error) {
+// NewStateRemoteRelationsAPIV1 creates a new server-side RemoteRelations v1 API facade backed by state.
+func NewStateRemoteRelationsAPIV1(ctx facade.Context) (*RemoteRelationsAPIV1, error) {
 	api, err := NewStateRemoteRelationsAPI(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &RemoteRelationsAPIv1{api}, nil
+	return &RemoteRelationsAPIV1{api}, nil
 }
 
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
@@ -150,7 +150,7 @@ func (api *RemoteRelationsAPI) SaveMacaroons(args params.EntityMacaroonArgs) (pa
 // given relation units in the local model. (Removed in v2 of the API
 // - the settings are included in the events from
 // WatchLocalRelationChanges.)
-func (api *RemoteRelationsAPIv1) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
+func (api *RemoteRelationsAPIV1) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
 	results := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
 	}
@@ -317,7 +317,7 @@ func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchRes
 // relation units involved in each specified relation in the local model,
 // and returns the watcher IDs and initial values, or an error if the relation
 // units could not be watched. WatchLocalRelationUnits is only supported on the v1 API - later versions provide WatchLocalRelationChanges instead.
-func (api *RemoteRelationsAPIv1) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
+func (api *RemoteRelationsAPIV1) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
 	results := params.RelationUnitsWatchResults{
 		make([]params.RelationUnitsWatchResult, len(args.Entities)),
 	}
@@ -401,7 +401,7 @@ func (api *RemoteRelationsAPI) WatchLocalRelationChanges(args params.Entities) (
 // so this removes the method as far as the RPC machinery is concerned.
 //
 // WatchLocalRelationChanges doesn't exist before the v2 API.
-func (api *RemoteRelationsAPIv1) WatchLocalRelationChanges(_, _ struct{}) {}
+func (api *RemoteRelationsAPIV1) WatchLocalRelationChanges(_, _ struct{}) {}
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 // each specified application in the local model, and returns the watcher IDs
