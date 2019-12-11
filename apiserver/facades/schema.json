@@ -28623,7 +28623,7 @@
     },
     {
         "Name": "RemoteRelations",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
@@ -28739,6 +28739,17 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/SetStatus"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "UpdateControllersForModels": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateControllersForModelsParams"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -28975,6 +28986,33 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ExternalControllerInfo": {
+                    "type": "object",
+                    "properties": {
+                        "addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "controller-alias": {
+                            "type": "string"
+                        },
+                        "controller-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "controller-tag",
+                        "controller-alias",
+                        "addrs",
+                        "ca-cert"
                     ]
                 },
                 "GetTokenArg": {
@@ -29516,6 +29554,37 @@
                     "additionalProperties": false,
                     "required": [
                         "version"
+                    ]
+                },
+                "UpdateControllerForModel": {
+                    "type": "object",
+                    "properties": {
+                        "info": {
+                            "$ref": "#/definitions/ExternalControllerInfo"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "info"
+                    ]
+                },
+                "UpdateControllersForModelsParams": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateControllerForModel"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "changes"
                     ]
                 }
             }
