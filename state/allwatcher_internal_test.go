@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -60,6 +61,7 @@ type allWatcherBaseSuite struct {
 func (s *allWatcherBaseSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
 	s.currentTime = s.state.clock().Now()
+	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 }
 
 // setUpScenario adds some entities to the state so that
