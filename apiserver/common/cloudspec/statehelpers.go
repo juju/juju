@@ -76,3 +76,42 @@ func MakeCloudSpecWatcherForModel(st *state.State) func(names.ModelTag) (state.N
 		return m.WatchCloudSpecChanges(), nil
 	}
 }
+
+// MakeCloudSpecCredentialWatcherForModel returns a function which returns a
+// NotifyWatcher for changes to a model's credential reference.
+// This watch will detect when model's credential is replaced with another credential.
+// Attempts to request a watcher for any other model other than the
+// one associated with the given state.State results in an error.
+func MakeCloudSpecCredentialWatcherForModel(st *state.State) func(names.ModelTag) (state.NotifyWatcher, error) {
+	return func(tag names.ModelTag) (state.NotifyWatcher, error) {
+		m, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if tag.Id() != st.ModelUUID() {
+			return nil, errors.New("cannot get cloud spec credential for this model")
+		}
+		return m.WatchModelCredential(), nil
+	}
+}
+
+// MakeCloudSpecCredentialContentWatcherForModel returns a function which returns a
+// NotifyWatcher for credential content changes for a single model.
+// Attempts to request a watcher for any other model other than the
+// one associated with the given state.State results in an error.
+func MakeCloudSpecCredentialContentWatcherForModel(st *state.State) func(names.ModelTag) (state.NotifyWatcher, error) {
+	return func(tag names.ModelTag) (state.NotifyWatcher, error) {
+		m, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		if tag.Id() != st.ModelUUID() {
+			return nil, errors.New("cannot get cloud spec credential content for this model")
+		}
+		credentialTag, exists := m.CloudCredential()
+		if !exists {
+			return nil, nil
+		}
+		return st.WatchCredential(credentialTag), nil
+	}
+}

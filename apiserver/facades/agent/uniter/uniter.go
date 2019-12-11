@@ -151,7 +151,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, common.ErrPerm
 	}
 	st := context.State()
-	clock := context.StatePool().Clock()
+	aClock := context.StatePool().Clock()
 	resources := context.Resources()
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
@@ -184,10 +184,11 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
-	cloudSpec := cloudspec.NewCloudSpec(
-		resources,
+	cloudSpec := cloudspec.NewCloudSpec(resources,
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 
@@ -212,7 +213,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 		m:                 m,
 		st:                st,
-		clock:             clock,
+		clock:             aClock,
 		cancel:            context.Cancel(),
 		cacheModel:        cacheModel,
 		auth:              authorizer,
