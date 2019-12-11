@@ -1289,6 +1289,11 @@ type externalControllerInfoShim struct {
 	info externalControllerDoc
 }
 
+// ID holds the controller ID from the external controller
+func (e externalControllerInfoShim) ID() string {
+	return e.info.Id
+}
+
 // Alias holds an alias (human friendly) name for the controller.
 func (e externalControllerInfoShim) Alias() string {
 	return e.info.Alias
@@ -1311,17 +1316,25 @@ func (e externalControllerInfoShim) Models() []string {
 	return e.info.Models
 }
 
-func (s externalControllerShim) AllExternalControllers() ([]migrations.MigrationExternalController, error) {
-	ec := NewExternalControllers(s.st)
-	entities, err := ec.AllExternalControllers()
+func (s externalControllerShim) ControllerForModel(uuid string) (migrations.MigrationExternalController, error) {
+	entity, err := s.st.ExternalControllerForModel(uuid)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	result := make([]migrations.MigrationExternalController, len(entities))
-	for k, v := range entities {
-		result[k] = externalControllerInfoShim{
-			info: v,
-		}
+	return externalControllerInfoShim{
+		info: entity.doc,
+	}, nil
+}
+
+// AllRemoteApplications returns all remote applications in the model.
+func (s externalControllerShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
+	remoteApps, err := s.st.AllRemoteApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRemoteApplication, len(remoteApps))
+	for k, v := range remoteApps {
+		result[k] = remoteApplicationShim{RemoteApplication: v}
 	}
 	return result, nil
 }

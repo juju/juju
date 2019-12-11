@@ -469,11 +469,11 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:f6d366075a8f279559073d5153facab19a068822667ec2e56017dc7b4d80da78"
+  digest = "1:e97a084297e7148cc963069865645b11ce69b9e8ffd31c812c568e1cf73ed98a"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "59d0637e3a7535da113bbb135b62ff527f4e99d5"
+  revision = "d109c06282f3fb3b99cfcc3abbfe7cf64e25894b"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"

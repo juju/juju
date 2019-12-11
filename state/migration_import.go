@@ -1523,9 +1523,12 @@ func (i *importer) externalControllers() error {
 	}
 	migration.Add(func() error {
 		m := ImportExternalControllers{}
-		return m.Execute(stateModelNamspaceShim{
-			Model: migration.src,
-			st:    i.st,
+		return m.Execute(stateExternalControllerDocumentFactoryShim{
+			stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
+			},
+			i,
 		}, migration.dst)
 	})
 	if err := migration.Run(); err != nil {

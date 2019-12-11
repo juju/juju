@@ -490,42 +490,54 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllers(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.externalController(ctrl, "ctrl-uuid-2", "magic", "magic-cert", []string{"10.0.1.1"})
-	entity1 := s.externalController(ctrl, "ctrl-uuid-3", "foo", "foo-cert", []string{"10.0.2.24"})
+	entity0 := s.externalController(ctrl, "ctrl-uuid-2", "magic", "magic-cert", []string{"10.0.1.1"}, []string{"xxxx-yyyy-zzzz"})
+	entity1 := s.externalController(ctrl, "ctrl-uuid-3", "foo", "foo-cert", []string{"10.0.2.24"}, []string{"aaaa-bbbb-cccc"})
 
 	entities := []description.ExternalController{
 		entity0,
 		entity1,
 	}
 
-	model := NewMockExternalControllersDescription(ctrl)
-	model.EXPECT().ExternalControllers().Return(entities)
-
-	runner := NewMockTransactionRunner(ctrl)
-	runner.EXPECT().RunTransaction([]txn.Op{
+	doc0 := externalControllerDoc{
+		Id:     "ctrl-uuid-2",
+		Addrs:  []string{"10.0.1.1"},
+		Alias:  "magic",
+		CACert: "magic-cert",
+		Models: []string{"xxxx-yyyy-zzzz"},
+	}
+	doc1 := externalControllerDoc{
+		Id:     "ctrl-uuid-3",
+		Addrs:  []string{"10.0.2.24"},
+		Alias:  "foo",
+		CACert: "foo-cert",
+		Models: []string{"aaaa-bbbb-cccc"},
+	}
+	ops := []txn.Op{
 		{
 			C:      externalControllersC,
 			Id:     "ctrl-uuid-2",
 			Assert: txn.DocMissing,
-			Insert: externalControllerDoc{
-				Id:     "ctrl-uuid-2",
-				Addrs:  []string{"10.0.1.1"},
-				Alias:  "magic",
-				CACert: "magic-cert",
-			},
+			Insert: doc0,
 		},
 		{
 			C:      externalControllersC,
 			Id:     "ctrl-uuid-3",
 			Assert: txn.DocMissing,
-			Insert: externalControllerDoc{
-				Id:     "ctrl-uuid-3",
-				Addrs:  []string{"10.0.2.24"},
-				Alias:  "foo",
-				CACert: "foo-cert",
-			},
+			Insert: doc1,
 		},
-	}).Return(nil)
+	}
+
+	model := NewMockExternalControllersDescription(ctrl)
+	model.EXPECT().ExternalControllers().Return(entities)
+	gomock.InOrder(
+		model.EXPECT().ExternalControllerDoc("ctrl-uuid-2").Return(nil, nil),
+		model.EXPECT().MakeExternalControllerOp(doc0, nil).Return(ops[0]),
+		model.EXPECT().ExternalControllerDoc("ctrl-uuid-3").Return(nil, nil),
+		model.EXPECT().MakeExternalControllerOp(doc1, nil).Return(ops[1]),
+	)
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction(ops).Return(nil)
 
 	m := ImportExternalControllers{}
 	err := m.Execute(model, runner)
@@ -553,14 +565,32 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransaction
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	entity0 := s.externalController(ctrl, "ctrl-uuid-2", "magic", "magic-cert", []string{"10.0.1.1"})
+	entity0 := s.externalController(ctrl, "ctrl-uuid-2", "magic", "magic-cert", []string{"10.0.1.1"}, []string{"xxxx-yyyy-zzzz"})
 
 	entities := []description.ExternalController{
 		entity0,
 	}
 
+	doc0 := externalControllerDoc{
+		Id:     "ctrl-uuid-2",
+		Addrs:  []string{"10.0.1.1"},
+		Alias:  "magic",
+		CACert: "magic-cert",
+		Models: []string{"xxxx-yyyy-zzzz"},
+	}
+	ops := []txn.Op{
+		{
+			C:      externalControllersC,
+			Id:     "ctrl-uuid-2",
+			Assert: txn.DocMissing,
+			Insert: doc0,
+		},
+	}
+
 	model := NewMockExternalControllersDescription(ctrl)
 	model.EXPECT().ExternalControllers().Return(entities)
+	model.EXPECT().ExternalControllerDoc("ctrl-uuid-2").Return(nil, nil)
+	model.EXPECT().MakeExternalControllerOp(doc0, nil).Return(ops[0])
 
 	runner := NewMockTransactionRunner(ctrl)
 	runner.EXPECT().RunTransaction([]txn.Op{
@@ -573,6 +603,7 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransaction
 				Addrs:  []string{"10.0.1.1"},
 				Alias:  "magic",
 				CACert: "magic-cert",
+				Models: []string{"xxxx-yyyy-zzzz"},
 			},
 		},
 	}).Return(errors.New("fail"))
@@ -582,11 +613,12 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransaction
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
-func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, id, alias, caCert string, addrs []string) *MockExternalController {
+func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, id, alias, caCert string, addrs, models []string) *MockExternalController {
 	entity := NewMockExternalController(ctrl)
 	entity.EXPECT().ID().Return(names.NewControllerTag(id))
 	entity.EXPECT().Alias().Return(alias)
 	entity.EXPECT().CACert().Return(caCert)
 	entity.EXPECT().Addrs().Return(addrs)
+	entity.EXPECT().Models().Return(models)
 	return entity
 }
