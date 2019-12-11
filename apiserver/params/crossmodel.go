@@ -622,6 +622,19 @@ type ModifyOfferAccess struct {
 	OfferURL string                `json:"offer-url"`
 }
 
+// UpdateControllerForModel contains the parameters for setting
+// a new external controller for the supplied model.
+type UpdateControllerForModel struct {
+	ModelTag string                 `json:"model-tag"`
+	Info     ExternalControllerInfo `json:"info"`
+}
+
+// UpdateControllersForModelsParams contains the parameters for setting
+// new external controllers for the associated models.
+type UpdateControllersForModelsParams struct {
+	Changes []UpdateControllerForModel `json:"changes"`
+}
+
 // OfferAction is an action that can be performed on an offer.
 type OfferAction string
 
