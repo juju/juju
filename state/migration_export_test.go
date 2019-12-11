@@ -688,13 +688,22 @@ func (s *MigrationExportSuite) TestOfferConnections(c *gc.C) {
 }
 
 func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
-	ec := state.NewExternalControllers(s.State)
-	stCtrl, err := ec.Save(crossmodel.ControllerInfo{
+	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+		OfferUUID:   "offer-uuid",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	stCtrl, err := service.Save(crossmodel.ControllerInfo{
 		Addrs:         []string{"10.224.0.1:8080"},
 		Alias:         "magic",
 		CACert:        "magic-ca-cert",
 		ControllerTag: names.NewControllerTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
-	})
+	}, s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971")
 	c.Assert(err, jc.ErrorIsNil)
 
 	// We only care for the offer connections
@@ -722,6 +731,7 @@ func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
 	c.Assert(ctrl.Addrs(), gc.DeepEquals, stCtrl.ControllerInfo().Addrs)
 	c.Assert(ctrl.Alias(), gc.Equals, stCtrl.ControllerInfo().Alias)
 	c.Assert(ctrl.CACert(), gc.Equals, stCtrl.ControllerInfo().CACert)
+	c.Assert(ctrl.Models(), gc.DeepEquals, []string{s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971"})
 }
 
 func (s *MigrationExportSuite) TestUnits(c *gc.C) {
@@ -2186,6 +2196,15 @@ func (s *MigrationExportSuite) TestRemoteApplications(c *gc.C) {
 	eps, err := s.State.InferEndpoints("gravy-rainbow", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	_, err = service.Save(crossmodel.ControllerInfo{
+		Addrs:         []string{"10.224.0.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+		ControllerTag: s.Model.ControllerTag(),
+	}, s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971")
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()

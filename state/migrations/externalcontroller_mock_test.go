@@ -75,6 +75,20 @@ func (mr *MockMigrationExternalControllerMockRecorder) CACert() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CACert", reflect.TypeOf((*MockMigrationExternalController)(nil).CACert))
 }
 
+// ID mocks base method
+func (m *MockMigrationExternalController) ID() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ID")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ID indicates an expected call of ID
+func (mr *MockMigrationExternalControllerMockRecorder) ID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockMigrationExternalController)(nil).ID))
+}
+
 // Models mocks base method
 func (m *MockMigrationExternalController) Models() []string {
 	m.ctrl.T.Helper()
@@ -112,19 +126,34 @@ func (m *MockExternalControllerSource) EXPECT() *MockExternalControllerSourceMoc
 	return m.recorder
 }
 
-// AllExternalControllers mocks base method
-func (m *MockExternalControllerSource) AllExternalControllers() ([]MigrationExternalController, error) {
+// AllRemoteApplications mocks base method
+func (m *MockExternalControllerSource) AllRemoteApplications() ([]MigrationRemoteApplication, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AllExternalControllers")
-	ret0, _ := ret[0].([]MigrationExternalController)
+	ret := m.ctrl.Call(m, "AllRemoteApplications")
+	ret0, _ := ret[0].([]MigrationRemoteApplication)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// AllExternalControllers indicates an expected call of AllExternalControllers
-func (mr *MockExternalControllerSourceMockRecorder) AllExternalControllers() *gomock.Call {
+// AllRemoteApplications indicates an expected call of AllRemoteApplications
+func (mr *MockExternalControllerSourceMockRecorder) AllRemoteApplications() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllExternalControllers", reflect.TypeOf((*MockExternalControllerSource)(nil).AllExternalControllers))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllRemoteApplications", reflect.TypeOf((*MockExternalControllerSource)(nil).AllRemoteApplications))
+}
+
+// ControllerForModel mocks base method
+func (m *MockExternalControllerSource) ControllerForModel(arg0 string) (MigrationExternalController, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerForModel", arg0)
+	ret0, _ := ret[0].(MigrationExternalController)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerForModel indicates an expected call of ControllerForModel
+func (mr *MockExternalControllerSourceMockRecorder) ControllerForModel(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerForModel", reflect.TypeOf((*MockExternalControllerSource)(nil).ControllerForModel), arg0)
 }
 
 // MockExternalControllerModel is a mock of ExternalControllerModel interface

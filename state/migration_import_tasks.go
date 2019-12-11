@@ -364,10 +364,39 @@ func (ImportRelationNetworks) Execute(src RelationNetworksDescription, runner Tr
 	return nil
 }
 
+// ExternalControllerStateDocumentFactory creates documents that are useful with
+// in the state package. In essence this just allows us to model our
+// dependencies correctly without having to construct dependencies everywhere.
+// Note: we need public methods here because gomock doesn't mock private methods
+type ExternalControllerStateDocumentFactory interface {
+	ExternalControllerDoc(string) (*externalControllerDoc, error)
+	MakeExternalControllerOp(externalControllerDoc, *externalControllerDoc) txn.Op
+}
+
 // ExternalControllersDescription defines an inplace usage for reading external
 // controllers
 type ExternalControllersDescription interface {
+	ExternalControllerStateDocumentFactory
 	ExternalControllers() []description.ExternalController
+}
+
+// stateExternalControllerDocumentFactoryShim is required to allow the new
+// vertical boundary around importing a external controller, from being accessed
+// by the existing state package code.
+// That way we can keep the importing code clean from the proliferation of state
+// code in the juju code base.
+type stateExternalControllerDocumentFactoryShim struct {
+	stateModelNamspaceShim
+	importer *importer
+}
+
+func (s stateExternalControllerDocumentFactoryShim) ExternalControllerDoc(uuid string) (*externalControllerDoc, error) {
+	service := NewExternalControllers(s.importer.st)
+	return service.controller(uuid)
+}
+
+func (s stateExternalControllerDocumentFactoryShim) MakeExternalControllerOp(doc externalControllerDoc, existing *externalControllerDoc) txn.Op {
+	return createExternalControllerOp(&doc, existing, doc.Models)
 }
 
 // ImportExternalControllers describes a way to import external controllers
@@ -384,19 +413,19 @@ func (ImportExternalControllers) Execute(src ExternalControllersDescription, run
 
 	ops := make([]txn.Op, len(externalControllers))
 	for i, entity := range externalControllers {
+		controllerID := entity.ID().Id()
 		doc := externalControllerDoc{
-			Id:     entity.ID().Id(),
+			Id:     controllerID,
 			Alias:  entity.Alias(),
 			Addrs:  entity.Addrs(),
 			CACert: entity.CACert(),
-			// Models: entity.Models(),
+			Models: entity.Models(),
 		}
-		ops[i] = txn.Op{
-			C:      externalControllersC,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
+		existing, err := src.ExternalControllerDoc(controllerID)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
 		}
+		ops[i] = src.MakeExternalControllerOp(doc, existing)
 	}
 
 	if err := runner.RunTransaction(ops); err != nil {

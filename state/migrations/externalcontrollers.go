@@ -6,11 +6,15 @@ package migrations
 import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 )
 
 // MigrationExternalController represents a state.ExternalController
 // Point of use interface to enable better encapsulation.
 type MigrationExternalController interface {
+	// ID holds the controller ID from the external controller
+	ID() string
+
 	// Alias holds an alias (human friendly) name for the controller.
 	Alias() string
 
@@ -29,13 +33,14 @@ type MigrationExternalController interface {
 // AllExternalControllerSource defines an in-place usage for reading all the
 // external controllers.
 type AllExternalControllerSource interface {
-	AllExternalControllers() ([]MigrationExternalController, error)
+	ControllerForModel(string) (MigrationExternalController, error)
 }
 
 // ExternalControllerSource composes all the interfaces to create a external
 // controllers.
 type ExternalControllerSource interface {
 	AllExternalControllerSource
+	AllRemoteApplicationSource
 }
 
 // ExternalControllerModel defines an in-place usage for adding a
@@ -53,12 +58,38 @@ type ExportExternalControllers struct{}
 // This doesn't conform to an interface because go doesn't have generics, but
 // when this does arrive this would be an excellent place to use them.
 func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst ExternalControllerModel) error {
-	externalControllers, err := src.AllExternalControllers()
+	// If there are not remote applications, then no external controllers will
+	// be exported. We should understand if that's ever going to be an issue?
+	remoteApplications, err := src.AllRemoteApplications()
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	for _, externalController := range externalControllers {
+	// Iterate over the source model UUIDs, togather up all the related
+	// external controllers. Store them in a map to create a unique set of
+	// source model UUIDs, that way we don't request multiple versions of the
+	// same external controller.
+	sourceModelUUIDs := make(map[string]struct{})
+	for _, remoteApp := range remoteApplications {
+		sourceModelUUIDs[remoteApp.SourceModel().Id()] = struct{}{}
+	}
+
+	for modelUUID := range sourceModelUUIDs {
+		externalController, err := src.ControllerForModel(modelUUID)
+		if err != nil {
+			// This can occur when attemptting to export a remote application
+			// where there is a external controller, yet the controller doesn't
+			// exist.
+			// This generally only happens whilst keeping backwards
+			// compatibility, whilst remote applications aren't exported or
+			// imported correctly.
+			// TODO (stickupkid): This should be removed when we support CMR
+			// migrations without a feature flag.
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return errors.Trace(err)
+		}
 		if err := m.addExternalController(dst, externalController); err != nil {
 			return errors.Trace(err)
 		}
@@ -68,11 +99,11 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 
 func (m ExportExternalControllers) addExternalController(dst ExternalControllerModel, ctrl MigrationExternalController) error {
 	_ = dst.AddExternalController(description.ExternalControllerArgs{
-		// ID: ctrl.ID(),
+		Tag:    names.NewControllerTag(ctrl.ID()),
 		Addrs:  ctrl.Addrs(),
 		Alias:  ctrl.Alias(),
 		CACert: ctrl.CACert(),
-		// Models: ctrl.Models(),
+		Models: ctrl.Models(),
 	})
 	return nil
 }

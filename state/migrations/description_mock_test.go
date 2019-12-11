@@ -91,6 +91,20 @@ func (mr *MockExternalControllerMockRecorder) ID() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockExternalController)(nil).ID))
 }
 
+// Models mocks base method
+func (m *MockExternalController) Models() []string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Models")
+	ret0, _ := ret[0].([]string)
+	return ret0
+}
+
+// Models indicates an expected call of Models
+func (mr *MockExternalControllerMockRecorder) Models() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Models", reflect.TypeOf((*MockExternalController)(nil).Models))
+}
+
 // MockOfferConnection is a mock of OfferConnection interface
 type MockOfferConnection struct {
 	ctrl     *gomock.Controller
