@@ -439,10 +439,12 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 	// So... read the damn database again. Note that this not only hits the database
 	// for the unit, but the model as well.
 	// TODO: add the model type to the state object when we create the state object.
-	unit, err := ctx.state.Unit(u.Name)
+	modelType, err := ctx.modelType()
 	if err != nil {
-		return errors.Annotatef(err, "get unit %q", u.Name)
+		return errors.Annotatef(err, "get model type for %q", ctx.modelUUID)
 	}
+	var unitDoc unitDoc = unitDoc(*u)
+	unit := newUnit(ctx.state, modelType, &unitDoc)
 
 	oldInfo := ctx.store.Get(info.EntityId())
 	if oldInfo == nil {
@@ -1645,6 +1647,8 @@ type allWatcherContext struct {
 	modelUUID string
 	id        string
 
+	modelType_ ModelType
+
 	settings    map[string]*settingsDoc
 	constraints map[string]constraints.Value
 	statuses    map[string]status.StatusInfo
@@ -1864,6 +1868,17 @@ func (ctx *allWatcherContext) entityIDForGlobalKey(key string) (multiwatcher.Ent
 		return multiwatcher.EntityId{}, false
 	}
 	return result.EntityId(), true
+}
+
+func (ctx *allWatcherContext) modelType() (ModelType, error) {
+	if ctx.modelType_ != modelTypeNone {
+		return ctx.modelType_, nil
+	}
+	model, err := ctx.state.Model()
+	if err != nil {
+		return modelTypeNone, errors.Trace(err)
+	}
+	return model.Type(), nil
 }
 
 // entityIDForSettingsKey returns the entity id for the given
