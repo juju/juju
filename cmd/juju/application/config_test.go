@@ -106,7 +106,7 @@ var getTests = []struct {
 
 func (s *configCommandSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuXDGDataHomeSuite.SetUpTest(c)
-	s.SetFeatureFlags(feature.Branches)
+	s.SetFeatureFlags(feature.Generations)
 
 	s.defaultCharmValues = map[string]interface{}{
 		"title":           "Nearly There",

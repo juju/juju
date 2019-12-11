@@ -225,7 +225,7 @@ func prepare(
 	details.Password = args.AdminSecret
 	details.LastKnownAccess = string(permission.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
-	if featureflag.Enabled(feature.Branches) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		details.ActiveBranch = model.GenerationMaster
 	}
 	details.ControllerDetails.Cloud = args.Cloud.Name
