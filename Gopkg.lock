@@ -455,11 +455,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:ebbd30a06de5bc3933e34d426cfaa69a0cefa10f575d520e6597acbf37e4d132"
+  digest = "1:ef49e9c114183e3d64d2ed7602dfb175213eb1ba5edcf822376104c4ba9e6e42"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
+  revision = "4ca814a87a328d089e9e610538fc205d7bed3987"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
@@ -1515,6 +1515,18 @@
   ]
   pruneopts = ""
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
+
+[[projects]]
+  digest = "1:4c36061633490dc60772944614e06b4de202c271bddaef55335af989ea35dfb8"
+  name = "gopkg.in/juju/charmrepo.v4"
+  packages = [
+    ".",
+    "csclient",
+    "csclient/params",
+  ]
+  pruneopts = ""
+  revision = "cd05de29309bc2c97e7334b8316c916203b0be9d"
+  version = "v4.1.1"
 
 [[projects]]
   digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"
