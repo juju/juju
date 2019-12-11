@@ -196,6 +196,31 @@ func (s *AddModelSuite) TestInit(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddExistingName(c *gc.C) {
+	s.SetFeatureFlags(feature.Branches)
+	// If there's any model details existing, we just overwrite them. The
+	// controller will error out if the model already exists. Overwriting
+	// means we'll replace any stale details from an previously existing
+	// model with the same name.
+	err := s.store.UpdateModel("test-master", "bob/test", jujuclient.ModelDetails{
+		ModelUUID: "stale-uuid",
+		ModelType: model.IAAS,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.run(c, "test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	details, err := s.store.ModelByName("test-master", "bob/test")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(details, jc.DeepEquals, &jujuclient.ModelDetails{
+		ModelUUID:    "fake-model-uuid",
+		ModelType:    model.IAAS,
+		ActiveBranch: model.GenerationMaster,
+	})
+}
+
+// We support 2 flags for Generations/Branches. This test ensures that either works.
+func (s *AddModelSuite) TestAddExistingNameAlternativeFlagName(c *gc.C) {
 	s.SetFeatureFlags(feature.Generations)
 	// If there's any model details existing, we just overwrite them. The
 	// controller will error out if the model already exists. Overwriting
@@ -600,7 +625,7 @@ func (s *AddModelSuite) TestAddErrorRemoveConfigstoreInfo(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	const controllerName = "test-master"
 
 	_, err := s.run(c, "test")
@@ -621,7 +646,7 @@ func (s *AddModelSuite) TestAddStoresValues(c *gc.C) {
 }
 
 func (s *AddModelSuite) TestNoSwitch(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	const controllerName = "test-master"
 	checkNoModelSelected := func() {
 		_, err := s.store.CurrentModel(controllerName)

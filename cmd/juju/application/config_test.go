@@ -164,7 +164,7 @@ func (s *configCommandSuite) TestGetCommandInitWithGeneration(c *gc.C) {
 }
 
 func (s *configCommandSuite) TestGetConfig(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	for _, t := range getTests {
 		if !t.useAppConfig {
 			s.fake.appValues = nil

@@ -47,7 +47,7 @@ func ReadModelsFile(file string) (map[string]*ControllerModels, error) {
 	if err := addModelType(models); err != nil {
 		return nil, err
 	}
-	if featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		if err := addGeneration(models); err != nil {
 			return nil, err
 		}

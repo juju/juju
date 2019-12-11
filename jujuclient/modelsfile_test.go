@@ -111,7 +111,7 @@ func (s *ModelsFileSuite) TestReadEmptyFile(c *gc.C) {
 }
 
 func (s *ModelsFileSuite) TestMigrateLegacyLocal(c *gc.C) {
-	s.SetFeatureFlags(feature.Generations)
+	s.SetFeatureFlags(feature.Branches)
 	err := ioutil.WriteFile(jujuclient.JujuModelsPath(), []byte(testLegacyModelsYAML), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
