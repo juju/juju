@@ -1,0 +1,4 @@
+#!/bin/sh
+name=`echo $JUJU_HOOK_NAME`
+status-set active "Hello from $name, $(uptime | grep -oe 'average: .*' | sed -e 's/average:/load:/')"
+juju-log -l INFO "Hello from $name."
