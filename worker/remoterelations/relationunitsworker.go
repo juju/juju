@@ -98,5 +98,5 @@ func (w *relationUnitsWorker) loop() error {
 }
 
 func isEmpty(change params.RemoteRelationChangeEvent) bool {
-	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.Settings == nil
+	return len(change.ChangedUnits)+len(change.DepartedUnits) == 0 && change.ApplicationSettings == nil
 }
