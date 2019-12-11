@@ -28391,6 +28391,17 @@
                         }
                     }
                 },
+                "RelationUnitSettings": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RelationUnits"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SettingsResults"
+                        }
+                    }
+                },
                 "Relations": {
                     "type": "object",
                     "properties": {
@@ -28435,6 +28446,17 @@
                         }
                     }
                 },
+                "UpdateControllersForModels": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateControllersForModelsParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "WatchLocalRelationChanges": {
                     "type": "object",
                     "properties": {
@@ -28443,6 +28465,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/RemoteRelationWatchResults"
+                        }
+                    }
+                },
+                "WatchLocalRelationUnits": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/RelationUnitsWatchResults"
                         }
                     }
                 },
@@ -28667,6 +28700,33 @@
                         "results"
                     ]
                 },
+                "ExternalControllerInfo": {
+                    "type": "object",
+                    "properties": {
+                        "addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "controller-alias": {
+                            "type": "string"
+                        },
+                        "controller-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "controller-tag",
+                        "controller-alias",
+                        "addrs",
+                        "ca-cert"
+                    ]
+                },
                 "GetTokenArg": {
                     "type": "object",
                     "properties": {
@@ -28697,6 +28757,102 @@
                 "Macaroon": {
                     "type": "object",
                     "additionalProperties": false
+                },
+                "RelationUnit": {
+                    "type": "object",
+                    "properties": {
+                        "relation": {
+                            "type": "string"
+                        },
+                        "unit": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation",
+                        "unit"
+                    ]
+                },
+                "RelationUnits": {
+                    "type": "object",
+                    "properties": {
+                        "relation-units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RelationUnit"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation-units"
+                    ]
+                },
+                "RelationUnitsChange": {
+                    "type": "object",
+                    "properties": {
+                        "app-changed": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "integer"
+                                }
+                            }
+                        },
+                        "changed": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "$ref": "#/definitions/UnitSettings"
+                                }
+                            }
+                        },
+                        "departed": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "changed"
+                    ]
+                },
+                "RelationUnitsWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "$ref": "#/definitions/RelationUnitsChange"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                },
+                "RelationUnitsWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RelationUnitsWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
                 },
                 "RemoteApplication": {
                     "type": "object",
@@ -29018,6 +29174,41 @@
                         "entities"
                     ]
                 },
+                "SettingsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "settings"
+                    ]
+                },
+                "SettingsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SettingsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "StringResult": {
                     "type": "object",
                     "properties": {
@@ -29107,6 +29298,49 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "UnitSettings": {
+                    "type": "object",
+                    "properties": {
+                        "version": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "version"
+                    ]
+                },
+                "UpdateControllerForModel": {
+                    "type": "object",
+                    "properties": {
+                        "info": {
+                            "$ref": "#/definitions/ExternalControllerInfo"
+                        },
+                        "model-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "model-tag",
+                        "info"
+                    ]
+                },
+                "UpdateControllersForModelsParams": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateControllerForModel"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "changes"
+                    ]
                 }
             }
         }

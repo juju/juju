@@ -395,7 +395,7 @@ func (api *API) WatchLocalRelationChanges(args params.Entities) (params.RemoteRe
 // so this removes the method as far as the RPC machinery is concerned.
 //
 // WatchLocalRelationChanges doesn't exist before the v2 API.
-func (api *APIV1) WatchLocalRelationChanges(_, _ struct{}) {}
+func (api *APIv1) WatchLocalRelationChanges(_, _ struct{}) {}
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 // each specified application in the local model, and returns the watcher IDs
