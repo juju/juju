@@ -4,6 +4,7 @@
 package environ_test
 
 import (
+	"reflect"
 	"time"
 
 	"github.com/juju/errors"
@@ -12,6 +13,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/environ"
@@ -280,6 +282,53 @@ func (s *TrackerSuite) TestWatchedCloudSpecUpdates(c *gc.C) {
 					continue
 				}
 				c.Check(ep, gc.Equals, "http://api")
+			case <-timeout:
+				c.Fatalf("timed out waiting for environ to be updated")
+			}
+			break
+		}
+	})
+}
+
+func (s *TrackerSuite) TestWatchedCloudSpecCredentialsUpdates(c *gc.C) {
+	original := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username": "user",
+			"password": "secret",
+		},
+	)
+	differentContent := cloud.NewCredential(
+		cloud.UserPassAuthType,
+		map[string]string{
+			"username": "user",
+			"password": "not-secret-anymore",
+		},
+	)
+	fix := &fixture{
+		initialSpec: environs.CloudSpec{Name: "cloud", Type: "lxd", Credential: &original},
+	}
+	fix.Run(c, func(context *runContext) {
+		tracker, err := environ.NewTracker(s.validConfig(context))
+		c.Check(err, jc.ErrorIsNil)
+		defer workertest.CleanKill(c, tracker)
+
+		context.SetCloudSpec(c, environs.CloudSpec{Name: "lxd", Type: "lxd", Credential: &differentContent})
+		gotEnviron := tracker.Environ().(*mockEnviron)
+		c.Assert(gotEnviron.CloudSpec(), jc.DeepEquals, fix.initialSpec)
+
+		timeout := time.After(coretesting.LongWait)
+		attempt := time.After(0)
+		context.SendCloudSpecNotify()
+		for {
+			select {
+			case <-attempt:
+				ep := gotEnviron.CloudSpec().Credential
+				if reflect.DeepEqual(ep, &original) {
+					attempt = time.After(coretesting.ShortWait)
+					continue
+				}
+				c.Check(reflect.DeepEqual(ep, &differentContent), jc.IsTrue)
 			case <-timeout:
 				c.Fatalf("timed out waiting for environ to be updated")
 			}

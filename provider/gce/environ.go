@@ -103,12 +103,35 @@ func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) 
 		return nil, errors.Annotate(err, "invalid config")
 	}
 
-	credAttrs := cloud.Credential.Attributes()
-	if cloud.Credential.AuthType() == jujucloud.JSONFileAuthType {
+	namespace, err := instance.NewNamespace(cfg.UUID())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	e := &environ{
+		name:      ecfg.config.Name(),
+		uuid:      ecfg.config.UUID(),
+		ecfg:      ecfg,
+		namespace: namespace,
+	}
+	if err = e.SetCloudSpec(cloud); err != nil {
+		return nil, err
+	}
+	return e, nil
+}
+
+// SetCloudSpec is specified in the environs.Environ interface.
+func (e *environ) SetCloudSpec(spec environs.CloudSpec) error {
+	e.lock.Lock()
+	defer e.lock.Unlock()
+
+	e.cloud = spec
+	credAttrs := spec.Credential.Attributes()
+	if spec.Credential.AuthType() == jujucloud.JSONFileAuthType {
 		contents := credAttrs[credAttrFile]
 		credential, err := parseJSONAuthFile(strings.NewReader(contents))
 		if err != nil {
-			return nil, errors.Trace(err)
+			return errors.Trace(err)
 		}
 		credAttrs = credential.Attributes()
 	}
@@ -120,28 +143,17 @@ func newEnviron(cloud environs.CloudSpec, cfg *config.Config) (*environ, error) 
 		PrivateKey:  []byte(credAttrs[credAttrPrivateKey]),
 	}
 	connectionConfig := google.ConnectionConfig{
-		Region:    cloud.Region,
+		Region:    spec.Region,
 		ProjectID: credential.ProjectID,
 	}
 
 	// Connect and authenticate.
-	conn, err := newConnection(connectionConfig, credential)
+	var err error
+	e.gce, err = newConnection(connectionConfig, credential)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	namespace, err := instance.NewNamespace(cfg.UUID())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return &environ{
-		name:      ecfg.config.Name(),
-		uuid:      ecfg.config.UUID(),
-		cloud:     cloud,
-		ecfg:      ecfg,
-		gce:       conn,
-		namespace: namespace,
-	}, nil
+	return nil
 }
 
 // Name returns the name of the environment.
