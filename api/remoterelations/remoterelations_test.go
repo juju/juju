@@ -431,6 +431,7 @@ type facadeCallFunc = func(objType string, version int, id, request string, arg,
 func (s *remoteRelationsSuite) TestUpdateControllerForModelResultCount(c *gc.C) {
 	apiCaller := testing.APICallerFunc(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(request, gc.Equals, "UpdateControllersForModels")
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{
 					{Error: &params.Error{Message: "FAIL"}},
@@ -449,6 +450,7 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultCount(c *gc.C) 
 func (s *remoteRelationsSuite) TestUpdateControllerForModelResultError(c *gc.C) {
 	apiCaller := testing.APICallerFunc(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(request, gc.Equals, "UpdateControllersForModels")
 			*(result.(*params.ErrorResults)) = params.ErrorResults{
 				Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}},
 			}
@@ -464,6 +466,7 @@ func (s *remoteRelationsSuite) TestUpdateControllerForModelResultError(c *gc.C) 
 func (s *remoteRelationsSuite) TestUpdateControllerForModelResultSuccess(c *gc.C) {
 	apiCaller := testing.APICallerFunc(
 		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(request, gc.Equals, "UpdateControllersForModels")
 			*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
 			return nil
 		},
