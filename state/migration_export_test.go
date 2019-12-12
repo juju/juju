@@ -706,7 +706,7 @@ func (s *MigrationExportSuite) TestExternalControllers(c *gc.C) {
 	}, s.Model.UUID(), "af5a9137-934c-4b0c-8317-643b69cf4971")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// We only care for the offer connections
+	// We only care for the external controllers
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipActions:              true,
 		SkipAnnotations:          true,
