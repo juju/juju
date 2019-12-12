@@ -28,17 +28,22 @@ import (
 // - juju-controller
 // - juju-application-offer
 type FirewallRule struct {
-	id string
-
+	id               string
 	wellKnownService firewall.WellKnownServiceType
-
-	whitelistCIDRs []string
+	whitelistCIDRs   []string
 }
 
+// NewFirewallRule will create a new FirewallRule using the service type and
+// some CIDRs.
 func NewFirewallRule(serviceType firewall.WellKnownServiceType, cidrs []string) FirewallRule {
-	return FirewallRule{whitelistCIDRs: cidrs, wellKnownService: serviceType}
+	return FirewallRule{
+		id:               string(serviceType),
+		whitelistCIDRs:   cidrs,
+		wellKnownService: serviceType,
+	}
 }
 
+// ID returns the underlying Firewall ID
 func (f FirewallRule) ID() string {
 	return f.id
 }
@@ -89,7 +94,49 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 		return errors.Trace(err)
 	}
 	buildTxn := func(int) ([]txn.Op, error) {
-		return fw.GetSaveTransactionOps(rule, false)
+		if err := rule.WellKnownService().Validate(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, cidr := range rule.WhitelistCIDRs() {
+			if _, _, err := net.ParseCIDR(cidr); err != nil {
+				return nil, errors.NotValidf("CIDR %q", cidr)
+			}
+		}
+		serviceStr := string(rule.WellKnownService())
+		doc := firewallRulesDoc{
+			Id:               serviceStr,
+			WellKnownService: serviceStr,
+			WhitelistCIDRS:   rule.WhitelistCIDRs(),
+		}
+
+		model, err := fw.st.Model()
+		if err != nil {
+			return nil, errors.Annotate(err, "failed to load model")
+		}
+		_, err = fw.Rule(rule.WellKnownService())
+		if err != nil && !errors.IsNotFound(err) {
+			return nil, errors.Trace(err)
+		}
+		var ops []txn.Op
+		if err == nil {
+			ops = []txn.Op{{
+				C:      firewallRulesC,
+				Id:     serviceStr,
+				Assert: txn.DocExists,
+				Update: bson.D{
+					{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs()}}},
+				},
+			}}
+		} else {
+			doc.WhitelistCIDRS = rule.WhitelistCIDRs()
+			ops = []txn.Op{{
+				C:      firewallRulesC,
+				Id:     doc.Id,
+				Assert: txn.DocMissing,
+				Insert: doc,
+			}}
+		}
+		return append(ops, model.assertActiveOp()), nil
 	}
 	if err := fw.st.db().Run(buildTxn); err != nil {
 		return errors.Annotate(err, "failed to create firewall rules")
@@ -98,53 +145,37 @@ func (fw *firewallRulesState) Save(rule FirewallRule) error {
 	return nil
 }
 
-func (fw *firewallRulesState) GetSaveTransactionOps(rule FirewallRule, isMigrating bool) ([]txn.Op, error) {
-	if err := rule.WellKnownService().Validate(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, cidr := range rule.WhitelistCIDRs() {
-		if _, _, err := net.ParseCIDR(cidr); err != nil {
-			return nil, errors.NotValidf("CIDR %q", cidr)
-		}
-	}
-	serviceStr := string(rule.WellKnownService())
-	doc := firewallRulesDoc{
-		Id:               serviceStr,
-		WellKnownService: serviceStr,
-		WhitelistCIDRS:   rule.WhitelistCIDRs(),
-	}
+// Remove deletes the specified firewall rule.
+func (fw *firewallRulesState) Remove(firewallRuleID firewall.WellKnownServiceType) error {
+	ops := []txn.Op{{
+		C:      firewallRulesC,
+		Id:     string(firewallRuleID),
+		Remove: true,
+	}}
+	err := fw.st.db().RunTransaction(ops)
+	return errors.Annotate(err, "failed to remove firewall rule")
+}
 
-	model, err := fw.st.Model()
-	if err != nil {
-		return nil, errors.Annotate(err, "failed to load model")
-	}
-	_, err = fw.Rule(rule.WellKnownService())
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
-	var ops []txn.Op
-	if err == nil {
-		ops = []txn.Op{{
-			C:      firewallRulesC,
-			Id:     serviceStr,
-			Assert: txn.DocExists,
-			Update: bson.D{
-				{"$set", bson.D{{"whitelist-cidrs", rule.WhitelistCIDRs()}}},
-			},
-		}}
-	} else {
-		doc.WhitelistCIDRS = rule.WhitelistCIDRs()
-		ops = []txn.Op{{
+func upsertFirewallRuleOp(doc firewallRulesDoc, insert bool) txn.Op {
+	// So this isn't actually a valid upsert, because a new doc will overwrite
+	// an existing firewall rule rather than doing merging existing rule sets.
+	if !insert {
+		return txn.Op{
 			C:      firewallRulesC,
 			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}}
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set", bson.D{{"whitelist-cidrs", doc.WhitelistCIDRS}}},
+			},
+		}
 	}
-	if !isMigrating {
-		ops = append(ops, model.assertActiveOp())
+
+	return txn.Op{
+		C:      firewallRulesC,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
 	}
-	return ops, nil
 }
 
 // Rule returns the firewall rule for the specified service.

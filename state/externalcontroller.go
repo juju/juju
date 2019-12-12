@@ -202,7 +202,7 @@ func (s *State) ExternalControllerForModel(modelUUID string) (*externalControlle
 	return nil, errors.Errorf("expected 1 controller with model %v, got %d", modelUUID, len(doc))
 }
 
-func upsertExternalControllerOp(doc *externalControllerDoc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
+func upsertExternalControllerOp(doc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
 	if existing != nil {
 		models := set.NewStrings(existing.Models...)
 		models = models.Union(set.NewStrings(modelUUIDs...))

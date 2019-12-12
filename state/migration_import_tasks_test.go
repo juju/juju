@@ -622,3 +622,105 @@ func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, 
 	entity.EXPECT().Models().Return(models)
 	return entity
 }
+
+/////
+
+func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.firewallRule(ctrl, "ssh", "ssh", []string{"192.168.0.1/24"})
+	entity1 := s.firewallRule(ctrl, "ssh", "ssh", []string{"10.0.0.1/16"})
+
+	entities := []description.FirewallRule{
+		entity0,
+		entity1,
+	}
+
+	model := NewMockFirewallRulesDescription(ctrl)
+	model.EXPECT().FirewallRules().Return(entities)
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      firewallRulesC,
+			Id:     "ssh",
+			Assert: txn.DocMissing,
+			Insert: firewallRulesDoc{
+				Id:               "ssh",
+				WellKnownService: "ssh",
+				WhitelistCIDRS:   []string{"192.168.0.1/24"},
+			},
+		},
+		{
+			C:      firewallRulesC,
+			Id:     "ssh",
+			Assert: txn.DocMissing,
+			Insert: firewallRulesDoc{
+				Id:               "ssh",
+				WellKnownService: "ssh",
+				WhitelistCIDRS:   []string{"10.0.0.1/16"},
+			},
+		},
+	}).Return(nil)
+
+	m := ImportFirewallRules{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithNoEntities(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entities := []description.FirewallRule{}
+
+	model := NewMockFirewallRulesDescription(ctrl)
+	model.EXPECT().FirewallRules().Return(entities)
+
+	runner := NewMockTransactionRunner(ctrl)
+	// No call to RunTransaction if there are no operations.
+
+	m := ImportFirewallRules{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunnerReturnsError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.firewallRule(ctrl, "ssh", "ssh", []string{"192.168.0.1/24"})
+
+	entities := []description.FirewallRule{
+		entity0,
+	}
+
+	model := NewMockFirewallRulesDescription(ctrl)
+	model.EXPECT().FirewallRules().Return(entities)
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      firewallRulesC,
+			Id:     "ssh",
+			Assert: txn.DocMissing,
+			Insert: firewallRulesDoc{
+				Id:               "ssh",
+				WellKnownService: "ssh",
+				WhitelistCIDRS:   []string{"192.168.0.1/24"},
+			},
+		},
+	}).Return(errors.New("fail"))
+
+	m := ImportFirewallRules{}
+	err := m.Execute(model, runner)
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+func (s *MigrationImportTasksSuite) firewallRule(ctrl *gomock.Controller, id, service string, whitelist []string) *MockFirewallRule {
+	entity := NewMockFirewallRule(ctrl)
+	entity.EXPECT().WellKnownService().Return(service)
+	entity.EXPECT().WhitelistCIDRs().Return(whitelist)
+	return entity
+}

@@ -86,6 +86,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		applicationOffersC,
 		offerConnectionsC,
 		relationNetworksC,
+		remoteEntitiesC,
+		externalControllersC,
 	)
 
 	ignoredCollections := set.NewStrings(
@@ -212,8 +214,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	todoCollections := set.NewStrings(
 		// uncategorised
 		//Cross Model Relations - TODO
-		remoteEntitiesC,
-		externalControllersC,
 		dockerResourcesC,
 		// TODO(raftlease)
 		// This collection shouldn't be migrated, but we need to make
