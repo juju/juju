@@ -75,7 +75,6 @@ type Clock interface {
 }
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
-var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // ComponentConfig holds all the information related to a hook context
@@ -258,6 +257,8 @@ type HookContext struct {
 
 	// podSpecYaml is the pending pod spec to be committed.
 	podSpecYaml *string
+
+	mu sync.Mutex
 }
 
 // Component returns the ContextComponent with the supplied name if
@@ -306,27 +307,27 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 }
 
 func (ctx *HookContext) GetRebootPriority() jujuc.RebootPriority {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	return ctx.rebootPriority
 }
 
 func (ctx *HookContext) setRebootPriority(priority jujuc.RebootPriority) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	ctx.rebootPriority = priority
 }
 
 func (ctx *HookContext) GetProcess() HookProcess {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	return ctx.process
 }
 
 // SetProcess implements runner.Context.
 func (ctx *HookContext) SetProcess(process HookProcess) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	ctx.process = process
 }
 

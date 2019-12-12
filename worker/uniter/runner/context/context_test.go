@@ -477,7 +477,7 @@ func (s *InterfaceSuite) TestRequestRebootNowNoProcess(c *gc.C) {
 	// reboot with the --now flag, the process is killed and only
 	// then will we set the reboot priority. This test basically simulates
 	// the case when the process calling juju-reboot is not recorded.
-	ctx := context.HookContext{}
+	ctx := &context.HookContext{}
 	err := ctx.RequestReboot(jujuc.RebootNow)
 	c.Assert(err, gc.ErrorMatches, "no process to kill")
 	priority := ctx.GetRebootPriority()
@@ -491,8 +491,8 @@ func (s *InterfaceSuite) TestStorageAddConstraints(c *gc.C) {
 		},
 	}
 
-	ctx := context.HookContext{}
-	addStorageToContext(&ctx, "data", params.StorageConstraints{})
+	ctx := &context.HookContext{}
+	addStorageToContext(ctx, "data", params.StorageConstraints{})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
@@ -506,9 +506,9 @@ func (s *InterfaceSuite) TestStorageAddConstraintsSameStorage(c *gc.C) {
 		},
 	}
 
-	ctx := context.HookContext{}
-	addStorageToContext(&ctx, "data", params.StorageConstraints{})
-	addStorageToContext(&ctx, "data", params.StorageConstraints{Count: &two})
+	ctx := &context.HookContext{}
+	addStorageToContext(ctx, "data", params.StorageConstraints{})
+	addStorageToContext(ctx, "data", params.StorageConstraints{Count: &two})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
@@ -519,9 +519,9 @@ func (s *InterfaceSuite) TestStorageAddConstraintsDifferentStorage(c *gc.C) {
 			params.StorageConstraints{Count: &two}},
 	}
 
-	ctx := context.HookContext{}
-	addStorageToContext(&ctx, "data", params.StorageConstraints{})
-	addStorageToContext(&ctx, "diff", params.StorageConstraints{Count: &two})
+	ctx := &context.HookContext{}
+	addStorageToContext(ctx, "data", params.StorageConstraints{})
+	addStorageToContext(ctx, "diff", params.StorageConstraints{Count: &two})
 	assertStorageAddInContext(c, ctx, expected)
 }
 
@@ -534,9 +534,9 @@ func addStorageToContext(ctx *context.HookContext,
 }
 
 func assertStorageAddInContext(c *gc.C,
-	ctx context.HookContext, expected map[string][]params.StorageConstraints,
+	ctx *context.HookContext, expected map[string][]params.StorageConstraints,
 ) {
-	obtained := context.StorageAddConstraints(&ctx)
+	obtained := context.StorageAddConstraints(ctx)
 	c.Assert(len(obtained), gc.Equals, len(expected))
 	for k, v := range obtained {
 		c.Assert(v, jc.SameContents, expected[k])
