@@ -53,7 +53,7 @@ type ExternalControllerModel interface {
 // exporting external controller s.
 type ExportExternalControllers struct{}
 
-// Execute the migration of the offer connections using typed interfaces, to
+// Execute the migration of the external controllers using typed interfaces, to
 // ensure we don't loose any type safety.
 // This doesn't conform to an interface because go doesn't have generics, but
 // when this does arrive this would be an excellent place to use them.
@@ -65,7 +65,7 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 		return errors.Trace(err)
 	}
 
-	// Iterate over the source model UUIDs, togather up all the related
+	// Iterate over the source model UUIDs, to gather up all the related
 	// external controllers. Store them in a map to create a unique set of
 	// source model UUIDs, that way we don't request multiple versions of the
 	// same external controller.
@@ -77,7 +77,7 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 	for modelUUID := range sourceModelUUIDs {
 		externalController, err := src.ControllerForModel(modelUUID)
 		if err != nil {
-			// This can occur when attemptting to export a remote application
+			// This can occur when attempting to export a remote application
 			// where there is a external controller, yet the controller doesn't
 			// exist.
 			// This generally only happens whilst keeping backwards

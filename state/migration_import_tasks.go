@@ -396,7 +396,7 @@ func (s stateExternalControllerDocumentFactoryShim) ExternalControllerDoc(uuid s
 }
 
 func (s stateExternalControllerDocumentFactoryShim) MakeExternalControllerOp(doc externalControllerDoc, existing *externalControllerDoc) txn.Op {
-	return createExternalControllerOp(&doc, existing, doc.Models)
+	return upsertExternalControllerOp(&doc, existing, doc.Models)
 }
 
 // ImportExternalControllers describes a way to import external controllers
