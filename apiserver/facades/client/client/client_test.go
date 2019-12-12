@@ -86,6 +86,20 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
 		return s.newEnviron()
 	})
+	// Wrap in a happy replicaset.
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				},
+			},
+		},
+	}
+	client.OverrideClientBackendMongoSession(apiserverClient, session)
 	return apiserverClient
 }
 

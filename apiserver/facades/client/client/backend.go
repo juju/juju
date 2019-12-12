@@ -108,7 +108,8 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	model *state.Model
+	model   *state.Model
+	session MongoSession
 }
 
 func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
@@ -186,6 +187,9 @@ func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
 }
 
 func (s stateShim) MongoSession() MongoSession {
+	if s.session != nil {
+		return s.session
+	}
 	return MongoSessionShim{s.State.MongoSession()}
 }
 

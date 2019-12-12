@@ -38,7 +38,11 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.client")
+var (
+	logger = loggo.GetLogger("juju.apiserver.client")
+
+	skipReplicaCheck = false
+)
 
 type API struct {
 	stateAccessor Backend
@@ -190,7 +194,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{st, model},
+		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
 		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
 		resources,
@@ -701,6 +705,11 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 // CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good
 // enough state for an upgrade to continue. Exported for testing.
 func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
+	// This is only ever set for the permission test because it actually calls every method,
+	// using the JujuConnSuite server, so we can't patch out the replicaset status.
+	if skipReplicaCheck {
+		return nil
+	}
 	replicaStatus, err := session.CurrentStatus()
 	if err != nil {
 		return errors.Annotate(err, "checking replicaset status")

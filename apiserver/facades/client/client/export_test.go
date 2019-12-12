@@ -16,3 +16,19 @@ var (
 func SetNewEnviron(c *Client, newEnviron func() (environs.BootstrapEnviron, error)) {
 	c.newEnviron = newEnviron
 }
+
+// OverrideClientBackendMongoSession is necessary to provide the tests a way to
+// return a mongo session that will pretend to have a happy replicaset.
+// This is necessary right now as the tests don't run with a replicaset for
+// speed.
+func OverrideClientBackendMongoSession(c *Client, session MongoSession) {
+	c.api.stateAccessor.(*stateShim).session = session
+}
+
+func SkipReplicaCheck(patcher Patcher) {
+	patcher.PatchValue(&skipReplicaCheck, true)
+}
+
+type Patcher interface {
+	PatchValue(dest, value interface{})
+}
