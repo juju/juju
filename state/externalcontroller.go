@@ -108,7 +108,7 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-		createOp := createExternalControllerOp(&doc, existing, modelUUIDs)
+		createOp := upsertExternalControllerOp(&doc, existing, modelUUIDs)
 		ops := []txn.Op{
 			createOp,
 			model.assertActiveOp(),
@@ -202,7 +202,7 @@ func (s *State) ExternalControllerForModel(modelUUID string) (*externalControlle
 	return nil, errors.Errorf("expected 1 controller with model %v, got %d", modelUUID, len(doc))
 }
 
-func createExternalControllerOp(doc *externalControllerDoc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
+func upsertExternalControllerOp(doc *externalControllerDoc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
 	if existing != nil {
 		models := set.NewStrings(existing.Models...)
 		models = models.Union(set.NewStrings(modelUUIDs...))
