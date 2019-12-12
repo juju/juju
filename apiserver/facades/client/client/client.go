@@ -5,7 +5,10 @@ package client
 
 import (
 	"fmt"
+	"strings"
 	"time"
+
+	"github.com/juju/replicaset"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -669,6 +672,11 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
 	if c.api.stateAccessor.IsController() {
+		// Check to ensure that the replicaset is happy.
+		if err := c.CheckMongoStatusForUpgrade(c.api.stateAccessor.MongoSession()); err != nil {
+			return errors.Trace(err)
+		}
+
 		modelUUIDs, err := c.api.stateAccessor.AllModelUUIDs()
 		if err != nil {
 			return errors.Trace(err)
@@ -688,6 +696,35 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	}
 
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version, args.IgnoreAgentVersions)
+}
+
+// CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good
+// enough state for an upgrade to continue. Exported for testing.
+func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
+	replicaStatus, err := session.CurrentStatus()
+	if err != nil {
+		return errors.Annotate(err, "checking replicaset status")
+	}
+
+	// Iterate over the replicaset, and record any nodes that aren't either
+	// primary or secondary.
+	var notes []string
+	for _, member := range replicaStatus.Members {
+		switch member.State {
+		case replicaset.PrimaryState:
+			// All good.
+		case replicaset.SecondaryState:
+			// Also good.
+		default:
+			msg := fmt.Sprintf("node %d (%s) has state %s", member.Id, member.Address, member.State)
+			notes = append(notes, msg)
+		}
+	}
+
+	if len(notes) > 0 {
+		return errors.Errorf("unable to upgrade, database %s", strings.Join(notes, ", "))
+	}
+	return nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade

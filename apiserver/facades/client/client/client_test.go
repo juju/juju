@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -62,7 +63,6 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
-	//s.State.StartSync()
 	s.client = s.clientForState(c, s.State)
 }
 
@@ -1754,4 +1754,105 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeNonHAGood(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHAGood(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeDown(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.DownState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 2 (192.168.42.2) has state DOWN")
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeRecovering(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.RecoveringState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 1 (192.168.42.1) has state RECOVERING")
+}
+
+type fakeSession struct {
+	status *replicaset.Status
+	err    error
+}
+
+func (s fakeSession) CurrentStatus() (*replicaset.Status, error) {
+	return s.status, s.err
 }
