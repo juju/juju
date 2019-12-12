@@ -244,7 +244,7 @@ func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error
 // used across model/controller boundaries.
 type srvRemoteRelationWatcher struct {
 	watcherCommon
-	st      *state.State
+	backend crossmodel.Backend
 	watcher *crossmodel.WrappedUnitsWatcher
 }
 
@@ -264,7 +264,7 @@ func newRemoteRelationWatcher(context facade.Context) (facade.Facade, error) {
 	}
 	return &srvRemoteRelationWatcher{
 		watcherCommon: newWatcherCommon(context),
-		st:            context.State(),
+		backend:       crossmodel.GetBackend(context.State()),
 		watcher:       watcher,
 	}, nil
 }
@@ -273,7 +273,7 @@ func (w *srvRemoteRelationWatcher) Next() (params.RemoteRelationWatchResult, err
 	if change, ok := <-w.watcher.Changes(); ok {
 		// Expand the change into a cross-model event.
 		expanded, err := crossmodel.ExpandChange(
-			crossmodel.GetBackend(w.st),
+			w.backend,
 			w.watcher.RelationToken,
 			w.watcher.ApplicationToken,
 			change,
