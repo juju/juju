@@ -5,6 +5,7 @@ package remoterelations
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/crossmodel"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
@@ -108,6 +109,24 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 		return errors.Trace(result.Error)
 	}
 	return nil
+}
+
+// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
+func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
+	args := params.RelationUnits{RelationUnits: relationUnits}
+	var results params.SettingsResults
+	// Force v1 call for now. Fix coming... by babbageclunk.
+	v1Facade := base.NewFacadeCallerForVersion(
+		c.facade.RawAPICaller(),
+		"RemoteRelations", 1)
+	err := v1Facade.FacadeCall("RelationUnitSettings", args, &results)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(results.Results) != len(relationUnits) {
+		return nil, errors.Errorf("expected %d result(s), got %d", len(relationUnits), len(results.Results))
+	}
+	return results.Results, nil
 }
 
 // Relations returns information about the cross-model relations with the specified keys
@@ -250,7 +269,7 @@ func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeE
 // ControllerAPIInfoForModel retrieves the controller API info for the specified model.
 func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
 	modelTag := names.NewModelTag(modelUUID)
-	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	var results params.ControllerAPIInfoResults
 	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
 	if err != nil {
@@ -281,4 +300,34 @@ func (c *Client) SetRemoteApplicationStatus(applicationName string, status statu
 		return errors.Trace(err)
 	}
 	return results.OneError()
+}
+
+// UpdateControllerForModel ensures that there is an external controller record
+// for the input info, associated with the input model ID.
+func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+	args := params.UpdateControllersForModelsParams{Changes: []params.UpdateControllerForModel{{
+		ModelTag: names.NewModelTag(modelUUID).String(),
+		Info: params.ExternalControllerInfo{
+			ControllerTag: controller.ControllerTag.String(),
+			Alias:         controller.Alias,
+			Addrs:         controller.Addrs,
+			CACert:        controller.CACert,
+		},
+	}}}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

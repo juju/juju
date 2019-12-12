@@ -4,6 +4,7 @@
 package remoterelations_test
 
 import (
+	"github.com/juju/juju/core/crossmodel"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
@@ -423,4 +424,52 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationStatus(c *gc.C) {
 	err := client.SetRemoteApplicationStatus("mysql", status.Blocked, "a message")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
+}
+
+type facadeCallFunc = func(objType string, version int, id, request string, arg, result interface{}) error
+
+func (s *remoteRelationsSuite) TestUpdateControllerForModelResultCount(c *gc.C) {
+	apiCaller := testing.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{
+					{Error: &params.Error{Message: "FAIL"}},
+					{Error: &params.Error{Message: "FAIL"}},
+				},
+			}
+			return nil
+		},
+	)
+
+	client := remoterelations.NewClient(apiCaller)
+	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
+	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
+}
+
+func (s *remoteRelationsSuite) TestUpdateControllerForModelResultError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}},
+			}
+			return nil
+		},
+	)
+
+	client := remoterelations.NewClient(apiCaller)
+	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
+	c.Check(err, gc.ErrorMatches, `FAIL`)
+}
+
+func (s *remoteRelationsSuite) TestUpdateControllerForModelResultSuccess(c *gc.C) {
+	apiCaller := testing.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
+			return nil
+		},
+	)
+
+	client := remoterelations.NewClient(apiCaller)
+	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
+	c.Check(err, jc.ErrorIsNil)
 }
