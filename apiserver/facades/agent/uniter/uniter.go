@@ -1720,15 +1720,11 @@ func (u *UniterAPI) updateApplicationSettings(rel *state.Relation, unit *state.U
 		return nil
 	}
 	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-	application, err := unit.Application()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	settingsMap := make(map[string]interface{}, len(settings))
 	for k, v := range settings {
 		settingsMap[k] = v
 	}
-	err = rel.UpdateApplicationSettings(application, token, settingsMap)
+	err := rel.UpdateApplicationSettings(unit.ApplicationName(), token, settingsMap)
 	if leadership.IsNotLeaderError(err) {
 		return common.ErrPerm
 	}
@@ -2008,14 +2004,13 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 		return nil, common.ErrPerm
 	}
 
-	app, err := u.st.Application(appTag.Id())
+	settings, err := rel.ApplicationSettings(appTag.Id())
 	if errors.IsNotFound(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return rel.ApplicationSettings(app)
+	return settings, nil
 }
 
 func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag names.ApplicationTag) (map[string]interface{}, error) {
@@ -2048,12 +2043,7 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 		return nil, common.ErrPerm
 	}
 
-	app, err := u.st.Application(appTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return rel.ApplicationSettings(app)
+	return rel.ApplicationSettings(appTag.Id())
 }
 
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
