@@ -6,9 +6,9 @@ run_indicate_active_branch_no_active() {
 
   ensure "indicate-active-branch-no-active" "${file}"
 
-  juju deploy ubuntu
+  juju deploy cs:~jameinel/ubuntu-lite-7
 
-  wait_for "ubuntu" "$(idle_condition "ubuntu")"
+  wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
   check_not_contains "$(juju status)" "Branch"
 
@@ -28,10 +28,10 @@ run_indicate_active_branch_active() {
 
   ensure "indicate-active-branch-active" "${file}"
 
-  juju deploy ubuntu
+  juju deploy cs:~jameinel/ubuntu-lite-7
 
   juju add-branch bla
-  wait_for "ubuntu" "$(idle_condition "ubuntu")"
+  wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
   check_contains "$(juju status)" "bla\*"
 
@@ -41,7 +41,10 @@ run_indicate_active_branch_active() {
   fi
 
   juju add-branch testtest
-  wait_for "ubuntu" "$(idle_condition "ubuntu")"
+  wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
+
+  # juju status can be slow, we might need to wait for testtest to appear
+  wait_for "active" ".branches.testtest"
 
   check_contains "$(juju status)" "testtest\*"
   check_not_contains "$(juju status)" "bla\*"

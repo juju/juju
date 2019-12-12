@@ -115,6 +115,7 @@ func (s *RelationerSuite) TestStateDir(c *gc.C) {
 
 func (s *RelationerSuite) TestEnterLeaveScope(c *gc.C) {
 	ru1, _ := s.AddRelationUnit(c, "u/1")
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	r := relation.NewRelationer(s.apiRelUnit, s.dir)
 
 	w := ru1.Watch()
