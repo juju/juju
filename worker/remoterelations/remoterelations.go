@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -109,6 +110,10 @@ type RemoteRelationsFacade interface {
 
 	// SetRemoteApplicationStatus sets the status for the specified remote application.
 	SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error
+
+	// UpdateControllerForModel ensures that there is an external controller record
+	// for the input info, associated with the input model ID.
+	UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error
 }
 
 type newRemoteRelationsFacadeFunc func(*api.Info) (RemoteModelRelationsFacadeCloser, error)
