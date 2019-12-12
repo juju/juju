@@ -178,6 +178,8 @@ func NewControllerAPI(
 			resources,
 			cloudspec.MakeCloudSpecGetter(pool),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
+			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
 		state:      st,
