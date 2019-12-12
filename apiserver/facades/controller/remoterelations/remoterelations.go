@@ -502,8 +502,8 @@ func (api *API) SetRemoteApplicationsStatus(args params.SetStatus) (params.Error
 	return result, nil
 }
 
-// UpdateControllerForModel is not available via the V1 API.
-func (u *APIv1) UpdateControllerForModel(_, _ struct{}) {}
+// UpdateControllersForModels is not available via the V1 API.
+func (u *APIv1) UpdateControllersForModels(_, _ struct{}) {}
 
 // UpdateControllersForModels changes the external controller records for the
 // associated model entities. This is used when the remote relations worker gets
