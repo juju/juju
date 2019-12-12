@@ -108,31 +108,10 @@ func (ec *externalControllers) Save(controller crossmodel.ControllerInfo, modelU
 		if err != nil && !errors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}
-		var ops []txn.Op
-		if err == nil {
-			models := set.NewStrings(existing.Models...)
-			models = models.Union(set.NewStrings(modelUUIDs...))
-			ops = []txn.Op{{
-				C:      externalControllersC,
-				Id:     existing.Id,
-				Assert: txn.DocExists,
-				Update: bson.D{
-					{"$set",
-						bson.D{{"addresses", doc.Addrs},
-							{"alias", doc.Alias},
-							{"cacert", doc.CACert},
-							{"models", models.Values()}},
-					},
-				},
-			}, model.assertActiveOp()}
-		} else {
-			doc.Models = modelUUIDs
-			ops = []txn.Op{{
-				C:      externalControllersC,
-				Id:     doc.Id,
-				Assert: txn.DocMissing,
-				Insert: doc,
-			}, model.assertActiveOp()}
+		createOp := upsertExternalControllerOp(&doc, existing, modelUUIDs)
+		ops := []txn.Op{
+			createOp,
+			model.assertActiveOp(),
 		}
 		return ops, nil
 	}
@@ -182,7 +161,29 @@ func (ec *externalControllers) controller(controllerUUID string) (*externalContr
 
 // ControllerForModel retrieves an ExternalController with a given model UUID.
 func (ec *externalControllers) ControllerForModel(modelUUID string) (ExternalController, error) {
-	coll, closer := ec.st.db().GetCollection(externalControllersC)
+	return ec.st.ExternalControllerForModel(modelUUID)
+}
+
+// Watch returns a strings watcher that watches for addition and removal of
+// external controller documents. The strings returned will be the controller
+// UUIDs.
+func (ec *externalControllers) Watch() StringsWatcher {
+	return newExternalControllersWatcher(ec.st)
+}
+
+// WatchController returns a notify watcher that watches for changes to the
+// external controller with the specified controller UUID.
+func (ec *externalControllers) WatchController(controllerUUID string) NotifyWatcher {
+	return newEntityWatcher(ec.st, externalControllersC, controllerUUID)
+}
+
+// ExternalControllerForModel retrieves an ExternalController with a given
+// model UUID.
+// This is very similar to externalControllers.ControllerForModel, except the
+// return type is a lot less strict, one that we can access the ModelUUIDs from
+// the controller.
+func (s *State) ExternalControllerForModel(modelUUID string) (*externalController, error) {
+	coll, closer := s.db().GetCollection(externalControllersC)
 	defer closer()
 
 	var doc []externalControllerDoc
@@ -201,15 +202,30 @@ func (ec *externalControllers) ControllerForModel(modelUUID string) (ExternalCon
 	return nil, errors.Errorf("expected 1 controller with model %v, got %d", modelUUID, len(doc))
 }
 
-// Watch returns a strings watcher that watches for addition and removal of
-// external controller documents. The strings returned will be the controller
-// UUIDs.
-func (ec *externalControllers) Watch() StringsWatcher {
-	return newExternalControllersWatcher(ec.st)
-}
+func upsertExternalControllerOp(doc *externalControllerDoc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
+	if existing != nil {
+		models := set.NewStrings(existing.Models...)
+		models = models.Union(set.NewStrings(modelUUIDs...))
+		return txn.Op{
+			C:      externalControllersC,
+			Id:     existing.Id,
+			Assert: txn.DocExists,
+			Update: bson.D{
+				{"$set",
+					bson.D{{"addresses", doc.Addrs},
+						{"alias", doc.Alias},
+						{"cacert", doc.CACert},
+						{"models", models.Values()}},
+				},
+			},
+		}
+	}
 
-// WatchController returns a notify watcher that watches for changes to the
-// external controller with the specified controller UUID.
-func (ec *externalControllers) WatchController(controllerUUID string) NotifyWatcher {
-	return newEntityWatcher(ec.st, externalControllersC, controllerUUID)
+	doc.Models = modelUUIDs
+	return txn.Op{
+		C:      externalControllersC,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: *doc,
+	}
 }

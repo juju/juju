@@ -77,6 +77,12 @@ func (s *MigrationImportSuite) importModel(
 	out, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
 
+	// When working with importing models, it becomes very handy to read the
+	// model in a human readable format.
+	// yaml.Marshal will do this in a decent manor.
+	//	bytes, _ := yaml.Marshal(out)
+	//	fmt.Println(string(bytes))
+
 	if len(transform) > 0 {
 		var outM map[string]interface{}
 		outYaml, err := description.Serialize(out)
@@ -839,6 +845,47 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 		"admin": "admin",
 		"foo":   "consume",
 	})
+}
+
+func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {
+	s.SetFeatureFlags(feature.CMRMigrations)
+
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateExternalCtrl := state.NewExternalControllers(s.State)
+	crossModelController, err := stateExternalCtrl.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateExternalController, err := s.State.ExternalControllerForModel(s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
+		err := stateExternalCtrl.Remove(s.Model.ControllerTag().Id())
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	newExternalCtrl := state.NewExternalControllers(newSt)
+
+	newCtrl, err := newExternalCtrl.ControllerForModel(s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCtrl.ControllerInfo(), jc.DeepEquals, crossModelController.ControllerInfo())
+
+	newExternalController, err := newSt.ExternalControllerForModel(s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateExternalController, gc.DeepEquals, newExternalController)
 }
 
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
@@ -2149,6 +2196,15 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	_, err = service.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export()
