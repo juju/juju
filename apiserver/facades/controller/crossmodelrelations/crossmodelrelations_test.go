@@ -628,7 +628,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	}
 	w.changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{
-			"django/1": watcher.UnitSettings{Version: 100},
+			"django/1": {Version: 100},
 		},
 		AppChanged: map[string]int64{
 			"django": 123,
@@ -741,7 +741,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
 	}
 	w.changes <- watcher.RelationUnitsChange{
 		Changed: map[string]watcher.UnitSettings{
-			"django/1": watcher.UnitSettings{Version: 100},
+			"django/1": {Version: 100},
 		},
 	}
 	rel.watchers["django"] = w
@@ -777,7 +777,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
 			RelationUnitsWatcherId: "1",
 			Changes: params.RelationUnitsChange{
 				Changed: map[string]params.UnitSettings{
-					"django/1": params.UnitSettings{Version: 100},
+					"django/1": {Version: 100},
 				},
 			},
 		}},
