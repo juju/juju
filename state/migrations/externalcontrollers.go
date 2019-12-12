@@ -74,6 +74,7 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 		sourceModelUUIDs[remoteApp.SourceModel().Id()] = struct{}{}
 	}
 
+	controllers := make(map[string]MigrationExternalController)
 	for modelUUID := range sourceModelUUIDs {
 		externalController, err := src.ControllerForModel(modelUUID)
 		if err != nil {
@@ -90,14 +91,16 @@ func (m ExportExternalControllers) Execute(src ExternalControllerSource, dst Ext
 			}
 			return errors.Trace(err)
 		}
-		if err := m.addExternalController(dst, externalController); err != nil {
-			return errors.Trace(err)
-		}
+		controllers[externalController.ID()] = externalController
+	}
+
+	for _, controller := range controllers {
+		m.addExternalController(dst, controller)
 	}
 	return nil
 }
 
-func (m ExportExternalControllers) addExternalController(dst ExternalControllerModel, ctrl MigrationExternalController) error {
+func (m ExportExternalControllers) addExternalController(dst ExternalControllerModel, ctrl MigrationExternalController) {
 	_ = dst.AddExternalController(description.ExternalControllerArgs{
 		Tag:    names.NewControllerTag(ctrl.ID()),
 		Addrs:  ctrl.Addrs(),
@@ -105,5 +108,4 @@ func (m ExportExternalControllers) addExternalController(dst ExternalControllerM
 		CACert: ctrl.CACert(),
 		Models: ctrl.Models(),
 	})
-	return nil
 }

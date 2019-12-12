@@ -27,7 +27,7 @@ func (s *ExternalControllersExportSuite) TestExportExternalController(c *gc.C) {
 	}
 
 	extCtrlModel := s.migrationExternalController(ctrl, func(expect *MockMigrationExternalControllerMockRecorder) {
-		expect.ID().Return("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+		expect.ID().Return("f47ac10b-58cc-4372-a567-0e02b2c3d479").Times(2)
 		expect.Addrs().Return([]string{"10.0.0.1/24"})
 		expect.Alias().Return("magic")
 		expect.CACert().Return("magic-ca-cert")
@@ -68,7 +68,7 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExt
 	}
 
 	extCtrlModel := s.migrationExternalController(ctrl, func(expect *MockMigrationExternalControllerMockRecorder) {
-		expect.ID().Return("f47ac10b-58cc-4372-a567-0e02b2c3d479")
+		expect.ID().Return("f47ac10b-58cc-4372-a567-0e02b2c3d479").Times(2)
 		expect.Addrs().Return([]string{"10.0.0.1/24"})
 		expect.Alias().Return("magic")
 		expect.CACert().Return("magic-ca-cert")
@@ -89,6 +89,69 @@ func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExt
 		CACert: "magic-ca-cert",
 		Models: []string{"xxxx-yyyy-zzzz"},
 	}).Return(externalController)
+
+	migration := ExportExternalControllers{}
+	err := migration.Execute(source, model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ExternalControllersExportSuite) TestExportExternalControllerRequestsExternalControllerOnceWithSameController(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entities := []MigrationRemoteApplication{
+		s.migrationRemoteApplication(ctrl, func(expect *MockMigrationRemoteApplicationMockRecorder) {
+			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
+		}),
+		s.migrationRemoteApplication(ctrl, func(expect *MockMigrationRemoteApplicationMockRecorder) {
+			expect.SourceModel().Return(names.NewModelTag("uuid-3"))
+		}),
+	}
+
+	extCtrlModel := s.migrationExternalController(ctrl, func(expect *MockMigrationExternalControllerMockRecorder) {
+		expect.ID().Return("f47ac10b-58cc-4372-a567-0e02b2c3d479").Times(3)
+		expect.Addrs().Return([]string{"10.0.0.1/24"})
+		expect.Alias().Return("magic")
+		expect.CACert().Return("magic-ca-cert")
+		expect.Models().Return([]string{"xxxx-yyyy-zzzz"})
+	})
+
+	externalController := NewMockExternalController(ctrl)
+
+	source := NewMockExternalControllerSource(ctrl)
+	source.EXPECT().AllRemoteApplications().Return(entities, nil)
+	source.EXPECT().ControllerForModel("uuid-2").Return(extCtrlModel, nil)
+	source.EXPECT().ControllerForModel("uuid-3").Return(extCtrlModel, nil)
+
+	model := NewMockExternalControllerModel(ctrl)
+	model.EXPECT().AddExternalController(description.ExternalControllerArgs{
+		Tag:    names.NewControllerTag("f47ac10b-58cc-4372-a567-0e02b2c3d479"),
+		Addrs:  []string{"10.0.0.1/24"},
+		Alias:  "magic",
+		CACert: "magic-ca-cert",
+		Models: []string{"xxxx-yyyy-zzzz"},
+	}).Return(externalController)
+
+	migration := ExportExternalControllers{}
+	err := migration.Execute(source, model)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *ExternalControllersExportSuite) TestExportExternalControllerWithNoControllerNotFound(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entities := []MigrationRemoteApplication{
+		s.migrationRemoteApplication(ctrl, func(expect *MockMigrationRemoteApplicationMockRecorder) {
+			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
+		}),
+	}
+
+	source := NewMockExternalControllerSource(ctrl)
+	source.EXPECT().AllRemoteApplications().Return(entities, nil)
+	source.EXPECT().ControllerForModel("uuid-2").Return(nil, errors.NotFoundf("not found"))
+
+	model := NewMockExternalControllerModel(ctrl)
 
 	migration := ExportExternalControllers{}
 	err := migration.Execute(source, model)
