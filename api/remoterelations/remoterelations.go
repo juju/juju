@@ -5,7 +5,6 @@ package remoterelations
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/crossmodel"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2-unstable"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -316,7 +316,7 @@ func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, 
 	}}}
 
 	var results params.ErrorResults
-	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
+	err := c.facade.FacadeCall("UpdateControllersForModels", args, &results)
 	if err != nil {
 		return errors.Trace(err)
 	}
