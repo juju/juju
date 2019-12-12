@@ -5,8 +5,9 @@ package state
 import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/crossmodel"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/crossmodel"
 )
 
 // stateApplicationOfferDocumentFactoryShim is required to allow the new
@@ -128,7 +129,6 @@ type StateDocumentFactory interface {
 	MakeRemoteApplicationDoc(description.RemoteApplication) *remoteApplicationDoc
 	MakeStatusDoc(description.Status) statusDoc
 	MakeStatusOp(string, statusDoc) txn.Op
-	MakeFirewallRuleDoc(description.FirewallRule) *firewallRulesDoc
 }
 
 // RemoteApplicationsDescription defines an inplace usage for reading remote
@@ -165,29 +165,40 @@ func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) 
 	return createStatusOp(s.importer.st, globalKey, doc)
 }
 
-func (s stateDocumentFactoryShim) MakeFirewallRuleDoc(rule description.FirewallRule) *firewallRulesDoc {
-	return s.importer.makeFirewallRuleDoc(rule)
+// FirewallRulesDescription defines an inplace usage for reading external
+// controllers
+type FirewallRulesDescription interface {
+	FirewallRules() []description.FirewallRule
 }
 
 // ImportFirewallRules describes a way to import firewallRules from a
 // description.
 type ImportFirewallRules struct{}
 
-func (rules ImportFirewallRules) Execute(src stateDocumentFactoryShim, runner TransactionRunner) error {
+// Execute the import on the firewall rules description, carefully modelling
+// the dependencies we have.
+func (rules ImportFirewallRules) Execute(src FirewallRulesDescription, runner TransactionRunner) error {
 	firewallRules := src.FirewallRules()
 	if len(firewallRules) == 0 {
 		return nil
 	}
-	firewallState := NewFirewallRules(src.st)
-	ops := make([]txn.Op, 0)
-	for _, rule := range firewallRules {
-		firewallRule := src.MakeFirewallRuleDoc(rule).toRule()
-		op, err := firewallState.GetSaveTransactionOps(*firewallRule, true)
-		if err != nil {
-			return err
+
+	ops := make([]txn.Op, len(firewallRules))
+	for i, rule := range firewallRules {
+		serviceType := rule.WellKnownService()
+		doc := firewallRulesDoc{
+			Id:               serviceType,
+			WellKnownService: serviceType,
+			WhitelistCIDRS:   rule.WhitelistCIDRs(),
 		}
-		ops = append(ops, op...)
+		ops[i] = txn.Op{
+			C:      firewallRulesC,
+			Id:     doc.Id,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}
 	}
+
 	if err := runner.RunTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
@@ -403,8 +414,8 @@ func (s stateExternalControllerDocumentFactoryShim) MakeExternalControllerOp(doc
 // from a description.
 type ImportExternalControllers struct{}
 
-// Execute the import on the remote entities description, carefully modelling
-// the dependencies we have.
+// Execute the import on the external controllers description, carefully
+// modelling the dependencies we have.
 func (ImportExternalControllers) Execute(src ExternalControllersDescription, runner TransactionRunner) error {
 	externalControllers := src.ExternalControllers()
 	if len(externalControllers) == 0 {
