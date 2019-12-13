@@ -9,7 +9,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace,RemoteEntitiesDescription,RelationNetworksDescription,RemoteApplicationsDescription,ApplicationOfferStateDocumentFactory,ApplicationOfferDescription,ExternalControllerStateDocumentFactory,ExternalControllersDescription,FirewallRulesDescription
+//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace
+//go:generate mockgen -package state -destination migration_import_input_mock_test.go github.com/juju/juju/state RemoteEntitiesInput,RelationNetworksInput,RemoteApplicationsInput,ApplicationOfferStateDocumentFactory,ApplicationOfferInput,ExternalControllerStateDocumentFactory,ExternalControllersInput,FirewallRulesInput
 //go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description ApplicationOffer,ExternalController,FirewallRule,RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
 
 func TestPackage(t *testing.T) {

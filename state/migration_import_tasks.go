@@ -10,6 +10,27 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 )
 
+// TransactionRunner is an inplace usage for running transactions to a
+// persistence store.
+type TransactionRunner interface {
+	RunTransaction([]txn.Op) error
+}
+
+// DocModelNamespace takes a document model ID and ensures it has a model id
+// associated with the model.
+type DocModelNamespace interface {
+	DocID(string) string
+}
+
+type stateModelNamspaceShim struct {
+	description.Model
+	st *State
+}
+
+func (s stateModelNamspaceShim) DocID(localID string) string {
+	return s.st.docID(localID)
+}
+
 // stateApplicationOfferDocumentFactoryShim is required to allow the new
 // vertical boundary around importing a applicationOffer, from being accessed by
 // the existing state package code.
@@ -56,9 +77,15 @@ type ApplicationOfferStateDocumentFactory interface {
 // ApplicationOfferDescription defines an in-place usage for reading
 // application offers.
 type ApplicationOfferDescription interface {
+	Offers() []description.ApplicationOffer
+}
+
+// ApplicationOfferInput describes the input used for migrating application
+// offers.
+type ApplicationOfferInput interface {
 	DocModelNamespace
 	ApplicationOfferStateDocumentFactory
-	Offers() []description.ApplicationOffer
+	ApplicationOfferDescription
 }
 
 // ImportApplicationOffer describes a way to import application offers from a
@@ -68,7 +95,7 @@ type ImportApplicationOffer struct {
 
 // Execute the import on the application offer description, carefully modelling
 // the dependencies we have.
-func (i ImportApplicationOffer) Execute(src ApplicationOfferDescription,
+func (i ImportApplicationOffer) Execute(src ApplicationOfferInput,
 	runner TransactionRunner,
 ) error {
 	offers := src.Offers()
@@ -99,7 +126,7 @@ type addApplicationOfferOpsArgs struct {
 	applicationOfferDoc applicationOfferDoc
 }
 
-func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferDescription,
+func (i ImportApplicationOffer) addApplicationOfferOps(src ApplicationOfferInput,
 	args addApplicationOfferOpsArgs,
 ) ([]txn.Op, error) {
 	appName := args.applicationOfferDoc.ApplicationName
@@ -129,14 +156,6 @@ type StateDocumentFactory interface {
 	MakeRemoteApplicationDoc(description.RemoteApplication) *remoteApplicationDoc
 	MakeStatusDoc(description.Status) statusDoc
 	MakeStatusOp(string, statusDoc) txn.Op
-}
-
-// RemoteApplicationsDescription defines an inplace usage for reading remote
-// applications.
-type RemoteApplicationsDescription interface {
-	DocModelNamespace
-	StateDocumentFactory
-	RemoteApplications() []description.RemoteApplication
 }
 
 // stateDocumentFactoryShim is required to allow the new vertical boundary
@@ -171,13 +190,18 @@ type FirewallRulesDescription interface {
 	FirewallRules() []description.FirewallRule
 }
 
+// FirewallRulesInput describes the input used for migrating firewall rules.
+type FirewallRulesInput interface {
+	FirewallRulesDescription
+}
+
 // ImportFirewallRules describes a way to import firewallRules from a
 // description.
 type ImportFirewallRules struct{}
 
 // Execute the import on the firewall rules description, carefully modelling
 // the dependencies we have.
-func (rules ImportFirewallRules) Execute(src FirewallRulesDescription, runner TransactionRunner) error {
+func (rules ImportFirewallRules) Execute(src FirewallRulesInput, runner TransactionRunner) error {
 	firewallRules := src.FirewallRules()
 	if len(firewallRules) == 0 {
 		return nil
@@ -205,13 +229,27 @@ func (rules ImportFirewallRules) Execute(src FirewallRulesDescription, runner Tr
 	return nil
 }
 
+// RemoteApplicationsDescription defines an in-place usage for reading remote
+// applications.
+type RemoteApplicationsDescription interface {
+	RemoteApplications() []description.RemoteApplication
+}
+
+// RemoteApplicationsInput describes the input used for migrating remote
+// applications.
+type RemoteApplicationsInput interface {
+	DocModelNamespace
+	StateDocumentFactory
+	RemoteApplicationsDescription
+}
+
 // ImportRemoteApplications describes a way to import remote applications from a
 // description.
 type ImportRemoteApplications struct{}
 
 // Execute the import on the remote entities description, carefully modelling
 // the dependencies we have.
-func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription, runner TransactionRunner) error {
+func (i ImportRemoteApplications) Execute(src RemoteApplicationsInput, runner TransactionRunner) error {
 	remoteApplications := src.RemoteApplications()
 	if len(remoteApplications) == 0 {
 		return nil
@@ -250,7 +288,7 @@ type addRemoteApplicationOpsArgs struct {
 	statusDoc            *statusDoc
 }
 
-func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplicationsDescription,
+func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplicationsInput,
 	app *RemoteApplication,
 	args addRemoteApplicationOpsArgs,
 ) ([]txn.Op, error) {
@@ -279,31 +317,15 @@ func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplications
 	return ops, nil
 }
 
-// TransactionRunner is an inplace usage for running transactions to a
-// persistence store.
-type TransactionRunner interface {
-	RunTransaction([]txn.Op) error
-}
-
-// DocModelNamespace takes a document model ID and ensures it has a model id
-// associated with the model.
-type DocModelNamespace interface {
-	DocID(string) string
-}
-
-type stateModelNamspaceShim struct {
-	description.Model
-	st *State
-}
-
-func (s stateModelNamspaceShim) DocID(localID string) string {
-	return s.st.docID(localID)
-}
-
 // RemoteEntitiesDescription defines an inplace usage for reading remote entities.
 type RemoteEntitiesDescription interface {
-	DocModelNamespace
 	RemoteEntities() []description.RemoteEntity
+}
+
+// RemoteEntitiesInput describes the input used for migrating remote entities.
+type RemoteEntitiesInput interface {
+	DocModelNamespace
+	RemoteEntitiesDescription
 }
 
 // ImportRemoteEntities describes a way to import remote entities from a
@@ -312,7 +334,7 @@ type ImportRemoteEntities struct{}
 
 // Execute the import on the remote entities description, carefully modelling
 // the dependencies we have.
-func (ImportRemoteEntities) Execute(src RemoteEntitiesDescription, runner TransactionRunner) error {
+func (ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner TransactionRunner) error {
 	remoteEntities := src.RemoteEntities()
 	if len(remoteEntities) == 0 {
 		return nil
@@ -338,8 +360,14 @@ func (ImportRemoteEntities) Execute(src RemoteEntitiesDescription, runner Transa
 
 // RelationNetworksDescription defines an inplace usage for reading relation networks.
 type RelationNetworksDescription interface {
-	DocModelNamespace
 	RelationNetworks() []description.RelationNetwork
+}
+
+// RelationNetworksInput describes the input used for migrating relation
+// networks.
+type RelationNetworksInput interface {
+	DocModelNamespace
+	RelationNetworksDescription
 }
 
 // ImportRelationNetworks describes a way to import relation networks from a
@@ -348,7 +376,7 @@ type ImportRelationNetworks struct{}
 
 // Execute the import on the relation networks description, carefully modelling
 // the dependencies we have.
-func (ImportRelationNetworks) Execute(src RelationNetworksDescription, runner TransactionRunner) error {
+func (ImportRelationNetworks) Execute(src RelationNetworksInput, runner TransactionRunner) error {
 	relationNetworks := src.RelationNetworks()
 	if len(relationNetworks) == 0 {
 		return nil
@@ -387,8 +415,14 @@ type ExternalControllerStateDocumentFactory interface {
 // ExternalControllersDescription defines an inplace usage for reading external
 // controllers
 type ExternalControllersDescription interface {
-	ExternalControllerStateDocumentFactory
 	ExternalControllers() []description.ExternalController
+}
+
+// ExternalControllersInput describes the input used for migrating external
+// controllers.
+type ExternalControllersInput interface {
+	ExternalControllerStateDocumentFactory
+	ExternalControllersDescription
 }
 
 // stateExternalControllerDocumentFactoryShim is required to allow the new
@@ -416,7 +450,7 @@ type ImportExternalControllers struct{}
 
 // Execute the import on the external controllers description, carefully
 // modelling the dependencies we have.
-func (ImportExternalControllers) Execute(src ExternalControllersDescription, runner TransactionRunner) error {
+func (ImportExternalControllers) Execute(src ExternalControllersInput, runner TransactionRunner) error {
 	externalControllers := src.ExternalControllers()
 	if len(externalControllers) == 0 {
 		return nil
