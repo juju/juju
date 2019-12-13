@@ -24,11 +24,3 @@ func SetNewEnviron(c *Client, newEnviron func() (environs.BootstrapEnviron, erro
 func OverrideClientBackendMongoSession(c *Client, session MongoSession) {
 	c.api.stateAccessor.(*stateShim).session = session
 }
-
-func SkipReplicaCheck(patcher Patcher) {
-	patcher.PatchValue(&skipReplicaCheck, true)
-}
-
-type Patcher interface {
-	PatchValue(dest, value interface{})
-}

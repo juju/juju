@@ -8,12 +8,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/replicaset"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
+	"github.com/juju/replicaset"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -38,11 +37,7 @@ import (
 	jujuversion "github.com/juju/juju/version"
 )
 
-var (
-	logger = loggo.GetLogger("juju.apiserver.client")
-
-	skipReplicaCheck = false
-)
+var logger = loggo.GetLogger("juju.apiserver.client")
 
 type API struct {
 	stateAccessor Backend
@@ -705,9 +700,9 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 // CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good
 // enough state for an upgrade to continue. Exported for testing.
 func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
-	// This is only ever set for the permission test because it actually calls every method,
-	// using the JujuConnSuite server, so we can't patch out the replicaset status.
 	if skipReplicaCheck {
+		// Skipping only occurs in tests where we need to avoid actually checking
+		// the replicaset as tests don't run with this setting.
 		return nil
 	}
 	replicaStatus, err := session.CurrentStatus()
@@ -855,4 +850,19 @@ func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResul
 		return params.FindToolsResult{}, errors.New("requesting agent-stream not supported by model")
 	}
 	return c.api.toolsFinder.FindTools(args)
+}
+
+// NOTE: this is necessary for the other packages that do upgrade tests.
+// Really they should be using a mocked out api server, but that is outside
+// the scope of this fix.
+var skipReplicaCheck = false
+
+// SkipReplicaCheck is required for tests only as the test mongo isn't a replica.
+func SkipReplicaCheck(patcher Patcher) {
+	patcher.PatchValue(&skipReplicaCheck, true)
+}
+
+// Patcher is provided by the test suites to temporarily change values.
+type Patcher interface {
+	PatchValue(dest, value interface{})
 }

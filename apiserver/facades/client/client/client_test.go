@@ -358,6 +358,43 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c 
 	s.assertModelVersion(c, otherSt, "2.0.4")
 }
 
+func (s *serverSuite) TestControllerModelSetModelAgentVersionChecksReplicaset(c *gc.C) {
+	// Wrap in a very unhappy replicaset.
+	session := &fakeSession{
+		err: errors.New("boom"),
+	}
+	client.OverrideClientBackendMongoSession(s.client, session)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetModelAgentVersion(args)
+	c.Assert(err.Error(), gc.Equals, "checking replicaset status: boom")
+}
+
+func (s *serverSuite) TestUserModelSetModelAgentVersionSkipsMongoCheck(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("2.0.4"),
+	}
+	apiserverClient := s.clientForState(c, otherSt)
+	// Wrap in a very unhappy replicaset.
+	session := &fakeSession{
+		err: errors.New("boom"),
+	}
+	client.OverrideClientBackendMongoSession(apiserverClient, session)
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
+		return &mockEnviron{}, nil
+	}
+
+	err := apiserverClient.SetModelAgentVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelVersion(c, otherSt, "2.0.4")
+}
+
 type mockEnviron struct {
 	environs.Environ
 	allInstancesCalled bool
