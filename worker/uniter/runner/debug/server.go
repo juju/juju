@@ -50,6 +50,7 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 		return errors.Trace(err)
 	}
 
+	// TODO add JUJU_DISPATCH_HOOK if needed.
 	env = utils.Setenv(env, "JUJU_HOOK_NAME="+hookName)
 	env = utils.Setenv(env, "JUJU_DEBUG="+debugDir)
 

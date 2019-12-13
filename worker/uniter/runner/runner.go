@@ -335,6 +335,8 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	if rMode == runOnRemote {
 		env = append(env, "JUJU_AGENT_TOKEN="+token)
 	}
+	// TODO: ponder how to set this iff we do use dispatch.
+	env = append(env, "JUJU_DISPATCH_PATH="+charmLocation+"/"+hookName)
 
 	defer func() {
 		err = runner.context.Flush(hookName, err)
@@ -461,9 +463,22 @@ func (runner *runner) runCharmProcessOnRemote(hookName string, env []string, cha
 	return errors.Trace(err)
 }
 
+// getHook checks to see if the dispatch hook exists, if not, check for the
+// given hookName.
+func (runner *runner) getHook(hookName, charmDir, charmLocation string) (string, error) {
+	hook, err := searchHook(charmDir, "dispatch")
+	if err == nil {
+		return hook, nil
+	}
+	if !charmrunner.IsMissingHookError(err) {
+		return "", err
+	}
+	return searchHook(charmDir, filepath.Join(charmLocation, hookName))
+}
+
 func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, charmLocation string) error {
 	charmDir := runner.paths.GetCharmDir()
-	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
+	hook, err := runner.getHook(hookName, charmDir, charmLocation)
 	if err != nil {
 		return err
 	}
