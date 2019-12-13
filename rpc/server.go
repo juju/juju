@@ -317,7 +317,7 @@ func (conn *Conn) Close() error {
 	conn.mutex.Lock()
 	if conn.root != nil {
 		// It is possible that since we last Killed the root, other resources
-		// may have been added during some of the pending call resoulutions.
+		// may have been added during some of the pending call resolutions.
 		// So to release these resources, double tap the root.
 		conn.root.Kill()
 	}
