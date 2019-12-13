@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/juju/tools"
-	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelmanager")
@@ -349,7 +348,7 @@ func (m *ModelManagerAPI) newModelConfig(
 	for key, value := range args.Config {
 		joint[key] = value
 	}
-	if _, ok := joint["uuid"]; ok {
+	if _, ok := joint[config.UUIDKey]; ok {
 		return nil, errors.New("uuid is generated, you cannot specify one")
 	}
 	if args.Name == "" {
@@ -373,6 +372,9 @@ func (m *ModelManagerAPI) newModelConfig(
 	creator := modelmanager.ModelConfigCreator{
 		Provider: environs.Provider,
 		FindTools: func(n version.Number) (tools.List, error) {
+			if jujucloud.CloudTypeIsCAAS(cloudSpec.Type) {
+				return tools.List{&tools.Tools{Version: version.Binary{Number: n}}}, nil
+			}
 			result, err := m.toolsFinder.FindTools(params.FindToolsParams{
 				Number: n,
 			})
@@ -383,33 +385,6 @@ func (m *ModelManagerAPI) newModelConfig(
 		},
 	}
 	return creator.NewModelConfig(cloudSpec, baseConfig, joint)
-}
-
-func (m *ModelManagerAPI) newCAASModelConfig(
-	cloudSpec environs.CloudSpec,
-	args params.ModelCreateArgs,
-) (*config.Config, error) {
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if args.Name == "" {
-		return nil, errors.NewNotValid(nil, "Name must be specified")
-	}
-
-	attrs := map[string]interface{}{
-		config.NameKey:         args.Name,
-		config.TypeKey:         cloudSpec.Type,
-		config.UUIDKey:         uuid.String(),
-		config.AgentVersionKey: jujuversion.Current.String(),
-	}
-
-	cfg, err := config.New(config.UseDefaults, attrs)
-	if err != nil {
-		return nil, errors.Annotate(err, "creating config from values failed")
-	}
-
-	return cfg, nil
 }
 
 func (m *ModelManagerAPI) checkAddModelPermission(cloud string, userTag names.UserTag) (bool, error) {
@@ -552,6 +527,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		model, err = m.newCAASModel(
 			cloudSpec,
 			args,
+			controllerModel,
 			cloudTag,
 			cloudRegionName,
 			cloudCredentialTag,
@@ -572,14 +548,16 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	return m.getModelInfo(model.ModelTag())
 }
 
-func (m *ModelManagerAPI) newCAASModel(cloudSpec environs.CloudSpec,
+func (m *ModelManagerAPI) newCAASModel(
+	cloudSpec environs.CloudSpec,
 	createArgs params.ModelCreateArgs,
+	controllerModel common.Model,
 	cloudTag names.CloudTag,
 	cloudRegionName string,
 	cloudCredentialTag names.CloudCredentialTag,
 	ownerTag names.UserTag,
 ) (common.Model, error) {
-	newConfig, err := m.newCAASModelConfig(cloudSpec, createArgs)
+	newConfig, err := m.newModelConfig(cloudSpec, createArgs, controllerModel)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to create config")
 	}

@@ -436,6 +436,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
+		"ComposeNewModelConfig",
 		"ControllerConfig",
 		"NewModel",
 		"Close",
@@ -466,10 +467,15 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 	c.Assert(uuid, gc.Not(gc.Equals), s.caasSt.controllerModel.cfg.UUID())
 
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":          "foo",
-		"type":          "kubernetes",
-		"uuid":          uuid,
-		"agent-version": jujuversion.Current.String(),
+		"name":                              "foo",
+		"type":                              "kubernetes",
+		"uuid":                              uuid,
+		"agent-version":                     jujuversion.Current.String(),
+		"storage-default-block-source":      "kubernetes",
+		"storage-default-filesystem-source": "kubernetes",
+		"something":                         "value",
+		"operator-storage":                  "",
+		"workload-storage":                  "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
