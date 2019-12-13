@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/crossmodel"
@@ -41,60 +42,27 @@ func (s *externalControllerSuite) TestSaveInvalidAddress(c *gc.C) {
 }
 
 func (s *externalControllerSuite) TestSaveNoModels(c *gc.C) {
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Alias:         "controller-alias",
-		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
-		CACert:        testing.CACert,
-	}
+	controllerInfo := defaultControllerInfo()
 	ec, err := s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
-	s.assertSavedControllerInfo(c)
-}
-
-func (s *externalControllerSuite) assertSavedControllerInfo(c *gc.C, modelUUIDs ...string) {
-	coll, closer := state.GetCollection(s.State, "externalControllers")
-	defer closer()
-
-	var raw bson.M
-	err := coll.FindId(testing.ControllerTag.Id()).One(&raw)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(raw["_id"], gc.Equals, testing.ControllerTag.Id())
-	c.Assert(raw["addresses"], jc.SameContents, []interface{}{"192.168.1.0:1234", "10.0.0.1:1234"})
-	c.Assert(raw["cacert"], gc.Equals, testing.CACert)
-	c.Assert(raw["alias"], gc.Equals, "controller-alias")
-	var models []string
-	for _, m := range raw["models"].([]interface{}) {
-		models = append(models, m.(string))
-	}
-	c.Assert(models, jc.SameContents, modelUUIDs)
+	s.assertSavedControllerInfo(c, controllerInfo)
 }
 
 func (s *externalControllerSuite) TestSave(c *gc.C) {
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Alias:         "controller-alias",
-		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
-		CACert:        testing.CACert,
-	}
+	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	uuid2 := utils.MustNewUUID().String()
 	ec, err := s.externalControllers.Save(controllerInfo, uuid1, uuid2)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
-	s.assertSavedControllerInfo(c, uuid1, uuid2)
+	s.assertSavedControllerInfo(c, controllerInfo, uuid1, uuid2)
 }
 
 func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Alias:         "controller-alias",
-		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
-		CACert:        testing.CACert,
-	}
+	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	ec, err := s.externalControllers.Save(controllerInfo, uuid1)
 	c.Assert(err, jc.ErrorIsNil)
@@ -102,32 +70,51 @@ func (s *externalControllerSuite) TestSaveIdempotent(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ec.Id(), gc.Equals, testing.ControllerTag.Id())
 	c.Assert(ec.ControllerInfo(), jc.DeepEquals, controllerInfo)
-	s.assertSavedControllerInfo(c, uuid1)
+	s.assertSavedControllerInfo(c, controllerInfo, uuid1)
 }
 
 func (s *externalControllerSuite) TestUpdateModels(c *gc.C) {
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Alias:         "controller-alias",
-		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
-		CACert:        testing.CACert,
-	}
+	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	_, err := s.externalControllers.Save(controllerInfo, uuid1)
 	c.Assert(err, jc.ErrorIsNil)
 	uuid2 := utils.MustNewUUID().String()
 	_, err = s.externalControllers.Save(controllerInfo, uuid2)
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertSavedControllerInfo(c, uuid1, uuid2)
+	s.assertSavedControllerInfo(c, controllerInfo, uuid1, uuid2)
+}
+
+func (s *externalControllerSuite) TestSaveAndMoveModels(c *gc.C) {
+	// Add a new controller associated with 2 models.
+	oldController := defaultControllerInfo()
+	uuid1 := utils.MustNewUUID().String()
+	uuid2 := utils.MustNewUUID().String()
+	_, err := s.externalControllers.Save(oldController, uuid1, uuid2)
+	c.Assert(err, jc.ErrorIsNil)
+	s.assertSavedControllerInfo(c, oldController, uuid1, uuid2)
+
+	// Now add a second controller associated with 2 models,
+	// one of which is a model against the old controller.
+	newController := crossmodel.ControllerInfo{
+		ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+		Alias:         "another-alias",
+		Addrs:         []string{"192.168.2.0:1234", "10.0.2.1:1234"},
+		CACert:        "any-old-cert",
+	}
+
+	uuid3 := utils.MustNewUUID().String()
+	err = s.externalControllers.SaveAndMoveModels(newController, uuid2, uuid3)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// New controller is created and associated with models.
+	s.assertSavedControllerInfo(c, newController, uuid2, uuid3)
+
+	// Old controller is no longer associated with the 2nd model UUID.
+	s.assertSavedControllerInfo(c, oldController, uuid1)
 }
 
 func (s *externalControllerSuite) TestControllerForModel(c *gc.C) {
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Alias:         "controller-alias",
-		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
-		CACert:        testing.CACert,
-	}
+	controllerInfo := defaultControllerInfo()
 	uuid1 := utils.MustNewUUID().String()
 	uuid2 := utils.MustNewUUID().String()
 	ec, err := s.externalControllers.Save(controllerInfo, uuid1, uuid2)
@@ -140,12 +127,7 @@ func (s *externalControllerSuite) TestControllerForModel(c *gc.C) {
 }
 
 func (s *externalControllerSuite) TestController(c *gc.C) {
-	controllerInfo := crossmodel.ControllerInfo{
-		ControllerTag: testing.ControllerTag,
-		Alias:         "controller-alias",
-		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
-		CACert:        testing.CACert,
-	}
+	controllerInfo := defaultControllerInfo()
 	_, err := s.externalControllers.Save(controllerInfo)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -236,4 +218,40 @@ func (s *externalControllerSuite) TestWatch(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChangeInSingleEvent(testing.ControllerTag.Id())
 	wc.AssertNoChange()
+}
+
+func (s *externalControllerSuite) assertSavedControllerInfo(
+	c *gc.C, controller crossmodel.ControllerInfo, modelUUIDs ...string,
+) {
+	coll, closer := state.GetCollection(s.State, "externalControllers")
+	defer closer()
+
+	var raw bson.M
+	err := coll.FindId(controller.ControllerTag.Id()).One(&raw)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(raw["_id"], gc.Equals, controller.ControllerTag.Id())
+	c.Assert(raw["cacert"], gc.Equals, controller.CACert)
+	c.Assert(raw["alias"], gc.Equals, controller.Alias)
+
+	var addresses []string
+	for _, addr := range raw["addresses"].([]interface{}) {
+		addresses = append(addresses, addr.(string))
+	}
+	c.Assert(addresses, jc.SameContents, controller.Addrs)
+
+	var models []string
+	for _, m := range raw["models"].([]interface{}) {
+		models = append(models, m.(string))
+	}
+	c.Assert(models, jc.SameContents, modelUUIDs)
+}
+
+func defaultControllerInfo() crossmodel.ControllerInfo {
+	return crossmodel.ControllerInfo{
+		ControllerTag: testing.ControllerTag,
+		Alias:         "controller-alias",
+		Addrs:         []string{"192.168.1.0:1234", "10.0.0.1:1234"},
+		CACert:        testing.CACert,
+	}
 }
