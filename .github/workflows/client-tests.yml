@@ -40,6 +40,9 @@ jobs:
     - name: "Install Mongo Dependencies: ubuntu-latest"
       if: (matrix.os == 'ubuntu-latest')
       run: |
+        # temp fix for github actions bug
+        sudo rm /etc/apt/sources.list.d/microsoft-prod.list
+        sudo rm /etc/apt/sources.list.d/dotnetdev.list
         make install-mongo-dependencies
 
     - name: "Install Mongo Dependencies: macOS-latest"
