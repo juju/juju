@@ -257,8 +257,7 @@ print ("\n".join(
 # List all controllers
 _JUJU_2_list_controllers_noflags() {
     _JUJU_2_cache_cmd ${_JUJU_2_cache_TTL} cat \
-      ${_juju_cmd_JUJU_2?} list-controllers --format json | \
-        _JUJU_2_list_controllers_from_stdin
+      ${_juju_cmd_JUJU_2?} list-controllers --format json | _JUJU_2_list_controllers_from_stdin
 }
 # Print:
 # - list of controllers as: <controller>:<current_model>
@@ -399,10 +398,13 @@ _JUJU_2_cache_cmd() {
     fi
     # if missing => wait
     [ ! -s "${cache_file}" -a -n "${COPROC[0]}" ] && read -u ${COPROC[0]}
-    # if still missing => fail
-    [ ! -s "${cache_file}" ] && echo "" && return 1
-    # use it:
-    "${ret_action}" "${cache_file}"
+    # if still missing => just print the output of the command, the cache will be eventually created
+    if [ ! -s "${cache_file}" ]; then
+        ${cmd}
+    else
+        # use it:
+        "${ret_action}" "${cache_file}"
+    fi
 }
 
 # Main completion function wrap:
