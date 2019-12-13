@@ -140,8 +140,8 @@ type RemoteApplicationsDescription interface {
 }
 
 // stateDocumentFactoryShim is required to allow the new vertical boundary
-// around importing a remoteApplication and firewallRules, from being accessed by the existing
-// state package code.
+// around importing a remoteApplication and firewallRules, from being accessed
+// by the existing state package code.
 // That way we can keep the importing code clean from the proliferation of state
 // code in the juju code base.
 type stateDocumentFactoryShim struct {
@@ -165,8 +165,8 @@ func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) 
 	return createStatusOp(s.importer.st, globalKey, doc)
 }
 
-// FirewallRulesDescription defines an inplace usage for reading external
-// controllers
+// FirewallRulesDescription defines an in-place usage for reading firewall
+// rules.
 type FirewallRulesDescription interface {
 	FirewallRules() []description.FirewallRule
 }
