@@ -80,10 +80,11 @@ func (st stateShim) WatchRemoteApplicationRelations(applicationName string) (sta
 	return a.WatchRelations(), nil
 }
 
-// UpdateControllerForModel (RemoteRelationsState) ensures that there is an
-// external controller record for the input info,
-// associated with the input model ID.
+// UpdateControllerForModel (RemoteRelationsState) ensures
+// that there is an external controller record for the input info,
+// associated with the input model UUID.
+// If the model UUID is associated with another external controller record,
+// that record will be modified to remove it.
 func (st stateShim) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
-	_, err := state.NewExternalControllers(st.st).Save(controller, modelUUID)
-	return errors.Trace(err)
+	return errors.Trace(state.NewExternalControllers(st.st).SaveAndMoveModels(controller, modelUUID))
 }
