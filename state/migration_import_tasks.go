@@ -10,7 +10,20 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 )
 
-// TransactionRunner is an inplace usage for running transactions to a
+// Migration import tasks provide a boundary of isolation between the
+// description package and the state package. Input types are modelled as small
+// descrete interfaces, that can be composed to provide more functionality.
+// Output types, normally a transaction runner can then take the migrated
+// description entity as a txn.Op.
+//
+// The goal of these input tasks are to be moved out of the state package into
+// a similar setup as export migrations. That way we can isolate migrations away
+// from state and start creating richer types.
+//
+// Modelling it this way should provide better test coverage and protection
+// around state changes.
+
+// TransactionRunner is an in-place usage for running transactions to a
 // persistence store.
 type TransactionRunner interface {
 	RunTransaction([]txn.Op) error
@@ -317,7 +330,7 @@ func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplications
 	return ops, nil
 }
 
-// RemoteEntitiesDescription defines an inplace usage for reading remote entities.
+// RemoteEntitiesDescription defines an in-place usage for reading remote entities.
 type RemoteEntitiesDescription interface {
 	RemoteEntities() []description.RemoteEntity
 }
@@ -358,7 +371,7 @@ func (ImportRemoteEntities) Execute(src RemoteEntitiesInput, runner TransactionR
 	return nil
 }
 
-// RelationNetworksDescription defines an inplace usage for reading relation networks.
+// RelationNetworksDescription defines an in-place usage for reading relation networks.
 type RelationNetworksDescription interface {
 	RelationNetworks() []description.RelationNetwork
 }
@@ -412,7 +425,7 @@ type ExternalControllerStateDocumentFactory interface {
 	MakeExternalControllerOp(externalControllerDoc, *externalControllerDoc) txn.Op
 }
 
-// ExternalControllersDescription defines an inplace usage for reading external
+// ExternalControllersDescription defines an in-place usage for reading external
 // controllers
 type ExternalControllersDescription interface {
 	ExternalControllers() []description.ExternalController
