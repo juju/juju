@@ -234,11 +234,11 @@ operator-image:
 	rm -rf ${JUJUD_STAGING_DIR}
 
 push-operator-image: operator-image
-## push-operator-image: Push up the build operator image via docker
+## push-operator-image: Push up the new built operator image via docker
 	docker push ${OPERATOR_IMAGE_PATH}
 
 microk8s-operator-update: operator-image
-## microk8s-operator-update: Save and update the operator image for use with microk8s
+## microk8s-operator-update: Push up the new built operator image for use with microk8s
 	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr --namespace k8s.io image import -
 
 check-k8s-model:
@@ -247,7 +247,7 @@ check-k8s-model:
 	@juju show-model ${JUJU_K8S_MODEL} > /dev/null
 
 local-operator-update: check-k8s-model operator-image
-## local-operator-update: Update local operator image
+## local-operator-update: Build then update local operator image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
 	docker save ${OPERATOR_IMAGE_PATH} | gzip > /tmp/jujud-operator-image.tar.gz
 	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
@@ -256,7 +256,7 @@ local-operator-update: check-k8s-model operator-image
 STATIC_ANALYSIS_JOB ?= 
 
 static-analysis:
-## statick-analysis: Check the go code using static-analysis
+## static-analysis: Check the go code using static-analysis
 	@cd tests && ./main.sh static_analysis ${STATIC_ANALYSIS_JOB}
 
 .PHONY: build check install release-install release-build go-build go-install
