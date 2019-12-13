@@ -269,7 +269,12 @@ var caasCloudTypes = map[string]bool{
 
 // CloudIsCAAS checks if cloud is a CAAS cloud.
 func CloudIsCAAS(cloud Cloud) bool {
-	return caasCloudTypes[cloud.Type]
+	return CloudTypeIsCAAS(cloud.Type)
+}
+
+// CloudTypeIsCAAS checks if a given cloud type is a CAAS cloud
+func CloudTypeIsCAAS(cloudType string) bool {
+	return caasCloudTypes[cloudType]
 }
 
 // CloudByName returns the cloud with the specified name.

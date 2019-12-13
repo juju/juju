@@ -1606,7 +1606,7 @@ func updateAppSettings(c *gc.C, state *state.State, rel *state.Relation, app *st
 	claimer := state.LeadershipClaimer()
 	c.Assert(claimer.ClaimLeadership(app.Name(), unitName, time.Minute), jc.ErrorIsNil)
 	token := state.LeadershipChecker().LeadershipCheck(app.Name(), unitName)
-	c.Assert(rel.UpdateApplicationSettings(app, token, settings), jc.ErrorIsNil)
+	c.Assert(rel.UpdateApplicationSettings(app.Name(), token, settings), jc.ErrorIsNil)
 }
 
 func (s *WatchUnitsSuite) TestProviderRequirerGlobal(c *gc.C) {

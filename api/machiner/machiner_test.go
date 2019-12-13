@@ -186,6 +186,7 @@ func (s *machinerSuite) TestWatch(c *gc.C) {
 	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(machine.Life(), gc.Equals, life.Alive)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	w, err := machine.Watch()
 	c.Assert(err, jc.ErrorIsNil)
