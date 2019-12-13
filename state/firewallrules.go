@@ -156,28 +156,6 @@ func (fw *firewallRulesState) Remove(firewallRuleID firewall.WellKnownServiceTyp
 	return errors.Annotate(err, "failed to remove firewall rule")
 }
 
-func upsertFirewallRuleOp(doc firewallRulesDoc, insert bool) txn.Op {
-	// So this isn't actually a valid upsert, because a new doc will overwrite
-	// an existing firewall rule rather than doing merging existing rule sets.
-	if !insert {
-		return txn.Op{
-			C:      firewallRulesC,
-			Id:     doc.Id,
-			Assert: txn.DocExists,
-			Update: bson.D{
-				{"$set", bson.D{{"whitelist-cidrs", doc.WhitelistCIDRS}}},
-			},
-		}
-	}
-
-	return txn.Op{
-		C:      firewallRulesC,
-		Id:     doc.Id,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}
-}
-
 // Rule returns the firewall rule for the specified service.
 func (fw *firewallRulesState) Rule(service firewall.WellKnownServiceType) (*FirewallRule, error) {
 	coll, closer := fw.st.db().GetCollection(firewallRulesC)
