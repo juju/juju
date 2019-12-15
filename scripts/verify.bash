@@ -16,7 +16,7 @@ STATIC_ANALYSIS="${STATIC_ANALYSIS:-}"
 if [ -n "$STATIC_ANALYSIS" ]; then
     make static-analysis
 else
-    echo "Ignoring static anaylsis, run again with STATIC_ANALYSIS=1 ..."
+    echo "Ignoring static analysis, run again with STATIC_ANALYSIS=1 ..."
 fi
 
 echo "checking: go build ..."

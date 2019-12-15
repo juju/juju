@@ -191,7 +191,8 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 6, controller.NewControllerAPIv6)
 	reg("Controller", 7, controller.NewControllerAPIv7)
 	reg("Controller", 8, controller.NewControllerAPIv8)
-	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
+	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPIV1)
+	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI) // Adds WatchRelationChanges, removes WatchRelationUnits
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
 	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
 	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPIv1)
@@ -280,7 +281,8 @@ func AllFacades() *facade.Registry {
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 	reg("Reboot", 2, reboot.NewRebootAPI)
-	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
+	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPIV1)
+	reg("RemoteRelations", 2, remoterelations.NewStateRemoteRelationsAPI) // Adds WatchLocalRelationChanges, removes WatchLocalRelationUnits.
 
 	reg("Resources", 1, resources.NewPublicFacade)
 	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
@@ -340,6 +342,7 @@ func AllFacades() *facade.Registry {
 	regRaw("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))
 	regRaw("RelationStatusWatcher", 1, newRelationStatusWatcher, reflect.TypeOf((*srvRelationStatusWatcher)(nil)))
 	regRaw("RelationUnitsWatcher", 1, newRelationUnitsWatcher, reflect.TypeOf((*srvRelationUnitsWatcher)(nil)))
+	regRaw("RemoteRelationWatcher", 1, newRemoteRelationWatcher, reflect.TypeOf((*srvRemoteRelationWatcher)(nil)))
 	regRaw("VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("VolumeAttachmentPlansWatcher", 1, newVolumeAttachmentPlansWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))

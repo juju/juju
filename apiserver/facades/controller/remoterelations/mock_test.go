@@ -232,6 +232,7 @@ type mockRelation struct {
 	remoteUnits           map[string]common.RelationUnit
 	endpoints             []state.Endpoint
 	endpointUnitsWatchers map[string]*mockRelationUnitsWatcher
+	appSettings           map[string]map[string]interface{}
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -241,6 +242,7 @@ func newMockRelation(id int) *mockRelation {
 		units:                 make(map[string]common.RelationUnit),
 		remoteUnits:           make(map[string]common.RelationUnit),
 		endpointUnitsWatchers: make(map[string]*mockRelationUnitsWatcher),
+		appSettings:           make(map[string]map[string]interface{}),
 	}
 }
 
@@ -303,6 +305,18 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 		return nil, errors.NotFoundf("application %q", applicationName)
 	}
 	return w, nil
+}
+
+func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	r.MethodCall(r, "ApplicationSettings", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	settings, found := r.appSettings[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake settings for %q", appName)
+	}
+	return settings, nil
 }
 
 type mockRemoteApplication struct {
