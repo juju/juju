@@ -209,7 +209,7 @@ push-operator-image: operator-image
 	docker push ${OPERATOR_IMAGE_PATH}
 
 microk8s-operator-update: operator-image
-	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr -n k8s.io image import -
+	docker save ${OPERATOR_IMAGE_PATH} | microk8s.ctr --namespace k8s.io image import -
 
 check-k8s-model:
 	@:$(if $(value JUJU_K8S_MODEL),, $(error Undefined JUJU_K8S_MODEL))

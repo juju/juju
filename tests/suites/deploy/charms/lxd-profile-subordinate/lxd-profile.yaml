@@ -1,0 +1,3 @@
+description: lxd profile subordinate for testing
+config:
+  environment.http_proxy: ""

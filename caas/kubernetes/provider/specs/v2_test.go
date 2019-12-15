@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -228,6 +229,20 @@ kubernetesResources:
                   containers:
                     - name: tensorflow
                       image: kubeflow/tf-dist-mnist-test:1.0
+  ingressResources:
+    - name: test-ingress
+      labels:
+        foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
 `[1:]
 
 	expectedFileContent := `
@@ -381,6 +396,35 @@ echo "do some stuff here for gitlab-init container"
 				ResourceNames: []string{"admin", "edit", "view"},
 			},
 		}
+
+		ingress1Rule1 := extensionsv1beta1.IngressRule{
+			IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+				HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+					Paths: []extensionsv1beta1.HTTPIngressPath{
+						{
+							Path: "/testpath",
+							Backend: extensionsv1beta1.IngressBackend{
+								ServiceName: "test",
+								ServicePort: intstr.IntOrString{IntVal: 80},
+							},
+						},
+					},
+				},
+			},
+		}
+		ingress1 := k8sspecs.K8sIngressSpec{
+			Name: "test-ingress",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/rewrite-target": "/",
+			},
+			Spec: extensionsv1beta1.IngressSpec{
+				Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+			},
+		}
+
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
 				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
@@ -518,6 +562,7 @@ password: shhhh`[1:],
 						},
 					},
 				},
+				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
 			},
 		}
 		return pSpecs
@@ -654,4 +699,47 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+}
+
+func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  ingressResources:
+    - labels:
+        foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+}
+
+func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+bar: a-bad-guy
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
 }

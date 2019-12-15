@@ -421,3 +421,62 @@ containers:
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
+
+func (s *legacySpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
+	specStr := `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+customResourceDefinitions:
+  tfjobs.kubeflow.org:
+    group: kubeflow.org
+    version: v1alpha2
+    scope: Cluster
+    names:
+      plural: "tfjobs"
+      singular: "tfjob"
+      kind: TFJob
+    validation:
+      openAPIV3Schema:
+        properties:
+          tfReplicaSpecs:
+            properties:
+              Worker:
+                properties:
+                  replicas:
+                    type: integer
+                    minimum: 1
+              PS:
+                properties:
+                  replicas:
+                    type: integer
+                    minimum: 1
+              Chief:
+                properties:
+                  replicas:
+                    type: integer
+                    minimum: 1
+                    maximum: 1
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+}
+
+func (s *legacySpecsSuite) TestUnknownFieldError(c *gc.C) {
+	specStr := `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+foo: a-bad-guy
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `json: unknown field "foo"`)
+}

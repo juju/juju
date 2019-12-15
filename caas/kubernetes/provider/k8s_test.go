@@ -890,6 +890,11 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Return(nil),
+
+		s.mockIngressInterface.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+			v1.ListOptions{LabelSelector: "juju-app==test", IncludeUninitialized: true},
+		).Return(nil),
 	)
 
 	err := s.broker.DeleteService("test")

@@ -105,7 +105,7 @@ clouds:                           # mandatory
  - joyent
  - oci
 
-When a a running controller is updated, the credential for the cloud
+When a running controller is updated, the credential for the cloud
 is also uploaded. As with the cloud, the credential needs
 to have been added to the current client, use add-credential to
 do that. If there's only one credential for the cloud it will be

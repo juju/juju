@@ -93,7 +93,7 @@ func (s *listSuite) TestListController(c *gc.C) {
 		},
 	}
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "--all", "-c", "mycontroller")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml", "-c", "mycontroller")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
@@ -130,7 +130,7 @@ func (s *listSuite) TestListKubernetes(c *gc.C) {
 		},
 	}
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml", "--all")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
@@ -178,7 +178,7 @@ func (s *listSuite) assertListTabular(c *gc.C, expectedOutput string) {
 			return s.api, nil
 		})
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular", "--all")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--controller", "mycontroller", "--format", "tabular")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Clouds", "Close")
 	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
@@ -231,14 +231,14 @@ clouds:
 			return s.api, nil
 		})
 
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--client", "--all")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)
 	// Just check a snippet of the output to make sure it looks ok.
 	// local clouds are last.
 	// homestack should abut localhost and hence come last in the output.
-	c.Assert(out, jc.Contains, `homestack       1        london           openstack   0            local     Openstack Cloud`)
+	c.Assert(out, jc.Contains, `homestack  1        london     openstack  0            local     Openstack Cloud`)
 }
 
 func (s *listSuite) TestListPublicAndPersonalSameName(c *gc.C) {
@@ -252,7 +252,7 @@ clouds:
 	err := ioutil.WriteFile(osenv.JujuXDGDataHomePath("clouds.yaml"), []byte(data), 0600)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client", "--all")
+	ctx, err := cmdtesting.RunCommand(c, cloud.NewListCloudCommandForTest(s.store, nil), "--format", "yaml", "--client")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	out = strings.Replace(out, "\n", "", -1)

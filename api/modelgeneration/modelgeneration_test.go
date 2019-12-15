@@ -86,7 +86,7 @@ func (s *modelGenerationSuite) TestTrackBranchSuccess(c *gc.C) {
 	s.fCaller.EXPECT().FacadeCall("TrackBranch", arg, gomock.Any()).SetArg(2, resultsSource).Return(nil)
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql"})
+	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql"}, 0)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -94,7 +94,7 @@ func (s *modelGenerationSuite) TestTrackBranchError(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 
 	api := modelgeneration.NewStateFromCaller(s.fCaller)
-	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql", "machine-3"})
+	err := api.TrackBranch(s.branchName, []string{"mysql/0", "mysql", "machine-3"}, 0)
 	c.Assert(err, gc.ErrorMatches, `"machine-3" is not an application or a unit`)
 }
 

@@ -176,6 +176,7 @@ var (
 		"charm-dir",
 		"hook-retry-strategy",
 		"operator",
+		"proxy-config-updater",
 	}
 )
 

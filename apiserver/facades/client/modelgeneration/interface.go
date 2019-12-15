@@ -39,6 +39,7 @@ type Generation interface {
 	Created() int64
 	CreatedBy() string
 	AssignAllUnits(string) error
+	AssignUnits(string, int) error
 	AssignUnit(string) error
 	AssignedUnits() map[string][]string
 	Commit(string) (int, error)

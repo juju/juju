@@ -57,6 +57,8 @@ func NewAgentAPIV2(st *state.State, resources facade.Resources, auth facade.Auth
 			resources,
 			cloudspec.MakeCloudSpecGetterForModel(st),
 			cloudspec.MakeCloudSpecWatcherForModel(st),
+			cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
 		st:        st,

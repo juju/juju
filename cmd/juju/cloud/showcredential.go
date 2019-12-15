@@ -91,10 +91,12 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	all := ControllerCredentials{}
+	var returnErr error
 	if c.Client {
 		result, err := c.localCredentials(ctxt)
 		if err != nil {
-			ctxt.Infof("client credential content lookup failed: %v", err)
+			ctxt.Infof("ERROR client credential content lookup failed: %v", err)
+			returnErr = cmd.ErrSilent
 		} else {
 			all.Client = c.parseContents(ctxt, result)
 		}
@@ -102,7 +104,8 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 	if c.ControllerName != "" {
 		remoteContents, err := c.remoteCredentials(ctxt)
 		if err != nil {
-			ctxt.Infof("credential content lookup on the controller failed: %v", err)
+			ctxt.Infof("ERROR credential content lookup on the controller failed: %v", err)
+			returnErr = cmd.ErrSilent
 		} else {
 			all.Controller = c.parseContents(ctxt, remoteContents)
 		}
@@ -111,7 +114,10 @@ func (c *showCredentialCommand) Run(ctxt *cmd.Context) error {
 		ctxt.Infof("No credentials from this client or from a controller to display.")
 		return nil
 	}
-	return c.out.Write(ctxt, all)
+	if err := c.out.Write(ctxt, all); err != nil {
+		return err
+	}
+	return returnErr
 }
 
 func (c *showCredentialCommand) remoteCredentials(ctxt *cmd.Context) ([]params.CredentialContentResult, error) {

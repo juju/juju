@@ -2794,16 +2794,45 @@ func ReplaceSpaceNameWithIDEndpointBindings(pool *StatePool) error {
 // EnsureDefaultSpaceSetting sets the model config value for "default-space" to
 // "" if it is unset or is set to the now-deprecated value "_default".
 func EnsureDefaultSpaceSetting(pool *StatePool) error {
-	err := applyToAllModelSettings(pool.SystemState(), func(doc *settingsDoc) (bool, error) {
+	return errors.Trace(applyToAllModelSettings(pool.SystemState(), func(doc *settingsDoc) (bool, error) {
 		space, ok := doc.Settings[config.DefaultSpace]
 		if space == "_default" || !ok {
 			doc.Settings[config.DefaultSpace] = ""
 			return true, nil
 		}
 		return false, nil
-	})
-	if err != nil {
+	}))
+}
+
+// RemoveControllerConfigMaxLogAgeAndSize deletes the controller configuration
+// settings for max-logs-age and max-logs-size if they exist.
+func RemoveControllerConfigMaxLogAgeAndSize(pool *StatePool) error {
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(controllersC)
+	defer closer()
+	var doc settingsDoc
+	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil
+		}
 		return errors.Trace(err)
+	}
+
+	var changed bool
+	for _, key := range []string{"max-logs-age", "max-logs-size"} {
+		if _, ok := doc.Settings[key]; ok {
+			delete(doc.Settings, key)
+			changed = true
+		}
+	}
+
+	if changed {
+		return errors.Trace(st.runRawTransaction([]txn.Op{{
+			C:      controllersC,
+			Id:     doc.DocID,
+			Assert: txn.DocExists,
+			Update: bson.M{"$set": bson.M{"settings": doc.Settings}},
+		}}))
 	}
 	return nil
 }

@@ -31,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
@@ -793,6 +794,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := k.deleteIngressResources(appName); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -986,6 +991,17 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating custom resources")
 		}
 		logger.Debugf("created/updated custom resources for %q.", appName)
+	}
+
+	// ensure ingress resources.
+	ings := workloadSpec.IngressResources
+	if len(ings) > 0 {
+		ingCleanUps, err := k.ensureIngressResources(appName, annotations, workloadSpec.IngressResources)
+		cleanups = append(cleanups, ingCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating ingress resources")
+		}
+		logger.Debugf("created/updated ingress resources for %q.", appName)
 	}
 
 	for _, sa := range workloadSpec.ServiceAccounts {
@@ -1776,7 +1792,7 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	spec := &v1beta1.Ingress{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
-			Labels: resourceTags,
+			Labels: k8slabels.Merge(resourceTags, k.getIngressLabels(appName)),
 			Annotations: map[string]string{
 				"ingress.kubernetes.io/rewrite-target":  "",
 				"ingress.kubernetes.io/ssl-redirect":    strconv.FormatBool(ingressSSLRedirect),
@@ -1798,34 +1814,17 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 				}}},
 		},
 	}
-	return k.ensureIngress(spec)
+	// TODO(caas): refactor juju expose to solve potential conflict with ingress definition in podspec.
+	// https://bugs.launchpad.net/juju/+bug/1854123
+	_, err = k.ensureIngress(appName, spec, true)
+	return errors.Trace(err)
 }
 
 // UnexposeService removes external access to the specified service.
 func (k *kubernetesClient) UnexposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
-	return k.deleteIngress(appName)
-}
-
-func (k *kubernetesClient) ensureIngress(spec *v1beta1.Ingress) error {
-	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	_, err := ingress.Update(spec)
-	if k8serrors.IsNotFound(err) {
-		_, err = ingress.Create(spec)
-	}
-	return errors.Trace(err)
-}
-
-func (k *kubernetesClient) deleteIngress(appName string) error {
 	deploymentName := k.deploymentName(appName)
-	ingress := k.client().ExtensionsV1beta1().Ingresses(k.namespace)
-	err := ingress.Delete(deploymentName, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-	return errors.Trace(err)
+	return errors.Trace(k.deleteIngress(deploymentName, ""))
 }
 
 func operatorSelector(appName string) string {
@@ -2112,7 +2111,7 @@ func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
-		return nil, errors.NotFoundf("pod not found")
+		return nil, errors.NotFoundf("pod %q", podName)
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -2380,6 +2379,7 @@ type workloadSpec struct {
 	ServiceAccounts           []serviceAccountSpecGetter
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 	CustomResources           map[string][]unstructured.Unstructured
+	IngressResources          []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2451,6 +2451,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
+			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds

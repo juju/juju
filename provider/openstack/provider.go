@@ -75,7 +75,7 @@ var (
 	_ environs.ProviderSchema       = (*EnvironProvider)(nil)
 )
 
-var providerInstance *EnvironProvider = &EnvironProvider{
+var providerInstance = &EnvironProvider{
 	ProviderCredentials: OpenstackCredentials{},
 	Configurator:        &defaultConfigurator{},
 	FirewallerFactory:   &firewallerFactory{},
@@ -162,9 +162,6 @@ func (EnvironProvider) Version() int {
 
 func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
 	uuid := args.Config.UUID()
 	namespace, err := instance.NewNamespace(uuid)
 	if err != nil {
@@ -941,6 +938,9 @@ func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
+	if err := validateCloudSpec(spec); err != nil {
+		return errors.Annotate(err, "validating cloud spec")
+	}
 	e.cloudUnlocked = spec
 	client, err := authClient(e.cloudUnlocked, e.ecfgUnlocked)
 	if err != nil {

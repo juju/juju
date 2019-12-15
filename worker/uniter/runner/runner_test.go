@@ -91,6 +91,15 @@ var runHookTests = []struct {
 		},
 		err: "exit status 99",
 	}, {
+		summary: "report error with invalid script",
+		relid:   -1,
+		spec: hookSpec{
+			perm:           0700,
+			code:           2,
+			missingShebang: true,
+		},
+		err: "fork/exec.*: exec format error",
+	}, {
 		summary: "output logging",
 		relid:   -1,
 		spec: hookSpec{

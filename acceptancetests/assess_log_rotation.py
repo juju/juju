@@ -11,17 +11,17 @@ import yaml
 from deploy_stack import (
     boot_context,
     update_env,
-    )
+)
 from jujucharm import (
     local_charm_path,
-    )
+)
 from jujupy import (
     client_from_config,
     juju_home_path,
-    )
+)
 from utility import (
     add_basic_testing_arguments,
-    )
+)
 
 
 __metaclass__ = type
@@ -60,7 +60,7 @@ def test_unit_rotation(client):
                   "unit-fill-logs-0",
                   "fill-unit",
                   "unit-size",
-                  "megs=300")
+                  300)
     # TODO: either call assess_debug_log here or add a new assess entry for it.
 
 
@@ -72,10 +72,12 @@ def assess_machine_rotation(client):
                   "/var/log/juju/machine-{}.log".format(machine_id),
                   "machine-{}".format(machine_id),
                   "fill-machine",
-                  "machine-size", "megs=300", "machine={}".format(machine_id))
+                  "machine-size",
+                  300,
+                  "machine={}".format(machine_id))
 
 
-def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
+def test_rotation(client, logfile, prefix, fill_action, size_action, log_size, *args):
     """A reusable help for testing log rotation.log
 
     Deploys the fill-logs charm and uses it to fill the machine or unit log and
@@ -86,9 +88,13 @@ def test_rotation(client, logfile, prefix, fill_action, size_action, *args):
     # we'll obviously already have some data in the logs, so adding exactly
     # 300megs should do the trick.
 
+    single_megs = 100
+    args += ("megs={}".format(single_megs),)
+
     def run_fill_log_action():
         """Using fill action to fill logs, returns resulting output."""
-        client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
+        for _ in range(log_size//single_megs):
+            client.action_do_fetch("fill-logs/0", fill_action, FILL_TIMEOUT, *args)
         # Need to give the disk sometime to actually move files before
         # requesting resulting output.
         sleep(10)

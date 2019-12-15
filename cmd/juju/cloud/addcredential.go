@@ -266,6 +266,7 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 	}
 	var allNames []string
 	added := map[string]jujucloud.Credential{}
+	var returnErr error
 	for name, cred := range credentials.AuthCredentials {
 		if !names.IsValidCloudCredentialName(name) {
 			return errors.Errorf("%q is not a valid credential name", name)
@@ -289,18 +290,20 @@ func (c *addCredentialCommand) Run(ctxt *cmd.Context) error {
 
 		added[name] = cred
 		if _, ok := existingCredentials.AuthCredentials[name]; ok {
-			ctxt.Warningf("credential %q for cloud %q already exists locally, use 'juju update-credential %v %v -f %v' to update this local client copy", name, c.CloudName, c.CloudName, name, c.CredentialsFile)
+			// We want to flag to the user as an error but we do not actually want to err here
+			// but continue processing the rest of cloud credentials.
+			ctxt.Infof("ERROR credential %q for cloud %q already exists locally, use 'juju update-credential %v %v -f %v' to update this local client copy", name, c.CloudName, c.CloudName, name, c.CredentialsFile)
+			returnErr = cmd.ErrSilent
 			continue
 		}
 
 		existingCredentials.AuthCredentials[name] = cred
 		allNames = append(allNames, name)
 	}
-	return c.internalAddCredential(ctxt, "added", *existingCredentials, added, allNames)
+	return c.internalAddCredential(ctxt, "added", *existingCredentials, added, allNames, returnErr)
 }
 
-func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb string, existingCredentials jujucloud.CloudCredential, added map[string]jujucloud.Credential, allNames []string) error {
-	var err error
+func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb string, existingCredentials jujucloud.CloudCredential, added map[string]jujucloud.Credential, allNames []string, returnErr error) error {
 	if c.Client {
 		// Local processing.
 		if len(allNames) == 0 {
@@ -312,20 +315,20 @@ func (c *addCredentialCommand) internalAddCredential(ctxt *cmd.Context, verb str
 			} else {
 				msg = fmt.Sprintf("s %q", strings.Join(allNames, ", "))
 			}
-			err = c.Store.UpdateCredential(c.CloudName, existingCredentials)
+			err := c.Store.UpdateCredential(c.CloudName, existingCredentials)
 			if err == nil {
 				fmt.Fprintf(ctxt.Stdout, "Credential%s %s locally for cloud %q.\n\n", msg, verb, c.CloudName)
 			} else {
 				fmt.Fprintf(ctxt.Stdout, "Credential%s not %v locally for cloud %q: %v\n\n", msg, verb, c.CloudName, err)
-				err = cmd.ErrSilent
+				returnErr = cmd.ErrSilent
 			}
 		}
 	}
 	if c.ControllerName != "" {
 		// Remote processing.
-		return c.addRemoteCredentials(ctxt, added, err)
+		return c.addRemoteCredentials(ctxt, added, returnErr)
 	}
-	return err
+	return returnErr
 }
 
 func (c *addCredentialCommand) existingCredentialsForCloud() (*jujucloud.CloudCredential, error) {
@@ -401,7 +404,7 @@ func (c *addCredentialCommand) interactiveAddCredential(ctxt *cmd.Context, schem
 	}
 
 	existingCredentials.AuthCredentials[credentialName] = *newCredential
-	return c.internalAddCredential(ctxt, verb, *existingCredentials, map[string]jujucloud.Credential{credentialName: *newCredential}, []string{credentialName})
+	return c.internalAddCredential(ctxt, verb, *existingCredentials, map[string]jujucloud.Credential{credentialName: *newCredential}, []string{credentialName}, nil)
 }
 
 func finalizeProvider(ctxt *cmd.Context, cloud *jujucloud.Cloud, regionName, defaultRegion string, authType jujucloud.AuthType, attrs map[string]string) (*jujucloud.Credential, error) {
@@ -639,7 +642,7 @@ func (c *addCredentialCommand) addRemoteCredentials(ctxt *cmd.Context, all map[s
 		return err
 	}
 	defer client.Close()
-	results, err := client.UpdateCloudsCredentials(verified)
+	results, err := client.AddCloudsCredentials(verified)
 	if err != nil {
 		logger.Errorf("%v", err)
 		ctxt.Warningf("Could not upload credentials to controller %q", c.ControllerName)

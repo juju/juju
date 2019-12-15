@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/api/annotations"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/constraints"
@@ -59,6 +60,11 @@ loop:
 		p[e0] = true
 	}
 	return p
+}
+
+func (s *permSuite) SetUpTest(c *gc.C) {
+	s.baseSuite.SetUpTest(c)
+	client.SkipReplicaCheck(s)
 }
 
 func (s *permSuite) TestOperationPerm(c *gc.C) {

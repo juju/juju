@@ -31,11 +31,6 @@ func APIHandlerWithEntity(entity state.Entity) *apiHandler {
 	return &apiHandler{entity: entity}
 }
 
-const (
-	LoginRateLimit = defaultLoginRateLimit
-	LoginRetyPause = defaultLoginRetryPause
-)
-
 func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }

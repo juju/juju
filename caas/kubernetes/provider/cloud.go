@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"reflect"
+	"strings"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -322,20 +323,44 @@ func (p kubernetesEnvironProvider) FinalizeCloud(ctx environs.FinalizeCloudConte
 }
 
 func ensureMicroK8sSuitable(cmdRunner CommandRunner) error {
+	resp, err := cmdRunner.RunCommands(exec.RunParams{
+		Commands: `id -nG "$(whoami)" | grep -qw "root\|microk8s"`,
+	})
+	if err != nil {
+		return errors.Annotate(err, "checking microk8s setup")
+	}
+	if resp.Code != 0 {
+		user, _ := utils.OSUsername()
+		if user == "" {
+			user = "<username>"
+		}
+		return errors.Errorf(`
+The microk8s user group is created during the microk8s snap installation.
+Users in that group are granted access to microk8s commands and this
+is needed for Juju to be able to interact with microk8s.
+
+Add yourself to that group before trying again:
+  sudo usermod -a -G microk8s %s
+`[1:], user)
+	}
+
 	status, err := microK8sStatus(cmdRunner)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
+	var requiredAddons []string
 	if storageStatus, ok := status.Addons["storage"]; ok {
 		if storageStatus != "enabled" {
-			return errors.New("storage is not enabled for microk8s, run 'microk8s.enable storage'")
+			requiredAddons = append(requiredAddons, "storage")
 		}
 	}
 	if dns, ok := status.Addons["dns"]; ok {
 		if dns != "enabled" {
-			return errors.New("dns is not enabled for microk8s, run 'microk8s.enable dns'")
+			requiredAddons = append(requiredAddons, "dns")
 		}
+	}
+	if len(requiredAddons) > 0 {
+		return errors.Errorf("required addons not enabled for microk8s, run 'microk8s.enable %s'", strings.Join(requiredAddons, " "))
 	}
 	return nil
 }

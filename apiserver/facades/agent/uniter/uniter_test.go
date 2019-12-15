@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -2225,7 +2226,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 
 	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/0")
 
-	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2283,7 +2284,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationWhenNotLeader(c *gc.C) {
 
 	token := s.State.LeadershipChecker().LeadershipCheck("wordpress", "wordpress/1")
 
-	err = rel.UpdateApplicationSettings(s.wordpress, token, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
 		"wanda": "firebaugh",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2307,7 +2308,7 @@ func (s *uniterSuite) TestReadSettingsForApplicationInPeerRelation(c *gc.C) {
 	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
 		"deerhoof": "little hollywood",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2475,7 +2476,7 @@ func (s *uniterSuite) TestReadRemoteSettingsForApplication(c *gc.C) {
 
 	// Set some application settings for mysql and check that we can
 	// see them.
-	err = rel.UpdateApplicationSettings(s.mysql, &fakeToken{}, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("mysql", &fakeToken{}, map[string]interface{}{
 		"problem thinker": "fireproof",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2541,7 +2542,7 @@ func (s *uniterSuite) TestReadRemoteApplicationSettingsForPeerRelation(c *gc.C) 
 	rel, err := s.State.EndpointsRelation(ep)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = rel.UpdateApplicationSettings(riak, &fakeToken{}, map[string]interface{}{
+	err = rel.UpdateApplicationSettings("riak", &fakeToken{}, map[string]interface{}{
 		"black midi": "ducter",
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -2694,7 +2695,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
 		"black midi": "ducter",
 		"battles":    "the yabba",
 	}
-	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	err = rel.UpdateApplicationSettings("wordpress", token, appSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newAppSettings := params.Settings{
@@ -2714,7 +2715,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettings(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	readSettings, err := rel.ApplicationSettings("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"black midi": "of schlagenheim",
@@ -2738,7 +2739,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 		"black midi": "ducter",
 		"battles":    "the yabba",
 	}
-	err = rel.UpdateApplicationSettings(s.wordpress, token, appSettings)
+	err = rel.UpdateApplicationSettings("wordpress", token, appSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newAppSettings := params.Settings{
@@ -2757,7 +2758,7 @@ func (s *uniterSuite) TestUpdateSettingsWithAppSettingsOnly(c *gc.C) {
 		Results: []params.ErrorResult{{nil}},
 	})
 
-	readSettings, err := rel.ApplicationSettings(s.wordpress)
+	readSettings, err := rel.ApplicationSettings("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
 		"black midi": "of schlagenheim",
@@ -2834,17 +2835,54 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
-	wc := statetesting.NewRelationUnitsWatcherC(c, s.State, resource.(state.RelationUnitsWatcher))
-	wc.AssertNoChange()
+	w, ok := resource.(common.RelationUnitsWatcher)
+	c.Assert(ok, gc.Equals, true)
+	s.State.StartSync()
+	select {
+	case actual, ok := <-w.Changes():
+		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case <-time.After(coretesting.ShortWait):
+	}
 
 	// Leave scope with mysqlUnit and check it's detected.
 	err = myRelUnit.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, false)
 
-	wc.AssertChange(nil, nil, []string{"mysql/0"})
+	s.assertRUWChange(c, w, nil, nil, []string{"mysql/0"})
 	// TODO(jam): 2019-10-21 this test is getting a bit unweildy, but maybe we
 	//  should test that changing application data triggers a change here
+}
+
+func (s *uniterSuite) assertRUWChange(c *gc.C, w common.RelationUnitsWatcher, changed []string, appChanged []string, departed []string) {
+	// Cloned from state/testing.RelationUnitsWatcherC - we can't use
+	// that anymore since the change type is different between the
+	// state and apiserver watchers. Hacked out the code to maintain
+	// state between events, since it's not needed for this test.
+
+	// Get all items in changed in a map for easy lookup.
+	changedNames := set.NewStrings(changed...)
+	appChangedNames := set.NewStrings(appChanged...)
+	s.State.StartSync()
+	timeout := time.After(coretesting.LongWait)
+	select {
+	case actual, ok := <-w.Changes():
+		c.Logf("Watcher.Changes() => %# v", actual)
+		c.Assert(ok, jc.IsTrue)
+		c.Check(actual.Changed, gc.HasLen, len(changed))
+		c.Check(actual.AppChanged, gc.HasLen, len(appChanged))
+		// Because the versions can change, we only need to make sure
+		// the keys match, not the contents (UnitSettings == txnRevno).
+		for k := range actual.Changed {
+			c.Check(changedNames.Contains(k), jc.IsTrue)
+		}
+		for k := range actual.AppChanged {
+			c.Check(appChangedNames.Contains(k), jc.IsTrue)
+		}
+		c.Check(actual.Departed, jc.SameContents, departed)
+	case <-timeout:
+		c.Fatalf("watcher did not send change")
+	}
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
@@ -3512,6 +3550,16 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	err := u.SetPodSpec(app.Name(), podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	spec, err := cm.PodSpec(app.ApplicationTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, podSpec)
+}
+
+func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
+	u, cm, app, _ := s.setupCAASModel(c)
+
+	err := cm.SetPodSpec(app.ApplicationTag(), podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	spec, err := u.GetPodSpec(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, gc.Equals, podSpec)
 }

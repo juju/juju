@@ -45,6 +45,8 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 		s.resources,
 		cloudspec.MakeCloudSpecGetterForModel(s.State),
 		cloudspec.MakeCloudSpecWatcherForModel(s.State),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(s.State),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(s.State),
 		common.AuthFuncForTag(s.Model.ModelTag()),
 	)
 	// Create a firewaller API for the machine.

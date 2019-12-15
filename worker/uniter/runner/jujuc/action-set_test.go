@@ -147,11 +147,11 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-set <key>=<value> [<key>=<value> ...]
 
 Summary:
-set action results
+set action/function results
 
 Details:
-action-set adds the given values to the results map of the Action.  This map
-is returned to the user after the completion of the Action.  Keys must start
+action-set adds the given values to the results map of the Action/Function. This map
+is returned to the user after the completion of the Action/Function. Keys must start
 and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
 hyphens and periods.
 
@@ -161,6 +161,7 @@ Example usage:
  action-set foo.baz.val=3
  action-set foo.bar.zab=4
  action-set foo.baz=1
+ function-set foo.baz=1
 
  will yield:
 

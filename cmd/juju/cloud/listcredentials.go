@@ -252,20 +252,25 @@ func (c *listCredentialsCommand) Run(ctxt *cmd.Context) error {
 	if err := c.MaybePrompt(ctxt, fmt.Sprintf("list credentials %vfrom", cloudMsg)); err != nil {
 		return errors.Trace(err)
 	}
-	var err error
+	var err, returnErr error
 	if c.Client {
 		credentials.Client, err = c.localCredentials(ctxt)
 		if err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
+			returnErr = cmd.ErrSilent
 		}
 	}
 	if c.ControllerName != "" {
 		credentials.Controller, err = c.remoteCredentials(ctxt)
 		if err != nil {
-			ctxt.Warningf("%v", err)
+			ctxt.Infof("ERROR %v", err)
+			returnErr = cmd.ErrSilent
 		}
 	}
-	return c.out.Write(ctxt, credentials)
+	if err = c.out.Write(ctxt, credentials); err != nil {
+		return err
+	}
+	return returnErr
 }
 
 func (c *listCredentialsCommand) remoteCredentials(ctxt *cmd.Context) (map[string]CloudCredential, error) {

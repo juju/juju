@@ -123,7 +123,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionsCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -233,7 +233,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionsCreate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourceDefinitionsUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -543,7 +543,7 @@ func getCR2() unstructured.Unstructured {
 	}
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourcesCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -662,7 +662,7 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourcesCreate(c *gc.C) {
 	)
 }
 
-func (s *K8sBrokerSuite) TestEnsureCustomResourcesUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -756,10 +756,10 @@ func (s *K8sBrokerSuite) TestEnsureCustomResourcesUpdate(c *gc.C) {
 	s.assertCustomerResources(
 		c, crs,
 		func() {
-			err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+			err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 
-			err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
+			err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 			c.Assert(err, jc.ErrorIsNil)
 		},
 		// waits CRD stablised.
@@ -1084,10 +1084,10 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsAllGood(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 3)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 3)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {
@@ -1107,9 +1107,9 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 	mockCRDGetter := mocks.NewMockCRDGetterInterface(ctrl)
 	unExpectedErr := errors.New("a non not found error")
 
-	// round 1. crd1 un expected error - will not retry and abort the whole wg.
-	mockCRDGetter.EXPECT().Get("tfjobs.kubeflow.org").Times(1).Return(nil, errors.NotFoundf(""))
-	// round 1. crd2 not found.
+	// round 1. crd1 not found.
+	mockCRDGetter.EXPECT().Get("tfjobs.kubeflow.org").AnyTimes().Return(nil, errors.NotFoundf(""))
+	// round 1. crd2 un expected error - will not retry but abort the whole wg.
 	mockCRDGetter.EXPECT().Get("scheduledworkflows.kubeflow.org").Times(1).Return(nil, unExpectedErr)
 
 	resultChan := make(chan map[string]*apiextensionsv1beta1.CustomResourceDefinition)
@@ -1125,10 +1125,7 @@ func (s *K8sBrokerSuite) TestGetCRDsForCRsFailEarly(c *gc.C) {
 		resultChan <- result
 	}(s.broker)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 2)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.clock.WaitAdvance(2*time.Second, testing.ShortWait, 1)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

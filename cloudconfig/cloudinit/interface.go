@@ -302,7 +302,7 @@ type RootUserConfig interface {
 	DisableRoot() bool
 }
 
-// WrittenFilesConfig is the interface for all file writing operaions.
+// WrittenFilesConfig is the interface for all file writing operations.
 type WrittenFilesConfig interface {
 	// AddRunTextFile simply issues some AddRunCmd's to set the contents of a
 	// given file with the specified file permissions on *first* boot.
@@ -329,7 +329,7 @@ type RenderConfig interface {
 	// It is used over ssh for bootstrapping with the manual provider.
 	RenderScript() (string, error)
 
-	// ShellRenderer renturns the shell renderer of this particular instance.
+	// ShellRenderer returns the shell renderer of this particular instance.
 	ShellRenderer() shell.Renderer
 
 	// getCommandsForAddingPackages is a helper function which returns all the

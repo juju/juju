@@ -115,6 +115,17 @@
                         }
                     }
                 },
+                "Operations": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/OperationQueryArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ActionResults"
+                        }
+                    }
+                },
                 "Run": {
                     "type": "object",
                     "properties": {
@@ -131,17 +142,6 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/RunParams"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ActionResults"
-                        }
-                    }
-                },
-                "Tasks": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/TaskQueryArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ActionResults"
@@ -489,6 +489,36 @@
                         "matches"
                     ]
                 },
+                "OperationQueryArgs": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "functions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "status": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "units": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
                 "RunParams": {
                     "type": "object",
                     "properties": {
@@ -561,36 +591,6 @@
                     "required": [
                         "results"
                     ]
-                },
-                "TaskQueryArgs": {
-                    "type": "object",
-                    "properties": {
-                        "applications": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "functions": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "status": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "units": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false
                 }
             }
         }
@@ -23037,7 +23037,7 @@
     },
     {
         "Name": "ModelGeneration",
-        "Version": 2,
+        "Version": 3,
         "Schema": {
             "type": "object",
             "properties": {
@@ -23166,6 +23166,9 @@
                             "items": {
                                 "$ref": "#/definitions/Entity"
                             }
+                        },
+                        "num-units": {
+                            "type": "integer"
                         }
                     },
                     "additionalProperties": false,
@@ -34072,7 +34075,7 @@
     },
     {
         "Name": "Uniter",
-        "Version": 13,
+        "Version": 14,
         "Schema": {
             "type": "object",
             "properties": {
@@ -34344,6 +34347,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/MeterStatusResults"
+                        }
+                    }
+                },
+                "GetPodSpec": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
                         }
                     }
                 },

@@ -118,7 +118,7 @@ func addValueToMap(keys []string, value interface{}, target map[string]interface
 
 const (
 	watchTimestampFormat  = "15:04:05"
-	resultTimestampFormat = "2006-01-02 15:04:05"
+	resultTimestampFormat = "2006-01-02T15:04:05"
 )
 
 func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
@@ -127,14 +127,20 @@ func decodeLogMessage(encodedMessage string, utc bool) (string, error) {
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-	return formatLogMessage(actionMessage, true, utc), nil
+	return formatLogMessage(actionMessage, true, utc, true), nil
 }
 
-func formatTimestamp(timestamp time.Time, progressFormat, utc bool) string {
+func formatTimestamp(timestamp time.Time, progressFormat, utc, plain bool) string {
+	if timestamp.IsZero() {
+		return ""
+	}
 	if utc {
 		timestamp = timestamp.UTC()
 	} else {
 		timestamp = timestamp.Local()
+	}
+	if !progressFormat && !plain {
+		return timestamp.String()
 	}
 	timestampFormat := resultTimestampFormat
 	if progressFormat {
@@ -143,8 +149,8 @@ func formatTimestamp(timestamp time.Time, progressFormat, utc bool) string {
 	return timestamp.Format(timestampFormat)
 }
 
-func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc bool) string {
-	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc), actionMessage.Message)
+func formatLogMessage(actionMessage coreactions.ActionMessage, progressFormat, utc, plain bool) string {
+	return fmt.Sprintf("%v %v", formatTimestamp(actionMessage.Timestamp, progressFormat, utc, plain), actionMessage.Message)
 }
 
 // processLogMessages starts a go routine to decode and handle any incoming

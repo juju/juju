@@ -32,16 +32,26 @@ func (s *typesSuite) TestParsePodSpec(c *gc.C) {
 		}, nil
 	}
 
-	pSpecs := &specs.PodSpec{}
+	minSpecs := &specs.PodSpec{}
+	minSpecs.Version = specs.CurrentVersion
+	minSpecs.Containers = []specs.ContainerSpec{
+		{
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+		},
+	}
 
 	gomock.InOrder(
 		converter.EXPECT().Validate().Return(nil),
-		converter.EXPECT().ToLatest().Return(pSpecs),
+		converter.EXPECT().ToLatest().Return(minSpecs),
 	)
 
 	out, err := k8sspces.ParsePodSpecForTest("", getParser)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(pSpecs, jc.DeepEquals, out)
+	c.Assert(minSpecs, jc.DeepEquals, out)
 }
 
 func (s *typesSuite) TestK8sContainersValidate(c *gc.C) {

@@ -111,11 +111,9 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	if err != nil {
 		return fail, errors.Trace(err)
 	}
-	pServers := make([]network.ProviderHostPorts, len(hostPorts))
+	pServers := make([]network.HostPorts, len(hostPorts))
 	for i, hps := range hostPorts {
-		if pServers[i], err = hps.ToProviderHostPorts(a.root.state); err != nil {
-			return fail, errors.Trace(err)
-		}
+		pServers[i] = hps.HostPorts()
 	}
 
 	// apiRoot is the API root exposed to the client after login.
@@ -164,7 +162,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	)
 	a.root.rpcConn.ServeRoot(apiRoot, recorderFactory, serverError)
 	return params.LoginResult{
-		Servers:       params.FromProviderHostsPorts(pServers),
+		Servers:       params.FromHostsPorts(pServers),
 		ControllerTag: a.root.model.ControllerTag().String(),
 		UserInfo:      authResult.userInfo,
 		ServerVersion: jujuversion.Current.String(),
@@ -214,10 +212,6 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		userLogin:           true,
 	}
 
-	// TODO(axw) move this to the stateauthenticator implementation?
-	// Or better yet, provide a wrapper type that adds the rate-limiting.
-	//
-	// Maybe rate limit non-user auth attempts.
 	if req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
 		if err == nil {
@@ -230,14 +224,10 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			defer a.srv.metricsCollector.LoginAttempts.Dec()
 
 			// Users are not rate limited, all other entities are.
-			if !a.srv.limiter.Acquire() {
-				logger.Debugf("rate limiting for agent %s", req.AuthTag)
-				select {
-				case <-time.After(a.srv.loginRetryPause):
-				}
-				return nil, common.ErrTryAgain
+			if err := a.srv.getAgentToken(); err != nil {
+				logger.Tracef("rate limiting for agent %s", req.AuthTag)
+				return nil, errors.Trace(err)
 			}
-			defer a.srv.limiter.Release()
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -386,7 +376,7 @@ func (a *admin) handleAuthError(err error) error {
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed
 		// logins with a more helpful one.
-		return MaintenanceNoLoginError
+		return errors.Wrap(err, MaintenanceNoLoginError)
 	}
 	return err
 }

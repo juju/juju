@@ -974,8 +974,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					}
 					return observer.NewRequestObserver(ctx)
 				},
-				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
+				PublicDNSName: icfg.Controller.Config.AutocertDNSName(),
 				UpgradeComplete: func() bool {
 					return true
 				},

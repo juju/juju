@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -62,8 +63,8 @@ func (s *FirewallSuite) TestWatchEgressAddressesForRelations(c *gc.C) {
 	s.st.relations["remote-db2:db django:db"] = db2Relation
 	s.st.remoteEntities[names.NewRelationTag("remote-db2:db django:db")] = "token-db2:db django:db"
 	// django/0 and django/1 are initially in scope
-	db2Relation.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	db2Relation.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 			"django/1": {},
 		},

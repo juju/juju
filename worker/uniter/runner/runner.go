@@ -246,6 +246,7 @@ func encodeBytes(input []byte) (value string, encoding string) {
 }
 
 func (runner *runner) updateActionResults(results *utilexec.ExecResponse) error {
+	// TODO(juju3) - use lower case here
 	if err := runner.context.UpdateActionResults([]string{"Code"}, fmt.Sprintf("%d", results.Code)); err != nil {
 		return errors.Trace(err)
 	}
@@ -286,10 +287,19 @@ func (runner *runner) RunAction(actionName string) error {
 	}
 	rMode := runOnLocal
 	if runner.context.ModelType() == model.CAAS {
+		// run actions/functions on remote workload pod if it's caas model.
 		rMode = runOnRemote
 	}
-	// run actions on remote workload pod for caas.
-	return runner.runCharmHookWithLocation(actionName, "actions", rMode)
+	return runner.runCharmHookWithLocation(actionName, runner.getFunctionDir(), rMode)
+}
+
+func (runner *runner) getFunctionDir() string {
+	charmDir := runner.paths.GetCharmDir()
+	dir := filepath.Join(charmDir, "functions")
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		return "functions"
+	}
+	return "actions"
 }
 
 // RunHook exists to satisfy the Runner interface.
@@ -505,6 +515,8 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 		runner.context.SetProcess(hookProcess{ps.Process})
 		// Block until execution finishes
 		exitErr = ps.Wait()
+	} else {
+		exitErr = err
 	}
 	// Ensure hook loggers are stopped before reading stdout/stderr
 	// so all the output is captured.

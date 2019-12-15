@@ -279,7 +279,7 @@ func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-get [options] [<key>[.<key>.<key>...]]
 
 Summary:
-get action parameters
+get action/function parameters
 
 Options:
 --format  (= smart)

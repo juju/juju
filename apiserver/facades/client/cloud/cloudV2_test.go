@@ -343,7 +343,7 @@ func (s *cloudSuiteV2) TestUpdateCredentialsWithBrokenModels(c *gc.C) {
 			"deadbeef-2f18-4fd2-967d-db9663db7bea": "testModel2",
 		}, nil
 	}
-	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential) (params.ErrorResults, error) {
+	s.PatchValue(cloudfacade.ValidateNewCredentialForModelFunc, func(backend credentialcommon.PersistentBackend, callCtx context.ProviderCallContext, credentialTag names.CloudCredentialTag, credential *cloud.Credential, migrating bool) (params.ErrorResults, error) {
 		if uuid := backend.(*mockModelBackend).uuid; uuid == coretesting.ModelTag.Id() {
 			return params.ErrorResults{[]params.ErrorResult{
 				{&params.Error{Message: "not valid for model"}},

@@ -274,11 +274,11 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		result, err = GetActionResult(c.api, tag.Id(), wait)
+		result, err = GetActionResult(c.api, tag.Id(), wait, true)
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(result, false)
+		d := FormatActionResult(result, false, true)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		out[result.Action.Receiver] = d
 	}

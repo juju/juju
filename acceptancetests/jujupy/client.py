@@ -16,6 +16,17 @@
 
 from __future__ import print_function
 
+import errno
+import json
+import logging
+import os
+import pexpect
+import re
+import shutil
+import subprocess
+import sys
+import time
+import yaml
 from collections import (
     defaultdict,
     namedtuple,
@@ -24,19 +35,8 @@ from contextlib import (
     contextmanager,
 )
 from copy import deepcopy
-import errno
 from itertools import chain
-import json
 from locale import getpreferredencoding
-import logging
-import os
-import re
-import shutil
-import subprocess
-import sys
-import time
-import pexpect
-import yaml
 
 from jujupy.backend import (
     JujuBackend,
@@ -45,6 +45,10 @@ from jujupy.configuration import (
     get_bootstrap_config_path,
     get_juju_home,
     get_selected_environment,
+)
+from jujupy.controller import (
+    Controllers,
+    ControllerConfig,
 )
 from jujupy.exceptions import (
     AgentsNotStarted,
@@ -65,10 +69,6 @@ from jujupy.status import (
     coalesce_agent_status,
     Status,
 )
-from jujupy.controller import (
-    Controllers,
-    ControllerConfig,
-)
 from jujupy.utility import (
     _dns_name_for_machine,
     JujuResourceTimeout,
@@ -79,7 +79,6 @@ from jujupy.utility import (
     temp_yaml_file,
     unqualified_model_name,
     until_timeout,
-    ensure_dir,
 )
 from jujupy.wait_condition import (
     CommandComplete,
@@ -89,9 +88,7 @@ from jujupy.wait_condition import (
     WaitVersion,
 )
 
-
 __metaclass__ = type
-
 
 WIN_JUJU_CMD = os.path.join('\\', 'Progra~2', 'Juju', 'juju.exe')
 
@@ -215,7 +212,7 @@ class JujuData:
         result.logging_config = self.logging_config
         result.provider_type = self.provider_type
         return result
-        
+
     def set_cloud_name(self, name):
         self._cloud_name = name
 
@@ -428,8 +425,8 @@ class JujuData:
         if provider == 'ec2' and self._config['region'] == 'cn-north-1':
             return 'aws-china'
         if provider not in (
-            # clouds need to handle separately.
-            'maas', 'openstack', 'vsphere', 'kubernetes'
+                # clouds need to handle separately.
+                'maas', 'openstack', 'vsphere', 'kubernetes'
         ):
             return {
                 'ec2': 'aws',
@@ -1023,7 +1020,7 @@ class ModelClient:
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
-            mongo_memory_profile, caas_image_repo,
+                mongo_memory_profile, caas_image_repo,
         ) as config_filename:
             args = self.get_bootstrap_args(
                 upload_tools=upload_tools,
@@ -1065,7 +1062,7 @@ class ModelClient:
 
     def _add_model(self, model_name, config_file, cloud_region=None):
         explicit_region = self.env.controller.explicit_region
-        region_args = (cloud_region, ) if cloud_region else ()
+        region_args = (cloud_region,) if cloud_region else ()
         if explicit_region and not region_args:
             credential_name = self.env.get_cloud_credentials_item()[0]
             cloud_region = self.get_cloud_region(self.env.get_cloud(),
@@ -1556,6 +1553,7 @@ class ModelClient:
                                    start=None):
         """Wait until all service units have a started subordinate with
         unit_prefix."""
+
         def status_to_subordinate_states(status):
             service_unit_count = status.get_service_unit_count(service)
             subordinate_unit_count = 0
@@ -1568,6 +1566,7 @@ class ModelClient:
                     set(unit_states.keys()).issubset(AGENTS_READY)):
                 return None
             return unit_states
+
         reporter = GroupReporter(sys.stdout, 'started')
         self._wait_for_status(
             reporter, status_to_subordinate_states, AgentsNotStarted,
@@ -1757,6 +1756,7 @@ class ModelClient:
 
     def wait_for_workloads(self, timeout=600, start=None):
         """Wait until all unit workloads are in a ready state."""
+
         def status_to_workloads(status):
             unit_states = defaultdict(list)
             for name, unit in status.iter_units():
@@ -1770,6 +1770,7 @@ class ModelClient:
                 return None
             unit_states.pop('unknown', None)
             return unit_states
+
         reporter = GroupReporter(sys.stdout, 'active')
         self._wait_for_status(reporter, status_to_workloads, WorkloadsNotReady,
                               timeout=timeout, start=start)
@@ -1880,12 +1881,10 @@ class ModelClient:
         args = (unit, action) + args
 
         output = self.get_juju_output("run-action", *args)
-        idRegexp = '([0-9]+|((?:[a-f0-9\-]{36})|(?:(?:[a-z][a-z0-9]*(?:-[a-z0-9]*[a-z][a-z0-9]*)*)-(?:0|[1-9][0-9]*))))'
-        action_id_pattern = re.compile('Action queued with id: ' + idRegexp)
+        action_id_pattern = re.compile('Action queued with id: "([0-9]+)"')
         match = action_id_pattern.search(output)
         if match is None:
-            raise Exception("Action id not found in output: %s" %
-                            output)
+            raise Exception("Action id not found in output: {}".format(output))
         return match.group(1)
 
     def action_do_fetch(self, unit, action, timeout="1m", *args):
@@ -1919,7 +1918,7 @@ class ModelClient:
         return yaml.safe_load(self.get_juju_output('list-space'))
 
     def add_space(self, space):
-        self.juju('add-space', (space),)
+        self.juju('add-space', (space), )
 
     def add_subnet(self, subnet, space):
         self.juju('add-subnet', (subnet, space))
@@ -2152,79 +2151,18 @@ class ModelClient:
                 raise TypeNotAccepted('Cloud type not accepted.')
             child.sendline(cloud_name)
             if cloud['type'] == 'maas':
-                match = child.expect([
-                    'Enter the API endpoint url:',
-                    'Enter a name for your .* cloud:',
-                ])
-                if match == 1:
-                    raise NameNotAccepted('Cloud name not accepted.')
-                child.sendline(cloud['endpoint'])
+                self.handle_maas(child, cloud)
             if cloud['type'] == 'manual':
-                match = child.expect([
-                    "Enter the controller's hostname or IP address:",
-                    "Enter a name for your .* cloud:",
-                ])
-                if match == 1:
-                    raise NameNotAccepted('Cloud name not accepted.')
-                child.sendline(cloud['endpoint'])
+                self.handle_manual(child, cloud)
             if cloud['type'] == 'openstack':
-                match = child.expect([
-                    'Enter the API endpoint url for the cloud',
-                    "Enter a name for your .* cloud:"
-                ])
-                if match == 1:
-                    raise NameNotAccepted('Cloud name not accepted.')
-                child.sendline(cloud['endpoint'])
-                match = child.expect([
-                    "Enter a path to the CA certificate for your cloud if one is required to access it",
-                    "Can't validate endpoint:",
-                ])
-                if match == 1:
-                    raise InvalidEndpoint()
-                child.sendline("")
-                match = child.expect("Select one or more auth types separated by commas:")
-                child.sendline(','.join(cloud['auth-types']))
-                for num, (name, values) in enumerate(cloud['regions'].items()):
-                    match = child.expect([
-                        'Enter region name:',
-                        'Select one or more auth types separated by commas:',
-                    ])
-                    if match == 1:
-                        raise AuthNotAccepted('Auth was not compatible.')
-                    child.sendline(name)
-                    child.expect(self.REGION_ENDPOINT_PROMPT)
-                    child.sendline(values['endpoint'])
-                    match = child.expect([
-                        "Enter another region\? \([yY]/[nN]\):",
-                        "Can't validate endpoint"
-                    ])
-                    if match == 1:
-                        raise InvalidEndpoint()
-                    if num + 1 < len(cloud['regions']):
-                        child.sendline('y')
-                    else:
-                        child.sendline('n')
+                self.handle_openstack(child, cloud)
             if cloud['type'] == 'vsphere':
-                child.expect(
-                    'Enter the '
-                    '(vCenter address or URL|API endpoint url for the cloud \[\]):')
-                child.sendline(cloud['endpoint'])
-                for num, (name, values) in enumerate(cloud['regions'].items()):
-                    match = child.expect([
-                        "Enter datacenter name",
-                        "Enter region name",
-                        "Can't validate endpoint"
-                    ])
-                    if match == 2:
-                        raise InvalidEndpoint()
-                    child.sendline(name)
-                    child.expect(
-                        'Enter another (datacenter|region)\? \([yY]/[nN]\):')
-                    if num + 1 < len(cloud['regions']):
-                        child.sendline('y')
-                    else:
-                        child.sendline('n')
-
+                self.handle_vsphere(child, cloud)
+            match = child.expect(["Do you ONLY want to add cloud", "Can't validate endpoint"])
+            if match == 0:
+                child.sendline("y")
+            if match == 1:
+                raise InvalidEndpoint()
             child.expect([pexpect.EOF, "Can't validate endpoint"])
             if child.match != pexpect.EOF:
                 if child.match.group(0) == "Can't validate endpoint":
@@ -2232,6 +2170,90 @@ class ModelClient:
         except pexpect.TIMEOUT:
             raise Exception(
                 'Adding cloud failed: pexpect session timed out')
+
+    def handle_maas(self, child, cloud):
+        match = child.expect([
+            'Enter the API endpoint url:',
+            'Enter a name for your .* cloud:',
+        ])
+        if match == 1:
+            raise NameNotAccepted('Cloud name not accepted.')
+        child.sendline(cloud['endpoint'])
+
+    def handle_manual(self, child, cloud):
+        match = child.expect([
+            "Enter a name for your .* cloud:",
+            "Enter the ssh connection string for controller",
+            "Enter the controller's hostname or IP address:",
+            pexpect.EOF
+        ])
+        if match == 0:
+            raise NameNotAccepted('Cloud name not accepted.')
+        else:
+            child.sendline(cloud['endpoint'])
+
+    def handle_openstack(self, child, cloud):
+        match = child.expect([
+            'Enter the API endpoint url for the cloud',
+            "Enter a name for your .* cloud:"
+        ])
+        if match == 1:
+            raise NameNotAccepted('Cloud name not accepted.')
+        child.sendline(cloud['endpoint'])
+        match = child.expect([
+            "Enter a path to the CA certificate for your cloud if one is required to access it",
+            "Can't validate endpoint:",
+        ])
+        if match == 1:
+            raise InvalidEndpoint()
+        child.sendline("")
+        match = child.expect("Select one or more auth types separated by commas:")
+        if match == 0:
+            child.sendline(','.join(cloud['auth-types']))
+        for num, (name, values) in enumerate(cloud['regions'].items()):
+            match = child.expect([
+                'Enter region name:',
+                'Select one or more auth types separated by commas:',
+            ])
+            if match == 1:
+                raise AuthNotAccepted('Auth was not compatible.')
+            child.sendline(name)
+            child.expect(self.REGION_ENDPOINT_PROMPT)
+            child.sendline(values['endpoint'])
+            match = child.expect([
+                "Enter another region\? \([yY]/[nN]\):",
+                "Can't validate endpoint"
+            ])
+            if match == 1:
+                raise InvalidEndpoint()
+            if num + 1 < len(cloud['regions']):
+                child.sendline('y')
+            else:
+                child.sendline('n')
+
+    def handle_vsphere(self, child, cloud):
+        match = child.expect(["Enter a name for your .* cloud:",
+                              'Enter the (vCenter address or URL|API endpoint url for the cloud \[\]):'])
+        if match == 0:
+            raise NameNotAccepted('Cloud name not accepted.')
+        if match == 1:
+            child.sendline(cloud['endpoint'])
+
+        for num, (name, values) in enumerate(cloud['regions'].items()):
+            match = child.expect([
+                "Enter datacenter name",
+                "Enter region name",
+                "Can't validate endpoint"
+            ])
+            if match == 2:
+                raise InvalidEndpoint()
+            child.sendline(name)
+            child.expect(
+                'Enter another (datacenter|region)\? \([yY]/[nN]\):')
+            if num + 1 < len(cloud['regions']):
+                child.sendline('y')
+            else:
+                child.sendline('n')
 
     def show_controller(self, format='json'):
         """Show controller's status."""
@@ -2316,6 +2338,7 @@ class IaasClient:
     @property
     def is_cluster_healthy(self):
         return True
+
 
 def register_user_interactively(client, token, controller_name):
     """Register a user with the supplied token and controller name.

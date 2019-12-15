@@ -193,7 +193,22 @@ func (s *removeCredentialSuite) TestRemoveRemoteCredentialFail(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller")
 	c.Assert(err, gc.Equals, cmd.ErrSilent)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "")
-	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Found remote cloud \"somecloud\" from the controller.\n")
+	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, "Found remote cloud \"somecloud\" from the controller.\nERROR could not remove remote credential: kaboom\n")
+	s.fakeClient.CheckCallNames(c, "Clouds", "RevokeCredential", "Close")
+	s.fakeClient.CheckCall(c, 1, "RevokeCredential", names.NewCloudCredentialTag("somecloud/admin/foo"), false)
+}
+
+func (s *removeCredentialSuite) TestRemoveRemoteCredentialForce(c *gc.C) {
+	store := s.setupStore(c)
+	s.setupClientForRemote(c)
+	s.fakeClient.revokeCredentialF = func(tag names.CloudCredentialTag) error {
+		return nil
+	}
+	command := cloud.NewRemoveCredentialCommandForTest(store, s.cloudByNameFunc, s.clientF)
+	_, err := cmdtesting.RunCommand(c, command, "somecloud", "foo", "-c", "controller", "--force")
+	c.Assert(err, jc.ErrorIsNil)
+	s.fakeClient.CheckCallNames(c, "Clouds", "RevokeCredential", "Close")
+	s.fakeClient.CheckCall(c, 1, "RevokeCredential", names.NewCloudCredentialTag("somecloud/admin/foo"), true)
 }
 
 type fakeRemoveCredentialAPI struct {
@@ -213,8 +228,8 @@ func (f *fakeRemoveCredentialAPI) BestAPIVersion() int {
 	return f.v
 }
 
-func (f *fakeRemoveCredentialAPI) RevokeCredential(c names.CloudCredentialTag) error {
-	f.AddCall("RevokeCredential", c)
+func (f *fakeRemoveCredentialAPI) RevokeCredential(c names.CloudCredentialTag, force bool) error {
+	f.AddCall("RevokeCredential", c, force)
 	return f.revokeCredentialF(c)
 }
 

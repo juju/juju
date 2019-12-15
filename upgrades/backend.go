@@ -75,6 +75,7 @@ type StateBackend interface {
 	ConvertAddressSpaceIDs() error
 	ReplaceSpaceNameWithIDEndpointBindings() error
 	EnsureDefaultSpaceSetting() error
+	RemoveControllerConfigMaxLogAgeAndSize() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -303,4 +304,7 @@ func (s stateBackend) ReplaceSpaceNameWithIDEndpointBindings() error {
 
 func (s stateBackend) EnsureDefaultSpaceSetting() error {
 	return state.EnsureDefaultSpaceSetting(s.pool)
+}
+func (s stateBackend) RemoveControllerConfigMaxLogAgeAndSize() error {
+	return state.RemoveControllerConfigMaxLogAgeAndSize(s.pool)
 }

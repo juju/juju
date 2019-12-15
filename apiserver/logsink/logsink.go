@@ -309,12 +309,15 @@ func (h *logSinkHandler) receiveLogs(socket *websocket.Conn,
 			// unblocked when the API handler calls socket.Close as it
 			// finishes.
 			if err := socket.ReadJSON(&m); err != nil {
-				if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
-					logger.Debugf("logsink receive error: %v", err)
+				if gorillaws.IsCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
+					logger.Tracef("logsink closed: %v", err)
+					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelDisconnect).Inc()
+				} else if gorillaws.IsUnexpectedCloseError(err, gorillaws.CloseNormalClosure, gorillaws.CloseGoingAway) {
+					logger.Debugf("logsink unexpected close error: %v", err)
 					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				} else {
-					logger.Debugf("disconnected, %p", socket)
-					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelDisconnect).Inc()
+					logger.Debugf("logsink error: %v", err)
+					h.metrics.LogReadCount(resolvedModelUUID, metricLogReadLabelError).Inc()
 				}
 				// Try to tell the other end we are closing. If the other end
 				// has already disconnected from us, this will fail, but we don't

@@ -43,6 +43,14 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
+	// AgentRateLimitMax is the maximum size of the token bucket used to
+	// ratelimit the agent connections.
+	AgentRateLimitMax = "agent-ratelimit-max"
+
+	// AgentRateLimitRate is the time taken to add a new token to the bucket.
+	// This effectively says that we can have a new agent connect per duration specified.
+	AgentRateLimitRate = "agent-ratelimit-rate"
+
 	// APIPortOpenDelay is a duration that the controller will wait
 	// between when the controller has been deemed to be ready to open
 	// the api-port and when the api-port is actually opened. This value
@@ -131,15 +139,6 @@ const (
 	// session. If the user needs more information, perhaps debug-log isn't the right source.
 	MaxDebugLogDuration = "max-debug-log-duration"
 
-	// TODO(thumper): remove max-logs-age and max-logs-size in 2.7 branch.
-
-	// MaxLogsAge is the maximum age for log entries, eg "72h"
-	MaxLogsAge = "max-logs-age"
-
-	// MaxLogsSize is the maximum size the log collection can grow to
-	// before it is pruned, eg "4M"
-	MaxLogsSize = "max-logs-size"
-
 	// ModelLogfileMaxSize is the maximum size of the log file written out by the
 	// controller on behalf of workers running for a model.
 	ModelLogfileMaxSize = "model-logfile-max-size"
@@ -180,6 +179,14 @@ const (
 
 	// Attribute Defaults
 
+	// DefaultAgentRateLimitMax allows the first 10 agents to connect without any
+	// issue. After that the rate limiting kicks in.
+	DefaultAgentRateLimitMax = 10
+
+	// DefaultAgentRateLimitRate will allow four agents to connect every second.
+	// A token is added to the ratelimit token bucket every 250ms.
+	DefaultAgentRateLimitRate = 250 * time.Millisecond
+
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
 	DefaultAuditingEnabled = true
@@ -216,15 +223,6 @@ const (
 	// DefaultMaxDebugLogDuration is the default duration that debug-log commands
 	// can run before being terminated by the API server.
 	DefaultMaxDebugLogDuration = 24 * time.Hour
-
-	// TODO(thumper): remove DefaultMaxLogsAgeDays and DefaultMaxLogCollectionMB in 2.7 branch.
-
-	// DefaultMaxLogsAgeDays is the maximum age in days of log entries.
-	DefaultMaxLogsAgeDays = 3
-
-	// DefaultMaxLogCollectionMB is the maximum size the log collection can
-	// grow to before being pruned.
-	DefaultMaxLogCollectionMB = 4 * 1024 // 4 GB
 
 	// DefaultMaxTxnLogCollectionMB is the maximum size the txn log collection.
 	DefaultMaxTxnLogCollectionMB = 10 // 10 MB
@@ -285,6 +283,8 @@ var (
 	// for a controller, never a model.
 	ControllerOnlyConfigAttributes = []string{
 		AllowModelAccessKey,
+		AgentRateLimitMax,
+		AgentRateLimitRate,
 		APIPort,
 		APIPortOpenDelay,
 		AutocertDNSNameKey,
@@ -299,9 +299,6 @@ var (
 		StatePort,
 		MongoMemoryProfile,
 		MaxDebugLogDuration,
-		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
-		MaxLogsSize,
-		MaxLogsAge,
 		MaxTxnLogSize,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
@@ -327,6 +324,8 @@ var (
 	// config attributes that are allowed to be updated after the
 	// controller has been created.
 	AllowedUpdateConfigAttributes = set.NewStrings(
+		AgentRateLimitMax,
+		AgentRateLimitRate,
 		APIPortOpenDelay,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -337,9 +336,6 @@ var (
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
-		// TODO(thumper): remove MaxLogsAge and MaxLogsSize in 2.7 branch.
-		MaxLogsSize,
-		MaxLogsAge,
 		ModelLogfileMaxBackups,
 		ModelLogfileMaxSize,
 		ModelLogsSize,
@@ -451,6 +447,22 @@ func (c Config) mustString(name string) string {
 	return value
 }
 
+func (c Config) durationOrDefault(name string, defaultVal time.Duration) time.Duration {
+	switch v := c[name].(type) {
+	case string:
+		if v != "" {
+			// Value has already been validated.
+			value, _ := time.ParseDuration(v)
+			return value
+		}
+	case time.Duration:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return defaultVal
+}
+
 // StatePort returns the mongo server port for the environment.
 func (c Config) StatePort() int {
 	return c.mustInt(StatePort)
@@ -483,6 +495,26 @@ func (c Config) ControllerAPIPort() int {
 	// will be 0, which is what we want here.
 	value, _ := c[ControllerAPIPort].(int)
 	return value
+}
+
+// AgentRateLimitMax is the initial size of the token bucket that is used to
+// rate limit agent connections.
+func (c Config) AgentRateLimitMax() int {
+	switch v := c[AgentRateLimitMax].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return DefaultAgentRateLimitMax
+}
+
+// AgentRateLimitRate is the time taken to add a token into the token bucket
+// that is used to rate limit agent connections.
+func (c Config) AgentRateLimitRate() time.Duration {
+	return c.durationOrDefault(AgentRateLimitRate, DefaultAgentRateLimitRate)
 }
 
 // AuditingEnabled returns whether or not auditing has been enabled
@@ -755,6 +787,23 @@ func Validate(c Config) error {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
+	if v, ok := c[AgentRateLimitMax].(int); ok {
+		if v < 0 {
+			return errors.NotValidf("negative %s (%d)", AgentRateLimitMax, v)
+		}
+	}
+	if v, ok := c[AgentRateLimitRate].(time.Duration); ok {
+		if v == 0 {
+			return errors.Errorf("%s cannot be zero", AgentRateLimitRate)
+		}
+		if v < 0 {
+			return errors.Errorf("%s cannot be negative", AgentRateLimitRate)
+		}
+		if v > time.Minute {
+			return errors.Errorf("%s must be between 0..1m", AgentRateLimitRate)
+		}
+	}
+
 	if mgoMemProfile, ok := c[MongoMemoryProfile].(string); ok {
 		if mgoMemProfile != MongoProfLow && mgoMemProfile != MongoProfDefault {
 			return errors.Errorf("mongo-memory-profile: expected one of %q or %q got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
@@ -764,18 +813,6 @@ func Validate(c Config) error {
 	if v, ok := c[MaxDebugLogDuration].(time.Duration); ok {
 		if v == 0 {
 			return errors.Errorf("%s cannot be zero", MaxDebugLogDuration)
-		}
-	}
-	// TODO(thumper): remove MaxLogsAge and MaxLogsSize validation in 2.7 branch.
-	if v, ok := c[MaxLogsAge].(string); ok {
-		if _, err := time.ParseDuration(v); err != nil {
-			return errors.Annotate(err, "invalid logs prune interval in configuration")
-		}
-	}
-
-	if v, ok := c[MaxLogsSize].(string); ok {
-		if _, err := utils.ParseSize(v); err != nil {
-			return errors.Annotate(err, "invalid max logs size in configuration")
 		}
 	}
 
@@ -949,6 +986,8 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
+	AgentRateLimitMax:       schema.ForceInt(),
+	AgentRateLimitRate:      schema.TimeDuration(),
 	AuditingEnabled:         schema.Bool(),
 	AuditLogCaptureArgs:     schema.Bool(),
 	AuditLogMaxSize:         schema.String(),
@@ -966,8 +1005,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AllowModelAccessKey:     schema.Bool(),
 	MongoMemoryProfile:      schema.String(),
 	MaxDebugLogDuration:     schema.TimeDuration(),
-	MaxLogsAge:              schema.String(),
-	MaxLogsSize:             schema.String(),
 	MaxTxnLogSize:           schema.String(),
 	MaxPruneTxnBatchSize:    schema.ForceInt(),
 	MaxPruneTxnPasses:       schema.ForceInt(),
@@ -984,6 +1021,8 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CharmStoreURL:           schema.String(),
 	MeteringURL:             schema.String(),
 }, schema.Defaults{
+	AgentRateLimitMax:       schema.Omit,
+	AgentRateLimitRate:      schema.Omit,
 	APIPort:                 DefaultAPIPort,
 	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
 	ControllerAPIPort:       schema.Omit,
@@ -1001,8 +1040,6 @@ var configChecker = schema.FieldMap(schema.Fields{
 	AllowModelAccessKey:     schema.Omit,
 	MongoMemoryProfile:      DefaultMongoMemoryProfile,
 	MaxDebugLogDuration:     DefaultMaxDebugLogDuration,
-	MaxLogsAge:              fmt.Sprintf("%vh", DefaultMaxLogsAgeDays*24),
-	MaxLogsSize:             fmt.Sprintf("%vM", DefaultMaxLogCollectionMB),
 	MaxTxnLogSize:           fmt.Sprintf("%vM", DefaultMaxTxnLogCollectionMB),
 	MaxPruneTxnBatchSize:    DefaultMaxPruneTxnBatchSize,
 	MaxPruneTxnPasses:       DefaultMaxPruneTxnPasses,
@@ -1023,6 +1060,15 @@ var configChecker = schema.FieldMap(schema.Fields{
 // ConfigSchema holds information on all the fields defined by
 // the config package.
 var ConfigSchema = environschema.Fields{
+
+	AgentRateLimitMax: {
+		Description: "The maximum size of the token bucket used to ratelimit agent connections",
+		Type:        environschema.Tint,
+	},
+	AgentRateLimitRate: {
+		Description: "The time taken to add a new token to the ratelimit bucket",
+		Type:        environschema.Tstring,
+	},
 	AuditingEnabled: {
 		Description: "Determines if the controller records auditing information",
 		Type:        environschema.Tbool,
@@ -1099,14 +1145,6 @@ they don't have any access rights to the controller itself`,
 	MaxDebugLogDuration: {
 		Type:        environschema.Tstring,
 		Description: `The maximum amout of time a debug-log session is allowed to run`,
-	},
-	MaxLogsAge: {
-		Type:        environschema.Tstring,
-		Description: `The maximum age for log entries`,
-	},
-	MaxLogsSize: {
-		Type:        environschema.Tstring,
-		Description: `The maximum size the log collection can grow to before it is pruned`,
 	},
 	MaxTxnLogSize: {
 		Type:        environschema.Tstring,
