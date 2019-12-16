@@ -359,10 +359,9 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 	}
 
 	// Start a watcher to track changes to the units in the relation in the remote model.
-	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(params.RemoteEntityArg{
-		Token:     relationToken,
-		Macaroons: macaroon.Slice{mac},
-	}, remoteAppToken)
+	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(
+		relationToken, remoteAppToken, macaroon.Slice{mac},
+	)
 	if err != nil {
 		w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
 		return nil, nil, errors.Annotatef(

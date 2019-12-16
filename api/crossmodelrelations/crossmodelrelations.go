@@ -233,10 +233,13 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 // the units in the remote model for the relation with the given
 // remote token. It's used for backwards compatibility when the
 // controller we're talking to only supports v1 of the API.
-func (c *Client) watchRelationUnits(remoteRelationArg params.RemoteEntityArg, applicationToken string) (apiwatcher.RemoteRelationWatcher, error) {
-	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
+func (c *Client) watchRelationUnits(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
+		Token:     relationToken,
+		Macaroons: macs,
+	}}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation units", remoteRelationArg.Token); ok {
+	if ms, ok := c.getCachedMacaroon("watch relation units", relationToken); ok {
 		args.Args[0].Macaroons = ms
 	}
 
@@ -281,7 +284,7 @@ func (c *Client) watchRelationUnits(remoteRelationArg params.RemoteEntityArg, ap
 	// Callback so the watcher can get the unit settings for the
 	// change events that come back from the internal watcher.
 	getSettings := func(unitNames []string) ([]params.SettingsResult, error) {
-		return c.relationUnitSettings(unitNames, remoteRelationArg.Token, remoteRelationArg.Macaroons)
+		return c.relationUnitSettings(unitNames, relationToken, args.Args[0].Macaroons)
 	}
 
 	// Return the units watcher wrapped in a compatibility watcher so
@@ -289,7 +292,7 @@ func (c *Client) watchRelationUnits(remoteRelationArg params.RemoteEntityArg, ap
 	w := apiwatcher.NewRemoteRelationCompatWatcher(
 		c.facade.RawAPICaller(),
 		result,
-		remoteRelationArg.Token,
+		relationToken,
 		applicationToken,
 		getSettings,
 	)
@@ -299,15 +302,18 @@ func (c *Client) watchRelationUnits(remoteRelationArg params.RemoteEntityArg, ap
 // WatchRelationChanges returns a watcher that notifies of changes to
 // the units or application settings in the remote model for the
 // relation with the given remote token.
-func (c *Client) WatchRelationChanges(remoteRelationArg params.RemoteEntityArg, applicationToken string) (apiwatcher.RemoteRelationWatcher, error) {
+func (c *Client) WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
 	if c.BestAPIVersion() < 2 {
 		logger.Debugf("best API version %d - falling back to v1 CMR API", c.BestAPIVersion())
-		return c.watchRelationUnits(remoteRelationArg, applicationToken)
+		return c.watchRelationUnits(relationToken, applicationToken, macs)
 	}
 
-	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
+		Token:     relationToken,
+		Macaroons: macs,
+	}}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation changes", remoteRelationArg.Token); ok {
+	if ms, ok := c.getCachedMacaroon("watch relation changes", relationToken); ok {
 		args.Args[0].Macaroons = ms
 	}
 

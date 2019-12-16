@@ -51,7 +51,7 @@ type RemoteModelRelationsFacade interface {
 	// the case where we're talking to a v1 API and the client needs
 	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
 	// as they come in.
-	WatchRelationChanges(arg params.RemoteEntityArg, applicationToken string) (apiwatcher.RemoteRelationWatcher, error)
+	WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
