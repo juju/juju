@@ -46,7 +46,7 @@ func (step extraConfigUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	return step.env.withSession(ctx, func(env *sessionEnviron) error {
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return err
 		}
 		for _, vm := range vms {
@@ -74,7 +74,7 @@ func (step extraConfigUpgradeStep) Run(ctx context.ProviderCallContext) error {
 			if err := env.client.UpdateVirtualMachineExtraConfig(
 				env.ctx, vm, metadata,
 			); err != nil {
-				HandleCredentialError(err, ctx)
+				HandleCredentialError(err, env, ctx)
 				return errors.Annotatef(err, "updating VM %s", vm.Name)
 			}
 		}
@@ -113,7 +113,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 				controllerFolderName(step.controllerUUID),
 				env.modelFolderName(),
 			)); err != nil {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return errors.Annotate(err, "creating model folder")
 		}
 
@@ -121,7 +121,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 		// and move them into the folder.
 		vms, err := env.client.VirtualMachines(env.ctx, env.namespace.Prefix()+"*")
 		if err != nil || len(vms) == 0 {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return err
 		}
 		refs := make([]types.ManagedObjectReference, len(vms))
@@ -130,7 +130,7 @@ func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 			refs[i] = vm.Reference()
 		}
 		if err := env.client.MoveVMsInto(env.ctx, modelFolderPath, refs...); err != nil {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return errors.Annotate(err, "moving VMs into model folder")
 		}
 		return nil

@@ -88,22 +88,44 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 	}
 }
 
-// findFolder should be able to search for both entire filepaths
-// or relative (.) filepaths. Only ".." not supported as per:
-// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
-func (c *Client) findFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
-	finder := find.NewFinder(c.client.Client, true)
-	datacenter, err := finder.Datacenter(ctx, c.datacenter)
+// FindFolder should be able to search for both entire filepaths
+// or relative (.) filepaths.
+// if the user passes "test" or "/<DC>/vm/test" as folder, it should
+// return the pointer for the same folder.
+// Should also deal with the case where folderPath is nil or empty
+func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+	fi, datacenter, err := c.finder(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-	finder.SetDatacenter(datacenter)
-
-	vmFolder, err = finder.Folder(ctx, folderPath)
+	dcfolders, err := datacenter.Folders(ctx)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, err
 	}
-
+	fullpath := ""
+	if strings.Contains(folderPath, "..") {
+		// ".." not supported as per:
+		// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
+		c.logger.Errorf("FindFolder: vm folder path:" + folderPath + " contains .., which is not supported")
+		return nil, errors.New("vm folder path contains .., which is not supported")
+	}
+	switch {
+	case folderPath == "":
+		c.logger.Warningf("Empty string passed as vm-folder, using Datacenter root folder instead")
+		return dcfolders.VmFolder, nil
+	case strings.HasPrefix(folderPath, "./"):
+		c.logger.Debugf("FindFolder folderPath contains ./ at beginning, replacing with DC vm folder")
+		fullpath = strings.Replace(folderPath, "./", dcfolders.VmFolder.InventoryPath+"/", 1)
+	case !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath):
+		c.logger.Debugf("FindFolder folderPath does not contain DC vm folder, adding it")
+		fullpath = path.Join(dcfolders.VmFolder.InventoryPath, folderPath)
+	default:
+		fullpath = folderPath
+	}
+	vmFolder, err = fi.Folder(ctx, fullpath)
+	if err != nil {
+		return nil, err
+	}
 	// Waiting for Folder
 	return vmFolder, nil
 }
@@ -284,34 +306,29 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 // Two string arguments needed: folderPath will be split on "/"
 // whereas credAttrFolder is added as subfolder structure from DC's root-folder
 func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, folderPath string) (*object.Folder, error) {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
+
+	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
-		folder, err := parent.CreateFolder(ctx, name)
+		_, err := parent.CreateFolder(ctx, name)
 		if err != nil && soap.IsSoapFault(err) {
 			switch soap.ToSoapFault(err).VimFault().(type) {
 			case types.DuplicateName:
 				return finder.Folder(ctx, parent.InventoryPath+"/"+name)
 			}
 		}
-		return folder, err
+		return finder.Folder(ctx, parent.InventoryPath+"/"+name)
 	}
 
 	// LP: #1849194
 	// User do not necessarily own permission to create credAttrFolder
 	// since that demands Add_folder permissions from the root-folder's DC
 	// Join paths for folders.VMFolder and credentials attribute
-	parentFolder, err := c.findFolder(ctx, path.Join(
-		folders.VmFolder.InventoryPath,
-		credAttrFolder,
-	))
+	parentFolder, err := c.FindFolder(ctx, credAttrFolder)
+
 	// Consider the case where folder from credential attribute comes empty:
 	// path.Join ignores empty entries
 	if err != nil {
@@ -495,7 +512,6 @@ func (c *Client) cloneVM(
 	if err != nil {
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
-
 	datastoreRef := datastore.Reference()
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
 		Config: vmConfigSpec,
@@ -535,6 +551,7 @@ func (c *Client) buildConfigSpec(
 			Reservation: &cpuPower,
 		}
 	}
+
 	spec.Flags = &types.VirtualMachineFlagInfo{
 		DiskUuidEnabled: types.NewBool(args.EnableDiskUUID),
 	}
@@ -563,7 +580,6 @@ func (c *Client) buildConfigSpec(
 		}
 		c.logger.Debugf("network device: %+v", device)
 	}
-
 	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
 	if err != nil {
 		return nil, errors.Annotate(err, "changing VApp config")

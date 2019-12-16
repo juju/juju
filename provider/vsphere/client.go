@@ -34,6 +34,7 @@ type Client interface {
 	UpdateVirtualMachineExtraConfig(context.Context, *mo.VirtualMachine, map[string]string) error
 	VirtualMachines(context.Context, string) ([]*mo.VirtualMachine, error)
 	UserHasRootLevelPrivilege(context.Context, string) (bool, error)
+	FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error)
 }
 
 func dialClient(

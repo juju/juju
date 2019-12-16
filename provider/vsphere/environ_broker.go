@@ -227,7 +227,7 @@ func (env *sessionEnviron) newRawInstance(
 		Series:                 series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
-		VMDKDirectory:          vmdkDirectoryName(env.environ.cloud.Credential.Attributes()[credAttrVMFolder], args.ControllerUUID),
+		VMDKDirectory:          vmdkDirectoryName("", args.ControllerUUID),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -256,8 +256,9 @@ func (env *sessionEnviron) newRawInstance(
 		err = common.ZoneIndependentError(err)
 	}
 	if err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return nil, nil, errors.Trace(err)
+
 	}
 
 	hw := &instance.HardwareCharacteristics{
@@ -289,7 +290,7 @@ func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]inst
 	)
 	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
 	if err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -338,7 +339,7 @@ func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ..
 				env.ctx,
 				path.Join(modelFolderPath, string(id)),
 			)
-			HandleCredentialError(results[i], ctx)
+			HandleCredentialError(results[i], env, ctx)
 		}(i, id)
 	}
 	wg.Wait()

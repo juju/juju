@@ -170,12 +170,19 @@ func (c *Client) ensureTemplateVM(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	templateVM, err := finder.VirtualMachine(ctx, path.Join(vmTemplatePath(args), vmTemplateName(args)))
-	if err == nil && templateVM != nil {
-		return templateVM, nil
-	}
-	if _, ok := err.(*find.NotFoundError); !ok {
-		return nil, errors.Trace(nil)
+	// Finding the folder can be tricky since user may pass same
+	// value in multiple forms
+	templateFolder, err := c.FindFolder(ctx, path.Join(args.Folder, vmTemplatePath(args)))
+	// Consider only the case without error: it means folder already exists
+	// and we can look if there is a template inside
+	if err == nil {
+		templateVM, err := finder.VirtualMachine(ctx, templateFolder.InventoryPath+"/"+vmTemplateName(args))
+		if err == nil && templateVM != nil {
+			return templateVM, nil
+		}
+		if _, ok := err.(*find.NotFoundError); !ok {
+			return nil, errors.Trace(nil)
+		}
 	}
 
 	spec, err := c.createImportSpec(ctx, args, datastore)
