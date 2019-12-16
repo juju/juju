@@ -281,16 +281,17 @@ def assess_multiple_provider(client, charm_series, amount, charm_name,
                                  series=charm_series,
                                  repository=os.path.dirname(charm_root),
                                  platform=platform)
+        storage_args = []
         if pool_1 == "loop":
-            command = "disks=" + pool_1 + "," + amount
+            storage_args.append("disks=" + pool_1 + "," + amount)
         else:
-            command = "data=" + pool_1 + "," + amount
+            storage_args.append("data=" + pool_1 + "," + amount)
         if pool_2 == "loop":
-            command = command + ",disks=" + pool_2
+            storage_args.append("disks=" + pool_2)
         else:
-            command = command + ",data=" + pool_2
+            storage_args.append("data=" + pool_2)
         client.deploy(charm, series=charm_series, repository=charm_dir,
-                      storage=command)
+                      storage=storage_args)
         client.wait_for_started()
 
 
