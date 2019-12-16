@@ -117,6 +117,8 @@ def assess_caas_charm_deployment(caas_client, caas_provider):
 
     try:
         endpoint = deploy_test_workloads(caas_client, k8s_model, caas_provider)
+        log.info("sleeping for 30 seconds to let everything start up")
+        sleep(30)
         check_app_healthy(
             endpoint, timeout=300,
             success_hook=success_hook,
