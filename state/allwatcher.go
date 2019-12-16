@@ -1376,14 +1376,14 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 }
 
 // GetAll fetches all items that we want to watch from the state.
-func (b *allWatcherStateBacking) GetAll(all *multiwatcherStore) error {
-	err := loadAllWatcherEntities(b.st, b.collectionByName, all)
+func (b *allWatcherStateBacking) GetAll(store multiwatcher.Store) error {
+	err := loadAllWatcherEntities(b.st, b.collectionByName, store)
 	return errors.Trace(err)
 }
 
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
+func (b *allWatcherStateBacking) Changed(store multiwatcher.Store, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		return errors.Errorf("unknown collection %q in fetch request", change.C)
@@ -1400,7 +1400,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.
 	// in, such as settings changes to entities we don't care about.
 	ctx := &allWatcherContext{
 		state:     b.st,
-		store:     all,
+		store:     store,
 		modelUUID: b.st.ModelUUID(),
 		id:        id,
 	}
@@ -1461,20 +1461,20 @@ func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 }
 
 // GetAll fetches all items that we want to watch from the state.
-func (b *allModelWatcherStateBacking) GetAll(all *multiwatcherStore) error {
+func (b *allModelWatcherStateBacking) GetAll(store multiwatcher.Store) error {
 	modelUUIDs, err := b.st.AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
 	for _, modelUUID := range modelUUIDs {
-		if err := b.loadAllWatcherEntitiesForModel(modelUUID, all); err != nil {
+		if err := b.loadAllWatcherEntitiesForModel(modelUUID, store); err != nil {
 			return errors.Trace(err)
 		}
 	}
 	return nil
 }
 
-func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID string, all *multiwatcherStore) error {
+func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID string, store multiwatcher.Store) error {
 	st, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -1489,7 +1489,7 @@ func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID s
 	}
 	defer st.Release()
 
-	err = loadAllWatcherEntities(st.State, b.collectionByName, all)
+	err = loadAllWatcherEntities(st.State, b.collectionByName, store)
 	if err != nil {
 		return errors.Annotatef(err, "error loading entities for model %v", modelUUID)
 	}
@@ -1498,7 +1498,7 @@ func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID s
 
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change watcher.Change) error {
+func (b *allModelWatcherStateBacking) Changed(store multiwatcher.Store, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		return errors.Errorf("unknown collection %q in fetch request", change.C)
@@ -1514,7 +1514,7 @@ func (b *allModelWatcherStateBacking) Changed(all *multiwatcherStore, change wat
 	ctx := &allWatcherContext{
 		// In order to have a valid state instance, use the controller model initially.
 		state:     b.st,
-		store:     all,
+		store:     store,
 		modelUUID: modelUUID,
 		id:        id,
 	}
@@ -1576,7 +1576,7 @@ func (b *allModelWatcherStateBacking) Release() error {
 	return nil
 }
 
-func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, all *multiwatcherStore) error {
+func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, store multiwatcher.Store) error {
 	// Use a single new MongoDB connection for all the work here.
 	db, closer := st.newDB()
 	defer closer()
@@ -1588,7 +1588,7 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 
 	ctx := &allWatcherContext{
 		state:     st,
-		store:     all,
+		store:     store,
 		modelUUID: st.ModelUUID(),
 	}
 	// TODO(thumper): make it multimodel aware
@@ -1636,7 +1636,7 @@ func normaliseStatusData(data map[string]interface{}) map[string]interface{} {
 
 type allWatcherContext struct {
 	state     *State
-	store     *multiwatcherStore
+	store     multiwatcher.Store
 	modelUUID string
 	id        string
 
