@@ -550,7 +550,7 @@ func (s *allWatcherStateSuite) TestGetAllMultiModelWithOffers(c *gc.C) {
 
 func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice, includeOffers bool) {
 	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: includeOffers})
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	err := b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
 	var gotEntities entityInfoSlice = all.All()
@@ -606,7 +606,7 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: true})
-		all := newStore()
+		all := multiwatcher.NewStore(loggo.GetLogger("test"))
 		for _, info := range test.initialContents {
 			all.Update(info)
 		}
@@ -787,7 +787,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Create all watcher state backing.
 	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	all.Update(&multiwatcher.MachineInfo{
 		ModelUUID: s.state.ModelUUID(),
 		ID:        "0",
@@ -873,7 +873,7 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	// Init the test model.
 	app := AddTestingApplication(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
 	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	// 1st scenario part: set settings and signal change.
 	setApplicationConfigAttr(c, app, "username", "foo")
 	setApplicationConfigAttr(c, app, "outlook", "foo@bar")
@@ -1407,7 +1407,7 @@ func (s *allModelWatcherStateSuite) NewAllModelWatcherStateBacking() Backing {
 func (s *allModelWatcherStateSuite) TestMissingModelNotError(c *gc.C) {
 	b := s.NewAllModelWatcherStateBacking()
 	defer b.Release()
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 
 	dyingModel := "fake-uuid"
 	st, err := s.pool.Get(dyingModel)
@@ -1435,7 +1435,7 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 			c.Logf("test %d. %s", i, test0.about)
 			b := s.NewAllModelWatcherStateBacking()
 			defer b.Release()
-			all := newStore()
+			all := multiwatcher.NewStore(loggo.GetLogger("test"))
 
 			// Do updates and check for first model.
 			for _, info := range test0.initialContents {
@@ -1647,7 +1647,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 
 	b := s.NewAllModelWatcherStateBacking()
 	defer b.Release()
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 
 	// Insert a machine for an model that doesn't actually
 	// exist (mimics model removal).
@@ -1727,7 +1727,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 	)
 
 	b := s.NewAllModelWatcherStateBacking()
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	err = b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
 	var gotEntities entityInfoSlice = all.All()
@@ -1739,7 +1739,7 @@ func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
 func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	// Init the test model.
 	b := s.NewAllModelWatcherStateBacking()
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	setModelConfigAttr(c, s.state, "http-proxy", "http://invalid")
 	setModelConfigAttr(c, s.state, "foo", "bar")
 
@@ -1774,7 +1774,7 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
 	// Init the test model.
 	b := s.NewAllModelWatcherStateBacking()
-	all := newStore()
+	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 
 	all.Update(&multiwatcher.ModelUpdate{
 		ModelUUID: s.state.ModelUUID(),
