@@ -91,6 +91,13 @@ func (c *mockClient) DestroyVMFolder(ctx context.Context, path string) error {
 	return c.NextErr()
 }
 
+func (c *mockClient) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.MethodCall(c, "FindFolder", ctx, folderPath)
+	return c.vmFolder, c.NextErr()
+}
+
 func (c *mockClient) EnsureVMFolder(ctx context.Context, credAttrFolder string, path string) (*object.Folder, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

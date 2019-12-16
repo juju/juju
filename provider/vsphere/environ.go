@@ -62,7 +62,10 @@ func newEnviron(
 func (env *environ) withClient(ctx context.Context, callCtx callcontext.ProviderCallContext, f func(Client) error) error {
 	client, err := env.dialClient(ctx)
 	if err != nil {
-		HandleCredentialError(err, callCtx)
+		// LP #1849194: this is a case at bootstrap time, where a connection
+		// to vsphere failed. It can be wrong Credentials only, differently
+		// from all the other HandleCredentialError cases
+		common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
 		return errors.Annotate(err, "dialing client")
 	}
 	defer client.Close(ctx)
@@ -156,7 +159,7 @@ func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
-	HandleCredentialError(err, ctx)
+	HandleCredentialError(err, env, ctx)
 	return errors.Trace(err)
 }
 
@@ -184,7 +187,7 @@ func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, c
 			env.modelFolderName(),
 		),
 	)
-	HandleCredentialError(err, ctx)
+	HandleCredentialError(err, env, ctx)
 	return err
 }
 
@@ -209,7 +212,7 @@ func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 		controllerFolderName("*"),
 		env.modelFolderName(),
 	))
-	HandleCredentialError(err, ctx)
+	HandleCredentialError(err, env, ctx)
 	return err
 }
 
@@ -232,13 +235,13 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		modelFolderName("*", "*"),
 		"*",
 	)); err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "removing VMs")
 	}
 	if err := env.client.DestroyVMFolder(env.ctx, path.Join(
 		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
 		controllerFolderName)); err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "destroying VM folder")
 	}
 
@@ -255,7 +258,7 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 			controllerUUID))
 		logger.Debugf("deleting: %s", datastorePath)
 		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return errors.Annotatef(err, "deleting VMDK cache from datastore %q", ds.Name)
 		}
 	}
@@ -265,7 +268,7 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]*mo.Datastore, error) {
 	datastores, err := env.client.Datastores(env.ctx)
 	if err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
 	var results []*mo.Datastore
