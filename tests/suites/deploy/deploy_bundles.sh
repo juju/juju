@@ -42,7 +42,7 @@ run_deploy_exported_bundle() {
 
     ensure "test-export-bundles-deploy" "${file}"
 
-    bundle=./tests/suites/deploy/bundles/telegraf-bundle.yaml
+    bundle=./tests/suites/deploy/bundles/telegraf_bundle.yaml
     juju deploy ${bundle}
 
     # no need to wait for the bundle to finish deploying to
@@ -51,6 +51,24 @@ run_deploy_exported_bundle() {
     diff ${bundle} "${TEST_DIR}/exported-bundle.yaml"
 
     destroy_model test-export-bundles-deploy
+}
+
+run_deploy_trusted_bundle() {
+    echo
+
+    file="${TEST_DIR}/test-trusted-bundles-deploy.txt"
+
+    ensure "test-trusted-bundles-deploy" "${file}"
+
+    bundle=./tests/suites/deploy/bundles/trusted_bundle.yaml
+    OUT=$(juju deploy ${bundle} 2>&1 || true)
+    echo $OUT | grep "repeat the deploy command with the --trust argument"
+
+    juju deploy --trust ${bundle}
+
+    wait_for "trust-checker" "$(idle_condition "trust-checker")"
+
+    destroy_model test-trusted-bundles-deploy
 }
 
 test_deploy_bundles() {
@@ -67,5 +85,6 @@ test_deploy_bundles() {
         run "run_deploy_bundle"
         run "run_deploy_cmr_bundle"
         run "run_deploy_exported_bundle"
+        run "run_deploy_trusted_bundle"
     )
 }
