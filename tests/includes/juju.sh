@@ -203,12 +203,13 @@ destroy_controller() {
     shift
 
     # shellcheck disable=SC2034
-    OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "^${name}$" || true)
+    OUT=$(juju controllers --format=json | jq '.controllers | keys[]' | grep "${name}" || true)
     # shellcheck disable=SC2181
     if [ -z "${OUT}" ]; then
         OUT=$(juju models --format=json | jq -r ".models | .[] | .[\"short-name\"]" | grep "^${name}$" || true)
         if [ -z "${OUT}" ]; then
-            return
+            echo "====> ERROR Destroy controller/model. Unable to locate $(red "${name}")"
+            exit 1
         fi
         echo "====> Destroying model ($(green "${name}"))"
 
