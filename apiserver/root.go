@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
@@ -485,6 +486,11 @@ func (ctx *facadeContext) State() *state.State {
 // StatePool is part of the facade.Context interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
+}
+
+// MultiwatcherFactory is part of the facade.Context interface.
+func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
+	return ctx.r.shared.multiwatcherFactory
 }
 
 // ID is part of the facade.Context interface.

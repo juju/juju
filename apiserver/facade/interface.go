@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
@@ -69,6 +70,9 @@ type Context interface {
 	// StatePool returns the state pool used by the apiserver to minimise the
 	// creation of the expensive *State instances.
 	StatePool() *state.StatePool
+
+	// MultiwatcherFactory returns the factory to create multiwatchers.
+	MultiwatcherFactory() multiwatcher.Factory
 
 	// Controller returns the in-memory representation of the models
 	// in the database.

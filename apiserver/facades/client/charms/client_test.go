@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
@@ -44,6 +45,7 @@ func (ctx *charmsSuiteContext) Presence() facade.Presence                     { 
 func (ctx *charmsSuiteContext) Hub() facade.Hub                               { return nil }
 func (ctx *charmsSuiteContext) Controller() *cache.Controller                 { return nil }
 func (ctx *charmsSuiteContext) CachedModel(uuid string) (*cache.Model, error) { return nil, nil }
+func (ctx *charmsSuiteContext) MultiwatcherFactory() multiwatcher.Factory     { return nil }
 
 func (ctx *charmsSuiteContext) LeadershipClaimer(string) (leadership.Claimer, error) { return nil, nil }
 func (ctx *charmsSuiteContext) LeadershipChecker() (leadership.Checker, error)       { return nil, nil }

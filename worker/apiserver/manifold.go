@@ -211,6 +211,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Mux:                               mux,
 		StatePool:                         statePool,
 		Controller:                        controller,
+		MultiwatcherFactory:               &apiserver.MultiwatcherFactory{statePool},
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		RestoreStatus:                     restoreStatus,

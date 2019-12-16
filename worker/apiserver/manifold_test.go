@@ -195,15 +195,16 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.NewServer = nil
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
-		AgentConfig:      &s.agent.conf,
-		Authenticator:    s.authenticator,
-		Clock:            s.clock,
-		Controller:       s.controller,
-		Mux:              s.mux,
-		StatePool:        &s.state.pool,
-		LeaseManager:     s.leaseManager,
-		MetricsCollector: s.metricsCollector,
-		Hub:              &s.hub,
+		AgentConfig:         &s.agent.conf,
+		Authenticator:       s.authenticator,
+		Clock:               s.clock,
+		Controller:          s.controller,
+		Mux:                 s.mux,
+		MultiwatcherFactory: &coreapiserver.MultiwatcherFactory{&s.state.pool},
+		StatePool:           &s.state.pool,
+		LeaseManager:        s.leaseManager,
+		MetricsCollector:    s.metricsCollector,
+		Hub:                 &s.hub,
 	})
 }
 

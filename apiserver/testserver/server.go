@@ -24,6 +24,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
@@ -38,16 +39,17 @@ func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig 
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
-		Clock:           testclock,
-		Tag:             names.NewMachineTag("0"),
-		LogDir:          c.MkDir(),
-		Hub:             hub,
-		Controller:      &cache.Controller{}, // Not useful for anything except providing a default.
-		Presence:        presence.New(testclock),
-		LeaseManager:    apitesting.StubLeaseManager{},
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },
-		UpgradeComplete: func() bool { return true },
+		Clock:               testclock,
+		Tag:                 names.NewMachineTag("0"),
+		LogDir:              c.MkDir(),
+		Hub:                 hub,
+		Controller:          &cache.Controller{}, // Not useful for anything except providing a default.
+		MultiwatcherFactory: &fakeMultiwatcherFactory{},
+		Presence:            presence.New(testclock),
+		LeaseManager:        apitesting.StubLeaseManager{},
+		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
+		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{Enabled: false} },
+		UpgradeComplete:     func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
 		},
@@ -129,4 +131,8 @@ type Server struct {
 func (s *Server) Stop() error {
 	s.HTTPServer.Close()
 	return s.APIServer.Stop()
+}
+
+type fakeMultiwatcherFactory struct {
+	multiwatcher.Factory
 }

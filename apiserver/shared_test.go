@@ -61,13 +61,14 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
-		statePool:        s.StatePool,
-		controller:       controller,
-		centralHub:       s.hub,
-		presence:         presence.New(clock.WallClock),
-		leaseManager:     &lease.Manager{},
-		controllerConfig: controllerConfig,
-		logger:           loggo.GetLogger("test"),
+		statePool:           s.StatePool,
+		controller:          controller,
+		multiwatcherFactory: &MultiwatcherFactory{s.StatePool},
+		centralHub:          s.hub,
+		presence:            presence.New(clock.WallClock),
+		leaseManager:        &lease.Manager{},
+		controllerConfig:    controllerConfig,
+		logger:              loggo.GetLogger("test"),
 	}
 }
 
@@ -76,6 +77,20 @@ func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
+}
+
+func (s *sharedServerContextSuite) TestConfigNoController(c *gc.C) {
+	s.config.controller = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil controller not valid")
+}
+
+func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *gc.C) {
+	s.config.multiwatcherFactory = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil multiwatcherFactory not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
