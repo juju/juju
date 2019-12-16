@@ -2,7 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // Package context contains the ContextFactory and Context definitions. Context implements
-// hooks.Context and is used together with uniter.Runner to run hooks, commands and actions.
+// runner.Context and is used together with uniter.Runner to run hooks, commands and actions.
 package context
 
 import (
@@ -75,7 +75,6 @@ type Clock interface {
 }
 
 var logger = loggo.GetLogger("juju.worker.uniter.context")
-var mutex = sync.Mutex{}
 var ErrIsNotLeader = errors.Errorf("this unit is not the leader")
 
 // ComponentConfig holds all the information related to a hook context
@@ -115,7 +114,7 @@ type HookProcess interface {
 	Kill() error
 }
 
-// HookContext is the implementation of hooks.Context.
+// HookContext is the implementation of runner.Context.
 type HookContext struct {
 	unit *uniter.Unit
 
@@ -258,9 +257,13 @@ type HookContext struct {
 
 	// podSpecYaml is the pending pod spec to be committed.
 	podSpecYaml *string
+
+	mu sync.Mutex
 }
 
-// Component implements hooks.Context.
+// Component returns the ContextComponent with the supplied name if
+// it was found.
+// Implements jujuc.HookContext.ContextComponents, part of runner.Context.
 func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	compCtxFunc, ok := ctx.componentFuncs[name]
 	if !ok {
@@ -280,11 +283,13 @@ func (ctx *HookContext) Component(name string) (jujuc.ContextComponent, error) {
 	return compCtx, nil
 }
 
+// RequestReboot will set the reboot flag to true on the machine agent
+// Implements jujuc.HookContext.ContextInstance, part of runner.Context.
 func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	// Must set reboot priority first, because killing the hook
 	// process will trigger the completion of the hook. If killing
 	// the hook fails, then we can reset the priority.
-	ctx.SetRebootPriority(priority)
+	ctx.setRebootPriority(priority)
 
 	var err error
 	if priority == jujuc.RebootNow {
@@ -296,60 +301,67 @@ func (ctx *HookContext) RequestReboot(priority jujuc.RebootPriority) error {
 	case nil, charmrunner.ErrNoProcess:
 		// ErrNoProcess almost certainly means we are running in debug hooks
 	default:
-		ctx.SetRebootPriority(jujuc.RebootSkip)
+		ctx.setRebootPriority(jujuc.RebootSkip)
 	}
 	return err
 }
 
 func (ctx *HookContext) GetRebootPriority() jujuc.RebootPriority {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	return ctx.rebootPriority
 }
 
-func (ctx *HookContext) SetRebootPriority(priority jujuc.RebootPriority) {
-	mutex.Lock()
-	defer mutex.Unlock()
+func (ctx *HookContext) setRebootPriority(priority jujuc.RebootPriority) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	ctx.rebootPriority = priority
 }
 
 func (ctx *HookContext) GetProcess() HookProcess {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	return ctx.process
 }
 
+// SetProcess implements runner.Context.
 func (ctx *HookContext) SetProcess(process HookProcess) {
-	mutex.Lock()
-	defer mutex.Unlock()
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	ctx.process = process
 }
 
+// Id returns an integer which uniquely identifies the relation.
+// Implements jujuc.HookContext.ContextRelation, part of runner.Context.
 func (ctx *HookContext) Id() string {
 	return ctx.id
 }
 
+// UnitName returns the executing unit's name.
+// UnitName implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) UnitName() string {
 	return ctx.unitName
 }
 
 // ModelType of the context we are running in.
+// SetProcess implements runner.Context.
 func (ctx *HookContext) ModelType() model.ModelType {
 	return ctx.modelType
 }
 
 // UnitStatus will return the status for the current Unit.
+// Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 	if ctx.status == nil {
 		var err error
-		status, err := ctx.unit.UnitStatus()
+		unitStatus, err := ctx.unit.UnitStatus()
 		if err != nil {
 			return nil, err
 		}
 		ctx.status = &jujuc.StatusInfo{
-			Status: status.Status,
-			Info:   status.Info,
-			Data:   status.Data,
+			Status: unitStatus.Status,
+			Info:   unitStatus.Info,
+			Data:   unitStatus.Data,
 		}
 	}
 	return ctx.status, nil
@@ -358,6 +370,7 @@ func (ctx *HookContext) UnitStatus() (*jujuc.StatusInfo, error) {
 // ApplicationStatus returns the status for the application and all the units on
 // the application to which this context unit belongs, only if this unit is
 // the leader.
+// Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error) {
 	var err error
 	isLeader, err := ctx.IsLeader()
@@ -367,17 +380,17 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	if !isLeader {
 		return jujuc.ApplicationStatusInfo{}, ErrIsNotLeader
 	}
-	application, err := ctx.unit.Application()
+	app, err := ctx.unit.Application()
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
-	status, err := application.Status(ctx.unit.Name())
+	appStatus, err := app.Status(ctx.unit.Name())
 	if err != nil {
 		return jujuc.ApplicationStatusInfo{}, errors.Trace(err)
 	}
-	us := make([]jujuc.StatusInfo, len(status.Units))
+	us := make([]jujuc.StatusInfo, len(appStatus.Units))
 	i := 0
-	for t, s := range status.Units {
+	for t, s := range appStatus.Units {
 		us[i] = jujuc.StatusInfo{
 			Tag:    t,
 			Status: s.Status,
@@ -388,16 +401,17 @@ func (ctx *HookContext) ApplicationStatus() (jujuc.ApplicationStatusInfo, error)
 	}
 	return jujuc.ApplicationStatusInfo{
 		Application: jujuc.StatusInfo{
-			Tag:    application.Tag().String(),
-			Status: status.Application.Status,
-			Info:   status.Application.Info,
-			Data:   status.Application.Data,
+			Tag:    app.Tag().String(),
+			Status: appStatus.Application.Status,
+			Info:   appStatus.Application.Info,
+			Data:   appStatus.Application.Data,
 		},
 		Units: us,
 	}, nil
 }
 
 // SetUnitStatus will set the given status for this unit.
+// Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 	ctx.hasRunStatusSet = true
 	logger.Tracef("[WORKLOAD-STATUS] %s: %s", unitStatus.Status, unitStatus.Info)
@@ -410,6 +424,7 @@ func (ctx *HookContext) SetUnitStatus(unitStatus jujuc.StatusInfo) error {
 
 // SetApplicationStatus will set the given status to the application to which this
 // unit's belong, only if this unit is the leader.
+// Implements jujuc.HookContext.ContextStatus, part of runner.Context.
 func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo) error {
 	logger.Tracef("[APPLICATION-STATUS] %s: %s", applicationStatus.Status, applicationStatus.Info)
 	isLeader, err := ctx.IsLeader()
@@ -420,11 +435,11 @@ func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo)
 		return ErrIsNotLeader
 	}
 
-	application, err := ctx.unit.Application()
+	app, err := ctx.unit.Application()
 	if err != nil {
 		return errors.Trace(err)
 	}
-	return application.SetStatus(
+	return app.SetStatus(
 		ctx.unit.Name(),
 		status.Status(applicationStatus.Status),
 		applicationStatus.Info,
@@ -432,14 +447,19 @@ func (ctx *HookContext) SetApplicationStatus(applicationStatus jujuc.StatusInfo)
 	)
 }
 
+// Implements runner.Context.
 func (ctx *HookContext) HasExecutionSetUnitStatus() bool {
 	return ctx.hasRunStatusSet
 }
 
+// Implements runner.Context.
 func (ctx *HookContext) ResetExecutionSetUnitStatus() {
 	ctx.hasRunStatusSet = false
 }
 
+// PublicAddress returns the executing unit's public address or an
+// error if it is not available.
+// Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) PublicAddress() (string, error) {
 	if ctx.publicAddress == "" {
 		return "", errors.NotFoundf("public address")
@@ -447,6 +467,9 @@ func (ctx *HookContext) PublicAddress() (string, error) {
 	return ctx.publicAddress, nil
 }
 
+// PrivateAddress returns the executing unit's private address or an
+// error if it is not available.
+// Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) PrivateAddress() (string, error) {
 	if ctx.privateAddress == "" {
 		return "", errors.NotFoundf("private address")
@@ -454,6 +477,9 @@ func (ctx *HookContext) PrivateAddress() (string, error) {
 	return ctx.privateAddress, nil
 }
 
+// AvailabilityZone returns the executing unit's availability zone or an error
+// if it was not found (or is not available).
+// Implements jujuc.HookContext.ContextInstance, part of runner.Context.
 func (ctx *HookContext) AvailabilityZone() (string, error) {
 	if ctx.availabilityzone == "" {
 		return "", errors.NotFoundf("availability zone")
@@ -461,18 +487,31 @@ func (ctx *HookContext) AvailabilityZone() (string, error) {
 	return ctx.availabilityzone, nil
 }
 
+// StorageTags returns a list of tags for storage instances
+// attached to the unit or an error if they are not available.
+// Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) StorageTags() ([]names.StorageTag, error) {
 	return ctx.storage.StorageTags()
 }
 
+// HookStorage returns the storage attachment associated
+// the executing hook if it was found, and an error if it
+// was not found or is not available.
+// Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) HookStorage() (jujuc.ContextStorageAttachment, error) {
 	return ctx.Storage(ctx.storageTag)
 }
 
+// Storage returns the ContextStorageAttachment with the supplied
+// tag if it was found, and an error if it was not found or is not
+// available to the context.
+// Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) Storage(tag names.StorageTag) (jujuc.ContextStorageAttachment, error) {
 	return ctx.storage.Storage(tag)
 }
 
+// AddUnitStorage saves storage constraints in the context.
+// Implements jujuc.HookContext.ContextStorage, part of runner.Context.
 func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints) error {
 	// All storage constraints are accumulated before context is flushed.
 	if ctx.storageAddConstraints == nil {
@@ -489,6 +528,9 @@ func (ctx *HookContext) AddUnitStorage(cons map[string]params.StorageConstraints
 	return nil
 }
 
+// OpenPorts marks the supplied port range for opening when the
+// executing unit's application is exposed.
+// Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
 	return tryOpenPorts(
 		protocol, fromPort, toPort,
@@ -497,6 +539,10 @@ func (ctx *HookContext) OpenPorts(protocol string, fromPort, toPort int) error {
 	)
 }
 
+// ClosePorts ensures the supplied port range is closed even when
+// the executing unit's application is exposed (unless it is opened
+// separately by a co- located unit).
+// Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error {
 	return tryClosePorts(
 		protocol, fromPort, toPort,
@@ -505,6 +551,10 @@ func (ctx *HookContext) ClosePorts(protocol string, fromPort, toPort int) error 
 	)
 }
 
+// OpenedPorts returns all port ranges currently opened by this
+// unit on its assigned machine. The result is sorted first by
+// protocol, then by number.
+// Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) OpenedPorts() []network.PortRange {
 	var unitRanges []network.PortRange
 	for portRange, relUnit := range ctx.machinePorts {
@@ -516,6 +566,8 @@ func (ctx *HookContext) OpenedPorts() []network.PortRange {
 	return unitRanges
 }
 
+// Config returns the current application configuration of the executing unit.
+// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error
@@ -531,6 +583,8 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
+// GoalState returns the goal state for the current unit.
+// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 	var err error
 	ctx.goalState, err = ctx.state.GoalState()
@@ -542,6 +596,7 @@ func (ctx *HookContext) GoalState() (*application.GoalState, error) {
 }
 
 // SetPodSpec sets the podspec for the unit's application.
+// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	entityName := ctx.unitName
 	isLeader, err := ctx.IsLeader()
@@ -561,12 +616,14 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 }
 
 // GetPodSpec returns the podspec for the unit's application.
+// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GetPodSpec() (string, error) {
 	appName := ctx.unit.ApplicationName()
 	return ctx.state.GetPodSpec(appName)
 }
 
-// CloudSpec return the cloud specification for the running unit's model
+// CloudSpec return the cloud specification for the running unit's model.
+// Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
 	var err error
 	ctx.cloudSpec, err = ctx.state.CloudSpec()
@@ -576,15 +633,8 @@ func (ctx *HookContext) CloudSpec() (*params.CloudSpec, error) {
 	return ctx.cloudSpec, nil
 }
 
-// ActionName returns the name of the action.
-func (ctx *HookContext) ActionName() (string, error) {
-	if ctx.actionData == nil {
-		return "", errors.New("not running an action")
-	}
-	return ctx.actionData.Name, nil
-}
-
 // ActionParams simply returns the arguments to the Action.
+// Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
@@ -593,6 +643,7 @@ func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
 }
 
 // LogActionMessage logs a progress message for the Action.
+// Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) LogActionMessage(message string) error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
@@ -601,6 +652,7 @@ func (ctx *HookContext) LogActionMessage(message string) error {
 }
 
 // SetActionMessage sets a message for the Action, usually an error message.
+// Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) SetActionMessage(message string) error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
@@ -610,6 +662,7 @@ func (ctx *HookContext) SetActionMessage(message string) error {
 }
 
 // SetActionFailed sets the fail state of the action.
+// Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) SetActionFailed() error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
@@ -622,6 +675,7 @@ func (ctx *HookContext) SetActionFailed() error {
 // action-fail.  The results struct will be delivered to the controller
 // upon completion of the Action.  It returns an error if not called on an
 // Action-containing HookContext.
+// Implements jujuc.ActionHookContext.actionHookContext, part of runner.Context.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	if ctx.actionData == nil {
 		return errors.New("not running an action")
@@ -630,10 +684,17 @@ func (ctx *HookContext) UpdateActionResults(keys []string, value string) error {
 	return nil
 }
 
+// HookRelation returns the ContextRelation associated with the executing
+// hook if it was found, or an error if it was not found (or is not available).
+// Implements jujuc.RelationHookContext.relationHookContext, part of runner.Context.
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, error) {
 	return ctx.Relation(ctx.relationId)
 }
 
+// RemoteUnitName returns the name of the remote unit the hook execution
+// is associated with if it was found, and an error if it was not found or is not
+// available.
+// Implements jujuc.RelationHookContext.relationHookContext, part of runner.Context.
 func (ctx *HookContext) RemoteUnitName() (string, error) {
 	if ctx.remoteUnitName == "" {
 		return "", errors.NotFoundf("remote unit")
@@ -641,6 +702,10 @@ func (ctx *HookContext) RemoteUnitName() (string, error) {
 	return ctx.remoteUnitName, nil
 }
 
+// RemoteApplicationName returns the name of the remote application the hook execution
+// is associated with if it was found, and an error if it was not found or is not
+// available.
+// Implements jujuc.RelationHookContext.relationHookContext, part of runner.Context.
 func (ctx *HookContext) RemoteApplicationName() (string, error) {
 	if ctx.remoteApplicationName == "" {
 		return "", errors.NotFoundf("remote application")
@@ -648,6 +713,9 @@ func (ctx *HookContext) RemoteApplicationName() (string, error) {
 	return ctx.remoteApplicationName, nil
 }
 
+// Relation returns the relation with the supplied id if it was found, and
+// an error if it was not found or is not available.
+// Implements jujuc.HookContext.ContextRelations, part of runner.Context.
 func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
 	r, found := ctx.relations[id]
 	if !found {
@@ -656,6 +724,9 @@ func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, error) {
 	return r, nil
 }
 
+// RelationIds returns the ids of all relations the executing unit is
+// currently participating in or an error if they are not available.
+// Implements jujuc.HookContext.ContextRelations, part of runner.Context.
 func (ctx *HookContext) RelationIds() ([]int, error) {
 	ids := []int{}
 	for id := range ctx.relations {
@@ -665,11 +736,13 @@ func (ctx *HookContext) RelationIds() ([]int, error) {
 }
 
 // AddMetric adds metrics to the hook context.
+// Implements jujuc.HookContext.ContextMetrics, part of runner.Context.
 func (ctx *HookContext) AddMetric(key, value string, created time.Time) error {
 	return errors.New("metrics not allowed in this context")
 }
 
 // AddMetricLabels adds metrics with labels to the hook context.
+// Implements jujuc.HookContext.ContextMetrics, part of runner.Context.
 func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, labels map[string]string) error {
 	return errors.New("metrics not allowed in this context")
 }
@@ -677,75 +750,77 @@ func (ctx *HookContext) AddMetricLabels(key, value string, created time.Time, la
 // ActionData returns the context's internal action data. It's meant to be
 // transitory; it exists to allow uniter and runner code to keep working as
 // it did; it should be considered deprecated, and not used by new clients.
-func (c *HookContext) ActionData() (*ActionData, error) {
-	if c.actionData == nil {
+// Implements runner.Context.
+func (ctx *HookContext) ActionData() (*ActionData, error) {
+	if ctx.actionData == nil {
 		return nil, errors.New("not running an action")
 	}
-	return c.actionData, nil
+	return ctx.actionData, nil
 }
 
 // HookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into context.
-func (context *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
-	vars := context.legacyProxySettings.AsEnvironmentValues()
+// Implements runner.Context.
+func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
+	vars := ctx.legacyProxySettings.AsEnvironmentValues()
 	// TODO(thumper): as work on proxies progress, there will be additional
 	// proxy settings to be added.
 	vars = append(vars,
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
-		"JUJU_CONTEXT_ID="+context.id,
+		"JUJU_CONTEXT_ID="+ctx.id,
 		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucClientSocket(remote).Address,
 		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucClientSocket(remote).Network,
-		"JUJU_UNIT_NAME="+context.unitName,
-		"JUJU_MODEL_UUID="+context.uuid,
-		"JUJU_MODEL_NAME="+context.modelName,
-		"JUJU_API_ADDRESSES="+strings.Join(context.apiAddrs, " "),
-		"JUJU_SLA="+context.slaLevel,
-		"JUJU_MACHINE_ID="+context.assignedMachineTag.Id(),
-		"JUJU_PRINCIPAL_UNIT="+context.principal,
-		"JUJU_AVAILABILITY_ZONE="+context.availabilityzone,
+		"JUJU_UNIT_NAME="+ctx.unitName,
+		"JUJU_MODEL_UUID="+ctx.uuid,
+		"JUJU_MODEL_NAME="+ctx.modelName,
+		"JUJU_API_ADDRESSES="+strings.Join(ctx.apiAddrs, " "),
+		"JUJU_SLA="+ctx.slaLevel,
+		"JUJU_MACHINE_ID="+ctx.assignedMachineTag.Id(),
+		"JUJU_PRINCIPAL_UNIT="+ctx.principal,
+		"JUJU_AVAILABILITY_ZONE="+ctx.availabilityzone,
 		"JUJU_VERSION="+version.Current.String(),
-		"CLOUD_API_VERSION="+context.cloudAPIVersion,
+		"CLOUD_API_VERSION="+ctx.cloudAPIVersion,
 		// Some of these will be empty, but that is fine, better
 		// to explicitly export them as empty.
-		"JUJU_CHARM_HTTP_PROXY="+context.jujuProxySettings.Http,
-		"JUJU_CHARM_HTTPS_PROXY="+context.jujuProxySettings.Https,
-		"JUJU_CHARM_FTP_PROXY="+context.jujuProxySettings.Ftp,
-		"JUJU_CHARM_NO_PROXY="+context.jujuProxySettings.NoProxy,
+		"JUJU_CHARM_HTTP_PROXY="+ctx.jujuProxySettings.Http,
+		"JUJU_CHARM_HTTPS_PROXY="+ctx.jujuProxySettings.Https,
+		"JUJU_CHARM_FTP_PROXY="+ctx.jujuProxySettings.Ftp,
+		"JUJU_CHARM_NO_PROXY="+ctx.jujuProxySettings.NoProxy,
 	)
 	if remote {
 		vars = append(vars,
 			"JUJU_AGENT_CA_CERT="+path.Join(paths.GetBaseDir(), caas.CACertFile),
 		)
 	}
-	if context.meterStatus != nil {
+	if ctx.meterStatus != nil {
 		vars = append(vars,
-			"JUJU_METER_STATUS="+context.meterStatus.code,
-			"JUJU_METER_INFO="+context.meterStatus.info,
+			"JUJU_METER_STATUS="+ctx.meterStatus.code,
+			"JUJU_METER_INFO="+ctx.meterStatus.info,
 		)
 
 	}
-	if r, err := context.HookRelation(); err == nil {
+	if r, err := ctx.HookRelation(); err == nil {
 		vars = append(vars,
 			"JUJU_RELATION="+r.Name(),
 			"JUJU_RELATION_ID="+r.FakeId(),
-			"JUJU_REMOTE_UNIT="+context.remoteUnitName,
-			"JUJU_REMOTE_APP="+context.remoteApplicationName,
+			"JUJU_REMOTE_UNIT="+ctx.remoteUnitName,
+			"JUJU_REMOTE_APP="+ctx.remoteApplicationName,
 		)
 	} else if !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
-	if context.actionData != nil {
+	if ctx.actionData != nil {
 		vars = append(vars,
-			"JUJU_FUNCTION_NAME="+context.actionData.Name,
-			"JUJU_FUNCTION_ID="+context.actionData.Tag.Id(),
-			"JUJU_FUNCTION_TAG="+context.actionData.Tag.String(),
+			"JUJU_FUNCTION_NAME="+ctx.actionData.Name,
+			"JUJU_FUNCTION_ID="+ctx.actionData.Tag.Id(),
+			"JUJU_FUNCTION_TAG="+ctx.actionData.Tag.String(),
 
 			// TODO(ycliuhw): remove here once action is deprecated.
-			"JUJU_ACTION_NAME="+context.actionData.Name,
-			"JUJU_ACTION_UUID="+context.actionData.Tag.Id(),
-			"JUJU_ACTION_TAG="+context.actionData.Tag.String(),
+			"JUJU_ACTION_NAME="+ctx.actionData.Name,
+			"JUJU_ACTION_UUID="+ctx.actionData.Tag.Id(),
+			"JUJU_ACTION_TAG="+ctx.actionData.Tag.String(),
 		)
 	}
 
@@ -777,7 +852,7 @@ func (ctx *HookContext) handleReboot(err *error) {
 	}
 }
 
-// Prepare implements the Context interface.
+// Prepare implements the runner.Context interface.
 func (ctx *HookContext) Prepare() error {
 	if ctx.actionData != nil {
 		err := ctx.state.ActionBegin(ctx.actionData.Tag)
@@ -788,7 +863,7 @@ func (ctx *HookContext) Prepare() error {
 	return nil
 }
 
-// Flush implements the Context interface.
+// Flush implements the runner.Context interface.
 func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	writeChanges := ctxErr == nil
 
@@ -927,9 +1002,9 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	message := ctx.actionData.ResultsMessage
 	results := ctx.actionData.ResultsMap
 	tag := ctx.actionData.Tag
-	status := params.ActionCompleted
+	actionStatus := params.ActionCompleted
 	if ctx.actionData.Failed {
-		status = params.ActionFailed
+		actionStatus = params.ActionFailed
 	}
 
 	// If we had an action error, we'll simply encapsulate it in the response
@@ -939,10 +1014,10 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		if charmrunner.IsMissingHookError(err) {
 			message = fmt.Sprintf("action not implemented on unit %q", ctx.unitName)
 		}
-		status = params.ActionFailed
+		actionStatus = params.ActionFailed
 	}
 
-	callErr := ctx.state.ActionFinish(tag, status, results, message)
+	callErr := ctx.state.ActionFinish(tag, actionStatus, results, message)
 	if callErr != nil {
 		unhandledErr = errors.Wrap(unhandledErr, callErr)
 	}
@@ -984,6 +1059,7 @@ func (ctx *HookContext) killCharmHook() error {
 
 // UnitWorkloadVersion returns the version of the workload reported by
 // the current unit.
+// Implements jujuc.HookContext.ContextVersion, part of runner.Context.
 func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
@@ -1005,6 +1081,7 @@ func (ctx *HookContext) UnitWorkloadVersion() (string, error) {
 
 // SetUnitWorkloadVersion sets the current unit's workload version to
 // the specified value.
+// Implements jujuc.HookContext.ContextVersion, part of runner.Context.
 func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 	var result params.ErrorResults
 	args := params.EntityWorkloadVersions{
@@ -1020,6 +1097,7 @@ func (ctx *HookContext) SetUnitWorkloadVersion(version string) error {
 }
 
 // NetworkInfo returns the network info for the given bindings on the given relation.
+// Implements jujuc.HookContext.ContextNetworking, part of runner.Context.
 func (ctx *HookContext) NetworkInfo(bindingNames []string, relationId int) (map[string]params.NetworkInfoResult, error) {
 	var relId *int
 	if relationId != -1 {
