@@ -20,6 +20,7 @@ var anonymousFacadeNames = set.NewStrings(
 	"OfferStatusWatcher",
 	"RelationStatusWatcher",
 	"RelationUnitsWatcher",
+	"RemoteRelationWatcher",
 	"StringsWatcher",
 )
 

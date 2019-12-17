@@ -85,7 +85,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
-		c.Check(version, gc.Equals, 0)
+		c.Check(version, gc.Equals, 1) // Explicitly set to 1 temporarily as fix coming.
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "WatchLocalRelationUnits")
 		c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
@@ -147,7 +147,7 @@ func (s *remoteRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	var callCount int
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "RemoteRelations")
-		c.Check(version, gc.Equals, 0)
+		c.Check(version, gc.Equals, 1) // Explicitly set to 1 temporarily as fix coming.
 		c.Check(id, gc.Equals, "")
 		c.Check(request, gc.Equals, "RelationUnitSettings")
 		c.Check(arg, gc.DeepEquals, params.RelationUnits{RelationUnits: []params.RelationUnit{{Relation: "r", Unit: "u"}}})

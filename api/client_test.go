@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type clientSuite struct {
@@ -687,31 +686,6 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	})
 	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
 	c.Assert(apistate, gc.IsNil)
-}
-
-func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
-	// This is an integration test which ensure that a test with the
-	// correct error code is seen by the client from the
-	// SetModelAgentVersion call when an upgrade is in progress.
-	modelConfig, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := modelConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
-	c.Assert(err, jc.ErrorIsNil)
-	nextVersion := version.MustParse("9.8.7")
-	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.APIState.Client().SetModelAgentVersion(nextVersion, false)
-
-	// Expect an error with a error code that indicates this specific
-	// situation. The client needs to be able to reliably identify
-	// this error and handle it differently to other errors.
-	c.Assert(params.IsCodeUpgradeInProgress(err), jc.IsTrue)
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {

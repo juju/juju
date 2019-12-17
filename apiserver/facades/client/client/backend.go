@@ -7,9 +7,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/replicaset"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -63,6 +65,7 @@ type Backend interface {
 	ModelConstraints() (constraints.Value, error)
 	ModelTag() names.ModelTag
 	ModelUUID() string
+	MongoSession() MongoSession
 	RemoteApplication(string) (*state.RemoteApplication, error)
 	RemoteConnectionStatus(string) (*state.RemoteConnectionStatus, error)
 	RemoveUserAccess(names.UserTag, names.Tag) error
@@ -71,6 +74,11 @@ type Backend interface {
 	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
+}
+
+// MongoSession provides a way to get the status for the mongo replicaset.
+type MongoSession interface {
+	CurrentStatus() (*replicaset.Status, error)
 }
 
 // Model contains the state.Model methods used in this package.
@@ -99,7 +107,8 @@ type Unit interface {
 // removed once all relevant methods are moved from state to model.
 type stateShim struct {
 	*state.State
-	model *state.Model
+	model   *state.Model
+	session MongoSession
 }
 
 func (s stateShim) UpdateModelConfig(u map[string]interface{}, r []string, a ...state.ValidateConfigFunc) error {
@@ -170,4 +179,22 @@ func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
 		result[i] = n
 	}
 	return result, nil
+}
+
+func (s stateShim) MongoSession() MongoSession {
+	if s.session != nil {
+		return s.session
+	}
+	return MongoSessionShim{s.State.MongoSession()}
+}
+
+// MongoSessionShim wraps a *mgo.Session to conform to the
+// MongoSession interface.
+type MongoSessionShim struct {
+	*mgo.Session
+}
+
+// CurrentStatus returns the current status of the replicaset.
+func (s MongoSessionShim) CurrentStatus() (*replicaset.Status, error) {
+	return replicaset.CurrentStatus(s.Session)
 }

@@ -114,7 +114,11 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
 	args := params.RelationUnits{relationUnits}
 	var results params.SettingsResults
-	err := c.facade.FacadeCall("RelationUnitSettings", args, &results)
+	// Force v1 call for now. Fix coming... by babbageclunk.
+	v1Facade := base.NewFacadeCallerForVersion(
+		c.facade.RawAPICaller(),
+		"RemoteRelations", 1)
+	err := v1Facade.FacadeCall("RelationUnitSettings", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -215,8 +219,12 @@ func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUn
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: relationTag.String()}},
 	}
+	// Force v1 call for now. Fix coming... by babbageclunk.
+	v1Facade := base.NewFacadeCallerForVersion(
+		c.facade.RawAPICaller(),
+		"RemoteRelations", 1)
 	var results params.RelationUnitsWatchResults
-	err := c.facade.FacadeCall("WatchLocalRelationUnits", args, &results)
+	err := v1Facade.FacadeCall("WatchLocalRelationUnits", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

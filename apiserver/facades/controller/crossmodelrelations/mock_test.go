@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -326,12 +327,17 @@ type mockRelation struct {
 	status          status.Status
 	message         string
 	units           map[string]commoncrossmodel.RelationUnit
+	endpoints       []state.Endpoint
+	watchers        map[string]*mockUnitsWatcher
+	appSettings     map[string]map[string]interface{}
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:    id,
-		units: make(map[string]commoncrossmodel.RelationUnit),
+		id:          id,
+		units:       make(map[string]commoncrossmodel.RelationUnit),
+		watchers:    make(map[string]*mockUnitsWatcher),
+		appSettings: make(map[string]map[string]interface{}),
 	}
 }
 
@@ -414,9 +420,38 @@ func (r *mockRelation) Unit(unitId string) (commoncrossmodel.RelationUnit, error
 	return u, nil
 }
 
-func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
-	u.MethodCall(u, "Settings")
-	return u.settings, u.NextErr()
+func (r *mockRelation) ReplaceApplicationSettings(appName string, values map[string]interface{}) error {
+	r.MethodCall(r, "ReplaceApplicationSettings", appName, values)
+	return r.NextErr()
+}
+
+func (r *mockRelation) Endpoints() []state.Endpoint {
+	r.MethodCall(r, "Endpoints")
+	return r.endpoints
+}
+
+func (r *mockRelation) WatchUnits(appName string) (state.RelationUnitsWatcher, error) {
+	r.MethodCall(r, "WatchUnits", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	w, found := r.watchers[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake watcher for %q units", appName)
+	}
+	return w, nil
+}
+
+func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	r.MethodCall(r, "ApplicationSettings", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	settings, found := r.appSettings[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake settings for %q", appName)
+	}
+	return settings, nil
 }
 
 type mockRemoteApplication struct {
@@ -511,6 +546,11 @@ func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
 	return nil
 }
 
+func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
+	u.MethodCall(u, "Settings")
+	return u.settings, u.NextErr()
+}
+
 func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) error {
 	u.MethodCall(u, "ReplaceSettings", settings)
 	if err := u.NextErr(); err != nil {
@@ -561,4 +601,13 @@ func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]stri
 func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
 	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
+}
+
+type mockUnitsWatcher struct {
+	*mockWatcher
+	changes chan watcher.RelationUnitsChange
+}
+
+func (w *mockUnitsWatcher) Changes() watcher.RelationUnitsChannel {
+	return w.changes
 }

@@ -1779,6 +1779,9 @@ func unitNotAssignedError(u *Unit) error {
 
 // AssignedMachineId returns the id of the assigned machine.
 func (u *Unit) AssignedMachineId() (id string, err error) {
+	// c.f allWatcherContext.assignedMachineID.
+	// While it is unlikely that this logic will change,
+	// if it does, we need to make sure the allwatcher implementation matches.
 	if u.IsPrincipal() {
 		if u.doc.MachineId == "" {
 			return "", unitNotAssignedError(u)

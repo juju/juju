@@ -42,6 +42,8 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
+	// Build is a monotonic integer set by Jenkins.
+	Build int `json:"build,omitempty" yaml:"build,omitempty"`
 }
 
 // NewSuperCommand is like cmd.NewSuperCommand but
@@ -64,6 +66,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 		GitCommit:    jujuversion.GitCommit,
 		GitTreeState: jujuversion.GitTreeState,
 		Compiler:     jujuversion.Compiler,
+		Build:        jujuversion.Build,
 	}
 
 	// p.Version should be a version.Binary, but juju/cmd does not

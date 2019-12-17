@@ -24,6 +24,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
@@ -51,6 +52,11 @@ type UpgradeBaseSuite struct {
 
 	toolsDir string
 	coretesting.CmdBlockHelper
+}
+
+func (s *UpgradeBaseSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	client.SkipReplicaCheck(s)
 }
 
 type UpgradeJujuSuite struct {

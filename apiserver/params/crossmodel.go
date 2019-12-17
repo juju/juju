@@ -369,6 +369,10 @@ type RemoteRelationChangeEvent struct {
 
 	SuspendedReason string `json:"suspended-reason,omitempty"`
 
+	// ApplicationSettings represent the updated application-level settings in
+	// this relation.
+	ApplicationSettings map[string]interface{} `json:"application-settings,omitempty"`
+
 	// ChangedUnits maps unit tokens to relation unit changes.
 	ChangedUnits []RemoteRelationUnitChange `json:"changed-units,omitempty"`
 
@@ -378,6 +382,20 @@ type RemoteRelationChangeEvent struct {
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+}
+
+// RemoteRelationWatchResult holds a RemoteRelationWatcher id, initial
+// state (in the Changes field) or an error if the relation couldn't
+// be watched.
+type RemoteRelationWatchResult struct {
+	RemoteRelationWatcherId string                    `json:"watcher-id"`
+	Changes                 RemoteRelationChangeEvent `json:"changes"`
+	Error                   *Error                    `json:"error,omitempty"`
+}
+
+// RemoteRelationWatchResults holds the results for any API call that ends up returning a list of RemoteRelationWatchers
+type RemoteRelationWatchResults struct {
+	Results []RemoteRelationWatchResult `json:"results"`
 }
 
 // RelationLifeSuspendedStatusChange describes the life
