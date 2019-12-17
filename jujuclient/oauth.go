@@ -4,7 +4,7 @@
 package jujuclient
 
 import (
-	"github.com/juju/idmclient/ussologin"
+	"gopkg.in/juju/idmclient.v1/ussologin"
 
 	"github.com/juju/juju/juju/osenv"
 )

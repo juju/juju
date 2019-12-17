@@ -555,20 +555,6 @@
   revision = "14bf14c307672fd2456bdbf35d19cf0ccd3cf565"
 
 [[projects]]
-  digest = "1:02cd46216edea83aeaeee19401ce23a0417f3cf94be9f769e5856be642022d3d"
-  name = "github.com/juju/httprequest"
-  packages = ["."]
-  pruneopts = ""
-  revision = "266fd1e9debf09c037a63f074d099a2da4559ece"
-
-[[projects]]
-  digest = "1:e8f1ba29f4bbd088ebaa75c8e79466d0da4281ef0f149ef50293fd3b227e0ba4"
-  name = "github.com/juju/idmclient"
-  packages = ["ussologin"]
-  pruneopts = ""
-  revision = "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
-
-[[projects]]
   digest = "1:27649bd8b71348f8eed93f5604f4d6d77f845ddc4e0ee66cf5beef82ed1d4846"
   name = "github.com/juju/jsonschema"
   packages = ["."]
@@ -688,7 +674,7 @@
   revision = "b058ad085c9480f110200bfe2309189aff5780b8"
 
 [[projects]]
-  digest = "1:15d8d1fbd7a685a9abd1b6ca6943fd8613f72249a854fa6bc383523caf74f768"
+  digest = "1:4bc7c0119c88b0ca18bd72c884cd99723fc5da5babfe66016c0ffa48ac46d295"
   name = "github.com/juju/romulus"
   packages = [
     ".",
@@ -702,7 +688,7 @@
     "wireformat/sla",
   ]
   pruneopts = ""
-  revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
+  revision = "fd7cab26ac5f36f7780f7bae4e9331e07dd44802"
 
 [[projects]]
   digest = "1:49b61a2d186cbe71f1e72021b7bba7012b9433af2215f7ef07456344216efeff"
@@ -719,14 +705,16 @@
   revision = "1f8aaeef09898fcee40fe43b8de422533b0cac2b"
 
 [[projects]]
-  digest = "1:e3f03b6b31f1b273e4b37b1ac54fb10a0553fbc6c66441fe5388450caa385129"
+  branch = "bakeryv2"
+  digest = "1:61fdcd5ca2dcd80cd6951a72e7b291e3d40afbb3a38b02cd17d71d2859b2ed98"
   name = "github.com/juju/terms-client"
   packages = [
     "api",
     "api/wireformat",
   ]
   pruneopts = ""
-  revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
+  revision = "9198d01b42a1bf6c0308f9e8de222ad78868468c"
+  source = "github.com/wallyworld/terms-client"
 
 [[projects]]
   digest = "1:0eec58cdcfcc6f4a561e68d779dd136700575148459d4d435c60483a8f721d27"
@@ -1454,8 +1442,8 @@
   revision = "b0d0ce63cbe0c6e31d38e886a8c7cb20979b509d"
 
 [[projects]]
-  digest = "1:e4b5e4dc87e06eae6d168f08f9787330aa88164b5f755b92d1a4600960d6c6f9"
-  name = "gopkg.in/juju/charmrepo.v3"
+  digest = "1:4c36061633490dc60772944614e06b4de202c271bddaef55335af989ea35dfb8"
+  name = "gopkg.in/juju/charmrepo.v4"
   packages = [
     ".",
     "csclient",
@@ -1463,19 +1451,7 @@
     "testing",
   ]
   pruneopts = ""
-  revision = "5ca139ef9e6bd138ab2ff3c59aee3c472d12ac89"
-
-[[projects]]
-  digest = "1:4c36061633490dc60772944614e06b4de202c271bddaef55335af989ea35dfb8"
-  name = "gopkg.in/juju/charmrepo.v4"
-  packages = [
-    ".",
-    "csclient",
-    "csclient/params",
-  ]
-  pruneopts = ""
   revision = "cd05de29309bc2c97e7334b8316c916203b0be9d"
-  version = "v4.1.1"
 
 [[projects]]
   digest = "1:7654e769ed719c292d72af4420ca772d9c850299271e15c6f5af4fb89526c3fd"
@@ -1486,6 +1462,14 @@
   ]
   pruneopts = ""
   revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
+
+[[projects]]
+  branch = "v1"
+  digest = "1:4567669a83ea1f7e1dfcb91829ec3cdb806b8009aa9b699b8e063c2e9a946d14"
+  name = "gopkg.in/juju/idmclient.v1"
+  packages = ["ussologin"]
+  pruneopts = ""
+  revision = "203d20774ce8aeaa6f662ee0b48f8cb5bc0816a1"
 
 [[projects]]
   branch = "v2"
@@ -1516,31 +1500,22 @@
   revision = "19a698a7150fe54ef526b0602069083b4410fc98"
 
 [[projects]]
-  digest = "1:01aef8078808543c15a4cc0e669d92d37215564600e19ebabbd694939b727977"
-  name = "gopkg.in/macaroon-bakery.v1"
-  packages = [
-    "bakery",
-    "bakery/checkers",
-    "httpbakery",
-  ]
-  pruneopts = ""
-  revision = "469b44e6f1f9479e115c8ae879ef80695be624d5"
-
-[[projects]]
-  digest = "1:5a4ad627277045677205683b0602881021ec13543d142e3e880d7b86fae1eed0"
+  digest = "1:19684f857ec5be741f40934537680980827d610d0bace413befedf830e22c0ff"
   name = "gopkg.in/macaroon-bakery.v2"
   packages = [
     "bakery",
     "bakery/checkers",
     "bakery/internal/macaroonpb",
     "httpbakery",
+    "httpbakery/form",
     "internal/httputil",
   ]
   pruneopts = ""
-  revision = "ec9d2ad6796100720c154f614b6dea8798ec1181"
+  revision = "6734dc66fe81c761f153bdd3e4ea572a105b6fe0"
 
 [[projects]]
-  digest = "1:59b747e54346538ee9f2a666580115b9a01e90184e8a1a8dde5bec1d0a15ee36"
+  branch = "macaroon-v2"
+  digest = "1:6afe17bcd84e8271c07749a62c6857c722d40a079d09927f36714fc2ca29a2f0"
   name = "gopkg.in/macaroon-bakery.v2-unstable"
   packages = [
     "bakery",
@@ -1550,29 +1525,15 @@
     "httpbakery",
   ]
   pruneopts = ""
-  revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
+  revision = "e9659ac3cacff3096af6bfd23e9db6b3fa1ae374"
+  source = "github.com/wallyworld/macaroon-bakery"
 
 [[projects]]
-  digest = "1:382ab46fca1bf043be9b8456141c194addeaf0d704870e77bda2bdab50b655f1"
-  name = "gopkg.in/macaroon.v1"
-  packages = ["."]
-  pruneopts = ""
-  revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
-
-[[projects]]
-  digest = "1:cf4f11b1ea088ad9692972214eccb364ef5f13b005c18be2dfcdd411dc77e3e4"
+  digest = "1:7811982c180c7bd1377f5342c1ed8ea385180fa5fb468eabb172244a2edff612"
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
-  version = "v2.0.0"
-
-[[projects]]
-  digest = "1:efca053dc30a44282a79dd8ea715e182f7f38a2957904db438238e5572eae3a8"
-  name = "gopkg.in/macaroon.v2-unstable"
-  packages = ["."]
-  pruneopts = ""
-  revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
+  revision = "1679699b0b723e05f9f16c45b4c6cbd46adb2c78"
 
 [[projects]]
   branch = "master"
@@ -1872,8 +1833,6 @@
     "github.com/juju/go-oracle-cloud/response",
     "github.com/juju/gojsonschema",
     "github.com/juju/gomaasapi",
-    "github.com/juju/httprequest",
-    "github.com/juju/idmclient/ussologin",
     "github.com/juju/jsonschema",
     "github.com/juju/jsonschema-gen",
     "github.com/juju/loggo",
@@ -1937,7 +1896,6 @@
     "github.com/juju/utils/zip",
     "github.com/juju/version",
     "github.com/juju/webbrowser",
-    "github.com/julienschmidt/httprouter",
     "github.com/kr/pretty",
     "github.com/lxc/lxd/client",
     "github.com/lxc/lxd/shared",
@@ -2007,12 +1965,13 @@
     "gopkg.in/juju/charm.v6",
     "gopkg.in/juju/charm.v6/hooks",
     "gopkg.in/juju/charm.v6/resource",
-    "gopkg.in/juju/charmrepo.v3",
-    "gopkg.in/juju/charmrepo.v3/csclient",
-    "gopkg.in/juju/charmrepo.v3/csclient/params",
-    "gopkg.in/juju/charmrepo.v3/testing",
+    "gopkg.in/juju/charmrepo.v4",
+    "gopkg.in/juju/charmrepo.v4/csclient",
+    "gopkg.in/juju/charmrepo.v4/csclient/params",
+    "gopkg.in/juju/charmrepo.v4/testing",
     "gopkg.in/juju/environschema.v1",
     "gopkg.in/juju/environschema.v1/form",
+    "gopkg.in/juju/idmclient.v1/ussologin",
     "gopkg.in/juju/names.v3",
     "gopkg.in/juju/worker.v1",
     "gopkg.in/juju/worker.v1/catacomb",
@@ -2024,7 +1983,11 @@
     "gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage",
     "gopkg.in/macaroon-bakery.v2-unstable/bakerytest",
     "gopkg.in/macaroon-bakery.v2-unstable/httpbakery",
-    "gopkg.in/macaroon.v2-unstable",
+    "gopkg.in/macaroon-bakery.v2/bakery",
+    "gopkg.in/macaroon-bakery.v2/bakery/checkers",
+    "gopkg.in/macaroon-bakery.v2/httpbakery",
+    "gopkg.in/macaroon-bakery.v2/httpbakery/form",
+    "gopkg.in/macaroon.v2",
     "gopkg.in/mgo.v2",
     "gopkg.in/mgo.v2/bson",
     "gopkg.in/mgo.v2/txn",

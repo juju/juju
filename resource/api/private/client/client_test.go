@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"context"
 	"io"
 	"net/http"
 
@@ -40,7 +41,7 @@ func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 	caller := &stubAPI{Stub: s.stub}
 	doer := &stubAPI{Stub: s.stub}
 
-	cl := client.NewUnitFacadeClient(caller, doer)
+	cl := client.NewUnitFacadeClient(context.Background(), caller, doer)
 
 	s.stub.CheckNoCalls(c)
 	c.Check(cl.FacadeCaller, gc.Equals, caller)
@@ -50,7 +51,7 @@ func (s *UnitFacadeClientSuite) TestNewUnitFacadeClient(c *gc.C) {
 func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
 	opened := resourcetesting.NewResource(c, s.stub, "spam", "a-application", "some data")
 	s.api.setResource(opened.Resource, opened)
-	cl := client.NewUnitFacadeClient(s.api, s.api)
+	cl := client.NewUnitFacadeClient(context.Background(), s.api, s.api)
 
 	info, content, err := cl.GetResource("spam")
 	c.Assert(err, jc.ErrorIsNil)
@@ -61,13 +62,13 @@ func (s *UnitFacadeClientSuite) TestGetResource(c *gc.C) {
 }
 
 func (s *UnitFacadeClientSuite) TestUnitDoer(c *gc.C) {
-	req, err := http.NewRequest("GET", "/resources/eggs", nil)
-	c.Assert(err, jc.ErrorIsNil)
 	body := filetesting.NewStubFile(s.stub, nil)
+	req, err := http.NewRequest("GET", "/resources/eggs", body)
+	c.Assert(err, jc.ErrorIsNil)
 	var resp *http.Response
-	doer := client.NewUnitHTTPClient(s.api, "spam/1")
+	doer := client.NewUnitHTTPClient(context.Background(), s.api, "spam/1")
 
-	err = doer.Do(req, body, &resp)
+	err = doer.Do(context.Background(), req, &resp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.stub.CheckCallNames(c, "Do")
@@ -112,8 +113,8 @@ func (s *stubAPI) Unit() string {
 	return s.ReturnUnit
 }
 
-func (s *stubAPI) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
-	s.AddCall("Do", req, body, response)
+func (s *stubAPI) Do(ctx context.Context, req *http.Request, response interface{}) error {
+	s.AddCall("Do", req, response)
 	if err := s.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

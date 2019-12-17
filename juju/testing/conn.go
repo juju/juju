@@ -26,7 +26,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
@@ -741,34 +740,14 @@ func newState(controllerUUID string, environ environs.Environ, mongoInfo *mongo.
 // PutCharm uploads the given charm to provider storage, and adds a
 // state.Charm to the state.  The charm is not uploaded if a charm with
 // the same URL already exists in the state.
-// If bumpRevision is true, the charm must be a local directory,
-// and the revision number will be incremented before pushing.
-func PutCharm(st *state.State, curl *charm.URL, repo charmrepo.Interface, bumpRevision, force bool) (*state.Charm, error) {
+func PutCharm(st *state.State, curl *charm.URL, ch *charm.CharmDir) (*state.Charm, error) {
 	if curl.Revision == -1 {
-		var err error
-		curl, _, err = repo.Resolve(curl)
-		if err != nil {
-			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
-		}
-	}
-	ch, err := repo.Get(curl)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get charm: %v", err)
-	}
-	if bumpRevision {
-		chd, ok := ch.(*charm.CharmDir)
-		if !ok {
-			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
-		}
-		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
-			return nil, fmt.Errorf("cannot increment revision of charm %q: %v", curl, err)
-		}
-		curl = curl.WithRevision(chd.Revision())
+		curl.Revision = ch.Revision()
 	}
 	if sch, err := st.Charm(curl); err == nil {
 		return sch, nil
 	}
-	return AddCharm(st, curl, ch, force)
+	return AddCharm(st, curl, ch, false)
 }
 
 // AddCharm adds the charm to state and storage.
@@ -909,12 +888,7 @@ func (s *JujuConnSuite) AddTestingCharmForSeries(c *gc.C, name, series string) *
 	ch := repo.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
-	storerepo, err := charmrepo.InferRepository(
-		curl,
-		charmrepo.NewCharmStoreParams{},
-		repo.Path())
-	c.Assert(err, jc.ErrorIsNil)
-	sch, err := PutCharm(s.State, curl, storerepo, false, false)
+	sch, err := PutCharm(s.State, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	return sch
 }

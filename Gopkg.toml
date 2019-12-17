@@ -30,7 +30,8 @@
 
 [[override]]
   name = "gopkg.in/macaroon-bakery.v2-unstable"
-  revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
+  branch = "macaroon-v2"
+  source = "github.com/wallyworld/macaroon-bakery"
 
 [[constraint]]
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
@@ -110,7 +111,7 @@
   name = "github.com/juju/rfc"
 
 [[constraint]]
-  revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
+  revision = "fd7cab26ac5f36f7780f7bae4e9331e07dd44802"
   name = "github.com/juju/romulus"
 
 [[constraint]]
@@ -150,8 +151,8 @@
   revision = "b0d0ce63cbe0c6e31d38e886a8c7cb20979b509d"
 
 [[constraint]]
-  revision = "5ca139ef9e6bd138ab2ff3c59aee3c472d12ac89"
-  name = "gopkg.in/juju/charmrepo.v3"
+  revision = "cd05de29309bc2c97e7334b8316c916203b0be9d"
+  name = "gopkg.in/juju/charmrepo.v4"
 
 [[constraint]]
   revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
@@ -299,14 +300,6 @@
   revision = "932a8cea00a1cd5cba3829a672c823955db674ae"
 
 [[constraint]]
-  name = "github.com/juju/httprequest"
-  revision = "266fd1e9debf09c037a63f074d099a2da4559ece"
-
-[[constraint]]
-  name = "github.com/juju/idmclient"
-  revision = "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
-
-[[constraint]]
   name = "github.com/juju/loggo"
   revision = "6e530bcce5d8e1b51b8e5ee7f08a455cd0a8c2e5"
 
@@ -336,7 +329,8 @@
 
 [[constraint]]
   name = "github.com/juju/terms-client"
-  revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
+  branch = "bakeryv2"
+  source = "github.com/wallyworld/terms-client"
 
 [[constraint]]
   revision = "5f348e78887d8757a402c7bb81e707c3b244c6da"
@@ -354,7 +348,7 @@
   name = "github.com/juju/xml"
   revision = "eb759a627588d35166bc505fceb51b88500e291e"
 
-[[constraint]]
+[[override]]
   name = "github.com/julienschmidt/httprouter"
   revision = "77a895ad01ebc98a4dc95d8355bc825ce80a56f6"
 
@@ -403,8 +397,8 @@
   revision = "7a535cd943fccaeed196718896beec3fb51aff41"
 
 [[constraint]]
-  name = "gopkg.in/macaroon.v2-unstable"
-  revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
+  name = "gopkg.in/macaroon.v2"
+  revision = "1679699b0b723e05f9f16c45b4c6cbd46adb2c78"
 
 [[constraint]]
   name = "github.com/prometheus/client_golang"
@@ -495,16 +489,8 @@
   revision = "19a698a7150fe54ef526b0602069083b4410fc98"
 
 [[override]]
-  name = "gopkg.in/macaroon-bakery.v1"
-  revision = "469b44e6f1f9479e115c8ae879ef80695be624d5"
-
-[[override]]
   name = "gopkg.in/macaroon-bakery.v2"
-  revision = "ec9d2ad6796100720c154f614b6dea8798ec1181"
-
-[[override]]
-  name = "gopkg.in/macaroon.v1"
-  revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
+  revision = "6734dc66fe81c761f153bdd3e4ea572a105b6fe0"
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"

@@ -15,10 +15,10 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")
@@ -301,7 +301,18 @@ type csclientImpl struct {
 func (c csclientImpl) Latest(channel csparams.Channel, ids []*charm.URL, metadata map[string][]string) ([]csparams.CharmRevision, error) {
 	client := c.WithChannel(channel)
 	client.SetHTTPHeader(http.Header(metadata))
-	return client.Latest(ids)
+	revs, err := client.Latest(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]csparams.CharmRevision, len(revs))
+	for i, r := range revs {
+		result[i] = csparams.CharmRevision{
+			Revision: r.Revision,
+			Err:      r.Err,
+		}
+	}
+	return result, nil
 }
 
 // ListResources gets the latest resources for the charm URL on the channel.

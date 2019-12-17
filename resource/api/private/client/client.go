@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"path"
@@ -24,10 +25,10 @@ type FacadeCaller interface {
 
 // HTTPClient exposes the raw API HTTP caller functionality needed here.
 type HTTPClient interface {
-	// Do sends the HTTP request/body and unpacks the response into
+	// Do sends the HTTP request and unpacks the response into
 	// the provided "resp". If that is a **http.Response then it is
 	// unpacked as-is. Otherwise it is unmarshaled from JSON.
-	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
+	Do(ctx context.Context, req *http.Request, resp interface{}) error
 }
 
 // UnitHTTPClient exposes the raw API HTTP caller functionality needed here.
@@ -40,10 +41,11 @@ type UnitHTTPClient interface {
 
 // NewUnitFacadeClient creates a new API client for the resources
 // portion of the uniter facade.
-func NewUnitFacadeClient(facadeCaller FacadeCaller, httpClient UnitHTTPClient) *UnitFacadeClient {
+func NewUnitFacadeClient(ctx context.Context, facadeCaller FacadeCaller, httpClient UnitHTTPClient) *UnitFacadeClient {
 	return &UnitFacadeClient{
 		FacadeCaller: facadeCaller,
 		HTTPClient:   httpClient,
+		ctx:          ctx,
 	}
 }
 
@@ -52,6 +54,7 @@ func NewUnitFacadeClient(facadeCaller FacadeCaller, httpClient UnitHTTPClient) *
 type UnitFacadeClient struct {
 	FacadeCaller
 	HTTPClient
+	ctx context.Context
 }
 
 // GetResource opens the resource (metadata/blob), if it exists, via
@@ -63,7 +66,7 @@ func (c *UnitFacadeClient) GetResource(resourceName string) (resource.Resource, 
 	if err != nil {
 		return resource.Resource{}, nil, errors.Annotate(err, "failed to build API request")
 	}
-	if err := c.Do(req, nil, &response); err != nil {
+	if err := c.Do(c.ctx, req, &response); err != nil {
 		return resource.Resource{}, nil, errors.Annotate(err, "HTTP request failed")
 	}
 
@@ -109,15 +112,17 @@ func (c *UnitFacadeClient) getResourceInfo(resourceName string) (resource.Resour
 type unitHTTPClient struct {
 	HTTPClient
 	unitName string
+	ctx      context.Context
 }
 
 // NewUnitHTTPClient wraps an HTTP client (a la httprequest.Client)
 // with unit information. This allows rewriting of the URL to match
 // the relevant unit.
-func NewUnitHTTPClient(client HTTPClient, unitName string) UnitHTTPClient {
+func NewUnitHTTPClient(ctx context.Context, client HTTPClient, unitName string) UnitHTTPClient {
 	return &unitHTTPClient{
 		HTTPClient: client,
 		unitName:   unitName,
+		ctx:        ctx,
 	}
 }
 
@@ -127,7 +132,7 @@ func (uhc unitHTTPClient) Unit() string {
 }
 
 // Do implements httprequest.Doer.
-func (uhc *unitHTTPClient) Do(req *http.Request, body io.ReadSeeker, response interface{}) error {
+func (uhc *unitHTTPClient) Do(ctx context.Context, req *http.Request, response interface{}) error {
 	req.URL.Path = path.Join("/units", uhc.unitName, req.URL.Path)
-	return uhc.HTTPClient.Do(req, body, response)
+	return uhc.HTTPClient.Do(ctx, req, response)
 }

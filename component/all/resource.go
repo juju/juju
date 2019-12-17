@@ -105,7 +105,7 @@ func (r resources) newUnitFacadeClient(unitName string, caller base.APICaller) (
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	unitHTTPClient := internalclient.NewUnitHTTPClient(httpClient, unitName)
+	unitHTTPClient := internalclient.NewUnitHTTPClient(caller.Context(), httpClient, unitName)
 
-	return internalclient.NewUnitFacadeClient(facadeCaller, unitHTTPClient), nil
+	return internalclient.NewUnitFacadeClient(facadeCaller.RawAPICaller().Context(), facadeCaller, unitHTTPClient), nil
 }

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"

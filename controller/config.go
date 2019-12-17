@@ -15,10 +15,10 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
-	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/core/resources"

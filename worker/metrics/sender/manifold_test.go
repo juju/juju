@@ -4,27 +4,26 @@
 package sender_test
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/juju/worker.v1"
-	"gopkg.in/juju/worker.v1/dependency"
-	dt "gopkg.in/juju/worker.v1/dependency/testing"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/metricsadder"
 	"github.com/juju/juju/worker/metrics/sender"
 	"github.com/juju/juju/worker/metrics/spool"
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
+	"gopkg.in/juju/names.v3"
+	"gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
+	dt "gopkg.in/juju/worker.v1/dependency/testing"
 )
 
 type ManifoldSuite struct {
@@ -168,7 +167,11 @@ func (s *stubAPICaller) HTTPClient() (*httprequest.Client, error) {
 	panic("should not be called")
 }
 
-func (s *stubAPICaller) BakeryClient() *httpbakery.Client {
+func (s *stubAPICaller) Context() context.Context {
+	return context.Background()
+}
+
+func (s *stubAPICaller) BakeryClient() base.MacaroonDischarger {
 	panic("should not be called")
 }
 

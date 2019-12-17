@@ -4,8 +4,8 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -37,8 +37,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.response = &params.UploadResult{}
 }
 
-func (s *BaseSuite) Do(req *http.Request, body io.ReadSeeker, resp interface{}) error {
-	s.stub.AddCall("Do", req, body, resp)
+func (s *BaseSuite) Do(ctx context.Context, req *http.Request, resp interface{}) error {
+	s.stub.AddCall("Do", req, resp)
 	if err := s.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}

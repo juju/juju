@@ -35,6 +35,9 @@ type UploadRequest struct {
 
 	// PendingID is the pending ID to associate with this upload, if any.
 	PendingID string
+
+	// Content is the content to upload.
+	Content io.ReadSeeker
 }
 
 // NewUploadRequest generates a new upload request for the given resource.
@@ -54,6 +57,7 @@ func NewUploadRequest(application, name, filename string, r io.ReadSeeker) (Uplo
 		Filename:    filename,
 		Size:        content.Size,
 		Fingerprint: content.Fingerprint,
+		Content:     r,
 	}
 	return ur, nil
 }
@@ -84,7 +88,7 @@ func (ur UploadRequest) HTTPRequest() (*http.Request, error) {
 	// TODO(ericsnow) What about the rest of the URL?
 	urlStr := NewEndpointPath(ur.Application, ur.Name)
 
-	req, err := http.NewRequest(http.MethodPut, urlStr, nil)
+	req, err := http.NewRequest(http.MethodPut, urlStr, ur.Content)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

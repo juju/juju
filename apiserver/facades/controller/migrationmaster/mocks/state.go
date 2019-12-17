@@ -5,14 +5,15 @@
 package mocks
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	migration "github.com/juju/juju/core/migration"
 	permission "github.com/juju/juju/permission"
 	state "github.com/juju/juju/state"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
-	time "time"
 )
 
 // MockModelMigration is a mock of ModelMigration interface
@@ -40,6 +41,7 @@ func (m *MockModelMigration) EXPECT() *MockModelMigrationMockRecorder {
 
 // Attempt mocks base method
 func (m *MockModelMigration) Attempt() int {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Attempt")
 	ret0, _ := ret[0].(int)
 	return ret0
@@ -47,11 +49,13 @@ func (m *MockModelMigration) Attempt() int {
 
 // Attempt indicates an expected call of Attempt
 func (mr *MockModelMigrationMockRecorder) Attempt() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Attempt", reflect.TypeOf((*MockModelMigration)(nil).Attempt))
 }
 
 // EndTime mocks base method
 func (m *MockModelMigration) EndTime() time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "EndTime")
 	ret0, _ := ret[0].(time.Time)
 	return ret0
@@ -59,11 +63,13 @@ func (m *MockModelMigration) EndTime() time.Time {
 
 // EndTime indicates an expected call of EndTime
 func (mr *MockModelMigrationMockRecorder) EndTime() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EndTime", reflect.TypeOf((*MockModelMigration)(nil).EndTime))
 }
 
 // Id mocks base method
 func (m *MockModelMigration) Id() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -71,11 +77,13 @@ func (m *MockModelMigration) Id() string {
 
 // Id indicates an expected call of Id
 func (mr *MockModelMigrationMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockModelMigration)(nil).Id))
 }
 
 // InitiatedBy mocks base method
 func (m *MockModelMigration) InitiatedBy() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InitiatedBy")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -83,11 +91,13 @@ func (m *MockModelMigration) InitiatedBy() string {
 
 // InitiatedBy indicates an expected call of InitiatedBy
 func (mr *MockModelMigrationMockRecorder) InitiatedBy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitiatedBy", reflect.TypeOf((*MockModelMigration)(nil).InitiatedBy))
 }
 
 // MinionReports mocks base method
 func (m *MockModelMigration) MinionReports() (*state.MinionReports, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MinionReports")
 	ret0, _ := ret[0].(*state.MinionReports)
 	ret1, _ := ret[1].(error)
@@ -96,11 +106,13 @@ func (m *MockModelMigration) MinionReports() (*state.MinionReports, error) {
 
 // MinionReports indicates an expected call of MinionReports
 func (mr *MockModelMigrationMockRecorder) MinionReports() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MinionReports", reflect.TypeOf((*MockModelMigration)(nil).MinionReports))
 }
 
 // ModelUUID mocks base method
 func (m *MockModelMigration) ModelUUID() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelUUID")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -108,11 +120,13 @@ func (m *MockModelMigration) ModelUUID() string {
 
 // ModelUUID indicates an expected call of ModelUUID
 func (mr *MockModelMigrationMockRecorder) ModelUUID() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUUID", reflect.TypeOf((*MockModelMigration)(nil).ModelUUID))
 }
 
 // ModelUserAccess mocks base method
 func (m *MockModelMigration) ModelUserAccess(arg0 names_v3.Tag) permission.Access {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelUserAccess", arg0)
 	ret0, _ := ret[0].(permission.Access)
 	return ret0
@@ -120,11 +134,13 @@ func (m *MockModelMigration) ModelUserAccess(arg0 names_v3.Tag) permission.Acces
 
 // ModelUserAccess indicates an expected call of ModelUserAccess
 func (mr *MockModelMigrationMockRecorder) ModelUserAccess(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelUserAccess", reflect.TypeOf((*MockModelMigration)(nil).ModelUserAccess), arg0)
 }
 
 // Phase mocks base method
 func (m *MockModelMigration) Phase() (migration.Phase, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Phase")
 	ret0, _ := ret[0].(migration.Phase)
 	ret1, _ := ret[1].(error)
@@ -133,11 +149,13 @@ func (m *MockModelMigration) Phase() (migration.Phase, error) {
 
 // Phase indicates an expected call of Phase
 func (mr *MockModelMigrationMockRecorder) Phase() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Phase", reflect.TypeOf((*MockModelMigration)(nil).Phase))
 }
 
 // PhaseChangedTime mocks base method
 func (m *MockModelMigration) PhaseChangedTime() time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PhaseChangedTime")
 	ret0, _ := ret[0].(time.Time)
 	return ret0
@@ -145,11 +163,13 @@ func (m *MockModelMigration) PhaseChangedTime() time.Time {
 
 // PhaseChangedTime indicates an expected call of PhaseChangedTime
 func (mr *MockModelMigrationMockRecorder) PhaseChangedTime() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PhaseChangedTime", reflect.TypeOf((*MockModelMigration)(nil).PhaseChangedTime))
 }
 
 // Refresh mocks base method
 func (m *MockModelMigration) Refresh() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -157,11 +177,13 @@ func (m *MockModelMigration) Refresh() error {
 
 // Refresh indicates an expected call of Refresh
 func (mr *MockModelMigrationMockRecorder) Refresh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockModelMigration)(nil).Refresh))
 }
 
 // SetPhase mocks base method
 func (m *MockModelMigration) SetPhase(arg0 migration.Phase) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetPhase", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -169,11 +191,13 @@ func (m *MockModelMigration) SetPhase(arg0 migration.Phase) error {
 
 // SetPhase indicates an expected call of SetPhase
 func (mr *MockModelMigrationMockRecorder) SetPhase(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPhase", reflect.TypeOf((*MockModelMigration)(nil).SetPhase), arg0)
 }
 
 // SetStatusMessage mocks base method
 func (m *MockModelMigration) SetStatusMessage(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetStatusMessage", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -181,11 +205,13 @@ func (m *MockModelMigration) SetStatusMessage(arg0 string) error {
 
 // SetStatusMessage indicates an expected call of SetStatusMessage
 func (mr *MockModelMigrationMockRecorder) SetStatusMessage(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStatusMessage", reflect.TypeOf((*MockModelMigration)(nil).SetStatusMessage), arg0)
 }
 
 // StartTime mocks base method
 func (m *MockModelMigration) StartTime() time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartTime")
 	ret0, _ := ret[0].(time.Time)
 	return ret0
@@ -193,11 +219,13 @@ func (m *MockModelMigration) StartTime() time.Time {
 
 // StartTime indicates an expected call of StartTime
 func (mr *MockModelMigrationMockRecorder) StartTime() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartTime", reflect.TypeOf((*MockModelMigration)(nil).StartTime))
 }
 
 // StatusMessage mocks base method
 func (m *MockModelMigration) StatusMessage() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StatusMessage")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -205,11 +233,13 @@ func (m *MockModelMigration) StatusMessage() string {
 
 // StatusMessage indicates an expected call of StatusMessage
 func (mr *MockModelMigrationMockRecorder) StatusMessage() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StatusMessage", reflect.TypeOf((*MockModelMigration)(nil).StatusMessage))
 }
 
 // SubmitMinionReport mocks base method
 func (m *MockModelMigration) SubmitMinionReport(arg0 names_v3.Tag, arg1 migration.Phase, arg2 bool) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SubmitMinionReport", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -217,11 +247,13 @@ func (m *MockModelMigration) SubmitMinionReport(arg0 names_v3.Tag, arg1 migratio
 
 // SubmitMinionReport indicates an expected call of SubmitMinionReport
 func (mr *MockModelMigrationMockRecorder) SubmitMinionReport(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubmitMinionReport", reflect.TypeOf((*MockModelMigration)(nil).SubmitMinionReport), arg0, arg1, arg2)
 }
 
 // SuccessTime mocks base method
 func (m *MockModelMigration) SuccessTime() time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SuccessTime")
 	ret0, _ := ret[0].(time.Time)
 	return ret0
@@ -229,11 +261,13 @@ func (m *MockModelMigration) SuccessTime() time.Time {
 
 // SuccessTime indicates an expected call of SuccessTime
 func (mr *MockModelMigrationMockRecorder) SuccessTime() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SuccessTime", reflect.TypeOf((*MockModelMigration)(nil).SuccessTime))
 }
 
 // TargetInfo mocks base method
 func (m *MockModelMigration) TargetInfo() (*migration.TargetInfo, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "TargetInfo")
 	ret0, _ := ret[0].(*migration.TargetInfo)
 	ret1, _ := ret[1].(error)
@@ -242,11 +276,13 @@ func (m *MockModelMigration) TargetInfo() (*migration.TargetInfo, error) {
 
 // TargetInfo indicates an expected call of TargetInfo
 func (mr *MockModelMigrationMockRecorder) TargetInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TargetInfo", reflect.TypeOf((*MockModelMigration)(nil).TargetInfo))
 }
 
 // WatchMinionReports mocks base method
 func (m *MockModelMigration) WatchMinionReports() (state.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchMinionReports")
 	ret0, _ := ret[0].(state.NotifyWatcher)
 	ret1, _ := ret[1].(error)
@@ -255,6 +291,7 @@ func (m *MockModelMigration) WatchMinionReports() (state.NotifyWatcher, error) {
 
 // WatchMinionReports indicates an expected call of WatchMinionReports
 func (mr *MockModelMigrationMockRecorder) WatchMinionReports() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMinionReports", reflect.TypeOf((*MockModelMigration)(nil).WatchMinionReports))
 }
 
@@ -283,6 +320,7 @@ func (m *MockNotifyWatcher) EXPECT() *MockNotifyWatcherMockRecorder {
 
 // Changes mocks base method
 func (m *MockNotifyWatcher) Changes() <-chan struct{} {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Changes")
 	ret0, _ := ret[0].(<-chan struct{})
 	return ret0
@@ -290,11 +328,13 @@ func (m *MockNotifyWatcher) Changes() <-chan struct{} {
 
 // Changes indicates an expected call of Changes
 func (mr *MockNotifyWatcherMockRecorder) Changes() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Changes", reflect.TypeOf((*MockNotifyWatcher)(nil).Changes))
 }
 
 // Err mocks base method
 func (m *MockNotifyWatcher) Err() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Err")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -302,21 +342,25 @@ func (m *MockNotifyWatcher) Err() error {
 
 // Err indicates an expected call of Err
 func (mr *MockNotifyWatcherMockRecorder) Err() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Err", reflect.TypeOf((*MockNotifyWatcher)(nil).Err))
 }
 
 // Kill mocks base method
 func (m *MockNotifyWatcher) Kill() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
 // Kill indicates an expected call of Kill
 func (mr *MockNotifyWatcherMockRecorder) Kill() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockNotifyWatcher)(nil).Kill))
 }
 
 // Stop mocks base method
 func (m *MockNotifyWatcher) Stop() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Stop")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -324,11 +368,13 @@ func (m *MockNotifyWatcher) Stop() error {
 
 // Stop indicates an expected call of Stop
 func (mr *MockNotifyWatcherMockRecorder) Stop() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stop", reflect.TypeOf((*MockNotifyWatcher)(nil).Stop))
 }
 
 // Wait mocks base method
 func (m *MockNotifyWatcher) Wait() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -336,6 +382,7 @@ func (m *MockNotifyWatcher) Wait() error {
 
 // Wait indicates an expected call of Wait
 func (mr *MockNotifyWatcherMockRecorder) Wait() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockNotifyWatcher)(nil).Wait))
 }
 
@@ -364,6 +411,7 @@ func (m *MockExternalController) EXPECT() *MockExternalControllerMockRecorder {
 
 // ControllerInfo mocks base method
 func (m *MockExternalController) ControllerInfo() crossmodel.ControllerInfo {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ControllerInfo")
 	ret0, _ := ret[0].(crossmodel.ControllerInfo)
 	return ret0
@@ -371,11 +419,13 @@ func (m *MockExternalController) ControllerInfo() crossmodel.ControllerInfo {
 
 // ControllerInfo indicates an expected call of ControllerInfo
 func (mr *MockExternalControllerMockRecorder) ControllerInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerInfo", reflect.TypeOf((*MockExternalController)(nil).ControllerInfo))
 }
 
 // Id mocks base method
 func (m *MockExternalController) Id() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -383,5 +433,6 @@ func (m *MockExternalController) Id() string {
 
 // Id indicates an expected call of Id
 func (mr *MockExternalControllerMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockExternalController)(nil).Id))
 }

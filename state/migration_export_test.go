@@ -23,7 +23,7 @@ import (
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/constraints"
@@ -968,7 +968,7 @@ func (s *MigrationExportSuite) TestRemoteEntities(c *gc.C) {
 	err := remotes.ImportRemoteEntity(remoteCtrl, "aaa-bbb-ccc")
 	c.Assert(err, jc.ErrorIsNil)
 
-	mac, err := macaroon.New(nil, []byte(remoteCtrl.Id()), "")
+	mac, err := macaroon.New(nil, []byte(remoteCtrl.Id()), "", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	err = remotes.SaveMacaroon(remoteCtrl, mac)
 	c.Assert(err, jc.ErrorIsNil)

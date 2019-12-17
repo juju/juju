@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/mgo.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
@@ -292,7 +292,7 @@ func (s *CharmSuite) TestAddCharm(c *gc.C) {
 func (s *CharmSuite) TestAddCharmWithAuth(c *gc.C) {
 	// Check that adding charms from scratch works correctly.
 	info := s.dummyCharm(c, "")
-	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc")
+	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	info.Macaroon = macaroon.Slice{m}
 	dummy, err := s.State.AddCharm(info)
@@ -475,7 +475,7 @@ func (s *CharmSuite) TestUpdateUploadedCharm(c *gc.C) {
 	_, err = s.State.PrepareLocalCharmUpload(info.ID)
 	c.Assert(err, jc.ErrorIsNil)
 
-	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc")
+	m, err := macaroon.New([]byte("rootkey"), []byte("id"), "loc", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	info.Macaroon = macaroon.Slice{m}
 	c.Assert(err, jc.ErrorIsNil)
