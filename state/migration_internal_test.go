@@ -213,7 +213,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
 	todoCollections := set.NewStrings(
 		// uncategorised
-		//Cross Model Relations - TODO
 		dockerResourcesC,
 		// TODO(raftlease)
 		// This collection shouldn't be migrated, but we need to make

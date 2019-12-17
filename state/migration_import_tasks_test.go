@@ -623,8 +623,6 @@ func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, 
 	return entity
 }
 
-/////
-
 func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
