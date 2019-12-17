@@ -30,10 +30,10 @@ else
 	CHECK_ARGS = $(TEST_ARGS)
 endif
 
-GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD)
+GIT_COMMIT ?= $(shell git -C $(PROJECT_DIR) rev-parse HEAD 2>/dev/null)
 # If .git directory is missing, we are building out of an archive, otherwise report
 # if the tree that is checked out is dirty (modified) or clean.
-GIT_TREE_STATE = $(if $(shell test -d .git || echo missing),archive,$(if $(shell git status --porcelain),dirty,clean))
+GIT_TREE_STATE = $(if $(shell git -C $(PROJECT_DIR) rev-parse --is-inside-work-tree 2>/dev/null | grep -e 'true'),$(if $(shell git -C $(PROJECT_DIR) status --porcelain),dirty,clean),archive)
 
 # Build tags passed to go install/build.
 # Example: BUILD_TAGS="minimal provider_kubernetes"
