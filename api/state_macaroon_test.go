@@ -10,8 +10,8 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -149,7 +149,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	catcher := urlCatcher{}
 	s.PatchValue(api.WebsocketDial, catcher.recordLocation)
 
-	mac, err := macaroon.New([]byte("abc-123"), []byte("aurora gone"), "shankil butchers")
+	mac, err := macaroon.New([]byte("abc-123"), []byte("aurora gone"), "shankil butchers", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.DischargerLogin = func() string {
@@ -190,7 +190,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 func assertHeaderMatchesMacaroon(c *gc.C, header http.Header, macaroon macaroon.Slice) {
 	req := http.Request{Header: header}
 	actualCookie := req.Cookies()[0]
-	expectedCookie, err := httpbakery.NewCookie(macaroon)
+	expectedCookie, err := httpbakery.NewCookie(nil, macaroon)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actualCookie.Name, gc.Equals, expectedCookie.Name)
 	c.Assert(actualCookie.Value, gc.Equals, expectedCookie.Value)

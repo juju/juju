@@ -19,12 +19,12 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
@@ -460,12 +460,11 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 }
 
 func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive, string) {
-	repo := testcharms.TmpRepo(c)
-	charmArchive := repo.CharmArchive(repo.Path(), name)
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
 	_, err := client.AddLocalCharm(curl, charmArchive, force)
 	c.Assert(err, jc.ErrorIsNil)
-	return curl, charmArchive, repo.Path()
+	return curl, charmArchive, charmArchive.Path
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {

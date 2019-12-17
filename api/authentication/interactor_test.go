@@ -4,6 +4,7 @@
 package authentication_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
@@ -12,12 +13,12 @@ import (
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api/authentication"
 )
 
-type VisitorSuite struct {
+type InteractorSuite struct {
 	testing.IsolationSuite
 
 	jar     *cookiejar.Jar
@@ -26,9 +27,9 @@ type VisitorSuite struct {
 	handler http.Handler
 }
 
-var _ = gc.Suite(&VisitorSuite{})
+var _ = gc.Suite(&InteractorSuite{})
 
-func (s *VisitorSuite) SetUpTest(c *gc.C) {
+func (s *InteractorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	var err error
 	s.jar, err = cookiejar.New(nil)
@@ -42,41 +43,40 @@ func (s *VisitorSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { s.server.Close() })
 }
 
-func (s *VisitorSuite) TestVisitWebPage(c *gc.C) {
-	v := authentication.NewVisitor("bob", func(username string) (string, error) {
+func (s *InteractorSuite) TestInteract(c *gc.C) {
+	v := authentication.NewInteractor("bob", func(username string) (string, error) {
 		c.Assert(username, gc.Equals, "bob")
 		return "hunter2", nil
 	})
+	lv, ok := v.(httpbakery.LegacyInteractor)
+	c.Assert(ok, jc.IsTrue)
 	var formUser, formPassword string
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		formUser = r.Form.Get("user")
 		formPassword = r.Form.Get("password")
 	})
-	err := v.VisitWebPage(s.client, map[string]*url.URL{
-		"juju_userpass": mustParseURL(s.server.URL),
-	})
+	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(formUser, gc.Equals, "bob")
 	c.Assert(formPassword, gc.Equals, "hunter2")
 }
 
-func (s *VisitorSuite) TestVisitWebPageMethodNotSupported(c *gc.C) {
-	v := authentication.NewVisitor("bob", nil)
-	err := v.VisitWebPage(s.client, map[string]*url.URL{})
-	c.Assert(err, gc.Equals, httpbakery.ErrMethodNotSupported)
+func (s *InteractorSuite) TestKind(c *gc.C) {
+	v := authentication.NewInteractor("bob", nil)
+	c.Assert(v.Kind(), gc.Equals, "juju_userpass")
 }
 
-func (s *VisitorSuite) TestVisitWebPageErrorResult(c *gc.C) {
-	v := authentication.NewVisitor("bob", func(username string) (string, error) {
+func (s *InteractorSuite) TestInteractErrorResult(c *gc.C) {
+	v := authentication.NewInteractor("bob", func(username string) (string, error) {
 		return "hunter2", nil
 	})
+	lv, ok := v.(httpbakery.LegacyInteractor)
+	c.Assert(ok, jc.IsTrue)
 	s.handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, `{"Message":"bleh"}`, http.StatusInternalServerError)
 	})
-	err := v.VisitWebPage(s.client, map[string]*url.URL{
-		"juju_userpass": mustParseURL(s.server.URL),
-	})
+	err := lv.LegacyInteract(context.Background(), s.client, "", mustParseURL(s.server.URL))
 	c.Assert(err, gc.ErrorMatches, "bleh")
 }
 

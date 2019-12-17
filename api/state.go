@@ -15,8 +15,9 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
@@ -99,11 +100,15 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		if result.DischargeRequiredReason == "" {
 			result.DischargeRequiredReason = "no reason given for discharge requirement"
 		}
-		if err := st.bakeryClient.HandleError(st.cookieURL, &httpbakery.Error{
+		dcMac, err := bakery.NewLegacyMacaroon(result.DischargeRequired)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, &httpbakery.Error{
 			Message: result.DischargeRequiredReason,
 			Code:    httpbakery.ErrDischargeRequired,
 			Info: &httpbakery.ErrorInfo{
-				Macaroon:     result.DischargeRequired,
+				Macaroon:     dcMac,
 				MacaroonPath: "/",
 			},
 		}); err != nil {

@@ -29,7 +29,7 @@ func (c *Client) GUIArchives() ([]params.GUIArchiveVersion, error) {
 		return nil, errors.Annotate(err, "cannot retrieve HTTP client")
 	}
 	var resp params.GUIArchiveResponse
-	if err = httpClient.Get(guiArchivePath, &resp); err != nil {
+	if err = httpClient.Get(c.facade.RawAPICaller().Context(), guiArchivePath, &resp); err != nil {
 		return nil, errors.Annotate(err, "cannot retrieve GUI archives info")
 	}
 	return resp.Versions, nil
@@ -42,7 +42,7 @@ func (c *Client) UploadGUIArchive(r io.ReadSeeker, hash string, size int64, vers
 	v := url.Values{}
 	v.Set("version", vers.String())
 	v.Set("hash", hash)
-	req, err := http.NewRequest("POST", guiArchivePath+"?"+v.Encode(), nil)
+	req, err := http.NewRequest("POST", guiArchivePath+"?"+v.Encode(), r)
 	if err != nil {
 		return false, errors.Annotate(err, "cannot create upload request")
 	}
@@ -55,7 +55,7 @@ func (c *Client) UploadGUIArchive(r io.ReadSeeker, hash string, size int64, vers
 		return false, errors.Annotate(err, "cannot retrieve HTTP client")
 	}
 	var resp params.GUIArchiveVersion
-	if err = httpClient.Do(req, r, &resp); err != nil {
+	if err = httpClient.Do(c.facade.RawAPICaller().Context(), req, &resp); err != nil {
 		return false, errors.Annotate(err, "cannot upload the GUI archive")
 	}
 	return resp.Current, nil
@@ -65,24 +65,24 @@ func (c *Client) UploadGUIArchive(r io.ReadSeeker, hash string, size int64, vers
 // controller.
 func (c *Client) SelectGUIVersion(vers version.Number) error {
 	// Prepare the request.
-	req, err := http.NewRequest("PUT", guiVersionPath, nil)
-	if err != nil {
-		return errors.Annotate(err, "cannot create PUT request")
-	}
-	req.Header.Set("Content-Type", params.ContentTypeJSON)
 	content, err := json.Marshal(params.GUIVersionRequest{
 		Version: vers,
 	})
 	if err != nil {
 		errors.Annotate(err, "cannot marshal request body")
 	}
+	req, err := http.NewRequest("PUT", guiVersionPath, bytes.NewReader(content))
+	if err != nil {
+		return errors.Annotate(err, "cannot create PUT request")
+	}
+	req.Header.Set("Content-Type", params.ContentTypeJSON)
 
 	// Retrieve a client and send the request.
 	httpClient, err := c.facade.RawAPICaller().HTTPClient()
 	if err != nil {
 		return errors.Annotate(err, "cannot retrieve HTTP client")
 	}
-	if err = httpClient.Do(req, bytes.NewReader(content), nil); err != nil {
+	if err = httpClient.Do(c.facade.RawAPICaller().Context(), req, nil); err != nil {
 		return errors.Annotate(err, "cannot select GUI version")
 	}
 	return nil

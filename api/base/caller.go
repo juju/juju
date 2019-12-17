@@ -4,13 +4,15 @@
 package base
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/url"
 
-	"github.com/juju/httprequest"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 )
 
 //go:generate mockgen -package mocks -destination mocks/caller_mock.go github.com/juju/juju/api/base APICaller,FacadeCaller
@@ -43,10 +45,21 @@ type APICaller interface {
 	HTTPClient() (*httprequest.Client, error)
 
 	// BakeryClient returns the bakery client for this connection.
-	BakeryClient() *httpbakery.Client
+	BakeryClient() MacaroonDischarger
+
+	// Context returns the standard context for this connection.
+	Context() context.Context
 
 	StreamConnector
 	ControllerStreamConnector
+}
+
+// MacaroonDischarger instances provide a method to discharge macaroons.
+type MacaroonDischarger interface {
+	// DischargeAll attempts to acquire discharge macaroons for all the
+	// third party caveats in m, and returns a slice containing all
+	// of them bound to m.
+	DischargeAll(ctx context.Context, m *bakery.Macaroon) (macaroon.Slice, error)
 }
 
 // StreamConnector is implemented by the client-facing State object.

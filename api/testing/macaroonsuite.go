@@ -14,8 +14,8 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
@@ -193,5 +193,5 @@ func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
 }
 
 func NewMacaroon(id string) (*macaroon.Macaroon, error) {
-	return macaroon.New(nil, []byte(id), "")
+	return macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
 }

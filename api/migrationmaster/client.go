@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/version"
+	"gopkg.in/httprequest.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -216,7 +216,9 @@ func (c *Client) OpenResource(application, name string) (io.ReadCloser, error) {
 
 	uri := fmt.Sprintf("/applications/%s/resources/%s", application, name)
 	var resp *http.Response
-	if err := httpClient.Get(uri, &resp); err != nil {
+	if err := httpClient.Get(
+		c.caller.RawAPICaller().Context(),
+		uri, &resp); err != nil {
 		return nil, errors.Annotate(err, "unable to retrieve resource")
 	}
 	return resp.Body, nil

@@ -5,14 +5,17 @@ package crossmodelrelations_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/crossmodelrelations"
 	apitesting "github.com/juju/juju/api/testing"
@@ -40,13 +43,19 @@ func (s *CrossModelRelationsSuite) TestNewClient(c *gc.C) {
 	c.Assert(client, gc.NotNil)
 }
 
-type mockDischargeAcquirer struct{}
+type mockDischargeAcquirer struct {
+	base.MacaroonDischarger
+}
 
-func (m *mockDischargeAcquirer) AcquireDischarge(cav macaroon.Caveat) (*macaroon.Macaroon, error) {
-	if !bytes.Equal(cav.Id, []byte("third party caveat")) {
+func (m *mockDischargeAcquirer) DischargeAll(ctx context.Context, b *bakery.Macaroon) (macaroon.Slice, error) {
+	if !bytes.Equal(b.M().Caveats()[0].Id, []byte("third party caveat")) {
 		return nil, errors.New("permission denied")
 	}
-	return apitesting.NewMacaroon("discharge mac")
+	mac, err := apitesting.NewMacaroon("discharge mac")
+	if err != nil {
+		return nil, err
+	}
+	return macaroon.Slice{mac}, nil
 }
 
 func (s *CrossModelRelationsSuite) newDischargeMacaroon(c *gc.C) *macaroon.Macaroon {
@@ -111,13 +120,12 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		var resultErr *params.Error
 		if callCount == 0 {
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -143,14 +151,12 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChangeDischargeRequired(c 
 	})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Check(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
@@ -219,13 +225,12 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationCount(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		var resultErr *params.Error
 		if callCount == 0 {
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -252,14 +257,12 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelationDischargeRequired(c
 	c.Check(callCount, gc.Equals, 2)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(result[0].Error, gc.IsNil)
-	c.Check(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
@@ -305,7 +308,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnits(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -314,7 +316,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc
 		case 2, 3: //Watcher Next, Stop
 			return nil
 		case 0:
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -338,14 +340,12 @@ func (s *CrossModelRelationsSuite) TestWatchRelationUnitsDischargeRequired(c *gc
 	_, err := client.WatchRelationUnits(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
@@ -392,13 +392,12 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestRelationUnitSettingsDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		var resultErr *params.Error
 		if callCount == 0 {
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -424,14 +423,12 @@ func (s *CrossModelRelationsSuite) TestRelationUnitSettingsDischargeRequired(c *
 	c.Check(callCount, gc.Equals, 2)
 	c.Assert(result, gc.HasLen, 1)
 	c.Check(result[0].Error, gc.IsNil)
-	c.Check(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Check(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
@@ -477,7 +474,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -486,7 +482,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 		case 2, 3: //Watcher Next, Stop
 			return nil
 		case 0:
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -510,14 +506,12 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatusDischargeRequired(c *g
 	_, err := client.WatchRelationSuspendedStatus(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
@@ -563,13 +557,12 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		var resultErr *params.Error
 		if callCount == 0 {
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -594,14 +587,12 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChangeDischargeRequi
 		Networks:      []string{"1.2.3.4/32"}})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
-	c.Check(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) {
@@ -678,14 +669,12 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelationDischargeR
 	_, err := client.WatchEgressAddressesForRelation(params.RemoteEntityArg{Token: "token"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("token")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }
 
 func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
@@ -731,7 +720,6 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C) {
 	var (
 		callCount    int
-		mac          *macaroon.Macaroon
 		dischargeMac macaroon.Slice
 	)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
@@ -740,7 +728,7 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 		case 2, 3: //Watcher Next, Stop
 			return nil
 		case 0:
-			mac = s.newDischargeMacaroon(c)
+			mac := s.newDischargeMacaroon(c)
 			resultErr = &params.Error{
 				Code: params.CodeDischargeRequired,
 				Info: params.DischargeRequiredErrorInfo{
@@ -764,12 +752,10 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatusDischargeRequired(c *gc.C
 	_, err := client.WatchOfferStatus(params.OfferArg{OfferUUID: "offer-uuid"})
 	c.Check(callCount, gc.Equals, 2)
 	c.Check(err, jc.ErrorIsNil)
-	c.Assert(dischargeMac, gc.HasLen, 2)
-	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
-	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	c.Assert(dischargeMac, gc.HasLen, 1)
+	c.Assert(dischargeMac[0].Id(), jc.DeepEquals, []byte("discharge mac"))
 	// Macaroon has been cached.
 	ms, ok := s.cache.Get("offer-uuid")
 	c.Assert(ok, jc.IsTrue)
-	apitesting.MacaroonEquals(c, ms[0], mac)
-	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	apitesting.MacaroonEquals(c, ms[0], dischargeMac[0])
 }

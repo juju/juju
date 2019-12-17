@@ -4,12 +4,15 @@
 package authentication
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	schemaform "gopkg.in/juju/environschema.v1/form"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery/form"
 )
 
 const authMethod = "juju_userpass"
@@ -17,34 +20,37 @@ const authMethod = "juju_userpass"
 // Visitor is a httpbakery.Visitor that will login directly
 // to the Juju controller using password authentication. This
 // only applies when logging in as a local user.
-type Visitor struct {
+type Interactor struct {
+	form.Interactor
 	username    string
 	getPassword func(string) (string, error)
 }
 
-// NewVisitor returns a new Visitor.
-func NewVisitor(username string, getPassword func(string) (string, error)) *Visitor {
-	return &Visitor{
+// NewInteractor returns a new Interactor.
+func NewInteractor(username string, getPassword func(string) (string, error)) httpbakery.Interactor {
+	return &Interactor{
+		Interactor:  form.Interactor{Filler: schemaform.IOFiller{}},
 		username:    username,
 		getPassword: getPassword,
 	}
 }
 
-// VisitWebPage is part of the httpbakery.Visitor interface.
-func (v *Visitor) VisitWebPage(client *httpbakery.Client, methodURLs map[string]*url.URL) error {
-	methodURL := methodURLs[authMethod]
-	if methodURL == nil {
-		return httpbakery.ErrMethodNotSupported
-	}
+// Kind implements httpbakery.Interactor.Kind.
+func (i Interactor) Kind() string {
+	return authMethod
+}
 
-	password, err := v.getPassword(v.username)
+// LegacyInteract implements httpbakery.LegacyInteractor
+// for the Interactor.
+func (i *Interactor) LegacyInteract(ctx context.Context, client *httpbakery.Client, location string, methodURL *url.URL) error {
+	password, err := i.getPassword(i.username)
 	if err != nil {
 		return err
 	}
 
 	// POST to the URL with username and password.
 	resp, err := client.PostForm(methodURL.String(), url.Values{
-		"user":     {v.username},
+		"user":     {i.username},
 		"password": {password},
 	})
 	if err != nil {

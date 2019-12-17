@@ -5,8 +5,8 @@ package backups
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
+	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api/base"
 )
