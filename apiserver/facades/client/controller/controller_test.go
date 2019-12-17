@@ -65,11 +65,12 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	controller, err := controller.NewControllerAPIv8(
 		facadetest.Context{
-			State_:     s.State,
-			StatePool_: s.StatePool,
-			Resources_: s.resources,
-			Auth_:      s.authorizer,
-			Hub_:       s.hub,
+			State_:               s.State,
+			StatePool_:           s.StatePool,
+			Resources_:           s.resources,
+			Auth_:                s.authorizer,
+			Hub_:                 s.hub,
+			MultiwatcherFactory_: &apiserver.MultiwatcherFactory{s.StatePool},
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller

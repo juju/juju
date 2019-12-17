@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/apiserver"
 	controllermsg "github.com/juju/juju/pubsub/controller"
@@ -122,6 +123,11 @@ type ServerConfig struct {
 	Mux           *apiserverhttp.Mux
 	Authenticator httpcontext.LocalMacaroonAuthenticator
 
+	// MultiwatcherFactory is used by the API server to create
+	// multiwatchers. The real factory is managed by the multiwatcher
+	// worker.
+	MultiwatcherFactory multiwatcher.Factory
+
 	// StatePool is the StatePool used for looking up State
 	// to pass to facades. StatePool will not be closed by the
 	// server; it is the callers responsibility to close it
@@ -190,6 +196,9 @@ func (c ServerConfig) Validate() error {
 	}
 	if c.Controller == nil {
 		return errors.NotValidf("missing Controller")
+	}
+	if c.MultiwatcherFactory == nil {
+		return errors.NotValidf("missing MultiwatcherFactory")
 	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing Hub")
@@ -262,13 +271,14 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 	}
 
 	shared, err := newSharedServerContext(sharedServerConfig{
-		statePool:        cfg.StatePool,
-		controller:       cfg.Controller,
-		centralHub:       cfg.Hub,
-		presence:         cfg.Presence,
-		leaseManager:     cfg.LeaseManager,
-		controllerConfig: controllerConfig,
-		logger:           loggo.GetLogger("juju.apiserver"),
+		statePool:           cfg.StatePool,
+		controller:          cfg.Controller,
+		multiwatcherFactory: cfg.MultiwatcherFactory,
+		centralHub:          cfg.Hub,
+		presence:            cfg.Presence,
+		leaseManager:        cfg.LeaseManager,
+		controllerConfig:    controllerConfig,
+		logger:              loggo.GetLogger("juju.apiserver"),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -988,4 +998,32 @@ func serverError(err error) error {
 func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
+}
+
+// MultiwatcherFactory is a temporary shim until we get the factory
+// from a new worker.
+type MultiwatcherFactory struct {
+	Pool *state.StatePool
+}
+
+// WatchModel provides a temporary shim over the current state methods.
+// We are taking a few liberities with this method. Since this is only ever
+// called from the apiserver inside a particular model, we know the model exists
+// in the state pool (although if there is an error getting the state from the pool
+// we'll return nil). Since we know the lifetime of the state object in the pool
+// is handled by the apiserver, we release our reference on the pooled state immediately.
+func (f *MultiwatcherFactory) WatchModel(modelUUID string) multiwatcher.Watcher {
+	pooled, err := f.Pool.Get(modelUUID)
+	if err != nil {
+		return nil
+	}
+	defer pooled.Release()
+	return pooled.Watch(state.WatchParams{IncludeOffers: true})
+}
+
+// WatchController provides a temporary shim over the state pool to watch
+// the entire controller for events.
+func (f *MultiwatcherFactory) WatchController() multiwatcher.Watcher {
+	st := f.Pool.SystemState()
+	return st.WatchAllModels(f.Pool)
 }

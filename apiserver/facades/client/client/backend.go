@@ -71,7 +71,6 @@ type Backend interface {
 	SetModelConstraints(constraints.Value) error
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
-	Watch(params state.WatchParams) *state.Multiwatcher
 }
 
 // Model contains the state.Model methods used in this package.
@@ -125,10 +124,6 @@ func (s *stateShim) Unit(name string) (Unit, error) {
 		return nil, err
 	}
 	return u, nil
-}
-
-func (s *stateShim) Watch(params state.WatchParams) *state.Multiwatcher {
-	return s.State.Watch(params)
 }
 
 func (s *stateShim) AllApplicationOffers() ([]*crossmodel.ApplicationOffer, error) {

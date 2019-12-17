@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/apiserver"
@@ -39,6 +40,7 @@ type workerFixture struct {
 	config               apiserver.Config
 	stub                 testing.Stub
 	metricsCollector     *coreapiserver.Collector
+	multiwatcherFactory  multiwatcher.Factory
 }
 
 func (s *workerFixture) SetUpTest(c *gc.C) {
@@ -62,6 +64,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.prometheusRegisterer = stubPrometheusRegisterer{}
 	s.leaseManager = &struct{ lease.Manager }{}
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
+	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.stub.ResetCalls()
 
 	s.config = apiserver.Config{
@@ -72,6 +75,7 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 		Hub:                               &s.hub,
 		Presence:                          presence.New(s.clock),
 		Mux:                               s.mux,
+		MultiwatcherFactory:               s.multiwatcherFactory,
 		StatePool:                         &state.StatePool{},
 		LeaseManager:                      s.leaseManager,
 		RegisterIntrospectionHTTPHandlers: func(func(string, http.Handler)) {},
@@ -125,6 +129,9 @@ func (s *WorkerValidationSuite) TestValidateErrors(c *gc.C) {
 		func(cfg *apiserver.Config) { cfg.MetricsCollector = nil },
 		"nil MetricsCollector not valid",
 	}, {
+		func(cfg *apiserver.Config) { cfg.MultiwatcherFactory = nil },
+		"nil MultiwatcherFactory not valid",
+	}, {
 		func(cfg *apiserver.Config) { cfg.LeaseManager = nil },
 		"nil LeaseManager not valid",
 	}, {
@@ -169,4 +176,8 @@ func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, e
 	s.agentConfig.values = map[string]string{key: value}
 	_, err := apiserver.NewWorker(s.config)
 	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
+}
+
+type fakeMultiwatcherFactory struct {
+	multiwatcher.Factory
 }

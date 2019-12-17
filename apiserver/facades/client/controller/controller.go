@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	corecontroller "github.com/juju/juju/controller"
 	coremigration "github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/migration"
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/pubsub/controller"
@@ -49,6 +50,8 @@ type ControllerAPI struct {
 	resources  facade.Resources
 	presence   facade.Presence
 	hub        facade.Hub
+
+	multiwatcherFactory multiwatcher.Factory
 }
 
 // ControllerAPIv7 provides the v7 Controller API. The only difference
@@ -89,6 +92,7 @@ func NewControllerAPIv8(ctx facade.Context) (*ControllerAPI, error) {
 	resources := ctx.Resources()
 	presence := ctx.Presence()
 	hub := ctx.Hub()
+	factory := ctx.MultiwatcherFactory()
 
 	return NewControllerAPI(
 		st,
@@ -97,6 +101,7 @@ func NewControllerAPIv8(ctx facade.Context) (*ControllerAPI, error) {
 		resources,
 		presence,
 		hub,
+		factory,
 	)
 }
 
@@ -154,6 +159,7 @@ func NewControllerAPI(
 	resources facade.Resources,
 	presence facade.Presence,
 	hub facade.Hub,
+	factory multiwatcher.Factory,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
@@ -182,13 +188,14 @@ func NewControllerAPI(
 			cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 			common.AuthFuncForTag(model.ModelTag()),
 		),
-		state:      st,
-		statePool:  pool,
-		authorizer: authorizer,
-		apiUser:    apiUser,
-		resources:  resources,
-		presence:   presence,
-		hub:        hub,
+		state:               st,
+		statePool:           pool,
+		authorizer:          authorizer,
+		apiUser:             apiUser,
+		resources:           resources,
+		presence:            presence,
+		hub:                 hub,
+		multiwatcherFactory: factory,
 	}, nil
 }
 
@@ -474,7 +481,7 @@ func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
 	if err := c.checkHasAdmin(); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	w := c.state.WatchAllModels(c.statePool)
+	w := c.multiwatcherFactory.WatchController()
 	return params.AllWatcherId{
 		AllWatcherId: c.resources.Register(w),
 	}, nil

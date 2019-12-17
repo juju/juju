@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -43,6 +44,8 @@ type API struct {
 	auth          facade.Authorizer
 	resources     facade.Resources
 	presence      facade.Presence
+
+	multiwatcherFactory multiwatcher.Factory
 
 	client *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
@@ -145,6 +148,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
 	presence := ctx.Presence()
+	factory := ctx.MultiwatcherFactory()
 
 	model, err := st.Model()
 	if err != nil {
@@ -201,6 +205,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		state.CallContext(st),
 		leadershipReader,
 		modelCache,
+		factory,
 		application.OpenCSRepo,
 	)
 }
@@ -220,6 +225,7 @@ func NewClient(
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
 	modelCache *cache.Model,
+	factory multiwatcher.Factory,
 	openCSRepo application.OpenCSRepoFunc,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
@@ -228,15 +234,16 @@ func NewClient(
 	client := &Client{
 		ModelConfigAPIV1: modelConfigAPI,
 		api: &API{
-			stateAccessor:    backend,
-			pool:             pool,
-			auth:             authorizer,
-			resources:        resources,
-			presence:         presence,
-			statusSetter:     statusSetter,
-			toolsFinder:      toolsFinder,
-			leadershipReader: leadershipReader,
-			modelCache:       modelCache,
+			stateAccessor:       backend,
+			pool:                pool,
+			auth:                authorizer,
+			resources:           resources,
+			presence:            presence,
+			statusSetter:        statusSetter,
+			toolsFinder:         toolsFinder,
+			leadershipReader:    leadershipReader,
+			modelCache:          modelCache,
+			multiwatcherFactory: factory,
 		},
 		newEnviron:  newEnviron,
 		check:       blockChecker,
@@ -263,12 +270,41 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	watchParams := state.WatchParams{IncludeOffers: isAdmin}
-
-	w := c.api.stateAccessor.Watch(watchParams)
+	_ = isAdmin
+	modelUUID := c.api.stateAccessor.ModelUUID()
+	w := c.api.multiwatcherFactory.WatchModel(modelUUID)
+	if !isAdmin {
+		w = &stripApplicationOffers{w}
+	}
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil
+}
+
+type stripApplicationOffers struct {
+	multiwatcher.Watcher
+}
+
+func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
+	var result []multiwatcher.Delta
+	// We don't want to return a list on nothing. Next normally blocks until there
+	// is something to return.
+	for len(result) == 0 {
+		deltas, err := s.Watcher.Next()
+		if err != nil {
+			return nil, err
+		}
+		result = make([]multiwatcher.Delta, 0, len(deltas))
+		for _, d := range deltas {
+			switch d.Entity.EntityID().Kind {
+			case multiwatcher.ApplicationOfferKind:
+				// skip it
+			default:
+				result = append(result, d)
+			}
+		}
+	}
+	return result, nil
 }
 
 // Resolved implements the server side of Client.Resolved.
