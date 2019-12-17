@@ -146,7 +146,7 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 		`getting certificate for server name "somewhere.example"`,
 	}, {
 		loggo.ERROR,
-		`.*cannot get autocert certificate for "somewhere.example": Get "https://0\.1\.2\.3/no-autocert-here": .*`,
+		`.*cannot get autocert certificate for "somewhere.example": Get ["]?https://0\.1\.2\.3/no-autocert-here["]?: .*`,
 	}})
 }
 
