@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/common"
@@ -31,21 +31,19 @@ type SeriesConfig interface {
 // ResolveCharmFunc is the type of a function that resolves a charm URL with
 // an optionally specified preferred channel.
 type ResolveCharmFunc func(
-	resolveWithChannel func(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error),
+	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
 	url *charm.URL,
-	preferredChannel csparams.Channel,
 ) (*charm.URL, csparams.Channel, []string, error)
 
 func resolveCharm(
-	resolveWithChannel func(*charm.URL, csparams.Channel) (*charm.URL, csparams.Channel, []string, error),
+	resolveWithChannel func(*charm.URL) (*charm.URL, csparams.Channel, []string, error),
 	url *charm.URL,
-	preferredChannel csparams.Channel,
 ) (*charm.URL, csparams.Channel, []string, error) {
 	if url.Schema != "cs" {
 		return nil, csparams.NoChannel, nil, errors.Errorf("unknown schema for charm URL %q", url)
 	}
 
-	resultURL, channel, supportedSeries, err := resolveWithChannel(url, preferredChannel)
+	resultURL, channel, supportedSeries, err := resolveWithChannel(url)
 	if err != nil {
 		return nil, csparams.NoChannel, nil, errors.Trace(err)
 	}
@@ -81,11 +79,11 @@ func addCharmFromURL(client CharmAdder, cs macaroonGetter, curl *charm.URL, chan
 
 // newCharmStoreClient is called to obtain a charm store client.
 // It is defined as a variable so it can be changed for testing purposes.
-var newCharmStoreClient = func(client *httpbakery.Client, csURL string) *csclient.Client {
+var newCharmStoreClient = func(client *httpbakery.Client, csURL string, channel csparams.Channel) *csclient.Client {
 	return csclient.New(csclient.Params{
 		URL:          csURL,
 		BakeryClient: client,
-	})
+	}).WithChannel(channel)
 }
 
 type macaroonGetter interface {

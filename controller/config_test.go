@@ -14,7 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	utilscert "github.com/juju/utils/cert"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v4/csclient"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/controller"
@@ -140,7 +140,7 @@ var newConfigTests = []struct {
 	config: controller.Config{
 		controller.IdentityPublicKey: `xxxx`,
 	},
-	expectError: `invalid identity public key: wrong length for base64 key, got 3 want 32`,
+	expectError: `invalid identity public key: wrong length for key, got 3 want 32`,
 }, {
 	about: "invalid management space name - whitespace",
 	config: controller.Config{

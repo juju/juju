@@ -22,6 +22,6 @@ func NewAPIClient(apiCaller base.APICallCloser) (*client.Client, error) {
 		return nil, errors.Trace(err)
 	}
 	// The apiCaller takes care of prepending /environment/<modelUUID>.
-	apiClient := client.NewClient(caller, httpClient, apiCaller)
+	apiClient := client.NewClient(apiCaller.Context(), caller, httpClient, apiCaller)
 	return apiClient, nil
 }

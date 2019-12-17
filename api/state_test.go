@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -196,7 +196,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju")
+	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")

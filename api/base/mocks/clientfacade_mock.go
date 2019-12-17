@@ -5,11 +5,11 @@
 package mocks
 
 import (
+	context "context"
 	gomock "github.com/golang/mock/gomock"
-	httprequest "github.com/juju/httprequest"
 	base "github.com/juju/juju/api/base"
+	httprequest_v1 "gopkg.in/httprequest.v1"
 	names_v3 "gopkg.in/juju/names.v3"
-	httpbakery "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
@@ -51,9 +51,9 @@ func (mr *MockAPICallCloserMockRecorder) APICall(arg0, arg1, arg2, arg3, arg4, a
 }
 
 // BakeryClient mocks base method
-func (m *MockAPICallCloser) BakeryClient() *httpbakery.Client {
+func (m *MockAPICallCloser) BakeryClient() base.MacaroonDischarger {
 	ret := m.ctrl.Call(m, "BakeryClient")
-	ret0, _ := ret[0].(*httpbakery.Client)
+	ret0, _ := ret[0].(base.MacaroonDischarger)
 	return ret0
 }
 
@@ -112,10 +112,22 @@ func (mr *MockAPICallCloserMockRecorder) ConnectStream(arg0, arg1 interface{}) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConnectStream", reflect.TypeOf((*MockAPICallCloser)(nil).ConnectStream), arg0, arg1)
 }
 
+// Context mocks base method
+func (m *MockAPICallCloser) Context() context.Context {
+	ret := m.ctrl.Call(m, "Context")
+	ret0, _ := ret[0].(context.Context)
+	return ret0
+}
+
+// Context indicates an expected call of Context
+func (mr *MockAPICallCloserMockRecorder) Context() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAPICallCloser)(nil).Context))
+}
+
 // HTTPClient mocks base method
-func (m *MockAPICallCloser) HTTPClient() (*httprequest.Client, error) {
+func (m *MockAPICallCloser) HTTPClient() (*httprequest_v1.Client, error) {
 	ret := m.ctrl.Call(m, "HTTPClient")
-	ret0, _ := ret[0].(*httprequest.Client)
+	ret0, _ := ret[0].(*httprequest_v1.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

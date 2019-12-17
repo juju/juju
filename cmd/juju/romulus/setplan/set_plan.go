@@ -15,7 +15,7 @@ import (
 	"github.com/juju/errors"
 	api "github.com/juju/romulus/api/plan"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/application"
 	jujucmd "github.com/juju/juju/cmd"
@@ -103,7 +103,7 @@ func (c *setPlanCommand) requestMetricCredentials(client *application.Client, ct
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m, err := authClient.Authorize(client.ModelUUID(), charmURL.String(), c.Application, c.Plan, hc.VisitWebPage)
+	m, err := authClient.Authorize(client.ModelUUID(), charmURL.String(), c.Application, c.Plan, nil)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

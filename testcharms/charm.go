@@ -8,20 +8,16 @@ package testcharms
 import (
 	"archive/zip"
 	"bytes"
-	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
-	"path/filepath"
-	"runtime"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils/fs"
 	gc "gopkg.in/check.v1"
 
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3/testing"
+	"gopkg.in/juju/charmrepo.v4/testing"
 
 	jtesting "github.com/juju/juju/testing"
 )
@@ -31,24 +27,6 @@ const localCharmRepo = "charm-repo"
 
 // Repo provides access to the test charm repository.
 var Repo = testing.NewRepo(localCharmRepo, defaultSeries)
-
-// TmpRepo provides access to the a tmp repo repository consisting of one charm. Copied from the
-// repository under juju/juju
-// With this we can make sure that we use the proper level of isolation. In this case the charm repo is not under
-// Juju git versioning.
-func TmpRepo(c *gc.C) *testing.Repo {
-	_, file, _, ok := runtime.Caller(0)
-	if !ok {
-		panic("cannot get caller")
-	}
-	dst := filepath.Join(os.TempDir(), fmt.Sprintf("file-%d", time.Now().UnixNano()))
-
-	// With this we ensure only to copy the charm we need
-	src := filepath.Join(filepath.Dir(file), localCharmRepo, defaultSeries)
-	err := fs.Copy(src, dst)
-	c.Assert(err, jc.ErrorIsNil)
-	return testing.NewRepoFromFullPath(dst, "")
-}
 
 // RepoForSeries returns a new charm repository for the specified series.
 // Note: this is a bit weird, as it ignores the series if it's NOT kubernetes

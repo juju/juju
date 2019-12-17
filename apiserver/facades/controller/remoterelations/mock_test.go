@@ -10,7 +10,7 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
@@ -389,7 +389,7 @@ func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 
 func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 	r.MethodCall(r, "Macaroon")
-	return macaroon.New(nil, []byte("test"), "")
+	return macaroon.New(nil, []byte("test"), "", macaroon.LatestVersion)
 }
 
 func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {

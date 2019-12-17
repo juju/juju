@@ -32,7 +32,6 @@ import (
 	"github.com/juju/utils/symlink"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -201,7 +200,7 @@ func (s *MachineLegacyLeasesSuite) TestDontUseLumberjack(c *gc.C) {
 }
 
 func (s *MachineLegacyLeasesSuite) TestRunStop(c *gc.C) {
-	m, ac, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
 	go func() {
@@ -210,7 +209,6 @@ func (s *MachineLegacyLeasesSuite) TestRunStop(c *gc.C) {
 	err := a.Stop()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(<-done, jc.ErrorIsNil)
-	c.Assert(charmrepo.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
 }
 
 func (s *MachineLegacyLeasesSuite) TestDyingMachine(c *gc.C) {

@@ -7,7 +7,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -58,7 +59,11 @@ func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
 		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
 	}
 
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(info.Macaroon)
+	m, err := bakery.NewLegacyMacaroon(info.Macaroon)
+	if err != nil {
+		return nil, errors.Wrap(apiErr, err)
+	}
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(c.facade.RawAPICaller().Context(), m)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {

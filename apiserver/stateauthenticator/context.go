@@ -14,7 +14,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/bakeryutil"
@@ -217,7 +217,7 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	// so configure the bakery service appropriately.
 	idPK := controllerCfg.IdentityPublicKey()
 	if idPK != nil {
-		locator = bakery.PublicKeyLocatorMap{idURL: idPK}
+		locator = bakery.PublicKeyLocatorMap{idURL: &bakery.PublicKey{bakery.Key(idPK.Key)}}
 	} else {
 		// No public key supplied - retrieve it from the identity manager on demand.
 		// Note that we don't fetch it immediately because then we'll fail

@@ -4,7 +4,7 @@
 package listplans
 
 import (
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 var (

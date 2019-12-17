@@ -10,9 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 )
+
+// MacaroonNamespace is the namespace Juju uses for managing macaroons.
+var MacaroonNamespace *checkers.Namespace
 
 // newMacaroonJar returns a new macaroonJar wrapping the given cache and
 // expecting to be used against the given URL.  Both the cache and url must
@@ -69,7 +73,7 @@ func (j *macaroonJar) Activate(cURL *charm.URL) error {
 		return errors.Trace(err)
 	}
 	if m != nil {
-		httpbakery.SetCookie(j.underlying, j.serverURL, m)
+		httpbakery.SetCookie(j.underlying, j.serverURL, MacaroonNamespace, m)
 	}
 	return nil
 }

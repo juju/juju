@@ -4,6 +4,7 @@
 package listagreements
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,7 +15,7 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/terms-client/api"
 	"github.com/juju/terms-client/api/wireformat"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -29,7 +30,7 @@ var (
 // TermsServiceClient defines methods needed for the Terms Service CLI
 // commands.
 type TermsServiceClient interface {
-	GetUsersAgreements() ([]wireformat.AgreementResponse, error)
+	GetUsersAgreements(ctx context.Context) ([]wireformat.AgreementResponse, error)
 }
 
 const listAgreementsDoc = `
@@ -96,7 +97,7 @@ func (c *listAgreementsCommand) Run(ctx *cmd.Context) error {
 		return errors.Annotate(err, "failed to create a terms API client")
 	}
 
-	agreements, err := apiClient.GetUsersAgreements()
+	agreements, err := apiClient.GetUsersAgreements(c.StdContext)
 	if err != nil {
 		return errors.Annotate(err, "failed to list user agreements")
 	}

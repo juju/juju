@@ -17,7 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
@@ -349,13 +349,13 @@ type mockCharmStore struct {
 	bundle  *mockBundle
 }
 
-func (s *mockCharmStore) ResolveWithPreferredChannel(url *charm.URL, preferredChannel csparams.Channel) (*charm.URL, csparams.Channel, []string, error) {
-	s.stub.AddCall("ResolveWithPreferredChannel", url, preferredChannel)
+func (s *mockCharmStore) ResolveWithChannel(url *charm.URL) (*charm.URL, csparams.Channel, []string, error) {
+	s.stub.AddCall("ResolveWithChannel", url)
 	return s.url, s.channel, s.series, s.stub.NextErr()
 }
 
-func (s *mockCharmStore) GetBundle(url *charm.URL) (charm.Bundle, error) {
-	s.stub.AddCall("GetBundle", url)
+func (s *mockCharmStore) GetBundle(url *charm.URL, path string) (charm.Bundle, error) {
+	s.stub.AddCall("GetBundle", url, path)
 	return s.bundle, s.stub.NextErr()
 }
 

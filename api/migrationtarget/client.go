@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/version"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
@@ -161,7 +161,7 @@ func makeResourceArgs(res resource.Resource) url.Values {
 }
 
 func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
-	req, err := http.NewRequest("POST", endpoint, nil)
+	req, err := http.NewRequest("POST", endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
 	}
@@ -174,7 +174,9 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 		return errors.Trace(err)
 	}
 
-	if err := httpClient.Do(req, content, response); err != nil {
+	if err := httpClient.Do(
+		c.caller.RawAPICaller().Context(),
+		req, response); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

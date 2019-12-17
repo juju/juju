@@ -8,7 +8,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	charm "gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/core/lxdprofile"

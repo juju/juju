@@ -4,6 +4,7 @@
 package authentication_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -18,8 +19,9 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	bakery2 "gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -146,12 +148,14 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name: "bobbrown",
 	})
-	macaroons := []macaroon.Slice{{&macaroon.Macaroon{}}}
+	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	macaroons := []macaroon.Slice{{mac}}
 	service := mockBakeryService{}
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{Service: &service}
-	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
 		Macaroons:   macaroons,
@@ -230,7 +234,7 @@ func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]stri
 
 func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
-	return &macaroon.Macaroon{}, s.NextErr()
+	return macaroon.New(nil, nil, "", macaroon.LatestVersion)
 }
 
 func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
@@ -323,8 +327,10 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*common.DischargeRequiredError)
+		m, err := bakery2.NewLegacyMacaroon(dischargeErr.Macaroon)
+		c.Assert(err, jc.ErrorIsNil)
 		client := httpbakery.NewClient()
-		ms, err := client.DischargeAll(dischargeErr.Macaroon)
+		ms, err := client.DischargeAll(context.Background(), m)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.

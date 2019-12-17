@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -199,9 +199,9 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 		},
 	}
 
-	mac0, err := macaroon.New([]byte("secret0"), []byte("id0"), "location0")
+	mac0, err := macaroon.New([]byte("secret0"), []byte("id0"), "location0", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	mac1, err := macaroon.New([]byte("secret1"), []byte("id1"), "location1")
+	mac1, err := macaroon.New([]byte("secret1"), []byte("id1"), "location1", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	jar, err := s.store.CookieJar("target")
@@ -225,7 +225,7 @@ func (s *MigrateSuite) SetUpTest(c *gc.C) {
 }
 
 func addCookie(c *gc.C, jar http.CookieJar, mac *macaroon.Macaroon, url *url.URL) {
-	cookie, err := httpbakery.NewCookie(macaroon.Slice{mac})
+	cookie, err := httpbakery.NewCookie(nil, macaroon.Slice{mac})
 	c.Assert(err, jc.ErrorIsNil)
 	cookie.Expires = time.Now().Add(time.Hour) // only persistent cookies are stored
 	jar.SetCookies(url, []*http.Cookie{cookie})

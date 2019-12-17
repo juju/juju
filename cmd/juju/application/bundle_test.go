@@ -705,7 +705,7 @@ charm path in application "mysql" does not exist: .*mysql`,
                 charm: xenial/rails-42
                 num_units: 1
     `,
-	err: `cannot resolve URL "xenial/rails-42": .* charm not found`,
+	err: `cannot resolve URL "xenial/rails-42": .* charm or bundle not found`,
 }, {
 	about:   "invalid bundle content",
 	content: "!",

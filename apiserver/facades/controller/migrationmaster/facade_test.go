@@ -15,7 +15,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
@@ -108,7 +108,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 
 	mig := mocks.NewMockModelMigration(ctrl)
 
-	mac, err := macaroon.New([]byte(password), []byte("id"), "location")
+	mac, err := macaroon.New([]byte(password), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	targetInfo := coremigration.TargetInfo{
@@ -143,8 +143,7 @@ func (s *Suite) TestMigrationStatus(c *gc.C) {
 				CACert:        "trust me",
 				AuthTag:       names.NewUserTag("admin").String(),
 				Password:      password,
-				Macaroons: `[[{"caveats":[],"location":"location","identifier":"id",` +
-					`"signature":"a9802bf274262733d6283a69c62805b5668dbf475bcd7edc25a962833f7c2cba"}]]`,
+				Macaroons:     `[[{"l":"location","i":"id","s64":"qYAr8nQmJzPWKDppxigFtWaNv0dbzX7cJaligz98LLo"}]]`,
 			},
 		},
 		MigrationId:      "ID",

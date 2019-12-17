@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -18,7 +19,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
@@ -1244,11 +1246,13 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 
 	bakeryClient := httpbakery.NewClient()
 
-	err = bakeryClient.HandleError(cookieURL, &httpbakery.Error{
+	mac, err := bakery.NewLegacyMacaroon(result.DischargeRequired)
+	c.Assert(err, jc.ErrorIsNil)
+	err = bakeryClient.HandleError(context.Background(), cookieURL, &httpbakery.Error{
 		Message: result.DischargeRequiredReason,
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
-			Macaroon:     result.DischargeRequired,
+			Macaroon:     mac,
 			MacaroonPath: "/",
 		},
 	})

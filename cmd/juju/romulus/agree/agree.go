@@ -6,6 +6,7 @@ package agree
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -119,7 +120,7 @@ func (c *agreeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if c.SkipTermContent {
-		err := saveAgreements(ctx, termsClient, c.terms)
+		err := saveAgreements(c.StdContext, ctx, termsClient, c.terms)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -127,7 +128,7 @@ func (c *agreeCommand) Run(ctx *cmd.Context) error {
 	}
 
 	needAgreement := []wireformat.GetTermsResponse{}
-	terms, err := termsClient.GetUnsignedTerms(&wireformat.CheckAgreementsRequest{
+	terms, err := termsClient.GetUnsignedTerms(c.StdContext, &wireformat.CheckAgreementsRequest{
 		Terms: c.termIds,
 	})
 	if err != nil {
@@ -157,7 +158,7 @@ func (c *agreeCommand) Run(ctx *cmd.Context) error {
 
 	answer = strings.TrimSpace(answer)
 	if userAgrees(answer) {
-		err = saveAgreements(ctx, termsClient, agreedTerms)
+		err = saveAgreements(c.StdContext, ctx, termsClient, agreedTerms)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -169,7 +170,7 @@ func (c *agreeCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func saveAgreements(ctx *cmd.Context, termsClient api.Client, ts []term) error {
+func saveAgreements(stdContext context.Context, ctx *cmd.Context, termsClient api.Client, ts []term) error {
 	agreements := make([]wireformat.SaveAgreement, len(ts))
 	for i, t := range ts {
 		agreements[i] = wireformat.SaveAgreement{
@@ -178,7 +179,7 @@ func saveAgreements(ctx *cmd.Context, termsClient api.Client, ts []term) error {
 			TermRevision: t.revision,
 		}
 	}
-	response, err := termsClient.SaveAgreement(&wireformat.SaveAgreements{Agreements: agreements})
+	response, err := termsClient.SaveAgreement(stdContext, &wireformat.SaveAgreements{Agreements: agreements})
 	if err != nil {
 		return errors.Annotate(err, "failed to save user agreement")
 	}

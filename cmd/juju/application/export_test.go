@@ -6,11 +6,11 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/romulus"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/charmrepo.v4"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -18,7 +18,6 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/charmstore"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -42,11 +41,8 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 		) (ids map[string]string, err error) {
 			return nil, nil
 		},
-		NewCharmRepo: func() (*charmStoreAdaptor, error) {
-			return &charmStoreAdaptor{
-				charmrepoForDeploy:  fakeApi,
-				charmstoreForDeploy: nil,
-			}, nil
+		NewCharmRepo: func(channel params.Channel) (*charmStoreAdaptor, error) {
+			return fakeApi.charmStoreAdaptor, nil
 		},
 	}
 	if fakeApi == nil {
@@ -74,7 +70,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
-		deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+		deployCmd.NewCharmRepo = func(channel params.Channel) (*charmStoreAdaptor, error) {
 			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -87,72 +83,14 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			cstoreClient := newCharmStoreClient(bakeryClient, csURL, channel).WithChannel(deployCmd.Channel)
 			return &charmStoreAdaptor{
-				charmstoreForDeploy: &charmstoreClientShim{cstoreClient},
-				charmrepoForDeploy:  charmrepo.NewCharmStoreFromClient(cstoreClient),
+				macaroonGetter:     cstoreClient,
+				charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
 			}, nil
 		}
 	}
 	return modelcmd.Wrap(deployCmd)
-}
-
-// NewDeployCommandForTest2 returns a command to deploy applications intended to be used only in tests
-// that do not use gomock.
-func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmstore.Repository) *DeployCommand {
-	deployCmd := &DeployCommand{
-		Steps: []DeployStep{
-			&RegisterMeteredCharm{
-				PlanURL:      romulus.DefaultAPIRoot,
-				RegisterPath: "/plan/authorize",
-				QueryPath:    "/charm",
-			},
-			&ValidateLXDProfileCharm{},
-		},
-		DeployResources: resourceadapters.DeployResources,
-	}
-
-	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-		if charmstore == nil {
-			return nil, errors.NotValidf("charmstore argument must be supplied")
-		}
-
-		if charmrepo == nil {
-			return nil, errors.NotValidf("charmrepo argument must be supplied")
-		}
-
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-
-		return &deployAPIAdapter{
-			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: apiRoot.Client()},
-			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			plansClient:       &plansClient{planURL: mURL},
-		}, nil
-	}
-	deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
-		cstore := charmstore.WithChannel(deployCmd.Channel)
-		return &charmStoreAdaptor{
-			charmstoreForDeploy: cstore,
-			charmrepoForDeploy:  charmrepo,
-		}, nil
-	}
-
-	return deployCmd
 }
 
 func NewUpgradeCharmCommandForTest(

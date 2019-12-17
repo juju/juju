@@ -12,12 +12,14 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	checkersv2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/permission"
 )
 
@@ -284,7 +286,7 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 		}
 		logger.Debugf("- mac %s", m.Id())
 	}
-	declared := checkers.InferDeclared(mac)
+	declared := checkersv2.InferDeclared(charmstore.MacaroonNamespace, mac)
 	logger.Debugf("check macaroons with declared attrs: %v", declared)
 	username, ok := declared[usernameKey]
 	if !ok {

@@ -17,7 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/romulus/api/sla"
 	slawire "github.com/juju/romulus/wireformat/sla"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelconfig"

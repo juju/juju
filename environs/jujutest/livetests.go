@@ -16,7 +16,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/cloud"
@@ -680,9 +680,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 
 	// Create a new application and deploy a unit of it.
 	c.Logf("deploying application")
-	repoDir := c.MkDir()
-	url := testcharms.Repo.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
-	sch, err := jujutesting.PutCharm(st, url, &charmrepo.LocalRepository{Path: repoDir}, false, false)
+	ch := testcharms.Repo.ClonedDir(c.MkDir(), "dummy")
+	sch, err := jujutesting.PutCharm(st, charm.MustParseURL("local:dummy"), ch)
 	c.Assert(err, jc.ErrorIsNil)
 	svc, err := st.AddApplication(state.AddApplicationArgs{Name: "dummy", Charm: sch})
 	c.Assert(err, jc.ErrorIsNil)

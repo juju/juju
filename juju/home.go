@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/ssh"
-	"gopkg.in/juju/charmrepo.v3"
 
 	"github.com/juju/juju/juju/osenv"
 )
@@ -21,7 +20,6 @@ func InitJujuXDGDataHome() error {
 	if jujuXDGDataHome == "" {
 		return errors.New("cannot determine juju data home, required environment variables are not set")
 	}
-	charmrepo.CacheDir = osenv.JujuXDGDataHomePath("charmcache")
 
 	sshDir := osenv.JujuXDGDataHomePath("ssh")
 	if err := ssh.LoadClientKeys(sshDir); err != nil {

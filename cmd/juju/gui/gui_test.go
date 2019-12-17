@@ -4,17 +4,18 @@
 package gui_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"strings"
 
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/httprequest"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	"github.com/juju/webbrowser"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
@@ -43,9 +44,9 @@ func (s *baseGUISuite) run(c *gc.C, args ...string) (string, error) {
 	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
 }
 
-func (s *baseGUISuite) patchClient(f func(*httprequest.Client, string) error) {
+func (s *baseGUISuite) patchClient(f func(context.Context, *httprequest.Client, string) error) {
 	if f == nil {
-		f = func(*httprequest.Client, string) error {
+		f = func(context.Context, *httprequest.Client, string) error {
 			return nil
 		}
 	}
@@ -79,7 +80,7 @@ func (s *guiSuite) guiOldURL(c *gc.C) string {
 
 func (s *guiSuite) TestGUISuccessWithBrowser(c *gc.C) {
 	var clientURL, browserURL string
-	s.patchClient(func(client *httprequest.Client, u string) error {
+	s.patchClient(func(_ context.Context, client *httprequest.Client, u string) error {
 		clientURL = u
 		return nil
 	})
@@ -126,7 +127,7 @@ GUI 4.5.6 for model "controller" is enabled at:
 }
 
 func (s *guiSuite) TestGUISuccessOldGUI(c *gc.C) {
-	s.patchClient(func(client *httprequest.Client, u string) error {
+	s.patchClient(func(_ context.Context, client *httprequest.Client, u string) error {
 		if strings.Contains(u, "/u/") {
 			return errors.New("bad wolf")
 		}
@@ -172,7 +173,7 @@ func (s *guiSuite) TestGUIErrorBrowser(c *gc.C) {
 }
 
 func (s *guiSuite) TestGUIErrorUnavailable(c *gc.C) {
-	s.patchClient(func(client *httprequest.Client, u string) error {
+	s.patchClient(func(_ context.Context, client *httprequest.Client, u string) error {
 		return errors.New("bad wolf")
 	})
 	out, err := s.run(c, "--browser")

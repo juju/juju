@@ -14,7 +14,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 type metricRegistrationPost struct {
@@ -258,13 +258,13 @@ func (r *RegisterMeteredCharm) registerMetrics(modelUUID, charmURL, applicationN
 		return nil, errors.Trace(err)
 	}
 
-	req, err := http.NewRequest("POST", registerURL.String(), nil)
+	req, err := http.NewRequest("POST", registerURL.String(), bytes.NewReader(buff.Bytes()))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	response, err := client.DoWithBody(req, bytes.NewReader(buff.Bytes()))
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

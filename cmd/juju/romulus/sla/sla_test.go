@@ -4,6 +4,7 @@
 package sla_test
 
 import (
+	"context"
 	stdtesting "testing"
 
 	"github.com/juju/cmd"
@@ -16,9 +17,9 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
@@ -170,13 +171,10 @@ func newMockAPI() (*mockapi, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	svc, err := bakery.NewService(bakery.NewServiceParams{
+	svc := bakery.NewOven(bakery.OvenParams{
 		Location: "omnibus",
 		Key:      kp,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &mockapi{
 		service: svc,
 	}, nil
@@ -185,7 +183,7 @@ func newMockAPI() (*mockapi, error) {
 type mockapi struct {
 	testing.Stub
 
-	service  *bakery.Service
+	service  *bakery.Oven
 	macaroon *macaroon.Macaroon
 }
 
@@ -195,11 +193,13 @@ func (m *mockapi) Authorize(modelUUID, supportLevel, budget string) (*slawire.SL
 		return nil, errors.Trace(err)
 	}
 	m.AddCall("Authorize", modelUUID, supportLevel, budget)
-	macaroon, err := m.service.NewMacaroon([]checkers.Caveat{})
+	macaroon, err := m.service.NewMacaroon(context.Background(), bakery.LatestVersion, []checkers.Caveat{
+		checkers.DeclaredCaveat("environment", modelUUID),
+	}, bakery.NoOp)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m.macaroon = macaroon
+	m.macaroon = macaroon.M()
 	return &slawire.SLAResponse{
 		Credentials: m.macaroon,
 		Owner:       "bob",

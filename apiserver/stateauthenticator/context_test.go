@@ -4,6 +4,7 @@
 package stateauthenticator_test
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/juju/clock"
@@ -12,7 +13,8 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	bakery2 "gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
@@ -77,7 +79,9 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 	// Check that we can discharge the macaroon and check it with
 	// the service.
 	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(m)
+	mac, err := bakery2.NewLegacyMacaroon(m)
+	c.Assert(err, jc.ErrorIsNil)
+	ms, err := client.DischargeAll(context.Background(), mac)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = bsvc.(*bakery.Service).Check(ms, checkers.New())
@@ -123,7 +127,9 @@ func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c
 	c.Assert(err, gc.IsNil)
 	client := httpbakery.NewClient()
 
-	_, err = client.DischargeAll(m)
+	mac, err := bakery2.NewLegacyMacaroon(m)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.DischargeAll(context.Background(), mac)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
 }
 

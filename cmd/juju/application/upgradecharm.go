@@ -14,12 +14,12 @@ import (
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	"gopkg.in/juju/charmrepo.v4"
+	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
@@ -366,7 +366,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	chID, csMac, err := c.addCharm(addCharmParams{
 		charmAdder:     c.NewCharmAdder(apiRoot),
 		charmRepo:      c.NewCharmStore(bakeryClient, csURL, c.Channel),
-		authorizer:     newCharmStoreClient(bakeryClient, csURL),
+		authorizer:     newCharmStoreClient(bakeryClient, csURL, c.Channel),
 		oldURL:         oldURL,
 		newCharmRef:    newRef,
 		deployedSeries: applicationInfo.Series,
@@ -623,7 +623,7 @@ func getCharmStore(
 	csURL string,
 	channel csclientparams.Channel,
 ) charmrepoForDeploy {
-	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
+	csClient := newCharmStoreClient(bakeryClient, csURL, channel)
 	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
@@ -679,7 +679,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(params.charmRepo.ResolveWithPreferredChannel, refURL, c.Channel)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(params.charmRepo.ResolveWithChannel, refURL)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

@@ -4,6 +4,7 @@
 package agree_test
 
 import (
+	"context"
 	"runtime"
 	"sync"
 	"testing"
@@ -248,7 +249,7 @@ func (c *mockClient) setUnsignedTerms(t []wireformat.GetTermsResponse) {
 
 // SaveAgreement saves user's agreement to the specified
 // revision of the terms documents
-func (c *mockClient) SaveAgreement(p *wireformat.SaveAgreements) (*wireformat.SaveAgreementResponses, error) {
+func (c *mockClient) SaveAgreement(ctx context.Context, p *wireformat.SaveAgreements) (*wireformat.SaveAgreementResponses, error) {
 	c.AddCall("SaveAgreement", p)
 	responses := make([]wireformat.AgreementResponse, len(p.Agreements))
 	for i, agreement := range p.Agreements {
@@ -262,14 +263,14 @@ func (c *mockClient) SaveAgreement(p *wireformat.SaveAgreements) (*wireformat.Sa
 	return &wireformat.SaveAgreementResponses{responses}, nil
 }
 
-func (c *mockClient) GetUnsignedTerms(p *wireformat.CheckAgreementsRequest) ([]wireformat.GetTermsResponse, error) {
+func (c *mockClient) GetUnsignedTerms(ctx context.Context, p *wireformat.CheckAgreementsRequest) ([]wireformat.GetTermsResponse, error) {
 	c.MethodCall(c, "GetUnunsignedTerms", p)
 	r := make([]wireformat.GetTermsResponse, len(c.unsignedTerms))
 	copy(r, c.unsignedTerms)
 	return r, nil
 }
 
-func (c *mockClient) GetUsersAgreements() ([]wireformat.AgreementResponse, error) {
+func (c *mockClient) GetUsersAgreements(ctx context.Context) ([]wireformat.AgreementResponse, error) {
 	c.MethodCall(c, "GetUsersAgreements")
 	return []wireformat.AgreementResponse{}, nil
 }

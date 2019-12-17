@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -14,13 +15,14 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/charmrepo.v4"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
@@ -30,7 +32,7 @@ import (
 )
 
 //go:generate mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v3 Interface
+//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v4 Interface
 //go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 //go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 //go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
@@ -115,7 +117,12 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	}
 
 	// Get the charm and its information from the store.
-	downloadedCharm, err := repo.Get(charmURL)
+	f, err := ioutil.TempFile("", charmURL.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+	downloadedCharm, err := repo.Get(charmURL, f.Name())
 	if err != nil {
 		cause := errors.Cause(err)
 		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
@@ -128,15 +135,9 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
-	// Open it and calculate the SHA256 hash.
-	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
-	if !ok {
-		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
-	}
-
 	// Validate the charm lxd profile once we've downloaded it.
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmArchiveProfiler{
-		CharmArchive: downloadedBundle,
+		CharmArchive: downloadedCharm,
 	}); err != nil {
 		if !args.Force {
 			return errors.Annotate(err, "cannot add charm")
@@ -145,9 +146,10 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 
 	// Clean up the downloaded charm - we don't need to cache it in
 	// the filesystem as well as in blob storage.
-	defer os.Remove(downloadedBundle.Path)
+	defer os.Remove(downloadedCharm.Path)
 
-	archive, err := os.Open(downloadedBundle.Path)
+	// Open it and calculate the SHA256 hash.
+	archive, err := os.Open(downloadedCharm.Path)
 	if err != nil {
 		return errors.Annotate(err, "cannot read downloaded charm")
 	}
@@ -166,7 +168,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		Data:         archive,
 		Size:         size,
 		SHA256:       bundleSHA256,
-		CharmVersion: downloadedBundle.Version(),
+		CharmVersion: downloadedCharm.Version(),
 	}
 	if args.CharmStoreMacaroon != nil {
 		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
@@ -221,8 +223,8 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 		return nil, err
 	}
 	csParams := csclient.Params{
-		URL:        csURL.String(),
-		HTTPClient: httpbakery.NewHTTPClient(),
+		URL:          csURL.String(),
+		BakeryClient: httpbakery.NewClient(),
 	}
 
 	if args.CharmStoreMacaroon != nil {
@@ -230,7 +232,7 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 		// as a cookie in the HTTP client.
 		// TODO(cmars) discharge any third party caveats in the macaroon.
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
-		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
+		httpbakery.SetCookie(csParams.BakeryClient.Jar, csURL, charmstore.MacaroonNamespace, ms)
 	}
 	csClient := csclient.New(csParams)
 	channel := csparams.Channel(args.Channel)
