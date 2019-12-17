@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/kr/pretty"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -155,6 +156,8 @@ type Config struct {
 	// API servers.
 	Hub Hub
 
+	PrometheusRegisterer prometheus.Registerer
+
 	// UpdateNotify is called when the update channel is signalled.
 	// Used solely for test synchronization.
 	UpdateNotify func()
@@ -176,6 +179,9 @@ func (config Config) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.MongoPort <= 0 {
 		return errors.NotValidf("non-positive MongoPort")
@@ -222,6 +228,10 @@ func (w *pgWorker) Wait() error {
 }
 
 func (w *pgWorker) loop() error {
+	collector := NewMetricsCollector()
+	_ = c.config.PrometheusRegisterer.Register(collector)
+	defer c.config.PrometheusRegisterer.Unregister(collector)
+
 	controllerChanges, err := w.watchForControllerChanges()
 	if err != nil {
 		return errors.Trace(err)
@@ -311,7 +321,7 @@ func (w *pgWorker) loop() error {
 			failed = true
 		}
 
-		members, err := w.updateReplicaSet()
+		members, err := w.updateReplicaSet(collector)
 		if err != nil {
 			if _, isReplicaSetError := err.(*replicaSetError); isReplicaSetError {
 				logger.Errorf("cannot set replicaset: %v", err)
@@ -575,11 +585,13 @@ type stepDownPrimaryError struct {
 // updateReplicaSet sets the current replica set members, and applies the
 // given voting status to nodes in the state. A mapping of controller ID
 // to replicaset.Member structures is returned.
-func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
+func (w *pgWorker) updateReplicaSet(collector *Collector) (map[string]*replicaset.Member, error) {
 	info, err := w.peerGroupInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "creating peer group info")
 	}
+	// Update the metrics collector with the replicaset statuses.
+	collector.update(info.statuses)
 	desired, err := desiredPeerGroup(info)
 	// membersChanged, members, voting, err
 	if err != nil {

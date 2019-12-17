@@ -6,6 +6,7 @@ package peergrouper
 import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -23,7 +24,9 @@ type ManifoldConfig struct {
 	ControllerPortName string
 	StateName          string
 	Hub                Hub
-	NewWorker          func(Config) (worker.Worker, error)
+
+	PrometheusRegisterer prometheus.Registerer
+	NewWorker            func(Config) (worker.Worker, error)
 }
 
 // Validate validates the manifold configuration.
@@ -106,15 +109,16 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	supportsHA := model.Type() != state.ModelTypeCAAS
 
 	w, err := config.NewWorker(Config{
-		State:              StateShim{st},
-		MongoSession:       MongoSessionShim{mongoSession},
-		APIHostPortsSetter: &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
-		Clock:              clock,
-		Hub:                config.Hub,
-		MongoPort:          stateServingInfo.StatePort,
-		APIPort:            stateServingInfo.APIPort,
-		ControllerAPIPort:  stateServingInfo.ControllerAPIPort,
-		SupportsHA:         supportsHA,
+		State:                StateShim{st},
+		MongoSession:         MongoSessionShim{mongoSession},
+		APIHostPortsSetter:   &CachingAPIHostPortsSetter{APIHostPortsSetter: st},
+		Clock:                clock,
+		Hub:                  config.Hub,
+		MongoPort:            stateServingInfo.StatePort,
+		APIPort:              stateServingInfo.APIPort,
+		ControllerAPIPort:    stateServingInfo.ControllerAPIPort,
+		SupportsHA:           supportsHA,
+		PrometheusRegisterer: config.PrometheusRegisterer,
 	})
 	if err != nil {
 		_ = stTracker.Done()
