@@ -17,10 +17,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -38,7 +38,7 @@ var _ = gc.Suite(&UpgradeCharmResourceSuite{})
 
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuiteBaseSuite.SetUpTest(c)
-	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
+	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/riak-7")
@@ -141,7 +141,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	) (ids map[string]string, err error) {
 		return deployResources(s.State, applicationID, resources)
 	}
-	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func(channel csclientparams.Channel) (*charmStoreAdaptor, error) {
 		return s.fakeAPI.charmStoreAdaptor, nil
 	}
 
@@ -233,7 +233,6 @@ Deploying charm "cs:bionic/starsay-1".`
 	sort.Sort(csbyname(oldCharmStoreResources))
 
 	s.setupCharm(c, "bionic/starsay-2", "starsay", "bionic")
-	repo := jjcharmstore.NewRepository()
 	charmClient := &mockCharmClient{
 		charmInfo: &charms.CharmInfo{
 			URL:  "bionic/starsay-2",
@@ -247,7 +246,7 @@ Deploying charm "cs:bionic/starsay-1".`
 			csURL string,
 			channel csclientparams.Channel,
 		) charmrepoForDeploy {
-			return repo
+			return s.fakeAPI
 		},
 		func(conn api.Connection) CharmAdder {
 			return charmAdder
@@ -266,7 +265,7 @@ Deploying charm "cs:bionic/starsay-1".`
 		},
 		func(conn base.APICallCloser) CharmAPIClient {
 			return &mockCharmAPIClient{
-				charmURL: charm.MustParseURL("bionic/starsay-2"),
+				charmURL: charm.MustParseURL("bionic/starsay-1"),
 			}
 		},
 	)
@@ -275,7 +274,7 @@ Deploying charm "cs:bionic/starsay-1".`
 	c.Assert(err, jc.ErrorIsNil)
 
 	charmAdder.CheckCall(c, 0,
-		"AddCharm", charm.MustParseURL("cs:bionic/starsay-0"), csclientparams.NoChannel, false)
+		"AddCharm", charm.MustParseURL("cs:bionic/starsay-2"), csclientparams.NoChannel, false)
 
 	res, err = s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)

@@ -19,12 +19,11 @@ import (
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient/params"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	"gopkg.in/juju/charmrepo.v4"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -172,20 +171,12 @@ type modelConfigClient struct {
 }
 
 // charmrepoForDeploy is a stripped-down version of the
-// gopkg.in/juju/charmrepo.v3 Interface interface. It is
+// gopkg.in/juju/charmrepo.v4 Interface interface. It is
 // used by tests that embed a DeploySuiteBase.
 type charmrepoForDeploy interface {
-	Get(charmURL *charm.URL) (charm.Charm, error)
-	GetBundle(bundleURL *charm.URL) (charm.Bundle, error)
-	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
-}
-
-// charmstoreForDeploy is a subset of the methods implemented
-// by gopkg.in/juju/charmrepo.v3/csclient.Client. It is
-// used by tests that embed a DeploySuiteBase.
-type charmstoreForDeploy interface {
-	Get(endpoint string, extra interface{}) error
-	WithChannel(csparams.Channel) charmstoreForDeploy
+	Get(charmURL *charm.URL, path string) (*charm.CharmArchive, error)
+	GetBundle(bundleURL *charm.URL, path string) (charm.Bundle, error)
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
 }
 
 type annotationsClient struct {
@@ -222,7 +213,7 @@ type deployAPIAdapter struct {
 
 type charmStoreAdaptor struct {
 	charmrepoForDeploy
-	charmstoreForDeploy
+	macaroonGetter
 }
 
 func (a *deployAPIAdapter) Client() *api.Client {
@@ -244,17 +235,17 @@ func (a *deployAPIAdapter) Deploy(args application.DeployArgs) error {
 	return errors.Trace(a.applicationClient.Deploy(args))
 }
 
-func (a *charmStoreAdaptor) Resolve(cfg *config.Config, url *charm.URL, preferredChannel params.Channel) (
+func (a *charmStoreAdaptor) Resolve(url *charm.URL) (
 	*charm.URL,
 	params.Channel,
 	[]string,
 	error,
 ) {
-	return resolveCharm(a.charmrepoForDeploy.ResolveWithPreferredChannel, url, preferredChannel)
+	return resolveCharm(a.charmrepoForDeploy.ResolveWithChannel, url)
 }
 
-func (a *charmStoreAdaptor) Get(url *charm.URL) (charm.Charm, error) {
-	return a.charmrepoForDeploy.Get(url)
+func (a *charmStoreAdaptor) Get(url *charm.URL, path string) (*charm.CharmArchive, error) {
+	return a.charmrepoForDeploy.Get(url, path)
 }
 
 func (a *deployAPIAdapter) SetAnnotation(annotations map[string]map[string]string) ([]apiparams.ErrorResult, error) {
@@ -283,7 +274,7 @@ func newDeployCommand() *DeployCommand {
 		Steps:           steps,
 		DeployResources: resourceadapters.DeployResources,
 	}
-	deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+	deployCmd.NewCharmRepo = func(channel params.Channel) (*charmStoreAdaptor, error) {
 		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 		if err != nil {
 			return nil, errors.Trace(err)
@@ -296,10 +287,10 @@ func newDeployCommand() *DeployCommand {
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cstoreClient := newCharmStoreClient(bakeryClient, csURL)
+		cstoreClient := newCharmStoreClient(bakeryClient, csURL, channel)
 		return &charmStoreAdaptor{
-			charmrepoForDeploy:  charmrepo.NewCharmStoreFromClient(cstoreClient),
-			charmstoreForDeploy: &charmstoreClientShim{cstoreClient},
+			charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
+			macaroonGetter:     cstoreClient,
 		}, nil
 	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
@@ -406,7 +397,7 @@ type DeployCommand struct {
 	NewAPIRoot func() (DeployAPI, error)
 
 	// NewCharmRepo stores a function which returns a charm store client.
-	NewCharmRepo func() (*charmStoreAdaptor, error)
+	NewCharmRepo func(channel params.Channel) (*charmStoreAdaptor, error)
 
 	// NewConsumeDetailsAPI stores a function which will return a new API
 	// for consume details API using the url as the source.
@@ -1164,7 +1155,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	cstoreAPI, err := c.NewCharmRepo()
+	cstoreAPI, err := c.NewCharmRepo(c.Channel)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1186,7 +1177,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		func() (deployFn, error) { return c.maybeReadLocalBundle(ctx) },
 		func() (deployFn, error) { return c.maybeReadLocalCharm(apiRoot) },
 		c.maybePredeployedLocalCharm,
-		c.maybeReadCharmstoreBundleFn(apiRoot, cstoreAPI),
+		c.maybeReadCharmstoreBundleFn(cstoreAPI),
 		c.charmStoreCharm, // This always returns a deployer
 	)
 	if err != nil {
@@ -1370,7 +1361,7 @@ func (c *DeployCommand) maybeReadLocalBundle(ctx *cmd.Context) (deployFn, error)
 			apiRoot:             apiRoot,
 			bundleResolver:      cstore,
 			deployResources:     deployResources,
-			authorizer:          cstore.charmstoreForDeploy,
+			authorizer:          cstore.macaroonGetter,
 			useExistingMachines: c.UseExisting,
 			bundleMachines:      c.BundleMachines,
 			bundleStorage:       c.BundleStorage,
@@ -1479,14 +1470,14 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 // URLResolver is the part of charmrepo.Charmstore that we need to
 // resolve a charm url.
 type URLResolver interface {
-	ResolveWithPreferredChannel(*charm.URL, params.Channel) (*charm.URL, params.Channel, []string, error)
+	ResolveWithChannel(*charm.URL) (*charm.URL, params.Channel, []string, error)
 }
 
 // resolveBundleURL tries to interpret maybeBundle as a charmstore
 // bundle. If it turns out to be a bundle, the resolved URL and
 // channel are returned. If it isn't but there wasn't a problem
 // checking it, it returns a nil charm URL.
-func resolveBundleURL(cstore URLResolver, maybeBundle string, preferredChannel params.Channel) (*charm.URL, params.Channel, error) {
+func resolveBundleURL(cstore URLResolver, maybeBundle string) (*charm.URL, params.Channel, error) {
 	userRequestedURL, err := charm.ParseURL(maybeBundle)
 	if err != nil {
 		return nil, "", errors.Trace(err)
@@ -1494,7 +1485,7 @@ func resolveBundleURL(cstore URLResolver, maybeBundle string, preferredChannel p
 
 	// Charm or bundle has been supplied as a URL so we resolve and
 	// deploy using the store.
-	storeCharmOrBundleURL, channel, _, err := resolveCharm(cstore.ResolveWithPreferredChannel, userRequestedURL, preferredChannel)
+	storeCharmOrBundleURL, channel, _, err := resolveCharm(cstore.ResolveWithChannel, userRequestedURL)
 	if err != nil {
 		return nil, "", errors.Trace(err)
 	}
@@ -1508,9 +1499,9 @@ func resolveBundleURL(cstore URLResolver, maybeBundle string, preferredChannel p
 	return storeCharmOrBundleURL, channel, nil
 }
 
-func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI, cstore BundleResolver) func() (deployFn, error) {
+func (c *DeployCommand) maybeReadCharmstoreBundleFn(cstore BundleResolver) func() (deployFn, error) {
 	return func() (deployFn, error) {
-		bundleURL, channel, err := resolveBundleURL(cstore, c.CharmOrBundle, c.Channel)
+		bundleURL, channel, err := resolveBundleURL(cstore, c.CharmOrBundle)
 		if charm.IsUnsupportedSeriesError(errors.Cause(err)) {
 			return nil, errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
 		}
@@ -1528,7 +1519,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI, cstore Bu
 		return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
 			// Ideally, we would like to expose a GetBundleDataSource
 			// method for the charmstore. As we want to avoid further
-			// diverging charmrepo.v3 from charmrepo.v4, the best
+			// diverging charmrepo.v4 from charmrepo.v4, the best
 			// solution would be to converge to a charmrepo.v5.
 			// Unfortunately, the macaroon-related changes from v4
 			// wreak havoc with our bakery.v2/v2-unstable includes
@@ -1537,9 +1528,13 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI, cstore Bu
 			// As a short-term solution and given that we don't
 			// want to support (for now at least) multi-doc bundles
 			// from the charmstore we simply use the existing
-			// charmrepo.v3 API to read the base bundle and
+			// charmrepo.v4 API to read the base bundle and
 			// wrap it in a BundleDataSource for use by deployBundle.
-			bundle, err := cstore.GetBundle(bundleURL)
+			dir, err := ioutil.TempDir("", bundleURL.Name)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			bundle, err := cstore.GetBundle(bundleURL, dir)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1557,7 +1552,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(apiRoot DeployAPI, cstore Bu
 				apiRoot:             apiRoot,
 				bundleResolver:      cstore,
 				deployResources:     deployResources,
-				authorizer:          cstore.charmstoreForDeploy,
+				authorizer:          cstore.macaroonGetter,
 				useExistingMachines: c.UseExisting,
 				bundleMachines:      c.BundleMachines,
 				bundleStorage:       c.BundleStorage,
@@ -1596,7 +1591,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// deploy using the store but pass in the channel command line
 		// argument so users can target a specific channel.
 		storeCharmOrBundleURL, channel, supportedSeries, err := resolveCharm(
-			cstore.ResolveWithPreferredChannel, userRequestedURL, c.Channel,
+			cstore.ResolveWithChannel, userRequestedURL,
 		)
 		if charm.IsUnsupportedSeriesError(err) {
 			return errors.Errorf("%v. Use --force to deploy the charm anyway.", err)
@@ -1643,7 +1638,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		}
 
 		// Store the charm in the controller
-		curl, csMac, err := addCharmFromURL(apiRoot, cstore.charmstoreForDeploy, storeCharmOrBundleURL, channel, c.Force)
+		curl, csMac, err := addCharmFromURL(apiRoot, cstore.macaroonGetter, storeCharmOrBundleURL, channel, c.Force)
 		if err != nil {
 			if termErr, ok := errors.Cause(err).(*common.TermsRequiredError); ok {
 				return errors.Trace(termErr.UserErr())

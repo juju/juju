@@ -5,12 +5,11 @@
 package backups_test
 
 import (
-	io "io"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	backups "github.com/juju/juju/api/backups"
 	params "github.com/juju/juju/apiserver/params"
+	io "io"
+	reflect "reflect"
 )
 
 // MockArchiveReader is a mock of ArchiveReader interface

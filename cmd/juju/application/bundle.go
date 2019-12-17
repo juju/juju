@@ -19,10 +19,10 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	"gopkg.in/juju/charmrepo.v4"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -374,7 +374,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
+		url, _, _, err := resolveCharm(h.bundleResolver.ResolveWithChannel, ch)
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -538,7 +538,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
+	url, channel, _, err := resolveCharm(h.bundleResolver.ResolveWithChannel, ch)
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}

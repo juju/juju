@@ -4,6 +4,7 @@
 package listagreements_test
 
 import (
+	"context"
 	"errors"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/cmd/juju/romulus/listagreements"
 	"github.com/juju/juju/jujuclient"
@@ -167,7 +168,7 @@ func (c *mockClient) setError(err string) {
 	c.agreements = nil
 }
 
-func (c *mockClient) GetUsersAgreements() ([]wireformat.AgreementResponse, error) {
+func (c *mockClient) GetUsersAgreements(ctx context.Context) ([]wireformat.AgreementResponse, error) {
 	c.called = true
 	if c.err != "" {
 		return nil, errors.New(c.err)

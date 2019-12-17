@@ -20,17 +20,16 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	csclientparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/application"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/charms"
 	"github.com/juju/juju/apiserver/params"
-	jjcharmstore "github.com/juju/juju/charmstore"
 	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -52,6 +51,7 @@ type BaseUpgradeCharmSuite struct {
 	testing.Stub
 
 	deployResources   resourceadapters.DeployResourcesFunc
+	fakeAPI           *fakeDeployAPI
 	resolveCharm      ResolveCharmFunc
 	resolvedCharmURL  *charm.URL
 	resolvedChannel   csclientparams.Channel
@@ -96,18 +96,14 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 
 	s.resolvedChannel = csclientparams.StableChannel
 	s.resolveCharm = func(
-		resolveWithChannel func(*charm.URL, csclientparams.Channel) (*charm.URL, csclientparams.Channel, []string, error),
+		resolveWithChannel func(*charm.URL) (*charm.URL, csclientparams.Channel, []string, error),
 		url *charm.URL,
-		preferredChannel csclientparams.Channel,
 	) (*charm.URL, csclientparams.Channel, []string, error) {
-		s.AddCall("ResolveCharm", url, preferredChannel)
+		s.AddCall("ResolveCharm", url)
 		if err := s.NextErr(); err != nil {
 			return nil, csclientparams.NoChannel, nil, err
 		}
-		if s.resolvedChannel != "" {
-			preferredChannel = s.resolvedChannel
-		}
-		return s.resolvedCharmURL, preferredChannel, []string{"quantal"}, nil
+		return s.resolvedCharmURL, s.resolvedChannel, []string{"quantal"}, nil
 	}
 
 	currentCharmURL := charm.MustParseURL("cs:quantal/foo-1")
@@ -175,8 +171,7 @@ func (s *BaseUpgradeCharmSuite) upgradeCommand() cmd.Command {
 			channel csclientparams.Channel,
 		) charmrepoForDeploy {
 			s.AddCall("NewCharmStore", csURL)
-			repo := jjcharmstore.NewRepository()
-			return repo
+			return s.fakeAPI
 		},
 		func(conn api.Connection) CharmAdder {
 			s.AddCall("NewCharmAdder", conn)
@@ -348,7 +343,8 @@ func (s *UpgradeCharmSuite) TestUpgradeWithBindAndUnknownEndpoint(c *gc.C) {
 type UpgradeCharmErrorsStateSuite struct {
 	jujutesting.RepoSuite
 
-	cmd cmd.Command
+	fakeAPI *fakeDeployAPI
+	cmd     cmd.Command
 }
 
 var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
@@ -356,20 +352,25 @@ var _ = gc.Suite(&UpgradeCharmErrorsStateSuite{})
 func (s *UpgradeCharmErrorsStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
-	repo := jjcharmstore.NewRepository()
+	cfgAttrs := map[string]interface{}{
+		"name": "name",
+		"uuid": coretesting.ModelTag.Id(),
+		"type": "foo",
+	}
+	s.fakeAPI = vanillaFakeModelAPI(cfgAttrs)
 	s.cmd = NewUpgradeCharmCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
 		) charmrepoForDeploy {
-			return repo
+			return s.fakeAPI
 		},
 		func(conn api.Connection) CharmAdder {
-			return repo
+			return s.fakeAPI
 		},
 		func(conn base.APICallCloser) CharmClient {
-			return repo
+			return s.fakeAPI
 		},
 		resourceadapters.DeployResources,
 		nil,
@@ -398,8 +399,12 @@ func (s *UpgradeCharmErrorsStateSuite) TestInvalidApplication(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsStateSuite) deployApplication(c *gc.C) {
-	ch := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
-	err := runDeploy(c, ch, "riak", "--series", "bionic")
+	charmDir := testcharms.RepoWithSeries("bionic").ClonedDir(c.MkDir(), "riak")
+	curl := charm.MustParseURL("local:bionic/riak-7")
+	withLocalCharmDeployable(s.fakeAPI, curl, charmDir, false)
+	withCharmDeployable(s.fakeAPI, curl, "bionic", charmDir.Meta(), charmDir.Metrics(), false, false, 1, nil, nil)
+
+	err := runDeploy(c, charmDir.Path, "riak", "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -445,6 +450,7 @@ type UpgradeCharmSuccessStateSuite struct {
 	path string
 	riak *state.Application
 
+	fakeAPI     *fakeDeployAPI
 	charmClient mockCharmClient
 	cmd         cmd.Command
 }
@@ -469,14 +475,13 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 
 	s.charmClient = mockCharmClient{}
-	repo := jjcharmstore.NewRepository()
 	s.cmd = NewUpgradeCharmCommandForStateTest(
 		func(
 			bakeryClient *httpbakery.Client,
 			csURL string,
 			channel csclientparams.Channel,
 		) charmrepoForDeploy {
-			return repo
+			return s.fakeAPI
 		},
 		func(conn api.Connection) CharmAdder {
 			return &apiClient{Client: conn.Client()}
@@ -487,7 +492,7 @@ func (s *UpgradeCharmSuccessStateSuite) SetUpTest(c *gc.C) {
 		resourceadapters.DeployResources,
 		nil,
 	)
-	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
+	s.path = testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
 	err := runDeploy(c, s.path, "--series", "bionic")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:bionic/riak-7")
@@ -524,7 +529,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestLocalRevisionUnchanged(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuite) TestUpgradeWithChannel(c *gc.C) {
-	s.resolvedChannel = ""
+	s.resolvedChannel = csclientparams.BetaChannel
 	_, err := s.runUpgradeCharm(c, "foo", "--channel=beta")
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -750,7 +755,7 @@ devices: {}
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestInitWithResources(c *gc.C) {
-	testcharms.RepoWithSeries("bionic").CharmArchivePath(s.CharmsPath, "dummy")
+	testcharms.RepoWithSeries("bionic").CharmArchivePath(c.MkDir(), "dummy")
 	dir := c.MkDir()
 
 	foopath := path.Join(dir, "foo")
@@ -818,7 +823,7 @@ func (s *UpgradeCharmSuccessStateSuite) TestCharmPathNoRevUpgrade(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuccessStateSuite) TestCharmPathDifferentNameFails(c *gc.C) {
-	myriakPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(s.CharmsPath, "riak", "myriak")
+	myriakPath := testcharms.RepoWithSeries("bionic").RenamedClonedDirPath(c.MkDir(), "riak", "myriak")
 	metadataPath := filepath.Join(myriakPath, "metadata.yaml")
 	file, err := os.OpenFile(metadataPath, os.O_TRUNC|os.O_RDWR, 0666)
 	if err != nil {

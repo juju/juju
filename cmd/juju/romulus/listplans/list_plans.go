@@ -18,7 +18,7 @@ import (
 	"github.com/juju/gnuflag"
 	api "github.com/juju/romulus/api/plan"
 	wireformat "github.com/juju/romulus/wireformat/plan"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/yaml.v2"
 
 	jujucmd "github.com/juju/juju/cmd"

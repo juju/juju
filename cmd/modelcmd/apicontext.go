@@ -11,9 +11,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/idmclient/ussologin"
 	"gopkg.in/juju/environschema.v1/form"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/juju/idmclient.v1/ussologin"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/jujuclient"
 )
@@ -23,8 +23,8 @@ import (
 type apiContext struct {
 	// jar holds the internal version of the cookie jar - it has
 	// methods that clients should not use, such as Save.
-	jar            *domainCookieJar
-	webPageVisitor httpbakery.Visitor
+	jar        *domainCookieJar
+	interactor httpbakery.Interactor
 }
 
 // AuthOpts holds flags relating to authentication.
@@ -61,20 +61,25 @@ func newAPIContext(ctxt *cmd.Context, opts *AuthOpts, store jujuclient.CookieSto
 		CookieJar: jar0,
 		domain:    os.Getenv("JUJU_USER_DOMAIN"),
 	}
-	var visitors []httpbakery.Visitor
+	var interactor httpbakery.Interactor
 	if ctxt != nil && opts != nil && opts.NoBrowser {
 		filler := &form.IOFiller{
 			In:  ctxt.Stdin,
 			Out: ctxt.Stdout,
 		}
-		newVisitor := ussologin.NewVisitor("juju", filler, jujuclient.NewTokenStore())
-		visitors = append(visitors, newVisitor)
+		interactor = ussologin.NewInteractor(ussologin.StoreTokenGetter{
+			Store: jujuclient.NewTokenStore(),
+			TokenGetter: ussologin.FormTokenGetter{
+				Filler: filler,
+				Name:   "juju",
+			},
+		})
 	} else {
-		visitors = append(visitors, httpbakery.WebBrowserVisitor)
+		interactor = httpbakery.WebBrowserInteractor{}
 	}
 	return &apiContext{
-		jar:            jar,
-		webPageVisitor: httpbakery.NewMultiVisitor(visitors...),
+		jar:        jar,
+		interactor: interactor,
 	}, nil
 }
 
@@ -89,7 +94,7 @@ func (ctx *apiContext) CookieJar() http.CookieJar {
 func (ctx *apiContext) NewBakeryClient() *httpbakery.Client {
 	client := httpbakery.NewClient()
 	client.Jar = ctx.jar
-	client.WebPageVisitor = ctx.webPageVisitor
+	client.AddInteractor(ctx.interactor)
 	return client
 }
 

@@ -4,6 +4,7 @@
 package gui
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"strings"
@@ -11,9 +12,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/httprequest"
 	"github.com/juju/version"
 	"github.com/juju/webbrowser"
+	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
@@ -170,10 +171,10 @@ func (c *guiCommand) checkAvailable(rawURL, newRawURL string, conn api.Connectio
 	if err != nil {
 		return "", errors.Annotate(err, "cannot retrieve HTTP client")
 	}
-	if err = clientGet(client, newRawURL); err == nil {
+	if err = clientGet(c.StdContext, client, newRawURL); err == nil {
 		return newRawURL, nil
 	}
-	if err = clientGet(client, rawURL); err != nil {
+	if err = clientGet(c.StdContext, client, rawURL); err != nil {
 		return "", errors.Annotate(err, "Juju GUI is not available")
 	}
 	return rawURL, nil
@@ -230,8 +231,8 @@ func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
 }
 
 // clientGet is defined for testing purposes.
-var clientGet = func(client *httprequest.Client, rawURL string) error {
-	return client.Get(rawURL, nil)
+var clientGet = func(ctx context.Context, client *httprequest.Client, rawURL string) error {
+	return client.Get(ctx, rawURL, nil)
 }
 
 // webbrowserOpen is defined for testing purposes.

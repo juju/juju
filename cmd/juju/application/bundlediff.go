@@ -4,13 +4,15 @@
 package application
 
 import (
+	"io/ioutil"
+
 	"github.com/juju/bundlechanges"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	"gopkg.in/juju/charmrepo.v4"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api/annotations"
@@ -179,7 +181,7 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	bundleURL, _, err := resolveBundleURL(charmStore, c.bundle, c.channel)
+	bundleURL, _, err := resolveBundleURL(charmStore, c.bundle)
 	if err != nil && !errors.IsNotValid(err) {
 		return nil, errors.Trace(err)
 	}
@@ -188,7 +190,11 @@ func (c *bundleDiffCommand) bundleDataSource(ctx *cmd.Context) (charm.BundleData
 		return nil, errors.Errorf("couldn't interpret %q as a local or charmstore bundle", c.bundle)
 	}
 
-	bundle, err := charmStore.GetBundle(bundleURL)
+	dir, err := ioutil.TempDir("", bundleURL.Name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	bundle, err := charmStore.GetBundle(bundleURL, dir)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -213,7 +219,7 @@ func (c *bundleDiffCommand) charmStore() (BundleResolver, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(c.channel)
+	cstoreClient := newCharmStoreClient(bakeryClient, csURL, c.channel)
 	return charmrepo.NewCharmStoreFromClient(cstoreClient), nil
 }
 
@@ -276,5 +282,5 @@ func (e *extractorImpl) Sequences() (map[string]int, error) {
 // bundle and read the bundle data.
 type BundleResolver interface {
 	URLResolver
-	GetBundle(*charm.URL) (charm.Bundle, error)
+	GetBundle(*charm.URL, string) (charm.Bundle, error)
 }

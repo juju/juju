@@ -20,7 +20,6 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 
@@ -72,7 +71,6 @@ func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.AgentSuite.SetUpTest(c)
-	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	s.PatchValue(&authenticationworker.SSHUser, "")

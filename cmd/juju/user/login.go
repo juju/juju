@@ -16,9 +16,9 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/httprequest"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"
@@ -333,31 +333,34 @@ func (c *loginCommand) publicControllerLogin(
 	dialOpts.BakeryClient = bclient
 	dialOpts.VerifyCA = c.promptUserToTrustCA(ctx, ctrlDetails)
 
-	// Keep track of existing visitors as the dial callback will create
-	// a new visitor each time it gets invoked.
-	existingVisitor := bclient.WebPageVisitor
+	// Keep track of existing interactors as the dial callback will create
+	// new ones each time it gets invoked.
+	var existing []httpbakery.Interactor
+	for _, i := range bclient.InteractionMethods {
+		existing = append(existing, i)
+	}
 
 	dial := func(d *jujuclient.AccountDetails) (api.Connection, error) {
-		// Attach a web visitor for "juju_userpass" which will be
-		// invoked if we attempt to login without a password and the
-		// remote controller does not support an external identity
-		// provider.
+		// Attach an interactor which will be invoked if we attempt to
+		//login without a password and the remote controller does not
+		//support an external identity provider.
 		var tag names.Tag
 		if d.User != "" {
 			tag = names.NewUserTag(d.User)
 		}
-
-		dialOpts.BakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
-			authentication.NewVisitor(d.User, func(string) (string, error) {
+		dialOpts.BakeryClient.InteractionMethods = []httpbakery.Interactor{
+			authentication.NewInteractor(d.User, func(string) (string, error) {
 				// The visitor from the authentication package
 				// passes the username to the password getter
 				// func. As other password getters may rely on
 				// this we just provide a wrapper that calls
 				// pollster with the correct label.
 				return c.pollster.EnterPassword("password")
-			}),
-			existingVisitor,
-		)
+			})}
+		// Add in any default interactors from the base client.
+		for _, i := range existing {
+			dialOpts.BakeryClient.AddInteractor(i)
+		}
 
 		return apiOpen(&c.CommandBase, &api.Info{
 			Tag:      tag,
