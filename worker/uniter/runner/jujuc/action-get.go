@@ -47,7 +47,7 @@ map as needed.
 // SetFlags handles known option flags; in this case, [--output={json|yaml}]
 // and --help.
 func (c *ActionGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 // Init makes sure there are no additional unknown arguments to action-get.

@@ -52,7 +52,7 @@ func (c *RelationIdsCommand) Info() *cmd.Info {
 }
 
 func (c *RelationIdsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 func (c *RelationIdsCommand) Init(args []string) error {

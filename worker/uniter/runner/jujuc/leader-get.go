@@ -42,7 +42,7 @@ is given, or if the key is "-", all keys and values will be printed.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *leaderGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 // Init is part of the cmd.Command interface.

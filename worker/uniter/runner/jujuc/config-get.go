@@ -40,7 +40,7 @@ reported as null. <key> and --all are mutually exclusive.
 }
 
 func (c *ConfigGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 	f.BoolVar(&c.All, "a", false, "print all keys")
 	f.BoolVar(&c.All, "all", false, "")
 }

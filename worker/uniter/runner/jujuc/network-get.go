@@ -75,7 +75,7 @@ If more than one flag is specified, a map of values is returned.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *NetworkGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 	f.BoolVar(&c.primaryAddress, "primary-address", false, "(deprecated) get the primary address for the binding")
 	f.BoolVar(&c.bindAddress, "bind-address", false, "get the address for the binding on which the unit should listen")
 	f.BoolVar(&c.ingressAddress, "ingress-address", false, "get the ingress address for the binding")

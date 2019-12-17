@@ -457,14 +457,14 @@
   revision = "9c5c9712527c7986f012361e7d13756b4d99543d"
 
 [[projects]]
-  digest = "1:68bc775aba55be0a3e178439988ba7daf3a86b805942a251146277ea506f935f"
+  digest = "1:b42ffaefe5a54402a7ff3c1f1540ec4c89d8d5a7ce1dac4eff994bff759f6388"
   name = "github.com/juju/cmd"
   packages = [
     ".",
     "cmdtesting",
   ]
   pruneopts = ""
-  revision = "74922f23f6436a661dacd8c5fdf9cb15641e7a2e"
+  revision = "3494531d4f0091d4d43a19b4ace7b87e13995c74"
 
 [[projects]]
   digest = "1:243ec2217cb77ad028a956bf4d886b0f070d2dbfe861ceadfcf270412c2e7b90"
@@ -1505,7 +1505,9 @@
   packages = [
     "bakery",
     "bakery/checkers",
+    "bakery/identchecker",
     "bakery/internal/macaroonpb",
+    "bakerytest",
     "httpbakery",
     "httpbakery/form",
     "internal/httputil",
