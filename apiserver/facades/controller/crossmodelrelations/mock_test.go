@@ -11,10 +11,10 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	checkersunstable "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
@@ -528,28 +528,28 @@ type mockBakeryService struct {
 	authentication.ExpirableStorageBakeryService
 }
 
-func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+func (s *mockBakeryService) NewMacaroon(caveats []checkersunstable.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
 	if err != nil {
 		return nil, err
 	}
 	for _, cav := range caveats {
-		if err := mac.AddFirstPartyCaveat(cav.Condition); err != nil {
+		if err := mac.AddFirstPartyCaveat([]byte(cav.Condition)); err != nil {
 			return nil, err
 		}
 	}
 	return mac, nil
 }
 
-func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
+func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkersunstable.Checker) (map[string]string, error) {
 	if len(ms) != 1 {
 		return nil, errors.New("unexpected macaroons")
 	}
 	if len(ms[0]) == 0 {
 		return nil, errors.New("no macaroons")
 	}
-	declared := checkers.InferDeclared(ms[0])
+	declared := checkers.InferDeclared(nil, ms[0])
 	for k, v := range assert {
 		if declared[k] != v {
 			return nil, common.ErrPerm

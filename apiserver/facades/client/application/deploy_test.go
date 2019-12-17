@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/testcharms"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
 
 	"github.com/juju/juju/apiserver/facades/client/application"
@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testcharms"
 )
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
@@ -30,7 +29,6 @@ import (
 // and that's is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.JujuConnSuite
-	repo  charmrepo.Interface
 	charm *state.Charm
 }
 
@@ -38,14 +36,13 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charmrepo.LocalRepository{Path: testcharms.Repo.Path()}
-	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
 }
 
 func (s *DeployLocalSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	curl := charm.MustParseURL("local:quantal/dummy")
-	charm, err := testing.PutCharm(s.State, curl, s.repo, false, false)
+	ch := testcharms.RepoForSeries("quantal").CharmDir("dummy")
+	charm, err := testing.PutCharm(s.State, curl, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	s.charm = charm
 }
@@ -118,7 +115,8 @@ func (s *DeployLocalSuite) addWordpressCharmWithExtraBindings(c *gc.C) *state.Ch
 }
 
 func (s *DeployLocalSuite) addWordpressCharmFromURL(c *gc.C, charmURL *charm.URL) *state.Charm {
-	wordpressCharm, err := testing.PutCharm(s.State, charmURL, s.repo, false, false)
+	ch := testcharms.RepoForSeries("quantal").CharmDir(charmURL.Name)
+	wordpressCharm, err := testing.PutCharm(s.State, charmURL, ch)
 	c.Assert(err, jc.ErrorIsNil)
 	return wordpressCharm
 }

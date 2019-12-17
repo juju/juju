@@ -15,7 +15,7 @@ import (
 	"github.com/juju/txn"
 	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	controllerclient "github.com/juju/juju/api/controller"

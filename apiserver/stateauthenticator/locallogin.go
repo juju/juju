@@ -7,18 +7,18 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
-	"github.com/julienschmidt/httprouter"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	macaroon "gopkg.in/macaroon.v2-unstable"
+	httpbakeryunstable "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 )
 
@@ -33,15 +33,15 @@ type localLoginHandlers struct {
 
 // AddHandlers adds the local login handlers to the given mux.
 func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
-	var errorMapper httprequest.ErrorMapper = httpbakery.ErrorToResponse
+	var errorMapper httpbakeryunstable.ErrorMapper = httpbakeryunstable.ErrorToResponse
 	var handleJSON = errorMapper.HandleJSON
-	makeHandler := func(h httprouter.Handle) http.Handler {
+	makeHandler := func(h httpbakeryunstable.Handle) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 			h(w, req, nil)
 		})
 	}
 	dischargeMux := http.NewServeMux()
-	httpbakery.AddDischargeHandler(
+	httpbakeryunstable.AddDischargeHandler(
 		dischargeMux,
 		localUserIdentityLocationPath,
 		h.authCtxt.localUserThirdPartyBakeryService,
@@ -62,7 +62,7 @@ func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
 	mux.AddHandler("POST", localUserIdentityLocationPath+"/login", dischargeMux)
 }
 
-func (h *localLoginHandlers) serveLogin(p httprequest.Params) (interface{}, error) {
+func (h *localLoginHandlers) serveLogin(p httpbakeryunstable.Params) (interface{}, error) {
 	switch p.Request.Method {
 	case "POST":
 		return h.serveLoginPost(p)
@@ -73,7 +73,7 @@ func (h *localLoginHandlers) serveLogin(p httprequest.Params) (interface{}, erro
 	}
 }
 
-func (h *localLoginHandlers) serveLoginPost(p httprequest.Params) (interface{}, error) {
+func (h *localLoginHandlers) serveLoginPost(p httpbakeryunstable.Params) (interface{}, error) {
 	if err := p.Request.ParseForm(); err != nil {
 		return nil, err
 	}
@@ -115,7 +115,7 @@ func (h *localLoginHandlers) serveLoginPost(p httprequest.Params) (interface{}, 
 	if err != nil {
 		return nil, err
 	}
-	cookie, err := httpbakery.NewCookie(macaroon.Slice{m})
+	cookie, err := httpbakery.NewCookie(charmstore.MacaroonNamespace, macaroon.Slice{m})
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +134,7 @@ func (h *localLoginHandlers) serveLoginPost(p httprequest.Params) (interface{}, 
 	return nil, nil
 }
 
-func (h *localLoginHandlers) serveLoginGet(p httprequest.Params) (interface{}, error) {
+func (h *localLoginHandlers) serveLoginGet(p httpbakeryunstable.Params) (interface{}, error) {
 	if p.Request.Header.Get("Accept") == "application/json" {
 		// The application/json content-type is used to
 		// inform the client of the supported auth methods.
@@ -149,7 +149,7 @@ func (h *localLoginHandlers) serveLoginGet(p httprequest.Params) (interface{}, e
 	return nil, errors.NotImplementedf("GET")
 }
 
-func (h *localLoginHandlers) serveWait(p httprequest.Params) (interface{}, error) {
+func (h *localLoginHandlers) serveWait(p httpbakeryunstable.Params) (interface{}, error) {
 	if err := p.Request.ParseForm(); err != nil {
 		return nil, err
 	}
@@ -177,7 +177,7 @@ func (h *localLoginHandlers) serveWait(p httprequest.Params) (interface{}, error
 	if err != nil {
 		return nil, errors.Annotate(err, "discharging macaroon")
 	}
-	return httpbakery.WaitResponse{macaroon}, nil
+	return httpbakeryunstable.WaitResponse{macaroon}, nil
 }
 
 func (h *localLoginHandlers) checkThirdPartyCaveat(req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
@@ -208,7 +208,7 @@ func (ctx *macaroonAuthContext) CheckThirdPartyCaveat(cavInfo *bakery.ThirdParty
 			}
 			visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitId
 			waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitId
-			return nil, httpbakery.NewInteractionRequiredError(visitURL, waitURL, nil, ctx.req)
+			return nil, httpbakeryunstable.NewInteractionRequiredError(visitURL, waitURL, nil, ctx.req)
 		}
 		return nil, errors.Trace(err)
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
+	"gopkg.in/juju/charmrepo.v4"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/testing"
@@ -28,12 +28,18 @@ type CharmStoreSuite struct {
 
 var _ = gc.Suite(&CharmStoreSuite{})
 
+type repoShim struct {
+	charmrepo.Interface
+}
+
+func (r *repoShim) Get(curl *charm.URL, archivePath string) (*charm.CharmArchive, error) {
+	// The facade uses a tmp dir to unpack the charm so stub that out here for testing.
+	return r.Interface.Get(curl, "")
+}
+
 func (s *CharmStoreSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	cacheDir := c.MkDir()
-	s.PatchValue(&charmrepo.CacheDir, cacheDir)
 
 	url := "cs:~juju-qa/bionic/lxd-profile-0"
 	charmURL, err := charm.ParseURL(url)
@@ -44,7 +50,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	mockStorage := mocks.NewMockStorage(ctrl)
 	mockInterface := mocks.NewMockInterface(ctrl)
 
-	charm := testcharms.Repo.CharmArchive(cacheDir, "lxd-profile")
+	charm := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 
 	// inject the mock as a back handed dependency
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
@@ -64,12 +70,12 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorization(c *gc.C) {
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockInterface.EXPECT()
-	iExp.Get(charmURL).Return(charm, nil)
+	iExp.Get(charmURL, "").Return(charm, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL: url,
 	}, func() (charmrepo.Interface, error) {
-		return mockInterface, nil
+		return &repoShim{mockInterface}, nil
 	})
 	c.Assert(err, gc.IsNil)
 }
@@ -78,9 +84,6 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
-	cacheDir := c.MkDir()
-	s.PatchValue(&charmrepo.CacheDir, cacheDir)
-
 	url := "cs:~juju-qa/bionic/lxd-profile-fail-0"
 	charmURL, err := charm.ParseURL(url)
 	c.Assert(err, gc.IsNil)
@@ -90,7 +93,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 	mockStorage := mocks.NewMockStorage(ctrl)
 	mockInterface := mocks.NewMockInterface(ctrl)
 
-	charm := testcharms.Repo.CharmArchive(cacheDir, "lxd-profile-fail")
+	charm := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
 
 	// inject the mock as a back handed dependency
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
@@ -104,12 +107,12 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 	cExp.IsUploaded().Return(false)
 
 	iExp := mockInterface.EXPECT()
-	iExp.Get(charmURL).Return(charm, nil)
+	iExp.Get(charmURL, "").Return(charm, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL: url,
 	}, func() (charmrepo.Interface, error) {
-		return mockInterface, nil
+		return &repoShim{mockInterface}, nil
 	})
 	c.Assert(err, gc.ErrorMatches, "cannot add charm: invalid lxd-profile.yaml: contains device type \"unix-disk\"")
 }
@@ -117,9 +120,6 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfile(c *
 func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	cacheDir := c.MkDir()
-	s.PatchValue(&charmrepo.CacheDir, cacheDir)
 
 	url := "cs:~juju-qa/bionic/lxd-profile-0"
 	charmURL, err := charm.ParseURL(url)
@@ -130,7 +130,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
 	mockStorage := mocks.NewMockStorage(ctrl)
 	mockInterface := mocks.NewMockInterface(ctrl)
 
-	charm := testcharms.Repo.CharmArchive(cacheDir, "lxd-profile")
+	charm := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile")
 
 	// inject the mock as a back handed dependency
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
@@ -150,13 +150,13 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockInterface.EXPECT()
-	iExp.Get(charmURL).Return(charm, nil)
+	iExp.Get(charmURL, "").Return(charm, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL:   url,
 		Force: true,
 	}, func() (charmrepo.Interface, error) {
-		return mockInterface, nil
+		return &repoShim{mockInterface}, nil
 	})
 	c.Assert(err, gc.IsNil)
 }
@@ -164,9 +164,6 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationAndForce(c *gc.C) {
 func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndForceStilSucceeds(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	cacheDir := c.MkDir()
-	s.PatchValue(&charmrepo.CacheDir, cacheDir)
 
 	url := "cs:~juju-qa/bionic/lxd-profile-fail-0"
 	charmURL, err := charm.ParseURL(url)
@@ -177,7 +174,7 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndF
 	mockStorage := mocks.NewMockStorage(ctrl)
 	mockInterface := mocks.NewMockInterface(ctrl)
 
-	charm := testcharms.Repo.CharmArchive(cacheDir, "lxd-profile-fail")
+	charm := testcharms.Repo.CharmArchive(c.MkDir(), "lxd-profile-fail")
 
 	// inject the mock as a back handed dependency
 	s.PatchValue(application.NewStateStorage, func(uuid string, session *mgo.Session) storage.Storage {
@@ -197,13 +194,13 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndF
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockInterface.EXPECT()
-	iExp.Get(charmURL).Return(charm, nil)
+	iExp.Get(charmURL, "").Return(charm, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL:   url,
 		Force: true,
 	}, func() (charmrepo.Interface, error) {
-		return mockInterface, nil
+		return &repoShim{mockInterface}, nil
 	})
 	c.Assert(err, gc.IsNil)
 }
@@ -211,9 +208,6 @@ func (s *CharmStoreSuite) TestAddCharmWithAuthorizationWithInvalidLXDProfileAndF
 func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
-
-	cacheDir := c.MkDir()
-	s.PatchValue(&charmrepo.CacheDir, cacheDir)
 
 	url := "cs:~juju-qa/bionic/versioned-0"
 	charmURL, err := charm.ParseURL(url)
@@ -225,7 +219,7 @@ func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	mockInterface := mocks.NewMockInterface(ctrl)
 
 	expVersion := "929903d"
-	pathToArchive := testcharms.Repo.CharmArchivePath(cacheDir, "versioned")
+	pathToArchive := testcharms.Repo.CharmArchivePath(c.MkDir(), "versioned")
 	err = testcharms.InjectFilesToCharmArchive(pathToArchive, map[string]string{
 		"version": expVersion,
 	})
@@ -251,12 +245,12 @@ func (s *CharmStoreSuite) TestAddVersionedCharmWithAuthorization(c *gc.C) {
 	stExp.Put(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 
 	iExp := mockInterface.EXPECT()
-	iExp.Get(charmURL).Return(charm, nil)
+	iExp.Get(charmURL, "").Return(charm, nil)
 
 	err = application.AddCharmWithAuthorizationAndRepo(mockState, params.AddCharmWithAuthorization{
 		URL: url,
 	}, func() (charmrepo.Interface, error) {
-		return mockInterface, nil
+		return &repoShim{mockInterface}, nil
 	})
 	c.Assert(err, gc.IsNil)
 }

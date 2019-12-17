@@ -5,7 +5,6 @@ package application_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"regexp"
 	"sync"
 	"time"
@@ -18,8 +17,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	"gopkg.in/juju/charmrepo.v4"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 
@@ -100,9 +99,8 @@ func (s *applicationSuite) UploadCharm(c *gc.C, url, name string) (*charm.URL, c
 		}
 		s.repo.revisions[base.String()] = resultURL.Revision
 	}
-	charmrepo.CacheDir = c.MkDir()
 	ch, err := charm.ReadCharmArchive(
-		testcharms.RepoWithSeries("quantal").CharmArchivePath(charmrepo.CacheDir, name))
+		testcharms.RepoWithSeries("quantal").CharmArchivePath(c.MkDir(), name))
 	c.Assert(err, jc.ErrorIsNil)
 	s.repo.Call("Get", resultURL).Returns(
 		ch,
@@ -529,11 +527,6 @@ func (s *applicationSuite) TestApplicationDeploy(c *gc.C) {
 	units, err := app.AllUnits()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(units, gc.HasLen, 1)
-
-	// Check that the charm cache dir is cleared out.
-	files, err := ioutil.ReadDir(charmrepo.CacheDir)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(files, gc.HasLen, 0)
 }
 
 func (s *applicationSuite) TestApplicationDeployWithInvalidPlacement(c *gc.C) {
@@ -1744,12 +1737,7 @@ func (s *applicationSuite) TestApplicationUpdateDoesNotSetMinUnitsWithLXDProfile
 	ch := repo.CharmDir("lxd-profile-fail")
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL(fmt.Sprintf("local:%s/%s", series, ident))
-	storerepo, err := charmrepo.InferRepository(
-		curl,
-		charmrepo.NewCharmStoreParams{},
-		repo.Path())
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = jujutesting.PutCharm(s.State, curl, storerepo, false, false)
+	_, err := jujutesting.PutCharm(s.State, curl, ch)
 	c.Assert(err, gc.ErrorMatches, `invalid lxd-profile.yaml: contains device type "unix-disk"`)
 }
 

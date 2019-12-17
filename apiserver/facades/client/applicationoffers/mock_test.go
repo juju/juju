@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common"
@@ -502,7 +502,7 @@ type mockBakeryService struct {
 func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
 	s.caveats["id"] = caveats
-	return macaroon.New(nil, []byte("id"), "")
+	return macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
 }
 
 func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {

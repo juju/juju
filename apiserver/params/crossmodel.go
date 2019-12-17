@@ -5,7 +5,7 @@ package params
 
 import (
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/life"
 )
