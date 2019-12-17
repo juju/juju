@@ -17,6 +17,7 @@ import (
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -233,6 +234,11 @@ func (m *mockRelationsFacade) ControllerAPIInfoForModel(modelUUID string) (*api.
 
 func (m *mockRelationsFacade) SetRemoteApplicationStatus(applicationName string, status status.Status, message string) error {
 	m.stub.MethodCall(m, "SetRemoteApplicationStatus", applicationName, status.String(), message)
+	return nil
+}
+
+func (m *mockRelationsFacade) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+	m.stub.MethodCall(m, "UpdateControllerForModel", controller, modelUUID)
 	return nil
 }
 

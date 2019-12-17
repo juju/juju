@@ -12,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
@@ -23,7 +24,9 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	coretesting "github.com/juju/juju/testing"
@@ -35,6 +38,7 @@ var _ = gc.Suite(&remoteRelationsSuite{})
 type remoteRelationsSuite struct {
 	coretesting.BaseSuite
 
+	remoteControllerInfo  *api.Info
 	resources             *common.Resources
 	authorizer            *apiservertesting.FakeAuthorizer
 	relationsFacade       *mockRelationsFacade
@@ -46,9 +50,15 @@ type remoteRelationsSuite struct {
 func (s *remoteRelationsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
+	s.remoteControllerInfo = &api.Info{
+		Addrs:  []string{"1.2.3.4:1234"},
+		CACert: coretesting.CACert,
+	}
+
 	s.stub = new(jujutesting.Stub)
 	s.relationsFacade = newMockRelationsFacade(s.stub)
 	s.remoteRelationsFacade = newMockRemoteRelationsFacade(s.stub)
+
 	s.config = remoterelations.Config{
 		ModelUUID:       "local-model-uuid",
 		RelationsFacade: s.relationsFacade,
@@ -80,8 +90,7 @@ func (s *remoteRelationsSuite) assertRemoteApplicationWorkers(c *gc.C) worker.Wo
 	// by starting relevant relation watchers.
 	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
 	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = &api.Info{
-		Addrs: []string{"1.2.3.4:1234"}, CACert: coretesting.CACert}
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
@@ -137,6 +146,59 @@ func (s *remoteRelationsSuite) TestRemoteApplicationWorkers(c *gc.C) {
 	}
 }
 
+func (s *remoteRelationsSuite) TestRemoteApplicationWorkersRedirect(c *gc.C) {
+	newControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+
+	s.config.NewRemoteModelFacadeFunc = func(info *api.Info) (remoterelations.RemoteModelRelationsFacadeCloser, error) {
+		// If attempting to connect to the remote controller as defined in
+		// SetUpTest, return a redirect error with a different address.
+		if info.Addrs[0] == "1.2.3.4:1234" {
+			return nil, &api.RedirectError{
+				Servers:         []network.MachineHostPorts{network.NewMachineHostPorts(2345, "2.3.4.5")},
+				CACert:          "new-controller-cert",
+				FollowRedirect:  false,
+				ControllerTag:   newControllerTag,
+				ControllerAlias: "",
+			}
+		}
+
+		// The address we asked to connect has changed;
+		// represent a successful connection.
+		return s.remoteRelationsFacade, nil
+	}
+
+	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
+
+	w, err := remoterelations.New(s.config)
+	c.Assert(err, jc.ErrorIsNil)
+	defer workertest.CleanKill(c, w)
+
+	mac, err := apitesting.NewMacaroon("test")
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.relationsFacade.remoteApplicationsWatcher.changes <- []string{"mysql"}
+	expected := []jujutesting.StubCall{
+		{"WatchRemoteApplications", nil},
+		{"RemoteApplications", []interface{}{[]string{"mysql"}}},
+		{"WatchRemoteApplicationRelations", []interface{}{"mysql"}},
+		{"ControllerAPIInfoForModel", []interface{}{"remote-model-uuid"}},
+		// We expect a redirect error will cause the new details to be saved.
+		{"UpdateControllerForModel", []interface{}{
+			crossmodel.ControllerInfo{
+				ControllerTag: newControllerTag,
+				Alias:         "",
+				Addrs:         []string{"2.3.4.5:2345"},
+				CACert:        "new-controller-cert",
+			},
+			"remote-model-uuid"},
+		},
+		{"WatchOfferStatus", []interface{}{"offer-mysql-uuid", macaroon.Slice{mac}}},
+	}
+	s.waitForWorkerStubCalls(c, expected)
+
+}
+
 func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 	// Checks that when a remote application is removed, the relation
 	// worker is killed.
@@ -163,8 +225,7 @@ func (s *remoteRelationsSuite) TestRemoteApplicationRemoved(c *gc.C) {
 func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnWatching(c *gc.C) {
 	s.relationsFacade.remoteApplications["db2"] = newMockRemoteApplication("db2", "db2url")
 	s.relationsFacade.remoteApplications["mysql"] = newMockRemoteApplication("mysql", "mysqlurl")
-	s.relationsFacade.controllerInfo["remote-model-uuid"] = &api.Info{
-		Addrs: []string{"1.2.3.4:1234"}, CACert: coretesting.CACert}
+	s.relationsFacade.controllerInfo["remote-model-uuid"] = s.remoteControllerInfo
 
 	w, err := remoterelations.New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
