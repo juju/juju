@@ -257,7 +257,7 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 }
 
 func (s *httpSuite) authHTTPRequest(c *gc.C, info *api.Info) *http.Request {
-	req, err := http.NewRequest("Get", "/", nil)
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = api.AuthHTTPRequest(req, info)
 	c.Assert(err, jc.ErrorIsNil)

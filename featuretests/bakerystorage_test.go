@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/state/bakerystorage"
 )
 
-// This suite is not about a feature tests per se, but tests the integrationmgostorage
+// This suite is not about a feature tests per se, but tests the integration
 // of the mongo-based bakery storage with the macaroon bakery service.
 type BakeryStorageSuite struct {
 	gitjujutesting.MgoSuite
