@@ -26,7 +26,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffers(c *gc.C) {
 
 	runner := ImportApplicationOfferRunner{
 		OfferUUID: offerUUID.String(),
-		model:     NewMockApplicationOfferDescription(ctrl),
+		model:     NewMockApplicationOfferInput(ctrl),
 		runner:    NewMockTransactionRunner(ctrl),
 	}
 
@@ -64,7 +64,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailur
 
 	runner := ImportApplicationOfferRunner{
 		OfferUUID: offerUUID.String(),
-		model:     NewMockApplicationOfferDescription(ctrl),
+		model:     NewMockApplicationOfferInput(ctrl),
 		runner:    NewMockTransactionRunner(ctrl),
 	}
 
@@ -95,7 +95,7 @@ func (s *MigrationImportTasksSuite) TestImportApplicationOffersTransactionFailur
 
 type ImportApplicationOfferRunner struct {
 	OfferUUID string
-	model     *MockApplicationOfferDescription
+	model     *MockApplicationOfferInput
 	runner    *MockTransactionRunner
 	ops       []func(*gomock.Controller)
 }
@@ -187,7 +187,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteApplications(c *gc.C) {
 	statusDoc := statusDoc{}
 	statusOp := txn.Op{}
 
-	model := NewMockRemoteApplicationsDescription(ctrl)
+	model := NewMockRemoteApplicationsInput(ctrl)
 	model.EXPECT().RemoteApplications().Return(entities)
 	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
 	model.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
@@ -243,7 +243,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteApplicationsWithMissingStatu
 		},
 	}
 
-	model := NewMockRemoteApplicationsDescription(ctrl)
+	model := NewMockRemoteApplicationsInput(ctrl)
 	model.EXPECT().RemoteApplications().Return(entities)
 	model.EXPECT().MakeRemoteApplicationDoc(entity0).Return(appDoc)
 	model.EXPECT().NewRemoteApplication(appDoc).Return(&RemoteApplication{
@@ -294,7 +294,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntities(c *gc.C) {
 		entity1,
 	}
 
-	model := NewMockRemoteEntitiesDescription(ctrl)
+	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
 	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
 	model.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
@@ -332,7 +332,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithNoEntities(c *gc
 
 	entities := []description.RemoteEntity{}
 
-	model := NewMockRemoteEntitiesDescription(ctrl)
+	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
 
 	runner := NewMockTransactionRunner(ctrl)
@@ -353,7 +353,7 @@ func (s *MigrationImportTasksSuite) TestImportRemoteEntitiesWithTransactionRunne
 		entity0,
 	}
 
-	model := NewMockRemoteEntitiesDescription(ctrl)
+	model := NewMockRemoteEntitiesInput(ctrl)
 	model.EXPECT().RemoteEntities().Return(entities)
 	model.EXPECT().DocID("ctrl-uuid-2").Return("uuid-2")
 
@@ -394,7 +394,7 @@ func (s *MigrationImportTasksSuite) TestImportRelationNetworks(c *gc.C) {
 		entity1,
 	}
 
-	model := NewMockRelationNetworksDescription(ctrl)
+	model := NewMockRelationNetworksInput(ctrl)
 	model.EXPECT().RelationNetworks().Return(entities)
 	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
 	model.EXPECT().DocID("ctrl-uuid-3").Return("ctrl-uuid-3")
@@ -434,7 +434,7 @@ func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithNoEntities(c *
 
 	entities := []description.RelationNetwork{}
 
-	model := NewMockRelationNetworksDescription(ctrl)
+	model := NewMockRelationNetworksInput(ctrl)
 	model.EXPECT().RelationNetworks().Return(entities)
 
 	runner := NewMockTransactionRunner(ctrl)
@@ -455,7 +455,7 @@ func (s *MigrationImportTasksSuite) TestImportRelationNetworksWithTransactionRun
 		entity0,
 	}
 
-	model := NewMockRelationNetworksDescription(ctrl)
+	model := NewMockRelationNetworksInput(ctrl)
 	model.EXPECT().RelationNetworks().Return(entities)
 	model.EXPECT().DocID("ctrl-uuid-2").Return("ctrl-uuid-2")
 
@@ -527,7 +527,7 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllers(c *gc.C) {
 		},
 	}
 
-	model := NewMockExternalControllersDescription(ctrl)
+	model := NewMockExternalControllersInput(ctrl)
 	model.EXPECT().ExternalControllers().Return(entities)
 	gomock.InOrder(
 		model.EXPECT().ExternalControllerDoc("ctrl-uuid-2").Return(nil, nil),
@@ -550,7 +550,7 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithNoEntities(
 
 	entities := []description.ExternalController{}
 
-	model := NewMockExternalControllersDescription(ctrl)
+	model := NewMockExternalControllersInput(ctrl)
 	model.EXPECT().ExternalControllers().Return(entities)
 
 	runner := NewMockTransactionRunner(ctrl)
@@ -587,7 +587,7 @@ func (s *MigrationImportTasksSuite) TestImportExternalControllersWithTransaction
 		},
 	}
 
-	model := NewMockExternalControllersDescription(ctrl)
+	model := NewMockExternalControllersInput(ctrl)
 	model.EXPECT().ExternalControllers().Return(entities)
 	model.EXPECT().ExternalControllerDoc("ctrl-uuid-2").Return(nil, nil)
 	model.EXPECT().MakeExternalControllerOp(doc0, nil).Return(ops[0])
@@ -620,5 +620,105 @@ func (s *MigrationImportTasksSuite) externalController(ctrl *gomock.Controller, 
 	entity.EXPECT().CACert().Return(caCert)
 	entity.EXPECT().Addrs().Return(addrs)
 	entity.EXPECT().Models().Return(models)
+	return entity
+}
+
+func (s *MigrationImportTasksSuite) TestImportFirewallRules(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.firewallRule(ctrl, "ssh", "ssh", []string{"192.168.0.1/24"})
+	entity1 := s.firewallRule(ctrl, "ssh", "ssh", []string{"10.0.0.1/16"})
+
+	entities := []description.FirewallRule{
+		entity0,
+		entity1,
+	}
+
+	model := NewMockFirewallRulesInput(ctrl)
+	model.EXPECT().FirewallRules().Return(entities)
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      firewallRulesC,
+			Id:     "ssh",
+			Assert: txn.DocMissing,
+			Insert: firewallRulesDoc{
+				Id:               "ssh",
+				WellKnownService: "ssh",
+				WhitelistCIDRS:   []string{"192.168.0.1/24"},
+			},
+		},
+		{
+			C:      firewallRulesC,
+			Id:     "ssh",
+			Assert: txn.DocMissing,
+			Insert: firewallRulesDoc{
+				Id:               "ssh",
+				WellKnownService: "ssh",
+				WhitelistCIDRS:   []string{"10.0.0.1/16"},
+			},
+		},
+	}).Return(nil)
+
+	m := ImportFirewallRules{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithNoEntities(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entities := []description.FirewallRule{}
+
+	model := NewMockFirewallRulesInput(ctrl)
+	model.EXPECT().FirewallRules().Return(entities)
+
+	runner := NewMockTransactionRunner(ctrl)
+	// No call to RunTransaction if there are no operations.
+
+	m := ImportFirewallRules{}
+	err := m.Execute(model, runner)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *MigrationImportTasksSuite) TestImportFirewallRulesWithTransactionRunnerReturnsError(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	entity0 := s.firewallRule(ctrl, "ssh", "ssh", []string{"192.168.0.1/24"})
+
+	entities := []description.FirewallRule{
+		entity0,
+	}
+
+	model := NewMockFirewallRulesInput(ctrl)
+	model.EXPECT().FirewallRules().Return(entities)
+
+	runner := NewMockTransactionRunner(ctrl)
+	runner.EXPECT().RunTransaction([]txn.Op{
+		{
+			C:      firewallRulesC,
+			Id:     "ssh",
+			Assert: txn.DocMissing,
+			Insert: firewallRulesDoc{
+				Id:               "ssh",
+				WellKnownService: "ssh",
+				WhitelistCIDRS:   []string{"192.168.0.1/24"},
+			},
+		},
+	}).Return(errors.New("fail"))
+
+	m := ImportFirewallRules{}
+	err := m.Execute(model, runner)
+	c.Assert(err, gc.ErrorMatches, "fail")
+}
+
+func (s *MigrationImportTasksSuite) firewallRule(ctrl *gomock.Controller, id, service string, whitelist []string) *MockFirewallRule {
+	entity := NewMockFirewallRule(ctrl)
+	entity.EXPECT().WellKnownService().Return(service)
+	entity.EXPECT().WhitelistCIDRs().Return(whitelist)
 	return entity
 }

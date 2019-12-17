@@ -106,3 +106,20 @@ func (s *FirewallRulesSuite) TestUpdate(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertSavedRules(c, firewall.JujuApplicationOfferRule, []string{"192.168.2.0/16"})
 }
+
+func (s *FirewallRulesSuite) TestRemove(c *gc.C) {
+	rules := state.NewFirewallRules(s.State)
+	err := rules.Save(state.NewFirewallRule(firewall.SSHRule, []string{"192.168.1.0/16"}))
+	c.Assert(err, jc.ErrorIsNil)
+	err = rules.Save(state.NewFirewallRule(firewall.JujuControllerRule, []string{"192.168.1.1/24"}))
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = rules.Remove(firewall.SSHRule)
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := rules.AllRules()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.HasLen, 1)
+
+	c.Assert(result[0].WellKnownService(), gc.DeepEquals, firewall.JujuControllerRule)
+}

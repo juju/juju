@@ -1297,12 +1297,9 @@ func (i *importer) firewallRules() error {
 	}
 	migration.Add(func() error {
 		m := ImportFirewallRules{}
-		return m.Execute(stateDocumentFactoryShim{
-			stateModelNamspaceShim{
-				Model: migration.src,
-				st:    i.st,
-			},
-			i,
+		return m.Execute(stateModelNamspaceShim{
+			Model: migration.src,
+			st:    i.st,
 		}, migration.dst)
 	})
 	if err := migration.Run(); err != nil {

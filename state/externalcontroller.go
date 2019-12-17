@@ -274,7 +274,7 @@ func (st *State) externalControllerDocsForModels(modelUUIDs ...string) ([]extern
 	return docs, errors.Trace(err)
 }
 
-func upsertExternalControllerOp(doc *externalControllerDoc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
+func upsertExternalControllerOp(doc, existing *externalControllerDoc, modelUUIDs []string) txn.Op {
 	if existing != nil {
 		models := set.NewStrings(existing.Models...)
 		models = models.Union(set.NewStrings(modelUUIDs...))
