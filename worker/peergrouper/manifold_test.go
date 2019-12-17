@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -31,6 +32,7 @@ type ManifoldSuite struct {
 	clock        *testclock.Clock
 	agent        *mockAgent
 	hub          *mockHub
+	registerer   *fakeRegisterer
 	stateTracker stubStateTracker
 
 	stub testing.Stub
@@ -49,17 +51,19 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		},
 	}}
 	s.hub = &mockHub{}
+	s.registerer = &fakeRegisterer{}
 	s.stateTracker = stubStateTracker{pool: s.StatePool}
 	s.stub.ResetCalls()
 
 	s.context = s.newContext(nil)
 	s.manifold = peergrouper.Manifold(peergrouper.ManifoldConfig{
-		AgentName:          "agent",
-		ClockName:          "clock",
-		ControllerPortName: "controller-port",
-		StateName:          "state",
-		Hub:                s.hub,
-		NewWorker:          s.newWorker,
+		AgentName:            "agent",
+		ClockName:            "clock",
+		ControllerPortName:   "controller-port",
+		StateName:            "state",
+		Hub:                  s.hub,
+		NewWorker:            s.newWorker,
+		PrometheusRegisterer: s.registerer,
 	})
 }
 
@@ -118,11 +122,12 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		APIHostPortsSetter: &peergrouper.CachingAPIHostPortsSetter{
 			APIHostPortsSetter: s.State,
 		},
-		Clock:      s.clock,
-		Hub:        s.hub,
-		MongoPort:  1234,
-		APIPort:    5678,
-		SupportsHA: true,
+		Clock:                s.clock,
+		Hub:                  s.hub,
+		MongoPort:            1234,
+		APIPort:              5678,
+		SupportsHA:           true,
+		PrometheusRegisterer: s.registerer,
 	})
 }
 
@@ -186,4 +191,8 @@ func (c *mockAgentConfig) StateServingInfo() (params.StateServingInfo, bool) {
 
 type mockHub struct {
 	peergrouper.Hub
+}
+
+type fakeRegisterer struct {
+	prometheus.Registerer
 }
