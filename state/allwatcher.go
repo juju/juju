@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
@@ -31,6 +32,7 @@ var allWatcherLogger = loggo.GetLogger("juju.state.allwatcher")
 type allWatcherStateBacking struct {
 	st               *State
 	watcher          watcher.BaseWatcher
+	collections      []string
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -40,6 +42,7 @@ type allModelWatcherStateBacking struct {
 	st               *State
 	watcher          watcher.BaseWatcher
 	stPool           *StatePool
+	collections      []string
 	collectionByName map[string]allWatcherStateCollection
 }
 
@@ -62,7 +65,7 @@ type allWatcherStateCollection struct {
 
 // makeAllWatcherCollectionInfo returns a name indexed map of
 // allWatcherStateCollection instances for the collections specified.
-func makeAllWatcherCollectionInfo(collNames ...string) map[string]allWatcherStateCollection {
+func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherStateCollection {
 	seenTypes := make(map[reflect.Type]struct{})
 	collectionByName := make(map[string]allWatcherStateCollection)
 
@@ -152,6 +155,8 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+	// Update the context with the model type.
+	ctx.modelType_ = e.Type
 	info := &multiwatcher.ModelUpdate{
 		ModelUUID:      e.UUID,
 		Name:           e.Name,
@@ -347,15 +352,8 @@ func (i *backingInstanceData) mongoID() string {
 
 type backingUnit unitDoc
 
-func getUnitPortRangesAndPorts(unit *Unit) ([]network.PortRange, []network.Port, error) {
-	// NOTE(thumper) 2019-12-10: this is pretty horrible. unit.OpenedPorts needs to find the machine that it is
-	// deployed on, which means if it is a subordinate, it needs to load the principal unit.
-	// Since we have a ratio of somewhere between 3..8 of subordinates to principals, we are
-	// loading a lot of units when we initally populate the cache. Ideally we'd have smarter
-	// loading and load all the principals first, then when looking up the values, use the store
-	// itself as the local cache to avoid hitting the database again. However this is out of scope
-	// for this initial pass of speedups.
-	portRanges, err := unit.OpenedPorts()
+func getUnitPortRangesAndPorts(ctx *allWatcherContext, unit *Unit) ([]network.PortRange, []network.Port, error) {
+	portRanges, err := ctx.getOpenedPorts(unit)
 	// Since the port ranges are associated with the unit's machine,
 	// we need to check for NotAssignedError.
 	if errors.IsNotAssigned(err) {
@@ -370,6 +368,7 @@ func getUnitPortRangesAndPorts(unit *Unit) ([]network.PortRange, []network.Port,
 	// empty slice rather than a nil slice. Use a len(portRanges) capacity to
 	// avoid unnecessary allocations, since most of the times only specific
 	// ports are opened by charms.
+	// TODO: deprecate the old style individual ports.
 	compatiblePorts := make([]network.Port, 0, len(portRanges))
 	for _, portRange := range portRanges {
 		for j := portRange.FromPort; j <= portRange.ToPort; j++ {
@@ -432,13 +431,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		info.CharmURL = u.CharmURL.String()
 	}
 
-	// fetch the associated unit to get possible updated status.
-	// TODO: kill this, we have only just read it.
-	// Can't even fake it for now because creating a unit requires knowing the model
-	// type, and we can't be sure that the model is loaded into the store yet.
-	// So... read the damn database again. Note that this not only hits the database
-	// for the unit, but the model as well.
-	// TODO: add the model type to the state object when we create the state object.
+	// Construct a unit for the purpose of retieving other fields as necessary.
 	modelType, err := ctx.modelType()
 	if err != nil {
 		return errors.Annotatef(err, "get model type for %q", ctx.modelUUID)
@@ -456,7 +449,7 @@ func (u *backingUnit) updated(ctx *allWatcherContext) error {
 		if err != nil {
 			return errors.Annotatef(err, "retrieve unit and agent status for %q", u.Name)
 		}
-		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(unit)
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(ctx, unit)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1230,7 +1223,7 @@ func updateUnitPorts(ctx *allWatcherContext, u *Unit) error {
 		// the status until a unitInfo is included in the store.
 		return nil
 	case *multiwatcher.UnitInfo:
-		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(u)
+		portRanges, compatiblePorts, err := getUnitPortRangesAndPorts(ctx, u)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1329,30 +1322,34 @@ type backingEntityDoc interface {
 
 func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
 	collectionNames := []string{
+		// The ordering here matters. We want to load machines, then
+		// applications, then units. The others don't matter so much.
+		machinesC,
+		applicationsC,
+		unitsC,
+		// The rest don't really matter.
 		actionsC,
 		annotationsC,
-		applicationsC,
 		blocksC,
 		charmsC,
 		constraintsC,
 		generationsC,
 		instanceDataC,
-		machinesC,
 		openedPortsC,
 		relationsC,
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
-		unitsC,
 	}
 	if params.IncludeOffers {
 		collectionNames = append(collectionNames, applicationOffersC)
 	}
-	collections := makeAllWatcherCollectionInfo(collectionNames...)
+	collectionsMap := makeAllWatcherCollectionInfo(collectionNames)
 	return &allWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.txnLogWatcher(),
-		collectionByName: collections,
+		collections:      collectionNames,
+		collectionByName: collectionsMap,
 	}
 }
 
@@ -1377,7 +1374,7 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allWatcherStateBacking) GetAll(store multiwatcher.Store) error {
-	err := loadAllWatcherEntities(b.st, b.collectionByName, store)
+	err := loadAllWatcherEntities(b.st, b.collections, b.collectionByName, store)
 	return errors.Trace(err)
 }
 
@@ -1422,27 +1419,32 @@ func (b *allWatcherStateBacking) Release() error {
 }
 
 func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
-	collections := makeAllWatcherCollectionInfo(
-		annotationsC,
+	collectionNames := []string{
+		// The ordering here matters. We want to load machines, then
+		// applications, then units. The others don't matter so much.
+		modelsC,
+		machinesC,
 		applicationsC,
+		unitsC,
+		// The rest don't really matter.
+		annotationsC,
 		charmsC,
 		constraintsC,
 		generationsC,
 		instanceDataC,
-		modelsC,
-		machinesC,
 		openedPortsC,
 		relationsC,
 		remoteApplicationsC,
 		statusesC,
 		settingsC,
-		unitsC,
-	)
+	}
+	collectionMap := makeAllWatcherCollectionInfo(collectionNames)
 	return &allModelWatcherStateBacking{
 		st:               st,
 		watcher:          st.workers.txnLogWatcher(),
 		stPool:           pool,
-		collectionByName: collections,
+		collections:      collectionNames,
+		collectionByName: collectionMap,
 	}
 }
 
@@ -1489,7 +1491,7 @@ func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID s
 	}
 	defer st.Release()
 
-	err = loadAllWatcherEntities(st.State, b.collectionByName, store)
+	err = loadAllWatcherEntities(st.State, b.collections, b.collectionByName, store)
 	if err != nil {
 		return errors.Annotatef(err, "error loading entities for model %v", modelUUID)
 	}
@@ -1576,7 +1578,7 @@ func (b *allModelWatcherStateBacking) Release() error {
 	return nil
 }
 
-func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherStateCollection, store multiwatcher.Store) error {
+func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[string]allWatcherStateCollection, store multiwatcher.Store) error {
 	// Use a single new MongoDB connection for all the work here.
 	db, closer := st.newDB()
 	defer closer()
@@ -1596,7 +1598,12 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 		return errors.Annotate(err, "loading subsidiary collections")
 	}
 
-	for _, c := range collectionByName {
+	for _, name := range loadOrder {
+		c, found := collectionByName[name]
+		if !found {
+			logger.Criticalf("programming error, collection %q not found in map", name)
+			continue
+		}
 		if c.subsidiary {
 			continue
 		}
@@ -1609,8 +1616,14 @@ func loadAllWatcherEntities(st *State, collectionByName map[string]allWatcherSta
 		if c.name == modelsC {
 			filter = bson.M{"_id": st.ModelUUID()}
 		}
-
-		if err := col.Find(filter).All(infoSlicePtr.Interface()); err != nil {
+		query := col.Find(filter)
+		// Units are ordered so we load the subordinates first.
+		if c.name == unitsC {
+			// Subordinates have a principal, so will sort after the
+			// empty string, which is what principal units have.
+			query = query.Sort("principal")
+		}
+		if err := query.All(infoSlicePtr.Interface()); err != nil {
 			return errors.Errorf("cannot get all %s: %v", c.name, err)
 		}
 		infos := infoSlicePtr.Elem()
@@ -1646,6 +1659,7 @@ type allWatcherContext struct {
 	constraints map[string]constraints.Value
 	statuses    map[string]status.StatusInfo
 	instances   map[string]instanceData
+	openPorts   map[string]portsDoc
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
@@ -1661,6 +1675,9 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	if err := ctx.loadInstanceData(); err != nil {
 		return errors.Annotatef(err, "cache instance data")
 	}
+	if err := ctx.loadOpenedPorts(); err != nil {
+		return errors.Annotatef(err, "cache opened ports")
+	}
 	return nil
 }
 
@@ -1670,7 +1687,7 @@ func (ctx *allWatcherContext) loadSettings() error {
 
 	var docs []settingsDoc
 	if err := col.Find(nil).All(&docs); err != nil {
-		return errors.Errorf("cannot read all settings")
+		return errors.Annotate(err, "cannot read all settings")
 	}
 
 	ctx.settings = make(map[string]*settingsDoc)
@@ -1688,7 +1705,7 @@ func (ctx *allWatcherContext) loadStatuses() error {
 
 	var docs []statusDocWithID
 	if err := col.Find(nil).All(&docs); err != nil {
-		return errors.Errorf("cannot read all statuses")
+		return errors.Annotate(err, "cannot read all statuses")
 	}
 
 	ctx.statuses = make(map[string]status.StatusInfo)
@@ -1705,13 +1722,32 @@ func (ctx *allWatcherContext) loadInstanceData() error {
 
 	var docs []instanceData
 	if err := col.Find(nil).All(&docs); err != nil {
-		return errors.Errorf("cannot read all instance data")
+		return errors.Annotate(err, "cannot read all instance data")
 	}
 
 	ctx.instances = make(map[string]instanceData)
 	for _, doc := range docs {
 		docCopy := doc
 		ctx.instances[doc.DocID] = docCopy
+	}
+
+	return nil
+}
+
+func (ctx *allWatcherContext) loadOpenedPorts() error {
+	col, closer := ctx.state.db().GetCollection(openedPortsC)
+	defer closer()
+
+	var docs []portsDoc
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Annotate(err, "cannot read all opened ports")
+	}
+
+	ctx.openPorts = make(map[string]portsDoc)
+	for _, doc := range docs {
+		docCopy := doc
+		key := portsGlobalKey(doc.MachineID, doc.SubnetID)
+		ctx.openPorts[key] = docCopy
 	}
 
 	return nil
@@ -1817,6 +1853,67 @@ func (ctx *allWatcherContext) getInstanceData(id string) (instanceData, error) {
 		}
 	}
 	return getInstanceData(ctx.state, id)
+}
+
+func (ctx *allWatcherContext) assignedMachineID(u *Unit) (string, error) {
+	// c.f. unit.AssignedMachineId.
+	// While it is unlikely that the assigned machine method for a unit will change,
+	// if it does, we need to make sure the implementation matches here.
+	principalName := u.doc.Principal
+	if principalName == "" {
+		if u.doc.MachineId == "" {
+			return "", unitNotAssignedError(u)
+		}
+		return u.doc.MachineId, nil
+	}
+
+	principal := &multiwatcher.UnitInfo{
+		ModelUUID: ctx.modelUUID,
+		Name:      principalName,
+	}
+	stored := ctx.store.Get(principal.EntityID())
+	switch info := stored.(type) {
+	case *multiwatcher.UnitInfo:
+		if info.MachineID == "" {
+			return "", unitNotAssignedError(u)
+		}
+		return info.MachineID, nil
+
+	default:
+		// This should never happen as the principal should always be in the
+		// store while the subordinate exists.
+		return "", errors.NotFoundf("unit %s", principalName)
+	}
+}
+
+func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]corenetwork.PortRange, error) {
+	// NOTE: as we open ports on other networks, this code needs to be updated
+	// to look at more than just the default empty string subnet id.
+	// This is what the unit.OpenedPorts returns (which is the existing functionality).
+	if ctx.openPorts == nil {
+		return unit.OpenedPorts()
+	}
+	machineID, err := ctx.assignedMachineID(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	key := portsGlobalKey(machineID, "")
+	// An empty doc is fine to process.
+	doc := ctx.openPorts[key]
+	unitName := unit.Name()
+	var result []corenetwork.PortRange
+
+	for _, port := range doc.Ports {
+		if port.UnitName == unitName {
+			result = append(result, corenetwork.PortRange{
+				Protocol: port.Protocol,
+				FromPort: port.FromPort,
+				ToPort:   port.ToPort,
+			})
+		}
+	}
+	corenetwork.SortPortRanges(result)
+	return result, nil
 }
 
 // entityIDForGlobalKey returns the entity id for the given global key.
