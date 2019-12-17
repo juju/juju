@@ -19,6 +19,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/voyeur"
 	"github.com/kr/pretty"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -567,15 +568,16 @@ func (s *workerSuite) TestControllersPublishedWithControllerAPIPort(c *gc.C) {
 	s.hub = hub
 
 	w := s.newWorkerWithConfig(c, Config{
-		Clock:              s.clock,
-		State:              st,
-		MongoSession:       st.session,
-		APIHostPortsSetter: nopAPIHostPortsSetter{},
-		MongoPort:          mongoPort,
-		APIPort:            apiPort,
-		ControllerAPIPort:  controllerAPIPort,
-		Hub:                s.hub,
-		SupportsHA:         true,
+		Clock:                s.clock,
+		State:                st,
+		MongoSession:         st.session,
+		APIHostPortsSetter:   nopAPIHostPortsSetter{},
+		MongoPort:            mongoPort,
+		APIPort:              apiPort,
+		ControllerAPIPort:    controllerAPIPort,
+		Hub:                  s.hub,
+		SupportsHA:           true,
+		PrometheusRegisterer: noopRegisterer{},
 	})
 	defer workertest.CleanKill(c, w)
 
@@ -1138,6 +1140,18 @@ func (nopHub) Subscribe(topic string, handler interface{}) (func(), error) {
 	return func() {}, nil
 }
 
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return true
+}
+
 func (s *workerSuite) newWorkerWithConfig(
 	c *gc.C,
 	config Config,
@@ -1160,13 +1174,14 @@ func (s *workerSuite) newWorker(
 	supportsHA bool,
 ) worker.Worker {
 	return s.newWorkerWithConfig(c, Config{
-		State:              st,
-		MongoSession:       session,
-		APIHostPortsSetter: apiHostPortsSetter,
-		MongoPort:          mongoPort,
-		APIPort:            apiPort,
-		Hub:                s.hub,
-		SupportsHA:         supportsHA,
+		State:                st,
+		MongoSession:         session,
+		APIHostPortsSetter:   apiHostPortsSetter,
+		MongoPort:            mongoPort,
+		APIPort:              apiPort,
+		Hub:                  s.hub,
+		SupportsHA:           supportsHA,
+		PrometheusRegisterer: noopRegisterer{},
 	})
 }
 
