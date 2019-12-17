@@ -66,5 +66,6 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runE
 		return errors.Annotate(err, "failed to acquire machine lock")
 	}
 	defer releaser()
-	return r.RunHook(string(hooks.MeterStatusChanged))
+	_, err = r.RunHook(string(hooks.MeterStatusChanged))
+	return err
 }

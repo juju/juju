@@ -39,8 +39,12 @@ var waitClientExit = func(s *ServerSession) {
 	exec.Command("flock", path, "-c", "true").Run()
 }
 
-// RunHook "runs" the hook with the specified name via debug-hooks.
-func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
+// RunHook "runs" the hook with the specified name via debug-hooks. The hookRunner
+// parameters specifies the name of the binary that users can invoke to handle
+// the hook. When using the legacy hook system, hookRunner will be equal to
+// the hookName; otherwise, it will point to a script that acts as the dispatcher
+// for all hooks/actions.
+func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRunner string) error {
 	debugDir, err := ioutil.TempDir("", "juju-debug-hooks-")
 	if err != nil {
 		return errors.Trace(err)
@@ -53,6 +57,7 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 	// TODO add JUJU_DISPATCH_HOOK if needed.
 	env = utils.Setenv(env, "JUJU_HOOK_NAME="+hookName)
 	env = utils.Setenv(env, "JUJU_DEBUG="+debugDir)
+	env = utils.Setenv(env, "JUJU_HOOK_RUNNER="+hookRunner)
 
 	cmd := exec.Command("/bin/bash", "-s")
 	cmd.Env = env
@@ -171,7 +176,7 @@ const debugHooksWelcomeMessage = `This is a Juju debug-hooks tmux session. Remem
 new events for this unit without exiting a current debug-session.
 3. To run an action or hook and end the debugging session avoiding processing any more events manually, use:
 
-./hooks/$JUJU_HOOK_NAME # or, equivalently, ./actions/$JUJU_HOOK_NAME
+./hooks/$JUJU_HOOK_RUNNER # or, equivalently, ./actions/$JUJU_HOOK_RUNNER
 tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
 
 4. CTRL+a is tmux prefix.
