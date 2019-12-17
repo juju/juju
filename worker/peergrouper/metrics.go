@@ -1,7 +1,7 @@
-// Copyright 2018 Canonical Ltd.
+// Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package cache
+package peergrouper
 
 import (
 	"fmt"
@@ -28,9 +28,9 @@ var (
 )
 
 // Collector is a prometheus.Collector that collects metrics about
-// the Juju global state.
+// the mongo replicaset status.
 type Collector struct {
-	replicasetStatus prometheus.Gauge
+	replicasetStatus *prometheus.GaugeVec
 
 	mu     sync.Mutex
 	status []replicaset.MemberStatus
@@ -39,12 +39,13 @@ type Collector struct {
 // NewMetricsCollector returns a new Collector.
 func NewMetricsCollector() *Collector {
 	return &Collector{
-		replicasetStatus: prometheus.NewGauge(
+		replicasetStatus: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
 				Namespace: metricsNamespace,
 				Name:      "replicaset_status",
 				Help:      "The details of the mongo replicaset.",
 			},
+			replicasetLabelNames,
 		),
 	}
 }
@@ -78,5 +79,21 @@ func (c *Collector) update(statuses map[string]replicaset.MemberStatus) {
 	c.status = make([]replicaset.MemberStatus, 0, len(statuses))
 	for _, status := range statuses {
 		c.status = append(c.status, status)
+	}
+}
+
+func (c *Collector) report() map[string]interface{} {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	peers := make(map[string]interface{})
+	for _, member := range c.status {
+		peers[fmt.Sprint(member.Id)] = map[string]interface{}{
+			"address": member.Address,
+			"state":   member.State.String(),
+		}
+	}
+	return map[string]interface{}{
+		"replicaset": peers,
 	}
 }

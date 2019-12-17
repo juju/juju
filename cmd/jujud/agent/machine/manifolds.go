@@ -713,12 +713,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:          agentName,
-			ClockName:          clockName,
-			ControllerPortName: controllerPortName,
-			StateName:          stateName,
-			Hub:                config.CentralHub,
-			NewWorker:          peergrouper.New,
+			AgentName:            agentName,
+			ClockName:            clockName,
+			ControllerPortName:   controllerPortName,
+			StateName:            stateName,
+			Hub:                  config.CentralHub,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            peergrouper.New,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{

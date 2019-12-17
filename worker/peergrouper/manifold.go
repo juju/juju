@@ -46,6 +46,9 @@ func (config ManifoldConfig) Validate() error {
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
 	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
 	if config.NewWorker == nil {
 		return errors.NotValidf("nil NewWorker")
 	}

@@ -135,6 +135,8 @@ type pgWorker struct {
 	// It is used to detect changes since the last publish.
 	serverDetails apiserver.Details
 
+	metrics *Collector
+
 	idleFunc func()
 }
 
@@ -206,6 +208,7 @@ func New(config Config) (worker.Worker, error) {
 		controllerTrackers: make(map[string]*controllerTracker),
 		detailsRequests:    make(chan string),
 		idleFunc:           IdleFunc,
+		metrics:            NewMetricsCollector(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -227,10 +230,14 @@ func (w *pgWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report is shown in the engine report.
+func (w *pgWorker) Report() map[string]interface{} {
+	return w.metrics.report()
+}
+
 func (w *pgWorker) loop() error {
-	collector := NewMetricsCollector()
-	_ = c.config.PrometheusRegisterer.Register(collector)
-	defer c.config.PrometheusRegisterer.Unregister(collector)
+	_ = w.config.PrometheusRegisterer.Register(w.metrics)
+	defer w.config.PrometheusRegisterer.Unregister(w.metrics)
 
 	controllerChanges, err := w.watchForControllerChanges()
 	if err != nil {
@@ -321,7 +328,7 @@ func (w *pgWorker) loop() error {
 			failed = true
 		}
 
-		members, err := w.updateReplicaSet(collector)
+		members, err := w.updateReplicaSet()
 		if err != nil {
 			if _, isReplicaSetError := err.(*replicaSetError); isReplicaSetError {
 				logger.Errorf("cannot set replicaset: %v", err)
@@ -585,13 +592,13 @@ type stepDownPrimaryError struct {
 // updateReplicaSet sets the current replica set members, and applies the
 // given voting status to nodes in the state. A mapping of controller ID
 // to replicaset.Member structures is returned.
-func (w *pgWorker) updateReplicaSet(collector *Collector) (map[string]*replicaset.Member, error) {
+func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	info, err := w.peerGroupInfo()
 	if err != nil {
 		return nil, errors.Annotate(err, "creating peer group info")
 	}
 	// Update the metrics collector with the replicaset statuses.
-	collector.update(info.statuses)
+	w.metrics.update(info.statuses)
 	desired, err := desiredPeerGroup(info)
 	// membersChanged, members, voting, err
 	if err != nil {
