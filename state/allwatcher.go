@@ -27,7 +27,7 @@ import (
 // and create a child logger from that.
 var allWatcherLogger = loggo.GetLogger("juju.state.allwatcher")
 
-// allWatcherStateBacking implements Backing by fetching entities for
+// allWatcherStateBacking implements AllWatcherBacking by fetching entities for
 // a single model from the State.
 type allWatcherStateBacking struct {
 	st               *State
@@ -36,10 +36,9 @@ type allWatcherStateBacking struct {
 	collectionByName map[string]allWatcherStateCollection
 }
 
-// allModelWatcherStateBacking implements Backing by fetching entities
+// allWatcherBacking implements AllWatcherBacking by fetching entities
 // for all models from the State.
-type allModelWatcherStateBacking struct {
-	st               *State
+type allWatcherBacking struct {
 	watcher          watcher.BaseWatcher
 	stPool           *StatePool
 	collections      []string
@@ -1049,7 +1048,8 @@ func (s *backingStatus) removed(ctx *allWatcherContext) error {
 }
 
 func (s *backingStatus) mongoID() string {
-	panic("cannot find mongo id from status document")
+	logger.Criticalf("programming error: attempting to get mongoID from status document")
+	return ""
 }
 
 type backingConstraints constraintsDoc
@@ -1088,7 +1088,8 @@ func (c *backingConstraints) removed(ctx *allWatcherContext) error {
 }
 
 func (c *backingConstraints) mongoID() string {
-	panic("cannot find mongo id from constraints document")
+	logger.Criticalf("programming error: attempting to get mongoID from constraints document")
+	return ""
 }
 
 type backingSettings settingsDoc
@@ -1139,7 +1140,8 @@ func (s *backingSettings) removed(ctx *allWatcherContext) error {
 }
 
 func (s *backingSettings) mongoID() string {
-	panic("cannot find mongo id from settings document")
+	logger.Criticalf("programming error: attempting to get mongoID from settings document")
+	return ""
 }
 
 type backingOpenedPorts map[string]interface{}
@@ -1320,7 +1322,7 @@ type backingEntityDoc interface {
 	mongoID() string
 }
 
-func newAllWatcherStateBacking(st *State, params WatchParams) Backing {
+func newAllWatcherStateBacking(st *State, params WatchParams) AllWatcherBacking {
 	collectionNames := []string{
 		// The ordering here matters. We want to load machines, then
 		// applications, then units. The others don't matter so much.
@@ -1412,13 +1414,31 @@ func (b *allWatcherStateBacking) Changed(store multiwatcher.Store, change watche
 	return doc.updated(ctx)
 }
 
-// Release implements the Backing interface.
-func (b *allWatcherStateBacking) Release() error {
-	// allWatcherStateBacking doesn't need to release anything.
-	return nil
+// AllWatcherBacking is the interface required by the multiwatcher to access the
+// underlying state.
+type AllWatcherBacking interface {
+	// GetAll retrieves information about all information
+	// known to the Backing and stashes it in the Store.
+	GetAll(multiwatcher.Store) error
+
+	// Changed informs the backing about a change received
+	// from a watcher channel.  The backing is responsible for
+	// updating the Store to reflect the change.
+	Changed(multiwatcher.Store, watcher.Change) error
+
+	// Watch watches for any changes and sends them
+	// on the given channel.
+	Watch(chan<- watcher.Change)
+
+	// Unwatch stops watching for changes on the
+	// given channel.
+	Unwatch(chan<- watcher.Change)
 }
 
-func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
+// NewAllWatcherBacking creates a backing object that watches
+// all the models in the controller for changes that are fed through
+// the multiwatcher infrastructure.
+func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 	collectionNames := []string{
 		// The ordering here matters. We want to load machines, then
 		// applications, then units. The others don't matter so much.
@@ -1427,7 +1447,10 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 		applicationsC,
 		unitsC,
 		// The rest don't really matter.
+		actionsC,
 		annotationsC,
+		applicationOffersC,
+		blocksC,
 		charmsC,
 		constraintsC,
 		generationsC,
@@ -1439,9 +1462,9 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 		settingsC,
 	}
 	collectionMap := makeAllWatcherCollectionInfo(collectionNames)
-	return &allModelWatcherStateBacking{
-		st:               st,
-		watcher:          st.workers.txnLogWatcher(),
+	controllerState := pool.SystemState()
+	return &allWatcherBacking{
+		watcher:          controllerState.workers.txnLogWatcher(),
 		stPool:           pool,
 		collections:      collectionNames,
 		collectionByName: collectionMap,
@@ -1449,22 +1472,22 @@ func NewAllModelWatcherStateBacking(st *State, pool *StatePool) Backing {
 }
 
 // Watch watches all the collections.
-func (b *allModelWatcherStateBacking) Watch(in chan<- watcher.Change) {
+func (b *allWatcherBacking) Watch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
 		b.watcher.WatchCollection(c.name, in)
 	}
 }
 
 // Unwatch unwatches all the collections.
-func (b *allModelWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
+func (b *allWatcherBacking) Unwatch(in chan<- watcher.Change) {
 	for _, c := range b.collectionByName {
 		b.watcher.UnwatchCollection(c.name, in)
 	}
 }
 
 // GetAll fetches all items that we want to watch from the state.
-func (b *allModelWatcherStateBacking) GetAll(store multiwatcher.Store) error {
-	modelUUIDs, err := b.st.AllModelUUIDs()
+func (b *allWatcherBacking) GetAll(store multiwatcher.Store) error {
+	modelUUIDs, err := b.stPool.SystemState().AllModelUUIDs()
 	if err != nil {
 		return errors.Annotate(err, "error loading models")
 	}
@@ -1476,7 +1499,7 @@ func (b *allModelWatcherStateBacking) GetAll(store multiwatcher.Store) error {
 	return nil
 }
 
-func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID string, store multiwatcher.Store) error {
+func (b *allWatcherBacking) loadAllWatcherEntitiesForModel(modelUUID string, store multiwatcher.Store) error {
 	st, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -1500,7 +1523,7 @@ func (b *allModelWatcherStateBacking) loadAllWatcherEntitiesForModel(modelUUID s
 
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
-func (b *allModelWatcherStateBacking) Changed(store multiwatcher.Store, change watcher.Change) error {
+func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Change) error {
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		return errors.Errorf("unknown collection %q in fetch request", change.C)
@@ -1515,7 +1538,7 @@ func (b *allModelWatcherStateBacking) Changed(store multiwatcher.Store, change w
 
 	ctx := &allWatcherContext{
 		// In order to have a valid state instance, use the controller model initially.
-		state:     b.st,
+		state:     b.stPool.SystemState(),
 		store:     store,
 		modelUUID: modelUUID,
 		id:        id,
@@ -1551,7 +1574,7 @@ func (b *allModelWatcherStateBacking) Changed(store multiwatcher.Store, change w
 	return doc.updated(ctx)
 }
 
-func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string, string, error) {
+func (b *allWatcherBacking) idForChange(change watcher.Change) (string, string, error) {
 	if change.C == modelsC {
 		modelUUID := change.Id.(string)
 		return modelUUID, modelUUID, nil
@@ -1564,18 +1587,12 @@ func (b *allModelWatcherStateBacking) idForChange(change watcher.Change) (string
 	return modelUUID, id, nil
 }
 
-func (b *allModelWatcherStateBacking) getState(modelUUID string) (*PooledState, error) {
+func (b *allWatcherBacking) getState(modelUUID string) (*PooledState, error) {
 	st, err := b.stPool.Get(modelUUID)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return st, nil
-}
-
-// Release implements the Backing interface.
-func (b *allModelWatcherStateBacking) Release() error {
-	// Nothing to release.
-	return nil
 }
 
 func loadAllWatcherEntities(st *State, loadOrder []string, collectionByName map[string]allWatcherStateCollection, store multiwatcher.Store) error {

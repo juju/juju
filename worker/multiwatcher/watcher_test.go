@@ -74,7 +74,7 @@ func (s *watcherSuite) TestRun(c *gc.C) {
 	}, "")
 }
 
-func (s *watcherSuite) TestMultiplemodels(c *gc.C) {
+func (s *watcherSuite) TestMultipleModels(c *gc.C) {
 	b := testbacking.New([]multiwatcher.EntityInfo{
 		&multiwatcher.MachineInfo{ModelUUID: "uuid0", ID: "0"},
 		&multiwatcher.ApplicationInfo{ModelUUID: "uuid0", Name: "logging"},
