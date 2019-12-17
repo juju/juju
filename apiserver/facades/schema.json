@@ -28505,8 +28505,8 @@
         }
     },
     {
-        "Name": "RemoteRelations",
-        "Version": 2,
+        "Name": "RemoteRelationWatcher",
+        "Version": 1,
         "Schema": {
             "type": "object",
             "properties": {
@@ -28775,7 +28775,7 @@
                         }
                     }
                 },
-                "WatchLocalRelationUnits": {
+                "WatchLocalRelationChanges": {
                     "type": "object",
                     "properties": {
                         "Params": {
@@ -29474,18 +29474,6 @@
                         }
                     },
                     "additionalProperties": false
-                },
-                "UnitSettings": {
-                    "type": "object",
-                    "properties": {
-                        "version": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "version"
-                    ]
                 },
                 "UpdateControllerForModel": {
                     "type": "object",
