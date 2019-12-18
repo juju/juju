@@ -16,6 +16,7 @@ import (
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
+	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
@@ -44,12 +45,13 @@ type RemoteModelRelationsFacade interface {
 	// model hosting the remote application involved in the relation.
 	PublishRelationChange(params.RemoteRelationChangeEvent) error
 
-	// WatchRelationUnits returns a watcher that notifies of changes to the
-	// units in the remote model for the relation with the given remote token.
-	WatchRelationUnits(arg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error)
-
-	// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
-	RelationUnitSettings([]params.RemoteRelationUnit) ([]params.SettingsResult, error)
+	// WatchRelationUnits returns a watcher that notifies of changes
+	// to the units in the remote model for the relation with the
+	// given remote token. We need to pass the application token for
+	// the case where we're talking to a v1 API and the client needs
+	// to convert RelationUnitsChanges into RemoteRelationChangeEvents
+	// as they come in.
+	WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRelationSuspendedStatus starts a RelationStatusWatcher for watching the
 	// relations of each specified application in the remote model.
@@ -76,10 +78,6 @@ type RemoteRelationsFacade interface {
 	// GetToken returns the token associated with the entity with the given tag.
 	GetToken(names.Tag) (string, error)
 
-	// RelationUnitSettings returns the relation unit settings for the
-	// given relation units in the local model.
-	RelationUnitSettings([]params.RelationUnit) ([]params.SettingsResult, error)
-
 	// Relations returns information about the relations
 	// with the specified keys in the local model.
 	Relations(keys []string) ([]params.RemoteRelationResult, error)
@@ -88,9 +86,9 @@ type RemoteRelationsFacade interface {
 	// the specified names in the local model.
 	RemoteApplications(names []string) ([]params.RemoteApplicationResult, error)
 
-	// WatchLocalRelationUnits returns a watcher that notifies of changes to the
+	// WatchLocalRelationChanges returns a watcher that notifies of changes to the
 	// local units in the relation with the given key.
-	WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error)
+	WatchLocalRelationChanges(relationKey string) (apiwatcher.RemoteRelationWatcher, error)
 
 	// WatchRemoteApplications watches for addition, removal and lifecycle
 	// changes to remote applications known to the local model.

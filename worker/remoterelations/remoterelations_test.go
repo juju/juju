@@ -302,19 +302,19 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
-		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
-		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
+		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 
-	unitWatcher, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
+	changeWatcher, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 	c.Check(ok, jc.IsTrue)
-	waitForStubCalls(c, &unitWatcher.Stub, []jujutesting.StubCall{
+	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
-	unitWatcher, ok = s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
+	changeWatcher, ok = s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
 	c.Check(ok, jc.IsTrue)
-	waitForStubCalls(c, &unitWatcher.Stub, []jujutesting.StubCall{
+	waitForStubCalls(c, &changeWatcher.Stub, []jujutesting.StubCall{
 		{"Changes", nil},
 	})
 	relationStatusWatcher, ok := s.remoteRelationsFacade.relationsStatusWatcher("token-db2:db django:db")
@@ -330,11 +330,11 @@ func (s *remoteRelationsSuite) TestRemoteRelationsWorkers(c *gc.C) {
 	workertest.CleanKill(c, w)
 
 	// Check that relation unit watchers are stopped with the worker.
-	relWatcher, ok := s.relationsFacade.relationsUnitsWatchers["db2:db django:db"]
+	relWatcher, ok := s.relationsFacade.remoteRelationWatchers["db2:db django:db"]
 	c.Check(ok, jc.IsTrue)
 	c.Check(relWatcher.killed(), jc.IsTrue)
 
-	relWatcher, ok = s.remoteRelationsFacade.relationsUnitsWatchers["token-db2:db django:db"]
+	relWatcher, ok = s.remoteRelationsFacade.remoteRelationWatchers["token-db2:db django:db"]
 	c.Check(ok, jc.IsTrue)
 	c.Check(relWatcher.killed(), jc.IsTrue)
 }
@@ -402,11 +402,11 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
+		_, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 		if ok {
 			continue
 		}
-		_, ok = s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
+		_, ok = s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
 		if !ok {
 			break
 		}
@@ -466,7 +466,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsRemoved(c *gc.C) {
 	relWatcher, _ := s.relationsFacade.remoteApplicationRelationsWatcher("db2")
 	relWatcher.changes <- []string{"db2:db django:db"}
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
-		_, ok := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
+		_, ok := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
 		if !ok {
 			break
 		}
@@ -483,19 +483,20 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
-	unitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:  map[string]watcher.UnitSettings{"unit/1": {Version: 2}},
-		Departed: []string{"unit/2"},
+	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
+		RelationToken:    "token-db2:db django:db",
+		ApplicationToken: "token-django",
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId:   1,
+			Settings: map[string]interface{}{"foo": "bar"},
+		}},
+		DepartedUnits: []int{2},
 	}
 
 	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
-		{"RelationUnitSettings", []interface{}{
-			[]params.RelationUnit{{
-				Relation: "relation-db2.db#django.db",
-				Unit:     "unit-unit-1"}}}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				ApplicationToken: "token-django",
@@ -517,21 +518,22 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	s.stub.SetErrors(nil, params.Error{Code: params.CodeNotFound})
+	s.stub.SetErrors(params.Error{Code: params.CodeNotFound})
 
-	unitsWatcher, _ := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
-	unitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:  map[string]watcher.UnitSettings{"unit/1": {Version: 2}},
-		Departed: []string{"unit/2"},
+	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
+		ApplicationToken: "token-django",
+		RelationToken:    "token-db2:db django:db",
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId:   1,
+			Settings: map[string]interface{}{"foo": "bar"},
+		}},
+		DepartedUnits: []int{2},
 	}
 
 	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
-		{"RelationUnitSettings", []interface{}{
-			[]params.RelationUnit{{
-				Relation: "relation-db2.db#django.db",
-				Unit:     "unit-unit-1"}}}},
 		{"PublishRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				ApplicationToken: "token-django",
@@ -555,20 +557,20 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 	defer workertest.CleanKill(c, w)
 	s.stub.ResetCalls()
 
-	unitsWatcher, _ := s.remoteRelationsFacade.relationsUnitsWatcher("token-db2:db django:db")
-	unitsWatcher.changes <- watcher.RelationUnitsChange{
-		Changed:  map[string]watcher.UnitSettings{"unit/1": {Version: 2}},
-		Departed: []string{"unit/2"},
+	unitsWatcher, _ := s.remoteRelationsFacade.remoteRelationWatcher("token-db2:db django:db")
+	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
+		ApplicationToken: "token-offer-db2-uuid",
+		RelationToken:    "token-db2:db django:db",
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId:   1,
+			Settings: map[string]interface{}{"foo": "bar"},
+		}},
+		DepartedUnits: []int{2},
 	}
 
 	mac, err := apitesting.NewMacaroon("apimac")
 	c.Assert(err, jc.ErrorIsNil)
 	expected := []jujutesting.StubCall{
-		{"RelationUnitSettings", []interface{}{
-			[]params.RemoteRelationUnit{{
-				RelationToken: "token-db2:db django:db",
-				Unit:          "unit-unit-1",
-				Macaroons:     macaroon.Slice{mac}}}}},
 		{"ConsumeRemoteRelationChange", []interface{}{
 			params.RemoteRelationChangeEvent{
 				ApplicationToken: "token-offer-db2-uuid",
@@ -623,9 +625,11 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 	s.stub.ResetCalls()
 
 	s.stub.SetErrors(errors.New("failed"))
-	unitsWatcher, _ := s.relationsFacade.relationsUnitsWatcher("db2:db django:db")
-	unitsWatcher.changes <- watcher.RelationUnitsChange{
-		Departed: []string{"unit/1"},
+	unitsWatcher, _ := s.relationsFacade.remoteRelationWatcher("db2:db django:db")
+	unitsWatcher.changes <- params.RemoteRelationChangeEvent{
+		ApplicationToken: "token-django",
+		RelationToken:    "token-db2:db django:db",
+		DepartedUnits:    []int{1},
 	}
 
 	// The error causes relation change publication to fail.
@@ -686,8 +690,8 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
 		{"WatchRelationSuspendedStatus", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
-		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
-		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
+		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
 	}
 
 	// If a relation is dying and there's been an error, when processing resumes
@@ -802,8 +806,8 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
-		{"WatchLocalRelationUnits", []interface{}{"db2:db django:db"}},
-		{"WatchRelationUnits", []interface{}{"token-db2:db django:db", macaroon.Slice{apiMac}}},
+		{"WatchLocalRelationChanges", []interface{}{"db2:db django:db"}},
+		{"WatchRelationChanges", []interface{}{"token-db2:db django:db", "token-offer-db2-uuid", macaroon.Slice{apiMac}}},
 	}
 	s.waitForWorkerStubCalls(c, expected)
 }
