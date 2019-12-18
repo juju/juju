@@ -42,7 +42,8 @@ func (config Config) Validate() error {
 type Worker struct {
 	config Config
 
-	tomb tomb.Tomb
+	tomb    tomb.Tomb
+	metrics *Collector
 
 	// store holds information about all known entities.
 	store multiwatcher.Store
@@ -108,14 +109,25 @@ func NewWorker(config Config) (*Worker, error) {
 		waiting: make(map[*Watcher]*request),
 		store:   multiwatcher.NewStore(config.Logger),
 	}
+	w.metrics = NewMetricsCollector(w)
 	w.tomb.Go(w.loop)
 	return w, nil
 }
+
+const (
+	// Keys used in the Report method are used to retrieve from
+	// the map in the metrics code, so define constants for the keys.
+	reportWatcherKey = "num-watchers"
+	reportStoreKey   = "store-size"
+	reportRestartKey = "restart-count"
+	reportErrorsKey  = "errors"
+)
 
 // Report is shown up in the engine report of the agent.
 func (w *Worker) Report() map[string]interface{} {
 	w.mu.Lock()
 	count := len(w.watchers)
+	store := w.store.Size()
 	restart := w.restartCount
 	var errors []string
 	for _, err := range w.errors {
@@ -124,13 +136,12 @@ func (w *Worker) Report() map[string]interface{} {
 	w.mu.Unlock()
 
 	report := map[string]interface{}{
-		"num-watchers": count,
-	}
-	if restart > 0 {
-		report["restart-count"] = restart
+		reportWatcherKey: count,
+		reportStoreKey:   store,
+		reportRestartKey: restart,
 	}
 	if len(errors) > 0 {
-		report["errors"] = errors
+		report[reportErrorsKey] = errors
 	}
 	return report
 }
@@ -181,6 +192,9 @@ func (w *Worker) loop() error {
 			w.config.Cleanup()
 		}
 	}()
+
+	_ = w.config.PrometheusRegisterer.Register(w.metrics)
+	defer w.config.PrometheusRegisterer.Unregister(w.metrics)
 
 	for {
 		err := w.inner()
