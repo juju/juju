@@ -79,8 +79,8 @@ type request struct {
 	// and there are none.
 	noChanges chan struct{}
 
-	// On reply, changes will hold changes that have occurred since
-	// the last replied-to Next request.
+	// changes is populated as part of the reply and will hold changes that have
+	// occurred since the last replied-to Next request.
 	changes []multiwatcher.Delta
 
 	// next points to the next request in the list of outstanding
@@ -206,6 +206,8 @@ func (w *Worker) loop() error {
 			w.restartCount++
 			w.errors = append(w.errors, err)
 			if len(w.errors) > 5 {
+				// Remembering the last five errors is somewhat of an arbitrary number,
+				// but we want more than just the last one, and we do want a cap.
 				// Since we only ever add one at a time, we know that removing just
 				// the first one will get us back to five.
 				w.errors = w.errors[1:]
@@ -343,10 +345,10 @@ func (w *Worker) respond() {
 }
 
 func (w *Worker) removeWaitingReq(watcher *Watcher, req *request) {
-	if req := req.next; req == nil {
+	if next := req.next; next == nil {
 		// Last request for this watcher.
 		delete(w.waiting, watcher)
 	} else {
-		w.waiting[watcher] = req
+		w.waiting[watcher] = next
 	}
 }
