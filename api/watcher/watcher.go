@@ -354,7 +354,10 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 	w.newResult = func() interface{} { return new(params.RemoteRelationWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationWatcher", w.remoteRelationWatcherId)
 	w.commonWatcher.init()
-	go w.commonLoop()
+	w.tomb.Go(func() error {
+		w.commonLoop()
+		return nil
+	})
 
 	for {
 		select {
@@ -370,7 +373,14 @@ func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEv
 			// this point, so just return.
 			return nil
 		}
-		change = data.(*params.RemoteRelationWatchResult).Changes
+		result, ok := data.(*params.RemoteRelationWatchResult)
+		if !ok {
+			return errors.Errorf("expected *params.RemoteRelationWatchResult, got %#v", data)
+		}
+		if result.Error != nil {
+			return errors.Trace(result.Error)
+		}
+		change = result.Changes
 	}
 }
 
@@ -428,7 +438,13 @@ func (w *remoteRelationCompatWatcher) loop(initialChange params.RelationUnitsCha
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
 	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
 	w.commonWatcher.init()
-	go w.commonLoop()
+
+	// Ensure the worker loop waits for the commonLoop to stop before
+	// being fully finished.
+	w.tomb.Go(func() error {
+		w.commonLoop()
+		return nil
+	})
 
 	for {
 		expanded, err := w.expandChange(change)
@@ -447,7 +463,14 @@ func (w *remoteRelationCompatWatcher) loop(initialChange params.RelationUnitsCha
 			// this point, so just return.
 			return nil
 		}
-		change = data.(*params.RelationUnitsWatchResult).Changes
+		result, ok := data.(*params.RelationUnitsWatchResult)
+		if !ok {
+			return errors.Errorf("expected *params.RelationUnitsWatchResult, got %#v", data)
+		}
+		if result.Error != nil {
+			return errors.Trace(result.Error)
+		}
+		change = result.Changes
 	}
 }
 

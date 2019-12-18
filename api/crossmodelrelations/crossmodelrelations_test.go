@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/juju/clock"
@@ -339,6 +338,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 						},
 					}},
 				}
+
 			case "CrossModelRelations.RelationUnitSettings":
 				c.Check(id, gc.Equals, "")
 				c.Check(arg, jc.DeepEquals, params.RemoteRelationUnits{
@@ -359,15 +359,25 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 			case "RelationUnitsWatcher.Next":
 				c.Check(id, gc.Equals, "123")
 				c.Check(arg, gc.Equals, nil)
-				c.Logf("result is %#v", reflect.ValueOf(result).Elem().Elem())
-				c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResult{})
-				*(result.(*params.RelationUnitsWatchResult)) = params.RelationUnitsWatchResult{
-					Error: &params.Error{Message: "STOPPED"},
-				}
+
+				// The client-side watcher handling for result types
+				// means that we get something here that is just
+				// interface{}, not an interface{} containing
+				// something that the gc.FitsTypeOf checker can see. I
+				// don't totally understand this, but writing it out
+				// using the Lovecraftian machinations of
+				// json.Unmarshal works.
+				data, err := json.Marshal(params.RelationUnitsWatchResult{
+					Error: &params.Error{Message: "UHOH"},
+				})
+				c.Check(err, jc.ErrorIsNil)
+				err = json.Unmarshal(data, result)
+				c.Check(err, jc.ErrorIsNil)
+
 			case "RelationUnitsWatcher.Stop":
 				c.Check(id, gc.Equals, "123")
 				c.Check(arg, gc.Equals, nil)
-				c.Check(result, gc.Equals, nil)
+
 			default:
 				c.Fatalf("bad objtype %q", objType)
 			}
@@ -401,11 +411,15 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 	}
 
 	err = workertest.CheckKilled(c, w)
-	c.Check(err, gc.ErrorMatches, "STOPPED")
+	c.Check(err, gc.ErrorMatches, "UHOH")
 	calls.CheckCallNames(c,
 		"CrossModelRelations.WatchRelationUnits",
 		"CrossModelRelations.RelationUnitSettings",
 		"RelationUnitsWatcher.Next",
+		// The watcher common loop gets back to calling Next again
+		// before we see the error in the result.
+		"RelationUnitsWatcher.Next",
+		"RelationUnitsWatcher.Stop",
 	)
 }
 
