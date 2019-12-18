@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -1534,7 +1535,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(cstore BundleResolver) func(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			bundle, err := cstore.GetBundle(bundleURL, dir)
+			bundle, err := cstore.GetBundle(bundleURL, filepath.Join(dir, bundleURL.Name))
 			if err != nil {
 				return errors.Trace(err)
 			}
