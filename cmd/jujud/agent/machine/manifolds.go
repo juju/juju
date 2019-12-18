@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/multiwatcher"
 	"github.com/juju/juju/worker/peergrouper"
 	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -402,6 +403,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			OpenStatePool:          config.OpenStatePool,
 			SetStatePool:           config.SetStatePool,
 		}),
+
+		// The multiwatcher manifold watches all the changes in the database
+		// through the AllWatcherBacking and manages notifying the multiwatchers.
+		multiwatcherName: ifDatabaseUpgradeComplete(ifController(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+			StateName:            stateName,
+			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            multiwatcher.NewWorkerShim,
+			NewAllWatcher:        state.NewAllWatcherBacking,
+		}))),
 
 		// The model cache initialized gate is used to make sure the api server
 		// isn't created before the model cache has been initialized with the
@@ -1141,6 +1152,7 @@ const (
 	modelCacheInitializedFlagName = "model-cache-initialized-flag"
 	modelCacheInitializedGateName = "model-cache-initialized-gate"
 	modelWorkerManagerName        = "model-worker-manager"
+	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"
