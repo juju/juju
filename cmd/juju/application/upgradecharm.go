@@ -366,7 +366,7 @@ func (c *upgradeCharmCommand) Run(ctx *cmd.Context) error {
 	chID, csMac, err := c.addCharm(addCharmParams{
 		charmAdder:     c.NewCharmAdder(apiRoot),
 		charmRepo:      c.NewCharmStore(bakeryClient, csURL, c.Channel),
-		authorizer:     newCharmStoreClient(bakeryClient, csURL, c.Channel),
+		authorizer:     newCharmStoreClient(bakeryClient, csURL),
 		oldURL:         oldURL,
 		newCharmRef:    newRef,
 		deployedSeries: applicationInfo.Series,
@@ -623,7 +623,7 @@ func getCharmStore(
 	csURL string,
 	channel csclientparams.Channel,
 ) charmrepoForDeploy {
-	csClient := newCharmStoreClient(bakeryClient, csURL, channel)
+	csClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(channel)
 	return charmrepo.NewCharmStoreFromClient(csClient)
 }
 
@@ -679,7 +679,7 @@ func (c *upgradeCharmCommand) addCharm(params addCharmParams) (charmstore.CharmI
 	}
 
 	// Charm has been supplied as a URL so we resolve and deploy using the store.
-	newURL, channel, supportedSeries, err := c.ResolveCharm(params.charmRepo.ResolveWithChannel, refURL)
+	newURL, channel, supportedSeries, err := c.ResolveCharm(params.charmRepo.ResolveWithPreferredChannel, refURL, c.Channel)
 	if err != nil {
 		return id, nil, errors.Trace(err)
 	}

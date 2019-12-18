@@ -141,7 +141,7 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	) (ids map[string]string, err error) {
 		return deployResources(s.State, applicationID, resources)
 	}
-	deploy.NewCharmRepo = func(channel csclientparams.Channel) (*charmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
 		return s.fakeAPI.charmStoreAdaptor, nil
 	}
 
