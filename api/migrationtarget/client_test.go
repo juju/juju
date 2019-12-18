@@ -360,6 +360,16 @@ type fakeDoer struct {
 func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	d.method = req.Method
 	d.url = req.URL.String()
+
+	// If the body is nil, don't do anything about reading the req.Body
+	// The underlying net http go library deals with nil bodies for requests,
+	// so our fake stub should also mirror this.
+	// https://golang.org/src/net/http/client.go?s=17323:17375#L587
+	if req.Body == nil {
+		return d.response, nil
+	}
+
+	// ReadAll the body if it's found.
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		panic(err)
