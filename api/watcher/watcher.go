@@ -337,6 +337,8 @@ type remoteRelationWatcher struct {
 	out                     chan params.RemoteRelationChangeEvent
 }
 
+// NewRemoteRelationWatcher returns a RemoteRelationWatcher receiving
+// events from the one running on the API server.
 func NewRemoteRelationWatcher(caller base.APICaller, result params.RemoteRelationWatchResult) RemoteRelationWatcher {
 	w := &remoteRelationWatcher{
 		caller:                  caller,

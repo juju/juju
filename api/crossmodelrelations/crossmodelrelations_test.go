@@ -312,12 +312,63 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	c.Check(callCount, gc.Equals, 2)
 }
 
+func (s *CrossModelRelationsSuite) TestWatchRelationChangesDischargeRequired(c *gc.C) {
+	var (
+		callCount    int
+		mac          *macaroon.Macaroon
+		dischargeMac macaroon.Slice
+	)
+	apiCaller := testing.BestVersionCaller{
+		BestVersion: 2,
+		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			var resultErr *params.Error
+			c.Logf("called")
+			switch callCount {
+			case 2, 3: //Watcher Next, Stop
+				return nil
+			case 0:
+				mac = s.newDischargeMacaroon(c)
+				resultErr = &params.Error{
+					Code: params.CodeDischargeRequired,
+					Info: params.DischargeRequiredErrorInfo{
+						Macaroon: mac,
+					}.AsMap(),
+				}
+			case 1:
+				argParam := arg.(params.RemoteEntityArgs)
+				dischargeMac = argParam.Args[0].Macaroons
+			}
+			resp := params.RemoteRelationWatchResults{
+				Results: []params.RemoteRelationWatchResult{{Error: resultErr}},
+			}
+			s.fillResponse(c, result, resp)
+			callCount++
+			return nil
+		}),
+	}
+	acquirer := &mockDischargeAcquirer{}
+	callerWithBakery := testing.APICallerWithBakery(apiCaller, acquirer)
+	client := crossmodelrelations.NewClientWithCache(callerWithBakery, s.cache)
+	_, err := client.WatchRelationChanges("token", "app-token", nil)
+	c.Check(callCount, gc.Equals, 2)
+	c.Check(err, jc.ErrorIsNil)
+	c.Assert(dischargeMac, gc.HasLen, 2)
+	apitesting.MacaroonEquals(c, dischargeMac[0], mac)
+	c.Assert(dischargeMac[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+	// Macaroon has been cached.
+	ms, ok := s.cache.Get("token")
+	c.Assert(ok, jc.IsTrue)
+	apitesting.MacaroonEquals(c, ms[0], mac)
+	c.Assert(ms[1].Id(), jc.DeepEquals, []byte("discharge mac"))
+}
+
 func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 	remoteRelationToken := "token"
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	var calls jujutesting.Stub
 	apiCaller := testing.BestVersionCaller{
+		BestVersion: 1,
 		APICallerFunc: testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 			fullRequest := fmt.Sprintf("%s.%s", objType, request)
 			calls.AddCall(fullRequest)
@@ -383,7 +434,6 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 			}
 			return nil
 		}),
-		BestVersion: 1,
 	}
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	w, err := client.WatchRelationChanges(
