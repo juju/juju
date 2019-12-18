@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/api/base"
@@ -312,6 +313,221 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 // counterpart units in a relation. The first event on the channel
 // holds the initial state of the relation in its Changed field.
 func (w *relationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
+	return w.out
+}
+
+// RemoteRelationWatcher is a worker that emits remote relation change
+// events. It's not defined in core/watcher because it emits params
+// structs - this makes more sense than converting to a core struct
+// just to convert back when the event is published to the other
+// model's API.
+type RemoteRelationWatcher interface {
+	watcher.CoreWatcher
+	Changes() <-chan params.RemoteRelationChangeEvent
+}
+
+// remoteRelationWatcher sends notifications of units entering and
+// leaving scope of a relation and changes to unit/application
+// settings, but yielding fleshed-out events so the caller doesn't
+// need to call back to get the settings values.
+type remoteRelationWatcher struct {
+	commonWatcher
+	caller                  base.APICaller
+	remoteRelationWatcherId string
+	out                     chan params.RemoteRelationChangeEvent
+}
+
+// NewRemoteRelationWatcher returns a RemoteRelationWatcher receiving
+// events from the one running on the API server.
+func NewRemoteRelationWatcher(caller base.APICaller, result params.RemoteRelationWatchResult) RemoteRelationWatcher {
+	w := &remoteRelationWatcher{
+		caller:                  caller,
+		remoteRelationWatcherId: result.RemoteRelationWatcherId,
+		out:                     make(chan params.RemoteRelationChangeEvent),
+	}
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
+	return w
+}
+
+func (w *remoteRelationWatcher) loop(initialChange params.RemoteRelationChangeEvent) error {
+	change := initialChange
+	w.newResult = func() interface{} { return new(params.RemoteRelationWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "RemoteRelationWatcher", w.remoteRelationWatcherId)
+	w.commonWatcher.init()
+	w.tomb.Go(func() error {
+		w.commonLoop()
+		return nil
+	})
+
+	for {
+		select {
+		// Send out the initial event or subsequent change.
+		case w.out <- change:
+		case <-w.tomb.Dying():
+			return nil
+		}
+
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error at
+			// this point, so just return.
+			return nil
+		}
+		result, ok := data.(*params.RemoteRelationWatchResult)
+		if !ok {
+			return errors.Errorf("expected *params.RemoteRelationWatchResult, got %#v", data)
+		}
+		if result.Error != nil {
+			return errors.Trace(result.Error)
+		}
+		change = result.Changes
+	}
+}
+
+// Changes returns a channel that will emit changes to the remote
+// relation units.
+func (w *remoteRelationWatcher) Changes() <-chan params.RemoteRelationChangeEvent {
+	return w.out
+}
+
+// SettingsGetter is a callback function the remote relation
+// compatibility watcher calls to get unit settings when expanding
+// events.
+type SettingsGetter func([]string) ([]params.SettingsResult, error)
+
+// remoteRelationCompatWatcher is a compatibility adapter that calls
+// back to the v1 crossmodelrelations API methods to wrap a
+// server-side RelationUnitsWatcher into a RemoteRelationWatcher. It
+// needs the relation and application token to include in the outgoing
+// change events.
+type remoteRelationCompatWatcher struct {
+	commonWatcher
+	caller                 base.APICaller
+	relationUnitsWatcherId string
+	relationToken          string
+	appToken               string
+	getSettings            SettingsGetter
+	out                    chan params.RemoteRelationChangeEvent
+}
+
+// NewRemoteRelationCompatWatcher returns a RemoteRelationWatcher
+// based on a server-side RelationUnitsWatcher.
+func NewRemoteRelationCompatWatcher(
+	caller base.APICaller,
+	result params.RelationUnitsWatchResult,
+	relationToken string,
+	appToken string,
+	getSettings SettingsGetter,
+) RemoteRelationWatcher {
+	w := &remoteRelationCompatWatcher{
+		caller:                 caller,
+		relationUnitsWatcherId: result.RelationUnitsWatcherId,
+		relationToken:          relationToken,
+		appToken:               appToken,
+		getSettings:            getSettings,
+		out:                    make(chan params.RemoteRelationChangeEvent),
+	}
+	w.tomb.Go(func() error {
+		return w.loop(result.Changes)
+	})
+	return w
+}
+
+func (w *remoteRelationCompatWatcher) loop(initialChange params.RelationUnitsChange) error {
+	change := initialChange
+	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
+	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
+	w.commonWatcher.init()
+
+	// Ensure the worker loop waits for the commonLoop to stop before
+	// being fully finished.
+	w.tomb.Go(func() error {
+		w.commonLoop()
+		return nil
+	})
+
+	for {
+		expanded, err := w.expandChange(change)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		select {
+		// Send out the initial event or subsequent change.
+		case w.out <- expanded:
+		case <-w.tomb.Dying():
+			return nil
+		}
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error at
+			// this point, so just return.
+			return nil
+		}
+		result, ok := data.(*params.RelationUnitsWatchResult)
+		if !ok {
+			return errors.Errorf("expected *params.RelationUnitsWatchResult, got %#v", data)
+		}
+		if result.Error != nil {
+			return errors.Trace(result.Error)
+		}
+		change = result.Changes
+	}
+}
+
+func (w *remoteRelationCompatWatcher) expandChange(change params.RelationUnitsChange) (params.RemoteRelationChangeEvent, error) {
+	var empty params.RemoteRelationChangeEvent
+	var unitNames []string
+	for unit := range change.Changed {
+		unitNames = append(unitNames, unit)
+	}
+	var changedUnits []params.RemoteRelationUnitChange
+	if len(unitNames) > 0 {
+		results, err := w.getSettings(unitNames)
+		if err != nil {
+			return empty, errors.Annotatef(err, "getting relation unit settings for %q", unitNames)
+		}
+		for i, result := range results {
+			num, err := names.UnitNumber(unitNames[i])
+			if err != nil {
+				return empty, errors.Trace(err)
+			}
+			unitChange := params.RemoteRelationUnitChange{
+				UnitId:   num,
+				Settings: make(map[string]interface{}),
+			}
+			for k, v := range result.Settings {
+				unitChange.Settings[k] = v
+			}
+			changedUnits = append(changedUnits, unitChange)
+		}
+	}
+
+	var departedUnits []int
+	for _, unit := range change.Departed {
+		num, err := names.UnitNumber(unit)
+		if err != nil {
+			return empty, errors.Trace(err)
+		}
+		departedUnits = append(departedUnits, num)
+	}
+
+	expanded := params.RemoteRelationChangeEvent{
+		RelationToken:    w.relationToken,
+		ApplicationToken: w.appToken,
+		ChangedUnits:     changedUnits,
+		DepartedUnits:    departedUnits,
+	}
+	// No need to handle AppChanged here - the v1 API can't tell us
+	// app settings.
+	return expanded, nil
+
+}
+
+// Changes returns a channel that will emit changes to the remote
+// relation units.
+func (w *remoteRelationCompatWatcher) Changes() <-chan params.RemoteRelationChangeEvent {
 	return w.out
 }
 
