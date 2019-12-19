@@ -474,10 +474,6 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 				Token:     "token-db2:db django:db",
 				Macaroons: macaroon.Slice{mac},
 			},
-			{
-				Token:     "token-postgresql:db django:db",
-				Macaroons: macaroon.Slice{mac},
-			},
 		},
 	}
 	results, err := s.api.WatchRelationsSuspendedStatus(args)
@@ -485,7 +481,6 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
 	c.Assert(results.Results[1].Error, gc.IsNil)
-	c.Assert(results.Results[2].Error.ErrorCode(), gc.Equals, params.CodeNotFound)
 	c.Assert(s.watchedRelations, jc.DeepEquals, params.Entities{
 		Entities: []params.Entity{{Tag: "relation-db2.db#django.db"}}},
 	)
@@ -493,7 +488,58 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 		{"GetRemoteEntity", []interface{}{"token-mysql:db django:db"}},
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
-		{"GetRemoteEntity", []interface{}{"token-postgresql:db django:db"}},
+	})
+}
+
+func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *gc.C) {
+	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
+	s.st.offerConnectionsByKey["db2:db django:db"] = &mockOfferConnection{
+		offerUUID:       "hosted-db2-uuid",
+		sourcemodelUUID: "source-model-uuid",
+		relationKey:     "db2:db django:db",
+		relationId:      1,
+	}
+	mac, err := s.bakery.NewMacaroon(
+		[]checkers.Caveat{
+			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
+			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
+			checkers.DeclaredCaveat("username", "mary"),
+		})
+
+	c.Assert(err, jc.ErrorIsNil)
+	args := params.RemoteEntityArgs{
+		Args: []params.RemoteEntityArg{
+			{
+				Token:     "token-db2:db django:db",
+				Macaroons: macaroon.Slice{mac},
+			},
+		},
+	}
+
+	// First check that when not migrating, we see the relation as dead.
+	results, err := s.api.WatchRelationsSuspendedStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	c.Assert(results.Results[0].Changes[0].Life, gc.Equals, life.Dead)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+		{"IsMigrationActive", []interface{}{}},
+	})
+	s.st.ResetCalls()
+
+	// Now indicate that a migration is active
+	// and ensure that the error flows to us.
+	s.st.migrationActive = true
+	results, err = s.api.WatchRelationsSuspendedStatus(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, len(args.Args))
+	c.Assert(results.Results[0].Error.Code, gc.Equals, params.CodeNotFound)
+	s.st.CheckCalls(c, []testing.StubCall{
+		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
+		{"KeyRelation", []interface{}{"db2:db django:db"}},
+		{"IsMigrationActive", []interface{}{}},
 	})
 }
 

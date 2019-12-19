@@ -52,6 +52,7 @@ type mockState struct {
 	remoteEntities        map[names.Tag]string
 	firewallRules         map[corefirewall.WellKnownServiceType]*state.FirewallRule
 	ingressNetworks       map[string][]string
+	migrationActive       bool
 }
 
 func newMockState() *mockState {
@@ -218,6 +219,14 @@ func (st *mockState) KeyRelation(key string) (commoncrossmodel.Relation, error) 
 		return nil, errors.NotFoundf("relation %q", key)
 	}
 	return r, nil
+}
+
+func (st *mockState) IsMigrationActive() (bool, error) {
+	st.MethodCall(st, "IsMigrationActive")
+	if err := st.NextErr(); err != nil {
+		return false, err
+	}
+	return st.migrationActive, nil
 }
 
 func (st *mockState) RemoteApplication(id string) (commoncrossmodel.RemoteApplication, error) {
