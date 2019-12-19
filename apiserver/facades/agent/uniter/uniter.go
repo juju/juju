@@ -1474,6 +1474,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
 			settings["ingress-address"] = ingressAddress
 		} else {
+			// Is this worth logging if there is no error?
 			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
 				unitTag.Id(), relTag, err)
 		}
