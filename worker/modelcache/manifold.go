@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/worker/gate"
-	workerstate "github.com/juju/juju/worker/state"
 )
 
 // Logger describes the logging methods used in this package by the worker.
@@ -25,7 +24,7 @@ type Logger interface {
 // ManifoldConfig holds the information necessary to run a model cache worker in
 // a dependency.Engine.
 type ManifoldConfig struct {
-	StateName           string
+	MultiwatcherName    string
 	InitializedGateName string
 	Logger              Logger
 
@@ -36,8 +35,8 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
-	if config.StateName == "" {
-		return errors.NotValidf("empty StateName")
+	if config.MultiwatcherName == "" {
+		return errors.NotValidf("empty MultiwatcherName")
 	}
 	if config.InitializedGateName == "" {
 		return errors.NotValidf("empty InitializedGateName")
@@ -60,7 +59,7 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
-			config.StateName,
+			config.MultiwatcherName,
 			config.InitializedGateName,
 		},
 		Start:  config.start,
@@ -77,25 +76,19 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := context.Get(config.InitializedGateName, &unlocker); err != nil {
 		return nil, errors.Trace(err)
 	}
-	var stTracker workerstate.StateTracker
-	if err := context.Get(config.StateName, &stTracker); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	pool, err := stTracker.Use()
-	if err != nil {
+	var factory multiwatcher.Factory
+	if err := context.Get(config.MultiwatcherName, &factory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	w, err := config.NewWorker(Config{
 		InitializedGate:      unlocker,
 		Logger:               config.Logger,
-		WatcherFactory:       func() multiwatcher.Watcher { return pool.SystemState().WatchAllModels(pool) },
+		WatcherFactory:       factory.WatchController,
 		PrometheusRegisterer: config.PrometheusRegisterer,
-		Cleanup:              func() { _ = stTracker.Done() },
+		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
 	if err != nil {
-		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return w, nil

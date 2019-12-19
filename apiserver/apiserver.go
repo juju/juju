@@ -999,31 +999,3 @@ func (srv *Server) GetAuditConfig() auditlog.Config {
 	// Delegates to the getter passed in.
 	return srv.getAuditConfig()
 }
-
-// MultiwatcherFactory is a temporary shim until we get the factory
-// from a new worker.
-type MultiwatcherFactory struct {
-	Pool *state.StatePool
-}
-
-// WatchModel provides a temporary shim over the current state methods.
-// We are taking a few liberities with this method. Since this is only ever
-// called from the apiserver inside a particular model, we know the model exists
-// in the state pool (although if there is an error getting the state from the pool
-// we'll return nil). Since we know the lifetime of the state object in the pool
-// is handled by the apiserver, we release our reference on the pooled state immediately.
-func (f *MultiwatcherFactory) WatchModel(modelUUID string) multiwatcher.Watcher {
-	pooled, err := f.Pool.Get(modelUUID)
-	if err != nil {
-		return nil
-	}
-	defer pooled.Release()
-	return pooled.Watch(state.WatchParams{IncludeOffers: true})
-}
-
-// WatchController provides a temporary shim over the state pool to watch
-// the entire controller for events.
-func (f *MultiwatcherFactory) WatchController() multiwatcher.Watcher {
-	st := f.Pool.SystemState()
-	return st.WatchAllModels(f.Pool)
-}

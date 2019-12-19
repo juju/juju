@@ -427,7 +427,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
 		modelCacheName: ifDatabaseUpgradeComplete(ifController(modelcache.Manifold(modelcache.ManifoldConfig{
-			StateName:            stateName,
+			MultiwatcherName:     multiwatcherName,
 			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -696,6 +696,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:              clockName,
 			StateName:              stateName,
 			ModelCacheName:         modelCacheName,
+			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,

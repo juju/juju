@@ -11,6 +11,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
@@ -27,30 +28,35 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
+	multiworker "github.com/juju/juju/worker/multiwatcher"
 )
+
+type WorkerConfigSuite struct {
+	jt.IsolationSuite
+	config modelcache.Config
+}
+
+var _ = gc.Suite(&WorkerConfigSuite{})
 
 type WorkerSuite struct {
 	statetesting.StateSuite
-	gate   gate.Lock
-	logger loggo.Logger
-	config modelcache.Config
-	notify func(interface{})
+	gate      gate.Lock
+	logger    loggo.Logger
+	mwFactory multiwatcher.Factory
+	config    modelcache.Config
+	notify    func(interface{})
 }
 
 var _ = gc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.notify = nil
-	s.logger = loggo.GetLogger("test")
-	s.logger.SetLogLevel(loggo.TRACE)
-	s.gate = gate.NewLock()
+func (s *WorkerConfigSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
 	s.config = modelcache.Config{
-		InitializedGate: s.gate,
-		Logger:          s.logger,
+		InitializedGate: gate.NewLock(),
+		Logger:          loggo.GetLogger("test"),
 		WatcherFactory: func() multiwatcher.Watcher {
-			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+			return &fakeWatcher{}
 		},
 		PrometheusRegisterer:   noopRegisterer{},
 		Cleanup:                func() {},
@@ -60,49 +66,77 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestConfigMissingLogger(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.notify = nil
+	s.logger = loggo.GetLogger("test")
+	s.logger.SetLogLevel(loggo.TRACE)
+	s.gate = gate.NewLock()
+	w, err := multiworker.NewWorker(
+		multiworker.Config{
+			Logger:               s.logger,
+			Backing:              state.NewAllWatcherBacking(s.StatePool),
+			PrometheusRegisterer: noopRegisterer{},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	s.mwFactory = w
+
+	s.config = modelcache.Config{
+		InitializedGate:        s.gate,
+		Logger:                 s.logger,
+		WatcherFactory:         s.mwFactory.WatchController,
+		PrometheusRegisterer:   noopRegisterer{},
+		Cleanup:                func() {},
+		WatcherRestartDelayMin: time.Microsecond,
+		WatcherRestartDelayMax: time.Millisecond,
+		Clock:                  clock.WallClock,
+	}
+}
+
+func (s *WorkerConfigSuite) TestConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing logger not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingWatcherFactory(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingWatcherFactory(c *gc.C) {
 	s.config.WatcherFactory = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing watcher factory not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing prometheus registerer not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingCleanup(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingCleanup(c *gc.C) {
 	s.config.Cleanup = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing cleanup func not valid")
 }
 
-func (s *WorkerSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
 	s.config.WatcherRestartDelayMin = -10 * time.Second
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "non-positive watcher min restart delay not valid")
 }
 
-func (s *WorkerSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
 	s.config.WatcherRestartDelayMax = 0
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "non-positive watcher max restart delay not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -549,7 +583,7 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 
 	s.config.WatcherFactory = func() multiwatcher.Watcher {
 		return testingMultiwatcher{
-			Watcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
+			Watcher: s.mwFactory.WatchController(),
 			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
 				if !fakeModelSent || !errorSent {
 					for _, delta := range deltas {
@@ -629,7 +663,7 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	var errCount int
 	s.config.WatcherFactory = func() multiwatcher.Watcher {
 		return testingMultiwatcher{
-			Watcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
+			Watcher: s.mwFactory.WatchController(),
 			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
 				if errCount < maxErrors {
 					errCount++
@@ -670,7 +704,7 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
-	mw := s.StatePool.SystemState().WatchAllModels(s.StatePool)
+	mw := s.mwFactory.WatchController()
 	s.config.WatcherFactory = func() multiwatcher.Watcher { return mw }
 
 	config := s.config
@@ -678,7 +712,7 @@ func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
 	w, err := modelcache.NewWorker(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Stop the backing params.
+	// Stop the backing multiwatcher.
 	c.Assert(mw.Stop(), jc.ErrorIsNil)
 
 	// Check that the worker is killed.
@@ -729,6 +763,10 @@ func (noopRegisterer) Register(prometheus.Collector) error {
 
 func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
+}
+
+type fakeWatcher struct {
+	multiwatcher.Watcher
 }
 
 // testingMultiwatcher is a wrapper for multiwatcher that satisfies the
