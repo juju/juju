@@ -272,7 +272,6 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	_ = isAdmin
 	modelUUID := c.api.stateAccessor.ModelUUID()
 	w := c.api.multiwatcherFactory.WatchModel(modelUUID)
 	if !isAdmin {
