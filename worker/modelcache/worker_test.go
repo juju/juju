@@ -83,11 +83,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.mwFactory = w
 
 	s.config = modelcache.Config{
-		InitializedGate: s.gate,
-		Logger:          s.logger,
-		WatcherFactory: func() multiwatcher.Watcher {
-			return s.mwFactory.WatchController()
-		},
+		InitializedGate:        s.gate,
+		Logger:                 s.logger,
+		WatcherFactory:         s.mwFactory.WatchController,
 		PrometheusRegisterer:   noopRegisterer{},
 		Cleanup:                func() {},
 		WatcherRestartDelayMin: time.Microsecond,

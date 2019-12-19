@@ -65,7 +65,6 @@ import (
 	corelease "github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
-	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
@@ -275,7 +274,7 @@ type environState struct {
 	leaseManager   *lease.Manager
 	creator        string
 
-	multiwatcherWorker worker.Worker
+	multiWatcherWorker worker.Worker
 	modelCacheWorker   worker.Worker
 
 	controller *cache.Controller
@@ -375,7 +374,7 @@ func (state *environState) destroyLocked() {
 	apiServer := state.apiServer
 	apiStatePool := state.apiStatePool
 	leaseManager := state.leaseManager
-	multiwatcherWorker := state.multiwatcherWorker
+	multiWatcherWorker := state.multiWatcherWorker
 	modelCacheWorker := state.modelCacheWorker
 	state.apiServer = nil
 	state.apiStatePool = nil
@@ -384,7 +383,7 @@ func (state *environState) destroyLocked() {
 	state.leaseManager = nil
 	state.bootstrapped = false
 	state.hub = nil
-	state.multiwatcherWorker = nil
+	state.multiWatcherWorker = nil
 	state.modelCacheWorker = nil
 
 	// Release the lock while we close resources. In particular,
@@ -409,9 +408,9 @@ func (state *environState) destroyLocked() {
 		}
 	}
 
-	if multiwatcherWorker != nil {
-		logger.Debugf("stopping multiwatcherWorker worker")
-		if err := worker.Stop(multiwatcherWorker); err != nil {
+	if multiWatcherWorker != nil {
+		logger.Debugf("stopping multiWatcherWorker worker")
+		if err := worker.Stop(multiWatcherWorker); err != nil {
 			panic(err)
 		}
 	}
@@ -940,7 +939,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
-			multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+			multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 				Logger:               loggo.GetLogger("dummy.multiwatcher"),
 				Backing:              state.NewAllWatcherBacking(statePool),
 				PrometheusRegisterer: noopRegisterer{},
@@ -948,17 +947,13 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			if err != nil {
 				return errors.Trace(err)
 			}
-			estate.multiwatcherWorker = multiwatcherWorker
-			// The worker itself is a coremultiwatcher.Factory.
-			multiwatcherFactory := estate.multiwatcherWorker.(coremultiwatcher.Factory)
+			estate.multiWatcherWorker = multiWatcherWorker
 
 			initialized := gate.NewLock()
 			modelCache, err := modelcache.NewWorker(modelcache.Config{
-				InitializedGate: initialized,
-				Logger:          loggo.GetLogger("dummy.modelcache"),
-				WatcherFactory: func() coremultiwatcher.Watcher {
-					return multiwatcherFactory.WatchController()
-				},
+				InitializedGate:      initialized,
+				Logger:               loggo.GetLogger("dummy.modelcache"),
+				WatcherFactory:       multiWatcherWorker.WatchController,
 				PrometheusRegisterer: noopRegisterer{},
 				Cleanup:              func() {},
 			}.WithDefaultRestartStrategy())
@@ -974,14 +969,14 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
 			if err != nil {
 				worker.Stop(modelCache)
-				worker.Stop(multiwatcherWorker)
+				worker.Stop(multiWatcherWorker)
 				return errors.Trace(err)
 			}
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
 				StatePool:           statePool,
 				Controller:          estate.controller,
-				MultiwatcherFactory: multiwatcherFactory,
+				MultiwatcherFactory: multiWatcherWorker,
 				Authenticator:       stateAuthenticator,
 				Clock:               clock.WallClock,
 				GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },

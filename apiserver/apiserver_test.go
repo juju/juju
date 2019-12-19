@@ -31,7 +31,6 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
-	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -80,21 +79,19 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 
-	multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiwatcherWorker) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		InitializedGate: initialized,
-		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() coremultiwatcher.Watcher {
-			return multiwatcherWorker.WatchController()
-		},
+		InitializedGate:      initialized,
+		Logger:               loggo.GetLogger("test"),
+		WatcherFactory:       multiWatcherWorker.WatchController,
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
@@ -115,7 +112,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.config = apiserver.ServerConfig{
 		StatePool:           s.StatePool,
 		Controller:          controller,
-		MultiwatcherFactory: multiwatcherWorker,
+		MultiwatcherFactory: multiWatcherWorker,
 		Authenticator:       s.authenticator,
 		Clock:               clock.WallClock,
 		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },

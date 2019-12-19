@@ -177,7 +177,3 @@ func (s *WorkerValidationSuite) testValidateLogSinkConfig(c *gc.C, key, value, e
 	_, err := apiserver.NewWorker(s.config)
 	c.Check(err, gc.ErrorMatches, "getting log sink config: "+expect)
 }
-
-type fakeMultiwatcherFactory struct {
-	multiwatcher.Factory
-}

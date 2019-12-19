@@ -17,7 +17,6 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
-	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
@@ -42,21 +41,19 @@ var _ = gc.Suite(&sharedServerContextSuite{})
 func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
-	multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiwatcherWorker) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		InitializedGate: initialized,
-		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() coremultiwatcher.Watcher {
-			return multiwatcherWorker.WatchController()
-		},
+		InitializedGate:      initialized,
+		Logger:               loggo.GetLogger("test"),
+		WatcherFactory:       multiWatcherWorker.WatchController,
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
@@ -73,7 +70,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
 		controller:          controller,
-		multiwatcherFactory: multiwatcherWorker,
+		multiwatcherFactory: multiWatcherWorker,
 		centralHub:          s.hub,
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},

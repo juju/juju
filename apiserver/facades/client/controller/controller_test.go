@@ -57,13 +57,13 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
-	multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
 		Logger:               loggo.GetLogger("test"),
 		Backing:              state.NewAllWatcherBacking(s.StatePool),
 		PrometheusRegisterer: noopRegisterer{},
 	})
 	// The worker itself is a coremultiwatcher.Factory.
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiwatcherWorker) })
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
@@ -81,7 +81,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			Resources_:           s.resources,
 			Auth_:                s.authorizer,
 			Hub_:                 s.hub,
-			MultiwatcherFactory_: multiwatcherWorker,
+			MultiwatcherFactory_: multiWatcherWorker,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
