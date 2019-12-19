@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 )
@@ -454,18 +455,33 @@ func parseCIDRs(cidrs *[]*net.IPNet, values []string) error {
 }
 
 type relationGetter interface {
+	// KeyRelation returns the relation identified by the input key.
 	KeyRelation(string) (Relation, error)
+	// IsMigrationActive returns true if the current model is
+	// in the process of being migrated to another controller.
+	IsMigrationActive() (bool, error)
 }
 
 // GetRelationLifeSuspendedStatusChange returns a life/suspended status change
 // struct for a specified relation key.
-func GetRelationLifeSuspendedStatusChange(st relationGetter, key string) (*params.RelationLifeSuspendedStatusChange, error) {
+func GetRelationLifeSuspendedStatusChange(
+	st relationGetter, key string,
+) (*params.RelationLifeSuspendedStatusChange, error) {
 	rel, err := st.KeyRelation(key)
 	if errors.IsNotFound(err) {
-		return &params.RelationLifeSuspendedStatusChange{
-			Key:  key,
-			Life: params.Dead,
-		}, nil
+		// If the relation is not found we represent it as dead,
+		// but *only* if we are not currently migrating.
+		// If we are migrating, we do not want to inform remote watchers that
+		// the relation is dead before they have had a chance to be redirected
+		// to the new controller.
+		if migrating, mErr := st.IsMigrationActive(); mErr == nil && !migrating {
+			return &params.RelationLifeSuspendedStatusChange{
+				Key:  key,
+				Life: life.Dead,
+			}, nil
+		} else if mErr != nil {
+			err = mErr
+		}
 	}
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -495,17 +511,17 @@ func GetOfferStatusChange(st offerGetter, offerUUID string) (*params.OfferStatus
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	status, err := app.Status()
+	sts, err := app.Status()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &params.OfferStatusChange{
 		OfferName: offer.OfferName,
 		Status: params.EntityStatus{
-			Status: status.Status,
-			Info:   status.Message,
-			Data:   status.Data,
-			Since:  status.Since,
+			Status: sts.Status,
+			Info:   sts.Message,
+			Data:   sts.Data,
+			Since:  sts.Since,
 		},
 	}, nil
 }
