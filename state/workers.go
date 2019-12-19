@@ -193,7 +193,7 @@ func (ws *workers) allModelManager(pool *StatePool) *storeManager {
 		return newDeadStoreManager(errors.Trace(err))
 	}
 	ws.StartWorker(allModelManagerWorker, func() (worker.Worker, error) {
-		return newStoreManager(NewAllModelWatcherStateBacking(ws.state, pool)), nil
+		return newStoreManager(NewAllWatcherBacking(pool)), nil
 	})
 	return ws.allModelManager(pool)
 }

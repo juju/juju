@@ -111,7 +111,7 @@ type storeManager struct {
 
 	// backing knows how to fetch information from
 	// the underlying state.
-	backing Backing
+	backing AllWatcherBacking
 
 	// request receives requests from Multiwatcher clients.
 	request chan *request
@@ -122,30 +122,6 @@ type storeManager struct {
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated watcher.
 	waiting map[*Multiwatcher]*request
-}
-
-// Backing is the interface required by the storeManager to access the
-// underlying state.
-type Backing interface {
-	// GetAll retrieves information about all information
-	// known to the Backing and stashes it in the Store.
-	GetAll(multiwatcher.Store) error
-
-	// Changed informs the backing about a change received
-	// from a watcher channel.  The backing is responsible for
-	// updating the Store to reflect the change.
-	Changed(multiwatcher.Store, watcher.Change) error
-
-	// Watch watches for any changes and sends them
-	// on the given channel.
-	Watch(chan<- watcher.Change)
-
-	// Unwatch stops watching for changes on the
-	// given channel.
-	Unwatch(chan<- watcher.Change)
-
-	// Release cleans up resources opened by the Backing.
-	Release() error
 }
 
 // request holds a message from the Multiwatcher to the
@@ -177,7 +153,7 @@ type request struct {
 
 // newStoreManagerNoRun creates the store manager
 // but does not start its run loop.
-func newStoreManagerNoRun(backing Backing) *storeManager {
+func newStoreManagerNoRun(backing AllWatcherBacking) *storeManager {
 	return &storeManager{
 		backing: backing,
 		request: make(chan *request),
@@ -196,7 +172,7 @@ func newDeadStoreManager(err error) *storeManager {
 
 // newStoreManager returns a new storeManager that retrieves information
 // using the given backing.
-func newStoreManager(backing Backing) *storeManager {
+func newStoreManager(backing AllWatcherBacking) *storeManager {
 	sm := newStoreManagerNoRun(backing)
 	sm.tomb.Go(func() error {
 		// TODO(rog) distinguish between temporary and permanent errors:

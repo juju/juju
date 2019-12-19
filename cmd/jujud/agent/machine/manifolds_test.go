@@ -96,6 +96,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesIAAS(c *gc.C) {
 			"model-cache-initialized-flag",
 			"model-cache-initialized-gate",
 			"model-worker-manager",
+			"multiwatcher",
 			"peer-grouper",
 			"presence",
 			"proxy-config-updater",
@@ -166,6 +167,7 @@ func (ms *ManifoldsSuite) TestManifoldNamesCAAS(c *gc.C) {
 			"model-cache-initialized-flag",
 			"model-cache-initialized-gate",
 			"model-worker-manager",
+			"multiwatcher",
 			"peer-grouper",
 			"presence",
 			"proxy-config-updater",
@@ -242,6 +244,7 @@ func (ms *ManifoldsSuite) TestMigrationGuardsUsed(c *gc.C) {
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
 		"model-worker-manager",
+		"multiwatcher",
 		"peer-grouper",
 		"presence",
 		"pubsub-forwarder",
@@ -294,6 +297,7 @@ func (*ManifoldsSuite) TestSingularGuardsUsed(c *gc.C) {
 		"model-cache",
 		"model-cache-initialized-flag",
 		"model-cache-initialized-gate",
+		"multiwatcher",
 		"lease-manager",
 		"legacy-leases-flag",
 		"raft-transport",
@@ -774,6 +778,15 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 		"upgrade-check-gate",
 		"upgrade-steps-flag",
 		"upgrade-steps-gate",
+	},
+
+	"multiwatcher": {
+		"agent",
+		"is-controller-flag",
+		"state",
+		"state-config-watcher",
+		"upgrade-database-flag",
+		"upgrade-database-gate",
 	},
 
 	"peer-grouper": {
