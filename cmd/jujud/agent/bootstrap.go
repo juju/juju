@@ -193,39 +193,47 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	desiredVersion, ok := args.ControllerModelConfig.AgentVersion()
 	if ok && desiredVersion != jujuversion.Current {
 		if isCAAS {
-			// For CAAS, the agent-version in controller config should
-			// always equals to current juju version.
-			return errors.NotSupportedf(
-				"desired juju version %q, current version %q for k8s controllers",
-				desiredVersion, jujuversion.Current,
-			)
-		}
-
-		// If we have been asked for a newer version, ensure the newer
-		// tools can actually be found, or else bootstrap won't complete.
-		streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
-		logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
-		hostSeries, err := series.HostSeries()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		filter := tools.Filter{
-			Number: desiredVersion,
-			Arch:   arch.HostArch(),
-			Series: hostSeries,
-		}
-		_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
-		if toolsErr == nil {
-			logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
-		}
-		if errors.IsNotFound(toolsErr) {
-			// Newer tools not available, so revert to using the tools
-			// matching the current agent version.
-			logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+			currentVersion := jujuversion.Current
+			currentVersion.Build = 0
+			if desiredVersion != currentVersion {
+				// For CAAS, the agent-version in controller config should
+				// always equals to current juju version.
+				return errors.NotSupportedf(
+					"desired juju version %q, current version %q for k8s controllers",
+					desiredVersion, currentVersion,
+				)
+			}
+			// Old juju clients will use the version without build number when
+			// selecting the controller OCI image tag. In this case, the current controller
+			// version was the correct version.
 			newConfigAttrs["agent-version"] = jujuversion.Current.String()
-		} else if toolsErr != nil {
-			logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
-			return errors.Trace(toolsErr)
+		} else {
+			// If we have been asked for a newer version, ensure the newer
+			// tools can actually be found, or else bootstrap won't complete.
+			streams := envtools.PreferredStreams(&desiredVersion, args.ControllerModelConfig.Development(), args.ControllerModelConfig.AgentStream())
+			logger.Infof("newer agent binaries requested, looking for %v in streams: %v", desiredVersion, strings.Join(streams, ","))
+			hostSeries, err := series.HostSeries()
+			if err != nil {
+				return errors.Trace(err)
+			}
+			filter := tools.Filter{
+				Number: desiredVersion,
+				Arch:   arch.HostArch(),
+				Series: hostSeries,
+			}
+			_, toolsErr := envtools.FindTools(env, -1, -1, streams, filter)
+			if toolsErr == nil {
+				logger.Infof("agent binaries are available, upgrade will occur after bootstrap")
+			}
+			if errors.IsNotFound(toolsErr) {
+				// Newer tools not available, so revert to using the tools
+				// matching the current agent version.
+				logger.Warningf("newer agent binaries for %q not available, sticking with version %q", desiredVersion, jujuversion.Current)
+				newConfigAttrs["agent-version"] = jujuversion.Current.String()
+			} else if toolsErr != nil {
+				logger.Errorf("cannot find newer agent binaries: %v", toolsErr)
+				return errors.Trace(toolsErr)
+			}
 		}
 	}
 
