@@ -111,24 +111,6 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 	return nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
-func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
-	args := params.RelationUnits{RelationUnits: relationUnits}
-	var results params.SettingsResults
-	// Force v1 call for now. Fix coming... by babbageclunk.
-	v1Facade := base.NewFacadeCallerForVersion(
-		c.facade.RawAPICaller(),
-		"RemoteRelations", 1)
-	err := v1Facade.FacadeCall("RelationUnitSettings", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(relationUnits) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(relationUnits), len(results.Results))
-	}
-	return results.Results, nil
-}
-
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
 func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error) {
