@@ -6,10 +6,9 @@ package uniter_test
 import (
 	"fmt"
 	"math/rand"
-	"sync"
 	"time"
 
-	"github.com/juju/clock/testclock"
+	"github.com/juju/clock"
 	"github.com/juju/retry"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -199,18 +198,6 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationNoPublicAddr(c *
 }
 
 func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAddress(c *gc.C) {
-	clk := testclock.NewClock(time.Now())
-	attemptMade := make(chan struct{}, 10)
-	s.PatchValue(&uniter.PreferredAddressRetryArgs, func() retry.CallArgs {
-		return retry.CallArgs{
-			Clock:       clk,
-			Delay:       3 * time.Second,
-			MaxDuration: 30 * time.Second,
-			NotifyFunc: func(lastError error, attempt int) {
-				attemptMade <- struct{}{}
-			},
-		}
-	})
 	prr := s.newRemoteProReqRelation(c)
 	err := prr.ru0.AssignToNewMachine()
 	c.Assert(err, jc.ErrorIsNil)
@@ -219,48 +206,23 @@ func (s *networkInfoSuite) TestNetworksForRelationRemoteRelationDelayedPublicAdd
 	machine, err := s.State.Machine(id)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Set up a public address after at least one attempt
-	// is made to get it.We record the err for checking later
-	// as gc.C is not thread safe.
-	var funcErr error
-	wg := sync.WaitGroup{}
-	go func() {
-		wg.Add(1)
-		defer wg.Done()
-		funcErr = clk.WaitAdvance(15*time.Second, time.Second, 1)
-		if funcErr != nil {
-			return
+	s.PatchValue(&uniter.PreferredAddressRetryArgs, func() retry.CallArgs {
+		return retry.CallArgs{
+			Clock:       clock.WallClock,
+			Delay:       1 * time.Millisecond,
+			MaxDuration: coretesting.LongWait,
+			NotifyFunc: func(lastError error, attempt int) {
+				// Set the address after one failed retrieval attempt.
+				if attempt == 1 {
+					err := machine.SetProviderAddresses(network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic))
+					c.Assert(err, jc.ErrorIsNil)
+				}
+			},
 		}
-		// Ensure we have a failed attempt to get public address.
-		select {
-		case <-attemptMade:
-			funcErr = clk.WaitAdvance(10*time.Second, time.Second, 1)
-			if funcErr != nil {
-				return
-			}
-		case <-time.After(coretesting.LongWait):
-			c.Fatal("waiting for public address attempt")
-		}
-
-		// Now set up the public address.
-		funcErr = machine.SetProviderAddresses(
-			network.NewScopedSpaceAddress("4.3.2.1", network.ScopePublic),
-		)
-		if funcErr != nil {
-			return
-		}
-		funcErr = clk.WaitAdvance(10*time.Second, time.Second, 1)
-		if funcErr != nil {
-			return
-		}
-	}()
+	})
 
 	boundSpace, ingress, egress, err := s.newNetworkInfo(c, prr.ru0.UnitTag()).NetworksForRelation("", prr.rel, true)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Ensure there we no errors in the go routine.
-	wg.Wait()
-	c.Assert(funcErr, jc.ErrorIsNil)
 
 	c.Assert(boundSpace, gc.Equals, network.AlphaSpaceId)
 	c.Assert(ingress, gc.DeepEquals,
