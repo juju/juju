@@ -31,7 +31,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/multiwatcher"
+	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	psapiserver "github.com/juju/juju/pubsub/apiserver"
 	"github.com/juju/juju/pubsub/centralhub"
@@ -40,6 +40,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 const (
@@ -79,12 +80,20 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 
+	multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Logger:               loggo.GetLogger("test"),
+		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		PrometheusRegisterer: noopRegisterer{},
+	})
+	// The worker itself is a coremultiwatcher.Factory.
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiwatcherWorker) })
+
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
 		InitializedGate: initialized,
 		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() multiwatcher.Watcher {
-			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+		WatcherFactory: func() coremultiwatcher.Watcher {
+			return multiwatcherWorker.WatchController()
 		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
@@ -106,8 +115,8 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.config = apiserver.ServerConfig{
 		StatePool:           s.StatePool,
 		Controller:          controller,
+		MultiwatcherFactory: multiwatcherWorker,
 		Authenticator:       s.authenticator,
-		MultiwatcherFactory: &apiserver.MultiwatcherFactory{s.StatePool},
 		Clock:               clock.WallClock,
 		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },
 		Tag:                 machineTag,

@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -894,31 +895,37 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(deltas), gc.Equals, 1)
-	d0, ok := deltas[0].Entity.(*params.MachineInfo)
-	c.Assert(ok, jc.IsTrue)
+	// Model and machine deltas returned.
+	c.Assert(len(deltas), gc.Equals, 2)
+	var d0 *params.MachineInfo
+	for _, delta := range deltas {
+		d, ok := delta.Entity.(*params.MachineInfo)
+		if ok {
+			d0 = d
+			break
+		}
+	}
+	c.Assert(d0, gc.NotNil)
 	d0.AgentStatus.Since = nil
 	d0.InstanceStatus.Since = nil
-	if !c.Check(deltas, jc.DeepEquals, []params.Delta{{
-		Entity: &params.MachineInfo{
-			ModelUUID:  s.State.ModelUUID(),
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			AgentStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			InstanceStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			Life:                    life.Alive,
-			Series:                  "quantal",
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []params.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
+	if !c.Check(d0, jc.DeepEquals, &params.MachineInfo{
+		ModelUUID:  s.State.ModelUUID(),
+		Id:         m.Id(),
+		InstanceId: "i-0",
+		AgentStatus: params.StatusInfo{
+			Current: status.Pending,
 		},
-	}}) {
+		InstanceStatus: params.StatusInfo{
+			Current: status.Pending,
+		},
+		Life:                    life.Alive,
+		Series:                  "quantal",
+		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+		Addresses:               []params.Address{},
+		HardwareCharacteristics: &instance.HardwareCharacteristics{},
+		HasVote:                 false,
+		WantsVote:               true,
+	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)
@@ -935,6 +942,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Include a remote app that needs admin access to see.
+
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
 		OfferUUID:   "offer-uuid",
@@ -950,6 +958,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
@@ -959,59 +968,59 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(deltas), gc.Equals, 2)
-	mIndex := 0
-	aIndex := 1
-	dMachine, ok0 := deltas[mIndex].Entity.(*params.MachineInfo)
-	dApp, ok1 := deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
-	if !ok0 {
-		mIndex = 1
-		aIndex = 0
-		dMachine, ok0 = deltas[mIndex].Entity.(*params.MachineInfo)
-		dApp, ok1 = deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
+	// model, machine, and remote application
+	c.Assert(len(deltas), gc.Equals, 3)
+	var dMachine *params.MachineInfo
+	var dApp *params.RemoteApplicationUpdate
+	for i := 0; (dMachine == nil || dApp == nil) && i < len(deltas); i++ {
+		entity := deltas[i].Entity
+		switch entity.EntityId().Kind {
+		case multiwatcher.MachineKind:
+			dMachine = entity.(*params.MachineInfo)
+		case multiwatcher.RemoteApplicationKind:
+			dApp = entity.(*params.RemoteApplicationUpdate)
+		default:
+			// don't worry about the model
+		}
 	}
-	c.Assert(ok0, jc.IsTrue)
-	c.Assert(ok1, jc.IsTrue)
+	c.Assert(dMachine, gc.NotNil)
+	c.Assert(dApp, gc.NotNil)
+
 	dMachine.AgentStatus.Since = nil
 	dMachine.InstanceStatus.Since = nil
 	dApp.Status.Since = nil
 
-	if !c.Check(deltas[mIndex], jc.DeepEquals, params.Delta{
-		Entity: &params.MachineInfo{
-			ModelUUID:  s.State.ModelUUID(),
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			AgentStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			InstanceStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			Life:                    life.Alive,
-			Series:                  "quantal",
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []params.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
+	if !c.Check(dMachine, jc.DeepEquals, &params.MachineInfo{
+		ModelUUID:  s.State.ModelUUID(),
+		Id:         m.Id(),
+		InstanceId: "i-0",
+		AgentStatus: params.StatusInfo{
+			Current: status.Pending,
 		},
+		InstanceStatus: params.StatusInfo{
+			Current: status.Pending,
+		},
+		Life:                    life.Alive,
+		Series:                  "quantal",
+		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+		Addresses:               []params.Address{},
+		HardwareCharacteristics: &instance.HardwareCharacteristics{},
+		HasVote:                 false,
+		WantsVote:               true,
 	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
-	if !c.Check(deltas[aIndex], jc.DeepEquals, params.Delta{
-		Entity: &params.RemoteApplicationUpdate{
-			Name:      "remote-db2",
-			ModelUUID: s.State.ModelUUID(),
-			OfferUUID: "offer-uuid",
-			OfferURL:  "admin/prod.db2",
-			Life:      "alive",
-			Status: params.StatusInfo{
-				Current: status.Unknown,
-			},
+	if !c.Check(dApp, jc.DeepEquals, &params.RemoteApplicationUpdate{
+		Name:      "remote-db2",
+		ModelUUID: s.State.ModelUUID(),
+		OfferUUID: "offer-uuid",
+		OfferURL:  "admin/prod.db2",
+		Life:      "alive",
+		Status: params.StatusInfo{
+			Current: status.Unknown,
 		},
 	}) {
 		c.Logf("got:")

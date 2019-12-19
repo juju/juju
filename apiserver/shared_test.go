@@ -17,15 +17,17 @@ import (
 
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/multiwatcher"
+	coremultiwatcher "github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type sharedServerContextSuite struct {
@@ -40,12 +42,20 @@ var _ = gc.Suite(&sharedServerContextSuite{})
 func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
+	multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Logger:               loggo.GetLogger("test"),
+		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		PrometheusRegisterer: noopRegisterer{},
+	})
+	// The worker itself is a coremultiwatcher.Factory.
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiwatcherWorker) })
+
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
 		InitializedGate: initialized,
 		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() multiwatcher.Watcher {
-			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+		WatcherFactory: func() coremultiwatcher.Watcher {
+			return multiwatcherWorker.WatchController()
 		},
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
@@ -63,7 +73,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
 		controller:          controller,
-		multiwatcherFactory: &MultiwatcherFactory{s.StatePool},
+		multiwatcherFactory: multiwatcherWorker,
 		centralHub:          s.hub,
 		presence:            presence.New(clock.WallClock),
 		leaseManager:        &lease.Manager{},

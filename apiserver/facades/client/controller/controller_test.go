@@ -13,8 +13,10 @@ import (
 	"github.com/juju/pubsub"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/juju/worker.v1/workertest"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver"
@@ -33,6 +35,7 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type controllerSuite struct {
@@ -54,6 +57,14 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 
 	s.StateSuite.SetUpTest(c)
 
+	multiwatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Logger:               loggo.GetLogger("test"),
+		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		PrometheusRegisterer: noopRegisterer{},
+	})
+	// The worker itself is a coremultiwatcher.Factory.
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiwatcherWorker) })
+
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -70,7 +81,7 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 			Resources_:           s.resources,
 			Auth_:                s.authorizer,
 			Hub_:                 s.hub,
-			MultiwatcherFactory_: &apiserver.MultiwatcherFactory{s.StatePool},
+			MultiwatcherFactory_: multiwatcherWorker,
 		})
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
@@ -1017,4 +1028,16 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	urlRes, err = s.controller.IdentityProviderURL()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, expURL)
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return true
 }
