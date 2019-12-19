@@ -6,8 +6,6 @@ package resource
 import (
 	"fmt"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
@@ -112,10 +110,7 @@ func formatApplicationResources(sr resource.ApplicationResources) (FormattedAppl
 // for display on the command line.
 func FormatApplicationDetails(sr resource.ApplicationResources) (FormattedApplicationDetails, error) {
 	var formatted FormattedApplicationDetails
-	details, err := detailedResources("", sr)
-	if err != nil {
-		return formatted, errors.Trace(err)
-	}
+	details := detailedResources("", sr)
 	updates, err := sr.Updates()
 	if err != nil {
 		return formatted, errors.Trace(err)
@@ -131,14 +126,11 @@ func FormatApplicationDetails(sr resource.ApplicationResources) (FormattedApplic
 }
 
 // FormatDetailResource converts the arguments into a FormattedApplicationResource.
-func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) (FormattedDetailResource, error) {
+func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progress int64) FormattedDetailResource {
 	// note that the unit resource can be a zero value here, to indicate that
 	// the unit has not downloaded that resource yet.
 
-	unitNum, err := unitNum(tag)
-	if err != nil {
-		return FormattedDetailResource{}, errors.Trace(err)
-	}
+	unitNum := tag.Number()
 	progressStr := ""
 	fUnit := FormatAppResource(unit)
 	expected := FormatAppResource(svc)
@@ -159,7 +151,7 @@ func FormatDetailResource(tag names.UnitTag, svc, unit resource.Resource, progre
 		Expected:    expected,
 		Progress:    progress,
 		RevProgress: revProgress,
-	}, nil
+	}
 }
 
 func combinedRevision(r resource.Resource) string {
@@ -194,22 +186,10 @@ func usedYesNo(used bool) string {
 	return "no"
 }
 
-func unitNum(unit names.UnitTag) (int, error) {
-	vals := strings.SplitN(unit.Id(), "/", 2)
-	if len(vals) != 2 {
-		return 0, errors.Errorf("%q is not a valid unit ID", unit.Id())
-	}
-	num, err := strconv.Atoi(vals[1])
-	if err != nil {
-		return 0, errors.Annotatef(err, "%q is not a valid unit ID", unit.Id())
-	}
-	return num, nil
-}
-
 // detailedResources shows the version of each resource on each unit, with the
 // corresponding version of the resource that exists in the controller. if unit
 // is non-empty, only units matching that unitID will be returned.
-func detailedResources(unit string, sr resource.ApplicationResources) ([]FormattedDetailResource, error) {
+func detailedResources(unit string, sr resource.ApplicationResources) []FormattedDetailResource {
 	var formatted []FormattedDetailResource
 	for _, ur := range sr.UnitResources {
 		if unit == "" || unit == ur.Tag.Id() {
@@ -219,10 +199,7 @@ func detailedResources(unit string, sr resource.ApplicationResources) ([]Formatt
 				if !ok {
 					progress = -1
 				}
-				f, err := FormatDetailResource(ur.Tag, svc, units[svc.Name], progress)
-				if err != nil {
-					return nil, errors.Trace(err)
-				}
+				f := FormatDetailResource(ur.Tag, svc, units[svc.Name], progress)
 				formatted = append(formatted, f)
 			}
 			if unit != "" {
@@ -230,7 +207,7 @@ func detailedResources(unit string, sr resource.ApplicationResources) ([]Formatt
 			}
 		}
 	}
-	return formatted, nil
+	return formatted
 }
 
 func resourceMap(resources []resource.Resource) map[string]resource.Resource {

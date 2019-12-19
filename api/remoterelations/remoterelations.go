@@ -110,24 +110,6 @@ func (c *Client) SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error {
 	return nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
-func (c *Client) RelationUnitSettings(relationUnits []params.RelationUnit) ([]params.SettingsResult, error) {
-	args := params.RelationUnits{relationUnits}
-	var results params.SettingsResults
-	// Force v1 call for now. Fix coming... by babbageclunk.
-	v1Facade := base.NewFacadeCallerForVersion(
-		c.facade.RawAPICaller(),
-		"RemoteRelations", 1)
-	err := v1Facade.FacadeCall("RelationUnitSettings", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if len(results.Results) != len(relationUnits) {
-		return nil, errors.Errorf("expected %d result(s), got %d", len(relationUnits), len(results.Results))
-	}
-	return results.Results, nil
-}
-
 // Relations returns information about the cross-model relations with the specified keys
 // in the local model.
 func (c *Client) Relations(keys []string) ([]params.RemoteRelationResult, error) {
@@ -209,9 +191,10 @@ func (c *Client) WatchRemoteApplicationRelations(application string) (watcher.St
 	return w, nil
 }
 
-// WatchLocalRelationUnits returns a watcher that notifies of changes to the
-// local units in the relation with the given key.
-func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUnitsWatcher, error) {
+// WatchLocalRelationChanges returns a watcher that emits
+// fully-expanded changes (suitable for shipping over to a different
+// controller) to the local units in the relation with the given key.
+func (c *Client) WatchLocalRelationChanges(relationKey string) (apiwatcher.RemoteRelationWatcher, error) {
 	if !names.IsValidRelation(relationKey) {
 		return nil, errors.NotValidf("relation key %q", relationKey)
 	}
@@ -219,12 +202,8 @@ func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUn
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: relationTag.String()}},
 	}
-	// Force v1 call for now. Fix coming... by babbageclunk.
-	v1Facade := base.NewFacadeCallerForVersion(
-		c.facade.RawAPICaller(),
-		"RemoteRelations", 1)
-	var results params.RelationUnitsWatchResults
-	err := v1Facade.FacadeCall("WatchLocalRelationUnits", args, &results)
+	var results params.RemoteRelationWatchResults
+	err := c.facade.FacadeCall("WatchLocalRelationChanges", args, &results)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -235,7 +214,7 @@ func (c *Client) WatchLocalRelationUnits(relationKey string) (watcher.RelationUn
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
+	w := apiwatcher.NewRemoteRelationWatcher(c.facade.RawAPICaller(), result)
 	return w, nil
 }
 

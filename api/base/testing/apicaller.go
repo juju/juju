@@ -186,7 +186,7 @@ func NotifyingAPICaller(c *gc.C, called chan<- struct{}, caller base.APICaller) 
 }
 
 type apiCallerWithBakery struct {
-	APICallerFunc
+	base.APICallCloser
 	bakeryClient base.MacaroonDischarger
 }
 
@@ -196,8 +196,8 @@ func (a *apiCallerWithBakery) BakeryClient() base.MacaroonDischarger {
 
 // APICallerWithBakery returns an api caller with a bakery client which uses the
 // specified discharge acquirer.
-func APICallerWithBakery(callerFunc APICallerFunc, discharger base.MacaroonDischarger) *apiCallerWithBakery {
-	return &apiCallerWithBakery{callerFunc, discharger}
+func APICallerWithBakery(caller base.APICallCloser, discharger base.MacaroonDischarger) *apiCallerWithBakery {
+	return &apiCallerWithBakery{caller, discharger}
 }
 
 // StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.
