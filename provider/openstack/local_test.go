@@ -170,6 +170,27 @@ func (s *localServer) openstackCertificate(c *gc.C) ([]string, error) {
 	return []string{string(buf)}, nil
 }
 
+func (s *localHTTPSServerSuite) envUsingCertificate(c *gc.C) environs.Environ {
+	newattrs := make(map[string]interface{}, len(s.attrs))
+	for k, v := range s.attrs {
+		newattrs[k] = v
+	}
+	newattrs["ssl-hostname-verification"] = true
+	cfg, err := config.New(config.NoDefaults, newattrs)
+	c.Assert(err, jc.ErrorIsNil)
+
+	cloudSpec := makeCloudSpec(s.cred)
+	cloudSpec.CACertificates, err = s.srv.openstackCertificate(c)
+	c.Assert(err, jc.ErrorIsNil)
+
+	env, err := environs.New(environs.OpenParams{
+		Cloud:  cloudSpec,
+		Config: cfg,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	return env
+}
+
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
 type localLiveSuite struct {
 	coretesting.BaseSuite
@@ -1883,24 +1904,8 @@ func (s *localHTTPSServerSuite) TestSSLVerify(c *gc.C) {
 	// If you don't have ssl-hostname-verification set to false, and do have
 	// a CA Certificate, then we can connect to the environment. Copy the attrs
 	// used by SetUp and force hostname verification.
-	newattrs := make(map[string]interface{}, len(s.attrs))
-	for k, v := range s.attrs {
-		newattrs[k] = v
-	}
-	newattrs["ssl-hostname-verification"] = true
-	cfg, err := config.New(config.NoDefaults, newattrs)
-	c.Assert(err, jc.ErrorIsNil)
-
-	cloudSpec := makeCloudSpec(s.cred)
-	cloudSpec.CACertificates, err = s.srv.openstackCertificate(c)
-	c.Assert(err, jc.ErrorIsNil)
-
-	env, err := environs.New(environs.OpenParams{
-		Cloud:  cloudSpec,
-		Config: cfg,
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = env.AllRunningInstances(s.callCtx)
+	env := s.envUsingCertificate(c)
+	_, err := env.AllRunningInstances(s.callCtx)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -2000,7 +2005,57 @@ func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSources(c *gc.C) {
 	metaURL, err := metadataStorage.URL(metadata)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(imageURL, gc.Equals, metaURL)
+}
 
+func (s *localHTTPSServerSuite) TestFetchFromImageMetadataSourcesWithCertificate(c *gc.C) {
+	env := s.envUsingCertificate(c)
+
+	// Setup a custom URL for image metadata
+	customStorage := openstack.CreateCustomStorage(env, "custom-metadata")
+	customURL, err := customStorage.URL("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(customURL[:8], gc.Equals, "https://")
+
+	envConfig, err := env.Config().Apply(
+		map[string]interface{}{"image-metadata-url": customURL},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = env.SetConfig(envConfig)
+	c.Assert(err, jc.ErrorIsNil)
+	sources, err := environs.ImageMetadataSources(env)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sources, gc.HasLen, 4)
+
+	// Make sure there is something to download from each location
+	metadata := "metadata-content"
+	metadataStorage := openstack.ImageMetadataStorage(env)
+	err = metadataStorage.Put(metadata, bytes.NewBufferString(metadata), int64(len(metadata)))
+	c.Assert(err, jc.ErrorIsNil)
+
+	custom := "custom-content"
+	err = customStorage.Put(custom, bytes.NewBufferString(custom), int64(len(custom)))
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Produce map of data sources keyed on description
+	mappedSources := make(map[string]simplestreams.DataSource, len(sources))
+	for i, s := range sources {
+		c.Logf("datasource %d: %+v", i, s)
+		mappedSources[s.Description()] = s
+	}
+
+	// Check the entry we got from keystone
+	contentReader, imageURL, err := mappedSources["keystone catalog"].Fetch(metadata)
+	c.Assert(err, jc.ErrorIsNil)
+	defer func() { _ = contentReader.Close() }()
+	content, err := ioutil.ReadAll(contentReader)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(string(content), gc.Equals, metadata)
+	c.Check(imageURL[:8], gc.Equals, "https://")
+
+	// Verify that we are pointing at exactly where metadataStorage thinks we are
+	metaURL, err := metadataStorage.URL(metadata)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(imageURL, gc.Equals, metaURL)
 }
 
 func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {

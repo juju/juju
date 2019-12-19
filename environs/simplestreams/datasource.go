@@ -74,6 +74,7 @@ type urlDataSource struct {
 	publicSigningKey     string
 	priority             int
 	requireSigned        bool
+	caCertificates       []string
 }
 
 // Config has values to be used in constructing a datasource.
@@ -98,6 +99,12 @@ type Config struct {
 
 	// RequireSigned indicates whether this datasource requires signed data.
 	RequireSigned bool
+
+	// CACertificates contains an optional list of Certificate
+	// Authority certificates to be used to validate certificates
+	// of cloud infrastructure components
+	// The contents are Base64 encoded x.509 certs.
+	CACertificates []string
 }
 
 // Validate checks that the baseURL is valid and the description is set.
@@ -125,6 +132,7 @@ func NewDataSource(cfg Config) DataSource {
 		publicSigningKey:     cfg.PublicSigningKey,
 		priority:             cfg.Priority,
 		requireSigned:        cfg.RequireSigned,
+		caCertificates:       cfg.CACertificates,
 	}
 }
 
@@ -151,7 +159,7 @@ func urlJoin(baseURL, relpath string) string {
 // Fetch is defined in simplestreams.DataSource.
 func (h *urlDataSource) Fetch(path string) (io.ReadCloser, string, error) {
 	dataURL := urlJoin(h.baseURL, path)
-	client := utils.GetHTTPClient(h.hostnameVerification)
+	client := utils.GetHTTPClient(h.hostnameVerification, h.caCertificates...)
 	// dataURL can be http:// or file://
 	// MakeFileURL will only modify the URL if it's a file URL
 	dataURL = utils.MakeFileURL(dataURL)
