@@ -69,13 +69,38 @@ func (s *allWatcherBaseSuite) SetUpTest(c *gc.C) {
 // setUpScenario adds some entities to the state so that
 // we can check that they all get pulled in by
 // all(Model)WatcherStateBacking.GetAll.
-func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, includeOffers bool) (entities entityInfoSlice) {
+func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (entities entityInfoSlice) {
 	modelUUID := st.ModelUUID()
 	model, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 	add := func(e multiwatcher.EntityInfo) {
 		entities = append(entities, e)
 	}
+
+	modelCfg, err := model.Config()
+	c.Assert(err, jc.ErrorIsNil)
+	modelStatus, err := model.Status()
+	c.Assert(err, jc.ErrorIsNil)
+
+	add(&multiwatcher.ModelUpdate{
+		ModelUUID:      model.UUID(),
+		Name:           model.Name(),
+		Life:           life.Alive,
+		Owner:          model.Owner().Id(),
+		ControllerUUID: model.ControllerUUID(),
+		IsController:   model.IsControllerModel(),
+		Config:         modelCfg.AllAttrs(),
+		Status: multiwatcher.StatusInfo{
+			Current: modelStatus.Status,
+			Message: modelStatus.Message,
+			Data:    modelStatus.Data,
+			Since:   modelStatus.Since,
+		},
+		SLA: multiwatcher.ModelSLAInfo{
+			Level: "unsupported",
+		},
+	})
+
 	now := s.currentTime
 	m, err := st.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
@@ -412,9 +437,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int, inclu
 			{ApplicationName: "mysql", Relation: multiwatcher.CharmRelation{Name: "server", Role: "provider", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"}},
 			{ApplicationName: "remote-wordpress", Relation: multiwatcher.CharmRelation{Name: "db", Role: "requirer", Interface: "mysql", Optional: false, Limit: 0, Scope: "global"}}},
 	})
-	if includeOffers {
-		add(&applicationOfferInfo)
-	}
+	add(&applicationOfferInfo)
 
 	return
 }
@@ -515,41 +538,26 @@ func (s *allWatcherStateSuite) reset(c *gc.C) {
 	s.SetUpTest(c)
 }
 
-func (s *allWatcherStateSuite) assertGetAll(c *gc.C, includeOffers bool) {
-	expectEntities := s.setUpScenario(c, s.state, 2, includeOffers)
-	s.checkGetAll(c, expectEntities, includeOffers)
-}
-
 func (s *allWatcherStateSuite) TestGetAll(c *gc.C) {
-	s.assertGetAll(c, false)
-}
-
-func (s *allWatcherStateSuite) TestGetAllWithOffers(c *gc.C) {
-	s.assertGetAll(c, true)
-}
-
-func (s *allWatcherStateSuite) assertGetAllMultiModel(c *gc.C, includeOffers bool) {
-	// Set up 2 models and ensure that GetAll returns the
-	// entities for the first model with no errors.
-	expectEntities := s.setUpScenario(c, s.state, 2, includeOffers)
-
-	// Use more units in the second model to ensure the number of
-	// entities will mismatch if model filtering isn't in place.
-	s.setUpScenario(c, s.newState(c), 4, includeOffers)
-
-	s.checkGetAll(c, expectEntities, includeOffers)
+	expectEntities := s.setUpScenario(c, s.state, 2)
+	s.checkGetAll(c, expectEntities)
 }
 
 func (s *allWatcherStateSuite) TestGetAllMultiModel(c *gc.C) {
-	s.assertGetAllMultiModel(c, false)
+	// Set up 2 models and ensure that GetAll returns the
+	// entities for both models with no errors.
+	expectEntities := s.setUpScenario(c, s.state, 2)
+
+	// Use more units in the second model.
+	moreEntities := s.setUpScenario(c, s.newState(c), 4)
+
+	expectEntities = append(expectEntities, moreEntities...)
+
+	s.checkGetAll(c, expectEntities)
 }
 
-func (s *allWatcherStateSuite) TestGetAllMultiModelWithOffers(c *gc.C) {
-	s.assertGetAllMultiModel(c, true)
-}
-
-func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice, includeOffers bool) {
-	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: includeOffers})
+func (s *allWatcherStateSuite) checkGetAll(c *gc.C, expectEntities entityInfoSlice) {
+	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	err := b.GetAll(all)
 	c.Assert(err, jc.ErrorIsNil)
@@ -605,7 +613,7 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 		test := changeTestFunc(c, s.state)
 
 		c.Logf("test %d. %s", i, test.about)
-		b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: true})
+		b := NewAllWatcherBacking(s.pool)
 		all := multiwatcher.NewStore(loggo.GetLogger("test"))
 		for _, info := range test.initialContents {
 			all.Update(info)
@@ -694,7 +702,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 				about: "no blocks in state, no blocks in store -> do nothing",
 				change: watcher.Change{
 					C:  blocksC,
-					Id: "1",
+					Id: st.docID("1"),
 				}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -714,7 +722,7 @@ func (s *allWatcherStateSuite) TestChangeBlocks(c *gc.C) {
 				}},
 				change: watcher.Change{
 					C:  blocksC,
-					Id: st.localID(blockId),
+					Id: blockId,
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.BlockInfo{
 					ModelUUID: st.ModelUUID(),
@@ -786,7 +794,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	err = u.OpenPorts("tcp", 12345, 12345)
 	c.Assert(err, jc.ErrorIsNil)
 	// Create all watcher state backing.
-	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
+	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	all.Update(&multiwatcher.MachineInfo{
 		ModelUUID: s.state.ModelUUID(),
@@ -872,7 +880,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	// Init the test model.
 	app := AddTestingApplication(c, s.state, "dummy-application", AddTestingCharm(c, s.state, "dummy"))
-	b := newAllWatcherStateBacking(s.state, WatchParams{IncludeOffers: false})
+	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 	// 1st scenario part: set settings and signal change.
 	setApplicationConfigAttr(c, app, "username", "foo")
@@ -906,481 +914,6 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{})
-}
-
-// TestStateWatcher tests the integration of the state watcher
-// with the state-based backing. Most of the logic is tested elsewhere -
-// this just tests end-to-end.
-func (s *allWatcherStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.state.AddMachine("trusty", JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m0.Id(), gc.Equals, "0")
-
-	m1, err := s.state.AddMachine("saucy", JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m1.Id(), gc.Equals, "1")
-
-	tw := newTestAllWatcher(s.state, c)
-	defer tw.Stop()
-
-	// Expect to see events for the already created machines first.
-	deltas := tw.All(2)
-	now := s.currentTime
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Alive,
-			Series:    "trusty",
-			Jobs:      []coremodel.MachineJob{JobManageModel.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: true,
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "1",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Alive,
-			Series:    "saucy",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}})
-
-	// Destroy a machine and make sure that's seen.
-	err = m1.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	deltas = tw.All(1)
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "1",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Dying,
-			Series:    "saucy",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}})
-
-	err = m1.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	deltas = tw.All(1)
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "1",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Dead,
-			Series:    "saucy",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}})
-
-	// Make some more changes to the state.
-	arch := "amd64"
-	mem := uint64(4096)
-	hc := &instance.HardwareCharacteristics{
-		Arch: &arch,
-		Mem:  &mem,
-	}
-	err = m0.SetProvisioned(instance.Id("i-0"), "", "bootstrap_nonce", hc)
-	c.Assert(err, jc.ErrorIsNil)
-	cp := []string{"charm-app-0"}
-	err = m0.SetCharmProfiles(cp)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = m1.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	m2, err := s.state.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m2.Id(), gc.Equals, "2")
-
-	wordpress := AddTestingApplication(c, s.state, "wordpress", AddTestingCharm(c, s.state, "wordpress"))
-	wu, err := wordpress.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = wu.AssignToMachine(m2)
-	c.Assert(err, jc.ErrorIsNil)
-	wpTime := s.state.clock().Now()
-
-	// Look for the state changes from the allwatcher.
-	deltas = tw.All(7)
-
-	expectedRemoveMachineEntity := &multiwatcher.MachineInfo{
-		ModelUUID: s.state.ModelUUID(),
-		ID:        "1",
-	}
-
-	// checkDeltasEqual sets removals to nil before comparing the deltas.
-	// Perhaps because, the multiwatcher.*Info{} is very different once it's
-	// converted to multiwatcher.Remove*{} and contains only the modelUUID,
-	// and an "Id" depending on the thing being removed.  For the model
-	// cache, we do want to ensure the correct removals are being seen,
-	// so check here.
-	for _, d := range deltas {
-		if d.Removed {
-			// This is a very specific check for the recent call to
-			// m1.Remove()
-			obtainedMachine, ok := d.Entity.(*multiwatcher.MachineInfo)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(obtainedMachine.ModelUUID, gc.Equals, expectedRemoveMachineEntity.ModelUUID)
-			c.Assert(obtainedMachine.ID, gc.Equals, expectedRemoveMachineEntity.ID)
-		}
-	}
-
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:  s.state.ModelUUID(),
-			ID:         "0",
-			InstanceID: "",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:                    life.Alive,
-			Series:                  "trusty",
-			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
-			Addresses:               []network.ProviderAddress{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			CharmProfiles:           []string{},
-			HasVote:                 false,
-			WantsVote:               true,
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:  s.state.ModelUUID(),
-			ID:         "0",
-			InstanceID: "i-0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:                    life.Alive,
-			Series:                  "trusty",
-			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
-			Addresses:               []network.ProviderAddress{},
-			HardwareCharacteristics: hc,
-			CharmProfiles:           cp,
-			HasVote:                 false,
-			WantsVote:               true,
-		},
-	}, {
-		Removed: true,
-		Entity:  expectedRemoveMachineEntity,
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: s.state.ModelUUID(),
-			ID:        "2",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &wpTime,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &wpTime,
-			},
-			Life:      life.Alive,
-			Series:    "quantal",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}, {
-		Entity: &multiwatcher.CharmInfo{
-			ModelUUID:     s.state.ModelUUID(),
-			CharmURL:      "local:quantal/quantal-wordpress-3",
-			Life:          life.Alive,
-			DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
-		},
-	}, {
-		Entity: &multiwatcher.ApplicationInfo{
-			ModelUUID: s.state.ModelUUID(),
-			Name:      "wordpress",
-			CharmURL:  "local:quantal/quantal-wordpress-3",
-			Life:      "alive",
-			Config:    make(map[string]interface{}),
-			Status: multiwatcher.StatusInfo{
-				Current: "waiting",
-				Message: "waiting for machine",
-				Data:    map[string]interface{}{},
-				Since:   &wpTime,
-			},
-		},
-	}, {
-		Entity: &multiwatcher.UnitInfo{
-			ModelUUID:   s.state.ModelUUID(),
-			Name:        "wordpress/0",
-			Application: "wordpress",
-			Series:      "quantal",
-			Life:        life.Alive,
-			MachineID:   "2",
-			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "waiting",
-				Message: "waiting for machine",
-				Data:    map[string]interface{}{},
-				Since:   &wpTime,
-			},
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: "allocating",
-				Message: "",
-				Data:    map[string]interface{}{},
-				Since:   &wpTime,
-			},
-		},
-	}})
-}
-
-func (s *allWatcherStateSuite) TestStateWatcherTwoModels(c *gc.C) {
-	// The return values for the setup and trigger functions are the
-	// number of changes to expect.
-	for i, test := range []struct {
-		about        string
-		setUpState   func(*State) int
-		triggerEvent func(*State) int
-	}{
-		{
-			about: "machines",
-			triggerEvent: func(st *State) int {
-				m0, err := st.AddMachine("trusty", JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(m0.Id(), gc.Equals, "0")
-				return 1
-			},
-		}, {
-			about: "applications",
-			triggerEvent: func(st *State) int {
-				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 2
-			},
-		}, {
-			about: "units",
-			setUpState: func(st *State) int {
-				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 2
-			},
-			triggerEvent: func(st *State) int {
-				app, err := st.Application("wordpress")
-				c.Assert(err, jc.ErrorIsNil)
-
-				_, err = app.AddUnit(AddUnitParams{})
-				c.Assert(err, jc.ErrorIsNil)
-				return 2
-			},
-		}, {
-			about: "relations",
-			setUpState: func(st *State) int {
-				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				AddTestingApplication(c, st, "mysql", AddTestingCharm(c, st, "mysql"))
-				return 4
-			},
-			triggerEvent: func(st *State) int {
-				eps, err := st.InferEndpoints("mysql", "wordpress")
-				c.Assert(err, jc.ErrorIsNil)
-				_, err = st.AddRelation(eps...)
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-		}, {
-			about: "annotations",
-			setUpState: func(st *State) int {
-				m, err := st.AddMachine("trusty", JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(m.Id(), gc.Equals, "0")
-				return 1
-			},
-			triggerEvent: func(st *State) int {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-
-				model, err := st.Model()
-				c.Assert(err, jc.ErrorIsNil)
-
-				err = model.SetAnnotations(m, map[string]string{"foo": "bar"})
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-		}, {
-			about: "machine agent status",
-			setUpState: func(st *State) int {
-				m, err := st.AddMachine("trusty", JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(m.Id(), gc.Equals, "0")
-				err = m.SetProvisioned(instance.Id("inst-id"), "", "fake_nonce", nil)
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-			triggerEvent: func(st *State) int {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-
-				now := testing.ZeroTime()
-				sInfo := status.StatusInfo{
-					Status:  status.Error,
-					Message: "pete tong",
-					Since:   &now,
-				}
-				err = m.SetStatus(sInfo)
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-		}, {
-			about: "instance status",
-			setUpState: func(st *State) int {
-				m, err := st.AddMachine("trusty", JobHostUnits)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(m.Id(), gc.Equals, "0")
-				return 1
-			},
-			triggerEvent: func(st *State) int {
-				m, err := st.Machine("0")
-				c.Assert(err, jc.ErrorIsNil)
-				now := testing.ZeroTime()
-				err = m.SetInstanceStatus(status.StatusInfo{
-					Status:  status.Error,
-					Message: "pete tong",
-					Since:   &now,
-				})
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-		}, {
-			about: "constraints",
-			setUpState: func(st *State) int {
-				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 2
-			},
-			triggerEvent: func(st *State) int {
-				app, err := st.Application("wordpress")
-				c.Assert(err, jc.ErrorIsNil)
-
-				cpuCores := uint64(99)
-				err = app.SetConstraints(constraints.Value{CpuCores: &cpuCores})
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-		}, {
-			about: "settings",
-			setUpState: func(st *State) int {
-				AddTestingApplication(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
-				return 2
-			},
-			triggerEvent: func(st *State) int {
-				app, err := st.Application("wordpress")
-				c.Assert(err, jc.ErrorIsNil)
-
-				err = app.UpdateCharmConfig(model.GenerationMaster, charm.Settings{"blog-title": "boring"})
-				c.Assert(err, jc.ErrorIsNil)
-				return 1
-			},
-		}, {
-			about: "blocks",
-			triggerEvent: func(st *State) int {
-				m, found, err := st.GetBlockForType(DestroyBlock)
-				c.Assert(err, jc.ErrorIsNil)
-				c.Assert(found, jc.IsFalse)
-				c.Assert(m, gc.IsNil)
-
-				err = st.SwitchBlockOn(DestroyBlock, "test block")
-				c.Assert(err, jc.ErrorIsNil)
-
-				return 1
-			},
-		},
-	} {
-		c.Logf("Test %d: %s", i, test.about)
-		func() {
-			checkIsolationForModel := func(st *State, w, otherW *testWatcher) {
-				c.Logf("Making changes to model %s", st.ModelUUID())
-				if test.setUpState != nil {
-					expected := test.setUpState(st)
-					// Consume events from setup.
-					w.AssertChanges(c, expected)
-					otherW.AssertNoChange(c)
-				}
-				expected := test.triggerEvent(st)
-				// Check event was isolated to the correct watcher.
-				w.AssertChanges(c, expected)
-				otherW.AssertNoChange(c)
-			}
-			otherState := s.newState(c)
-
-			w1 := newTestAllWatcher(s.state, c)
-			defer w1.Stop()
-			w2 := newTestAllWatcher(otherState, c)
-			defer w2.Stop()
-
-			// The first set of deltas is empty, reflecting an empty model.
-			w1.AssertNoChange(c)
-			w2.AssertNoChange(c)
-			checkIsolationForModel(s.state, w1, w2)
-			checkIsolationForModel(otherState, w2, w1)
-		}()
-		s.reset(c)
-	}
 }
 
 var _ = gc.Suite(&allModelWatcherStateSuite{})
@@ -1643,7 +1176,7 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 	// Ensure an entity is removed when a change is seen but
 	// the model the entity belonged to has already died.
 
-	b := s.NewAllWatcherBacking()
+	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
 
 	// Insert a machine for an model that doesn't actually
@@ -1662,75 +1195,6 @@ func (s *allModelWatcherStateSuite) TestChangeForDeadModel(c *gc.C) {
 
 	// Entity info should be gone now.
 	c.Assert(all.All(), gc.HasLen, 0)
-}
-
-func (s *allModelWatcherStateSuite) TestGetAll(c *gc.C) {
-	// Set up 2 models and ensure that GetAll returns the
-	// entities for both of them.
-	entities0 := s.setUpScenario(c, s.state, 2, true)
-	entities1 := s.setUpScenario(c, s.state1, 4, true)
-	expectedEntities := append(entities0, entities1...)
-
-	// allModelWatcherStateBacking also watches models so add those in.
-	model, err := s.state.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	model1, err := s.state1.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg, err := model.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	status, err := model.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg1, err := model1.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	status1, err := model1.Status()
-	c.Assert(err, jc.ErrorIsNil)
-	expectedEntities = append(expectedEntities,
-		&multiwatcher.ModelUpdate{
-			ModelUUID:      model.UUID(),
-			Name:           model.Name(),
-			Life:           life.Alive,
-			Owner:          model.Owner().Id(),
-			ControllerUUID: model.ControllerUUID(),
-			IsController:   model.IsControllerModel(),
-			Config:         cfg.AllAttrs(),
-			Status: multiwatcher.StatusInfo{
-				Current: status.Status,
-				Message: status.Message,
-				Data:    status.Data,
-				Since:   status.Since,
-			},
-			SLA: multiwatcher.ModelSLAInfo{
-				Level: "unsupported",
-			},
-		},
-		&multiwatcher.ModelUpdate{
-			ModelUUID:      model1.UUID(),
-			Name:           model1.Name(),
-			Life:           life.Alive,
-			Owner:          model1.Owner().Id(),
-			ControllerUUID: model1.ControllerUUID(),
-			IsController:   model1.IsControllerModel(),
-			Config:         cfg1.AllAttrs(),
-			Status: multiwatcher.StatusInfo{
-				Current: status1.Status,
-				Message: status1.Message,
-				Data:    status1.Data,
-				Since:   status1.Since,
-			},
-			SLA: multiwatcher.ModelSLAInfo{
-				Level: "unsupported",
-			},
-		},
-	)
-
-	b := s.NewAllWatcherBacking()
-	all := multiwatcher.NewStore(loggo.GetLogger("test"))
-	err = b.GetAll(all)
-	c.Assert(err, jc.ErrorIsNil)
-	var gotEntities entityInfoSlice = all.All()
-	sort.Sort(gotEntities)
-	sort.Sort(expectedEntities)
-	assertEntitiesEqual(c, gotEntities, expectedEntities)
 }
 
 func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
@@ -1805,417 +1269,6 @@ func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
 	c.Assert(entities, gc.HasLen, 0)
-}
-
-// TestStateWatcher tests the integration of the state watcher with
-// allModelWatcherStateBacking. Most of the logic is comprehensively
-// tested elsewhere - this just tests end-to-end.
-func (s *allModelWatcherStateSuite) TestStateWatcher(c *gc.C) {
-	st0 := s.state
-	model0, err := st0.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg0, err := model0.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	status0, err := model0.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	st1 := s.state1
-	model1, err := st1.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg1, err := model1.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	status1, err := model1.Status()
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Create some initial machines across 2 models
-	m00, err := st0.AddMachine("trusty", JobManageModel)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m00.Id(), gc.Equals, "0")
-
-	m10, err := st1.AddMachine("saucy", JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m10.Id(), gc.Equals, "0")
-
-	// Add a branch.
-	c.Assert(st1.AddBranch("new-branch", "test-user"), jc.ErrorIsNil)
-	br, err := st1.Branch("new-branch")
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(br, gc.NotNil)
-
-	now := st0.clock().Now()
-
-	backing := s.NewAllWatcherBacking()
-	tw := newTestWatcher(backing, st0, c)
-	defer tw.Stop()
-
-	// Expect to see events for the already created models,
-	// machines and branch first.
-	deltas := tw.All(5)
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.ModelUpdate{
-			ModelUUID:      model0.UUID(),
-			Name:           model0.Name(),
-			Life:           "alive",
-			Owner:          model0.Owner().Id(),
-			ControllerUUID: model0.ControllerUUID(),
-			IsController:   model0.IsControllerModel(),
-			Config:         cfg0.AllAttrs(),
-			Status: multiwatcher.StatusInfo{
-				Current: status0.Status,
-				Message: status0.Message,
-				Data:    status0.Data,
-				Since:   status0.Since,
-			},
-			SLA: multiwatcher.ModelSLAInfo{
-				Level: "unsupported",
-			},
-		},
-	}, {
-		Entity: &multiwatcher.ModelUpdate{
-			ModelUUID:      model1.UUID(),
-			Name:           model1.Name(),
-			Life:           "alive",
-			Owner:          model1.Owner().Id(),
-			ControllerUUID: model1.ControllerUUID(),
-			IsController:   model1.IsControllerModel(),
-			Config:         cfg1.AllAttrs(),
-			Status: multiwatcher.StatusInfo{
-				Current: status1.Status,
-				Message: status1.Message,
-				Data:    status1.Data,
-				Since:   status1.Since,
-			},
-			SLA: multiwatcher.ModelSLAInfo{
-				Level: "unsupported",
-			},
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st0.ModelUUID(),
-			ID:        "0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Alive,
-			Series:    "trusty",
-			Jobs:      []coremodel.MachineJob{JobManageModel.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: true,
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st1.ModelUUID(),
-			ID:        "0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Alive,
-			Series:    "saucy",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}, {
-		Entity: &multiwatcher.BranchInfo{
-			ModelUUID:     st1.ModelUUID(),
-			ID:            "0",
-			Name:          "new-branch",
-			AssignedUnits: map[string][]string{},
-			CreatedBy:     "test-user",
-		},
-	}})
-
-	// Destroy a machine and make sure that's seen.
-	err = m10.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-
-	deltas = tw.All(1)
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st1.ModelUUID(),
-			ID:        "0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Dying,
-			Series:    "saucy",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}})
-
-	err = m10.EnsureDead()
-	c.Assert(err, jc.ErrorIsNil)
-
-	deltas = tw.All(1)
-	checkDeltasEqual(c, deltas, []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st1.ModelUUID(),
-			ID:        "0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:      life.Dead,
-			Series:    "saucy",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}})
-
-	// Make further changes to the state, including the addition of a
-	// new model.
-	err = m00.SetProvisioned(instance.Id("i-0"), "", "bootstrap_nonce", nil)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = m10.Remove()
-	c.Assert(err, jc.ErrorIsNil)
-
-	m11, err := st1.AddMachine("quantal", JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m11.Id(), gc.Equals, "1")
-
-	wordpress := AddTestingApplication(c, st1, "wordpress", AddTestingCharm(c, st1, "wordpress"))
-	wu, err := wordpress.AddUnit(AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	err = wu.AssignToMachine(m11)
-	c.Assert(err, jc.ErrorIsNil)
-
-	st2 := s.newState(c)
-	model2, err := st2.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	cfg2, err := model2.Config()
-	c.Assert(err, jc.ErrorIsNil)
-	m20, err := st2.AddMachine("trusty", JobHostUnits)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(m20.Id(), gc.Equals, "0")
-
-	c.Assert(br.AssignUnit(wu.Name()), jc.ErrorIsNil)
-
-	// Look for the state changes from the allwatcher.
-	later := st2.clock().Now()
-	deltas = tw.All(10)
-
-	expectedRemoveMachineEntity := &multiwatcher.MachineInfo{
-		ModelUUID: st1.ModelUUID(),
-		ID:        "0",
-	}
-
-	// checkDeltasEqual sets removals to nil before comparing the deltas.
-	// Perhaps because, the multiwatcher.*Info{} is very different once it's
-	// converted to multiwatcher.Remove*{} and contains only the modelUUID,
-	// and an "Id" depending on the thing being removed.  For the model
-	// cache, we do want to ensure the correct removals are being seen,
-	// so check here.
-	for _, d := range deltas {
-		if d.Removed {
-			// This is a very specific check for the recent call to
-			// m10.Remove()
-			obtainedMachine, ok := d.Entity.(*multiwatcher.MachineInfo)
-			c.Assert(ok, jc.IsTrue)
-			c.Assert(obtainedMachine.ModelUUID, gc.Equals, expectedRemoveMachineEntity.ModelUUID)
-			c.Assert(obtainedMachine.ID, gc.Equals, expectedRemoveMachineEntity.ID)
-		}
-	}
-
-	expectedDeltas := []multiwatcher.Delta{{
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:  st0.ModelUUID(),
-			ID:         "0",
-			InstanceID: "",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:                    life.Alive,
-			Series:                  "trusty",
-			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
-			Addresses:               []network.ProviderAddress{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			CharmProfiles:           []string{},
-			HasVote:                 false,
-			WantsVote:               true,
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID:  st0.ModelUUID(),
-			ID:         "0",
-			InstanceID: "i-0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &now,
-			},
-			Life:                    life.Alive,
-			Series:                  "trusty",
-			Jobs:                    []coremodel.MachineJob{JobManageModel.ToParams()},
-			Addresses:               []network.ProviderAddress{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			CharmProfiles:           []string{},
-			HasVote:                 false,
-			WantsVote:               true,
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st1.ModelUUID(),
-			ID:        "1",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-			Life:      life.Alive,
-			Series:    "quantal",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}, {
-		Entity: &multiwatcher.CharmInfo{
-			ModelUUID:     st1.ModelUUID(),
-			CharmURL:      "local:quantal/quantal-wordpress-3",
-			Life:          life.Alive,
-			DefaultConfig: map[string]interface{}{"blog-title": "My Title"},
-		},
-	}, {
-		Removed: true,
-		Entity:  expectedRemoveMachineEntity,
-	}, {
-		Entity: &multiwatcher.ApplicationInfo{
-			ModelUUID: st1.ModelUUID(),
-			Name:      "wordpress",
-			CharmURL:  "local:quantal/quantal-wordpress-3",
-			Life:      "alive",
-			Config:    make(map[string]interface{}),
-			Status: multiwatcher.StatusInfo{
-				Current: "waiting",
-				Message: "waiting for machine",
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-		},
-	}, {
-		Entity: &multiwatcher.UnitInfo{
-			ModelUUID:   st1.ModelUUID(),
-			Name:        "wordpress/0",
-			Application: "wordpress",
-			Series:      "quantal",
-			Life:        life.Alive,
-			MachineID:   "1",
-			WorkloadStatus: multiwatcher.StatusInfo{
-				Current: "waiting",
-				Message: "waiting for machine",
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: "allocating",
-				Message: "",
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-		},
-	}, {
-		Entity: &multiwatcher.ModelUpdate{
-			ModelUUID:      model2.UUID(),
-			Name:           model2.Name(),
-			Life:           "alive",
-			Owner:          model2.Owner().Id(),
-			ControllerUUID: model2.ControllerUUID(),
-			IsController:   model2.IsControllerModel(),
-			Config:         cfg2.AllAttrs(),
-			Status: multiwatcher.StatusInfo{
-				Current: "available",
-				Message: "",
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-			SLA: multiwatcher.ModelSLAInfo{
-				Level: "unsupported",
-			},
-		},
-	}, {
-		Entity: &multiwatcher.MachineInfo{
-			ModelUUID: st2.ModelUUID(),
-			ID:        "0",
-			AgentStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-			InstanceStatus: multiwatcher.StatusInfo{
-				Current: status.Pending,
-				Data:    map[string]interface{}{},
-				Since:   &later,
-			},
-			Life:      life.Alive,
-			Series:    "trusty",
-			Jobs:      []coremodel.MachineJob{JobHostUnits.ToParams()},
-			Addresses: []network.ProviderAddress{},
-			HasVote:   false,
-			WantsVote: false,
-		},
-	}, {
-		Entity: &multiwatcher.BranchInfo{
-			ModelUUID:     st1.ModelUUID(),
-			ID:            "0",
-			Name:          "new-branch",
-			AssignedUnits: map[string][]string{wordpress.Name(): {wu.Name()}},
-			CreatedBy:     "test-user",
-		},
-	}}
-
-	checkDeltasEqual(c, deltas, expectedDeltas)
 }
 
 // The testChange* funcs are extracted so the test cases can be used
@@ -4198,111 +3251,6 @@ func testChangeGenerations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		},
 	}
 	runChangeTests(c, changeTestFuncs)
-}
-
-func newTestAllWatcher(st *State, c *gc.C) *testWatcher {
-	return newTestWatcher(newAllWatcherStateBacking(st, WatchParams{IncludeOffers: false}), st, c)
-}
-
-type testWatcher struct {
-	st     *State
-	c      *gc.C
-	b      AllWatcherBacking
-	sm     *storeManager
-	w      *Multiwatcher
-	deltas chan []multiwatcher.Delta
-}
-
-func newTestWatcher(b AllWatcherBacking, st *State, c *gc.C) *testWatcher {
-	sm := newStoreManager(b)
-	w := NewMultiwatcher(sm)
-	tw := &testWatcher{
-		st:     st,
-		c:      c,
-		b:      b,
-		sm:     sm,
-		w:      w,
-		deltas: make(chan []multiwatcher.Delta),
-	}
-	go func() {
-		defer close(tw.deltas)
-		for {
-			deltas, err := tw.w.Next()
-			if err != nil {
-				return
-			}
-			tw.deltas <- deltas
-		}
-	}()
-	return tw
-}
-
-func (tw *testWatcher) All(expectedCount int) []multiwatcher.Delta {
-	var allDeltas []multiwatcher.Delta
-	tw.st.StartSync()
-
-	//  Wait up to LongWait for the expected deltas to arrive, unless
-	//  we don't expect any (then just wait for ShortWait).
-	maxDuration := testing.LongWait
-	if expectedCount <= 0 {
-		maxDuration = testing.ShortWait
-	}
-
-done:
-	for {
-		select {
-		case deltas := <-tw.deltas:
-			if len(deltas) > 0 {
-				allDeltas = append(allDeltas, deltas...)
-				if len(allDeltas) >= expectedCount {
-					break done
-				}
-			}
-		case <-time.After(maxDuration):
-			// timed out
-			break done
-		}
-	}
-	return allDeltas
-}
-
-func (tw *testWatcher) Stop() {
-	tw.c.Assert(tw.w.Stop(), jc.ErrorIsNil)
-	tw.c.Assert(tw.sm.Stop(), jc.ErrorIsNil)
-}
-
-func (tw *testWatcher) AssertNoChange(c *gc.C) {
-	tw.st.StartSync()
-	select {
-	case d := <-tw.deltas:
-		if len(d) > 0 {
-			c.Errorf("change detected (%#v)", d)
-		}
-	case <-time.After(testing.ShortWait):
-		// expected
-	}
-}
-
-func (tw *testWatcher) AssertChanges(c *gc.C, expected int) {
-	var count int
-	tw.st.StartSync()
-	maxWait := time.After(testing.LongWait)
-done:
-	for {
-		select {
-		case d := <-tw.deltas:
-			count += len(d)
-			if count == expected {
-				break done
-			}
-		case <-maxWait:
-			// insufficient changes seen
-			break done
-		}
-	}
-	// ensure there are no more than we expect
-	tw.AssertNoChange(c)
-	c.Assert(count, gc.Equals, expected)
 }
 
 type entityInfoSlice []multiwatcher.EntityInfo

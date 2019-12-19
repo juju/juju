@@ -27,15 +27,6 @@ import (
 // and create a child logger from that.
 var allWatcherLogger = loggo.GetLogger("juju.state.allwatcher")
 
-// allWatcherStateBacking implements AllWatcherBacking by fetching entities for
-// a single model from the State.
-type allWatcherStateBacking struct {
-	st               *State
-	watcher          watcher.BaseWatcher
-	collections      []string
-	collectionByName map[string]allWatcherStateCollection
-}
-
 // allWatcherBacking implements AllWatcherBacking by fetching entities
 // for all models from the State.
 type allWatcherBacking struct {
@@ -1322,98 +1313,6 @@ type backingEntityDoc interface {
 	mongoID() string
 }
 
-func newAllWatcherStateBacking(st *State, params WatchParams) AllWatcherBacking {
-	collectionNames := []string{
-		// The ordering here matters. We want to load machines, then
-		// applications, then units. The others don't matter so much.
-		machinesC,
-		applicationsC,
-		unitsC,
-		// The rest don't really matter.
-		actionsC,
-		annotationsC,
-		blocksC,
-		charmsC,
-		constraintsC,
-		generationsC,
-		instanceDataC,
-		openedPortsC,
-		relationsC,
-		remoteApplicationsC,
-		statusesC,
-		settingsC,
-	}
-	if params.IncludeOffers {
-		collectionNames = append(collectionNames, applicationOffersC)
-	}
-	collectionsMap := makeAllWatcherCollectionInfo(collectionNames)
-	return &allWatcherStateBacking{
-		st:               st,
-		watcher:          st.workers.txnLogWatcher(),
-		collections:      collectionNames,
-		collectionByName: collectionsMap,
-	}
-}
-
-func (b *allWatcherStateBacking) filterModel(docID interface{}) bool {
-	_, err := b.st.strictLocalID(docID.(string))
-	return err == nil
-}
-
-// Watch watches all the collections.
-func (b *allWatcherStateBacking) Watch(in chan<- watcher.Change) {
-	for _, c := range b.collectionByName {
-		b.watcher.WatchCollectionWithFilter(c.name, in, b.filterModel)
-	}
-}
-
-// Unwatch unwatches all the collections.
-func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
-	for _, c := range b.collectionByName {
-		b.watcher.UnwatchCollection(c.name, in)
-	}
-}
-
-// GetAll fetches all items that we want to watch from the state.
-func (b *allWatcherStateBacking) GetAll(store multiwatcher.Store) error {
-	err := loadAllWatcherEntities(b.st, b.collections, b.collectionByName, store)
-	return errors.Trace(err)
-}
-
-// Changed updates the allWatcher's idea of the current state
-// in response to the given change.
-func (b *allWatcherStateBacking) Changed(store multiwatcher.Store, change watcher.Change) error {
-	c, ok := b.collectionByName[change.C]
-	if !ok {
-		return errors.Errorf("unknown collection %q in fetch request", change.C)
-	}
-	col, closer := b.st.db().GetCollection(c.name)
-	defer closer()
-	doc := reflect.New(c.docType).Interface().(backingEntityDoc)
-
-	id := b.st.localID(change.Id.(string))
-
-	// TODO(rog) investigate ways that this can be made more efficient
-	// than simply fetching each entity in turn.
-	// TODO(rog) avoid fetching documents that we have no interest
-	// in, such as settings changes to entities we don't care about.
-	ctx := &allWatcherContext{
-		state:     b.st,
-		store:     store,
-		modelUUID: b.st.ModelUUID(),
-		id:        id,
-	}
-	err := col.FindId(id).One(doc)
-	if err == mgo.ErrNotFound {
-		err := doc.removed(ctx)
-		return errors.Trace(err)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return doc.updated(ctx)
-}
-
 // AllWatcherBacking is the interface required by the multiwatcher to access the
 // underlying state.
 type AllWatcherBacking interface {
@@ -1562,7 +1461,6 @@ func (b *allWatcherBacking) Changed(store multiwatcher.Store, change watcher.Cha
 	col, closer := st.db().GetCollection(c.name)
 	defer closer()
 
-	// TODO - see TODOs in allWatcherStateBacking.Changed()
 	err = col.FindId(id).One(doc)
 	if err == mgo.ErrNotFound {
 		err := doc.removed(ctx)
