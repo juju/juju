@@ -676,14 +676,6 @@ type WatchParams struct {
 	IncludeOffers bool
 }
 
-func (st *State) Watch(params WatchParams) *Multiwatcher {
-	return NewMultiwatcher(st.workers.allManager(params))
-}
-
-func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {
-	return NewMultiwatcher(st.workers.allModelManager(pool))
-}
-
 // versionInconsistentError indicates one or more agents have a
 // different version from the current one (even empty, when not yet
 // set).

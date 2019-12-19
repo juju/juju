@@ -35,7 +35,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -219,88 +218,6 @@ func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)
-}
-
-func (s *StateSuite) TestWatch(c *gc.C) {
-	// The allWatcher infrastructure is comprehensively tested
-	// elsewhere. This just ensures things are hooked up correctly in
-	// State.Watch()
-
-	w := s.State.Watch(state.WatchParams{IncludeOffers: true})
-	defer w.Stop()
-	deltasC := makeMultiwatcherOutput(w)
-	s.State.StartSync()
-
-	select {
-	case deltas := <-deltasC:
-		// The Watch() call results in an empty "change" reflecting
-		// the initially empty model.
-		c.Assert(deltas, gc.HasLen, 0)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-
-	m := s.Factory.MakeMachine(c, nil) // Generate event
-	s.State.StartSync()
-
-	select {
-	case deltas := <-deltasC:
-		c.Assert(deltas, gc.HasLen, 1)
-		info := deltas[0].Entity.(*multiwatcher.MachineInfo)
-		c.Assert(info.ModelUUID, gc.Equals, s.State.ModelUUID())
-		c.Assert(info.ID, gc.Equals, m.Id())
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-}
-
-func makeMultiwatcherOutput(w *state.Multiwatcher) chan []multiwatcher.Delta {
-	deltasC := make(chan []multiwatcher.Delta)
-	go func() {
-		for {
-			deltas, err := w.Next()
-			if err != nil {
-				return
-			}
-			deltasC <- deltas
-		}
-	}()
-	return deltasC
-}
-
-func (s *StateSuite) TestWatchAllModels(c *gc.C) {
-	// The allModelWatcher infrastructure is comprehensively tested
-	// elsewhere. This just ensures things are hooked up correctly in
-	// State.WatchAllModels()
-	w := s.State.WatchAllModels(s.StatePool)
-	defer w.Stop()
-	deltasC := makeMultiwatcherOutput(w)
-
-	m := s.Factory.MakeMachine(c, nil)
-	s.State.StartSync()
-	modelSeen := false
-	machineSeen := false
-	timeout := time.After(testing.LongWait)
-	for !modelSeen || !machineSeen {
-		select {
-		case deltas := <-deltasC:
-			for _, delta := range deltas {
-				switch e := delta.Entity.(type) {
-				case *multiwatcher.ModelUpdate:
-					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
-					modelSeen = true
-				case *multiwatcher.MachineInfo:
-					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
-					c.Assert(e.ID, gc.Equals, m.Id())
-					machineSeen = true
-				}
-			}
-		case <-timeout:
-			c.Fatal("timed out")
-		}
-	}
-	c.Assert(modelSeen, jc.IsTrue)
-	c.Assert(machineSeen, jc.IsTrue)
 }
 
 type MultiModelStateSuite struct {
