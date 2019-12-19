@@ -17,10 +17,11 @@ import (
 	"github.com/juju/juju/apiserver"
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/cache"
-	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type baseSuite struct {
@@ -35,13 +36,19 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 	loggo.GetLogger("juju.apiserver").SetLogLevel(loggo.TRACE)
 
+	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Logger:               loggo.GetLogger("test"),
+		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		PrometheusRegisterer: noopRegisterer{},
+	})
+	// The worker itself is a coremultiwatcher.Factory.
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
+
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		InitializedGate: initialized,
-		Logger:          loggo.GetLogger("modelcache"),
-		WatcherFactory: func() multiwatcher.Watcher {
-			return s.State.WatchAllModels(s.StatePool)
-		},
+		InitializedGate:      initialized,
+		Logger:               loggo.GetLogger("modelcache"),
+		WatcherFactory:       multiWatcherWorker.WatchController,
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
