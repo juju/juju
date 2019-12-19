@@ -462,15 +462,25 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 
 	err = workertest.CheckKilled(c, w)
 	c.Check(err, gc.ErrorMatches, "UHOH")
-	calls.CheckCallNames(c,
+
+	// The calls occasionally come out of order - the watcher's
+	// commonLoop manages to call Next before its main loop has called
+	// RelationUnitSettings, so instead of seeing [WatchRelationUnits,
+	// RelationUnitSettings, Next, Next, Stop] we see
+	// [WatchRelationUnits, Next, RelationUnitSettings, Next,
+	// Stop]. Just check that all 5 happen at some point for a more
+	// reliable test.
+	callNames := make([]string, len(calls.Calls()))
+	for i, call := range calls.Calls() {
+		callNames[i] = call.FuncName
+	}
+	c.Assert(callNames, jc.SameContents, []string{
 		"CrossModelRelations.WatchRelationUnits",
 		"CrossModelRelations.RelationUnitSettings",
 		"RelationUnitsWatcher.Next",
-		// The watcher common loop gets back to calling Next again
-		// before we see the error in the result.
 		"RelationUnitsWatcher.Next",
 		"RelationUnitsWatcher.Stop",
-	)
+	})
 }
 
 func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
