@@ -342,7 +342,7 @@
 
 [[constraint]]
   name = "github.com/juju/version"
-  revision = "1f41e27e54f21acccf9b2dddae063a782a8a7ceb"
+  revision = "81c1be00b9a67de4490453f6117d13d818c9fb84"
 
 [[override]]
   name = "github.com/juju/xml"

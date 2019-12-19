@@ -64,10 +64,8 @@ func NewLock(agentConfig agent.Config) gate.Lock {
 	}
 
 	// Build numbers are irrelevant to upgrade steps.
-	upgradedToVersion := agentConfig.UpgradedToVersion()
-	upgradedToVersion.Build = 0
-	currentVersion := jujuversion.Current
-	currentVersion.Build = 0
+	upgradedToVersion := agentConfig.UpgradedToVersion().ToPatch()
+	currentVersion := jujuversion.Current.ToPatch()
 	if upgradedToVersion == currentVersion {
 		logger.Infof(
 			"upgrade steps for %v have already been run.",
