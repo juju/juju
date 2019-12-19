@@ -333,7 +333,7 @@ func (s *authSuite) TestCheckOfferMacaroonsDischargeRequired(c *gc.C) {
 	)
 	dischargeErr, ok := err.(*common.DischargeRequiredError)
 	c.Assert(ok, jc.IsTrue)
-	cav := dischargeErr.Macaroon.Caveats()
+	cav := dischargeErr.LegacyMacaroon.Caveats()
 	c.Assert(cav, gc.HasLen, 2)
 	c.Assert(cav[0].Location, gc.Equals, "http://thirdparty")
 }
@@ -432,7 +432,7 @@ func (s *authSuite) TestCheckRelationMacaroonsDischargeRequired(c *gc.C) {
 	)
 	dischargeErr, ok := err.(*common.DischargeRequiredError)
 	c.Assert(ok, jc.IsTrue)
-	cav := dischargeErr.Macaroon.Caveats()
+	cav := dischargeErr.LegacyMacaroon.Caveats()
 	c.Assert(cav, gc.HasLen, 2)
 	c.Assert(cav[0].Location, gc.Equals, "http://thirdparty")
 }

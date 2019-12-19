@@ -5,7 +5,7 @@ package stateauthenticator
 
 import (
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2"
+	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
 
 	"github.com/juju/juju/apiserver/authentication"
 )
@@ -16,18 +16,10 @@ func EntityAuthenticator(authenticator *Authenticator, tag names.Tag) (authentic
 	return authenticator.authContext.authenticator("testing.invalid:1234").authenticatorForTag(tag)
 }
 
-func ServerMacaroon(a *Authenticator) (*macaroon.Macaroon, error) {
-	auth, err := a.authContext.externalMacaroonAuth()
+func ServerBakery(a *Authenticator, identClient identchecker.IdentityClient) (*identchecker.Bakery, error) {
+	auth, err := a.authContext.externalMacaroonAuth(identClient)
 	if err != nil {
 		return nil, err
 	}
-	return auth.(*authentication.ExternalMacaroonAuthenticator).Macaroon, nil
-}
-
-func ServerBakeryService(a *Authenticator) (authentication.BakeryService, error) {
-	auth, err := a.authContext.externalMacaroonAuth()
-	if err != nil {
-		return nil, err
-	}
-	return auth.(*authentication.ExternalMacaroonAuthenticator).Service, nil
+	return auth.(*authentication.ExternalMacaroonAuthenticator).Bakery, nil
 }

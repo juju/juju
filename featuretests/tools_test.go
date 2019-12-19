@@ -225,10 +225,10 @@ func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredErr
 
 	charmResponse := assertResponse(c, resp, http.StatusUnauthorized)
 	c.Assert(charmResponse.Error, gc.NotNil)
-	c.Assert(charmResponse.Error.Message, gc.Equals, "verification failed: no macaroons")
+	c.Assert(charmResponse.Error.Message, gc.Equals, "macaroon discharge required: authentication required")
 	c.Assert(charmResponse.Error.Code, gc.Equals, params.CodeDischargeRequired)
 	c.Assert(charmResponse.Error.Info, gc.NotNil)
-	c.Assert(charmResponse.Error.Info["macaroon"], gc.NotNil)
+	c.Assert(charmResponse.Error.Info["bakery-macaroon"], gc.NotNil)
 }
 
 func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
@@ -343,15 +343,19 @@ func bakeryGetError(resp *http.Response) error {
 		return errors.Annotatef(err, "unable to extract macaroon details from discharge-required response error")
 	}
 
-	m, err := bakery.NewLegacyMacaroon(info.Macaroon)
-	if err != nil {
-		return errors.Trace(err)
+	mac := info.BakeryMacaroon
+	if mac == nil {
+		var err error
+		mac, err = bakery.NewLegacyMacaroon(info.Macaroon)
+		if err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return &httpbakery.Error{
 		Message: errResp.Error.Message,
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
-			Macaroon:     m,
+			Macaroon:     mac,
 			MacaroonPath: info.MacaroonPath,
 		},
 	}

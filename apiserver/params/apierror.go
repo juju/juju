@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 )
 
@@ -81,6 +82,13 @@ type DischargeRequiredErrorInfo struct {
 	// This field is associated with the ErrDischargeRequired
 	// error code.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+
+	// BakeryMacaroon may hold a macaroon that, when
+	// discharged, may allow access to the juju API.
+	// This field is associated with the ErrDischargeRequired
+	// error code.
+	// This is the macaroon emitted by newer Juju controllers using bakery.v2.
+	BakeryMacaroon *bakery.Macaroon `json:"bakery-macaroon,omitempty"`
 
 	// MacaroonPath holds the URL path to be associated
 	// with the macaroon. The macaroon is potentially

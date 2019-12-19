@@ -1985,6 +1985,8 @@
     "gopkg.in/macaroon-bakery.v2-unstable/httpbakery",
     "gopkg.in/macaroon-bakery.v2/bakery",
     "gopkg.in/macaroon-bakery.v2/bakery/checkers",
+    "gopkg.in/macaroon-bakery.v2/bakery/identchecker",
+    "gopkg.in/macaroon-bakery.v2/bakerytest",
     "gopkg.in/macaroon-bakery.v2/httpbakery",
     "gopkg.in/macaroon-bakery.v2/httpbakery/form",
     "gopkg.in/macaroon.v2",

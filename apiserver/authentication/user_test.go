@@ -5,12 +5,10 @@ package authentication_test
 
 import (
 	"context"
-	"net/http"
 	"time"
 
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
-	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -18,8 +16,9 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	bakery2 "gopkg.in/macaroon-bakery.v2/bakery"
+	checkers2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
+	bakerytest2 "gopkg.in/macaroon-bakery.v2/bakerytest"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
@@ -31,18 +30,8 @@ import (
 	"github.com/juju/juju/testing/factory"
 )
 
-var logger = loggo.GetLogger("juju.apiserver.authentication")
-
 type userAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite
-}
-
-type entityFinder struct {
-	entity state.Entity
-}
-
-func (f entityFinder) FindEntity(tag names.Tag) (state.Entity, error) {
-	return f.entity, nil
 }
 
 var _ = gc.Suite(&userAuthenticatorSuite{})
@@ -251,10 +240,6 @@ type macaroonAuthenticatorSuite struct {
 
 var _ = gc.Suite(&macaroonAuthenticatorSuite{})
 
-func (s *macaroonAuthenticatorSuite) Checker(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
-	return []checkers.Caveat{checkers.DeclaredCaveat("username", s.username)}, nil
-}
-
 var authenticateSuccessTests = []struct {
 	about              string
 	dischargedUsername string
@@ -299,27 +284,41 @@ var authenticateSuccessTests = []struct {
 	expectError:        "lost in space",
 }}
 
+type alwaysIdent struct {
+	IdentityLocation string
+	username         string
+}
+
+// IdentityFromContext implements IdentityClient.IdentityFromContext.
+func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers2.Caveat, error) {
+	return nil, []checkers2.Caveat{checkers2.DeclaredCaveat("username", m.username)}, nil
+}
+
+func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
+	user := declared["username"]
+	return identchecker.SimpleIdentity(user), nil
+}
+
 func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
-	discharger := bakerytest.NewDischarger(nil, s.Checker)
+	discharger := bakerytest2.NewDischarger(nil)
 	defer discharger.Close()
 	for i, test := range authenticateSuccessTests {
 		c.Logf("\ntest %d; %s", i, test.about)
 		s.username = test.dischargedUsername
 
-		svc, err := bakery.NewService(bakery.NewServiceParams{
-			Locator: discharger,
+		bakery := identchecker.NewBakery(identchecker.BakeryParams{
+			Locator:        discharger,
+			IdentityClient: &alwaysIdent{username: s.username},
 		})
-		c.Assert(err, jc.ErrorIsNil)
-		mac, err := svc.NewMacaroon(nil)
-		c.Assert(err, jc.ErrorIsNil)
 		authenticator := &authentication.ExternalMacaroonAuthenticator{
-			Service:          svc,
+			Bakery:           bakery,
 			IdentityLocation: discharger.Location(),
-			Macaroon:         mac,
+			Context:          context.Background(),
+			Clock:            testclock.NewClock(time.Time{}),
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err = authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+		_, err := authenticator.Authenticate(test.finder, nil, params.LoginRequest{
 			Credentials: "",
 			Nonce:       "",
 			Macaroons:   nil,
@@ -327,10 +326,8 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 
 		// Discharge the macaroon.
 		dischargeErr := errors.Cause(err).(*common.DischargeRequiredError)
-		m, err := bakery2.NewLegacyMacaroon(dischargeErr.Macaroon)
-		c.Assert(err, jc.ErrorIsNil)
 		client := httpbakery.NewClient()
-		ms, err := client.DischargeAll(context.Background(), m)
+		ms, err := client.DischargeAll(context.Background(), dischargeErr.Macaroon)
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.

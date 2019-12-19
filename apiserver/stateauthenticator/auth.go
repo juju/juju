@@ -4,6 +4,7 @@
 package stateauthenticator
 
 import (
+	"context"
 	"encoding/base64"
 	"net/http"
 	"strings"
@@ -43,7 +44,7 @@ type Authenticator struct {
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(statePool *state.StatePool, clock clock.Clock) (*Authenticator, error) {
-	authContext, err := newAuthContext(statePool.SystemState(), clock)
+	authContext, err := newAuthContext(statePool.SystemState(), clock, context.Background())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

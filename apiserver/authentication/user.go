@@ -4,6 +4,7 @@
 package authentication
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -14,6 +15,9 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	bakeryv2 "gopkg.in/macaroon-bakery.v2/bakery"
+	checkersv2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -185,8 +189,8 @@ func (u *UserAuthenticator) authenticateMacaroons(
 			return nil, errors.Annotate(err, "cannot create macaroon")
 		}
 		return nil, &common.DischargeRequiredError{
-			Cause:    cause,
-			Macaroon: m,
+			Cause:          cause,
+			LegacyMacaroon: m,
 		}
 	}
 	entity, err := entityFinder.FindEntity(tag)
@@ -204,60 +208,43 @@ func (u *UserAuthenticator) authenticateMacaroons(
 // and macaroon authentiction is enabled, it will return a *common.DischargeRequiredError
 // holding a macaroon to be discharged.
 type ExternalMacaroonAuthenticator struct {
-	// Service holds the service that is
+	// Bakery holds the bakery that is
 	// used to verify macaroon authorization.
-	Service BakeryService
-
-	// Macaroon guards macaroon-authentication-based access
-	// to the APIs. Appropriate caveats will be added before
-	// sending it to a client.
-	Macaroon *macaroon.Macaroon
+	Bakery *identchecker.Bakery
 
 	// IdentityLocation holds the URL of the trusted third party
 	// that is used to address the is-authenticated-user
 	// third party caveat to.
 	IdentityLocation string
+
+	// Context is the context for making bakery API calls.
+	Context context.Context
+
+	// Clock is used to set macaroon expiry time.
+	Clock clock.Clock
 }
 
 var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
 
-func (m *ExternalMacaroonAuthenticator) newDischargeRequiredError(cause error) error {
-	if m.Service == nil || m.Macaroon == nil {
-		return errors.Trace(cause)
-	}
-	mac := m.Macaroon.Clone()
-	// TODO(fwereade): 2016-03-17 lp:1558657
-	expiryTime := time.Now().Add(externalLoginExpiryTime)
-	if err := addMacaroonTimeBeforeCaveat(m.Service, mac, expiryTime); err != nil {
-		return errors.Annotatef(err, "cannot create macaroon")
-	}
-	err := m.Service.AddCaveat(mac, checkers.NeedDeclaredCaveat(
-		checkers.Caveat{
-			Location:  m.IdentityLocation,
-			Condition: "is-authenticated-user",
-		},
-		usernameKey,
-	))
-	if err != nil {
-		return errors.Annotatef(err, "cannot create macaroon")
-	}
-	return &common.DischargeRequiredError{
-		Cause:    cause,
-		Macaroon: mac,
-	}
-}
-
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
 func (m *ExternalMacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
-	declared, err := m.Service.CheckAny(req.Macaroons, nil, checkers.New(checkers.TimeBefore))
-	if _, ok := errors.Cause(err).(*bakery.VerificationError); ok {
-		return nil, m.newDischargeRequiredError(err)
+	authChecker := m.Bakery.Checker.Auth(req.Macaroons...)
+	ai, identErr := authChecker.Allow(m.Context, identchecker.LoginOp)
+	if de, ok := errors.Cause(identErr).(*bakeryv2.DischargeRequiredError); ok {
+		if dcMac, err := m.Bakery.Oven.NewMacaroon(m.Context, bakeryv2.LatestVersion, de.Caveats, de.Ops...); err != nil {
+			return nil, errors.Annotatef(err, "cannot create macaroon")
+		} else {
+			return nil, &common.DischargeRequiredError{
+				Cause:    identErr,
+				Macaroon: dcMac,
+			}
+		}
 	}
-	if err != nil {
-		return nil, errors.Trace(err)
+	if identErr != nil {
+		return nil, errors.Trace(identErr)
 	}
-	username := declared[usernameKey]
+	username := ai.Identity.Id()
 	var tag names.UserTag
 	if names.IsValidUserName(username) {
 		// The name is a local name without an explicit @local suffix.
@@ -287,8 +274,27 @@ func (m *ExternalMacaroonAuthenticator) Authenticate(entityFinder EntityFinder, 
 	return entity, nil
 }
 
-func addMacaroonTimeBeforeCaveat(svc BakeryService, m *macaroon.Macaroon, t time.Time) error {
-	return svc.AddCaveat(m, checkers.TimeBeforeCaveat(t))
+// IdentityFromContext implements IdentityClient.IdentityFromContext.
+func (m *ExternalMacaroonAuthenticator) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkersv2.Caveat, error) {
+	expiryTime := m.Clock.Now().Add(externalLoginExpiryTime)
+	return nil, []checkersv2.Caveat{
+		checkersv2.TimeBeforeCaveat(expiryTime),
+		checkersv2.NeedDeclaredCaveat(
+			checkersv2.Caveat{
+				Location:  m.IdentityLocation,
+				Condition: "is-authenticated-user",
+			},
+			usernameKey,
+		),
+	}, nil
+}
+
+// DeclaredIdentity implements IdentityClient.DeclaredIdentity.
+func (ExternalMacaroonAuthenticator) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
+	if username, ok := declared[usernameKey]; ok {
+		return identchecker.SimpleIdentity(username), nil
+	}
+	return nil, errors.New("no identity declared")
 }
 
 // BakeryService defines the subset of bakery.Service

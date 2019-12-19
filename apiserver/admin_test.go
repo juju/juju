@@ -1246,8 +1246,12 @@ func (s *macaroonLoginSuite) login(c *gc.C, info *api.Info) (params.LoginResult,
 
 	bakeryClient := httpbakery.NewClient()
 
-	mac, err := bakery.NewLegacyMacaroon(result.DischargeRequired)
-	c.Assert(err, jc.ErrorIsNil)
+	mac := result.BakeryDischargeRequired
+	if mac == nil {
+		var err error
+		mac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
+		c.Assert(err, jc.ErrorIsNil)
+	}
 	err = bakeryClient.HandleError(context.Background(), cookieURL, &httpbakery.Error{
 		Message: result.DischargeRequiredReason,
 		Code:    httpbakery.ErrDischargeRequired,

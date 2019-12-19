@@ -4,6 +4,7 @@
 package stateauthenticator
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"sync"
@@ -11,9 +12,11 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	legacybakery "gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -32,6 +35,7 @@ const (
 type authContext struct {
 	st *state.State
 
+	ctx       context.Context
 	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
 
@@ -43,7 +47,7 @@ type authContext struct {
 
 	// localUserThirdPartyBakeryService is the bakery.Service used by the
 	// controller for discharging third-party caveats for local users.
-	localUserThirdPartyBakeryService *bakery.Service
+	localUserThirdPartyBakeryService *legacybakery.Service
 
 	// localUserInteractions maintains a set of in-progress local user
 	// authentication interactions.
@@ -59,10 +63,12 @@ type authContext struct {
 func newAuthContext(
 	st *state.State,
 	clock clock.Clock,
+	ctx context.Context,
 ) (*authContext, error) {
 	ctxt := &authContext{
 		st:                    st,
 		clock:                 clock,
+		ctx:                   ctx,
 		localUserInteractions: authentication.NewInteractions(),
 	}
 
@@ -151,7 +157,7 @@ func (a authenticator) Authenticate(
 // to use for a login with the given possibly-nil tag.
 func (a authenticator) authenticatorForTag(tag names.Tag) (authentication.EntityAuthenticator, error) {
 	if tag == nil {
-		auth, err := a.ctxt.externalMacaroonAuth()
+		auth, err := a.ctxt.externalMacaroonAuth(nil)
 		if errors.Cause(err) == errMacaroonAuthNotConfigured {
 			err = errors.Trace(common.ErrNoCreds)
 		}
@@ -188,9 +194,9 @@ func (a authenticator) localUserAuth() *authentication.UserAuthenticator {
 
 // externalMacaroonAuth returns an authenticator that can authenticate macaroon-based
 // logins for external users. If it fails once, it will always fail.
-func (ctxt *authContext) externalMacaroonAuth() (authentication.EntityAuthenticator, error) {
+func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.ctx, ctxt.st, ctxt.clock, identClient)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -203,7 +209,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonAuthenticator, error) {
+func newExternalMacaroonAuth(ctx context.Context, st *state.State, clock clock.Clock, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
@@ -212,19 +218,27 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	if idURL == "" {
 		return nil, errMacaroonAuthNotConfigured
 	}
-	var locator bakery.PublicKeyLocator
-	// The identity server has been configured,
-	// so configure the bakery service appropriately.
 	idPK := controllerCfg.IdentityPublicKey()
-	if idPK != nil {
-		locator = bakery.PublicKeyLocatorMap{idURL: &bakery.PublicKey{bakery.Key(idPK.Key)}}
-	} else {
-		// No public key supplied - retrieve it from the identity manager on demand.
-		// Note that we don't fetch it immediately because then we'll fail
-		// forever if the initial fetch fails (because newExternalMacaroonAuth
-		// only ever called once).
-		locator = httpbakery.NewPublicKeyRing(nil, nil)
+	key, err := bakery.GenerateKey()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
+
+	pkCache := bakery.NewThirdPartyStore()
+	pkLocator := httpbakery.NewThirdPartyLocator(nil, pkCache)
+	if idPK != nil {
+		pkCache.AddInfo(idURL, bakery.ThirdPartyInfo{
+			PublicKey: *idPK,
+			Version:   3,
+		})
+	}
+
+	auth := authentication.ExternalMacaroonAuthenticator{
+		Context:          ctx,
+		Clock:            clock,
+		IdentityLocation: idURL,
+	}
+
 	// We pass in nil for the storage, which leads to in-memory storage
 	// being used. We only use in-memory storage for now, since we never
 	// expire the keys, and don't want garbage to accumulate.
@@ -232,16 +246,24 @@ func newExternalMacaroonAuth(st *state.State) (*authentication.ExternalMacaroonA
 	// TODO(axw) we should store the key in mongo, so that multiple servers
 	// can authenticate. That will require that we encode the server's ID
 	// in the macaroon ID so that servers don't overwrite each others' keys.
-	svc, _, err := bakeryutil.NewBakeryService(st, nil, locator)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot make bakery service")
+	if identClient == nil {
+		identClient = &auth
 	}
-	var auth authentication.ExternalMacaroonAuthenticator
-	auth.Service = svc
-	auth.Macaroon, err = svc.NewMacaroon(nil)
+	indentBakery := identchecker.NewBakery(identchecker.BakeryParams{
+		Checker:        httpbakery.NewChecker(),
+		Locator:        pkLocator,
+		Key:            key,
+		IdentityClient: identClient,
+		Authorizer: identchecker.ACLAuthorizer{
+			GetACL: func(ctx context.Context, op bakery.Op) ([]string, bool, error) {
+				return []string{identchecker.Everyone}, false, nil
+			},
+		},
+		Location: idURL,
+	})
+	auth.Bakery = indentBakery
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot make macaroon")
 	}
-	auth.IdentityLocation = idURL
 	return &auth, nil
 }
