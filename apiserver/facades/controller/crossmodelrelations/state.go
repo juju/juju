@@ -4,6 +4,7 @@
 package crossmodelrelations
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
@@ -25,6 +26,10 @@ type CrossModelRelationsState interface {
 
 	// OfferConnectionForRelation returns the offer connection details for the given relation key.
 	OfferConnectionForRelation(string) (OfferConnection, error)
+
+	// IsMigrationActive returns true if the current model is
+	// in the process of being migrated to another controller.
+	IsMigrationActive() (bool, error)
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
@@ -45,6 +50,13 @@ func (st stateShim) AddOfferConnection(arg state.AddOfferConnectionParams) (Offe
 
 func (st stateShim) OfferConnectionForRelation(relationKey string) (OfferConnection, error) {
 	return st.st.OfferConnectionForRelation(relationKey)
+}
+
+// IsMigrationActive returns true if the current model is
+// in the process of being migrated to another controller.
+func (st stateShim) IsMigrationActive() (bool, error) {
+	migrating, err := st.st.IsMigrationActive()
+	return migrating, errors.Trace(err)
 }
 
 type Model interface {
