@@ -172,8 +172,8 @@ var errorTransformTests = []struct {
 	code:   "",
 }, {
 	err: &common.DischargeRequiredError{
-		Cause:    errors.New("something"),
-		Macaroon: sampleMacaroon,
+		Cause:          errors.New("something"),
+		LegacyMacaroon: sampleMacaroon,
 	},
 	status: http.StatusUnauthorized,
 	code:   params.CodeDischargeRequired,

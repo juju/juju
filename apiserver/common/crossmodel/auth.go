@@ -333,8 +333,8 @@ func (a *authenticator) checkMacaroons(mac macaroon.Slice, requiredValues map[st
 		return nil, errors.Annotate(err, "cannot create macaroon")
 	}
 	return nil, &common.DischargeRequiredError{
-		Cause:    cause,
-		Macaroon: m,
+		Cause:          cause,
+		LegacyMacaroon: m,
 	}
 }
 

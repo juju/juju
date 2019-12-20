@@ -208,9 +208,11 @@ func bakeryError(err error) error {
 			MacaroonPath: info.MacaroonPath,
 		},
 	}
-	if info.Macaroon != nil {
-		dcMac, err := bakery.NewLegacyMacaroon(info.Macaroon)
-		if err != nil {
+	if info.Macaroon != nil || info.BakeryMacaroon != nil {
+		// Prefer the newer bakery.v2 macaroon.
+		dcMac := info.BakeryMacaroon
+		if dcMac == nil {
+			dcMac, err = bakery.NewLegacyMacaroon(info.Macaroon)
 			return errors.Annotate(err, "unable to create legacy macaroon details from discharge-required response error")
 		}
 		bakeryErr.Info.Macaroon = dcMac

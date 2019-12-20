@@ -92,7 +92,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			FollowRedirect: true, // JAAS-type redirect
 		}
 	}
-	if result.DischargeRequired != nil {
+	if result.DischargeRequired != nil || result.BakeryDischargeRequired != nil {
 		// The result contains a discharge-required
 		// macaroon. We discharge it and retry
 		// the login request with the original macaroon
@@ -100,9 +100,13 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		if result.DischargeRequiredReason == "" {
 			result.DischargeRequiredReason = "no reason given for discharge requirement"
 		}
-		dcMac, err := bakery.NewLegacyMacaroon(result.DischargeRequired)
-		if err != nil {
-			return errors.Trace(err)
+		// Prefer the newer bakery.v2 macaroon.
+		dcMac := result.BakeryDischargeRequired
+		if dcMac == nil {
+			dcMac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 		if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, &httpbakery.Error{
 			Message: result.DischargeRequiredReason,

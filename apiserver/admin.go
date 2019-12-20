@@ -90,7 +90,8 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 	authResult, err := a.authenticate(req)
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 		loginResult := params.LoginResult{
-			DischargeRequired:       err.Macaroon,
+			DischargeRequired:       err.LegacyMacaroon,
+			BakeryDischargeRequired: err.Macaroon,
 			DischargeRequiredReason: err.Error(),
 		}
 		logger.Infof("login failed with discharge-required error: %v", err)
