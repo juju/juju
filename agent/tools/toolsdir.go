@@ -33,6 +33,7 @@ const (
 // store binaries for the given version of the juju tools
 // within the dataDir directory.
 func SharedToolsDir(dataDir string, vers version.Binary) string {
+	vers.Number = vers.Number.ToPatch()
 	return path.Join(dataDir, "tools", vers.String())
 }
 
@@ -203,7 +204,7 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 	// build absolute path to toolsDir. Windows implementation of symlink
 	// will check for the existence of the source file and error if it does
 	// not exists. This is a limitation of junction points (symlinks) on NTFS
-	toolPath := ToolsDir(dataDir, tools.Version.String())
+	toolPath := SharedToolsDir(dataDir, tools.Version)
 	toolsDir := ToolsDir(dataDir, agentName)
 
 	err = symlink.Replace(toolsDir, toolPath)
