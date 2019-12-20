@@ -669,13 +669,12 @@ func (s *bootstrapSuite) TestBootstrapBuildAgent(c *gc.C) {
 				c.Assert(build, jc.IsTrue)
 				c.Assert(ver.String(), gc.Equals, "1.99.0.1")
 				localVer := *ver
-				// If we found an official build we suppress the build number.
-				localVer.Build = 0
 				return &sync.BuiltAgent{
 					Dir:      c.MkDir(),
 					Official: true,
 					Version: version.Binary{
-						Number: localVer,
+						// If we found an official build we suppress the build number.
+						Number: localVer.ToPatch(),
 						Series: "quental",
 						Arch:   "arm64",
 					},

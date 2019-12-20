@@ -96,8 +96,8 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		return nil, nil
 	})
 
-	vers := version.MustParse("1.2.1")
-	devVers := version.MustParse("1.2-beta1")
+	vers := version.MustParse("1.2.1.4")
+	devVers := version.MustParse("1.2-beta1.4")
 	arm64 := "arm64"
 
 	type test struct {
@@ -150,10 +150,12 @@ func (s *toolsSuite) TestFindBootstrapTools(c *gc.C) {
 		if test.streams != nil {
 			extra["agent-stream"] = test.streams[0]
 		}
+
 		env := newEnviron("foo", useDefaultKeys, extra)
 		bootstrap.FindBootstrapTools(env, test.version, test.arch, test.series)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(filter, gc.Equals, test.filter)
+
 		if test.streams != nil {
 			c.Check(findStreams, gc.DeepEquals, test.streams)
 		} else {
@@ -194,14 +196,19 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 	}
 	currentVersion.Major = 2
 	currentVersion.Minor = 3
+
 	s.PatchValue(&jujuversion.Current, currentVersion.Number)
+
 	var findToolsCalled int
 	s.PatchValue(bootstrap.FindTools, func(_ environs.BootstrapEnviron, major, minor int, streams []string, f tools.Filter) (tools.List, error) {
 		c.Assert(f.Number.Major, gc.Equals, 10)
 		c.Assert(f.Number.Minor, gc.Equals, 11)
 		c.Assert(f.Number.Patch, gc.Equals, 12)
+		c.Assert(f.Number.Build, gc.Equals, 0)
 		c.Assert(streams, gc.DeepEquals, []string{"released"})
+
 		findToolsCalled++
+
 		return []*tools.Tools{
 			{
 				Version: currentVersion,
@@ -210,7 +217,10 @@ func (s *toolsSuite) TestFindAvailableToolsSpecificVersion(c *gc.C) {
 		}, nil
 	})
 	env := newEnviron("foo", useDefaultKeys, nil)
-	toolsVersion := version.MustParse("10.11.12")
+
+	toolsVersion := version.MustParse("10.11.12.20")
+	c.Assert(toolsVersion.Build, gc.Equals, 20)
+
 	result, err := bootstrap.FindPackagedTools(env, &toolsVersion, nil, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(findToolsCalled, gc.Equals, 1)

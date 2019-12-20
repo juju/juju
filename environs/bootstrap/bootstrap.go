@@ -905,9 +905,9 @@ func findCompatibleTools(possibleTools coretools.List, version version.Number) (
 }
 
 func isCompatibleVersion(v1, v2 version.Number) bool {
-	v1.Build = 0
-	v2.Build = 0
-	return v1.Compare(v2) == 0
+	x := v1.ToPatch()
+	y := v2.ToPatch()
+	return x.Compare(y) == 0
 }
 
 // setPrivateMetadataSources verifies the specified metadataDir exists,

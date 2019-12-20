@@ -322,10 +322,8 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 	// We don't care about build numbers here.
-	bootstrapVers := bootstrapVersion.Number
-	bootstrapVers.Build = 0
-	controllerVers := version.MustParse(controller.AgentVersion)
-	controllerVers.Build = 0
+	bootstrapVers := bootstrapVersion.Number.ToPatch()
+	controllerVers := version.MustParse(controller.AgentVersion).ToPatch()
 	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin/controller")

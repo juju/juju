@@ -31,11 +31,8 @@ func NewLock(agentConfig agent.Config) gate.Lock {
 	lock := gate.NewLock()
 
 	// Build numbers are irrelevant to upgrade steps.
-	upgradedToVersion := agentConfig.UpgradedToVersion()
-	upgradedToVersion.Build = 0
-
-	currentVersion := jujuversion.Current
-	currentVersion.Build = 0
+	upgradedToVersion := agentConfig.UpgradedToVersion().ToPatch()
+	currentVersion := jujuversion.Current.ToPatch()
 
 	if upgradedToVersion == currentVersion {
 		lock.Unlock()

@@ -66,9 +66,16 @@ func findPackagedTools(
 	// one is configured in the environment.
 	if vers == nil {
 		if agentVersion, ok := env.Config().AgentVersion(); ok {
-			vers = &agentVersion
+			configVersion := agentVersion.ToPatch()
+			vers = &configVersion
 		}
+	} else {
+		// We don't care about the build version here when looking for packaged
+		// tools.
+		buildLessVersion := vers.ToPatch()
+		vers = &buildLessVersion
 	}
+
 	logger.Infof("looking for bootstrap agent binaries: version=%v", vers)
 	toolsList, findToolsErr := findBootstrapTools(env, vers, arch, series)
 	logger.Infof("found %d packaged agent binaries", len(toolsList))

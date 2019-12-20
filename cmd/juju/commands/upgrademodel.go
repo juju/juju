@@ -716,10 +716,8 @@ func (context *upgradeContext) uploadTools(client toolsAPI, buildAgent bool, age
 	}
 	// If the Juju client matches the current running agent (excluding build number),
 	// make sure the build number gets incremented.
-	agentVersionCopy := agentVersion
-	agentVersionCopy.Build = 0
-	uploadBaseVersionCopy := uploadBaseVersion
-	uploadBaseVersion.Build = 0
+	agentVersionCopy := agentVersion.ToPatch()
+	uploadBaseVersionCopy := uploadBaseVersion.ToPatch()
 	if agentVersionCopy.Compare(uploadBaseVersionCopy) == 0 {
 		uploadBaseVersion = agentVersion
 	}
@@ -848,7 +846,7 @@ func makeUploadVersion(vers version.Number, existing coretools.Versions) version
 }
 
 func compareNoBuild(a, b version.Number) int {
-	a.Build = 0
-	b.Build = 0
-	return a.Compare(b)
+	x := a.ToPatch()
+	y := b.ToPatch()
+	return x.Compare(y)
 }

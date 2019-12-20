@@ -313,8 +313,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("Skipping on windows, test only set up for Linux tools")
 	}
-	currentVersion := jujuversion.Current
-	currentVersion.Build = 0
+	currentVersion := jujuversion.Current.ToPatch()
 	versionStrings := []string{
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
