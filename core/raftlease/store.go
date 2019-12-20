@@ -257,6 +257,9 @@ func (s *Store) runOnLeader(command *Command, stop <-chan struct{}) error {
 
 	select {
 	case <-s.config.Clock.After(s.config.ForwardTimeout):
+		// TODO (thumper) 2019-12-20, bug 1857072
+		// Scale testing hit this a *lot*,
+		// perhaps we need to consider batching messages to run on the leader?
 		logger.Infof("timeout")
 		s.record(command.Operation, "timeout", start)
 		return lease.ErrTimeout
