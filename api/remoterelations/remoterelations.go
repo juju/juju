@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -250,7 +251,7 @@ func (c *Client) ConsumeRemoteRelationChange(change params.RemoteRelationChangeE
 // ControllerAPIInfoForModel retrieves the controller API info for the specified model.
 func (c *Client) ControllerAPIInfoForModel(modelUUID string) (*api.Info, error) {
 	modelTag := names.NewModelTag(modelUUID)
-	args := params.Entities{[]params.Entity{{Tag: modelTag.String()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: modelTag.String()}}}
 	var results params.ControllerAPIInfoResults
 	err := c.facade.FacadeCall("ControllerAPIInfoForModels", args, &results)
 	if err != nil {
@@ -281,4 +282,34 @@ func (c *Client) SetRemoteApplicationStatus(applicationName string, status statu
 		return errors.Trace(err)
 	}
 	return results.OneError()
+}
+
+// UpdateControllerForModel ensures that there is an external controller record
+// for the input info, associated with the input model ID.
+func (c *Client) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+	args := params.UpdateControllersForModelsParams{Changes: []params.UpdateControllerForModel{{
+		ModelTag: names.NewModelTag(modelUUID).String(),
+		Info: params.ExternalControllerInfo{
+			ControllerTag: controller.ControllerTag.String(),
+			Alias:         controller.Alias,
+			Addrs:         controller.Addrs,
+			CACert:        controller.CACert,
+		},
+	}}}
+
+	var results params.ErrorResults
+	err := c.facade.FacadeCall("UpdateControllersForModels", args, &results)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
 }

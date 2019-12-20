@@ -10,8 +10,11 @@ import (
 	"gopkg.in/juju/worker.v1/catacomb"
 	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -127,21 +130,10 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	// On the consuming side, watch for status changes to the offer.
 	var offerStatusChanges watcher.OfferStatusChannel
 	if !w.isConsumerProxy {
-		// Get the connection info for the remote controller.
-		apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
-		if err != nil {
+		if err := w.newRemoteRelationsFacadeWithRedirect(); err != nil {
 			return errors.Trace(err)
 		}
-		w.logger.Debugf("remote controller api addresses: %v", apiInfo.Addrs)
-
-		w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
-		if err != nil {
-			return errors.Annotate(err, "opening facade to remote model")
-		}
-
-		defer func() {
-			w.remoteModelFacade.Close()
-		}()
+		defer func() { w.remoteModelFacade.Close() }()
 
 		arg := params.OfferArg{
 			OfferUUID: w.offerUUID,
@@ -213,6 +205,43 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 		}
 	}
+}
+
+// newRemoteRelationsFacadeWithRedirect attempts to open an API connection to
+// the remote model for the watcher's application.
+// If a redirect error is returned, we attempt to open a connection to the new
+// controller and update our local controller info for the model so that future
+// API connections are to the new location.
+func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect() error {
+	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.logger.Debugf("remote controller API addresses: %v", apiInfo.Addrs)
+
+	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
+	if redirectErr, ok := errors.Cause(err).(*api.RedirectError); ok {
+		apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
+		apiInfo.CACert = redirectErr.CACert
+
+		w.logger.Debugf("received redirect; new API addresses: %v", apiInfo.Addrs)
+
+		if w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo); err == nil {
+			// We successfully followed the redirect,
+			// so update the controller information for this model.
+			controllerInfo := crossmodel.ControllerInfo{
+				ControllerTag: redirectErr.ControllerTag,
+				Alias:         redirectErr.ControllerAlias,
+				Addrs:         apiInfo.Addrs,
+				CACert:        apiInfo.CACert,
+			}
+
+			err = errors.Annotate(w.localModelFacade.UpdateControllerForModel(controllerInfo, w.remoteModelUUID),
+				"updating external controller info")
+		}
+	}
+
+	return errors.Annotate(err, "opening facade to remote model")
 }
 
 func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, forceCleanup bool) error {

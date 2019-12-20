@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/remoterelations"
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -423,4 +424,55 @@ func (s *remoteRelationsSuite) TestSetRemoteApplicationStatus(c *gc.C) {
 	err := client.SetRemoteApplicationStatus("mysql", status.Blocked, "a message")
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 1)
+}
+
+type facadeCallFunc = func(objType string, version int, id, request string, arg, result interface{}) error
+
+func (s *remoteRelationsSuite) TestUpdateControllerForModelResultCount(c *gc.C) {
+	apiCaller := testing.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(request, gc.Equals, "UpdateControllersForModels")
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{
+					{Error: &params.Error{Message: "FAIL"}},
+					{Error: &params.Error{Message: "FAIL"}},
+				},
+			}
+			return nil
+		},
+	)
+
+	client := remoterelations.NewClient(apiCaller)
+	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
+	c.Check(err, gc.ErrorMatches, `expected 1 result, got 2`)
+}
+
+func (s *remoteRelationsSuite) TestUpdateControllerForModelResultError(c *gc.C) {
+	apiCaller := testing.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(request, gc.Equals, "UpdateControllersForModels")
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{Error: &params.Error{Message: "FAIL"}}},
+			}
+			return nil
+		},
+	)
+
+	client := remoterelations.NewClient(apiCaller)
+	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
+	c.Check(err, gc.ErrorMatches, `FAIL`)
+}
+
+func (s *remoteRelationsSuite) TestUpdateControllerForModelResultSuccess(c *gc.C) {
+	apiCaller := testing.APICallerFunc(
+		func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(request, gc.Equals, "UpdateControllersForModels")
+			*(result.(*params.ErrorResults)) = params.ErrorResults{Results: []params.ErrorResult{{}}}
+			return nil
+		},
+	)
+
+	client := remoterelations.NewClient(apiCaller)
+	err := client.UpdateControllerForModel(crossmodel.ControllerInfo{}, "some-model-uuid")
+	c.Check(err, jc.ErrorIsNil)
 }

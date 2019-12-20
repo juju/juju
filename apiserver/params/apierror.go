@@ -111,6 +111,9 @@ type RedirectErrorInfo struct {
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
 
+	// ControllerTag uniquely identifies the controller being redirected to.
+	ControllerTag string `json:"controller-tag,omitempty"`
+
 	// An optional alias for the controller the model migrated to.
 	ControllerAlias string `json:"controller-alias,omitempty"`
 }

@@ -102,6 +102,9 @@ type RedirectError struct {
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
 
+	// ControllerTag uniquely identifies the controller being redirected to.
+	ControllerTag names.ControllerTag `json:"controller-tag,omitempty"`
+
 	// An optional alias for the controller where the model got redirected to.
 	ControllerAlias string `json:"controller-alias,omitempty"`
 }
@@ -294,9 +297,17 @@ func ServerError(err error) *params.Error {
 	case IsRedirectError(err):
 		redirErr := errors.Cause(err).(*RedirectError)
 		code = params.CodeRedirect
+
+		// Check for a zero-value tag. We don't send it over the wire if it is.
+		controllerTag := ""
+		if redirErr.ControllerTag.Id() != "" {
+			controllerTag = redirErr.ControllerTag.String()
+		}
+
 		info = params.RedirectErrorInfo{
 			Servers:         params.FromProviderHostsPorts(redirErr.Servers),
 			CACert:          redirErr.CACert,
+			ControllerTag:   controllerTag,
 			ControllerAlias: redirErr.ControllerAlias,
 		}.AsMap()
 	default:

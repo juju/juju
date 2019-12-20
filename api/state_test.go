@@ -158,11 +158,13 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag: controllerTag,
 			Addrs:         []string{"1.2.3.4:5555"},
 			CACert:        coretesting.CACert,
 			AuthTag:       names.NewUserTag("user2"),
@@ -191,6 +193,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
 	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
+	c.Assert(redirErr.ControllerTag, gc.Equals, controllerTag)
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {

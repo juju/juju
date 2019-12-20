@@ -565,11 +565,13 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag:   names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag:   controllerTag,
 			ControllerAlias: "target",
 			Addrs:           []string{"1.2.3.4:5555"},
 			CACert:          coretesting.CACert,
@@ -601,6 +603,7 @@ func (s *loginSuite) TestMigratedModelLogin(c *gc.C) {
 	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
 	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
+	c.Assert(redirErr.ControllerTag, gc.Equals, controllerTag)
 	c.Assert(redirErr.ControllerAlias, gc.Equals, "target")
 
 	// Attempt to open an API connection to the migrated model as a user
