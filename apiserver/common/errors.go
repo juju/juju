@@ -101,7 +101,7 @@ type RedirectError struct {
 	CACert string `json:"ca-cert"`
 
 	// ControllerTag uniquely identifies the controller being redirected to.
-	ControllerTag names.ControllerTag
+	ControllerTag names.ControllerTag `json:"controller-tag,omitempty"`
 
 	// An optional alias for the controller where the model got redirected to.
 	ControllerAlias string `json:"controller-alias,omitempty"`
