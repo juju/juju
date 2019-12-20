@@ -36,8 +36,7 @@ func (environProvider) Version() int {
 
 // Open is specified in the EnvironProvider interface.
 func (p environProvider) Open(args environs.OpenParams) (environs.Environ, error) {
-	// This really shouldn't be INFO, it happens a lot.
-	logger.Infof("opening model %q", args.Config.Name())
+	logger.Debugf("opening model %q", args.Config.Name())
 
 	e := new(environ)
 	e.name = args.Config.Name()
