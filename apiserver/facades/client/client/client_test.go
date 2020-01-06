@@ -880,6 +880,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "ro-password",
 	})
