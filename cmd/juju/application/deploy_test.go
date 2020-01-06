@@ -29,7 +29,6 @@ import (
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
-	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 
@@ -92,7 +91,7 @@ func (s *DeploySuiteBase) deployCommandForState() *DeployCommand {
 	deploy := newDeployCommand()
 	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
-	deploy.NewCharmRepo = func(channel csparams.Channel) (*charmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
 		return s.fakeAPI.charmStoreAdaptor, nil
 	}
 	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
@@ -110,7 +109,7 @@ func (s *DeploySuiteBase) runDeployForState(c *gc.C, args ...string) error {
 	deploy := newDeployCommand()
 	deploy.Steps = nil
 	deploy.DeployResources = s.DeployResources
-	deploy.NewCharmRepo = func(channel csparams.Channel) (*charmStoreAdaptor, error) {
+	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
 		return s.fakeAPI.charmStoreAdaptor, nil
 	}
 	deploy.NewConsumeDetailsAPI = func(url *charm.OfferURL) (ConsumeDetails, error) {
@@ -991,7 +990,7 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 			return fakeAPI, nil
 		},
 		DeployResources: s.DeployResources,
-		NewCharmRepo: func(channel csparams.Channel) (*charmStoreAdaptor, error) {
+		NewCharmRepo: func() (*charmStoreAdaptor, error) {
 			return fakeAPI.charmStoreAdaptor, nil
 		},
 	}
@@ -1444,8 +1443,7 @@ func (s *DeploySuite) TestDeployWithTermsNotSigned(c *gc.C) {
 
 func (s *DeploySuite) TestDeployWithChannel(c *gc.C) {
 	curl := charm.MustParseURL("cs:bionic/dummy-1")
-	s.fakeAPI.channel = csclientparams.BetaChannel
-	s.fakeAPI.Call("ResolveWithChannel", curl, csclientparams.BetaChannel).Returns(
+	s.fakeAPI.Call("ResolveWithPreferredChannel", curl, csclientparams.BetaChannel).Returns(
 		curl,
 		csclientparams.BetaChannel,
 		[]string{"bionic"}, // Supported series
@@ -1508,7 +1506,7 @@ func (s *FakeStoreStateSuite) setupCharmMaybeAddForce(c *gc.C, url, name, series
 	noRevisionURL.Series = resolveURL.Series
 	noRevisionURL.Revision = -1
 	for _, url := range []*charm.URL{baseURL, resolveURL, noRevisionURL, deployURL, charm.MustParseURL(baseURL.Name)} {
-		s.fakeAPI.Call("ResolveWithChannel", url, csclientparams.NoChannel).Returns(
+		s.fakeAPI.Call("ResolveWithPreferredChannel", url, csclientparams.NoChannel).Returns(
 			resolveURL,
 			csclientparams.NoChannel,
 			[]string{series},
@@ -2180,7 +2178,6 @@ type fakeDeployAPI struct {
 	*charmStoreAdaptor
 	*jujutesting.CallMocker
 	planURL string
-	channel csparams.Channel
 }
 
 func (f *fakeDeployAPI) IsMetered(charmURL string) (bool, error) {
@@ -2207,13 +2204,13 @@ func (f *fakeDeployAPI) ModelGet() (map[string]interface{}, error) {
 	return results[0].(map[string]interface{}), jujutesting.TypeAssertError(results[1])
 }
 
-func (f *fakeDeployAPI) ResolveWithChannel(url *charm.URL) (
+func (f *fakeDeployAPI) ResolveWithPreferredChannel(url *charm.URL, preferredChannel csclientparams.Channel) (
 	*charm.URL,
 	csclientparams.Channel,
 	[]string,
 	error,
 ) {
-	results := f.MethodCall(f, "ResolveWithChannel", url, f.channel)
+	results := f.MethodCall(f, "ResolveWithPreferredChannel", url, preferredChannel)
 	if results == nil {
 		if url.Series == "bundle" {
 			return nil, "", nil, errors.Errorf(
@@ -2399,7 +2396,7 @@ func stringToInterface(args []string) []interface{} {
 
 func vanillaFakeModelAPI(cfgAttrs map[string]interface{}) *fakeDeployAPI {
 	var logger loggo.Logger
-	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger), channel: csparams.NoChannel}
+	fakeAPI := &fakeDeployAPI{CallMocker: jujutesting.NewCallMocker(logger)}
 
 	fakeAPI.Call("Close").Returns(error(nil))
 	fakeAPI.Call("ModelGet").Returns(cfgAttrs, error(nil))
@@ -2615,7 +2612,7 @@ func withCharmRepoResolvable(
 		resolveURLs = append(resolveURLs, &inURL)
 	}
 	for _, url := range resolveURLs {
-		fakeAPI.Call("ResolveWithChannel", url, csclientparams.NoChannel).Returns(
+		fakeAPI.Call("ResolveWithPreferredChannel", url, csclientparams.NoChannel).Returns(
 			&resultURL,
 			csclientparams.Channel(""),
 			[]string{"bionic"}, // Supported series

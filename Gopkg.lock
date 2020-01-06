@@ -1442,7 +1442,7 @@
   revision = "b0d0ce63cbe0c6e31d38e886a8c7cb20979b509d"
 
 [[projects]]
-  digest = "1:4c36061633490dc60772944614e06b4de202c271bddaef55335af989ea35dfb8"
+  digest = "1:9ba600a74f6c996413ca895535c3ab0174f73c80673781e0dd7f42eeb077cabf"
   name = "gopkg.in/juju/charmrepo.v4"
   packages = [
     ".",
@@ -1451,7 +1451,7 @@
     "testing",
   ]
   pruneopts = ""
-  revision = "cd05de29309bc2c97e7334b8316c916203b0be9d"
+  revision = "b9bdf9c00e26a0340e8050bdaf1e042000222765"
 
 [[projects]]
   digest = "1:7654e769ed719c292d72af4420ca772d9c850299271e15c6f5af4fb89526c3fd"

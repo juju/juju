@@ -96,12 +96,17 @@ func (s *BaseUpgradeCharmSuite) SetUpTest(c *gc.C) {
 
 	s.resolvedChannel = csclientparams.StableChannel
 	s.resolveCharm = func(
-		resolveWithChannel func(*charm.URL) (*charm.URL, csclientparams.Channel, []string, error),
+		resolveWithChannel func(*charm.URL, csclientparams.Channel) (*charm.URL, csclientparams.Channel, []string, error),
 		url *charm.URL,
+		preferredChannel csclientparams.Channel,
 	) (*charm.URL, csclientparams.Channel, []string, error) {
-		s.AddCall("ResolveCharm", url)
+		s.AddCall("ResolveCharm", url, preferredChannel)
 		if err := s.NextErr(); err != nil {
 			return nil, csclientparams.NoChannel, nil, err
+		}
+
+		if s.resolvedChannel != "" {
+			preferredChannel = s.resolvedChannel
 		}
 		return s.resolvedCharmURL, s.resolvedChannel, []string{"quantal"}, nil
 	}

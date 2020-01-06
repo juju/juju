@@ -9,7 +9,6 @@ import (
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -41,7 +40,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 		) (ids map[string]string, err error) {
 			return nil, nil
 		},
-		NewCharmRepo: func(channel params.Channel) (*charmStoreAdaptor, error) {
+		NewCharmRepo: func() (*charmStoreAdaptor, error) {
 			return fakeApi.charmStoreAdaptor, nil
 		},
 	}
@@ -70,7 +69,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
-		deployCmd.NewCharmRepo = func(channel params.Channel) (*charmStoreAdaptor, error) {
+		deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
 			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
 			if err != nil {
 				return nil, errors.Trace(err)
@@ -83,7 +82,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient, csURL, channel).WithChannel(deployCmd.Channel)
+			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 			return &charmStoreAdaptor{
 				macaroonGetter:     cstoreClient,
 				charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
