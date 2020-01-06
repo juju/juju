@@ -193,12 +193,21 @@ func (u *Upgrader) loop() error {
 		}
 		logger.Infof("desired agent binary version: %v", wantVersion)
 
-		if wantVersion == jujuversion.Current {
+		// If we have a desired version of Juju without the build number, ie it is
+		// not a user compiled version, reset the build number of the current version
+		// to remove the Jenkins build number. We don't care about the Jenkins build
+		// number when doing an upgrade check.
+		haveVersion := jujuversion.Current
+		if wantVersion.Build == 0 {
+			haveVersion.Build = 0
+		}
+
+		if wantVersion == haveVersion {
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		} else if !AllowedTargetVersion(
 			u.config.OrigAgentVersion,
-			jujuversion.Current,
+			haveVersion,
 			!u.config.UpgradeStepsWaiter.IsUnlocked(),
 			wantVersion,
 		) {
@@ -208,16 +217,16 @@ func (u *Upgrader) loop() error {
 			// downgrade when its associate machine agent has not
 			// finished upgrading.
 			logger.Infof("desired agent binary version: %s is older than current %s, refusing to downgrade",
-				wantVersion, jujuversion.Current)
+				wantVersion, haveVersion)
 			u.config.InitialUpgradeCheckComplete.Unlock()
 			continue
 		}
-		logger.Infof("upgrade requested from %v to %v", jujuversion.Current, wantVersion)
+		logger.Infof("upgrade requested from %v to %v", haveVersion, wantVersion)
 
 		// Check if tools have already been downloaded.
 		wantVersionBinary := toBinaryVersion(wantVersion)
 		if u.toolsAlreadyDownloaded(wantVersionBinary) {
-			return u.newUpgradeReadyError(wantVersionBinary)
+			return u.newUpgradeReadyError(haveVersion, wantVersionBinary)
 		}
 
 		// Check if tools are available for download.
@@ -240,7 +249,7 @@ func (u *Upgrader) loop() error {
 			}
 			err = u.ensureTools(wantTools)
 			if err == nil {
-				return u.newUpgradeReadyError(wantTools.Version)
+				return u.newUpgradeReadyError(haveVersion, wantTools.Version)
 			}
 			logger.Errorf("failed to fetch agent binaries from %q: %v", wantTools.URL, err)
 		}
@@ -262,9 +271,9 @@ func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
 	return err == nil
 }
 
-func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReadyError {
+func (u *Upgrader) newUpgradeReadyError(haveVersion version.Number, newVersion version.Binary) *UpgradeReadyError {
 	return &UpgradeReadyError{
-		OldTools:  toBinaryVersion(jujuversion.Current),
+		OldTools:  toBinaryVersion(haveVersion),
 		NewTools:  newVersion,
 		AgentName: u.tag.String(),
 		DataDir:   u.dataDir,

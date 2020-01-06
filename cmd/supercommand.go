@@ -42,8 +42,8 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
-	// Build is a monotonic integer set by Jenkins.
-	Build int `json:"build,omitempty" yaml:"build,omitempty"`
+	// OfficialBuild is a monotonic integer set by Jenkins.
+	OfficialBuild int `json:"official-build,omitempty" yaml:"official-build,omitempty"`
 }
 
 // NewSuperCommand is like cmd.NewSuperCommand but
@@ -62,11 +62,11 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 		Series: series.MustHostSeries(),
 	}
 	detail := versionDetail{
-		Version:      current.String(),
-		GitCommit:    jujuversion.GitCommit,
-		GitTreeState: jujuversion.GitTreeState,
-		Compiler:     jujuversion.Compiler,
-		Build:        jujuversion.Build,
+		Version:       current.String(),
+		GitCommit:     jujuversion.GitCommit,
+		GitTreeState:  jujuversion.GitTreeState,
+		Compiler:      jujuversion.Compiler,
+		OfficialBuild: jujuversion.OfficialBuild,
 	}
 
 	// p.Version should be a version.Binary, but juju/cmd does not
@@ -80,7 +80,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 }
 
 func runNotifier(name string) {
-	logger.Infof("running %s [%s %s %s %s]", name, jujuversion.Current, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
+	logger.Infof("running %s [%s %d %s %s %s]", name, jujuversion.Current, jujuversion.OfficialBuild, jujuversion.GitCommit, runtime.Compiler, runtime.Version())
 	logger.Debugf("  args: %#v", os.Args)
 }
 

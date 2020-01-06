@@ -37,14 +37,13 @@ var switchOverVersion = semversion.MustParse("1.19.9")
 // build is injected by Jenkins, it must be an integer or empty.
 var build string
 
-// Build is a monotonic number injected by Jenkins. It is added to the Current version only when
-// the version is a development build (see IsDev(1))
-var Build = mustParseBuildInt(build)
+// OfficialBuild is a monotonic number injected by Jenkins.
+var OfficialBuild = mustParseBuildInt(build)
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
-var Current = mustParseVersion(version, build)
+var Current = semversion.MustParse(version)
 
 // Compiler is the go compiler used to build the binary.
 var Compiler = runtime.Compiler
@@ -83,14 +82,6 @@ func IsDev(v semversion.Number) bool {
 		return isOdd(v.Minor) || v.Build > 0
 	}
 	return v.Tag != "" || v.Build > 0
-}
-
-func mustParseVersion(versionStr string, buildInt string) semversion.Number {
-	ver := semversion.MustParse(versionStr)
-	if IsDev(ver) {
-		ver.Build = mustParseBuildInt(buildInt)
-	}
-	return ver
 }
 
 func mustParseBuildInt(buildInt string) int {
