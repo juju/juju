@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 // Credential contains information about the credential as stored on

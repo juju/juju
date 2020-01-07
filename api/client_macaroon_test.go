@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testcharms"
 )
 

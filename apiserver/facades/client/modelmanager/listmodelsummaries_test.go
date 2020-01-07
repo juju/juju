@@ -17,7 +17,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"

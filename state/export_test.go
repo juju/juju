@@ -31,7 +31,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state/storage"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testcharms"

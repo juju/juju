@@ -35,7 +35,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/resource"
 	"github.com/juju/juju/resource/resourcetesting"

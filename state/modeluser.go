@@ -15,7 +15,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 // modelUserLastConnectionDoc is updated by the apiserver whenever the user

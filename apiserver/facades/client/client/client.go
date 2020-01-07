@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"

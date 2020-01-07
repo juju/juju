@@ -12,8 +12,8 @@ import (
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.applicationoffers")

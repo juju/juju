@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"

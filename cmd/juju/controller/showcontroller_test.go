@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 type ShowControllerSuite struct {

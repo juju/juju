@@ -11,7 +11,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	crossmodel "github.com/juju/juju/core/crossmodel"
 	migration "github.com/juju/juju/core/migration"
-	permission "github.com/juju/juju/permission"
+	permission "github.com/juju/juju/core/permission"
 	state "github.com/juju/juju/state"
 	names_v3 "gopkg.in/juju/names.v3"
 )

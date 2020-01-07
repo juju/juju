@@ -29,7 +29,7 @@ import (
 	corecontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	pscontroller "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"

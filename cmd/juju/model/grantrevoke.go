@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 var usageGrantSummary = `

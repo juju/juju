@@ -29,7 +29,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"

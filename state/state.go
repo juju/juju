@@ -43,7 +43,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/globalclock"
 	statelease "github.com/juju/juju/state/lease"

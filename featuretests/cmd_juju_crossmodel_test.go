@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/cmd/juju/model"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"

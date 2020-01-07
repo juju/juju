@@ -14,7 +14,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 // CreateCloudAccess creates a new access permission for a user on a cloud.

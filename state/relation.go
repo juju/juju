@@ -19,7 +19,7 @@ import (
 
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 // relationKey returns a string describing the relation defined by

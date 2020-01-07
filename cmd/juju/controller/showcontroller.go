@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 var usageShowControllerSummary = `

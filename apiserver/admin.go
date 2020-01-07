@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	statepresence "github.com/juju/juju/state/presence"

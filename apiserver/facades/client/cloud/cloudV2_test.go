@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	_ "github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
 	_ "github.com/juju/juju/provider/maas"
