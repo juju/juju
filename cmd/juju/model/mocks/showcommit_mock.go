@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	model "github.com/juju/juju/core/model"
-	reflect "reflect"
 )
 
 // MockShowCommitCommandAPI is a mock of ShowCommitCommandAPI interface

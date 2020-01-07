@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucloud "github.com/juju/juju/cloud"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.cloud")

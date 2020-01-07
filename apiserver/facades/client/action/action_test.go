@@ -6,6 +6,7 @@ package action_test
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -808,7 +809,16 @@ func stringify(r params.ActionResult) string {
 	if a == nil {
 		a = &params.Action{}
 	}
-	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
+	// Convert action output map to ordered result.
+	var keys, orderedOut []string
+	for k := range r.Output {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		orderedOut = append(orderedOut, fmt.Sprintf("%v=%v", k, r.Output[k]))
+	}
+	return fmt.Sprintf("%s-%s-%#v-%s-%s-%v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, orderedOut)
 }
 
 func (s *actionSuite) toSupportNewActionID(c *gc.C) {

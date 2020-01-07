@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	apitesting "github.com/juju/juju/apiserver/testing"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
 

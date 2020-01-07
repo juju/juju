@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"

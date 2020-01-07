@@ -18,12 +18,12 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/docker"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -241,7 +241,7 @@ func initCAASVersions(
 		filterVersion.Major--
 	}
 	logger.Debugf("searching for agent images with major: %d", filterVersion.Major)
-	imagePath := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero)
+	imagePath := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
 	availableTags, err := docker.ListOperatorImages(imagePath)
 	if err != nil {
 		return nil, err

@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var _ = gc.Suite(&CAASProvisionerSuite{})
@@ -44,6 +45,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
+	s.PatchValue(&jujuversion.OfficialBuild, 666)
 
 	s.authorizer = &apiservertesting.FakeAuthorizer{
 		Tag:        names.NewMachineTag("0"),
@@ -131,7 +133,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoDefault(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    "jujusolutions/jujud-operator:2.6-beta3",
+		ImagePath:    "jujusolutions/jujud-operator:2.6-beta3.666",
 		Version:      version.MustParse("2.6-beta3"),
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
@@ -157,7 +159,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfo(c *gc.C) {
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3",
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 		Version:      version.MustParse("2.6-beta3"),
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{
@@ -184,7 +186,7 @@ func (s *CAASProvisionerSuite) TestOperatorProvisioningInfoNoStoragePool(c *gc.C
 	result, err := s.api.OperatorProvisioningInfo()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperatorProvisioningInfo{
-		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3",
+		ImagePath:    s.st.operatorRepo + "/jujud-operator:" + "2.6-beta3.666",
 		Version:      version.MustParse("2.6-beta3"),
 		APIAddresses: []string{"10.0.0.1:1"},
 		Tags: map[string]string{

@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	coretesting "github.com/juju/juju/testing"
 )
 

@@ -16,9 +16,9 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/permission"
 	providercommon "github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 )

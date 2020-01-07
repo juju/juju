@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/version"
 )
 
 type API struct {
@@ -113,7 +114,7 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 		)
 	}
 
-	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
+	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers.ToPatch(), version.OfficialBuild)
 	storageClassName, _ := modelConfig.AllAttrs()[provider.OperatorStorageKey].(string)
 	if storageClassName == "" {
 		return params.OperatorProvisioningInfo{}, errors.New("no operator storage class defined")

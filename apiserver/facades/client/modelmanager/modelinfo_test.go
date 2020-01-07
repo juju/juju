@@ -24,11 +24,11 @@ import (
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )

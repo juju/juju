@@ -5,15 +5,16 @@ package model
 
 import (
 	"fmt"
-	"github.com/gosuri/uitable"
-	"github.com/juju/cmd"
-	"github.com/juju/errors"
-	"github.com/juju/gnuflag"
 	"io"
 	"os"
 	"sort"
 	"strconv"
 	"time"
+
+	"github.com/gosuri/uitable"
+	"github.com/juju/cmd"
+	"github.com/juju/errors"
+	"github.com/juju/gnuflag"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"

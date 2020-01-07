@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	exec "github.com/juju/juju/caas/kubernetes/provider/exec"
-	reflect "reflect"
 )
 
 // MockExecutor is a mock of Executor interface

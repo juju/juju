@@ -33,7 +33,6 @@ const (
 // store binaries for the given version of the juju tools
 // within the dataDir directory.
 func SharedToolsDir(dataDir string, vers version.Binary) string {
-	vers.Number = vers.Number.ToPatch()
 	return path.Join(dataDir, "tools", vers.String())
 }
 

@@ -17,9 +17,9 @@ import (
 	apicontroller "github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
-	"github.com/juju/juju/permission"
 )
 
 type ShowControllerSuite struct {

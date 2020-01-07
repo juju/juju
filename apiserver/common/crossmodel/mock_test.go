@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	coretesting "github.com/juju/juju/testing"
 )
 

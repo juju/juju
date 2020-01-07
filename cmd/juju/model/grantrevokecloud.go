@@ -12,7 +12,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 var usageGrantCloudSummary = `

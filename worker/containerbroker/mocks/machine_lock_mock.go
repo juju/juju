@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	machinelock "github.com/juju/juju/core/machinelock"
-	reflect "reflect"
 )
 
 // MockLock is a mock of Lock interface

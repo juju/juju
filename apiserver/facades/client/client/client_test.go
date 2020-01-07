@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -45,7 +46,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -880,6 +880,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "ro-password",
 	})

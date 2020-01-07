@@ -63,7 +63,7 @@
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "d109c06282f3fb3b99cfcc3abbfe7cf64e25894b"
+  revision = "196af8b0d3222c2d5b3dbd6f340398bb06f56333"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -91,7 +91,7 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  revision = "44115a59837dd6cddf93ee4cfb51e48c7ba8bb73"
+  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
   name = "github.com/juju/os"
 
 [[constraint]]

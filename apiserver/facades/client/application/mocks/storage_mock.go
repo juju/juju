@@ -5,9 +5,10 @@
 package mocks
 
 import (
-	gomock "github.com/golang/mock/gomock"
 	io "io"
 	reflect "reflect"
+
+	gomock "github.com/golang/mock/gomock"
 )
 
 // MockStorage is a mock of Storage interface

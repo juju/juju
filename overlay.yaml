@@ -1,5 +1,0 @@
-applications:
-  wordpress:
-    annotations:
-      raw: include-file://example.txt
-      enc: include-base64://example.txt

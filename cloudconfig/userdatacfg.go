@@ -189,13 +189,11 @@ func (c *baseConfigure) toolsSymlinkCommand(toolsDir string) string {
 			c.icfg.AgentVersion(),
 		)
 	default:
-		ver := c.icfg.AgentVersion()
-		ver.Number = ver.ToPatch()
 		// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that
 		// the target already exists.
 		return fmt.Sprintf(
 			"ln -s %v %s",
-			ver.String(),
+			c.icfg.AgentVersion(),
 			shquote(toolsDir),
 		)
 	}

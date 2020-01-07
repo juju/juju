@@ -90,6 +90,7 @@ func (s *CAASProvisionerSuite) SetUpTest(c *gc.C) {
 		Controller: true,
 	}
 	s.clock = testclock.NewClock(time.Now())
+	s.PatchValue(&jujuversion.OfficialBuild, 666)
 
 	facade, err := caasunitprovisioner.NewFacade(
 		s.resources, s.authorizer, s.st, s.storage, s.devices, s.storagePoolManager, s.registry, s.clock)
@@ -201,7 +202,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			DeploymentType: "stateful",
 			ServiceType:    "loadbalancer",
 		},
-		OperatorImagePath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()),
+		OperatorImagePath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()+".666"),
 		Devices: []params.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",

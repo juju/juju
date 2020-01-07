@@ -5,12 +5,13 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instance "github.com/juju/juju/core/instance"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
 )
 
 // MockUpgradeStepsState is a mock of UpgradeStepsState interface

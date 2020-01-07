@@ -4,11 +4,12 @@
 package model
 
 import (
+	"os"
+	"strconv"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"os"
-	"strconv"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"
@@ -74,8 +75,8 @@ func NewShowCommitCommand() cmd.Command {
 func (c *ShowCommitCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "show-commit",
-		Purpose: showCommitDoc,
-		Doc:     showCommitSummary,
+		Purpose: showCommitSummary,
+		Doc:     showCommitDoc,
 	}
 	return jujucmd.Info(info)
 }

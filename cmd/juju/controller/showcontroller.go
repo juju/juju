@@ -19,10 +19,10 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
 )
 
 var usageShowControllerSummary = `
