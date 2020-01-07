@@ -75,8 +75,8 @@ func NewShowCommitCommand() cmd.Command {
 func (c *ShowCommitCommand) Info() *cmd.Info {
 	info := &cmd.Info{
 		Name:    "show-commit",
-		Purpose: showCommitDoc,
-		Doc:     showCommitSummary,
+		Purpose: showCommitSummary,
+		Doc:     showCommitDoc,
 	}
 	return jujucmd.Info(info)
 }
