@@ -1,10 +1,9 @@
 clouds:
-  openstack-test:
-    type: openstack
+  ec2-test:
+    type: ec2
     auth-types: [userpass]
-    endpoint: https://openstack-test.com:5000/v3/
     regions:
-      ost01:
-        endpoint: https://ost01.openstack-test.com:5000/v3
-      ost02:
-        endpoint: https://ost02.openstack-test.com:5000/v3
+      us-east-1:
+        endpoint: https://ec2.us-east-1.amazonaws.com
+      us-east-2:
+        endpoint: https://ec2.us-east-2.amazonaws.com

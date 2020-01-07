@@ -21,18 +21,16 @@ run_show_clouds() {
   EXPECTED=$(cat <<'EOF'
 {
   "defined": "public",
-  "type": "openstack",
-  "description": "Openstack Cloud",
+  "type": "ec2",
   "auth-types": [
     "userpass"
   ],
-  "endpoint": "https://openstack-test.com:5000/v3/",
   "regions": {
-    "ost01": {
-      "endpoint": "https://ost01.openstack-test.com:5000/v3"
+    "us-east-1": {
+      "endpoint": "https://ec2.us-east-1.amazonaws.com"
     },
-    "ost02": {
-      "endpoint": "https://ost02.openstack-test.com:5000/v3"
+    "us-east-2": {
+      "endpoint": "https://ec2.us-east-2.amazonaws.com"
     }
   }
 }
