@@ -5,13 +5,14 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	v1 "k8s.io/api/authentication/v1"
 	v10 "k8s.io/api/core/v1"
 	v11 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
-	reflect "reflect"
 )
 
 // MockServiceAccountInterface is a mock of ServiceAccountInterface interface

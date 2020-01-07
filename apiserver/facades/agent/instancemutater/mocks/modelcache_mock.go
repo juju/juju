@@ -5,12 +5,13 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	cache "github.com/juju/juju/core/cache"
 	instance "github.com/juju/juju/core/instance"
 	lxdprofile "github.com/juju/juju/core/lxdprofile"
-	reflect "reflect"
 )
 
 // MockModelCache is a mock of ModelCache interface

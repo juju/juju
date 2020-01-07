@@ -5,12 +5,13 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	upgradedatabase "github.com/juju/juju/worker/upgradedatabase"
 	version "github.com/juju/version"
-	reflect "reflect"
 )
 
 // MockLogger is a mock of Logger interface

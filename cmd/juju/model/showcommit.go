@@ -4,11 +4,12 @@
 package model
 
 import (
+	"os"
+	"strconv"
+
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"os"
-	"strconv"
 
 	"github.com/juju/juju/api/modelgeneration"
 	jujucmd "github.com/juju/juju/cmd"

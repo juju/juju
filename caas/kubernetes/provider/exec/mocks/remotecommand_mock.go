@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	remotecommand "k8s.io/client-go/tools/remotecommand"
-	reflect "reflect"
 )
 
 // MockExecutor is a mock of Executor interface

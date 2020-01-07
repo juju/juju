@@ -5,11 +5,12 @@
 package mocks
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	mongo "github.com/juju/juju/mongo"
 	mgo_v2 "gopkg.in/mgo.v2"
-	reflect "reflect"
-	time "time"
 )
 
 // MockCollection is a mock of Collection interface

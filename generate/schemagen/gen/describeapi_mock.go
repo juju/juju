@@ -5,9 +5,10 @@
 package gen
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
-	reflect "reflect"
 )
 
 // MockAPIServer is a mock of APIServer interface

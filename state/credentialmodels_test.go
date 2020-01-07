@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cloud"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/testing"

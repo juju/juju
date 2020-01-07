@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/api/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/permission"
 )
 
 // Client provides methods that the Juju client command uses to interact

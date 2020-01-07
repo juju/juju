@@ -21,8 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 

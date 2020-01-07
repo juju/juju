@@ -13,7 +13,7 @@ import (
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 const defaultControllerPermission = permission.LoginAccess

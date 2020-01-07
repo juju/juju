@@ -5,11 +5,12 @@
 package state
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
-	time "time"
 )
 
 // MockApplicationOffer is a mock of ApplicationOffer interface

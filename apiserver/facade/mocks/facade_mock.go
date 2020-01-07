@@ -5,11 +5,12 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	facade "github.com/juju/juju/apiserver/facade"
-	permission "github.com/juju/juju/permission"
+	permission "github.com/juju/juju/core/permission"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
 )
 
 // MockResources is a mock of Resources interface

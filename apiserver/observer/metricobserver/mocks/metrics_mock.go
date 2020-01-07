@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	prometheus "github.com/prometheus/client_golang/prometheus"
 	go0 "github.com/prometheus/client_model/go"
-	reflect "reflect"
 )
 
 // MockCounter is a mock of Counter interface

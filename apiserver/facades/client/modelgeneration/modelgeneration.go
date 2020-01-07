@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.modelgeneration")

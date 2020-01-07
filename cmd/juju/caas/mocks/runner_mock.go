@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	exec "github.com/juju/utils/exec"
-	reflect "reflect"
 )
 
 // MockCommandRunner is a mock of CommandRunner interface

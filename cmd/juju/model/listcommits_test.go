@@ -4,10 +4,11 @@
 package model_test
 
 import (
+	"time"
+
 	"github.com/golang/mock/gomock"
 	"github.com/pkg/errors"
 	gc "gopkg.in/check.v1"
-	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"

@@ -5,6 +5,8 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	instance "github.com/juju/juju/core/instance"
@@ -13,7 +15,6 @@ import (
 	status "github.com/juju/juju/core/status"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	reflect "reflect"
 )
 
 // MockEnviron is a mock of Environ interface
