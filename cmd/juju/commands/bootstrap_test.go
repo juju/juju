@@ -463,6 +463,10 @@ var bootstrapTests = []bootstrapTest{{
 	info: "k8s config on iaas controller",
 	args: []string{"--config", "controller-service-type=loadbalancer"},
 	err:  `"controller-service-type", "controller-external-name" and "controller-external-ips"are only allowed for kubernetes controllers`,
+}, {
+	info: "controller name cannot be set via config",
+	args: []string{"--config", "controller-name=test"},
+	err:  `controller name cannot be set via config, please use cmd args`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {
