@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/core/permission"
 )
 
 // ControllerModelName is the name of the admin model in each controller.

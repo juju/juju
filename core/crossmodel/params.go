@@ -8,8 +8,8 @@ import (
 
 	"gopkg.in/juju/charm.v6"
 
-	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/relation"
 )
 
 // ApplicationOfferAdminDetails represents the details about an

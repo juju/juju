@@ -16,10 +16,10 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/mongo/utils"
-	"github.com/juju/juju/core/permission"
 )
 
 // cloudGlobalKey will return the key for a given cloud.

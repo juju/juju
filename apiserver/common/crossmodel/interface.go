@@ -10,8 +10,8 @@ import (
 
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/firewall"
-	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 )
 

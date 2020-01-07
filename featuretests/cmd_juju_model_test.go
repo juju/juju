@@ -17,11 +17,11 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cmd/juju/commands"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )

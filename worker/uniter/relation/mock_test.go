@@ -5,6 +5,7 @@ package relation_test
 
 import (
 	"fmt"
+
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
