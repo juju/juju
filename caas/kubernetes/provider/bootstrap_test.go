@@ -65,6 +65,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	pcfg.JujuVersion = jujuversion.Current
+	pcfg.OfficialBuild = 666
 	pcfg.APIInfo = &api.Info{
 		Password: "password",
 		CACert:   testing.CACert,
@@ -559,7 +560,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String(),
+			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String() + ".666",
 			Command: []string{
 				"/bin/sh",
 			},
