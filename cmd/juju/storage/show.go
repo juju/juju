@@ -70,17 +70,20 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 	api, err := c.newAPIFunc()
 	if err != nil {
+		ctx.Infof("%v", err.Error())
 		return err
 	}
 	defer api.Close()
 
 	tags, err := c.getStorageTags()
 	if err != nil {
+		ctx.Infof("%v", err.Error())
 		return err
 	}
 
 	results, err := api.StorageDetails(tags)
 	if err != nil {
+		ctx.Infof("%v", err.Error())
 		return err
 	}
 
@@ -94,11 +97,13 @@ func (c *showCommand) Run(ctx *cmd.Context) (err error) {
 		valid = append(valid, *result.Result)
 	}
 	if len(errs.Results) > 0 {
+		ctx.Infof("%v", errs.Combine().Error())
 		return errs.Combine()
 	}
 
 	output, err := formatStorageDetails(valid)
 	if err != nil {
+		ctx.Infof("%v", err.Error())
 		return err
 	}
 	return c.out.Write(ctx, output)
