@@ -1,7 +1,10 @@
 clouds:
-  vmaas:
-    type: maas
-    auth-types: [oauth1]
-    endpoint: http://192.168.1.21/MAAS
+  openstack-test:
+    type: openstack
+    auth-types: [userpass]
+    endpoint: https://openstack-test.com:5000/v3/
     regions:
-        default: {}
+      ost01:
+        endpoint: https://ost01.openstack-test.com:5000/v3
+      ost02:
+        endpoint: https://ost02.openstack-test.com:5000/v3

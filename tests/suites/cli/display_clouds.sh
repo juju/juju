@@ -7,28 +7,33 @@ run_show_clouds() {
 
   OUT=$(XDG_DATA_HOME="${TEST_DIR}" juju clouds --local --format=json 2>/dev/null | jq ".[] | select(.defined != \"built-in\")")
   if [ -n "${OUT}" ]; then
-    echo "expected empty ${OUT}"
+    echo "expected empty, got ${OUT}"
     exit 1
   fi
 
   cp ./tests/suites/cli/clouds/public-clouds.yaml "${TEST_DIR}"/juju/public-clouds.yaml
   OUT=$(XDG_DATA_HOME="${TEST_DIR}" juju clouds --local --format=json 2>/dev/null | jq ".[] | select(.defined != \"built-in\")")
   if [ -n "${OUT}" ]; then
-    echo "expected empty ${OUT}"
+    echo "expected empty, got ${OUT}"
     exit 1
   fi
 
   EXPECTED=$(cat <<'EOF'
 {
   "defined": "public",
-  "type": "maas",
-  "description": "Metal As A Service",
+  "type": "openstack",
+  "description": "Openstack Cloud",
   "auth-types": [
-    "oauth1"
+    "userpass"
   ],
-  "endpoint": "http://192.168.1.21/MAAS",
+  "endpoint": "https://openstack-test.com:5000/v3/",
   "regions": {
-    "default": {}
+    "ost01": {
+      "endpoint": "https://ost01.openstack-test.com:5000/v3"
+    },
+    "ost02": {
+      "endpoint": "https://ost02.openstack-test.com:5000/v3"
+    }
   }
 }
 EOF

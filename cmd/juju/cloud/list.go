@@ -175,10 +175,10 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 }
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	// TODO: is serial states that it's machine serialisable. We shouldn't
-	// prompt in those situations. In an ideal world we would move this into
-	// MaybePrompt, but the changes may have unintended consequences without
-	// proper understanding.
+	// TODO: (stickupkid) IsSerial states that its machine is serialisable, we
+	// shouldn't prompt in those situations. In an ideal world we would move
+	// this into MaybePrompt, but the changes may have unintended consequences
+	// without proper understanding.
 	// Should fix this for Juju 3.0
 	c.ReadOnly = ctxt.IsSerial()
 	if err := c.MaybePrompt(ctxt, "list clouds from"); err != nil {
