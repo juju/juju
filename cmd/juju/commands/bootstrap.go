@@ -631,9 +631,6 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if c.controllerName == "" {
-		c.setControllerName(defaultControllerName(cloud.Name, region.Name))
-	}
 
 	// set a Region so it's config can be found below.
 	if c.Region == "" {
@@ -644,6 +641,7 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
@@ -651,6 +649,14 @@ to create a new model to deploy k8s workloads.
 			return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
 				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
 		}
+	}
+
+	if c.controllerName != "" && bootstrapCfg.controller[controller.ControllerName] != "" {
+		return errors.NotValidf("controller name and controller config name both set, only one allowed")
+	} else if bootstrapCfg.controller[controller.ControllerName] != "" {
+		c.setControllerName(bootstrapCfg.controller[controller.ControllerName].(string))
+	} else if c.controllerName == "" {
+		c.setControllerName(defaultControllerName(cloud.Name, region.Name))
 	}
 
 	// Read existing current controller so we can clean up on error.
@@ -683,6 +689,7 @@ to create a new model to deploy k8s workloads.
 		}
 	}()
 
+	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 	bootstrapCtx := modelcmd.BootstrapContext(ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
 		ModelConfig:      bootstrapCfg.bootstrapModel,

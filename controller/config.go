@@ -43,6 +43,9 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
+	// Canonical name for the controller
+	ControllerName = "controller-name"
+
 	// AgentRateLimitMax is the maximum size of the token bucket used to
 	// ratelimit the agent connections.
 	AgentRateLimitMax = "agent-ratelimit-max"
@@ -292,6 +295,7 @@ var (
 		CACertKey,
 		CharmStoreURL,
 		ControllerAPIPort,
+		ControllerName,
 		ControllerUUIDKey,
 		IdentityPublicKey,
 		IdentityURL,
@@ -333,6 +337,7 @@ var (
 		// TODO Juju 3.0: ControllerAPIPort should be required and treated
 		// more like api-port.
 		ControllerAPIPort,
+		ControllerName,
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
@@ -996,6 +1001,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	APIPort:                 schema.ForceInt(),
 	APIPortOpenDelay:        schema.String(),
 	ControllerAPIPort:       schema.ForceInt(),
+	ControllerName:          schema.String(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
