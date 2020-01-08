@@ -63,6 +63,7 @@ var commonModelFacadeNames = set.NewStrings(
 	"Uniter",
 	"Upgrader",
 	"VolumeAttachmentsWatcher",
+	"RemoteRelationWatcher",
 )
 
 // caasModelFacadeNames lists facades that are only used with CAAS
