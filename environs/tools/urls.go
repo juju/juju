@@ -77,7 +77,18 @@ func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSour
 		if !config.SSLHostnameVerification() {
 			verify = utils.NoVerifySSLHostnames
 		}
-		sources = append(sources, simplestreams.NewURLSignedDataSource(conf.AgentMetadataURLKey, userURL, keys.JujuPublicKey, verify, simplestreams.SPECIFIC_CLOUD_DATA, false))
+		dataSourceConfig := simplestreams.Config{
+			Description:          conf.AgentMetadataURLKey,
+			BaseURL:              userURL,
+			PublicSigningKey:     keys.JujuPublicKey,
+			HostnameVerification: verify,
+			Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
+		}
+		if err := dataSourceConfig.Validate(); err != nil {
+			return nil, errors.Annotate(err, "simplestreams config validation failed")
+		}
+		dataSource := simplestreams.NewDataSource(dataSourceConfig)
+		sources = append(sources, dataSource)
 	}
 
 	envDataSources, err := environmentDataSources(env)
@@ -92,8 +103,19 @@ func GetMetadataSources(env environs.BootstrapEnviron) ([]simplestreams.DataSour
 		return nil, err
 	}
 	if defaultURL != "" {
-		sources = append(sources,
-			simplestreams.NewURLSignedDataSource("default simplestreams", defaultURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
+		dataSourceConfig := simplestreams.Config{
+			Description:          "default simplestreams",
+			BaseURL:              defaultURL,
+			PublicSigningKey:     keys.JujuPublicKey,
+			HostnameVerification: utils.VerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+			RequireSigned:        true,
+		}
+		if err := dataSourceConfig.Validate(); err != nil {
+			return nil, errors.Annotate(err, "simplestreams config validation failed")
+		}
+		dataSource := simplestreams.NewDataSource(dataSourceConfig)
+		sources = append(sources, dataSource)
 	}
 	return sources, nil
 }

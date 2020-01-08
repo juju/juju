@@ -31,13 +31,16 @@ func getImageSource(env environs.Environ) (simplestreams.DataSource, error) {
 	if !ok {
 		return nil, errors.NotSupportedf("non-cloudsigma model")
 	}
-	return simplestreams.NewURLDataSource(
-		"cloud images",
-		fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.cloud.Region),
-		utils.VerifySSLHostnames,
-		simplestreams.SPECIFIC_CLOUD_DATA,
-		false,
-	), nil
+	dataSourceConfig := simplestreams.Config{
+		Description:          "cloud images",
+		BaseURL:              fmt.Sprintf(CloudsigmaCloudImagesURLTemplate, e.cloud.Region),
+		HostnameVerification: utils.VerifySSLHostnames,
+		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
+	}
+	if err := dataSourceConfig.Validate(); err != nil {
+		return nil, errors.Annotate(err, "simplestreams config validation failed")
+	}
+	return simplestreams.NewDataSource(dataSourceConfig), nil
 }
 
 type environProvider struct {

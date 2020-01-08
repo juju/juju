@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -24,7 +25,7 @@ type ValidateSuite struct {
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) error {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint, stream string) {
 	metadata := []*imagemetadata.ImageMetadata{
 		{
 			Id:     id,
@@ -39,10 +40,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint,
 	targetStorage, err := filestorage.NewFileStorageWriter(s.metadataDir)
 	c.Assert(err, jc.ErrorIsNil)
 	err = imagemetadata.MergeAndWriteMetadata(series, metadata, &cloudSpec, targetStorage)
-	if err != nil {
-		return err
-	}
-	return nil
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
@@ -60,7 +58,7 @@ func (s *ValidateSuite) assertMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("test", utils.MakeFileURL(metadataPath), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
+			sstesting.VerifyDefaultCloudDataSource("test", utils.MakeFileURL(metadataPath))},
 	}
 	imageIds, resolveInfo, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -88,7 +86,7 @@ func (s *ValidateSuite) assertNoMatch(c *gc.C, stream string) {
 		Endpoint:      "some-auth-url",
 		Stream:        stream,
 		Sources: []simplestreams.DataSource{
-			simplestreams.NewURLDataSource("test", "file://"+s.metadataDir, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
+			sstesting.VerifyDefaultCloudDataSource("test", "file://"+s.metadataDir)},
 	}
 	_, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))
