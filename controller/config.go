@@ -43,6 +43,9 @@ const (
 	// properly.
 	ControllerAPIPort = "controller-api-port"
 
+	// Canonical name for the controller
+	ControllerName = "controller-name"
+
 	// AgentRateLimitMax is the maximum size of the token bucket used to
 	// ratelimit the agent connections.
 	AgentRateLimitMax = "agent-ratelimit-max"
@@ -292,6 +295,7 @@ var (
 		CACertKey,
 		CharmStoreURL,
 		ControllerAPIPort,
+		ControllerName,
 		ControllerUUIDKey,
 		IdentityPublicKey,
 		IdentityURL,
@@ -333,6 +337,7 @@ var (
 		// TODO Juju 3.0: ControllerAPIPort should be required and treated
 		// more like api-port.
 		ControllerAPIPort,
+		ControllerName,
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
@@ -581,6 +586,11 @@ func (c Config) CharmStoreURL() string {
 		return csclient.ServerURL
 	}
 	return url
+}
+
+// ControllerName returns the name for the controller
+func (c Config) ControllerName() string {
+	return c.asString(ControllerName)
 }
 
 // ControllerUUID returns the uuid for the controller.
@@ -996,6 +1006,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	APIPort:                 schema.ForceInt(),
 	APIPortOpenDelay:        schema.String(),
 	ControllerAPIPort:       schema.ForceInt(),
+	ControllerName:          schema.String(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
@@ -1026,6 +1037,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	APIPort:                 DefaultAPIPort,
 	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
 	ControllerAPIPort:       schema.Omit,
+	ControllerName:          schema.Omit,
 	AuditingEnabled:         DefaultAuditingEnabled,
 	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
 	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),

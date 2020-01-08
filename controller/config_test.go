@@ -600,6 +600,23 @@ func (s *ConfigSuite) TestCharmstoreURLDefault(c *gc.C) {
 	c.Check(cfg.CharmStoreURL(), gc.Equals, csclient.ServerURL)
 }
 
+func (s *ConfigSuite) TestControllerNameDefault(c *gc.C) {
+	cfg := controller.Config{}
+	c.Check(cfg.ControllerName(), gc.Equals, "")
+}
+
+func (s *ConfigSuite) TestControllerNameSetGet(c *gc.C) {
+	cfg, err := controller.NewConfig(
+		testing.ControllerTag.Id(),
+		testing.CACert,
+		map[string]interface{}{
+			controller.ControllerName: "test",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(cfg.ControllerName(), gc.Equals, "test")
+}
+
 func (s *ConfigSuite) TestCharmstoreURLSettingValue(c *gc.C) {
 	csURL := "http://homestarrunner.com/charmstore"
 	cfg, err := controller.NewConfig(
