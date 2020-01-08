@@ -1,0 +1,9 @@
+clouds:
+  ec2-test:
+    type: ec2
+    auth-types: [userpass]
+    regions:
+      us-east-1:
+        endpoint: https://ec2.us-east-1.amazonaws.com
+      us-east-2:
+        endpoint: https://ec2.us-east-2.amazonaws.com

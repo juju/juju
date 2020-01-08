@@ -45,7 +45,7 @@ When no <key> is supplied, all keys values are printed.
 }
 
 func (c *StorageGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 	f.Var(c.storageTagProxy, "s", "specify a storage instance by id")
 }
 

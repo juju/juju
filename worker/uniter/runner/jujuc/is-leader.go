@@ -39,7 +39,7 @@ there is no such guarantee.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *isLeaderCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 // Run is part of the cmd.Command interface.

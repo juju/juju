@@ -44,7 +44,7 @@ instances for that named storage will be returned.
 }
 
 func (c *StorageListCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 func (c *StorageListCommand) Init(args []string) (err error) {

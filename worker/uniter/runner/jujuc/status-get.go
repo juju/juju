@@ -39,7 +39,7 @@ If the --include-data flag is passed, the associated data are printed also.
 }
 
 func (c *StatusGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 	f.BoolVar(&c.includeData, "include-data", false, "print all status data")
 	f.BoolVar(&c.applicationWide, "application", false, "print status for all units of this application if this unit is the leader")
 }
