@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/simplestreams"
@@ -24,7 +23,7 @@ func Test(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
+			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 			RequireSigned:  false,
 			DataType:       "image-ids",
 			StreamsVersion: "v1",
@@ -327,13 +326,7 @@ func (s *countingSource) URL(path string) (string, error) {
 
 func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 	source := &countingSource{
-		DataSource: simplestreams.NewURLDataSource(
-			"test",
-			"test:/daily",
-			utils.VerifySSLHostnames,
-			simplestreams.DEFAULT_CLOUD_DATA,
-			false,
-		),
+		DataSource: sstesting.VerifyDefaultCloudDataSource("test", "test:/daily"),
 	}
 	sources := []simplestreams.DataSource{source, source, source}
 	constraint := sstesting.NewTestConstraint(simplestreams.LookupParams{

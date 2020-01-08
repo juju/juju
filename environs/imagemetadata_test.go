@@ -84,17 +84,29 @@ func (s *ImageMetadataSuite) TestImageMetadataURLs(c *gc.C) {
 
 func (s *ImageMetadataSuite) TestImageMetadataURLsRegisteredFuncs(c *gc.C) {
 	environs.RegisterImageDataSourceFunc("id0", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id0", "betwixt/releases", utils.NoVerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false), nil
+		return simplestreams.NewDataSource(simplestreams.Config{
+			Description:          "id0",
+			BaseURL:              "betwixt/releases",
+			HostnameVerification: utils.NoVerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA}), nil
 	})
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id1", "yoink", utils.NoVerifySSLHostnames, simplestreams.SPECIFIC_CLOUD_DATA, false), nil
+		return simplestreams.NewDataSource(simplestreams.Config{
+			Description:          "id1",
+			BaseURL:              "yoink",
+			HostnameVerification: utils.NoVerifySSLHostnames,
+			Priority:             simplestreams.SPECIFIC_CLOUD_DATA}), nil
 	})
 	// overwrite the one previously registered against id1
 	environs.RegisterImageDataSourceFunc("id1", func(environs.Environ) (simplestreams.DataSource, error) {
 		return nil, errors.NewNotSupported(nil, "oyvey")
 	})
 	environs.RegisterUserImageDataSourceFunc("id2", func(environs.Environ) (simplestreams.DataSource, error) {
-		return simplestreams.NewURLDataSource("id2", "foobar", utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+		return simplestreams.NewDataSource(simplestreams.Config{
+			Description:          "id2",
+			BaseURL:              "foobar",
+			HostnameVerification: utils.NoVerifySSLHostnames,
+			Priority:             simplestreams.CUSTOM_CLOUD_DATA}), nil
 	})
 	defer environs.UnregisterImageDataSourceFunc("id0")
 	defer environs.UnregisterImageDataSourceFunc("id1")

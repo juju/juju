@@ -140,13 +140,15 @@ func (c *toolsMetadataCommand) Run(context *cmd.Context) error {
 func toolsDataSources(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	for i, url := range urls {
-		dataSources[i] = simplestreams.NewURLSignedDataSource(
-			"local source",
-			url,
-			keys.JujuPublicKey,
-			utils.VerifySSLHostnames,
-			simplestreams.CUSTOM_CLOUD_DATA,
-			false)
+		dataSources[i] = simplestreams.NewDataSource(
+			simplestreams.Config{
+				Description:          "local source",
+				BaseURL:              url,
+				PublicSigningKey:     keys.JujuPublicKey,
+				HostnameVerification: utils.VerifySSLHostnames,
+				Priority:             simplestreams.CUSTOM_CLOUD_DATA,
+			},
+		)
 	}
 	return dataSources
 }
