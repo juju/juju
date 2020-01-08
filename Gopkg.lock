@@ -705,7 +705,6 @@
   revision = "1f8aaeef09898fcee40fe43b8de422533b0cac2b"
 
 [[projects]]
-  branch = "bakeryv2"
   digest = "1:61fdcd5ca2dcd80cd6951a72e7b291e3d40afbb3a38b02cd17d71d2859b2ed98"
   name = "github.com/juju/terms-client"
   packages = [
@@ -713,8 +712,7 @@
     "api/wireformat",
   ]
   pruneopts = ""
-  revision = "9198d01b42a1bf6c0308f9e8de222ad78868468c"
-  source = "github.com/wallyworld/terms-client"
+  revision = "d29f8efe0af6f5ed0e8d5bff8bccbecb16e653d1"
 
 [[projects]]
   digest = "1:0eec58cdcfcc6f4a561e68d779dd136700575148459d4d435c60483a8f721d27"
@@ -1507,6 +1505,7 @@
     "bakery/checkers",
     "bakery/identchecker",
     "bakery/internal/macaroonpb",
+    "bakery/mgorootkeystore",
     "bakerytest",
     "httpbakery",
     "httpbakery/form",
@@ -1516,18 +1515,15 @@
   revision = "6734dc66fe81c761f153bdd3e4ea572a105b6fe0"
 
 [[projects]]
-  branch = "macaroon-v2"
-  digest = "1:6afe17bcd84e8271c07749a62c6857c722d40a079d09927f36714fc2ca29a2f0"
+  digest = "1:01ca591d2010c9aee949a970b82911c6384f4f50a948a36818f75ee677a63962"
   name = "gopkg.in/macaroon-bakery.v2-unstable"
   packages = [
     "bakery",
     "bakery/checkers",
-    "bakery/mgostorage",
-    "bakerytest",
     "httpbakery",
   ]
   pruneopts = ""
-  revision = "e9659ac3cacff3096af6bfd23e9db6b3fa1ae374"
+  revision = "15effef1340d966e9419a176b0a4e0381f345c19"
   source = "github.com/wallyworld/macaroon-bakery"
 
 [[projects]]
@@ -1982,12 +1978,11 @@
     "gopkg.in/juju/worker.v1/workertest",
     "gopkg.in/macaroon-bakery.v2-unstable/bakery",
     "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakerytest",
     "gopkg.in/macaroon-bakery.v2-unstable/httpbakery",
     "gopkg.in/macaroon-bakery.v2/bakery",
     "gopkg.in/macaroon-bakery.v2/bakery/checkers",
     "gopkg.in/macaroon-bakery.v2/bakery/identchecker",
+    "gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore",
     "gopkg.in/macaroon-bakery.v2/bakerytest",
     "gopkg.in/macaroon-bakery.v2/httpbakery",
     "gopkg.in/macaroon-bakery.v2/httpbakery/form",

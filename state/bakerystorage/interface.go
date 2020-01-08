@@ -5,15 +5,15 @@
 // of the bakery Storage interface that uses MongoDB
 // to store items.
 //
-// This is based on gopkg.in/macaroon-bakery.v2/bakery/mgostorage.
+// This is based on gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore.
 package bakerystorage
 
 import (
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
 
 	"github.com/juju/juju/mongo"
 )
@@ -26,7 +26,7 @@ type Config struct {
 
 	// GetStorage returns a bakery.Storage and a function that will close
 	// any associated resources.
-	GetStorage func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) (storage bakery.Storage)
+	GetStorage func(rootKeys *mgorootkeystore.RootKeys, coll mongo.Collection, expireAfter time.Duration) (storage bakery.RootKeyStore)
 }
 
 // Validate validates the configuration.
@@ -43,7 +43,7 @@ func (c Config) Validate() error {
 // ExpirableStorage extends bakery.Storage with the ExpireAfter method,
 // to expire data added at the specified time.
 type ExpirableStorage interface {
-	bakery.Storage
+	bakery.RootKeyStore
 
 	// ExpireAfter returns a new ExpirableStorage that will expire
 	// added items after the specified duration.
@@ -59,6 +59,6 @@ func New(config Config) (ExpirableStorage, error) {
 	}
 	return &storage{
 		config:   config,
-		rootKeys: mgostorage.NewRootKeys(5),
+		rootKeys: mgorootkeystore.NewRootKeys(5),
 	}, nil
 }

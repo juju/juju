@@ -4,8 +4,10 @@
 package apiserver_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -1184,7 +1186,7 @@ func (s *macaroonLoginSuite) TestPublicKeyLocatorErrorIsNotPersistent(c *gc.C) {
 	workingTransport := http.DefaultTransport
 	failingTransport := errorTransport{
 		fallback: workingTransport,
-		url:      s.DischargerLocation() + "/publickey",
+		location: s.DischargerLocation(),
 		err:      errors.New("some error"),
 	}
 	s.PatchValue(&http.DefaultTransport, failingTransport)
@@ -1583,16 +1585,27 @@ func (s *loginV3Suite) TestClientLoginToRootOldClient(c *gc.C) {
 // the given URL (otherwise it uses the fallback transport.
 type errorTransport struct {
 	err      error
-	url      string
+	location string
 	fallback http.RoundTripper
 }
 
 func (t errorTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	if req.URL.String() == t.url {
+	if req.URL.String() == t.location+"/publickey" {
 		if req.Body != nil {
 			req.Body.Close()
 		}
 		return nil, t.err
+	}
+	if req.URL.String() == t.location+"/discharge/info" {
+		if req.Body != nil {
+			req.Body.Close()
+		}
+		return &http.Response{
+			Request:    req,
+			StatusCode: http.StatusNotFound,
+			Header:     http.Header{"Content-Type": {"application/text"}},
+			Body:       ioutil.NopCloser(bytes.NewReader([]byte(""))),
+		}, nil
 	}
 	return t.fallback.RoundTrip(req)
 }

@@ -30,8 +30,8 @@
 
 [[override]]
   name = "gopkg.in/macaroon-bakery.v2-unstable"
-  branch = "macaroon-v2"
   source = "github.com/wallyworld/macaroon-bakery"
+  revision = "15effef1340d966e9419a176b0a4e0381f345c19"
 
 [[constraint]]
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
@@ -329,8 +329,7 @@
 
 [[constraint]]
   name = "github.com/juju/terms-client"
-  branch = "bakeryv2"
-  source = "github.com/wallyworld/terms-client"
+  revision = "d29f8efe0af6f5ed0e8d5bff8bccbecb16e653d1"
 
 [[constraint]]
   revision = "5f348e78887d8757a402c7bb81e707c3b244c6da"
