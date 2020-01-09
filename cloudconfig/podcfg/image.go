@@ -20,7 +20,7 @@ const (
 
 // GetControllerImagePath returns oci image path of jujud for a controller.
 func (cfg *ControllerPodConfig) GetControllerImagePath() string {
-	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion, cfg.OfficialBuild)
+	return GetJujuOCIImagePath(cfg.Controller.Config, cfg.JujuVersion, 0)
 }
 
 // GetJujuDbOCIImagePath returns the juju-db oci image path.
