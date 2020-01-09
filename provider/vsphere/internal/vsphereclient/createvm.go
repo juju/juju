@@ -517,7 +517,7 @@ func (c *Client) addNetworkDevice(
 	dvportgroupConfig map[types.ManagedObjectReference]types.DVPortgroupConfigInfo,
 ) (*types.VirtualVmxnet3, error) {
 	var networkBacking types.BaseVirtualDeviceBackingInfo
-	if dvportgroupConfig, ok := dvportgroupConfig[network.Reference()]; !ok {
+	if dvportgroupConfigInfo, ok := dvportgroupConfig[network.Reference()]; !ok {
 		// It's not a distributed virtual portgroup, so return
 		// a backing info for a plain old network interface.
 		networkBacking = &types.VirtualEthernetCardNetworkBackingInfo{
@@ -529,16 +529,19 @@ func (c *Client) addNetworkDevice(
 		// It's a distributed virtual portgroup, so retrieve the details of
 		// the distributed virtual switch, and return a backing info for
 		// connecting the VM to the portgroup.
+		if dvportgroupConfigInfo.DistributedVirtualSwitch == nil {
+			return nil, errors.NewNotValid(nil, fmt.Sprintf("empty distributed virtual switch for DVPortgroup %q, please check if permission is sufficient", dvportgroupConfigInfo.Name))
+		}
 		var dvs mo.DistributedVirtualSwitch
 		if err := c.client.RetrieveOne(
-			ctx, *dvportgroupConfig.DistributedVirtualSwitch, nil, &dvs,
+			ctx, *dvportgroupConfigInfo.DistributedVirtualSwitch, nil, &dvs,
 		); err != nil {
 			return nil, errors.Annotate(err, "retrieving distributed vSwitch details")
 		}
 		networkBacking = &types.VirtualEthernetCardDistributedVirtualPortBackingInfo{
 			Port: types.DistributedVirtualSwitchPortConnection{
 				SwitchUuid:   dvs.Uuid,
-				PortgroupKey: dvportgroupConfig.Key,
+				PortgroupKey: dvportgroupConfigInfo.Key,
 			},
 		}
 	}
