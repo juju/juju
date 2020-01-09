@@ -223,7 +223,11 @@ OPERATOR_IMAGE_BUILD_SRC   ?= true
 OPERATOR_IMAGE_TAG         ?= $(shell ${JUJUD_BIN_DIR}/jujud version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}(\.[[:digit:]]{1,9})?")
 # Legacy tags never have a build number.
 OPERATOR_IMAGE_TAG_LEGACY  ?= $(shell ${JUJUD_BIN_DIR}/jujud version | grep -E -o "^[[:digit:]]{1,9}\.[[:digit:]]{1,9}(\.|-[[:alpha:]]+)[[:digit:]]{1,9}")
-OPERATOR_IMAGE_PATH         = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+ifneq ($(JUJU_BUILD_NUMBER),)
+	OPERATOR_IMAGE_PATH = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}.${JUJU_BUILD_NUMBER}
+else
+	OPERATOR_IMAGE_PATH = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG}
+endif
 OPERATOR_IMAGE_PATH_LEGACY  = ${DOCKER_USERNAME}/jujud-operator:${OPERATOR_IMAGE_TAG_LEGACY}
 
 operator-check-build:
