@@ -16,8 +16,6 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/mgo.v2/bson"
-	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/crossmodel"
@@ -27,6 +25,7 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
@@ -98,6 +97,9 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		},
 		SLA: multiwatcher.ModelSLAInfo{
 			Level: "unsupported",
+		},
+		UserPermissions: map[string]permission.Access{
+			"test-admin": permission.AdminAccess,
 		},
 	})
 
@@ -626,6 +628,10 @@ func (s *allWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFuncs [
 	}
 }
 
+func (s *allWatcherStateSuite) TestChangePermissions(c *gc.C) {
+	testChangePermissions(c, s.performChangeTestCases)
+}
+
 func (s *allWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
 	testChangeAnnotations(c, s.performChangeTestCases)
 }
@@ -999,6 +1005,10 @@ func (s *allModelWatcherStateSuite) performChangeTestCases(c *gc.C, changeTestFu
 	}
 }
 
+func (s *allModelWatcherStateSuite) TestChangePermissions(c *gc.C) {
+	testChangePermissions(c, s.performChangeTestCases)
+}
+
 func (s *allModelWatcherStateSuite) TestChangeAnnotations(c *gc.C) {
 	testChangeAnnotations(c, s.performChangeTestCases)
 }
@@ -1090,6 +1100,9 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 							Level: "essential",
 							Owner: "test-sla-owner",
 						},
+						UserPermissions: map[string]permission.Access{
+							"test-admin": permission.AdminAccess,
+						},
 					}}}
 		},
 		func(c *gc.C, st *State) changeTestCase {
@@ -1119,6 +1132,9 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						SLA: multiwatcher.ModelSLAInfo{
 							Level: "unsupported",
 						},
+						UserPermissions: map[string]permission.Access{
+							"test-admin": permission.AdminAccess,
+						},
 					},
 				},
 				change: watcher.Change{
@@ -1142,6 +1158,9 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						},
 						SLA: multiwatcher.ModelSLAInfo{
 							Level: "unsupported",
+						},
+						UserPermissions: map[string]permission.Access{
+							"test-admin": permission.AdminAccess,
 						},
 					}}}
 		},
@@ -1232,47 +1251,164 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	})
 }
 
-func (s *allModelWatcherStateSuite) TestMissingModelSettings(c *gc.C) {
-	// Init the test model.
-	b := s.NewAllWatcherBacking()
-	all := multiwatcher.NewStore(loggo.GetLogger("test"))
-
-	all.Update(&multiwatcher.ModelUpdate{
-		ModelUUID: s.state.ModelUUID(),
-		Name:      "dummy-model",
-	})
-	entities := all.All()
-	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.ModelUpdate{
-			ModelUUID: s.state.ModelUUID(),
-			Name:      "dummy-model",
-		},
-	})
-
-	// Updating a dead model with missing settings actually causes the
-	// model to be removed from the watcher.
-	err := removeSettings(s.state.db(), settingsC, modelGlobalKey)
-	c.Assert(err, jc.ErrorIsNil)
-	ops := []txn.Op{{
-		C:      modelsC,
-		Id:     s.state.ModelUUID(),
-		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
-	}}
-	err = s.state.db().RunTransaction(ops)
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Trigger an update and check the model is removed from the store.
-	err = b.Changed(all, watcher.Change{
-		C:  "models",
-		Id: s.state.ModelUUID(),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	entities = all.All()
-	c.Assert(entities, gc.HasLen, 0)
-}
-
 // The testChange* funcs are extracted so the test cases can be used
 // to test both the allWatcher and allModelWatcher.
+
+func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
+	changeTestFuncs := []changeTestFunc{
+		func(c *gc.C, st *State) changeTestCase {
+			model, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "model update keeps permissions",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					// Existance doesn't care about the other values, and they are
+					// not entirely relevent to this test.
+					UserPermissions: map[string]permission.Access{
+						"bob":  permission.ReadAccess,
+						"mary": permission.AdminAccess,
+					},
+				}},
+				change: watcher.Change{
+					C:  "models",
+					Id: st.ModelUUID(),
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID:      st.ModelUUID(),
+					Name:           model.Name(),
+					Life:           "alive",
+					Owner:          model.Owner().Id(),
+					ControllerUUID: testing.ControllerTag.Id(),
+					IsController:   model.IsControllerModel(),
+					SLA:            multiwatcher.ModelSLAInfo{Level: "unsupported"},
+					UserPermissions: map[string]permission.Access{
+						"bob":  permission.ReadAccess,
+						"mary": permission.AdminAccess,
+					},
+				}}}
+		},
+
+		func(c *gc.C, st *State) changeTestCase {
+			model, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = model.AddUser(UserAccessSpec{
+				User:      names.NewUserTag("tony@external"),
+				CreatedBy: model.Owner(),
+				Access:    permission.WriteAccess,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "adding a model user updates model",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					Name:      model.Name(),
+					// Existance doesn't care about the other values, and they are
+					// not entirely relevent to this test.
+					UserPermissions: map[string]permission.Access{
+						"bob":  permission.ReadAccess,
+						"mary": permission.AdminAccess,
+					},
+				}},
+				change: watcher.Change{
+					C:  permissionsC,
+					Id: permissionID(modelKey(st.ModelUUID()), userGlobalKey("tony@external")),
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					Name:      model.Name(),
+					// When the permissions are updated, only the user permissions are changed.
+					UserPermissions: map[string]permission.Access{
+						"bob":           permission.ReadAccess,
+						"mary":          permission.AdminAccess,
+						"tony@external": permission.WriteAccess,
+					},
+				}}}
+		},
+
+		func(c *gc.C, st *State) changeTestCase {
+			model, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "removing a permission document removes user permission",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					Name:      model.Name(),
+					// Existance doesn't care about the other values, and they are
+					// not entirely relevent to this test.
+					UserPermissions: map[string]permission.Access{
+						"bob":  permission.ReadAccess,
+						"mary": permission.AdminAccess,
+					},
+				}},
+				change: watcher.Change{
+					C:     permissionsC,
+					Id:    permissionID(modelKey(st.ModelUUID()), userGlobalKey("bob")),
+					Revno: -1,
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					Name:      model.Name(),
+					// When the permissions are updated, only the user permissions are changed.
+					UserPermissions: map[string]permission.Access{
+						"mary": permission.AdminAccess,
+					},
+				}}}
+		},
+
+		func(c *gc.C, st *State) changeTestCase {
+			model, err := st.Model()
+			c.Assert(err, jc.ErrorIsNil)
+
+			// With the allModelWatcher variant, this function is called twice
+			// within the same test loop, so we look for bob, and if not found,
+			// add him in.
+			bob, err := st.User(names.NewUserTag("bob"))
+			if errors.IsNotFound(err) {
+				bob, err = st.AddUser("bob", "", "pwd", "admin")
+			}
+			c.Assert(err, jc.ErrorIsNil)
+
+			_, err = model.AddUser(UserAccessSpec{
+				User:      bob.UserTag(),
+				CreatedBy: model.Owner(),
+				Access:    permission.WriteAccess,
+			})
+			c.Assert(err, jc.ErrorIsNil)
+
+			return changeTestCase{
+				about: "updating a permission document updates user permission",
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					Name:      model.Name(),
+					// Existance doesn't care about the other values, and they are
+					// not entirely relevent to this test.
+					UserPermissions: map[string]permission.Access{
+						"bob":  permission.ReadAccess,
+						"mary": permission.AdminAccess,
+					},
+				}},
+				change: watcher.Change{
+					C:  permissionsC,
+					Id: permissionID(modelKey(st.ModelUUID()), userGlobalKey("bob")),
+				},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+					ModelUUID: st.ModelUUID(),
+					Name:      model.Name(),
+					UserPermissions: map[string]permission.Access{
+						// Bob's permission updated to write.
+						"bob":  permission.WriteAccess,
+						"mary": permission.AdminAccess,
+					},
+				}}}
+		},
+	}
+	runChangeTests(c, changeTestFuncs)
+}
 
 func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)) {
 	changeTestFuncs := []changeTestFunc{

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 )
 
@@ -363,6 +364,8 @@ type ModelUpdate struct {
 	Status         StatusInfo
 	Constraints    constraints.Value
 	SLA            ModelSLAInfo
+
+	UserPermissions map[string]permission.Access
 }
 
 // ModelSLAInfo describes the SLA info for a model.

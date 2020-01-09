@@ -77,7 +77,7 @@ func (p *userPermission) access() permission.Access {
 }
 
 func permissionID(objectGlobalKey, subjectGlobalKey string) string {
-	// example: e#:deadbeef#us#jim
+	// example: e#deadbeef#us#jim
 	// e: object global key
 	// deadbeef: object uuid
 	// us#jim: subject global key

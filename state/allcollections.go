@@ -205,6 +205,9 @@ func allCollections() CollectionSchema {
 		// given operation.
 		permissionsC: {
 			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"object-global-key", "subject-global-key"},
+			}},
 		},
 
 		// This collection holds information cached by autocert certificate

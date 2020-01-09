@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/watcher"
@@ -102,6 +103,10 @@ func makeAllWatcherCollectionInfo(collNames []string) map[string]allWatcherState
 			collection.docType = reflect.TypeOf(backingApplicationOffer{})
 		case generationsC:
 			collection.docType = reflect.TypeOf(backingGeneration{})
+		case permissionsC:
+			// Permissions are attached to the Model that they are for.
+			collection.docType = reflect.TypeOf(backingPermission{})
+			collection.subsidiary = true
 		default:
 			logger.Criticalf("programming error: unknown collection %q", collName)
 		}
@@ -133,18 +138,7 @@ func (e *backingModel) isNotFoundAndModelDead(err error) bool {
 
 func (e *backingModel) updated(ctx *allWatcherContext) error {
 	allWatcherLogger.Tracef(`model "%s" updated`, ctx.id)
-	settings, err := ctx.getSettings(modelGlobalKey)
-	if e.isNotFoundAndModelDead(err) {
-		// Treat it as if the model is removed.
-		return e.removed(ctx)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	cfg, err := config.New(config.NoDefaults, settings)
-	if err != nil {
-		return errors.Trace(err)
-	}
+
 	// Update the context with the model type.
 	ctx.modelType_ = e.Type
 	info := &multiwatcher.ModelUpdate{
@@ -154,30 +148,65 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 		Owner:          e.Owner,
 		ControllerUUID: e.ControllerUUID,
 		IsController:   ctx.state.IsController(),
-		Config:         cfg.AllAttrs(),
 		SLA: multiwatcher.ModelSLAInfo{
 			Level: e.SLA.Level.String(),
 			Owner: e.SLA.Owner,
 		},
 	}
-	c, err := ctx.readConstraints(modelGlobalKey)
-	// Treat it as if the model is removed.
-	if e.isNotFoundAndModelDead(err) {
-		return e.removed(ctx)
-	}
-	if err != nil {
-		return errors.Trace(err)
-	}
-	info.Constraints = c
 
-	info.Status, err = ctx.getStatus(modelGlobalKey, "model")
-	if e.isNotFoundAndModelDead(err) {
-		// Treat it as if the model is removed.
-		return e.removed(ctx)
+	oldInfo := ctx.store.Get(info.EntityID())
+	if oldInfo == nil {
+		settings, err := ctx.getSettings(modelGlobalKey)
+		if e.isNotFoundAndModelDead(err) {
+			// Since we know this isn't in the store, stop looking for new
+			// things.
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cfg, err := config.New(config.NoDefaults, settings)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		info.Config = cfg.AllAttrs()
+
+		c, err := ctx.readConstraints(modelGlobalKey)
+		if e.isNotFoundAndModelDead(err) {
+			// Since we know this isn't in the store, stop looking for new
+			// things.
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+		info.Constraints = c
+
+		info.Status, err = ctx.getStatus(modelGlobalKey, "model")
+		if e.isNotFoundAndModelDead(err) {
+			// Since we know this isn't in the store, stop looking for new
+			// things.
+			return nil
+		}
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		permissions, err := ctx.permissionsForModel(e.UUID)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		info.UserPermissions = permissions
+	} else {
+		oldInfo := oldInfo.(*multiwatcher.ModelUpdate)
+		info.Config = oldInfo.Config
+		info.Constraints = oldInfo.Constraints
+		info.Status = oldInfo.Status
+		info.UserPermissions = oldInfo.UserPermissions
 	}
-	if err != nil {
-		return errors.Trace(err)
-	}
+
 	ctx.store.Update(info)
 	return nil
 }
@@ -190,6 +219,82 @@ func (e *backingModel) removed(ctx *allWatcherContext) error {
 
 func (e *backingModel) mongoID() string {
 	return e.UUID
+}
+
+type backingPermission permissionDoc
+
+func (e *backingPermission) modelAndUser(id string) (string, string, bool) {
+	parts := strings.Split(id, "#")
+
+	if len(parts) < 4 {
+		// Not valid for as far as we care about.
+		return "", "", false
+	}
+
+	// At this stage, we are only dealing with model user permissions.
+	if parts[0] != modelGlobalKey || parts[2] != userGlobalKeyPrefix {
+		return "", "", false
+	}
+	return parts[1], parts[3], true
+}
+
+func (e *backingPermission) updated(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`permission "%s" updated`, ctx.id)
+
+	modelUUID, user, ok := e.modelAndUser(ctx.id)
+	if !ok {
+		// Not valid for as far as we care about.
+		return nil
+	}
+
+	storeKey := &multiwatcher.ModelUpdate{
+		ModelUUID: modelUUID,
+	}
+
+	info0 := ctx.store.Get(storeKey.EntityID())
+	switch info := info0.(type) {
+	case nil:
+		// The parent info doesn't exist. Ignore the permission until it does.
+		return nil
+	case *multiwatcher.ModelUpdate:
+		// Set the access for the user in the permission map of the model.
+		info.UserPermissions[user] = permission.Access(e.Access)
+	}
+
+	ctx.store.Update(info0)
+	return nil
+}
+
+func (e *backingPermission) removed(ctx *allWatcherContext) error {
+	allWatcherLogger.Tracef(`permission "%s" removed`, ctx.id)
+
+	modelUUID, user, ok := e.modelAndUser(ctx.id)
+	if !ok {
+		// Not valid for as far as we care about.
+		return nil
+	}
+
+	storeKey := &multiwatcher.ModelUpdate{
+		ModelUUID: modelUUID,
+	}
+
+	info0 := ctx.store.Get(storeKey.EntityID())
+	switch info := info0.(type) {
+	case nil:
+		// The parent info doesn't exist. Nothing to remove from.
+		return nil
+	case *multiwatcher.ModelUpdate:
+		// Remove the user from the permission map.
+		delete(info.UserPermissions, user)
+	}
+
+	ctx.store.Update(info0)
+	return nil
+}
+
+func (e *backingPermission) mongoID() string {
+	logger.Criticalf("programming error: attempting to get mongoID from permissions document")
+	return ""
 }
 
 type backingMachine machineDoc
@@ -1355,6 +1460,7 @@ func NewAllWatcherBacking(pool *StatePool) AllWatcherBacking {
 		generationsC,
 		instanceDataC,
 		openedPortsC,
+		permissionsC,
 		relationsC,
 		remoteApplicationsC,
 		statusesC,
@@ -1476,6 +1582,10 @@ func (b *allWatcherBacking) idForChange(change watcher.Change) (string, string, 
 	if change.C == modelsC {
 		modelUUID := change.Id.(string)
 		return modelUUID, modelUUID, nil
+	} else if change.C == permissionsC {
+		// All permissions can just load using the system state.
+		modelUUID := b.stPool.SystemState().ModelUUID()
+		return modelUUID, change.Id.(string), nil
 	}
 
 	modelUUID, id, ok := splitDocID(change.Id.(string))
@@ -1575,6 +1685,7 @@ type allWatcherContext struct {
 	statuses    map[string]status.StatusInfo
 	instances   map[string]instanceData
 	openPorts   map[string]portsDoc
+	userAccess  map[string]map[string]permission.Access
 }
 
 func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
@@ -1592,6 +1703,9 @@ func (ctx *allWatcherContext) loadSubsidiaryCollections() error {
 	}
 	if err := ctx.loadOpenedPorts(); err != nil {
 		return errors.Annotatef(err, "cache opened ports")
+	}
+	if err := ctx.loadPermissions(); err != nil {
+		return errors.Annotatef(err, "permissions")
 	}
 	return nil
 }
@@ -1663,6 +1777,32 @@ func (ctx *allWatcherContext) loadOpenedPorts() error {
 		docCopy := doc
 		key := portsGlobalKey(doc.MachineID, doc.SubnetID)
 		ctx.openPorts[key] = docCopy
+	}
+
+	return nil
+}
+
+func (ctx *allWatcherContext) loadPermissions() error {
+	col, closer := ctx.state.db().GetCollection(permissionsC)
+	defer closer()
+
+	var docs []backingPermission
+	if err := col.Find(nil).All(&docs); err != nil {
+		return errors.Annotate(err, "cannot read all permissions")
+	}
+
+	ctx.userAccess = make(map[string]map[string]permission.Access)
+	for _, doc := range docs {
+		modelUUID, user, ok := doc.modelAndUser(doc.ID)
+		if !ok {
+			continue
+		}
+		modelPermissions := ctx.userAccess[modelUUID]
+		if modelPermissions == nil {
+			modelPermissions = make(map[string]permission.Access)
+			ctx.userAccess[modelUUID] = modelPermissions
+		}
+		modelPermissions[user] = permission.Access(doc.Access)
 	}
 
 	return nil
@@ -1799,6 +1939,26 @@ func (ctx *allWatcherContext) assignedMachineID(u *Unit) (string, error) {
 		// store while the subordinate exists.
 		return "", errors.NotFoundf("unit %s", principalName)
 	}
+}
+
+func (ctx *allWatcherContext) permissionsForModel(uuid string) (map[string]permission.Access, error) {
+	if ctx.userAccess != nil {
+		return ctx.userAccess[uuid], nil
+	}
+	permissions, err := ctx.state.usersPermissions(modelKey(uuid))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make(map[string]permission.Access)
+	for _, perm := range permissions {
+		user := userIDFromGlobalKey(perm.doc.SubjectGlobalKey)
+		if user == perm.doc.SubjectGlobalKey {
+			// Not a user subject
+			continue
+		}
+		result[user] = perm.access()
+	}
+	return result, nil
 }
 
 func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]corenetwork.PortRange, error) {
