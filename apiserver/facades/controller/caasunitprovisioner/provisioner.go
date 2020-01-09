@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.controller.caasunitprovisioner")
@@ -276,7 +277,7 @@ func (f *Facade) provisioningInfo(model Model, tagString string) (*params.Kubern
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	operatorImagePath := podcfg.GetJujuOCIImagePath(controllerCfg, vers.ToPatch(), 0)
+	operatorImagePath := podcfg.GetJujuOCIImagePath(controllerCfg, vers.ToPatch(), version.OfficialBuild)
 
 	filesystemParams, err := f.applicationFilesystemParams(app, controllerCfg, modelConfig)
 	if err != nil {

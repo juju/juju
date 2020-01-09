@@ -560,7 +560,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		{
 			Name:            "api-server",
 			ImagePullPolicy: core.PullIfNotPresent,
-			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String(),
+			Image:           "jujusolutions/jujud-operator:" + jujuversion.Current.String() + ".666",
 			Command: []string{
 				"/bin/sh",
 			},

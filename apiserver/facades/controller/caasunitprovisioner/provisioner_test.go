@@ -202,7 +202,7 @@ func (s *CAASProvisionerSuite) TestProvisioningInfo(c *gc.C) {
 			DeploymentType: "stateful",
 			ServiceType:    "loadbalancer",
 		},
-		OperatorImagePath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()),
+		OperatorImagePath: fmt.Sprintf("jujusolutions/jujud-operator:%s", jujuversion.Current.String()+".666"),
 		Devices: []params.KubernetesDeviceParams{
 			{
 				Type:       "nvidia.com/gpu",
