@@ -18,7 +18,7 @@ import (
 	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 	checkers2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
-	bakerytest2 "gopkg.in/macaroon-bakery.v2/bakerytest"
+	"gopkg.in/macaroon-bakery.v2/bakerytest"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
@@ -300,7 +300,7 @@ func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]str
 }
 
 func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
-	discharger := bakerytest2.NewDischarger(nil)
+	discharger := bakerytest.NewDischarger(nil)
 	defer discharger.Close()
 	for i, test := range authenticateSuccessTests {
 		c.Logf("\ntest %d; %s", i, test.about)

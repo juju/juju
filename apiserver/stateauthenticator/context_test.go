@@ -10,12 +10,10 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	bakery2 "gopkg.in/macaroon-bakery.v2/bakery"
-	checkers2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
 	"gopkg.in/macaroon-bakery.v2/bakerytest"
-	bakerytest2 "gopkg.in/macaroon-bakery.v2/bakerytest"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
@@ -68,7 +66,7 @@ type alwaysIdent struct {
 }
 
 // IdentityFromContext implements IdentityClient.IdentityFromContext.
-func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers2.Caveat, error) {
+func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers.Caveat, error) {
 	return identchecker.SimpleIdentity("fred"), nil, nil
 }
 
@@ -78,12 +76,12 @@ func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]str
 
 func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 	// TODO - remove when we use bakeryv2 everywhere
-	discharger := bakerytest2.NewDischarger(nil)
+	discharger := bakerytest.NewDischarger(nil)
 	defer discharger.Close()
-	discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(func(ctx context.Context, p httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers2.Caveat, error) {
+	discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(func(ctx context.Context, p httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers.Caveat, error) {
 		if p.Caveat != nil && string(p.Caveat.Condition) == "is-authenticated-user" {
-			return []checkers2.Caveat{
-				checkers2.DeclaredCaveat("username", "fred"),
+			return []checkers.Caveat{
+				checkers.DeclaredCaveat("username", "fred"),
 			}, nil
 		}
 		return nil, errors.New("unexpected caveat")
@@ -92,16 +90,16 @@ func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
 	bsvc, err := stateauthenticator.ServerBakery(s.authenticator, &alwaysIdent{discharger.Location()})
 	c.Assert(err, gc.IsNil)
 
-	cav := []checkers2.Caveat{
-		checkers2.NeedDeclaredCaveat(
-			checkers2.Caveat{
+	cav := []checkers.Caveat{
+		checkers.NeedDeclaredCaveat(
+			checkers.Caveat{
 				Location:  discharger.Location(),
 				Condition: "is-authenticated-user",
 			},
 			"username",
 		),
 	}
-	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery2.LatestVersion, cav, bakery2.NoOp)
+	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
 	c.Assert(err, gc.IsNil)
 
 	client := httpbakery.NewClient()
@@ -145,16 +143,16 @@ func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c
 
 	m, err := macaroon.New(nil, nil, "loc", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery2.NewLegacyMacaroon(m)
+	mac, err := bakery.NewLegacyMacaroon(m)
 	c.Assert(err, jc.ErrorIsNil)
-	cav := checkers2.Caveat{
+	cav := checkers.Caveat{
 		Location:  s.discharger.Location(),
 		Condition: "true",
 	}
-	anotherKey, err := bakery2.GenerateKey()
+	anotherKey, err := bakery.GenerateKey()
 	c.Assert(err, jc.ErrorIsNil)
-	loc := bakery2.NewThirdPartyStore()
-	loc.AddInfo(s.discharger.Location(), bakery2.ThirdPartyInfo{})
+	loc := bakery.NewThirdPartyStore()
+	loc.AddInfo(s.discharger.Location(), bakery.ThirdPartyInfo{})
 	err = mac.AddCaveat(ctx, cav, anotherKey, loc)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = client.DischargeAll(ctx, mac)

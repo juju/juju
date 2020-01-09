@@ -4,12 +4,13 @@
 package bakerystorage
 
 import (
+	"context"
 	"encoding/json"
 	"time"
 
 	"github.com/juju/errors"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
 	"gopkg.in/mgo.v2"
 )
 
@@ -29,7 +30,7 @@ func MongoIndexes() []mgo.Index {
 type storage struct {
 	config      Config
 	expireAfter time.Duration
-	rootKeys    *mgostorage.RootKeys
+	rootKeys    *mgorootkeystore.RootKeys
 }
 
 type storageDoc struct {
@@ -50,22 +51,22 @@ func (s *storage) ExpireAfter(expireAfter time.Duration) ExpirableStorage {
 }
 
 // RootKey implements Storage.RootKey
-func (s *storage) RootKey() ([]byte, []byte, error) {
+func (s *storage) RootKey(ctx context.Context) ([]byte, []byte, error) {
 	storage, closer := s.getStorage()
 	defer closer()
-	return storage.RootKey()
+	return storage.RootKey(ctx)
 }
 
-func (s *storage) getStorage() (bakery.Storage, func()) {
+func (s *storage) getStorage() (bakery.RootKeyStore, func()) {
 	coll, closer := s.config.GetCollection()
 	return s.config.GetStorage(s.rootKeys, coll, s.expireAfter), closer
 }
 
 // Get implements Storage.Get
-func (s *storage) Get(id []byte) ([]byte, error) {
+func (s *storage) Get(ctx context.Context, id []byte) ([]byte, error) {
 	storage, closer := s.getStorage()
 	defer closer()
-	i, err := storage.Get(id)
+	i, err := storage.Get(ctx, id)
 	if err != nil {
 		if err == bakery.ErrNotFound {
 			return s.legacyGet(id)
