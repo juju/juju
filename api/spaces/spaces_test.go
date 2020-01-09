@@ -15,6 +15,7 @@ import (
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -30,7 +31,7 @@ var _ = gc.Suite(&SpacesSuite{})
 func (s *SpacesSuite) init(c *gc.C, args apitesting.APICall) {
 	s.apiCaller = apitesting.APICallChecker(c, args)
 	best := &apitesting.BestVersionCaller{
-		BestVersion:   5,
+		BestVersion:   6,
 		APICallerFunc: s.apiCaller.APICallerFunc,
 	}
 	s.api = spaces.NewAPI(best)
@@ -127,6 +128,92 @@ func (s *SpacesSuite) TestCreateSpaceV4(c *gc.C) {
 	apiv4 := spaces.NewAPI(apicaller)
 	err := apiv4.CreateSpace("testv4", []string{"1.1.1.0/24"}, false)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(called, jc.IsTrue)
+}
+
+func (s *SpacesSuite) testShowSpaces(c *gc.C, spaceName string, results []params.ShowSpaceResult, err error, expectErr string) {
+	var expectResults params.ShowSpaceResults
+	if results != nil {
+		expectResults = params.ShowSpaceResults{
+			Results: results,
+		}
+	}
+
+	s.init(c, apitesting.APICall{
+		Facade:  "Spaces",
+		Method:  "ShowSpace",
+		Results: expectResults,
+		Error:   err,
+	})
+	gotResults, gotErr := s.api.ShowSpace(spaceName)
+	c.Assert(s.apiCaller.CallCount, gc.Equals, 1)
+	if expectErr != "" {
+		c.Assert(gotErr, gc.ErrorMatches, expectErr)
+		c.Assert(gotResults, jc.DeepEquals, network.ShowSpace{})
+		return
+	} else {
+		c.Assert(results, gc.NotNil)
+		c.Assert(len(results), gc.Equals, 1)
+		converted := spaces.ShowSpaceFromResult(results[0])
+		c.Assert(gotResults, jc.DeepEquals, converted)
+	}
+	if err != nil {
+		c.Assert(gotErr, jc.DeepEquals, err)
+	} else {
+		c.Assert(gotErr, jc.ErrorIsNil)
+	}
+}
+
+func (s *SpacesSuite) TestShowSpaceTooManyResults(c *gc.C) {
+	s.testShowSpaces(c, "empty",
+		[]params.ShowSpaceResult{
+			{
+				Space: params.Space{},
+			},
+			{
+				Space: params.Space{},
+			},
+		}, nil, "expected 1 result, got 2")
+}
+
+func (s *SpacesSuite) TestShowSpaceNoResultsResults(c *gc.C) {
+	s.testShowSpaces(c, "empty", nil, nil, "expected 1 result, got 0")
+}
+
+func (s *SpacesSuite) TestShowSpaceResult(c *gc.C) {
+	result := []params.ShowSpaceResult{{
+		Space:        params.Space{Id: "1", Name: "default"},
+		Applications: []string{},
+		MachineCount: 0,
+	}}
+	s.testShowSpaces(c, "default", result, nil, "")
+}
+
+func (s *SpacesSuite) TestShowSpaceServerError(c *gc.C) {
+	s.testShowSpaces(c, "nil", nil, errors.New("boom"), "boom")
+}
+
+func (s *SpacesSuite) TestShowSpaceError(c *gc.C) {
+	arg := "space"
+	var called bool
+	apicaller := &apitesting.BestVersionCaller{
+		APICallerFunc: apitesting.APICallerFunc(
+			func(objType string, version int, id, request string, a, result interface{}) error {
+				c.Check(objType, gc.Equals, "Spaces")
+				c.Check(id, gc.Equals, "")
+				c.Check(request, gc.Equals, "ShowSpace")
+				c.Assert(result, gc.FitsTypeOf, &params.ShowSpaceResults{})
+				c.Assert(a, jc.DeepEquals, params.Entities{
+					Entities: []params.Entity{{Tag: names.NewSpaceTag(arg).String()}},
+				})
+				called = true
+				return nil
+			},
+		),
+	}
+	api := spaces.NewAPI(apicaller)
+	_, err := api.ShowSpace(arg)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 	c.Assert(called, jc.IsTrue)
 }
 

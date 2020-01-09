@@ -5,22 +5,277 @@ package spaces_test
 
 import (
 	"fmt"
+	"sort"
 
+	"github.com/golang/mock/gomock"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/juju/environs"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
+	networkcommonmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/spaces"
+	"github.com/juju/juju/apiserver/facades/client/spaces/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
+	environMocks "github.com/juju/juju/environs/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
+// This package contains the move from stub to mocking. Therefore the package is not "*._test"
+// We contain the old spaces_test while slowly migrating to the new mocking model.
+type SpaceTestMockSuite struct {
+	mockBacking          *mocks.MockBacking
+	mockResource         *facademocks.MockResources
+	mockBlockChecker     *mocks.MockBlockChecker
+	mockCloudCallContext *context.CloudCallContext
+	mockAuthorizer       *facademocks.MockAuthorizer
+
+	api *spaces.API
+}
+
+var _ = gc.Suite(&SpaceTestMockSuite{})
+
+func (s *SpaceTestMockSuite) TearDownTest(c *gc.C) {
+	s.api = nil
+}
+
+func (s *SpaceTestMockSuite) TestShowSpaceDefault(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c)
+	defer ctrl.Finish()
+	defer unreg()
+
+	s.expectDefaultSpace(ctrl, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), nil)
+	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
+
+	expectedApplications := []string{"mysql", "mediawiki"}
+	sort.Strings(expectedApplications)
+
+	expected := params.ShowSpaceResults{Results: []params.ShowSpaceResult{
+		{
+			Space: params.Space{Id: "1", Name: "default", Subnets: []params.Subnet{{
+				CIDR:              "192.168.0.0/24",
+				ProviderId:        "0",
+				ProviderNetworkId: "1",
+				ProviderSpaceId:   "",
+				VLANTag:           0,
+				Life:              "alive",
+				SpaceTag:          "space-default",
+				Zones:             []string{"bar", "bam"},
+				Status:            "in-use",
+			}}},
+			Error: nil,
+			// Applications = 2, as 2 applications are having a bind on that space.
+			Applications: expectedApplications,
+			// MachineCount = 2, as two machines has constraints on the space.
+			MachineCount: 2,
+		},
+	}}
+	args := params.Entities{
+		Entities: []params.Entity{{names.NewSpaceTag("default").String()}},
+	}
+
+	res, err := s.api.ShowSpace(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, jc.DeepEquals, expected)
+}
+
+func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c)
+	defer ctrl.Finish()
+	defer unreg()
+
+	bamErr := errors.New("bam")
+	s.expectDefaultSpace(ctrl, bamErr, nil)
+	spaceTag := names.NewSpaceTag("default")
+	args := params.Entities{
+		Entities: []params.Entity{{spaceTag.String()}},
+	}
+	res, err := s.api.ShowSpace(args)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedErr := fmt.Sprintf("fetching space %q: %v", spaceTag.String(), bamErr.Error())
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c)
+	defer ctrl.Finish()
+	defer unreg()
+
+	bamErr := errors.New("bam")
+	s.expectDefaultSpace(ctrl, nil, bamErr)
+	spaceTag := names.NewSpaceTag("default")
+	args := params.Entities{
+		Entities: []params.Entity{{spaceTag.String()}},
+	}
+	res, err := s.api.ShowSpace(args)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedErr := fmt.Sprintf("fetching subnets: %v", bamErr.Error())
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c)
+	defer ctrl.Finish()
+	defer unreg()
+
+	bamErr := errors.New("bam")
+	s.expectDefaultSpace(ctrl, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), bamErr)
+
+	spaceTag := names.NewSpaceTag("default")
+	args := params.Entities{
+		Entities: []params.Entity{{spaceTag.String()}},
+	}
+	res, err := s.api.ShowSpace(args)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedErr := fmt.Sprintf("fetching applications: %v", bamErr.Error())
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c)
+	defer ctrl.Finish()
+	defer unreg()
+
+	bamErr := errors.New("bam")
+	s.expectDefaultSpace(ctrl, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), nil)
+	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
+
+	spaceTag := names.NewSpaceTag("default")
+	args := params.Entities{
+		Entities: []params.Entity{{spaceTag.String()}},
+	}
+	res, err := s.api.ShowSpace(args)
+	c.Assert(err, jc.ErrorIsNil)
+	expectedErr := fmt.Sprintf("fetching machine count: %v", bamErr.Error())
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
+}
+
+func (s *SpaceTestMockSuite) getDefaultApplicationEndpoints() []spaces.ApplicationEndpointBindingsShim {
+	endpoints := []spaces.ApplicationEndpointBindingsShim{{
+		AppName:  "mysql",
+		Bindings: map[string]string{"db": "1", "slave": "alpha"},
+	}, {
+		AppName:  "mediawiki",
+		Bindings: map[string]string{"db": "1", "back": "alpha"},
+	},
+	}
+	return endpoints
+}
+
+func (s *SpaceTestMockSuite) getDefaultSpaces() set.Strings {
+	strings := set.NewStrings("1", "2")
+	return strings
+}
+
+func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C) (*gomock.Controller, func()) {
+	ctrl := gomock.NewController(c)
+	s.mockResource = facademocks.NewMockResources(ctrl)
+	s.mockCloudCallContext = context.NewCloudCallContext()
+	s.mockBlockChecker = mocks.NewMockBlockChecker(ctrl)
+	s.mockBacking = mocks.NewMockBacking(ctrl)
+
+	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.mockAuthorizer.EXPECT().AuthClient().Return(true)
+
+	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
+	s.mockBacking.EXPECT().ModelConfig().Return(nil, nil)
+
+	mockNetworkEnviron := environMocks.NewMockNetworkingEnviron(ctrl)
+	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(true, nil)
+
+	mockProvider := environMocks.NewMockCloudEnvironProvider(ctrl)
+	mockProvider.EXPECT().Open(gomock.Any()).Return(mockNetworkEnviron, nil)
+
+	unreg := environs.RegisterProvider("mock-provider", mockProvider)
+
+	cloudspec := environs.CloudSpec{
+		Type:             "mock-provider",
+		Name:             "cloud-name",
+		Endpoint:         "endpoint",
+		IdentityEndpoint: "identity-endpoint",
+		StorageEndpoint:  "storage-endpoint",
+	}
+
+	s.mockBacking.EXPECT().CloudSpec().Return(cloudspec, nil)
+
+	var err error
+	s.api, err = spaces.NewAPIWithBacking(s.mockBacking, s.mockBlockChecker, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	return ctrl, unreg
+}
+
+func (s *SpaceTestMockSuite) expectEndpointBindings(endpoints []spaces.ApplicationEndpointBindingsShim, err error) {
+	s.mockBacking.EXPECT().AllEndpointBindings().Return(endpoints, err)
+}
+
+// expectDefaultSpace configures a default space mock with default subnet settings
+func (s *SpaceTestMockSuite) expectDefaultSpace(ctrl *gomock.Controller, spacesErr, subnetErr error) {
+	subnetMock := networkcommonmocks.NewMockBackingSubnet(ctrl)
+	subnetMock.EXPECT().CIDR().Return("192.168.0.0/24").AnyTimes()
+	subnetMock.EXPECT().SpaceID().Return("1").AnyTimes()
+	subnetMock.EXPECT().SpaceName().Return("default").AnyTimes()
+	subnetMock.EXPECT().VLANTag().Return(0).AnyTimes()
+	subnetMock.EXPECT().ProviderId().Return(network.Id("0")).AnyTimes()
+	subnetMock.EXPECT().ProviderNetworkId().Return(network.Id("1")).AnyTimes()
+	subnetMock.EXPECT().AvailabilityZones().Return([]string{"bar", "bam"}).AnyTimes()
+	subnetMock.EXPECT().Status().Return("in-use").AnyTimes()
+	subnetMock.EXPECT().Life().Return(life.Value("alive")).AnyTimes()
+	subnetMock.EXPECT().ID().Return("111").AnyTimes()
+
+	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
+	spacesMock.EXPECT().Id().Return("1").AnyTimes()
+	spacesMock.EXPECT().Name().Return("default").AnyTimes()
+	spacesMock.EXPECT().Subnets().Return([]networkingcommon.BackingSubnet{subnetMock}, subnetErr).AnyTimes()
+	s.mockBacking.EXPECT().SpaceByName("default").Return(spacesMock, spacesErr)
+
+}
+
+func (s *SpaceTestMockSuite) expectMachines(ctrl *gomock.Controller, addresses set.Strings, machErr, addressesErr error) {
+	mockMachine := mocks.NewMockMachine(ctrl)
+	// With this we can ensure that the function correctly adds up multiple machines.
+	anotherMockMachine := mocks.NewMockMachine(ctrl)
+	if machErr != nil {
+		mockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr).AnyTimes()
+		anotherMockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr).AnyTimes()
+	} else {
+		mockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr)
+		anotherMockMachine.EXPECT().AllSpaces().Return(addresses, addressesErr)
+	}
+	mockMachines := []spaces.Machine{mockMachine, anotherMockMachine}
+	s.mockBacking.EXPECT().AllMachines().Return(mockMachines, machErr)
+}
+
+type stubBacking struct {
+	*apiservertesting.StubBacking
+}
+
+func (sb *stubBacking) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) AllEndpointBindings() ([]spaces.ApplicationEndpointBindingsShim, error) {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) AllMachines() ([]spaces.Machine, error) {
+	panic("should not be called")
+}
+
+// This is the old testing suite
 type SpacesSuite struct {
 	coretesting.BaseSuite
 	apiservertesting.StubNetwork
@@ -64,7 +319,7 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 	s.blockChecker = mockBlockChecker{}
 	var err error
 	s.facade, err = spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		s.callContext,
 		s.resources, s.authorizer,
@@ -83,7 +338,7 @@ func (s *SpacesSuite) TearDownTest(c *gc.C) {
 func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		s.callContext,
 		s.resources, s.authorizer,
@@ -97,7 +352,7 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		context.NewCloudCallContext(),
 		s.resources,
@@ -285,6 +540,16 @@ func (s *SpacesSuite) TestAddSpacesAPIError(c *gc.C) {
 	s.checkAddSpaces(c, p)
 }
 
+func (s *SpacesSuite) TestShowSpaceError(c *gc.C) {
+	apiservertesting.SharedStub.SetErrors(
+		errors.New("boom"), // Backing.ModelConfig()
+	)
+
+	entities := params.Entities{}
+	_, err := s.facade.ShowSpace(entities)
+	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
+}
+
 func (s *SpacesSuite) TestCreateSpacesModelConfigError(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(
 		errors.New("boom"), // Backing.ModelConfig()
@@ -452,7 +717,7 @@ func (s *SpacesSuite) TestCreateSpacesBlocked(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestCreateSpacesAPIv4(c *gc.C) {
-	apiV4 := &spaces.APIv4{s.facade}
+	apiV4 := &spaces.APIv4{&spaces.APIv5{s.facade}}
 	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
 		Spaces: []params.CreateSpaceParamsV4{
 			{
@@ -467,7 +732,7 @@ func (s *SpacesSuite) TestCreateSpacesAPIv4(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestCreateSpacesAPIv4FailCIDR(c *gc.C) {
-	apiV4 := &spaces.APIv4{s.facade}
+	apiV4 := &spaces.APIv4{&spaces.APIv5{s.facade}}
 	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
 		Spaces: []params.CreateSpaceParamsV4{
 			{
@@ -482,7 +747,7 @@ func (s *SpacesSuite) TestCreateSpacesAPIv4FailCIDR(c *gc.C) {
 }
 
 func (s *SpacesSuite) TestCreateSpacesAPIv4FailTag(c *gc.C) {
-	apiV4 := &spaces.APIv4{s.facade}
+	apiV4 := &spaces.APIv4{&spaces.APIv5{s.facade}}
 	results, err := apiV4.CreateSpaces(params.CreateSpacesParamsV4{
 		Spaces: []params.CreateSpaceParamsV4{
 			{
@@ -500,7 +765,7 @@ func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewUserTag("regular")
 	facade, err := spaces.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		context.NewCloudCallContext(),
 		s.resources, agentAuthorizer,
@@ -516,7 +781,7 @@ func (s *SpacesSuite) TestSuppportsSpacesModelConfigError(c *gc.C) {
 		errors.New("boom"), // Backing.ModelConfig()
 	)
 
-	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -527,7 +792,7 @@ func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
 		errors.New("boom"), // environs.New()
 	)
 
-	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
@@ -539,7 +804,7 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
 		apiservertesting.WithoutSpaces,
 		apiservertesting.WithoutSubnets)
 
-	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
@@ -558,12 +823,12 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
 		errors.New("boom"), // Backing.supportsSpaces()
 	)
 
-	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *SpacesSuite) TestSuppportsSpaces(c *gc.C) {
-	err := spaces.SupportsSpaces(apiservertesting.BackingInstance, context.NewCloudCallContext())
+	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
 

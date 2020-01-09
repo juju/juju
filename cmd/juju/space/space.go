@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 )
 
 // SpaceAPI defines the necessary API methods needed by the space
@@ -50,6 +51,9 @@ type SpaceAPI interface {
 
 	// ReloadSpaces fetches spaces and subnets from substrate
 	ReloadSpaces() error
+
+	// ShowSpace fetches space information.
+	ShowSpace(name string) (network.ShowSpace, error)
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.space")
@@ -143,6 +147,10 @@ func (m *mvpAPIShim) ListSpaces() ([]params.Space, error) {
 
 func (m *mvpAPIShim) ReloadSpaces() error {
 	return m.facade.ReloadSpaces()
+}
+
+func (m *mvpAPIShim) ShowSpace(name string) (network.ShowSpace, error) {
+	return m.facade.ShowSpace(name)
 }
 
 // NewAPI returns a SpaceAPI for the root api endpoint that the

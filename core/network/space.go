@@ -21,6 +21,16 @@ const (
 	AlphaSpaceName = "alpha"
 )
 
+// ShowSpace represents space information output by the CLI client.
+type ShowSpace struct {
+	// Information about a given space.
+	Space SpaceInfo `json:"space" yaml:"space"`
+	// Application names which are bound to a given space.
+	Applications []string `json:"applications" yaml:"applications"`
+	// MachineCount is the number of machines connected to a given space.
+	MachineCount int `json:"machine-count" yaml:"machine-count"`
+}
+
 // SpaceLookup describes methods for acquiring SpaceInfos
 // to translate space IDs to space names and vice versa.
 type SpaceLookup interface {
@@ -41,7 +51,7 @@ type SpaceInfo struct {
 
 	// ProviderId is the provider's unique identifier for the space,
 	// such as used by MAAS.
-	ProviderId Id
+	ProviderId Id `json:"provider-id,omitempty" yaml:"provider-id,omitempty"`
 
 	// Subnets are the subnets that have been grouped into this network space.
 	Subnets []SubnetInfo

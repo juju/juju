@@ -30693,7 +30693,7 @@
     },
     {
         "Name": "Spaces",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -30718,6 +30718,17 @@
                 },
                 "ReloadSpaces": {
                     "type": "object"
+                },
+                "ShowSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ShowSpaceResults"
+                        }
+                    }
                 }
             },
             "definitions": {
@@ -30760,6 +30771,33 @@
                     "additionalProperties": false,
                     "required": [
                         "spaces"
+                    ]
+                },
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
                     ]
                 },
                 "Error": {
@@ -30818,6 +30856,47 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Space"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "ShowSpaceResult": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "machine-count": {
+                            "type": "integer"
+                        },
+                        "space": {
+                            "$ref": "#/definitions/Space"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "space",
+                        "applications",
+                        "machine-count"
+                    ]
+                },
+                "ShowSpaceResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ShowSpaceResult"
                             }
                         }
                     },

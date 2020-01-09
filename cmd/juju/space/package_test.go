@@ -24,6 +24,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+//go:generate mockgen -package mocks -destination mocks/spacesapi_mock.go github.com/juju/juju/cmd/juju/space SpaceAPI
+
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
 }
@@ -246,4 +248,12 @@ func (sa *StubAPI) RenameSpace(name, newName string) error {
 func (sa *StubAPI) ReloadSpaces() error {
 	sa.MethodCall(sa, "ReloadSpaces")
 	return sa.NextErr()
+}
+
+func (sa *StubAPI) ShowSpace(name string) (network.ShowSpace, error) {
+	sa.MethodCall(sa, "ShowSpace", name)
+	if err := sa.NextErr(); err != nil {
+		return network.ShowSpace{}, err
+	}
+	return network.ShowSpace{}, nil
 }

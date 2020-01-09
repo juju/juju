@@ -588,6 +588,7 @@ var commandNames = []string{
 	"show-status",
 	"show-status-log",
 	"show-storage",
+	"show-space",
 	"show-user",
 	"show-wallet",
 	"sla",
