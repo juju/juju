@@ -47,6 +47,12 @@ bootstrap() {
         "aws")
             provider="aws"
             ;;
+        "gce")
+            provider="gce"
+            ;;
+        "maas")
+            provider="maas"
+            ;;
         "lxd")
             provider="lxd"
             ;;
