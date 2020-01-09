@@ -99,6 +99,7 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 		return nil, err
 	}
 	dcfolders, err := datacenter.Folders(ctx)
+	c.logger.Criticalf("FindFolder dcfolders %+v, folderPath %q, err %+v", dcfolders, folderPath, err)
 	if err != nil {
 		return nil, err
 	}
@@ -123,6 +124,7 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 		fullpath = folderPath
 	}
 	vmFolder, err = fi.Folder(ctx, fullpath)
+	c.logger.Criticalf("FindFolder vmFolder %+v, fullpath %q, err %+v", vmFolder, fullpath, err)
 	if err != nil {
 		return nil, err
 	}
@@ -314,6 +316,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
 		_, err := parent.CreateFolder(ctx, name)
+		c.logger.Criticalf("EnsureVMFolder createFolder parent.InventoryPath %q, name %q, err %+v", parent.InventoryPath, name, err)
 		if err != nil && soap.IsSoapFault(err) {
 			switch soap.ToSoapFault(err).VimFault().(type) {
 			case types.DuplicateName:
@@ -328,7 +331,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 	// since that demands Add_folder permissions from the root-folder's DC
 	// Join paths for folders.VMFolder and credentials attribute
 	parentFolder, err := c.FindFolder(ctx, credAttrFolder)
-
+	c.logger.Criticalf("EnsureVMFolder FindFolder credAttrFolder %q, err %+v", credAttrFolder, err)
 	// Consider the case where folder from credential attribute comes empty:
 	// path.Join ignores empty entries
 	if err != nil {

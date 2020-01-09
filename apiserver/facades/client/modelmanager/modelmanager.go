@@ -545,8 +545,9 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		return result, errors.Trace(err)
 	}
 
-	var model common.Model
+	// TODO: check model name already exist!!!!!!!!!
 
+	var model common.Model
 	if jujucloud.CloudIsCAAS(cloud) {
 		model, err = m.newCAASModel(
 			cloudSpec,

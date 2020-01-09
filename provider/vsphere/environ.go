@@ -126,7 +126,7 @@ func (env *sessionEnviron) Create(ctx callcontext.ProviderCallContext, args envi
 	return env.ensureVMFolder(args.ControllerUUID, ctx)
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+// Bootstrap is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
 // Bootstrap is part of the environs.Environ interface.
@@ -155,7 +155,9 @@ func (env *sessionEnviron) Bootstrap(
 }
 
 func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
-	_, err := env.client.EnsureVMFolder(env.ctx, env.environ.cloud.Credential.Attributes()[credAttrVMFolder], path.Join(
+	pFolder := env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
+	logger.Criticalf("pFolder %q", pFolder)
+	_, err := env.client.EnsureVMFolder(env.ctx, pFolder, path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
@@ -163,7 +165,7 @@ func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext
 	return errors.Trace(err)
 }
 
-// this variable is exported, because it has to be rewritten in external unit tests
+// DestroyEnv is exported, because it has to be rewritten in external unit tests.
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
