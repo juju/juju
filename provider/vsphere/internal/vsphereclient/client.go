@@ -357,16 +357,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 
 // DestroyVMFolder destroys a folder rooted at the datacenter's base VM folder.
 func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	folderPath = path.Join(folders.VmFolder.InventoryPath, folderPath)
-	folder, err := finder.Folder(ctx, folderPath)
+	folder, err := c.FindFolder(ctx, folderPath)
 	if err != nil {
 		if _, ok := err.(*find.NotFoundError); ok {
 			return nil
@@ -386,23 +377,12 @@ func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 }
 
 // MoveVMFolderInto moves one VM folder into another.
-func (c *Client) MoveVMFolderInto(ctx context.Context, parentPath, childPath string) error {
-	finder, datacenter, err := c.finder(ctx)
+func (c *Client) MoveVMFolderInto(ctx context.Context, from, to string) error {
+	parent, err := c.FindFolder(ctx, from)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	folders, err := datacenter.Folders(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	parentPath = path.Join(folders.VmFolder.InventoryPath, parentPath)
-	childPath = path.Join(folders.VmFolder.InventoryPath, childPath)
-	parent, err := finder.Folder(ctx, parentPath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	child, err := finder.Folder(ctx, childPath)
+	child, err := c.FindFolder(ctx, to)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -423,16 +403,7 @@ func (c *Client) MoveVMsInto(
 	folderPath string,
 	vms ...types.ManagedObjectReference,
 ) error {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	folderPath = path.Join(folders.VmFolder.InventoryPath, folderPath)
-	folder, err := finder.Folder(ctx, folderPath)
+	folder, err := c.FindFolder(ctx, folderPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
