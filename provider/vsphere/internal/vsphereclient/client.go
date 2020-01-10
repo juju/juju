@@ -92,9 +92,9 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 
 // FindFolder should be able to search for both entire filepaths
 // or relative (.) filepaths.
-// if the user passes "test" or "/<DC>/vm/test" as folder, it should
-// return the pointer for the same folder.
-// Should also deal with the case where folderPath is nil or empty
+// If the user passes "test" or "/<DC>/vm/test" as folder, it should
+// return the pointer for the same folder, and should also deal with
+// the case where folderPath is nil or empty.
 func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
 	if strings.Contains(folderPath, "..") {
 		// ".." not supported as per:

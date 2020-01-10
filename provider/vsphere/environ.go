@@ -246,7 +246,11 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 }
 
 func (env *sessionEnviron) getVMFolder() string {
-	return env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
+	attrs := env.environ.cloud.Credential.Attributes()
+	if attrs == nil {
+		return ""
+	}
+	return attrs[credAttrVMFolder]
 }
 
 func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]*mo.Datastore, error) {
