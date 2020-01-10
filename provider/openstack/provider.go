@@ -1066,7 +1066,8 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		Description:          "keystone catalog",
 		BaseURL:              serviceURL,
 		HostnameVerification: verify,
-		Priority:             simplestreams.SPECIFIC_CLOUD_DATA}
+		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Annotate(err, "simplestreams config validation failed")
 	}
