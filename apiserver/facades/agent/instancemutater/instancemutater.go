@@ -126,7 +126,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 		result.Error = common.ServerError(common.ErrPerm)
 		return result, nil
 	}
-	m, err := api.getCacheMachine(canAccess, tag)
+	m, err := api.getMachine(canAccess, tag)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -338,7 +338,7 @@ type lxdProfileInfo struct {
 	ProfileUnits    []params.ProfileInfoResult
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdProfileInfo, error) {
+func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo, error) {
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()

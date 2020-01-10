@@ -21,6 +21,9 @@ type InstanceMutaterState interface {
 
 // Machine represents point of use methods from the state machine object
 type Machine interface {
+	InstanceId() (instance.Id, error)
+	CharmProfiles() []string
+	Units() ([]ModelCacheUnit, error)
 	SetCharmProfiles([]string) error
 	SetModificationStatus(status.StatusInfo) error
 }
