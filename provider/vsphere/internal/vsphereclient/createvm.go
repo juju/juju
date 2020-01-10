@@ -309,17 +309,12 @@ func (c *Client) CreateVirtualMachine(
 	ctx context.Context,
 	args CreateVirtualMachineParams,
 ) (_ *mo.VirtualMachine, err error) {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
+	_, datacenter, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	folderPath := path.Join(folders.VmFolder.InventoryPath, args.Folder)
-	vmFolder, err := finder.Folder(ctx, folderPath)
+	vmFolder, err := c.FindFolder(ctx, args.Folder)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
