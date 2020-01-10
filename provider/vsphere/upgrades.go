@@ -98,21 +98,15 @@ func (modelFoldersUpgradeStep) Description() string {
 func (step modelFoldersUpgradeStep) Run(ctx context.ProviderCallContext) error {
 	return step.env.withSession(ctx, func(env *sessionEnviron) error {
 		// We must create the folder even if there are no VMs in the model.
-		modelFolderPath := path.Join(
-			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-			controllerFolderName(step.controllerUUID),
-			env.modelFolderName(),
-		)
+		modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName(step.controllerUUID), env.modelFolderName())
 
 		// EnsureVMFolder needs credential attributes to be defined separatedly
 		// from the folders it is supposed to create
 		if _, err := env.client.EnsureVMFolder(
 			env.ctx,
-			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-			path.Join(
-				controllerFolderName(step.controllerUUID),
-				env.modelFolderName(),
-			)); err != nil {
+			env.getVMFolder(),
+			path.Join(controllerFolderName(step.controllerUUID), env.modelFolderName()),
+		); err != nil {
 			HandleCredentialError(err, env, ctx)
 			return errors.Annotate(err, "creating model folder")
 		}
