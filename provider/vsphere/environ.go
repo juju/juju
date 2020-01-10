@@ -155,9 +155,7 @@ func (env *sessionEnviron) Bootstrap(
 }
 
 func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
-	pFolder := env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
-	logger.Criticalf("pFolder %q", pFolder)
-	_, err := env.client.EnsureVMFolder(env.ctx, pFolder, path.Join(
+	_, err := env.client.EnsureVMFolder(env.ctx, env.getVMFolder(), path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
@@ -179,15 +177,8 @@ func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controll
 // AdoptResources is part of the Environ interface.
 func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	err := env.client.MoveVMFolderInto(env.ctx,
-		path.Join(
-			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-			controllerFolderName(controllerUUID),
-		),
-		path.Join(
-			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-			controllerFolderName("*"),
-			env.modelFolderName(),
-		),
+		path.Join(env.getVMFolder(), controllerFolderName(controllerUUID)),
+		path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()),
 	)
 	HandleCredentialError(err, env, ctx)
 	return err
@@ -209,11 +200,7 @@ func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 		// further down the stack.
 		return errors.Trace(err)
 	}
-	err := env.client.DestroyVMFolder(env.ctx, path.Join(
-		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-		controllerFolderName("*"),
-		env.modelFolderName(),
-	))
+	err := env.client.DestroyVMFolder(env.ctx, path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()))
 	HandleCredentialError(err, env, ctx)
 	return err
 }
@@ -231,18 +218,11 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		return errors.Trace(err)
 	}
 	controllerFolderName := controllerFolderName(controllerUUID)
-	if err := env.client.RemoveVirtualMachines(env.ctx, path.Join(
-		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-		controllerFolderName,
-		modelFolderName("*", "*"),
-		"*",
-	)); err != nil {
+	if err := env.client.RemoveVirtualMachines(env.ctx, path.Join(env.getVMFolder(), controllerFolderName, modelFolderName("*", "*"), "*")); err != nil {
 		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "removing VMs")
 	}
-	if err := env.client.DestroyVMFolder(env.ctx, path.Join(
-		env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-		controllerFolderName)); err != nil {
+	if err := env.client.DestroyVMFolder(env.ctx, path.Join(env.getVMFolder(), controllerFolderName)); err != nil {
 		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "destroying VM folder")
 	}
@@ -255,9 +235,7 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		return errors.Annotate(err, "listing datastores")
 	}
 	for _, ds := range datastores {
-		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, vmdkDirectoryName(
-			env.environ.cloud.Credential.Attributes()[credAttrVMFolder],
-			controllerUUID))
+		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, vmdkDirectoryName(env.getVMFolder(), controllerUUID))
 		logger.Debugf("deleting: %s", datastorePath)
 		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
 			HandleCredentialError(err, env, ctx)
@@ -265,6 +243,10 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		}
 	}
 	return nil
+}
+
+func (env *sessionEnviron) getVMFolder() string {
+	return env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
 }
 
 func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]*mo.Datastore, error) {
