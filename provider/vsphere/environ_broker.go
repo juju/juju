@@ -58,10 +58,11 @@ func modelFolderName(modelUUID, modelName string) string {
 // vmdkDirectoryName returns the name of the datastore directory in which
 // the base VMDKs are stored for the controller.
 func vmdkDirectoryName(parentfolder string, controllerUUID string) string {
-	if parentfolder == "" {
-		return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
+	dName := path.Join("juju-vmdks", controllerUUID)
+	if parentfolder != "" {
+		dName = path.Join(parentfolder, dName)
 	}
-	return fmt.Sprintf("%s/juju-vmdks/%s", parentfolder, controllerUUID)
+	return dName
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -104,7 +105,7 @@ func (env *sessionEnviron) StartInstance(ctx context.ProviderCallContext, args e
 	return &result, nil
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+// FinishInstanceConfig is exported, because it has to be rewritten in external unit tests
 var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
@@ -198,6 +199,7 @@ func (env *sessionEnviron) newRawInstance(
 	if (cons.RootDiskSource == nil || *cons.RootDiskSource == "") && defaultDatastore != "" {
 		cons.RootDiskSource = &defaultDatastore
 	}
+	logger.Criticalf("newRawInstance defaultDatastore %q, cons.RootDiskSource %+v", defaultDatastore, cons.RootDiskSource)
 
 	// Download and extract the OVA file. If we're bootstrapping we use
 	// a temporary directory, otherwise we cache the image for future use.
