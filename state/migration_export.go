@@ -1105,10 +1105,6 @@ func (e *exporter) relations() error {
 		}
 	}
 
-	remoteApps := make(set.Strings)
-	for _, a := range e.model.RemoteApplications() {
-		remoteApps.Add(a.Name())
-	}
 	for _, relation := range rels {
 		exRelation := e.model.AddRelation(description.RelationArgs{
 			Id:  relation.Id(),
@@ -1122,13 +1118,6 @@ func (e *exporter) relations() error {
 			return errors.Annotatef(err, "status for relation %v", relation.Id())
 		}
 
-		isRemote := false
-		for _, ep := range relation.Endpoints() {
-			if remoteApps.Contains(ep.ApplicationName) {
-				isRemote = true
-				break
-			}
-		}
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,
@@ -1148,12 +1137,10 @@ func (e *exporter) relations() error {
 			delete(e.modelSettings, key)
 			exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
 
-			// We expect a relationScope and settings for each of the
-			// units of the specified application, unless it is a
-			// remote application.
-			if isRemote {
-				continue
-			}
+			// We expect a relationScope and settings for each of the units of
+			// the specified application unless it is a remote application.
+			// Remote applications will have no units in the local model and
+			// are implicitly ignored.
 			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
