@@ -37,14 +37,16 @@ func init() {
 // DataSource creates and returns a new simplestreams signed data source for
 // fetching Juju GUI archives, at the given URL.
 func NewDataSource(baseURL string) simplestreams.DataSource {
-	requireSigned := true
-	return simplestreams.NewURLSignedDataSource(
-		sourceDescription,
-		baseURL,
-		keys.JujuPublicKey,
-		utils.VerifySSLHostnames,
-		simplestreams.DEFAULT_CLOUD_DATA,
-		requireSigned)
+	return simplestreams.NewDataSource(
+		simplestreams.Config{
+			Description:          sourceDescription,
+			BaseURL:              baseURL,
+			PublicSigningKey:     keys.JujuPublicKey,
+			HostnameVerification: utils.VerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+			RequireSigned:        true,
+		},
+	)
 }
 
 // FetchMetadata fetches and returns Juju GUI metadata from simplestreams,

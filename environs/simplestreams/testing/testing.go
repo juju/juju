@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/os/series"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/simplestreams"
@@ -815,4 +816,21 @@ func (s *LocalLiveSimplestreamsSuite) AssertGetItemCollections(c *gc.C, version 
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Items[version]
 	return ic
+}
+
+func InvalidDataSource(requireSigned bool) simplestreams.DataSource {
+	return simplestreams.NewDataSource(simplestreams.Config{
+		Description:          "invalid",
+		BaseURL:              "file://invalid",
+		HostnameVerification: utils.VerifySSLHostnames,
+		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+		RequireSigned:        requireSigned})
+}
+
+func VerifyDefaultCloudDataSource(description, baseURL string) simplestreams.DataSource {
+	return simplestreams.NewDataSource(simplestreams.Config{
+		Description:          description,
+		BaseURL:              baseURL,
+		HostnameVerification: utils.VerifySSLHostnames,
+		Priority:             simplestreams.DEFAULT_CLOUD_DATA})
 }

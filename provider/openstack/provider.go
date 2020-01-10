@@ -1047,14 +1047,14 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		return *datasource, nil
 	}
 
-	client := e.client()
-	if !client.IsAuthenticated() {
-		if err := authenticateClient(client); err != nil {
+	cl := e.client()
+	if !cl.IsAuthenticated() {
+		if err := authenticateClient(cl); err != nil {
 			return nil, err
 		}
 	}
 
-	url, err := makeServiceURL(client, keystoneName, "", nil)
+	serviceURL, err := makeServiceURL(cl, keystoneName, "", nil)
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
@@ -1062,7 +1062,16 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if !e.Config().SSLHostnameVerification() {
 		verify = utils.NoVerifySSLHostnames
 	}
-	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify, simplestreams.SPECIFIC_CLOUD_DATA, false)
+	cfg := simplestreams.Config{
+		Description:          "keystone catalog",
+		BaseURL:              serviceURL,
+		HostnameVerification: verify,
+		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Annotate(err, "simplestreams config validation failed")
+	}
+	*datasource = simplestreams.NewDataSource(cfg)
 	return *datasource, nil
 }
 

@@ -158,7 +158,17 @@ func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource,
 		return nil, err
 	}
 	logger.Infof("source for sync of agent binaries: %v", sourceURL)
-	return simplestreams.NewURLSignedDataSource("sync agent binaries source", sourceURL, keys.JujuPublicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false), nil
+	config := simplestreams.Config{
+		Description:          "sync agent binaries source",
+		BaseURL:              sourceURL,
+		PublicSigningKey:     keys.JujuPublicKey,
+		HostnameVerification: utils.VerifySSLHostnames,
+		Priority:             simplestreams.CUSTOM_CLOUD_DATA,
+	}
+	if err := config.Validate(); err != nil {
+		return nil, errors.Annotate(err, "simplestreams config validation failed")
+	}
+	return simplestreams.NewDataSource(config), nil
 }
 
 // copyTools copies a set of tools from the source to the target.

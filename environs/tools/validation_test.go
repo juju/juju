@@ -12,17 +12,19 @@ import (
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/testing"
 )
 
 type ValidateSuite struct {
 	testing.BaseSuite
 	metadataDir string
+	dataSource  simplestreams.DataSource
 }
 
 var _ = gc.Suite(&ValidateSuite{})
 
-func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series string) error {
+func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series string) {
 	tm := []*ToolsMetadata{{
 		Version:  version,
 		Release:  series,
@@ -40,12 +42,12 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, stream, version, series strin
 	}
 	err = WriteMetadata(stor, streamMetadata, []string{stream}, false)
 	c.Assert(err, jc.ErrorIsNil)
-	return nil
 }
 
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
+	s.dataSource = sstesting.VerifyDefaultCloudDataSource("test", s.toolsURL())
 }
 
 func (s *ValidateSuite) toolsURL() string {
@@ -62,8 +64,7 @@ func (s *ValidateSuite) TestExactVersionMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
-			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
+			Sources:       []simplestreams.DataSource{s.dataSource},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -88,8 +89,7 @@ func (s *ValidateSuite) TestMajorVersionMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
-			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
+			Sources:       []simplestreams.DataSource{s.dataSource},
 		},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
@@ -114,9 +114,7 @@ func (s *ValidateSuite) TestMajorMinorVersionMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
-			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
-		},
+			Sources:       []simplestreams.DataSource{s.dataSource}},
 	}
 	versions, resolveInfo, err := ValidateToolsMetadata(params)
 	c.Assert(err, jc.ErrorIsNil)
@@ -139,9 +137,7 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "released",
-			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
-		},
+			Sources:       []simplestreams.DataSource{s.dataSource}},
 	}
 	_, _, err := ValidateToolsMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))
@@ -157,9 +153,7 @@ func (s *ValidateSuite) TestStreamsNoMatch(c *gc.C) {
 			Architectures: []string{"amd64"},
 			Endpoint:      "some-auth-url",
 			Stream:        "testing",
-			Sources: []simplestreams.DataSource{
-				simplestreams.NewURLDataSource("test", s.toolsURL(), utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)},
-		},
+			Sources:       []simplestreams.DataSource{s.dataSource}},
 	}
 	_, _, err := ValidateToolsMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))

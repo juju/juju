@@ -542,7 +542,16 @@ func GetIndexWithFormat(source DataSource, indexPath, indexFormat, mirrorsPath s
 			source, mirrors, params.DataType, params.MirrorContentId, cloudSpec, requireSigned)
 		if err == nil {
 			logger.Debugf("using mirrored products path: %s", path.Join(mirrorInfo.MirrorURL, mirrorInfo.Path))
-			indexRef.Source = NewURLSignedDataSource("mirror", mirrorInfo.MirrorURL, source.PublicSigningKey(), utils.VerifySSLHostnames, source.Priority(), requireSigned)
+			indexRef.Source = NewDataSource(
+				Config{
+					Description:          "mirror",
+					BaseURL:              mirrorInfo.MirrorURL,
+					PublicSigningKey:     source.PublicSigningKey(),
+					HostnameVerification: utils.VerifySSLHostnames,
+					Priority:             source.Priority(),
+					RequireSigned:        requireSigned,
+				},
+			)
 			indexRef.MirroredProductsPath = mirrorInfo.Path
 		} else {
 			logger.Tracef("no mirror information available for %s: %v", cloudSpec, err)

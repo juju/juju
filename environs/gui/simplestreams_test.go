@@ -7,12 +7,10 @@ import (
 	"net/http"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/gui"
-	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
 	"github.com/juju/juju/juju/keys"
 	coretesting "github.com/juju/juju/testing"
@@ -25,7 +23,7 @@ type simplestreamsSuite struct {
 
 var _ = gc.Suite(&simplestreamsSuite{
 	LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
+		Source:          sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 		RequireSigned:   false,
 		DataType:        gui.DownloadType,
 		StreamsVersion:  gui.StreamsVersion,
@@ -179,8 +177,7 @@ func (s *simplestreamsSuite) TestFetchMetadata(c *gc.C) {
 		s.PatchValue(&jujuversion.Current, jujuVersion)
 
 		// Add invalid datasource and check later that resolveInfo is correct.
-		invalidSource := simplestreams.NewURLDataSource(
-			"invalid", "file://invalid", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, s.RequireSigned)
+		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
 
 		// Fetch the Juju GUI archives.
 		allMeta, err := gui.FetchMetadata(test.stream, invalidSource, s.Source)
