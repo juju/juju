@@ -171,12 +171,15 @@ func (c *Client) ensureTemplateVM(
 		return nil, errors.Trace(err)
 	}
 	// Finding the folder can be tricky since user may pass same
-	// value in multiple forms
+	// value in multiple forms.
 	templateFolder, err := c.FindFolder(ctx, path.Join(args.Folder, vmTemplatePath(args)))
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
 	// Consider only the case without error: it means folder already exists
-	// and we can look if there is a template inside
+	// and we can look if there is a template inside.
 	if err == nil {
-		templateVM, err := finder.VirtualMachine(ctx, templateFolder.InventoryPath+"/"+vmTemplateName(args))
+		templateVM, err := finder.VirtualMachine(ctx, path.Join(templateFolder.InventoryPath, vmTemplateName(args)))
 		if err == nil && templateVM != nil {
 			return templateVM, nil
 		}

@@ -94,41 +94,42 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 // return the pointer for the same folder.
 // Should also deal with the case where folderPath is nil or empty
 func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+	if strings.Contains(folderPath, "..") {
+		// ".." not supported as per:
+		// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
+		c.logger.Errorf("vm folder path %q contains %q which is not supported", folderPath, "..")
+		return nil, errors.NotSupportedf("vm folder path contains ..")
+	}
+
 	fi, datacenter, err := c.finder(ctx)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	dcfolders, err := datacenter.Folders(ctx)
 	c.logger.Criticalf("FindFolder dcfolders %+v, folderPath %q, err %+v", dcfolders, folderPath, err)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	fullpath := ""
-	if strings.Contains(folderPath, "..") {
-		// ".." not supported as per:
-		// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
-		c.logger.Errorf("FindFolder: vm folder path:" + folderPath + " contains .., which is not supported")
-		return nil, errors.New("vm folder path contains .., which is not supported")
-	}
-	switch {
-	case folderPath == "":
-		c.logger.Warningf("Empty string passed as vm-folder, using Datacenter root folder instead")
+	if folderPath == "" {
+		c.logger.Warningf("empty string passed as vm-folder, using Datacenter root folder instead")
 		return dcfolders.VmFolder, nil
-	case strings.HasPrefix(folderPath, "./"):
-		c.logger.Debugf("FindFolder folderPath contains ./ at beginning, replacing with DC vm folder")
-		fullpath = strings.Replace(folderPath, "./", dcfolders.VmFolder.InventoryPath+"/", 1)
-	case !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath):
-		c.logger.Debugf("FindFolder folderPath does not contain DC vm folder, adding it")
-		fullpath = path.Join(dcfolders.VmFolder.InventoryPath, folderPath)
-	default:
-		fullpath = folderPath
 	}
-	vmFolder, err = fi.Folder(ctx, fullpath)
-	c.logger.Criticalf("FindFolder vmFolder %+v, fullpath %q, err %+v", vmFolder, fullpath, err)
+
+	folderPath = strings.TrimPrefix(folderPath, "./")
+	if !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath) {
+		c.logger.Debugf("relative folderPath %q found, join with DC vm folder %q now", folderPath, dcfolders.VmFolder.InventoryPath)
+		folderPath = path.Join(dcfolders.VmFolder.InventoryPath, folderPath)
+	}
+
+	vmFolder, err = fi.Folder(ctx, folderPath)
+	c.logger.Criticalf("FindFolder vmFolder %+v, fullpath %q, err %+v", vmFolder, folderPath, err)
 	if err != nil {
-		return nil, err
+		if _, ok := err.(*find.NotFoundError); ok {
+			c.logger.Debugf("%q not found", folderPath)
+			return nil, errors.NotFoundf("folder path %q", folderPath)
+		}
+		return nil, errors.Trace(err)
 	}
-	// Waiting for Folder
 	return vmFolder, nil
 }
 
@@ -315,15 +316,21 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 	}
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
+		getFolder := func() (*object.Folder, error) {
+			return finder.Folder(ctx, path.Join(parent.InventoryPath, name))
+		}
 		_, err := parent.CreateFolder(ctx, name)
+		if err == nil {
+			return getFolder()
+		}
 		c.logger.Criticalf("EnsureVMFolder createFolder parent.InventoryPath %q, name %q, err %+v", parent.InventoryPath, name, err)
-		if err != nil && soap.IsSoapFault(err) {
+		if soap.IsSoapFault(err) {
 			switch soap.ToSoapFault(err).VimFault().(type) {
 			case types.DuplicateName:
-				return finder.Folder(ctx, parent.InventoryPath+"/"+name)
+				return getFolder()
 			}
 		}
-		return finder.Folder(ctx, parent.InventoryPath+"/"+name)
+		return nil, errors.Trace(err)
 	}
 
 	// LP: #1849194
@@ -341,10 +348,7 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 	for _, name := range strings.Split(folderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
-			return nil, errors.Annotatef(
-				err, "creating folder %q in %q",
-				name, parentFolder.InventoryPath,
-			)
+			return nil, errors.Annotatef(err, "creating folder %q in %q", name, parentFolder.InventoryPath)
 		}
 		parentFolder = folder
 	}

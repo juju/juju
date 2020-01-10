@@ -87,6 +87,7 @@ func (c *environConfig) externalNetwork() string {
 
 func (c *environConfig) datastore() string {
 	ds, _ := c.attrs[cfgDatastore].(string)
+	logger.Criticalf("c.attrs %#v, datastore %q", c.attrs, ds)
 	return ds
 }
 
