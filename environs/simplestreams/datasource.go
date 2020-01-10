@@ -100,7 +100,7 @@ type Config struct {
 	RequireSigned bool
 }
 
-// Validate() checks that the baseURL is valid and the description is set.
+// Validate checks that the baseURL is valid and the description is set.
 func (c *Config) Validate() error {
 	if c.Description == "" {
 		return errors.New("no description specified")
