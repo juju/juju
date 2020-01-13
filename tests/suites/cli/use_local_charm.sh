@@ -43,6 +43,8 @@ run_deploy_local_charm_revision_no_vcs() {
   git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
   cd "${TMP}/ntp" || exit 1
   rm -rf .git
+  # make sure that no version file exists
+  rm version
 
   OUTPUT=$(juju deploy --debug . 2>&1)
 
