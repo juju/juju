@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"sync"
+
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -144,6 +146,12 @@ func PatchGetControllerCACert(p Patcher, caCert string) {
 	p.PatchValue(&getControllerCACert, func(migrationBackend) (string, error) {
 		return caCert, nil
 	})
+}
+
+// ServerWaitGroup exposes the underlying wait group used to track running API calls
+// to allow tests to hold a server open.
+func ServerWaitGroup(server *Server) *sync.WaitGroup {
+	return &server.wg
 }
 
 // Patcher defines an interface that matches the PatchValue method on

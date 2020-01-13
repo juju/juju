@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -87,6 +88,9 @@ type Server struct {
 
 	// mu guards the fields below it.
 	mu sync.Mutex
+
+	// healthStatus is returned from the health endpoint.
+	healthStatus string
 
 	// publicDNSName_ holds the value that will be returned in
 	// LoginResult.PublicDNSName. Currently this is set once and does
@@ -301,6 +305,8 @@ func newServer(cfg ServerConfig) (_ *Server, err error) {
 			dbLoggerFlushInterval: cfg.LogSinkConfig.DBLoggerFlushInterval,
 		},
 		metricsCollector: cfg.MetricsCollector,
+
+		healthStatus: "starting",
 	}
 	srv.updateAgentRateLimiter(controllerConfig)
 
@@ -497,8 +503,18 @@ func (srv *Server) loop(ready chan struct{}) error {
 			defer srv.mux.RemoveHandler("HEAD", ep.Pattern)
 		}
 	}
+
 	close(ready)
+	srv.mu.Lock()
+	srv.healthStatus = "running"
+	srv.mu.Unlock()
+
 	<-srv.tomb.Dying()
+
+	srv.mu.Lock()
+	srv.healthStatus = "stopping"
+	srv.mu.Unlock()
+
 	srv.wg.Wait() // wait for any outstanding requests to complete.
 	return tomb.ErrDying
 }
@@ -557,6 +573,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 
 	httpCtxt := httpContext{srv: srv}
 	mainAPIHandler := http.HandlerFunc(srv.apiHandler)
+	healthHandler := http.HandlerFunc(srv.healthHandler)
 	logStreamHandler := newLogStreamEndpointHandler(httpCtxt)
 	debugLogHandler := newDebugLogDBHandler(
 		httpCtxt, srv.authenticator,
@@ -775,6 +792,12 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 		unauthenticated: true,
 		noModelUUID:     true,
 	}, {
+		pattern:         "/health",
+		methods:         []string{"GET"},
+		handler:         healthHandler,
+		unauthenticated: true,
+		noModelUUID:     true,
+	}, {
 		pattern:         "/register",
 		handler:         registerHandler,
 		unauthenticated: true,
@@ -878,6 +901,14 @@ func (srv *Server) trackRequests(handler http.Handler) http.Handler {
 			handler.ServeHTTP(w, r)
 		}
 	})
+}
+
+func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
+	srv.mu.Lock()
+	status := srv.healthStatus
+	srv.mu.Unlock()
+
+	fmt.Fprintf(w, "%s\n", status)
 }
 
 func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
