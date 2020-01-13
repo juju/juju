@@ -90,7 +90,6 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 	if r.roundTrip != nil {
 		return r.roundTrip(ctx, req, res)
 	}
-
 	switch res := res.(type) {
 	case *methods.RetrievePropertiesBody:
 		req := req.(*methods.RetrievePropertiesBody).Req
