@@ -7,9 +7,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -36,6 +38,7 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
@@ -297,4 +300,46 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 
 	err = workertest.CheckKilled(c, s.apiServer)
 	c.Assert(err, gc.Equals, dependency.ErrBounce)
+}
+
+func (s *apiserverSuite) getHealth(c *gc.C) string {
+	uri := s.server.URL + "/health"
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
+	body, err := ioutil.ReadAll(resp.Body)
+
+	c.Assert(err, jc.ErrorIsNil)
+	result := string(body)
+	// Ensure that the last value is a carriage return.
+	c.Assert(strings.HasSuffix(result, "\n"), jc.IsTrue)
+	return strings.TrimSuffix(result, "\n")
+}
+
+func (s *apiserverSuite) TestHealthRunning(c *gc.C) {
+	c.Assert(s.getHealth(c), gc.Equals, "running")
+}
+
+func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
+	wg := apiserver.ServerWaitGroup(s.apiServer)
+	wg.Add(1)
+
+	s.apiServer.Kill()
+	// There is a race here between the test and the goroutine setting
+	// the value, so loop until we see the right health, then exit.
+	timeout := time.After(testing.LongWait)
+	for {
+		health := s.getHealth(c)
+		if health == "stopping" {
+			// Expected, we're done.
+			wg.Done()
+			return
+		}
+		select {
+		case <-timeout:
+			c.Fatalf("health not set to stopping")
+		case <-time.After(testing.ShortWait):
+			// Look again.
+		}
+	}
 }
