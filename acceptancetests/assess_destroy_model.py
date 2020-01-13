@@ -62,7 +62,9 @@ def destroy_model(client, new_client):
     try:
         client.get_juju_output('status', include_e=False)
     except subprocess.CalledProcessError as e:
-        if b'{} not found'.format(old_model) not in e.stderr:
+        not_found_errors = {b'{} not found'.format(old_model),
+                            b'{} has been removed from the controller'.format(old_model)}
+        if not any(not_found in e.stderr for not_found in not_found_errors):
             error = 'unexpected error calling status\n{}'.format(e.stderr)
             raise JujuAssertionError(error)
     else:
