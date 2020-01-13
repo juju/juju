@@ -237,15 +237,6 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "foo"},
 			},
 		}},
-		"FakeVMDKSFolder": {{
-			Obj: types.ManagedObjectReference{
-				Type:  "Folder",
-				Value: "FakeVmFolder",
-			},
-			PropSet: []types.DynamicProperty{
-				{Name: "name", Val: "juju-vmdks"},
-			},
-		}},
 		"FakeControllerVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Folder",
