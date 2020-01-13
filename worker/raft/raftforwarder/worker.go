@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -34,11 +35,12 @@ type Logger interface {
 
 // Config defines the resources the worker needs to run.
 type Config struct {
-	Hub    *pubsub.StructuredHub
-	Raft   RaftApplier
-	Logger Logger
-	Topic  string
-	Target raftlease.NotifyTarget
+	Hub                  *pubsub.StructuredHub
+	Raft                 RaftApplier
+	Logger               Logger
+	Topic                string
+	Target               raftlease.NotifyTarget
+	PrometheusRegisterer prometheus.Registerer
 }
 
 // Validate checks that this config can be used.
@@ -58,6 +60,9 @@ func (config Config) Validate() error {
 	if config.Target == nil {
 		return errors.NotValidf("nil Target")
 	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
+	}
 	return nil
 }
 
@@ -68,7 +73,8 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 	w := &forwarder{
-		config: config,
+		config:  config,
+		metrics: newMetricsCollector(),
 	}
 	unsubscribe, err := w.config.Hub.Subscribe(w.config.Topic, w.handleRequest)
 	if err != nil {
@@ -88,6 +94,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 type forwarder struct {
 	catacomb    catacomb.Catacomb
 	config      Config
+	metrics     *metricsCollector
 	unsubscribe func()
 	id          int
 }
@@ -104,11 +111,14 @@ func (w *forwarder) Wait() error {
 
 func (w *forwarder) loop() error {
 	defer w.unsubscribe()
+	_ = w.config.PrometheusRegisterer.Register(w.metrics)
+	defer w.config.PrometheusRegisterer.Unregister(w.metrics)
 	<-w.catacomb.Dying()
 	return w.catacomb.ErrDying()
 }
 
 func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err error) {
+	start := time.Now()
 	w.id++
 	reqID := w.id
 	w.config.Logger.Tracef("%d: received %#v, err: %v", reqID, req, err)
@@ -129,15 +139,18 @@ func (w *forwarder) handleRequest(_ string, req raftlease.ForwardRequest, err er
 			w.catacomb.Kill(errors.Annotate(err, "publishing response"))
 			return
 		}
+		w.metrics.record(start, "full")
 	}()
 }
 
 func (w *forwarder) processRequest(command string) (raftlease.ForwardResponse, error) {
 	var empty raftlease.ForwardResponse
+	start := time.Now()
 	future := w.config.Raft.Apply([]byte(command), applyTimeout)
 	if err := future.Error(); err != nil {
 		return empty, errors.Trace(err)
 	}
+	w.metrics.record(start, "apply")
 	respValue := future.Response()
 	response, ok := respValue.(raftlease.FSMResponse)
 	if !ok {

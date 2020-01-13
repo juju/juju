@@ -46,11 +46,12 @@ func (s *workerFixture) SetUpTest(c *gc.C) {
 	s.target = &fakeTarget{}
 	s.hub = centralhub.New(names.NewMachineTag("17"))
 	s.config = raftforwarder.Config{
-		Hub:    s.hub,
-		Raft:   s.raft,
-		Logger: loggo.GetLogger("raftforwarder_test"),
-		Topic:  "raftforwarder_test",
-		Target: s.target,
+		Hub:                  s.hub,
+		Raft:                 s.raft,
+		Logger:               loggo.GetLogger("raftforwarder_test"),
+		PrometheusRegisterer: &noopRegisterer{},
+		Topic:                "raftforwarder_test",
+		Target:               s.target,
 	}
 }
 
@@ -74,6 +75,9 @@ func (s *workerValidationSuite) TestValidateErrors(c *gc.C) {
 	}, {
 		func(cfg *raftforwarder.Config) { cfg.Logger = nil },
 		"nil Logger not valid",
+	}, {
+		func(cfg *raftforwarder.Config) { cfg.PrometheusRegisterer = nil },
+		"nil PrometheusRegisterer not valid",
 	}, {
 		func(cfg *raftforwarder.Config) { cfg.Topic = "" },
 		"empty Topic not valid",
