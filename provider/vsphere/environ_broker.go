@@ -199,7 +199,6 @@ func (env *sessionEnviron) newRawInstance(
 	if (cons.RootDiskSource == nil || *cons.RootDiskSource == "") && defaultDatastore != "" {
 		cons.RootDiskSource = &defaultDatastore
 	}
-	logger.Criticalf("newRawInstance defaultDatastore %q, cons.RootDiskSource %+v", defaultDatastore, cons.RootDiskSource)
 
 	// Download and extract the OVA file. If we're bootstrapping we use
 	// a temporary directory, otherwise we cache the image for future use.

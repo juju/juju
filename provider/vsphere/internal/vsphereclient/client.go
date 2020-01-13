@@ -106,7 +106,6 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 		return nil, errors.Trace(err)
 	}
 	dcfolders, err := datacenter.Folders(ctx)
-	c.logger.Criticalf("FindFolder dcfolders %+v, folderPath %q, err %+v", dcfolders, folderPath, err)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -122,15 +121,13 @@ func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *o
 	}
 
 	vmFolder, err = fi.Folder(ctx, folderPath)
-	c.logger.Criticalf("FindFolder vmFolder %+v, fullpath %q, err %+v", vmFolder, folderPath, err)
-	if err != nil {
-		if _, ok := err.(*find.NotFoundError); ok {
-			c.logger.Debugf("%q not found", folderPath)
-			return nil, errors.NotFoundf("folder path %q", folderPath)
-		}
-		return nil, errors.Trace(err)
+	if err == nil {
+		return vmFolder, nil
 	}
-	return vmFolder, nil
+	if _, ok := err.(*find.NotFoundError); ok {
+		return nil, errors.NotFoundf("folder path %q", folderPath)
+	}
+	return nil, errors.Trace(err)
 }
 
 func (c *Client) finder(ctx context.Context) (*find.Finder, *object.Datacenter, error) {
@@ -338,16 +335,15 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 
 	// LP: #1849194
 	// User do not necessarily own permission to create credAttrFolder
-	// since that demands Add_folder permissions from the root-folder's DC
-	// Join paths for folders.VMFolder and credentials attribute
+	// since that demands Add_folder permissions from the root-folder's DC.
+	// Join paths folders.VMFolder and credentials attribute.
 	parentFolder, err := c.FindFolder(ctx, credAttrFolder)
-	c.logger.Criticalf("EnsureVMFolder FindFolder credAttrFolder %q, err %+v", credAttrFolder, err)
 	// Consider the case where folder from credential attribute comes empty:
-	// path.Join ignores empty entries
+	// path.Join ignores empty entries.
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Creating "Juju Controller (...)" folder and then model folder, for example
+	// Creating "Juju Controller (...)" folder and then model folder, for example.
 	for _, name := range strings.Split(folderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
@@ -358,13 +354,13 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 	return parentFolder, nil
 }
 
-// DestroyVMFolder destroys a folder rooted at the datacenter's base VM folder.
+// DestroyVMFolder destroys a folder(folderPath could be either relative path of vmfolder of datacenter or full path).
 func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 	folder, err := c.FindFolder(ctx, folderPath)
+	if errors.IsNotFound(err) {
+		return nil
+	}
 	if err != nil {
-		if _, ok := err.(*find.NotFoundError); ok {
-			return nil
-		}
 		return errors.Trace(err)
 	}
 
@@ -380,12 +376,12 @@ func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 }
 
 // MoveVMFolderInto moves one VM folder into another.
-func (c *Client) MoveVMFolderInto(ctx context.Context, from, to string) error {
-	parent, err := c.FindFolder(ctx, from)
+func (c *Client) MoveVMFolderInto(ctx context.Context, parentPath, childPath string) error {
+	parent, err := c.FindFolder(ctx, parentPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	child, err := c.FindFolder(ctx, to)
+	child, err := c.FindFolder(ctx, childPath)
 	if err != nil {
 		return errors.Trace(err)
 	}

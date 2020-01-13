@@ -170,8 +170,7 @@ func (c *Client) ensureTemplateVM(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Finding the folder can be tricky since user may pass same
-	// value in multiple forms.
+
 	templateFolder, err := c.FindFolder(ctx, path.Join(args.Folder, vmTemplatePath(args)))
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
