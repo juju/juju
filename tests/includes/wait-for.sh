@@ -43,6 +43,18 @@ idle_condition() {
     echo ".applications | select(.[\"$name\"] | .units | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
 }
 
+idle_subordinate_condition() {
+    local name parent app_index unit_index parent_index
+
+    name=${1}
+    parent=${2}
+    app_index=${3:-0}
+    unit_index=${4:-0}
+    parent_index=${5:-0}
+
+    echo ".applications | select(.[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
+}
+
 active_condition() {
     local name app_index unit_index
 
