@@ -319,13 +319,16 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
 		getFolder := func() (*object.Folder, error) {
-			return finder.Folder(ctx, path.Join(parent.InventoryPath, name))
+			fd, err := finder.Folder(ctx, path.Join(parent.InventoryPath, name))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return fd, nil
 		}
-		_, err := parent.CreateFolder(ctx, name)
+		fd, err := parent.CreateFolder(ctx, name)
 		if err == nil {
-			return getFolder()
+			return fd, nil
 		}
-		c.logger.Criticalf("EnsureVMFolder createFolder parent.InventoryPath %q, name %q, err %+v", parent.InventoryPath, name, err)
 		if soap.IsSoapFault(err) {
 			switch soap.ToSoapFault(err).VimFault().(type) {
 			case types.DuplicateName:

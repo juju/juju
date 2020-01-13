@@ -237,6 +237,15 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "foo"},
 			},
 		}},
+		"FakeVMDKSFolder": {{
+			Obj: types.ManagedObjectReference{
+				Type:  "Folder",
+				Value: "FakeVmFolder",
+			},
+			PropSet: []types.DynamicProperty{
+				{Name: "name", Val: "juju-vmdks"},
+			},
+		}},
 		"FakeControllerVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Folder",
@@ -640,6 +649,8 @@ func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		{"CreateFolder", []interface{}{"foo"}},
 		{"CreateFolder", []interface{}{"bar"}},
@@ -659,6 +670,9 @@ func (s *clientSuite) TestMoveVMFolderInto(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),

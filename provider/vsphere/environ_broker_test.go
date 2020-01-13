@@ -351,7 +351,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, gc.Not(jc.Satisfies), environs.IsAvailabilityZoneIndependent)
 
-	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "Close")
+	s.client.CheckCallNames(c, "ComputeResources", "ResourcePools", "ResourcePools", "CreateVirtualMachine", "FindFolder", "Close")
 	createVMCall1 := s.client.Calls()[3]
 	createVMArgs1 := createVMCall1.Args[1].(vsphereclient.CreateVirtualMachineParams)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
@@ -401,12 +401,9 @@ func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	var paths []string
-	s.client.CheckCallNames(c, "RemoveVirtualMachines", "RemoveVirtualMachines", "Close")
-	for i := 0; i < 2; i++ {
-		args := s.client.Calls()[i].Args
-		paths = append(paths, args[1].(string))
-	}
-
+	s.client.CheckCallNames(c, "RemoveVirtualMachines", "FindFolder", "RemoveVirtualMachines", "FindFolder", "Close")
+	paths = append(paths, s.client.Calls()[0].Args[1].(string))
+	paths = append(paths, s.client.Calls()[2].Args[1].(string))
 	// NOTE(axw) we must use SameContents, not DeepEquals, because
 	// we run the RemoveVirtualMachines calls concurrently.
 	c.Assert(paths, jc.SameContents, []string{
@@ -419,7 +416,7 @@ func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
 	s.client.SetErrors(errors.New("bah"))
 	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 
-	s.client.CheckCallNames(c, "RemoveVirtualMachines", "RemoveVirtualMachines", "Close")
+	s.client.CheckCallNames(c, "RemoveVirtualMachines", "FindFolder", "RemoveVirtualMachines", "FindFolder", "Close")
 	vmName := path.Base(s.client.Calls()[0].Args[1].(string))
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to stop instance %s: bah", vmName))
 }
@@ -427,10 +424,10 @@ func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
 func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
 	err1 := errors.New("bah")
 	err2 := errors.New("bleh")
-	s.client.SetErrors(err1, err2)
+	s.client.SetErrors(err1, nil, err2, nil)
 	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 
-	s.client.CheckCallNames(c, "RemoveVirtualMachines", "RemoveVirtualMachines", "Close")
+	s.client.CheckCallNames(c, "RemoveVirtualMachines", "FindFolder", "RemoveVirtualMachines", "FindFolder", "Close")
 	vmName1 := path.Base(s.client.Calls()[0].Args[1].(string))
 	if vmName1 == "vm-1" {
 		err1, err2 = err2, err1
