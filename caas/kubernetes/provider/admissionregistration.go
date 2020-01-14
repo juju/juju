@@ -4,6 +4,8 @@
 package provider
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"k8s.io/api/admissionregistration/v1beta1"
 	// core "k8s.io/api/core/v1"
@@ -30,9 +32,9 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	for name, webhooks := range cfgs {
 		spec := &v1beta1.MutatingWebhookConfiguration{
 			ObjectMeta: v1.ObjectMeta{
-				Name:        name,
+				Name:        fmt.Sprintf("%s-%s", k.namespace, name), // ensure global reource MutatingWebhookConfiguration's name unique.
 				Namespace:   k.namespace,
-				Labels:      k.getSecretLabels(appName),
+				Labels:      k.getMutatingWebhookConfigurationLabels(appName),
 				Annotations: annotations,
 			},
 			Webhooks: webhooks,
@@ -119,4 +121,17 @@ func (k *kubernetesClient) listMutatingWebhookConfigurations(labels map[string]s
 		return nil, errors.NotFoundf("MutatingWebhookConfiguration with labels %v", labels)
 	}
 	return cfgList.Items, nil
+}
+
+func (k *kubernetesClient) deleteMutatingWebhookConfigurations(appName string) error {
+	err := k.client().Admissionregistration().MutatingWebhookConfigurations().DeleteCollection(&v1.DeleteOptions{
+		PropagationPolicy: &defaultPropagationPolicy,
+	}, v1.ListOptions{
+		LabelSelector:        labelsToSelector(k.getMutatingWebhookConfigurationLabels(appName)),
+		IncludeUninitialized: true,
+	})
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+	return errors.Trace(err)
 }

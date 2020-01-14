@@ -796,6 +796,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 
+	if err := k.deleteMutatingWebhookConfigurations(appName); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := k.deleteIngressResources(appName); err != nil {
 		return errors.Trace(err)
 	}
