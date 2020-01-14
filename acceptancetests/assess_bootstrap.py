@@ -87,7 +87,8 @@ def assess_to(bs_manager, to):
         log.info('To {} bootstrap successful.'.format(to))
         addr = get_controller_hostname(client)
     if addr != to:
-        raise JujuAssertionError('Not bootstrapped to the correct address.')
+        raise JujuAssertionError(
+            'Not bootstrapped to the correct address; expected {}, got {}'.format(to, addr))
 
 
 def assess_bootstrap(args):
