@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -38,7 +39,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
-	// admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 	"k8s.io/client-go/rest"
 
 	"github.com/juju/juju/caas"
@@ -992,6 +992,17 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating custom resources")
 		}
 		logger.Debugf("created/updated custom resources for %q.", appName)
+	}
+
+	// ensure mutating webhook configurations.
+	mutatingWebhookConfigurations := workloadSpec.MutatingWebhookConfigurations
+	if len(mutatingWebhookConfigurations) > 0 {
+		cfgCleanUps, err := k.ensureMutatingWebhookConfigurations(appName, annotations, mutatingWebhookConfigurations)
+		cleanups = append(cleanups, cfgCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating mutating webhook configurations")
+		}
+		logger.Debugf("created/updated mutating webhook configurations for %q.", appName)
 	}
 
 	// ensure ingress resources.
@@ -2375,12 +2386,13 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                   []k8sspecs.Secret
-	ConfigMaps                map[string]specs.ConfigMap
-	ServiceAccounts           []serviceAccountSpecGetter
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
-	CustomResources           map[string][]unstructured.Unstructured
-	IngressResources          []k8sspecs.K8sIngressSpec
+	Secrets                       []k8sspecs.Secret
+	ConfigMaps                    map[string]specs.ConfigMap
+	ServiceAccounts               []serviceAccountSpecGetter
+	CustomResourceDefinitions     map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
+	CustomResources               map[string][]unstructured.Unstructured
+	MutatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook
+	IngressResources              []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2452,6 +2464,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
+			spec.MutatingWebhookConfigurations = k8sResources.MutatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
