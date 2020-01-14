@@ -355,6 +355,10 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
+func strPtr(b string) *string {
+	return &b
+}
+
 func (s *legacySpecsSuite) TestValidateMissingContainers(c *gc.C) {
 
 	specStr := `
