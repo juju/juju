@@ -10,6 +10,7 @@ import (
 	"github.com/hashicorp/raft"
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 	"gopkg.in/natefinch/lumberjack.v2"
@@ -39,10 +40,11 @@ type ManifoldConfig struct {
 	StateName      string
 	CentralHubName string
 
-	RequestTopic string
-	Logger       Logger
-	NewWorker    func(Config) (worker.Worker, error)
-	NewTarget    func(*state.State, io.Writer, Logger) raftlease.NotifyTarget
+	RequestTopic         string
+	PrometheusRegisterer prometheus.Registerer
+	Logger               Logger
+	NewWorker            func(Config) (worker.Worker, error)
+	NewTarget            func(*state.State, io.Writer, Logger) raftlease.NotifyTarget
 }
 
 // Validate checks that the config has all the required values.
@@ -58,6 +60,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.RequestTopic == "" {
 		return errors.NotValidf("empty RequestTopic")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("nil Logger")
@@ -114,11 +119,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	notifyTarget := config.NewTarget(st, makeLogger(logPath), config.Logger)
 	w, err := config.NewWorker(Config{
-		Raft:   r,
-		Hub:    hub,
-		Logger: config.Logger,
-		Topic:  config.RequestTopic,
-		Target: notifyTarget,
+		Raft:                 r,
+		Hub:                  hub,
+		Logger:               config.Logger,
+		Topic:                config.RequestTopic,
+		Target:               notifyTarget,
+		PrometheusRegisterer: config.PrometheusRegisterer,
 	})
 	if err != nil {
 		_ = stTracker.Done()
