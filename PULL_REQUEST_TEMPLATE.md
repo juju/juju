@@ -1,4 +1,4 @@
-## Please provide the following details to expedite Pull Request review:
+<!--- ## Please provide the following details to expedite Pull Request review: -->
 
 ### Checklist
 
@@ -11,11 +11,11 @@
 
 ## Description of change
 
-*Please replace with a description about why this change is needed, along with a description of what changed?*
+<!--- *Please replace with a description about why this change is needed, along with a description of what changed?* -->
 
 ## QA steps
 
-*Please replace with how we can verify that the change works?*
+<!--- *Please replace with how we can verify that the change works?* -->
 
 ```sh
 QA steps here
@@ -23,8 +23,9 @@ QA steps here
 
 ## Documentation changes
 
-*Please replace with any notes about how it affects current user workflow? CLI? API?*
+<!--- *Please replace with how we can verify that the change works?* 
+ *Please replace with any notes about how it affects current user workflow? CLI? API?* -->
 
 ## Bug reference
 
-*Please add a link to any bugs that this change is related to.*
+<!--*Please add a link to any bugs that this change is related to.* -->
