@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -105,6 +106,7 @@ func authHTTPRequest(req *http.Request, tag, password, nonce string, macaroons [
 	if nonce != "" {
 		req.Header.Set(params.MachineNonceHeader, nonce)
 	}
+	req.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	for _, ms := range macaroons {
 		encoded, err := encodeMacaroonSlice(ms)
 		if err != nil {

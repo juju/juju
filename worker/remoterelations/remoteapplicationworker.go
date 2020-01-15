@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -140,6 +141,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 		}
 		if w.offerMacaroon != nil {
 			arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+			arg.BakeryVersion = bakery.LatestVersion
 		}
 
 		offerStatusWatcher, err := w.remoteModelFacade.WatchOfferStatus(arg)
@@ -255,6 +257,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 			Life:             life.Dying,
 			ApplicationToken: r.applicationToken,
 			Macaroons:        macaroon.Slice{r.macaroon},
+			BakeryVersion:    bakery.LatestVersion,
 		}
 		// forceCleanup will be true if the worker has restarted and because the relation had
 		// already been removed, we won't get any more unit departed events.
@@ -443,8 +446,9 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	if !relationKnown {
 		// Totally new so start the lifecycle watcher.
 		remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(params.RemoteEntityArg{
-			Token:     relationToken,
-			Macaroons: macaroon.Slice{mac},
+			Token:         relationToken,
+			Macaroons:     macaroon.Slice{mac},
+			BakeryVersion: bakery.LatestVersion,
 		})
 		if err != nil {
 			w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
@@ -533,6 +537,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	}
 	if w.offerMacaroon != nil {
 		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+		arg.BakeryVersion = bakery.LatestVersion
 	}
 	remoteRelation, err := w.remoteModelFacade.RegisterRemoteRelations(arg)
 	if err != nil {

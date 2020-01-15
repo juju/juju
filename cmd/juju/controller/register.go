@@ -24,6 +24,8 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -508,6 +510,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 		return nil, errors.Trace(err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	httpClient := utils.GetNonValidatingHTTPClient()
 	httpClient.Jar = cookieJar
 	httpResp, err := httpClient.Do(httpReq)

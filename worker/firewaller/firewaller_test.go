@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -813,6 +814,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 
 		changes.Changes[0].Networks = nil
 		expected.Changes[0].IngressRequired = argIngressRequired
+		expected.Changes[0].BakeryVersion = bakery.LatestVersion
 		c.Check(arg, gc.DeepEquals, expected)
 
 		if !*ingressRequired {

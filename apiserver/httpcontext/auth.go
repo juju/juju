@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -33,7 +34,7 @@ type LocalMacaroonAuthenticator interface {
 	// used to obtain a discharge macaroon so that the user can
 	// log in without presenting their password for a set amount
 	// of time.
-	CreateLocalLoginMacaroon(names.UserTag) (*macaroon.Macaroon, error)
+	CreateLocalLoginMacaroon(names.UserTag, bakery.Version) (*macaroon.Macaroon, error)
 }
 
 // Authenticator provides an interface for authenticating a request.

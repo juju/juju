@@ -21,6 +21,7 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -617,6 +618,10 @@ func (s *RegisterSuite) encodeRegistrationData(c *gc.C, info jujuclient.Registra
 }
 
 func (srv *mockServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Header.Get(httpbakery.BakeryProtocolHeader) != "3" {
+		http.Error(w, "unexpected bakery version", http.StatusInternalServerError)
+		return
+	}
 	srv.requests = append(srv.requests, r)
 	requestBody, err := ioutil.ReadAll(r.Body)
 	if err != nil {

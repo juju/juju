@@ -230,13 +230,15 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	req := s.authHTTPRequest(c, apiInfo)
 	_, _, ok := req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(req.Header, gc.HasLen, 0)
+	c.Assert(req.Header, gc.HasLen, 1)
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
 	apiInfo.Nonce = "foo"
 	req = s.authHTTPRequest(c, apiInfo)
 	_, _, ok = req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
 	apiInfo.Tag = names.NewMachineTag("123")
 	apiInfo.Password = "password"
@@ -246,12 +248,14 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	c.Assert(user, gc.Equals, "machine-123")
 	c.Assert(pass, gc.Equals, "password")
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 	macaroons := httpbakery.RequestMacaroons(req)
 	apitesting.MacaroonsEqual(c, macaroons, apiInfo.Macaroons)
 }

@@ -90,7 +90,9 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.RemoteRelationsChanges{
 			Changes: []params.RemoteRelationChangeEvent{{
 				RelationToken: "token",
-				DepartedUnits: []int{1}, Macaroons: macaroon.Slice{mac}}},
+				DepartedUnits: []int{1}, Macaroons: macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
+			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -106,6 +108,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 		RelationToken: "token",
 		DepartedUnits: []int{1},
 		Macaroons:     macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
@@ -117,6 +120,7 @@ func (s *CrossModelRelationsSuite) TestPublishRelationChange(c *gc.C) {
 		RelationToken: "token",
 		DepartedUnits: []int{1},
 		Macaroons:     macaroon.Slice{different},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
@@ -177,7 +181,9 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 			Relations: []params.RegisterRemoteRelationArg{{
 				RelationToken: "token",
 				OfferUUID:     "offer-uuid",
-				Macaroons:     macaroon.Slice{mac}}}})
+				Macaroons:     macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
+			}}})
 		c.Assert(result, gc.FitsTypeOf, &params.RegisterRemoteRelationResults{})
 		*(result.(*params.RegisterRemoteRelationResults)) = params.RegisterRemoteRelationResults{
 			Results: []params.RegisterRemoteRelationResult{{
@@ -192,6 +198,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
@@ -205,6 +212,7 @@ func (s *CrossModelRelationsSuite) TestRegisterRemoteRelations(c *gc.C) {
 		RelationToken: "token",
 		OfferUUID:     "offer-uuid",
 		Macaroons:     macaroon.Slice{different},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, jc.ErrorIsNil)
 	c.Assert(result, gc.HasLen, 1)
@@ -281,7 +289,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 			c.Check(version, gc.Equals, 2)
 			c.Check(id, gc.Equals, "")
 			c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
-				Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
+				Token: remoteRelationToken, Macaroons: macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
+			}}})
 			c.Check(request, gc.Equals, "WatchRelationChanges")
 			c.Assert(result, gc.FitsTypeOf, &params.RemoteRelationWatchResults{})
 			*(result.(*params.RemoteRelationWatchResults)) = params.RemoteRelationWatchResults{
@@ -377,7 +387,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 			case "CrossModelRelations.WatchRelationUnits":
 				c.Check(id, gc.Equals, "")
 				c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
-					Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
+					Token: remoteRelationToken, Macaroons: macaroon.Slice{mac},
+					BakeryVersion: bakery.LatestVersion,
+				}}})
 				c.Assert(result, gc.FitsTypeOf, &params.RelationUnitsWatchResults{})
 				*(result.(*params.RelationUnitsWatchResults)) = params.RelationUnitsWatchResults{
 					Results: []params.RelationUnitsWatchResult{{
@@ -396,6 +408,7 @@ func (s *CrossModelRelationsSuite) TestWatchRelationChangesV1Fallback(c *gc.C) {
 					RelationUnits: []params.RemoteRelationUnit{{
 						RelationToken: remoteRelationToken,
 						Macaroons:     macaroon.Slice{mac},
+						BakeryVersion: bakery.LatestVersion,
 						Unit:          "unit-app-1",
 					}}})
 				c.Assert(result, gc.FitsTypeOf, &params.SettingsResults{})
@@ -493,7 +506,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
-			Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}}})
+			Token: remoteRelationToken, Macaroons: macaroon.Slice{mac},
+			BakeryVersion: bakery.LatestVersion,
+		}}})
 		c.Check(request, gc.Equals, "WatchRelationsSuspendedStatus")
 		c.Assert(result, gc.FitsTypeOf, &params.RelationStatusWatchResults{})
 		*(result.(*params.RelationStatusWatchResults)) = params.RelationStatusWatchResults{
@@ -506,8 +521,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
-		Token:     remoteRelationToken,
-		Macaroons: macaroon.Slice{mac},
+		Token:         remoteRelationToken,
+		Macaroons:     macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
@@ -516,8 +532,9 @@ func (s *CrossModelRelationsSuite) TestWatchRelationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	_, err = client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
-		Token:     remoteRelationToken,
-		Macaroons: macaroon.Slice{different},
+		Token:         remoteRelationToken,
+		Macaroons:     macaroon.Slice{different},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
@@ -578,7 +595,9 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 		c.Check(arg, gc.DeepEquals, params.IngressNetworksChanges{
 			Changes: []params.IngressNetworksChangeEvent{{
 				RelationToken: "token",
-				Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{mac}}},
+				Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
+			}},
 		})
 		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
 		*(result.(*params.ErrorResults)) = params.ErrorResults{
@@ -592,7 +611,9 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	err = client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{
 		RelationToken: "token",
-		Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{mac}})
+		Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
+	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
 	// cached and override the passed in macaroon.
@@ -601,7 +622,9 @@ func (s *CrossModelRelationsSuite) TestPublishIngressNetworkChange(c *gc.C) {
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	err = client.PublishIngressNetworkChange(params.IngressNetworksChangeEvent{
 		RelationToken: "token",
-		Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{different}})
+		Networks:      []string{"1.2.3.4/32"}, Macaroons: macaroon.Slice{different},
+		BakeryVersion: bakery.LatestVersion,
+	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
 }
@@ -652,7 +675,9 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 	remoteRelationToken := "token"
 	mac, err := apitesting.NewMacaroon("id")
 	relation := params.RemoteEntityArg{
-		Token: remoteRelationToken, Macaroons: macaroon.Slice{mac}}
+		Token: remoteRelationToken, Macaroons: macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
+	}
 	c.Check(err, jc.ErrorIsNil)
 	apiCaller := testing.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
 		c.Check(objType, gc.Equals, "CrossModelRelations")
@@ -680,6 +705,7 @@ func (s *CrossModelRelationsSuite) TestWatchEgressAddressesForRelation(c *gc.C) 
 	s.cache.Upsert("token", macaroon.Slice{mac})
 	rel2 := relation
 	rel2.Macaroons = macaroon.Slice{different}
+	rel2.BakeryVersion = bakery.LatestVersion
 	_, err = client.WatchEgressAddressesForRelation(rel2)
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)
@@ -739,7 +765,9 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 		c.Check(version, gc.Equals, 0)
 		c.Check(id, gc.Equals, "")
 		c.Check(arg, jc.DeepEquals, params.OfferArgs{Args: []params.OfferArg{{
-			OfferUUID: offerUUID, Macaroons: macaroon.Slice{mac}}}})
+			OfferUUID: offerUUID, Macaroons: macaroon.Slice{mac},
+			BakeryVersion: bakery.LatestVersion,
+		}}})
 		c.Check(request, gc.Equals, "WatchOfferStatus")
 		c.Assert(result, gc.FitsTypeOf, &params.OfferStatusWatchResults{})
 		*(result.(*params.OfferStatusWatchResults)) = params.OfferStatusWatchResults{
@@ -752,8 +780,9 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	})
 	client := crossmodelrelations.NewClientWithCache(apiCaller, s.cache)
 	_, err = client.WatchOfferStatus(params.OfferArg{
-		OfferUUID: offerUUID,
-		Macaroons: macaroon.Slice{mac},
+		OfferUUID:     offerUUID,
+		Macaroons:     macaroon.Slice{mac},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	// Call again with a different macaroon but the first one will be
@@ -762,8 +791,9 @@ func (s *CrossModelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	s.cache.Upsert("offer-uuid", macaroon.Slice{mac})
 	_, err = client.WatchOfferStatus(params.OfferArg{
-		OfferUUID: offerUUID,
-		Macaroons: macaroon.Slice{different},
+		OfferUUID:     offerUUID,
+		Macaroons:     macaroon.Slice{different},
+		BakeryVersion: bakery.LatestVersion,
 	})
 	c.Check(err, gc.ErrorMatches, "FAIL")
 	c.Check(callCount, gc.Equals, 2)

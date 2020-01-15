@@ -17,6 +17,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -313,6 +314,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnChange(c *gc.C) {
 			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 		{"SetRemoteApplicationStatus", []interface{}{"db2", "terminated", "offer has been removed"}},
 		{"Close", nil},
@@ -359,6 +361,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsWorkers(c *gc.C) worker.Work
 			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
@@ -445,6 +448,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsRevoked(c *gc.C) {
 			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 		{"SetRemoteApplicationStatus", []interface{}{"db2", "error", "message"}},
 		{"Close", nil},
@@ -501,6 +505,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
@@ -510,6 +515,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsDying(c *gc.C) {
 				ApplicationToken: "token-django",
 				RelationToken:    "token-db2:db django:db",
 				Macaroons:        macaroon.Slice{apiMac},
+				BakeryVersion:    bakery.LatestVersion,
 			},
 		}},
 	}
@@ -568,6 +574,7 @@ func (s *remoteRelationsSuite) TestLocalRelationsChangedNotifies(c *gc.C) {
 				}},
 				DepartedUnits: []int{2},
 				Macaroons:     macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
 			},
 		}},
 	}
@@ -605,6 +612,7 @@ func (s *remoteRelationsSuite) TestRemoteNotFoundTerminatesOnPublish(c *gc.C) {
 				}},
 				DepartedUnits: []int{2},
 				Macaroons:     macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
 			},
 		}},
 		{"SetRemoteApplicationStatus", []interface{}{"db2", "terminated", "offer has been removed"}},
@@ -642,6 +650,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationsChangedConsumes(c *gc.C) {
 				}},
 				DepartedUnits: []int{2},
 				Macaroons:     macaroon.Slice{mac},
+				BakeryVersion: bakery.LatestVersion,
 			},
 		}},
 	}
@@ -703,6 +712,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 				RelationToken:    "token-db2:db django:db",
 				DepartedUnits:    []int{1},
 				Macaroons:        macaroon.Slice{apiMac},
+				BakeryVersion:    bakery.LatestVersion,
 			},
 		}},
 		{"Close", nil},
@@ -747,6 +757,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},
@@ -768,6 +779,7 @@ func (s *remoteRelationsSuite) assertRemoteRelationsChangedError(c *gc.C, dying 
 					RelationToken:    "token-db2:db django:db",
 					Life:             life.Dying,
 					Macaroons:        macaroon.Slice{apiMac},
+					BakeryVersion:    bakery.LatestVersion,
 					ForceCleanup:     &forceCleanup,
 				},
 			}},
@@ -864,6 +876,7 @@ func (s *remoteRelationsSuite) TestRemoteRelationSuspended(c *gc.C) {
 			OfferUUID:         "offer-db2-uuid",
 			LocalEndpointName: "data",
 			Macaroons:         macaroon.Slice{mac},
+			BakeryVersion:     bakery.LatestVersion,
 		}}}},
 		{"SaveMacaroon", []interface{}{relTag, apiMac}},
 		{"ImportRemoteEntity", []interface{}{names.NewApplicationTag("db2"), "token-offer-db2-uuid"}},

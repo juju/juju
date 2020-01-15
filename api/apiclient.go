@@ -28,6 +28,7 @@ import (
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
@@ -502,6 +503,7 @@ func (st *state) addCookiesToHeader(h http.Header) error {
 			req.AddCookie(cookie)
 		}
 	}
+	h.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	return nil
 }
 

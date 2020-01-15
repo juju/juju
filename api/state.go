@@ -39,11 +39,12 @@ import (
 func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:     tagToString(tag),
-		Credentials: password,
-		Nonce:       nonce,
-		Macaroons:   macaroons,
-		CLIArgs:     utils.CommandString(os.Args...),
+		AuthTag:       tagToString(tag),
+		Credentials:   password,
+		Nonce:         nonce,
+		Macaroons:     macaroons,
+		BakeryVersion: bakery.LatestVersion,
+		CLIArgs:       utils.CommandString(os.Args...),
 	}
 	// If we are in developer mode, add the stack location as user data to the
 	// login request. This will allow the apiserver to connect connection ids

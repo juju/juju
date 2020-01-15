@@ -183,6 +183,7 @@ func (s *macaroonLoginSuite) TestConnectStreamWithDischargedMacaroons(c *gc.C) {
 	defer conn.Close()
 
 	headers := catcher.headers
+	c.Assert(headers.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 	c.Assert(headers.Get("Cookie"), jc.HasPrefix, "macaroon-")
 	assertHeaderMatchesMacaroon(c, headers, dischargedMacaroons[0])
 }
