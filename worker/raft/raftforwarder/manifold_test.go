@@ -15,6 +15,7 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
@@ -75,14 +76,15 @@ func (s *manifoldSuite) SetUpTest(c *gc.C) {
 
 	s.context = s.newContext(nil)
 	s.config = raftforwarder.ManifoldConfig{
-		AgentName:      "agent",
-		RaftName:       "raft",
-		StateName:      "state",
-		CentralHubName: "hub",
-		RequestTopic:   "test.request",
-		Logger:         &s.logger,
-		NewWorker:      s.newWorker,
-		NewTarget:      s.newTarget,
+		AgentName:            "agent",
+		RaftName:             "raft",
+		StateName:            "state",
+		CentralHubName:       "hub",
+		RequestTopic:         "test.request",
+		Logger:               &s.logger,
+		PrometheusRegisterer: &noopRegisterer{},
+		NewWorker:            s.newWorker,
+		NewTarget:            s.newTarget,
 	}
 	s.manifold = raftforwarder.Manifold(s.config)
 }
@@ -134,6 +136,9 @@ func (s *manifoldSuite) TestValidate(c *gc.C) {
 	}, {
 		func(cfg *raftforwarder.ManifoldConfig) { cfg.Logger = nil },
 		"nil Logger not valid",
+	}, {
+		func(cfg *raftforwarder.ManifoldConfig) { cfg.PrometheusRegisterer = nil },
+		"nil PrometheusRegisterer not valid",
 	}, {
 		func(cfg *raftforwarder.ManifoldConfig) { cfg.NewWorker = nil },
 		"nil NewWorker not valid",
@@ -195,11 +200,12 @@ func (s *manifoldSuite) TestStart(c *gc.C) {
 	config := args[0].(raftforwarder.Config)
 
 	c.Assert(config, jc.DeepEquals, raftforwarder.Config{
-		Raft:   s.raft,
-		Hub:    s.hub,
-		Logger: &s.logger,
-		Topic:  "test.request",
-		Target: s.target,
+		Raft:                 s.raft,
+		Hub:                  s.hub,
+		Logger:               &s.logger,
+		Topic:                "test.request",
+		Target:               s.target,
+		PrometheusRegisterer: s.config.PrometheusRegisterer,
 	})
 }
 
@@ -280,4 +286,16 @@ type mockWorker struct{}
 func (w *mockWorker) Kill() {}
 func (w *mockWorker) Wait() error {
 	return nil
+}
+
+type noopRegisterer struct {
+	prometheus.Registerer
+}
+
+func (noopRegisterer) Register(prometheus.Collector) error {
+	return nil
+}
+
+func (noopRegisterer) Unregister(prometheus.Collector) bool {
+	return true
 }
