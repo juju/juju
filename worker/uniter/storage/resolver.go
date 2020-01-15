@@ -47,11 +47,6 @@ func (s *storageResolver) NextOp(
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
 
-	// Only IAAS models need to first run the install hook.
-	// For CAAS models, storage is specified in the pod config
-	// and mounted as the pod in started.
-	blockedWaitingForInstall := !localState.Installed && s.modelType == model.IAAS
-
 	if remoteState.Life == params.Dying {
 		// The unit is dying, so destroy all of its storage.
 		if !s.dying {
@@ -70,14 +65,25 @@ func (s *storageResolver) NextOp(
 		return nil, errors.Trace(err)
 	}
 
+	// Only IAAS models need to first run the install hook.
+	// For CAAS models, storage is specified in the pod config
+	// and mounted as the pod in started.
+	blockedWaitingForInstall := !localState.Installed && s.modelType == model.IAAS
+
 	var runStorageHooks bool
 	switch {
 	case localState.Kind == operation.Continue:
 		// There's nothing in progress.
-		runStorageHooks = true
+		fallthrough
 	case blockedWaitingForInstall && localState.Kind == operation.RunHook && localState.Step == operation.Queued:
 		// The install operation completed, and there's an install
 		// hook queued. Run storage-attached hooks first.
+		fallthrough
+	case s.modelType == model.CAAS:
+		// CAAS models skip the uniter Install operation, but do run the
+		// install hook. No need to wait for the install hook to be run
+		// as storage is mounted when a pod is started.  This will keep
+		// behavior consistent with before CAAS units run an install hook,
 		runStorageHooks = true
 	}
 	if !runStorageHooks {
