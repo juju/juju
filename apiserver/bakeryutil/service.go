@@ -4,72 +4,60 @@
 package bakeryutil
 
 import (
+	"context"
 	"time"
 
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/bakerystorage"
 )
 
-// BakeryServicePublicKeyLocator is an implementation of
-// bakery.PublicKeyLocator that simply returns the embedded
-// bakery service's public key.
-type BakeryServicePublicKeyLocator struct {
-	Service *bakery.Service
+// BakeryThirdPartyLocator is an implementation of
+// bakery.BakeryThirdPartyLocator that simply returns
+// the embedded public key.
+type BakeryThirdPartyLocator struct {
+	PublicKey bakery.PublicKey
 }
 
 // PublicKeyForLocation implements bakery.PublicKeyLocator.
-func (b BakeryServicePublicKeyLocator) PublicKeyForLocation(string) (*bakery.PublicKey, error) {
-	return b.Service.PublicKey(), nil
+func (b BakeryThirdPartyLocator) ThirdPartyInfo(ctx context.Context, loc string) (bakery.ThirdPartyInfo, error) {
+	return bakery.ThirdPartyInfo{
+		PublicKey: b.PublicKey,
+		Version:   bakery.LatestVersion,
+	}, nil
 }
 
-// NewBakeryService returns a new bakery.Service and bakery.KeyPair.
-// The bakery service is identifeid by the model corresponding to the
-// State.
-func NewBakeryService(
-	st *state.State,
-	store bakerystorage.ExpirableStorage,
-	locator bakery.PublicKeyLocator,
-) (*bakery.Service, *bakery.KeyPair, error) {
-	key, err := bakery.GenerateKey()
-	if err != nil {
-		return nil, nil, errors.Annotate(err, "generating key for bakery service")
-	}
-	service, err := bakery.NewService(bakery.NewServiceParams{
-		Location: "juju model " + st.ModelUUID(),
-		Store:    store,
-		Key:      key,
-		Locator:  locator,
-	})
-	if err != nil {
-		return nil, nil, errors.Trace(err)
-	}
-	return service, key, nil
-}
-
-// ExpirableStorageBakeryService wraps bakery.Service,
+// ExpirableStorageBakery wraps bakery.Bakery,
 // adding the ExpireStorageAfter method.
-type ExpirableStorageBakeryService struct {
-	*bakery.Service
-	Key     *bakery.KeyPair
-	Store   bakerystorage.ExpirableStorage
-	Locator bakery.PublicKeyLocator
+type ExpirableStorageBakery struct {
+	*bakery.Bakery
+	Location string
+	Key      *bakery.KeyPair
+	Store    bakerystorage.ExpirableStorage
+	Locator  bakery.ThirdPartyLocator
 }
 
-// ExpireStorageAfter implements authentication.ExpirableStorageBakeryService.
-func (s *ExpirableStorageBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+// ExpireStorageAfter implements authentication.ExpirableStorageBakery.
+func (s *ExpirableStorageBakery) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakery, error) {
 	store := s.Store.ExpireAfter(t)
-	service, err := bakery.NewService(bakery.NewServiceParams{
-		Location: s.Location(),
-		Store:    store,
-		Key:      s.Key,
-		Locator:  s.Locator,
+	service := bakery.New(bakery.BakeryParams{
+		Location:     s.Location,
+		RootKeyStore: store,
+		Key:          s.Key,
+		Locator:      s.Locator,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &ExpirableStorageBakeryService{service, s.Key, store, s.Locator}, nil
+	return &ExpirableStorageBakery{service, s.Location, s.Key, store, s.Locator}, nil
+}
+
+// NewMacaroon implements MacaroonMinter.NewMacaroon.
+func (s *ExpirableStorageBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+	return s.Oven.NewMacaroon(ctx, version, caveats, ops...)
+}
+
+// Auth implements MacaroonChecker.Auth.
+func (s *ExpirableStorageBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	return s.Checker.Auth(mss...)
 }

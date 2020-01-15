@@ -7,12 +7,14 @@ import (
 	"context"
 	"encoding/base64"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 
@@ -69,16 +71,21 @@ func (a *Authenticator) Maintain(done <-chan struct{}) {
 
 // CreateLocalLoginMacaroon is part of the
 // httpcontext.LocalMacaroonAuthenticator interface.
-func (a *Authenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
-	return a.authContext.CreateLocalLoginMacaroon(tag)
+func (a *Authenticator) CreateLocalLoginMacaroon(tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
+	mac, err := a.authContext.CreateLocalLoginMacaroon(tag, version)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mac.M(), nil
 }
 
 // AddHandlers adds the handlers to the given mux for handling local
 // macaroon logins.
 func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) {
 	h := &localLoginHandlers{
-		authCtxt: a.authContext,
-		finder:   a.statePool.SystemState(),
+		authCtxt:   a.authContext,
+		finder:     a.statePool.SystemState(),
+		userTokens: map[string]string{},
 	}
 	h.AddHandlers(mux)
 }
@@ -225,10 +232,12 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 		return params.LoginRequest{}, errors.Trace(err)
 	}
 
+	bakeryVersion, _ := strconv.Atoi(req.Header.Get(httpbakery.BakeryProtocolHeader))
 	return params.LoginRequest{
-		AuthTag:     tagPass[0],
-		Credentials: tagPass[1],
-		Macaroons:   macaroons,
-		Nonce:       req.Header.Get(params.MachineNonceHeader),
+		AuthTag:       tagPass[0],
+		Credentials:   tagPass[1],
+		Nonce:         req.Header.Get(params.MachineNonceHeader),
+		Macaroons:     macaroons,
+		BakeryVersion: bakery.Version(bakeryVersion),
 	}, nil
 }

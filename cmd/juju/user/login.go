@@ -453,8 +453,15 @@ Run "juju logout" first before attempting to log in as a different user.`,
 		User: username,
 	}
 	conn, err := dial(accountDetails)
+	if err != nil {
+		if strings.Contains(err.Error(), badCred) {
+			err = errors.New(badCred)
+		}
+	}
 	return conn, accountDetails, errors.Trace(err)
 }
+
+const badCred = "invalid entity name or password"
 
 const noModelsMessage = `
 There are no models available. You can add models with

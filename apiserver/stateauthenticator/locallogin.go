@@ -4,21 +4,23 @@
 package stateauthenticator
 
 import (
+	"context"
+	"crypto/rand"
+	"fmt"
 	"net/http"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	httpbakeryunstable "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
-	"gopkg.in/macaroon.v2"
+	"gopkg.in/macaroon-bakery.v2/httpbakery/form"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 )
 
@@ -27,190 +29,132 @@ var (
 )
 
 type localLoginHandlers struct {
-	authCtxt *authContext
-	finder   state.EntityFinder
+	authCtxt   *authContext
+	finder     state.EntityFinder
+	userTokens map[string]string
 }
+
+var formURL = "/form"
 
 // AddHandlers adds the local login handlers to the given mux.
 func (h *localLoginHandlers) AddHandlers(mux *apiserverhttp.Mux) {
-	var errorMapper httpbakeryunstable.ErrorMapper = httpbakeryunstable.ErrorToResponse
-	var handleJSON = errorMapper.HandleJSON
-	makeHandler := func(h httpbakeryunstable.Handle) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-			h(w, req, nil)
-		})
-	}
 	dischargeMux := http.NewServeMux()
-	httpbakeryunstable.AddDischargeHandler(
-		dischargeMux,
-		localUserIdentityLocationPath,
-		h.authCtxt.localUserThirdPartyBakeryService,
-		h.checkThirdPartyCaveat,
-	)
+	discharger := httpbakery.NewDischarger(
+		httpbakery.DischargerParams{
+			Key:     h.authCtxt.localUserThirdPartyBakeryKey,
+			Checker: httpbakery.ThirdPartyCaveatCheckerFunc(h.checkThirdPartyCaveat),
+		})
+	discharger.AddMuxHandlers(dischargeMux, localUserIdentityLocationPath)
+
 	dischargeMux.Handle(
-		localUserIdentityLocationPath+"/login",
-		makeHandler(handleJSON(h.serveLogin)),
-	)
-	dischargeMux.Handle(
-		localUserIdentityLocationPath+"/wait",
-		makeHandler(handleJSON(h.serveWait)),
+		localUserIdentityLocationPath+formURL,
+		http.HandlerFunc(h.formHandler),
 	)
 	mux.AddHandler("POST", localUserIdentityLocationPath+"/discharge", dischargeMux)
 	mux.AddHandler("GET", localUserIdentityLocationPath+"/publickey", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/wait", dischargeMux)
-	mux.AddHandler("GET", localUserIdentityLocationPath+"/login", dischargeMux)
-	mux.AddHandler("POST", localUserIdentityLocationPath+"/login", dischargeMux)
+	mux.AddHandler("GET", localUserIdentityLocationPath+"/form", dischargeMux)
+	mux.AddHandler("POST", localUserIdentityLocationPath+"/form", dischargeMux)
+
+	h.AddLegacyHandlers(mux, dischargeMux)
 }
 
-func (h *localLoginHandlers) serveLogin(p httpbakeryunstable.Params) (interface{}, error) {
-	switch p.Request.Method {
+func (h *localLoginHandlers) bakeryError(w http.ResponseWriter, err error) {
+	httpbakery.WriteError(context.TODO(), w, err)
+}
+
+func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
 	case "POST":
-		return h.serveLoginPost(p)
-	case "GET":
-		return h.serveLoginGet(p)
+		reqParams := httprequest.Params{
+			Response: w,
+			Request:  req,
+			Context:  context.TODO(),
+		}
+		loginRequest := form.LoginRequest{}
+		if err := httprequest.Unmarshal(reqParams, &loginRequest); err != nil {
+			h.bakeryError(w, errors.Annotate(err, "can't unmarshal login request"))
+			return
+		}
+
+		username := loginRequest.Body.Form["user"].(string)
+		password := loginRequest.Body.Form["password"].(string)
+		userTag := names.NewUserTag(username)
+		if !userTag.IsLocal() {
+			h.bakeryError(w, errors.NotValidf("non-local username %q", username))
+			return
+		}
+
+		authenticator := h.authCtxt.authenticator(req.Host)
+		if _, err := authenticator.Authenticate(h.finder, userTag, params.LoginRequest{
+			Credentials: password,
+		}); err != nil {
+			h.bakeryError(w, err)
+			return
+		}
+
+		token, err := newId()
+		if err != nil {
+			h.bakeryError(w, errors.Annotate(err, "cannot generate token"))
+			return
+		}
+		h.userTokens[token] = username
+
+		loginResponse := form.LoginResponse{
+			Token: &httpbakery.DischargeToken{
+				Kind:  "juju_userpass",
+				Value: []byte(token),
+			},
+		}
+		httprequest.WriteJSON(w, http.StatusOK, loginResponse)
 	default:
-		return nil, errors.Errorf("unsupported method %q", p.Request.Method)
+		http.Error(w, fmt.Sprintf("%s method not allowed", req.Method), http.StatusMethodNotAllowed)
 	}
 }
 
-func (h *localLoginHandlers) serveLoginPost(p httpbakeryunstable.Params) (interface{}, error) {
-	if err := p.Request.ParseForm(); err != nil {
-		return nil, err
+func newId() (string, error) {
+	var id [12]byte
+	if _, err := rand.Read(id[:]); err != nil {
+		return "", fmt.Errorf("cannot read random id: %v", err)
 	}
-	waitId := p.Request.Form.Get("waitid")
-	if waitId == "" {
-		return nil, errors.NotValidf("missing waitid")
-	}
-	username := p.Request.Form.Get("user")
-	password := p.Request.Form.Get("password")
-	if !names.IsValidUser(username) {
-		return nil, errors.NotValidf("username %q", username)
-	}
-	userTag := names.NewUserTag(username)
-	if !userTag.IsLocal() {
-		return nil, errors.NotValidf("non-local username %q", username)
-	}
+	return fmt.Sprintf("%x", id[:]), nil
+}
 
-	authenticator := h.authCtxt.authenticator(p.Request.Host)
-	if _, err := authenticator.Authenticate(h.finder, userTag, params.LoginRequest{
-		Credentials: password,
-	}); err != nil {
-		// Mark the interaction as done (but failed),
-		// unblocking a pending "/auth/wait" request.
-		if err := h.authCtxt.localUserInteractions.Done(waitId, userTag, err); err != nil {
-			if !errors.IsNotFound(err) {
-				logger.Warningf(
-					"failed to record completion of interaction %q for %q",
-					waitId, userTag.Id(),
-				)
-			}
+func (h *localLoginHandlers) checkThirdPartyCaveat(stdCtx context.Context, req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo, token *httpbakery.DischargeToken) ([]checkers.Caveat, error) {
+	tag, err := h.authCtxt.CheckLocalLoginCaveat(string(cavInfo.Condition))
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if token == nil {
+		if err := h.authCtxt.CheckLocalLoginRequest(req, tag); err == nil {
+			return h.authCtxt.DischargeCaveats(tag), nil
 		}
-		return nil, errors.Trace(err)
-	}
+		err2 := httpbakery.NewInteractionRequiredError(nil, req)
+		err2.SetInteraction("juju_userpass", form.InteractionInfo{URL: localUserIdentityLocationPath + formURL})
 
-	// Provide the client with a macaroon that they can use to
-	// prove that they have logged in, and obtain a discharge
-	// macaroon.
-	m, err := h.authCtxt.CreateLocalLoginMacaroon(userTag)
-	if err != nil {
-		return nil, err
-	}
-	cookie, err := httpbakery.NewCookie(charmstore.MacaroonNamespace, macaroon.Slice{m})
-	if err != nil {
-		return nil, err
-	}
-	http.SetCookie(p.Response, cookie)
-
-	// Mark the interaction as done, unblocking a pending
-	// "/auth/wait" request.
-	if err := h.authCtxt.localUserInteractions.Done(
-		waitId, userTag, nil,
-	); err != nil {
-		if errors.IsNotFound(err) {
-			err = errors.New("login timed out")
+		// TODO(juju3) - remove legacy client support
+		waitId, err := h.authCtxt.localUserInteractions.Start(
+			cavInfo.Caveat,
+			h.authCtxt.clock.Now().Add(authentication.LocalLoginInteractionTimeout),
+		)
+		if err != nil {
+			return nil, errors.Trace(err)
 		}
-		return nil, err
+		visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitId
+		waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitId
+		httpbakery.SetLegacyInteraction(err2, visitURL, waitURL)
+		return nil, err2
 	}
-	return nil, nil
-}
 
-func (h *localLoginHandlers) serveLoginGet(p httpbakeryunstable.Params) (interface{}, error) {
-	if p.Request.Header.Get("Accept") == "application/json" {
-		// The application/json content-type is used to
-		// inform the client of the supported auth methods.
-		return map[string]string{
-			"juju_userpass": p.Request.URL.String(),
-		}, nil
+	tokenString := string(token.Value)
+	username, ok := h.userTokens[tokenString]
+	delete(h.userTokens, tokenString)
+	if token.Kind != "juju_userpass" || !ok {
+		return nil, errors.Errorf("invalid token %#v", token)
 	}
-	// TODO(axw) return an HTML form. If waitid is supplied,
-	// it should be passed through so we can unblock a request
-	// on the /auth/wait endpoint. We should also support logging
-	// in when not specifically directed to the login page.
-	return nil, errors.NotImplementedf("GET")
-}
 
-func (h *localLoginHandlers) serveWait(p httpbakeryunstable.Params) (interface{}, error) {
-	if err := p.Request.ParseForm(); err != nil {
-		return nil, err
+	// Sanity check.
+	if tag.Id() != username {
+		return nil, errors.Errorf("discharge token for user %q does not match declared user %q", username, tag.Id())
 	}
-	if p.Request.Method != "GET" {
-		return nil, errors.Errorf("unsupported method %q", p.Request.Method)
-	}
-	waitId := p.Request.Form.Get("waitid")
-	if waitId == "" {
-		return nil, errors.NotValidf("missing waitid")
-	}
-	interaction, err := h.authCtxt.localUserInteractions.Wait(waitId, nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	if interaction.LoginError != nil {
-		return nil, errors.Trace(err)
-	}
-	ctx := macaroonAuthContext{
-		authContext: h.authCtxt,
-		req:         p.Request,
-	}
-	macaroon, err := h.authCtxt.localUserThirdPartyBakeryService.Discharge(
-		&ctx, interaction.CaveatId,
-	)
-	if err != nil {
-		return nil, errors.Annotate(err, "discharging macaroon")
-	}
-	return httpbakeryunstable.WaitResponse{macaroon}, nil
-}
-
-func (h *localLoginHandlers) checkThirdPartyCaveat(req *http.Request, cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
-	ctx := &macaroonAuthContext{authContext: h.authCtxt, req: req}
-	return ctx.CheckThirdPartyCaveat(cavInfo)
-}
-
-type macaroonAuthContext struct {
-	*authContext
-	req *http.Request
-}
-
-// CheckThirdPartyCaveat is part of the bakery.ThirdPartyChecker interface.
-func (ctx *macaroonAuthContext) CheckThirdPartyCaveat(cavInfo *bakery.ThirdPartyCaveatInfo) ([]checkers.Caveat, error) {
-	tag, err := ctx.CheckLocalLoginCaveat(cavInfo.Condition)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	firstPartyCaveats, err := ctx.CheckLocalLoginRequest(ctx.req, tag)
-	if err != nil {
-		if _, ok := errors.Cause(err).(*bakery.VerificationError); ok {
-			waitId, err := ctx.localUserInteractions.Start(
-				cavInfo.CaveatId,
-				ctx.clock.Now().Add(authentication.LocalLoginInteractionTimeout),
-			)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			visitURL := localUserIdentityLocationPath + "/login?waitid=" + waitId
-			waitURL := localUserIdentityLocationPath + "/wait?waitid=" + waitId
-			return nil, httpbakeryunstable.NewInteractionRequiredError(visitURL, waitURL, nil, ctx.req)
-		}
-		return nil, errors.Trace(err)
-	}
-	return firstPartyCaveats, nil
+	return h.authCtxt.DischargeCaveats(tag), nil
 }

@@ -1516,18 +1516,6 @@
   revision = "6734dc66fe81c761f153bdd3e4ea572a105b6fe0"
 
 [[projects]]
-  digest = "1:01ca591d2010c9aee949a970b82911c6384f4f50a948a36818f75ee677a63962"
-  name = "gopkg.in/macaroon-bakery.v2-unstable"
-  packages = [
-    "bakery",
-    "bakery/checkers",
-    "httpbakery",
-  ]
-  pruneopts = ""
-  revision = "15effef1340d966e9419a176b0a4e0381f345c19"
-  source = "github.com/wallyworld/macaroon-bakery"
-
-[[projects]]
   digest = "1:7811982c180c7bd1377f5342c1ed8ea385180fa5fb468eabb172244a2edff612"
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
@@ -1943,7 +1931,6 @@
     "gopkg.in/amz.v3/ec2",
     "gopkg.in/amz.v3/ec2/ec2test",
     "gopkg.in/check.v1",
-    "gopkg.in/errgo.v1",
     "gopkg.in/goose.v2/cinder",
     "gopkg.in/goose.v2/client",
     "gopkg.in/goose.v2/errors",
@@ -1977,9 +1964,6 @@
     "gopkg.in/juju/worker.v1/dependency",
     "gopkg.in/juju/worker.v1/dependency/testing",
     "gopkg.in/juju/worker.v1/workertest",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakery",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers",
-    "gopkg.in/macaroon-bakery.v2-unstable/httpbakery",
     "gopkg.in/macaroon-bakery.v2/bakery",
     "gopkg.in/macaroon-bakery.v2/bakery/checkers",
     "gopkg.in/macaroon-bakery.v2/bakery/identchecker",
