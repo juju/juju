@@ -340,13 +340,15 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 	}
 
 	return cache.ModelChange{
-		ModelUUID: value.ModelUUID,
-		Name:      value.Name,
-		Life:      life.Value(value.Life),
-		Owner:     value.Owner,
-		Config:    value.Config,
-		Status:    coreStatus(value.Status),
+		ModelUUID:    value.ModelUUID,
+		Name:         value.Name,
+		Life:         life.Value(value.Life),
+		Owner:        value.Owner,
+		IsController: value.IsController,
+		Config:       value.Config,
+		Status:       coreStatus(value.Status),
 		// TODO: constraints, sla
+		UserPermissions: value.UserPermissions,
 	}
 }
 

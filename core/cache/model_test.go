@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/testing"
 )
@@ -360,10 +361,11 @@ func (s *ModelSuite) TestWaitForUnitCancelClosesChannel(c *gc.C) {
 }
 
 var modelChange = cache.ModelChange{
-	ModelUUID: "model-uuid",
-	Name:      "test-model",
-	Life:      life.Alive,
-	Owner:     "model-owner",
+	ModelUUID:    "model-uuid",
+	Name:         "test-model",
+	Life:         life.Alive,
+	Owner:        "model-owner",
+	IsController: false,
 	Config: map[string]interface{}{
 		"key":     "value",
 		"another": "foo",
@@ -371,5 +373,9 @@ var modelChange = cache.ModelChange{
 
 	Status: status.StatusInfo{
 		Status: status.Active,
+	},
+	UserPermissions: map[string]permission.Access{
+		"model-owner": permission.AdminAccess,
+		"read-user":   permission.ReadAccess,
 	},
 }

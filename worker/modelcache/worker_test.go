@@ -5,6 +5,7 @@ package modelcache_test
 
 import (
 	"math"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -176,12 +178,22 @@ func (s *WorkerSuite) checkModel(c *gc.C, obtained interface{}, model *state.Mod
 	c.Check(change.Name, gc.Equals, model.Name())
 	c.Check(change.Life, gc.Equals, life.Value(model.Life().String()))
 	c.Check(change.Owner, gc.Equals, model.Owner().Name())
+	c.Check(change.IsController, gc.Equals, model.IsControllerModel())
 	cfg, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(change.Config, jc.DeepEquals, cfg.AllAttrs())
 	status, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(change.Status, jc.DeepEquals, status)
+
+	users, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	permissions := make(map[string]permission.Access)
+	for _, user := range users {
+		// Cache permission map is always lower case.
+		permissions[strings.ToLower(user.UserName)] = user.Access
+	}
+	c.Check(change.UserPermissions, jc.DeepEquals, permissions)
 }
 
 func (s *WorkerSuite) TestInitialModel(c *gc.C) {
