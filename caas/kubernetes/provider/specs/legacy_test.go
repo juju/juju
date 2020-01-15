@@ -338,27 +338,6 @@ echo "do some stuff here for gitlab-init container"
 	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
 }
 
-// TODO(caas): move these pointer related value change funcs to /testing package.
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func strPtr(b string) *string {
-	return &b
-}
-
 func (s *legacySpecsSuite) TestValidateMissingContainers(c *gc.C) {
 
 	specStr := `
