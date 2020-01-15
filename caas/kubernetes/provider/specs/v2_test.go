@@ -4,11 +4,15 @@
 package specs_test
 
 import (
+	"encoding/base64"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -243,6 +247,30 @@ kubernetesResources:
               backend:
                 serviceName: test
                 servicePort: 80
+  mutatingWebhookConfigurations:
+    example-mutatingwebhookconfiguration:
+      - name: "example.mutatingwebhookconfiguration.com"
+        failurePolicy: Ignore
+        clientConfig:
+          service:
+            name: apple-service
+            namespace: apples
+            path: /apple
+          caBundle: "YXBwbGVz"
+        namespaceSelector:
+          matchExpressions:
+          - key: production
+            operator: DoesNotExist
+        rules:
+        - apiGroups:
+          - ""
+          apiVersions:
+          - v1
+          operations:
+          - CREATE
+          - UPDATE
+          resources:
+          - pods
 `[1:]
 
 	expectedFileContent := `
@@ -425,6 +453,40 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
+		webhook1Rule1 := admissionregistrationv1beta1.Rule{
+			APIGroups:   []string{""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+		}
+		webhookRuleWithOperations1 := admissionregistrationv1beta1.RuleWithOperations{
+			Operations: []admissionregistrationv1beta1.OperationType{
+				admissionregistrationv1beta1.Create,
+				admissionregistrationv1beta1.Update,
+			},
+		}
+		webhookRuleWithOperations1.Rule = webhook1Rule1
+		CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
+		c.Assert(err, jc.ErrorIsNil)
+		webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
+		webhook1 := admissionregistrationv1beta1.Webhook{
+			Name:          "example.mutatingwebhookconfiguration.com",
+			FailurePolicy: &webhook1FailurePolicy,
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Name:      "apple-service",
+					Namespace: "apples",
+					Path:      strPtr("/apple"),
+				},
+				CABundle: CABundle,
+			},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
+				},
+			},
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations1},
+		}
+
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
 				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
@@ -563,6 +625,9 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
+				MutatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
+					"example-mutatingwebhookconfiguration": {webhook1},
+				},
 			},
 		}
 		return pSpecs
@@ -701,6 +766,23 @@ kubernetesResources:
 	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
 }
 
+func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  mutatingWebhookConfigurations:
+    example-mutatingwebhookconfiguration:
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+}
+
 func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
 	specStr := versionHeader + `
 containers:
@@ -742,4 +824,25 @@ bar: a-bad-guy
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
+}
+
+// TODO(caas): move these pointer related value change funcs to /testing package.
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func strPtr(b string) *string {
+	return &b
 }

@@ -63,6 +63,8 @@ type BaseSuite struct {
 	mockApiextensionsClient      *mocks.MockApiExtensionsClientInterface
 	mockCustomResourceDefinition *mocks.MockCustomResourceDefinitionInterface
 
+	mockMutatingWebhookConfiguration *mocks.MockMutatingWebhookConfigurationInterface
+
 	mockDynamicClient               *mocks.MockDynamicInterface
 	mockResourceClient              *mocks.MockResourceInterface
 	mockNamespaceableResourceClient *mocks.MockNamespaceableResourceInterface
@@ -220,6 +222,11 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
+
+	mockAdmissionregistrationV1beta1 := mocks.NewMockAdmissionregistrationV1beta1Interface(ctrl)
+	s.mockMutatingWebhookConfiguration = mocks.NewMockMutatingWebhookConfigurationInterface(ctrl)
+	mockAdmissionregistrationV1beta1.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfiguration)
+	s.k8sClient.EXPECT().Admissionregistration().AnyTimes().Return(mockAdmissionregistrationV1beta1)
 
 	mockRbacV1 := mocks.NewMockRbacV1Interface(ctrl)
 	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(mockRbacV1)
