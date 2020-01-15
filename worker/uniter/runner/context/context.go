@@ -258,7 +258,62 @@ type HookContext struct {
 	// podSpecYaml is the pending pod spec to be committed.
 	podSpecYaml *string
 
+	// A cached view of the unit's state that gets persisted by juju once
+	// the context is flushed.
+	stateValues map[string]string
+
 	mu sync.Mutex
+}
+
+func (ctx *HookContext) GetStateValue(key string) (string, error) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return "", err
+	}
+
+	return ctx.stateValues[key], nil
+}
+
+func (ctx *HookContext) SetStateValue(key, value string) error {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return err
+	}
+
+	ctx.stateValues[key] = value
+	return nil
+}
+
+func (ctx *HookContext) DeleteStateValue(key string) error {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return err
+	}
+
+	delete(ctx.stateValues, key)
+	return nil
+}
+
+// ensureStateValuesLoaded retrieves and caches the unit's state from the
+// controller. The caller of this method must be holding the ctx mutex.
+func (ctx *HookContext) ensureStateValuesLoaded() error {
+	// NOTE: Assuming lock to be held!
+	if ctx.stateValues != nil {
+		return nil
+	}
+
+	// Load from controller
+	state, err := ctx.unit.State()
+	if err != nil {
+		return errors.Annotate(err, "loading unit state from database")
+	} else if state == nil {
+		state = make(map[string]string)
+	}
+	ctx.stateValues = state
+	return nil
 }
 
 // Component returns the ContextComponent with the supplied name if
@@ -883,6 +938,17 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// potential changes to already bound endpoints.
 	if process == string(hooks.ConfigChanged) {
 		if e := ctx.unit.UpdateNetworkInfo(); e != nil {
+			return errors.Trace(e)
+		}
+	}
+
+	// TODO: We need a uniter API to persist the following in a single txn:
+	// - the state
+	// - relation data
+	// - storage changes
+	// - podspec
+	if ctx.stateValues != nil && writeChanges {
+		if e := ctx.unit.SetState(ctx.stateValues); e != nil {
 			return errors.Trace(e)
 		}
 	}

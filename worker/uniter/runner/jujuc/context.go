@@ -26,6 +26,13 @@ type Context interface {
 	HookContext
 	relationHookContext
 	actionHookContext
+	serverSideStateContext
+}
+
+type serverSideStateContext interface {
+	GetStateValue(string) (string, error)
+	DeleteStateValue(string) error
+	SetStateValue(string, string) error
 }
 
 // HookContext represents the information and functionality that is

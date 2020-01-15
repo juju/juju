@@ -31,6 +31,18 @@ func (*RestrictedContext) GoalState() (*application.GoalState, error) {
 	return &application.GoalState{}, ErrRestrictedContext
 }
 
+func (*RestrictedContext) GetStateValue(string) (string, error) {
+	return "", ErrRestrictedContext
+}
+
+func (*RestrictedContext) DeleteStateValue(string) error {
+	return ErrRestrictedContext
+}
+
+func (*RestrictedContext) SetStateValue(string, string) error {
+	return ErrRestrictedContext
+}
+
 // UnitStatus implements hooks.Context.
 func (*RestrictedContext) UnitStatus() (*StatusInfo, error) {
 	return nil, ErrRestrictedContext
