@@ -333,7 +333,7 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.ModelUpdate)
+	value, ok := e.(*multiwatcher.ModelInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil

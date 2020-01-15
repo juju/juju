@@ -604,7 +604,7 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 						if delta.Entity.EntityID().Kind == "model" && !fakeModelSent {
 							fakeModelSent = true
 							return append(deltas, multiwatcher.Delta{
-								Entity: &multiwatcher.ModelUpdate{
+								Entity: &multiwatcher.ModelInfo{
 									ModelUUID: "fake-ass-model-uuid",
 									Name:      "evict-this-cat",
 								},

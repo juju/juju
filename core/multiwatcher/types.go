@@ -351,9 +351,9 @@ func (i *BlockInfo) EntityID() EntityID {
 	}
 }
 
-// ModelUpdate holds the information about a model that is
+// ModelInfo holds the information about a model that is
 // tracked by multiwatcherStore.
-type ModelUpdate struct {
+type ModelInfo struct {
 	ModelUUID      string
 	Name           string
 	Life           life.Value
@@ -375,7 +375,7 @@ type ModelSLAInfo struct {
 }
 
 // EntityID returns a unique identifier for a model.
-func (i *ModelUpdate) EntityID() EntityID {
+func (i *ModelInfo) EntityID() EntityID {
 	return EntityID{
 		Kind:      ModelKind,
 		ModelUUID: i.ModelUUID,

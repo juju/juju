@@ -81,7 +81,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	modelStatus, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
-	add(&multiwatcher.ModelUpdate{
+	add(&multiwatcher.ModelInfo{
 		ModelUUID:      model.UUID(),
 		Name:           model.Name(),
 		Life:           life.Alive,
@@ -1054,7 +1054,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "model is removed if it's not in backing",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: "some-uuid",
 				}},
 				change: watcher.Change{
@@ -1081,7 +1081,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					Id: st.ModelUUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ModelUpdate{
+					&multiwatcher.ModelInfo{
 						ModelUUID:      model.UUID(),
 						Name:           model.Name(),
 						Life:           life.Alive,
@@ -1115,7 +1115,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ModelUpdate{
+					&multiwatcher.ModelInfo{
 						ModelUUID:      model.UUID(),
 						Name:           "",
 						Life:           life.Alive,
@@ -1142,7 +1142,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					Id: model.UUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ModelUpdate{
+					&multiwatcher.ModelInfo{
 						ModelUUID:      model.UUID(),
 						Name:           model.Name(),
 						Life:           life.Alive,
@@ -1232,7 +1232,7 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	expectedModelSettings["http-proxy"] = "http://invalid"
 	expectedModelSettings["foo"] = "bar"
 
-	all.Update(&multiwatcher.ModelUpdate{
+	all.Update(&multiwatcher.ModelInfo{
 		ModelUUID: s.state.ModelUUID(),
 		Name:      "dummy-model",
 	})
@@ -1243,7 +1243,7 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.ModelUpdate{
+		&multiwatcher.ModelInfo{
 			ModelUUID: s.state.ModelUUID(),
 			Name:      "dummy-model",
 			Config:    expectedModelSettings,
@@ -1262,7 +1262,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "model update keeps permissions",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					// Existance doesn't care about the other values, and they are
 					// not entirely relevent to this test.
@@ -1275,7 +1275,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					C:  "models",
 					Id: st.ModelUUID(),
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID:      st.ModelUUID(),
 					Name:           model.Name(),
 					Life:           "alive",
@@ -1303,7 +1303,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "adding a model user updates model",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// Existance doesn't care about the other values, and they are
@@ -1317,7 +1317,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					C:  permissionsC,
 					Id: permissionID(modelKey(st.ModelUUID()), userGlobalKey("tony@external")),
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// When the permissions are updated, only the user permissions are changed.
@@ -1335,7 +1335,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "removing a permission document removes user permission",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// Existance doesn't care about the other values, and they are
@@ -1350,7 +1350,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Id:    permissionID(modelKey(st.ModelUUID()), userGlobalKey("bob")),
 					Revno: -1,
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// When the permissions are updated, only the user permissions are changed.
@@ -1382,7 +1382,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "updating a permission document updates user permission",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// Existance doesn't care about the other values, and they are
@@ -1396,7 +1396,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					C:  permissionsC,
 					Id: permissionID(modelKey(st.ModelUUID()), userGlobalKey("bob")),
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					UserPermissions: map[string]permission.Access{
