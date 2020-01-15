@@ -843,3 +843,48 @@ func (u *Unit) UpdateNetworkInfo() error {
 	}
 	return results.OneError()
 }
+
+// State returns the state persisted by the charm running in this unit.
+func (u *Unit) State() (map[string]string, error) {
+	var results params.UnitStateResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("State", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return result.State, nil
+}
+
+// SetState persists the state of the charm running in this unit.
+func (u *Unit) SetState(unitState map[string]string) error {
+	var results params.ErrorResults
+	req := params.SetUnitState{
+		Args: []params.UnitState{
+			params.UnitState{
+				Tag:   u.tag.String(),
+				State: unitState,
+			},
+		},
+	}
+	err := u.st.facade.FacadeCall("SetState", req, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Results) != 1 {
+		return errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return result.Error
+	}
+	return nil
+}
