@@ -8,14 +8,10 @@ import (
 
 	"github.com/juju/errors"
 	"k8s.io/api/admissionregistration/v1beta1"
-	// core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	// admissionregistrationv1beta1 "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1"
 
-	// k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
-	// "github.com/juju/juju/caas/specs"
 	k8sannotations "github.com/juju/juju/core/annotations"
 )
 
@@ -67,6 +63,11 @@ func (k *kubernetesClient) ensureMutatingWebhookConfiguration(cfg *v1beta1.Mutat
 		}
 		return cleanUp, errors.Trace(err)
 	}
+	existingCfg, err := k.getMutatingWebhookConfiguration(cfg.GetName())
+	if err != nil {
+		return cleanUp, errors.Trace(err)
+	}
+	cfg.SetResourceVersion(existingCfg.GetResourceVersion())
 	err = k.updateMutatingWebhookConfiguration(cfg)
 	logger.Debugf("updating MutatingWebhookConfiguration %q", cfg.GetName())
 	return cleanUp, errors.Trace(err)
