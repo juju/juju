@@ -354,16 +354,19 @@ func (i *BlockInfo) EntityID() EntityID {
 // ModelInfo holds the information about a model that is
 // tracked by multiwatcherStore.
 type ModelInfo struct {
-	ModelUUID      string
-	Name           string
-	Life           life.Value
-	Owner          string
-	ControllerUUID string
-	IsController   bool
-	Config         map[string]interface{}
-	Status         StatusInfo
-	Constraints    constraints.Value
-	SLA            ModelSLAInfo
+	ModelUUID       string
+	Name            string
+	Life            life.Value
+	Owner           string
+	ControllerUUID  string
+	IsController    bool
+	Cloud           string
+	CloudRegion     string
+	CloudCredential string
+	Config          map[string]interface{}
+	Status          StatusInfo
+	Constraints     constraints.Value
+	SLA             ModelSLAInfo
 
 	UserPermissions map[string]permission.Access
 }

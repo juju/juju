@@ -19,13 +19,16 @@ import (
 // ModelChange represents either a new model, or a change
 // to an existing model.
 type ModelChange struct {
-	ModelUUID    string
-	Name         string
-	Life         life.Value
-	Owner        string // tag maybe?
-	IsController bool
-	Config       map[string]interface{}
-	Status       status.StatusInfo
+	ModelUUID       string
+	Name            string
+	Life            life.Value
+	Owner           string // tag maybe?
+	IsController    bool
+	Cloud           string
+	CloudRegion     string
+	CloudCredential string
+	Config          map[string]interface{}
+	Status          status.StatusInfo
 
 	UserPermissions map[string]permission.Access
 }

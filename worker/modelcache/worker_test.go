@@ -179,6 +179,11 @@ func (s *WorkerSuite) checkModel(c *gc.C, obtained interface{}, model *state.Mod
 	c.Check(change.Life, gc.Equals, life.Value(model.Life().String()))
 	c.Check(change.Owner, gc.Equals, model.Owner().Name())
 	c.Check(change.IsController, gc.Equals, model.IsControllerModel())
+	c.Check(change.Cloud, gc.Equals, model.Cloud())
+	c.Check(change.CloudRegion, gc.Equals, model.CloudRegion())
+	cred, _ := model.CloudCredential()
+	c.Check(change.CloudCredential, gc.Equals, cred.Id())
+
 	cfg, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(change.Config, jc.DeepEquals, cfg.AllAttrs())

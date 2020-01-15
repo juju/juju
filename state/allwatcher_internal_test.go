@@ -80,15 +80,18 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	modelStatus, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
-
+	credential, _ := model.CloudCredential()
 	add(&multiwatcher.ModelInfo{
-		ModelUUID:      model.UUID(),
-		Name:           model.Name(),
-		Life:           life.Alive,
-		Owner:          model.Owner().Id(),
-		ControllerUUID: model.ControllerUUID(),
-		IsController:   model.IsControllerModel(),
-		Config:         modelCfg.AllAttrs(),
+		ModelUUID:       model.UUID(),
+		Name:            model.Name(),
+		Life:            life.Alive,
+		Owner:           model.Owner().Id(),
+		ControllerUUID:  model.ControllerUUID(),
+		IsController:    model.IsControllerModel(),
+		Cloud:           model.Cloud(),
+		CloudRegion:     model.CloudRegion(),
+		CloudCredential: credential.Id(),
+		Config:          modelCfg.AllAttrs(),
 		Status: multiwatcher.StatusInfo{
 			Current: modelStatus.Status,
 			Message: modelStatus.Message,
@@ -1074,6 +1077,8 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			cons := constraints.MustParse("mem=4G")
 			err = st.SetModelConstraints(cons)
 			c.Assert(err, jc.ErrorIsNil)
+			credential, _ := model.CloudCredential()
+
 			return changeTestCase{
 				about: "model is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -1082,14 +1087,17 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:      model.UUID(),
-						Name:           model.Name(),
-						Life:           life.Alive,
-						Owner:          model.Owner().Id(),
-						ControllerUUID: model.ControllerUUID(),
-						IsController:   model.IsControllerModel(),
-						Config:         cfg.AllAttrs(),
-						Constraints:    cons,
+						ModelUUID:       model.UUID(),
+						Name:            model.Name(),
+						Life:            life.Alive,
+						Owner:           model.Owner().Id(),
+						ControllerUUID:  model.ControllerUUID(),
+						IsController:    model.IsControllerModel(),
+						Cloud:           model.Cloud(),
+						CloudRegion:     model.CloudRegion(),
+						CloudCredential: credential.Id(),
+						Config:          cfg.AllAttrs(),
+						Constraints:     cons,
 						Status: multiwatcher.StatusInfo{
 							Current: status.Status,
 							Message: status.Message,
@@ -1112,6 +1120,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			status, err := model.Status()
 			c.Assert(err, jc.ErrorIsNil)
+			credential, _ := model.CloudCredential()
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
@@ -1143,13 +1152,16 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 				},
 				expectContents: []multiwatcher.EntityInfo{
 					&multiwatcher.ModelInfo{
-						ModelUUID:      model.UUID(),
-						Name:           model.Name(),
-						Life:           life.Alive,
-						Owner:          model.Owner().Id(),
-						ControllerUUID: model.ControllerUUID(),
-						IsController:   model.IsControllerModel(),
-						Config:         cfg.AllAttrs(),
+						ModelUUID:       model.UUID(),
+						Name:            model.Name(),
+						Life:            life.Alive,
+						Owner:           model.Owner().Id(),
+						ControllerUUID:  model.ControllerUUID(),
+						IsController:    model.IsControllerModel(),
+						Cloud:           model.Cloud(),
+						CloudRegion:     model.CloudRegion(),
+						CloudCredential: credential.Id(),
+						Config:          cfg.AllAttrs(),
 						Status: multiwatcher.StatusInfo{
 							Current: status.Status,
 							Message: status.Message,
@@ -1259,6 +1271,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		func(c *gc.C, st *State) changeTestCase {
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
+			credential, _ := model.CloudCredential()
 
 			return changeTestCase{
 				about: "model update keeps permissions",
@@ -1276,13 +1289,16 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Id: st.ModelUUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
-					ModelUUID:      st.ModelUUID(),
-					Name:           model.Name(),
-					Life:           "alive",
-					Owner:          model.Owner().Id(),
-					ControllerUUID: testing.ControllerTag.Id(),
-					IsController:   model.IsControllerModel(),
-					SLA:            multiwatcher.ModelSLAInfo{Level: "unsupported"},
+					ModelUUID:       st.ModelUUID(),
+					Name:            model.Name(),
+					Life:            "alive",
+					Owner:           model.Owner().Id(),
+					ControllerUUID:  testing.ControllerTag.Id(),
+					IsController:    model.IsControllerModel(),
+					Cloud:           model.Cloud(),
+					CloudRegion:     model.CloudRegion(),
+					CloudCredential: credential.Id(),
+					SLA:             multiwatcher.ModelSLAInfo{Level: "unsupported"},
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,

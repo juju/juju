@@ -142,12 +142,15 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 	// Update the context with the model type.
 	ctx.modelType_ = e.Type
 	info := &multiwatcher.ModelInfo{
-		ModelUUID:      e.UUID,
-		Name:           e.Name,
-		Life:           life.Value(e.Life.String()),
-		Owner:          e.Owner,
-		ControllerUUID: e.ControllerUUID,
-		IsController:   ctx.state.IsController(),
+		ModelUUID:       e.UUID,
+		Name:            e.Name,
+		Life:            life.Value(e.Life.String()),
+		Owner:           e.Owner,
+		ControllerUUID:  e.ControllerUUID,
+		IsController:    ctx.state.IsController(),
+		Cloud:           e.Cloud,
+		CloudRegion:     e.CloudRegion,
+		CloudCredential: e.CloudCredential,
 		SLA: multiwatcher.ModelSLAInfo{
 			Level: e.SLA.Level.String(),
 			Owner: e.SLA.Owner,
