@@ -5,6 +5,7 @@ package crossmodelrelations_test
 
 import (
 	"bytes"
+	"context"
 	"regexp"
 	"time"
 
@@ -13,8 +14,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	checkersv2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -86,7 +87,8 @@ func (s *crossmodelRelationsSuite) SetUpTest(c *gc.C) {
 		return w, nil
 	}
 	var err error
-	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, s.bakery, s.bakery)
+	thirdPartyKey := bakery.MustGenerateKey()
+	s.authContext, err = commoncrossmodel.NewAuthContext(s.mockStatePool, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	api, err := crossmodelrelations.NewCrossModelRelationsAPI(
 		s.st, fw, s.resources, s.authorizer, s.authContext, egressAddressWatcher, relationStatusWatcher, offerStatusWatcher)
@@ -111,11 +113,13 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	suspended := true
@@ -133,7 +137,7 @@ func (s *crossmodelRelationsSuite) assertPublishRelationsChanges(c *gc.C, lifeVa
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
 				DepartedUnits: []int{2},
-				Macaroons:     macaroon.Slice{mac},
+				Macaroons:     macaroon.Slice{mac.M()},
 			},
 		},
 	})
@@ -211,11 +215,13 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 		relationId:      1,
 	}
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("offer-uuid", "offer-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"offer-uuid", "consume"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.RegisterRemoteRelations(params.RegisterRemoteRelationArgs{
@@ -226,14 +232,14 @@ func (s *crossmodelRelationsSuite) assertRegisterRemoteRelations(c *gc.C) {
 			RemoteEndpoint:    params.RemoteEndpoint{Name: "remote"},
 			OfferUUID:         "offer-uuid",
 			LocalEndpointName: "local",
-			Macaroons:         macaroon.Slice{mac},
+			Macaroons:         macaroon.Slice{mac.M()},
 		}}})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, gc.IsNil)
 	c.Check(result.Result.Token, gc.Equals, "token-offered")
-	declared := checkersv2.InferDeclared(nil, macaroon.Slice{result.Result.Macaroon})
+	declared := checkers.InferDeclared(nil, macaroon.Slice{result.Result.Macaroon})
 	c.Assert(declared, jc.DeepEquals, map[string]string{
 		"source-model-uuid": "deadbeef-0bad-400d-8000-4b1d0d06f00d",
 		"relation-key":      "offeredapp:local remote-apptoken:remote",
@@ -292,11 +298,13 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2"
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	// RelationUnitSettings isn't available on the V2 API.
@@ -305,7 +313,7 @@ func (s *crossmodelRelationsSuite) TestRelationUnitSettings(c *gc.C) {
 		RelationUnits: []params.RemoteRelationUnit{{
 			RelationToken: "token-db2",
 			Unit:          "unit-django-0",
-			Macaroons:     macaroon.Slice{mac},
+			Macaroons:     macaroon.Slice{mac.M()},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -330,11 +338,13 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 		relationId:      1,
 	}
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.PublishIngressNetworkChanges(params.IngressNetworksChanges{
@@ -343,7 +353,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChanges(c *gc.C) {
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
 				Networks:         []string{"1.2.3.4/32"},
-				Macaroons:        macaroon.Slice{mac},
+				Macaroons:        macaroon.Slice{mac.M()},
 			},
 		},
 	})
@@ -369,11 +379,13 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 		relationId:      1,
 	}
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	rule := state.NewFirewallRule("", []string{"10.1.1.1/8"})
@@ -384,7 +396,7 @@ func (s *crossmodelRelationsSuite) TestPublishIngressNetworkChangesRejected(c *g
 				ApplicationToken: "token-db2",
 				RelationToken:    "token-db2:db django:db",
 				Networks:         []string{"1.2.3.4/32"},
-				Macaroons:        macaroon.Slice{mac},
+				Macaroons:        macaroon.Slice{mac.M()},
 			},
 		},
 	})
@@ -406,26 +418,28 @@ func (s *crossmodelRelationsSuite) TestWatchEgressAddressesForRelations(c *gc.C)
 		relationId:      1,
 	}
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
 			{
 				Token:     "token-mysql:db django:db",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 			{
 				Token:     "token-db2:db django:db",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 			{
 				Token:     "token-postgresql:db django:db",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 		},
 	}
@@ -457,22 +471,24 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatus(c *gc.C) {
 		relationId:      1,
 	}
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
 			{
 				Token:     "token-mysql:db django:db",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 			{
 				Token:     "token-db2:db django:db",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 		},
 	}
@@ -500,18 +516,20 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 		relationId:      1,
 	}
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{
 			{
 				Token:     "token-db2:db django:db",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 		},
 	}
@@ -550,26 +568,28 @@ func (s *crossmodelRelationsSuite) TestWatchOfferStatus(c *gc.C) {
 	s.st.applications["mysql"] = app
 	s.st.remoteEntities[names.NewApplicationOfferTag("hosted-mysql")] = "token-hosted-mysql"
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("offer-uuid", "mysql-uuid"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"mysql-uuid", "consume"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	args := params.OfferArgs{
 		Args: []params.OfferArg{
 			{
 				OfferUUID: "db2-uuid",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 			{
 				OfferUUID: "mysql-uuid",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 			{
 				OfferUUID: "postgresql-uuid",
-				Macaroons: macaroon.Slice{mac},
+				Macaroons: macaroon.Slice{mac.M()},
 			},
 		},
 	}
@@ -605,11 +625,13 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 	results, err := s.api.PublishRelationChanges(params.RemoteRelationsChanges{
@@ -626,7 +648,7 @@ func (s *crossmodelRelationsSuite) TestPublishChangesWithApplicationSettings(c *
 					Settings: map[string]interface{}{"foo": "bar"},
 				}},
 				DepartedUnits: []int{2},
-				Macaroons:     macaroon.Slice{mac},
+				Macaroons:     macaroon.Slice{mac.M()},
 			},
 		},
 	})
@@ -700,18 +722,19 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
-
+		}, bakery.Op{"db2:db django:db", "relate"})
 	c.Assert(err, jc.ErrorIsNil)
 
 	result, err := s.api.WatchRelationChanges(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{{
 			Token:     "token-db2:db django:db",
-			Macaroons: macaroon.Slice{mac},
+			Macaroons: macaroon.Slice{mac.M()},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -805,11 +828,13 @@ func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
 	}
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon(
+		context.TODO(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.st.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", "db2:db django:db"),
 			checkers.DeclaredCaveat("username", "mary"),
-		})
+		}, bakery.Op{"db2:db django:db", "relate"})
 
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -818,7 +843,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationUnitsOnV1(c *gc.C) {
 	result, err := apiV1.WatchRelationUnits(params.RemoteEntityArgs{
 		Args: []params.RemoteEntityArg{{
 			Token:     "token-db2:db django:db",
-			Macaroons: macaroon.Slice{mac},
+			Macaroons: macaroon.Slice{mac.M()},
 		}},
 	})
 	c.Assert(err, jc.ErrorIsNil)

@@ -4,6 +4,7 @@
 package applicationoffers_test
 
 import (
+	stdcontet "context"
 	"fmt"
 	"time"
 
@@ -11,7 +12,8 @@ import (
 	jtesting "github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
@@ -494,18 +496,27 @@ func (st *mockCommonStatePool) Get(modelUUID string) (crossmodel.Backend, func()
 }
 
 type mockBakeryService struct {
-	authentication.ExpirableStorageBakeryService
+	authentication.ExpirableStorageBakery
 	jtesting.Stub
 	caveats map[string][]checkers.Caveat
 }
 
-func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+func (s *mockBakeryService) NewMacaroon(ctx stdcontet.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	if err != nil {
+		return nil, err
+	}
+	for _, cav := range caveats {
+		if err := mac.AddFirstPartyCaveat([]byte(cav.Condition)); err != nil {
+			return nil, err
+		}
+	}
 	s.caveats["id"] = caveats
-	return macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
+	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
 }

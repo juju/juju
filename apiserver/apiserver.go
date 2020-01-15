@@ -25,8 +25,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
@@ -698,15 +696,7 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	guiVersionHandler := &guiVersionHandler{ctxt: httpCtxt}
 
 	// HTTP handler for application offer macaroon authentication.
-	appOfferHandler := &localOfferAuthHandler{authCtx: srv.offerAuthCtxt}
-	appOfferDischargeMux := http.NewServeMux()
-	httpbakery.AddDischargeHandler(
-		appOfferDischargeMux,
-		localOfferAccessLocationPath,
-		// Sadly we need a type assertion since the method doesn't accept an interface.
-		srv.offerAuthCtxt.ThirdPartyBakeryService().(*bakery.Service),
-		appOfferHandler.checkThirdPartyCaveat,
-	)
+	addOfferAuthHandlers(srv.offerAuthCtxt, srv.mux)
 
 	handlers := []handler{{
 		// This handler is model specific even though it only
@@ -848,14 +838,6 @@ func (srv *Server) endpoints() []apihttp.Endpoint {
 	}, {
 		pattern: "/gui-version",
 		handler: guiVersionHandler,
-	}, {
-		pattern:         localOfferAccessLocationPath + "/discharge",
-		handler:         appOfferDischargeMux,
-		unauthenticated: true,
-	}, {
-		pattern:         localOfferAccessLocationPath + "/publickey",
-		handler:         appOfferDischargeMux,
-		unauthenticated: true,
 	}}
 	if srv.registerIntrospectionHandlers != nil {
 		add := func(subpath string, h http.Handler) {
