@@ -4,6 +4,7 @@
 package applicationoffers
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -58,6 +59,7 @@ func createOffersAPI(
 		dataDir:     dataDir.String(),
 		authContext: authContext,
 		BaseAPI: BaseAPI{
+			ctx:                  context.Background(),
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
 			ControllerModel:      backend,
@@ -467,7 +469,7 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 		offerDetails := &offer.ApplicationOfferDetails
 		results[i].Offer = offerDetails
 		results[i].ControllerInfo = controllerInfo
-		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offerDetails, api.Authorizer.GetAuthTag().Id(), args.BakeryVersion)
+		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, api.Authorizer.GetAuthTag().Id(), args.BakeryVersion)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue

@@ -51,7 +51,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err = authenticator.Authenticate(nil, machine.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, machine.Tag(), params.LoginRequest{
 		Credentials: machinePassword,
 		Nonce:       nonce,
 	})
@@ -71,7 +71,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err = authenticator.Authenticate(nil, unit.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, unit.Tag(), params.LoginRequest{
 		Credentials: unitPassword,
 		Nonce:       "",
 	})
@@ -87,7 +87,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "password",
 		Nonce:       "",
 	})
@@ -103,7 +103,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "wrongpassword",
 		Nonce:       "",
 	})
@@ -125,7 +125,7 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err = authenticator.Authenticate(nil, relation.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, relation.Tag(), params.LoginRequest{
 		Credentials: "dummy-secret",
 		Nonce:       "",
 	})
@@ -145,7 +145,7 @@ func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
-	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
 		Macaroons:   macaroons,
@@ -162,6 +162,7 @@ func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	_, err := authentication.CreateLocalLoginMacaroon(
+		context.TODO(),
 		names.NewUserTag("bobbrown"), &service, clock, bakery.LatestVersion,
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -183,6 +184,7 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 
 	service.SetErrors(nil, &bakery.VerificationError{})
 	_, err := authenticator.Authenticate(
+		context.TODO(),
 		authentication.EntityFinder(nil),
 		names.NewUserTag("bobbrown"),
 		params.LoginRequest{},
@@ -332,12 +334,11 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		authenticator := &authentication.ExternalMacaroonAuthenticator{
 			Bakery:           bakery,
 			IdentityLocation: discharger.Location(),
-			Context:          context.Background(),
 			Clock:            testclock.NewClock(time.Time{}),
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+		_, err := authenticator.Authenticate(context.TODO(), test.finder, nil, params.LoginRequest{
 			Credentials: "",
 			Nonce:       "",
 			Macaroons:   nil,
@@ -350,7 +351,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+		entity, err := authenticator.Authenticate(context.TODO(), test.finder, nil, params.LoginRequest{
 			Credentials: "",
 			Nonce:       "",
 			Macaroons:   []macaroon.Slice{ms},

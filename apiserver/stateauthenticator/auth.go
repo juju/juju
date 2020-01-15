@@ -46,7 +46,7 @@ type Authenticator struct {
 
 // NewAuthenticator returns a new Authenticator using the given StatePool.
 func NewAuthenticator(statePool *state.StatePool, clock clock.Clock) (*Authenticator, error) {
-	authContext, err := newAuthContext(statePool.SystemState(), clock, context.Background())
+	authContext, err := newAuthContext(statePool.SystemState(), clock)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -71,8 +71,8 @@ func (a *Authenticator) Maintain(done <-chan struct{}) {
 
 // CreateLocalLoginMacaroon is part of the
 // httpcontext.LocalMacaroonAuthenticator interface.
-func (a *Authenticator) CreateLocalLoginMacaroon(tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
-	mac, err := a.authContext.CreateLocalLoginMacaroon(tag, version)
+func (a *Authenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
+	mac, err := a.authContext.CreateLocalLoginMacaroon(ctx, tag, version)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,13 +100,14 @@ func (a *Authenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, e
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}
-	return a.AuthenticateLoginRequest(req.Host, modelUUID, loginRequest)
+	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, loginRequest)
 }
 
 // AuthenticateLoginRequest authenticates a LoginRequest.
 //
 // TODO(axw) we shouldn't be using params types here.
 func (a *Authenticator) AuthenticateLoginRequest(
+	ctx context.Context,
 	serverHost string,
 	modelUUID string,
 	req params.LoginRequest,
@@ -127,7 +128,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticator(serverHost)
-	authInfo, err := a.checkCreds(st.State, req, authTag, true, authenticator)
+	authInfo, err := a.checkCreds(ctx, st.State, req, authTag, true, authenticator)
 	if err != nil {
 		if common.IsDischargeRequiredError(err) || errors.IsNotProvisioned(err) {
 			// TODO(axw) move out of common?
@@ -139,6 +140,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 			// Controller agents are allowed to log into any model.
 			var err2 error
 			authInfo, err2 = a.checkCreds(
+				ctx,
 				a.statePool.SystemState(),
 				req, authTag, false, authenticator,
 			)
@@ -154,6 +156,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 }
 
 func (a *Authenticator) checkCreds(
+	ctx context.Context,
 	st *state.State,
 	req params.LoginRequest,
 	authTag names.Tag,
@@ -167,7 +170,7 @@ func (a *Authenticator) checkCreds(
 		// tag is in the local domain) and the model user.
 		entityFinder = modelUserEntityFinder{st}
 	}
-	entity, err := authenticator.Authenticate(entityFinder, authTag, req)
+	entity, err := authenticator.Authenticate(ctx, entityFinder, authTag, req)
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}

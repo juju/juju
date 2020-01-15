@@ -4,6 +4,7 @@
 package crossmodelrelations
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -32,6 +33,7 @@ type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
+	ctx        context.Context
 	st         CrossModelRelationsState
 	fw         firewall.State
 	resources  facade.Resources
@@ -96,6 +98,7 @@ func NewCrossModelRelationsAPI(
 	offerStatusWatcher offerStatusWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
+		ctx:                   context.Background(),
 		st:                    st,
 		fw:                    fw,
 		resources:             resources,
@@ -121,7 +124,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 		offerUUID = oc.OfferUUID()
 	}
 	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
-	return auth.CheckRelationMacaroons(relationTag, mac, version)
+	return auth.CheckRelationMacaroons(api.ctx, relationTag, mac, version)
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -187,7 +190,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Check that the supplied macaroon allows access.
 	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), appOffer.OfferUUID)
-	attr, err := auth.CheckOfferMacaroons(appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
+	attr, err := auth.CheckOfferMacaroons(api.ctx, appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -314,7 +317,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
-		api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
+		api.ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
@@ -548,7 +551,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 	for i, arg := range offerArgs.Args {
 		// Ensure the supplied macaroon allows access.
 		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), arg.OfferUUID)
-		_, err := auth.CheckOfferMacaroons(arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
+		_, err := auth.CheckOfferMacaroons(api.ctx, arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue

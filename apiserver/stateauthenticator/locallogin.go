@@ -65,10 +65,11 @@ func (h *localLoginHandlers) bakeryError(w http.ResponseWriter, err error) {
 func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case "POST":
+		ctx := req.Context()
 		reqParams := httprequest.Params{
 			Response: w,
 			Request:  req,
-			Context:  context.TODO(),
+			Context:  ctx,
 		}
 		loginRequest := form.LoginRequest{}
 		if err := httprequest.Unmarshal(reqParams, &loginRequest); err != nil {
@@ -85,7 +86,7 @@ func (h *localLoginHandlers) formHandler(w http.ResponseWriter, req *http.Reques
 		}
 
 		authenticator := h.authCtxt.authenticator(req.Host)
-		if _, err := authenticator.Authenticate(h.finder, userTag, params.LoginRequest{
+		if _, err := authenticator.Authenticate(ctx, h.finder, userTag, params.LoginRequest{
 			Credentials: password,
 		}); err != nil {
 			h.bakeryError(w, err)
@@ -125,7 +126,7 @@ func (h *localLoginHandlers) checkThirdPartyCaveat(stdCtx context.Context, req *
 		return nil, errors.Trace(err)
 	}
 	if token == nil {
-		if err := h.authCtxt.CheckLocalLoginRequest(req, tag); err == nil {
+		if err := h.authCtxt.CheckLocalLoginRequest(stdCtx, req); err == nil {
 			return h.authCtxt.DischargeCaveats(tag), nil
 		}
 		err2 := httpbakery.NewInteractionRequiredError(nil, req)

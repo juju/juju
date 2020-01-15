@@ -4,6 +4,8 @@
 package authentication_test
 
 import (
+	"context"
+
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
@@ -102,7 +104,7 @@ func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
-		entity, err := authenticator.Authenticate(s.State, t.entity.Tag(), params.LoginRequest{
+		entity, err := authenticator.Authenticate(context.TODO(), s.State, t.entity.Tag(), params.LoginRequest{
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})
@@ -138,7 +140,7 @@ func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
 		var authenticator authentication.AgentAuthenticator
-		entity, err := authenticator.Authenticate(s.State, t.entity.Tag(), params.LoginRequest{
+		entity, err := authenticator.Authenticate(context.TODO(), s.State, t.entity.Tag(), params.LoginRequest{
 			Credentials: t.credentials,
 			Nonce:       t.nonce,
 		})

@@ -201,7 +201,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.WallClock
 	}
-	ctx := context.TODO()
+	ctx := context.Background()
 	dialCtx := ctx
 	if opts.Timeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(dialCtx, opts.Clock, opts.Timeout)

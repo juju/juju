@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"net"
@@ -418,6 +419,7 @@ func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInf
 }
 
 func (a *mockAuthenticator) AuthenticateLoginRequest(
+	ctx context.Context,
 	serverHost string,
 	modelUUID string,
 	req params.LoginRequest,
@@ -431,7 +433,7 @@ func (a *mockAuthenticator) AuthenticateLoginRequest(
 	}, nil
 }
 
-func (a *mockAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
+func (a *mockAuthenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
 	return nil, nil
 }
 

@@ -68,16 +68,16 @@ var _ EntityAuthenticator = (*UserAuthenticator)(nil)
 // If and only if no password is supplied, then Authenticate will check for any
 // valid macaroons. Otherwise, password authentication will be performed.
 func (u *UserAuthenticator) Authenticate(
-	entityFinder EntityFinder, tag names.Tag, req params.LoginRequest,
+	ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest,
 ) (state.Entity, error) {
 	userTag, ok := tag.(names.UserTag)
 	if !ok {
 		return nil, errors.Errorf("invalid request")
 	}
 	if req.Credentials == "" && userTag.IsLocal() {
-		return u.authenticateMacaroons(entityFinder, userTag, req)
+		return u.authenticateMacaroons(ctx, entityFinder, userTag, req)
 	}
-	return u.AgentAuthenticator.Authenticate(entityFinder, tag, req)
+	return u.AgentAuthenticator.Authenticate(ctx, entityFinder, tag, req)
 }
 
 // CreateLocalLoginMacaroon creates a macaroon that may be provided to a
@@ -86,6 +86,7 @@ func (u *UserAuthenticator) Authenticate(
 // the user can log in without presenting their password for a set amount
 // of time.
 func CreateLocalLoginMacaroon(
+	ctx context.Context,
 	tag names.UserTag,
 	minter MacaroonMinter,
 	clock clock.Clock,
@@ -94,7 +95,7 @@ func CreateLocalLoginMacaroon(
 	// We create the macaroon with a random ID and random root key, which
 	// enables multiple clients to login as the same user and obtain separate
 	// macaroons without having them use the same root key.
-	return minter.NewMacaroon(context.TODO(), version, []checkers.Caveat{
+	return minter.NewMacaroon(ctx, version, []checkers.Caveat{
 		{Condition: "is-authenticated-user " + tag.Id()},
 		checkers.TimeBeforeCaveat(clock.Now().Add(LocalLoginInteractionTimeout)),
 	}, identchecker.LoginOp)
@@ -130,12 +131,11 @@ func CheckLocalLoginCaveat(caveat string) (names.UserTag, error) {
 // CreateLocalLoginMacaroon. It returns an error with a
 // *bakery.VerificationError cause if the macaroon verification failed.
 func CheckLocalLoginRequest(
+	ctx context.Context,
 	auth MacaroonChecker,
 	req *http.Request,
-	tag names.UserTag,
 ) error {
 	a := auth.Auth(httpbakery.RequestMacaroons(req)...)
-	ctx := context.TODO()
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
 	if err != nil {
 		return errors.Trace(err)
@@ -156,11 +156,10 @@ func DischargeCaveats(tag names.UserTag, clock clock.Clock) []checkers.Caveat {
 }
 
 func (u *UserAuthenticator) authenticateMacaroons(
-	entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
+	ctx context.Context, entityFinder EntityFinder, tag names.UserTag, req params.LoginRequest,
 ) (state.Entity, error) {
 	// Check for a valid request macaroon.
 	a := u.Bakery.Auth(req.Macaroons...)
-	ctx := context.TODO()
 	ai, err := a.Allow(ctx, identchecker.LoginOp)
 	if err != nil || len(ai.Conditions()) == 0 {
 		logger.Debugf("local-login macaroon authentication failed: %v", err)
@@ -177,7 +176,7 @@ func (u *UserAuthenticator) authenticateMacaroons(
 		}
 
 		m, err := bakery.NewMacaroon(
-			context.TODO(),
+			ctx,
 			req.BakeryVersion,
 			[]checkers.Caveat{
 				checkers.TimeBeforeCaveat(expiryTime),
@@ -229,9 +228,6 @@ type ExternalMacaroonAuthenticator struct {
 	// third party caveat to.
 	IdentityLocation string
 
-	// Context is the context for making bakery API calls.
-	Context context.Context
-
 	// Clock is used to set macaroon expiry time.
 	Clock clock.Clock
 }
@@ -240,11 +236,11 @@ var _ EntityAuthenticator = (*ExternalMacaroonAuthenticator)(nil)
 
 // Authenticate authenticates the provided entity. If there is no macaroon provided, it will
 // return a *DischargeRequiredError containing a macaroon that can be used to grant access.
-func (m *ExternalMacaroonAuthenticator) Authenticate(entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
+func (m *ExternalMacaroonAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, _ names.Tag, req params.LoginRequest) (state.Entity, error) {
 	authChecker := m.Bakery.Checker.Auth(req.Macaroons...)
-	ai, identErr := authChecker.Allow(m.Context, identchecker.LoginOp)
+	ai, identErr := authChecker.Allow(ctx, identchecker.LoginOp)
 	if de, ok := errors.Cause(identErr).(*bakery.DischargeRequiredError); ok {
-		if dcMac, err := m.Bakery.Oven.NewMacaroon(m.Context, req.BakeryVersion, de.Caveats, de.Ops...); err != nil {
+		if dcMac, err := m.Bakery.Oven.NewMacaroon(ctx, req.BakeryVersion, de.Caveats, de.Ops...); err != nil {
 			return nil, errors.Annotatef(err, "cannot create macaroon")
 		} else {
 			return nil, &common.DischargeRequiredError{

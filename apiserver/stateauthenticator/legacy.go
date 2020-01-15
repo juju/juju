@@ -77,7 +77,7 @@ func (h *localLoginHandlers) serveLoginPost(response http.ResponseWriter, req *h
 	}
 
 	authenticator := h.authCtxt.authenticator(req.Host)
-	if _, err := authenticator.Authenticate(h.finder, userTag, params.LoginRequest{
+	if _, err := authenticator.Authenticate(req.Context(), h.finder, userTag, params.LoginRequest{
 		Credentials: password,
 	}); err != nil {
 		// Mark the interaction as done (but failed),
@@ -96,7 +96,7 @@ func (h *localLoginHandlers) serveLoginPost(response http.ResponseWriter, req *h
 	// Provide the client with a macaroon that they can use to
 	// prove that they have logged in, and obtain a discharge
 	// macaroon.
-	m, err := h.authCtxt.CreateLocalLoginMacaroon(userTag, httpbakery.RequestVersion(req))
+	m, err := h.authCtxt.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +178,7 @@ func (ctx *macaroonAuthContext) legacyCheckThirdPartyCaveat(stdCtx context.Conte
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err := ctx.CheckLocalLoginRequest(ctx.req, tag); err != nil {
+	if err := ctx.CheckLocalLoginRequest(stdCtx, ctx.req); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return ctx.DischargeCaveats(tag), nil

@@ -34,7 +34,7 @@ type LocalMacaroonAuthenticator interface {
 	// used to obtain a discharge macaroon so that the user can
 	// log in without presenting their password for a set amount
 	// of time.
-	CreateLocalLoginMacaroon(names.UserTag, bakery.Version) (*macaroon.Macaroon, error)
+	CreateLocalLoginMacaroon(context.Context, names.UserTag, bakery.Version) (*macaroon.Macaroon, error)
 }
 
 // Authenticator provides an interface for authenticating a request.
@@ -54,6 +54,7 @@ type Authenticator interface {
 	//
 	// TODO(axw) we shouldn't be using params types here.
 	AuthenticateLoginRequest(
+		ctx context.Context,
 		serverHost string,
 		modelUUID string,
 		req params.LoginRequest,

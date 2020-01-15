@@ -34,7 +34,6 @@ const (
 type authContext struct {
 	st *state.State
 
-	ctx       context.Context
 	clock     clock.Clock
 	agentAuth authentication.AgentAuthenticator
 
@@ -77,12 +76,10 @@ func (OpenLoginAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery
 func newAuthContext(
 	st *state.State,
 	clock clock.Clock,
-	ctx context.Context,
 ) (*authContext, error) {
 	ctxt := &authContext{
 		st:                    st,
 		clock:                 clock,
-		ctx:                   ctx,
 		localUserInteractions: authentication.NewInteractions(),
 	}
 
@@ -139,8 +136,8 @@ func newAuthContext(
 // as proof that they have logged in with a valid username and password. This
 // macaroon may then be used to obtain a discharge macaroon so that the user
 // can log in without presenting their password for a set amount of time.
-func (ctxt *authContext) CreateLocalLoginMacaroon(tag names.UserTag, version bakery.Version) (*bakery.Macaroon, error) {
-	return authentication.CreateLocalLoginMacaroon(tag, ctxt.localUserThirdPartyBakery.Oven, ctxt.clock, version)
+func (ctxt *authContext) CreateLocalLoginMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*bakery.Macaroon, error) {
+	return authentication.CreateLocalLoginMacaroon(ctx, tag, ctxt.localUserThirdPartyBakery.Oven, ctxt.clock, version)
 }
 
 // CheckLocalLoginCaveat parses and checks that the given caveat string is
@@ -155,8 +152,8 @@ func (ctxt *authContext) CheckLocalLoginCaveat(caveat string) (names.UserTag, er
 // one valid local login macaroon minted using CreateLocalLoginMacaroon. It
 // returns an error with a *bakery.VerificationError cause if the macaroon
 // verification failed.
-func (ctxt *authContext) CheckLocalLoginRequest(req *http.Request, tag names.UserTag) error {
-	return authentication.CheckLocalLoginRequest(ctxt.localUserThirdPartyBakery.Checker, req, tag)
+func (ctxt *authContext) CheckLocalLoginRequest(ctx context.Context, req *http.Request) error {
+	return authentication.CheckLocalLoginRequest(ctx, ctxt.localUserThirdPartyBakery.Checker, req)
 }
 
 // Discharge caveats returns the caveats to add to a login discharge macaroon.
@@ -181,6 +178,7 @@ type authenticator struct {
 // by choosing the right kind of authentication for the given
 // tag.
 func (a authenticator) Authenticate(
+	ctx context.Context,
 	entityFinder authentication.EntityFinder,
 	tag names.Tag,
 	req params.LoginRequest,
@@ -189,7 +187,7 @@ func (a authenticator) Authenticate(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return auth.Authenticate(entityFinder, tag, req)
+	return auth.Authenticate(ctx, entityFinder, tag, req)
 }
 
 // authenticatorForTag returns the authenticator appropriate
@@ -235,7 +233,7 @@ func (a authenticator) localUserAuth() *authentication.UserAuthenticator {
 // logins for external users. If it fails once, it will always fail.
 func (ctxt *authContext) externalMacaroonAuth(identClient identchecker.IdentityClient) (authentication.EntityAuthenticator, error) {
 	ctxt.macaroonAuthOnce.Do(func() {
-		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.ctx, ctxt.st, ctxt.clock, identClient)
+		ctxt._macaroonAuth, ctxt._macaroonAuthError = newExternalMacaroonAuth(ctxt.st, ctxt.clock, identClient)
 	})
 	if ctxt._macaroonAuth == nil {
 		return nil, errors.Trace(ctxt._macaroonAuthError)
@@ -248,7 +246,7 @@ var errMacaroonAuthNotConfigured = errors.New("macaroon authentication is not co
 // newExternalMacaroonAuth returns an authenticator that can authenticate
 // macaroon-based logins for external users. This is just a helper function
 // for authCtxt.externalMacaroonAuth.
-func newExternalMacaroonAuth(ctx context.Context, st *state.State, clock clock.Clock, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
+func newExternalMacaroonAuth(st *state.State, clock clock.Clock, identClient identchecker.IdentityClient) (*authentication.ExternalMacaroonAuthenticator, error) {
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get model config")
@@ -273,7 +271,6 @@ func newExternalMacaroonAuth(ctx context.Context, st *state.State, clock clock.C
 	}
 
 	auth := authentication.ExternalMacaroonAuthenticator{
-		Context:          ctx,
 		Clock:            clock,
 		IdentityLocation: idURL,
 	}

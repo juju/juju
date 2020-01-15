@@ -4,6 +4,7 @@
 package applicationoffers
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -30,6 +31,7 @@ type BaseAPI struct {
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
 	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
+	ctx                  context.Context
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.
