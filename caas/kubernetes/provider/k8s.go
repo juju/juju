@@ -21,6 +21,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -139,6 +140,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 //go:generate mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
+//go:generate mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -795,6 +797,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 
+	if err := k.deleteMutatingWebhookConfigurations(appName); err != nil {
+		return errors.Trace(err)
+	}
+
 	if err := k.deleteIngressResources(appName); err != nil {
 		return errors.Trace(err)
 	}
@@ -991,6 +997,17 @@ func (k *kubernetesClient) EnsureService(
 			return errors.Annotate(err, "creating or updating custom resources")
 		}
 		logger.Debugf("created/updated custom resources for %q.", appName)
+	}
+
+	// ensure mutating webhook configurations.
+	mutatingWebhookConfigurations := workloadSpec.MutatingWebhookConfigurations
+	if len(mutatingWebhookConfigurations) > 0 {
+		cfgCleanUps, err := k.ensureMutatingWebhookConfigurations(appName, annotations, mutatingWebhookConfigurations)
+		cleanups = append(cleanups, cfgCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating mutating webhook configurations")
+		}
+		logger.Debugf("created/updated mutating webhook configurations for %q.", appName)
 	}
 
 	// ensure ingress resources.
@@ -2374,12 +2391,13 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                   []k8sspecs.Secret
-	ConfigMaps                map[string]specs.ConfigMap
-	ServiceAccounts           []serviceAccountSpecGetter
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
-	CustomResources           map[string][]unstructured.Unstructured
-	IngressResources          []k8sspecs.K8sIngressSpec
+	Secrets                       []k8sspecs.Secret
+	ConfigMaps                    map[string]specs.ConfigMap
+	ServiceAccounts               []serviceAccountSpecGetter
+	CustomResourceDefinitions     map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
+	CustomResources               map[string][]unstructured.Unstructured
+	MutatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook
+	IngressResources              []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2451,6 +2469,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.Secrets = k8sResources.Secrets
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
+			spec.MutatingWebhookConfigurations = k8sResources.MutatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
