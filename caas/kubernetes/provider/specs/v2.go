@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -114,6 +115,8 @@ type KubernetesResources struct {
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
+	MutatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+
 	ServiceAccounts  []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 	IngressResources []K8sIngressSpec        `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
@@ -139,6 +142,11 @@ func (krs *KubernetesResources) Validate() error {
 	for k, crs := range krs.CustomResources {
 		if len(crs) == 0 {
 			return errors.NotValidf("empty custom resources %q", k)
+		}
+	}
+	for k, webhooks := range krs.MutatingWebhookConfigurations {
+		if len(webhooks) == 0 {
+			return errors.NotValidf("empty webhooks %q", k)
 		}
 	}
 
