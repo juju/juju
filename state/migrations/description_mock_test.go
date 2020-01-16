@@ -5,12 +5,11 @@
 package migrations
 
 import (
-	reflect "reflect"
-	time "time"
-
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
 	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
+	time "time"
 )
 
 // MockExternalController is a mock of ExternalController interface
@@ -420,6 +419,20 @@ func (m *MockRemoteApplication) IsConsumerProxy() bool {
 func (mr *MockRemoteApplicationMockRecorder) IsConsumerProxy() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsConsumerProxy", reflect.TypeOf((*MockRemoteApplication)(nil).IsConsumerProxy))
+}
+
+// Macaroon mocks base method
+func (m *MockRemoteApplication) Macaroon() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Macaroon")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Macaroon indicates an expected call of Macaroon
+func (mr *MockRemoteApplicationMockRecorder) Macaroon() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Macaroon", reflect.TypeOf((*MockRemoteApplication)(nil).Macaroon))
 }
 
 // Name mocks base method

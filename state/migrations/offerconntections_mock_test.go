@@ -5,10 +5,9 @@
 package migrations
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
+	reflect "reflect"
 )
 
 // MockMigrationOfferConnection is a mock of MigrationOfferConnection interface
