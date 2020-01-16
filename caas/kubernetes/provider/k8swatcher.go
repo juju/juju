@@ -14,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 
 	"github.com/juju/juju/core/watcher"
+	jworker "github.com/juju/juju/worker"
 )
 
 // kubernetesNotifyWatcher reports changes to kubernetes
@@ -153,9 +154,10 @@ func (w *kubernetesStringsWatcher) loop() error {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
 		case evt, ok := <-w.k8watcher.ResultChan():
-			// This can happen if the k8s API connection drops.
 			if !ok {
-				return errors.Errorf("k8s event watcher closed, restarting")
+				// This can happen if the k8s API connection drops.
+				logger.Debugf("k8s event watcher closed, restarting")
+				return jworker.ErrRestartAgent
 			}
 			if evt.Type == watch.Error {
 				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
