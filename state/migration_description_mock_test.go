@@ -435,6 +435,20 @@ func (mr *MockRemoteApplicationMockRecorder) IsConsumerProxy() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsConsumerProxy", reflect.TypeOf((*MockRemoteApplication)(nil).IsConsumerProxy))
 }
 
+// Macaroon mocks base method
+func (m *MockRemoteApplication) Macaroon() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Macaroon")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Macaroon indicates an expected call of Macaroon
+func (mr *MockRemoteApplicationMockRecorder) Macaroon() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Macaroon", reflect.TypeOf((*MockRemoteApplication)(nil).Macaroon))
+}
+
 // Name mocks base method
 func (m *MockRemoteApplication) Name() string {
 	m.ctrl.T.Helper()
