@@ -4,6 +4,8 @@
 package stateauthenticator_test
 
 import (
+	"context"
+
 	"github.com/juju/clock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -41,7 +43,7 @@ func (s *agentAuthenticatorSuite) TestAuthenticatorForTag(c *gc.C) {
 	c.Assert(authenticator, gc.NotNil)
 	userFinder := userFinder{user}
 
-	entity, err := authenticator.Authenticate(userFinder, user.Tag(), params.LoginRequest{
+	entity, err := authenticator.Authenticate(context.TODO(), userFinder, user.Tag(), params.LoginRequest{
 		Credentials: "password",
 		Nonce:       "nonce",
 	})

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -63,7 +64,7 @@ func (a *admin) Admin(id string) (*admin, error) {
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *admin) Login(req params.LoginRequest) (params.LoginResult, error) {
-	return a.login(req, 3)
+	return a.login(context.Background(), req, 3)
 }
 
 // RedirectInfo returns redirected host information for the model.
@@ -77,7 +78,7 @@ var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress
 var errAlreadyLoggedIn = errors.New("already logged in")
 
 // login is the internal version of the Login API call.
-func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginResult, error) {
+func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion int) (params.LoginResult, error) {
 	var fail params.LoginResult
 
 	a.mu.Lock()
@@ -87,7 +88,7 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errAlreadyLoggedIn
 	}
 
-	authResult, err := a.authenticate(req)
+	authResult, err := a.authenticate(ctx, req)
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 		loginResult := params.LoginResult{
 			DischargeRequired:       err.LegacyMacaroon,
@@ -207,7 +208,7 @@ type authResult struct {
 	userInfo               *params.AuthUserInfo
 }
 
-func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
+func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*authResult, error) {
 	result := &authResult{
 		controllerOnlyLogin: a.root.modelUUID == "",
 		userLogin:           true,
@@ -267,7 +268,7 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 
 	// Only attempt to login with credentials if we are not doing an anonymous login.
 	if !result.anonymousLogin {
-		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(a.root.serverHost, modelUUID, req)
+		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, req)
 		if err != nil {
 			return nil, a.handleAuthError(err)
 		}

@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"net"
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
@@ -417,6 +419,7 @@ func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInf
 }
 
 func (a *mockAuthenticator) AuthenticateLoginRequest(
+	ctx context.Context,
 	serverHost string,
 	modelUUID string,
 	req params.LoginRequest,
@@ -430,7 +433,7 @@ func (a *mockAuthenticator) AuthenticateLoginRequest(
 	}, nil
 }
 
-func (a *mockAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+func (a *mockAuthenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
 	return nil, nil
 }
 

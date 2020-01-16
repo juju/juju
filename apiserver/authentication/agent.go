@@ -4,6 +4,8 @@
 package authentication
 
 import (
+	"context"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -24,7 +26,7 @@ type taggedAuthenticator interface {
 
 // Authenticate authenticates the provided entity.
 // It takes an entityfinder and the tag used to find the entity that requires authentication.
-func (*AgentAuthenticator) Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
+func (*AgentAuthenticator) Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error) {
 	entity, err := entityFinder.FindEntity(tag)
 	if errors.IsNotFound(err) {
 		return nil, errors.Trace(common.ErrBadCreds)

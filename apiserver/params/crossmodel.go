@@ -5,6 +5,7 @@ package params
 
 import (
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/life"
@@ -168,6 +169,9 @@ type ApplicationOffersResults struct {
 type OfferURLs struct {
 	// OfferURLs contains collection of urls for applications that are to be shown.
 	OfferURLs []string `json:"offer-urls,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // ConsumeApplicationArg holds the arguments for consuming a remote application.
@@ -382,6 +386,9 @@ type RemoteRelationChangeEvent struct {
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // RemoteRelationWatchResult holds a RemoteRelationWatcher id, initial
@@ -472,6 +479,9 @@ type IngressNetworksChangeEvent struct {
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // RegisterRemoteRelationArg holds attributes used to register a remote relation.
@@ -500,6 +510,9 @@ type RegisterRemoteRelationArg struct {
 
 	// Macaroons are used for authentication.
 	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+
+	// BakeryVersion is the version of the bakery used to mint macaroons.
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // RegisterRemoteRelationArgs holds args used to add remote relations.
@@ -520,8 +533,9 @@ type RegisterRemoteRelationResults struct {
 
 // RemoteRelationDetails holds a remote relation token and corresponding macaroon.
 type RemoteRelationDetails struct {
-	Token    string             `json:"relation-token"`
-	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
+	Token         string             `json:"relation-token"`
+	Macaroon      *macaroon.Macaroon `json:"macaroon,omitempty"`
+	BakeryVersion bakery.Version     `json:"bakery-version,omitempty"`
 }
 
 // RemoteEntityArgs holds arguments to an API call dealing with remote relations.
@@ -531,8 +545,9 @@ type RemoteEntityArgs struct {
 
 // RemoteEntityArg holds a remote relation token corresponding macaroons.
 type RemoteEntityArg struct {
-	Token     string         `json:"relation-token"`
-	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+	Token         string         `json:"relation-token"`
+	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // OfferArgs holds arguments to an API call dealing with offers.
@@ -542,8 +557,9 @@ type OfferArgs struct {
 
 // OfferArg holds an offer uuid and corresponding macaroons.
 type OfferArg struct {
-	OfferUUID string         `json:"offer-uuid"`
-	Macaroons macaroon.Slice `json:"macaroons,omitempty"`
+	OfferUUID     string         `json:"offer-uuid"`
+	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // RemoteApplicationInfo has attributes for a remote application.
@@ -604,6 +620,7 @@ type RemoteRelationUnit struct {
 	RelationToken string         `json:"relation-token"`
 	Unit          string         `json:"unit"`
 	Macaroons     macaroon.Slice `json:"macaroons,omitempty"`
+	BakeryVersion bakery.Version `json:"bakery-version,omitempty"`
 }
 
 // RemoteRelationUnits identifies multiple remote relation units.

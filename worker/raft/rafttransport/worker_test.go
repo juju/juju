@@ -4,6 +4,7 @@
 package rafttransport_test
 
 import (
+	"context"
 	"crypto/tls"
 	"net"
 	"net/http"
@@ -354,6 +355,7 @@ func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInf
 }
 
 func (a *mockAuthenticator) AuthenticateLoginRequest(
+	ctx context.Context,
 	serverHost string,
 	modelUUID string,
 	req params.LoginRequest,

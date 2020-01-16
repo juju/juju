@@ -507,12 +507,13 @@ type Creds struct {
 // the LoginResult will contain a macaroon that when
 // discharged, may allow access.
 type LoginRequest struct {
-	AuthTag     string           `json:"auth-tag"`
-	Credentials string           `json:"credentials"`
-	Nonce       string           `json:"nonce"`
-	Macaroons   []macaroon.Slice `json:"macaroons"`
-	CLIArgs     string           `json:"cli-args,omitempty"`
-	UserData    string           `json:"user-data"`
+	AuthTag       string           `json:"auth-tag"`
+	Credentials   string           `json:"credentials"`
+	Nonce         string           `json:"nonce"`
+	Macaroons     []macaroon.Slice `json:"macaroons"`
+	BakeryVersion bakery.Version   `json:"bakery-version,omitempty"`
+	CLIArgs       string           `json:"cli-args,omitempty"`
+	UserData      string           `json:"user-data"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1

@@ -1518,14 +1518,7 @@ func (c *DeployCommand) maybeReadCharmstoreBundleFn(cstore BundleResolver) func(
 		}
 
 		return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
-			// Ideally, we would like to expose a GetBundleDataSource
-			// method for the charmstore. As we want to avoid further
-			// diverging charmrepo.v4 from charmrepo.v4, the best
-			// solution would be to converge to a charmrepo.v5.
-			// Unfortunately, the macaroon-related changes from v4
-			// wreak havoc with our bakery.v2/v2-unstable includes
-			// and therefore require quite a bit of effort to fix.
-			//
+			// TODO(bundles) - Ideally, we would like to expose a GetBundleDataSource method for the charmstore.
 			// As a short-term solution and given that we don't
 			// want to support (for now at least) multi-doc bundles
 			// from the charmstore we simply use the existing

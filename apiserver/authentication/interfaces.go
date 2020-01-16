@@ -4,6 +4,8 @@
 package authentication
 
 import (
+	"context"
+
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
@@ -14,7 +16,7 @@ import (
 // to authenticate juju entities.
 type EntityAuthenticator interface {
 	// Authenticate authenticates the given entity
-	Authenticate(entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error)
+	Authenticate(ctx context.Context, entityFinder EntityFinder, tag names.Tag, req params.LoginRequest) (state.Entity, error)
 }
 
 // EntityFinder finds the entity described by the tag.

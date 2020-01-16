@@ -4210,6 +4210,9 @@
                 "OfferURLs": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "offer-urls": {
                             "type": "array",
                             "items": {
@@ -13853,6 +13856,9 @@
                         "application-token": {
                             "type": "string"
                         },
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "ingress-required": {
                             "type": "boolean"
                         },
@@ -13898,6 +13904,9 @@
                 "OfferArg": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "macaroons": {
                             "type": "array",
                             "items": {
@@ -13986,6 +13995,9 @@
                     "properties": {
                         "application-token": {
                             "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
                         },
                         "local-endpoint-name": {
                             "type": "string"
@@ -14150,6 +14162,9 @@
                 "RemoteEntityArg": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "macaroons": {
                             "type": "array",
                             "items": {
@@ -14195,6 +14210,9 @@
                         "application-token": {
                             "type": "string"
                         },
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "changed-units": {
                             "type": "array",
                             "items": {
@@ -14239,6 +14257,9 @@
                 "RemoteRelationDetails": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "macaroon": {
                             "$ref": "#/definitions/Macaroon"
                         },
@@ -28567,6 +28588,9 @@
                         "application-token": {
                             "type": "string"
                         },
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "changed-units": {
                             "type": "array",
                             "items": {
@@ -29234,6 +29258,9 @@
                         },
                         "application-token": {
                             "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
                         },
                         "changed-units": {
                             "type": "array",

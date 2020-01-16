@@ -4,6 +4,7 @@
 package crossmodelrelations_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -11,15 +12,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v3"
-	checkersunstable "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/crossmodel"
 	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
@@ -572,12 +573,36 @@ func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) erro
 	return nil
 }
 
-type mockBakeryService struct {
-	testing.Stub
-	authentication.ExpirableStorageBakeryService
+type mockAuthorizer struct{}
+
+func (mockAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
+	allowed := make([]bool, len(queryOps))
+	for i := range allowed {
+		allowed[i] = queryOps[i].Action == "consume" || queryOps[i].Action == "relate"
+	}
+	return allowed, nil, nil
 }
 
-func (s *mockBakeryService) NewMacaroon(caveats []checkersunstable.Caveat) (*macaroon.Macaroon, error) {
+type mockVerifier struct {
+	ops []bakery.Op
+}
+
+func (m mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]bakery.Op, []string, error) {
+	declared := checkers.InferDeclared(charmstore.MacaroonNamespace, ms)
+	var conditions []string
+	for k, v := range declared {
+		conditions = append(conditions, fmt.Sprintf("declared %v %v", k, v))
+	}
+	return m.ops, conditions, nil
+}
+
+type mockBakeryService struct {
+	testing.Stub
+	authentication.ExpirableStorageBakery
+	ops []bakery.Op
+}
+
+func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
 	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
 	if err != nil {
@@ -588,26 +613,20 @@ func (s *mockBakeryService) NewMacaroon(caveats []checkersunstable.Caveat) (*mac
 			return nil, err
 		}
 	}
-	return mac, nil
+	s.ops = ops
+	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkersunstable.Checker) (map[string]string, error) {
-	if len(ms) != 1 {
-		return nil, errors.New("unexpected macaroons")
-	}
-	if len(ms[0]) == 0 {
-		return nil, errors.New("no macaroons")
-	}
-	declared := checkers.InferDeclared(nil, ms[0])
-	for k, v := range assert {
-		if declared[k] != v {
-			return nil, common.ErrPerm
-		}
-	}
-	return declared, nil
+func (s *mockBakeryService) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	s.MethodCall(s, "Auth", mss)
+	checker := bakery.NewChecker(bakery.CheckerParams{
+		OpsAuthorizer:    mockAuthorizer{},
+		MacaroonVerifier: mockVerifier{s.ops},
+	})
+	return checker.Auth(mss...)
 }
 
-func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
 }

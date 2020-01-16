@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/watcher"
@@ -84,6 +85,7 @@ func (w *relationUnitsWorker) loop() error {
 			// TODO(babbageclunk): move this so it happens just before
 			// the event is published to the remote facade.
 			change.Macaroons = macaroon.Slice{w.macaroon}
+			change.BakeryVersion = bakery.LatestVersion
 
 			// Send in lockstep so we don't drop events (otherwise
 			// we'd need to merge them - not too hard in this

@@ -4,6 +4,7 @@
 package crossmodelrelations
 
 import (
+	"context"
 	"strings"
 	"sync"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
@@ -31,6 +33,7 @@ type offerStatusWatcherFunc func(CrossModelRelationsState, string) (OfferWatcher
 
 // CrossModelRelationsAPI provides access to the CrossModelRelations API facade.
 type CrossModelRelationsAPI struct {
+	ctx        context.Context
 	st         CrossModelRelationsState
 	fw         firewall.State
 	resources  facade.Resources
@@ -95,6 +98,7 @@ func NewCrossModelRelationsAPI(
 	offerStatusWatcher offerStatusWatcherFunc,
 ) (*CrossModelRelationsAPI, error) {
 	return &CrossModelRelationsAPI{
+		ctx:                   context.Background(),
 		st:                    st,
 		fw:                    fw,
 		resources:             resources,
@@ -107,7 +111,7 @@ func NewCrossModelRelationsAPI(
 	}, nil
 }
 
-func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice) error {
+func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.Tag, mac macaroon.Slice, version bakery.Version) error {
 	api.mu.Lock()
 	defer api.mu.Unlock()
 
@@ -120,7 +124,7 @@ func (api *CrossModelRelationsAPI) checkMacaroonsForRelation(relationTag names.T
 		offerUUID = oc.OfferUUID()
 	}
 	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), offerUUID)
-	return auth.CheckRelationMacaroons(relationTag, mac)
+	return auth.CheckRelationMacaroons(api.ctx, relationTag, mac, version)
 }
 
 // PublishRelationChanges publishes relation changes to the
@@ -142,7 +146,7 @@ func (api *CrossModelRelationsAPI) PublishRelationChanges(
 			continue
 		}
 		logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
-		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -186,7 +190,7 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Check that the supplied macaroon allows access.
 	auth := api.authCtxt.Authenticator(api.st.ModelUUID(), appOffer.OfferUUID)
-	attr, err := auth.CheckOfferMacaroons(appOffer.OfferUUID, relation.Macaroons)
+	attr, err := auth.CheckOfferMacaroons(api.ctx, appOffer.OfferUUID, relation.Macaroons, relation.BakeryVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -313,13 +317,13 @@ func (api *CrossModelRelationsAPI) registerRemoteRelation(relation params.Regist
 
 	// Mint a new macaroon attenuated to the actual relation.
 	relationMacaroon, err := api.authCtxt.CreateRemoteRelationMacaroon(
-		api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag())
+		api.ctx, api.st.ModelUUID(), relation.OfferUUID, username, localRel.Tag(), relation.BakeryVersion)
 	if err != nil {
 		return nil, errors.Annotate(err, "creating relation macaroon")
 	}
 	return &params.RemoteRelationDetails{
 		Token:    token,
-		Macaroon: relationMacaroon,
+		Macaroon: relationMacaroon.M(),
 	}, nil
 }
 
@@ -338,7 +342,7 @@ func (api *CrossModelRelationsAPIV1) WatchRelationUnits(remoteRelationArgs param
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -374,7 +378,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if err != nil {
 			return nil, empty, errors.Trace(err)
 		}
-		if err := api.checkMacaroonsForRelation(tag, arg.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(tag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			return nil, empty, errors.Trace(err)
 		}
 		relationTag, ok := tag.(names.RelationTag)
@@ -439,7 +443,7 @@ func (api *CrossModelRelationsAPIV1) RelationUnitSettings(relationUnits params.R
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -481,7 +485,7 @@ func (api *CrossModelRelationsAPI) WatchRelationsSuspendedStatus(
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -547,7 +551,7 @@ func (api *CrossModelRelationsAPI) WatchOfferStatus(
 	for i, arg := range offerArgs.Args {
 		// Ensure the supplied macaroon allows access.
 		auth := api.authCtxt.Authenticator(api.st.ModelUUID(), arg.OfferUUID)
-		_, err := auth.CheckOfferMacaroons(arg.OfferUUID, arg.Macaroons)
+		_, err := auth.CheckOfferMacaroons(api.ctx, arg.OfferUUID, arg.Macaroons, arg.BakeryVersion)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
@@ -591,7 +595,7 @@ func (api *CrossModelRelationsAPI) PublishIngressNetworkChanges(
 		}
 		logger.Debugf("relation tag for token %+v is %v", change.RelationToken, relationTag)
 
-		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(relationTag, change.Macaroons, change.BakeryVersion); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
@@ -617,7 +621,7 @@ func (api *CrossModelRelationsAPI) WatchEgressAddressesForRelations(remoteRelati
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}
-		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons); err != nil {
+		if err := api.checkMacaroonsForRelation(relationTag, arg.Macaroons, arg.BakeryVersion); err != nil {
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

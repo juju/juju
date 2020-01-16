@@ -14,9 +14,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	checkers2 "gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
 	"gopkg.in/macaroon-bakery.v2/bakerytest"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
@@ -52,7 +51,7 @@ func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 
 	// attempt machine login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err = authenticator.Authenticate(nil, machine.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, machine.Tag(), params.LoginRequest{
 		Credentials: machinePassword,
 		Nonce:       nonce,
 	})
@@ -72,7 +71,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 	// Attempt unit login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err = authenticator.Authenticate(nil, unit.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, unit.Tag(), params.LoginRequest{
 		Credentials: unitPassword,
 		Nonce:       "",
 	})
@@ -88,7 +87,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "password",
 		Nonce:       "",
 	})
@@ -104,7 +103,7 @@ func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 
 	// User login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err := authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	_, err := authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "wrongpassword",
 		Nonce:       "",
 	})
@@ -126,7 +125,7 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// Attempt relation login
 	authenticator := &authentication.UserAuthenticator{}
-	_, err = authenticator.Authenticate(nil, relation.Tag(), params.LoginRequest{
+	_, err = authenticator.Authenticate(context.TODO(), nil, relation.Tag(), params.LoginRequest{
 		Credentials: "dummy-secret",
 		Nonce:       "",
 	})
@@ -135,41 +134,42 @@ func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestValidMacaroonUserLogin(c *gc.C) {
 	user := s.Factory.MakeUser(c, &factory.UserParams{
-		Name: "bobbrown",
+		Name: "bob",
 	})
 	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	err = mac.AddFirstPartyCaveat([]byte("declared username bob"))
 	c.Assert(err, jc.ErrorIsNil)
 	macaroons := []macaroon.Slice{{mac}}
 	service := mockBakeryService{}
 
 	// User login
-	authenticator := &authentication.UserAuthenticator{Service: &service}
-	_, err = authenticator.Authenticate(s.State, user.Tag(), params.LoginRequest{
+	authenticator := &authentication.UserAuthenticator{Bakery: &service, Clock: testclock.NewClock(time.Time{})}
+	_, err = authenticator.Authenticate(context.TODO(), s.State, user.Tag(), params.LoginRequest{
 		Credentials: "",
 		Nonce:       "",
 		Macaroons:   macaroons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
-	service.CheckCallNames(c, "CheckAny")
+	service.CheckCallNames(c, "Auth")
 	call := service.Calls()[0]
-	c.Assert(call.Args, gc.HasLen, 3)
+	c.Assert(call.Args, gc.HasLen, 1)
 	c.Assert(call.Args[0], jc.DeepEquals, macaroons)
-	c.Assert(call.Args[1], jc.DeepEquals, map[string]string{"username": "bobbrown"})
-	// no check for checker function, can't compare functions
 }
 
 func (s *userAuthenticatorSuite) TestCreateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	_, err := authentication.CreateLocalLoginMacaroon(
-		names.NewUserTag("bobbrown"), &service, clock,
+		context.TODO(),
+		names.NewUserTag("bobbrown"), &service, clock, bakery.LatestVersion,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	service.CheckCallNames(c, "NewMacaroon")
 	service.CheckCall(c, 0, "NewMacaroon", []checkers.Caveat{
 		{Condition: "is-authenticated-user bobbrown"},
-		{Condition: "time-before 0001-01-01T00:02:00Z"},
+		{Condition: "time-before 0001-01-01T00:02:00Z", Namespace: "std"},
 	})
 }
 
@@ -177,32 +177,34 @@ func (s *userAuthenticatorSuite) TestAuthenticateLocalLoginMacaroon(c *gc.C) {
 	service := mockBakeryService{}
 	clock := testclock.NewClock(time.Time{})
 	authenticator := &authentication.UserAuthenticator{
-		Service:                   &service,
+		Bakery:                    &service,
 		Clock:                     clock,
 		LocalUserIdentityLocation: "https://testing.invalid:1234/auth",
 	}
 
-	service.SetErrors(&bakery.VerificationError{})
+	service.SetErrors(nil, &bakery.VerificationError{})
 	_, err := authenticator.Authenticate(
+		context.TODO(),
 		authentication.EntityFinder(nil),
 		names.NewUserTag("bobbrown"),
 		params.LoginRequest{},
 	)
 	c.Assert(err, gc.FitsTypeOf, &common.DischargeRequiredError{})
 
-	service.CheckCallNames(c, "CheckAny", "ExpireStorageAfter", "NewMacaroon")
+	service.CheckCallNames(c, "Auth", "ExpireStorageAfter", "NewMacaroon")
 	calls := service.Calls()
 	c.Assert(calls[1].Args, jc.DeepEquals, []interface{}{24 * time.Hour})
 	c.Assert(calls[2].Args, jc.DeepEquals, []interface{}{
 		[]checkers.Caveat{
+			{Condition: "time-before 0001-01-02T00:00:00Z", Namespace: "std"},
 			checkers.NeedDeclaredCaveat(
 				checkers.Caveat{
 					Location:  "https://testing.invalid:1234/auth",
 					Condition: "is-authenticated-user bobbrown",
+					Namespace: "std",
 				},
 				"username",
 			),
-			{Condition: "time-before 0001-01-02T00:00:00Z"},
 		},
 	})
 }
@@ -211,24 +213,43 @@ type mockBakeryService struct {
 	testing.Stub
 }
 
-func (s *mockBakeryService) AddCaveat(m *macaroon.Macaroon, caveat checkers.Caveat) error {
-	s.MethodCall(s, "AddCaveat", m, caveat)
-	return s.NextErr()
+func (s *mockBakeryService) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	s.MethodCall(s, "Auth", mss)
+	checker := bakery.NewChecker(bakery.CheckerParams{
+		OpsAuthorizer:    mockAuthorizer{},
+		MacaroonVerifier: mockVerifier{},
+	})
+	return checker.Auth(mss...)
 }
 
-func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
-	s.MethodCall(s, "CheckAny", ms, assert, checker)
-	return nil, s.NextErr()
-}
-
-func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
-	return macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	mac, err := macaroon.New(nil, nil, "", macaroon.LatestVersion)
+	if err != nil {
+		return nil, err
+	}
+	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+func (s *mockBakeryService) ExpireStorageAfter(t time.Duration) (authentication.ExpirableStorageBakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", t)
 	return s, s.NextErr()
+}
+
+type mockAuthorizer struct{}
+
+func (mockAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
+	allowed := make([]bool, len(queryOps))
+	for i := range allowed {
+		allowed[i] = queryOps[i] == identchecker.LoginOp
+	}
+	return allowed, nil, nil
+}
+
+type mockVerifier struct{}
+
+func (mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]bakery.Op, []string, error) {
+	return []bakery.Op{identchecker.LoginOp}, []string{"declared username bob"}, nil
 }
 
 type macaroonAuthenticatorSuite struct {
@@ -290,8 +311,8 @@ type alwaysIdent struct {
 }
 
 // IdentityFromContext implements IdentityClient.IdentityFromContext.
-func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers2.Caveat, error) {
-	return nil, []checkers2.Caveat{checkers2.DeclaredCaveat("username", m.username)}, nil
+func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers.Caveat, error) {
+	return nil, []checkers.Caveat{checkers.DeclaredCaveat("username", m.username)}, nil
 }
 
 func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
@@ -313,12 +334,11 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		authenticator := &authentication.ExternalMacaroonAuthenticator{
 			Bakery:           bakery,
 			IdentityLocation: discharger.Location(),
-			Context:          context.Background(),
 			Clock:            testclock.NewClock(time.Time{}),
 		}
 
 		// Authenticate once to obtain the macaroon to be discharged.
-		_, err := authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+		_, err := authenticator.Authenticate(context.TODO(), test.finder, nil, params.LoginRequest{
 			Credentials: "",
 			Nonce:       "",
 			Macaroons:   nil,
@@ -331,7 +351,7 @@ func (s *macaroonAuthenticatorSuite) TestMacaroonAuthentication(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 
 		// Authenticate again with the discharged macaroon.
-		entity, err := authenticator.Authenticate(test.finder, nil, params.LoginRequest{
+		entity, err := authenticator.Authenticate(context.TODO(), test.finder, nil, params.LoginRequest{
 			Credentials: "",
 			Nonce:       "",
 			Macaroons:   []macaroon.Slice{ms},

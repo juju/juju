@@ -4,11 +4,14 @@
 package crossmodel_test
 
 import (
+	"context"
 	"time"
 
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/authentication"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -17,12 +20,20 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type mockBakeryService struct {
-	*bakery.Service
+type mockBakery struct {
+	*bakery.Bakery
 }
 
-func (m *mockBakeryService) ExpireStorageAfter(time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+func (m *mockBakery) ExpireStorageAfter(time.Duration) (authentication.ExpirableStorageBakery, error) {
 	return m, nil
+}
+
+func (m *mockBakery) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	return m.Bakery.Checker.Auth(mss...)
+}
+
+func (m *mockBakery) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
+	return m.Bakery.Oven.NewMacaroon(ctx, version, caveats, ops...)
 }
 
 type mockStatePool struct {

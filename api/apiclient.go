@@ -28,6 +28,7 @@ import (
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
@@ -200,7 +201,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.WallClock
 	}
-	ctx := context.TODO()
+	ctx := context.Background()
 	dialCtx := ctx
 	if opts.Timeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(dialCtx, opts.Clock, opts.Timeout)
@@ -502,6 +503,7 @@ func (st *state) addCookiesToHeader(h http.Header) error {
 			req.AddCookie(cookie)
 		}
 	}
+	h.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	return nil
 }
 
