@@ -5,11 +5,10 @@
 package migrations
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	description "github.com/juju/description"
 	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockMigrationRemoteApplication is a mock of MigrationRemoteApplication interface
@@ -90,6 +89,20 @@ func (m *MockMigrationRemoteApplication) IsConsumerProxy() bool {
 func (mr *MockMigrationRemoteApplicationMockRecorder) IsConsumerProxy() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsConsumerProxy", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).IsConsumerProxy))
+}
+
+// Macaroon mocks base method
+func (m *MockMigrationRemoteApplication) Macaroon() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Macaroon")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Macaroon indicates an expected call of Macaroon
+func (mr *MockMigrationRemoteApplicationMockRecorder) Macaroon() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Macaroon", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).Macaroon))
 }
 
 // OfferUUID mocks base method

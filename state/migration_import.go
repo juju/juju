@@ -1326,6 +1326,7 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		SourceModelUUID: app.SourceModelTag().Id(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
+		Macaroon:        app.Macaroon(),
 	}
 	descEndpoints := app.Endpoints()
 	eps := make([]remoteEndpointDoc, len(descEndpoints))
