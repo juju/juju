@@ -2135,6 +2135,11 @@ func (s remoteApplicationShim) GlobalKey() string {
 	return s.RemoteApplication.globalKey()
 }
 
+// Macaroon returns the encoded macaroon JSON.
+func (s remoteApplicationShim) Macaroon() string {
+	return s.RemoteApplication.doc.Macaroon
+}
+
 func (e *exporter) storage() error {
 	if err := e.volumes(); err != nil {
 		return errors.Trace(err)

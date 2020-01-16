@@ -91,6 +91,20 @@ func (mr *MockMigrationRemoteApplicationMockRecorder) IsConsumerProxy() *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsConsumerProxy", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).IsConsumerProxy))
 }
 
+// Macaroon mocks base method
+func (m *MockMigrationRemoteApplication) Macaroon() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Macaroon")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Macaroon indicates an expected call of Macaroon
+func (mr *MockMigrationRemoteApplicationMockRecorder) Macaroon() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Macaroon", reflect.TypeOf((*MockMigrationRemoteApplication)(nil).Macaroon))
+}
+
 // OfferUUID mocks base method
 func (m *MockMigrationRemoteApplication) OfferUUID() string {
 	m.ctrl.T.Helper()

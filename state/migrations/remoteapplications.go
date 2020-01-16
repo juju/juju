@@ -22,6 +22,7 @@ type MigrationRemoteApplication interface {
 	Bindings() map[string]string
 	Spaces() []MigrationRemoteSpace
 	GlobalKey() string
+	Macaroon() string
 }
 
 // MigrationRemoteEndpoint is an in-place representation of the state.Endpoint
@@ -31,7 +32,7 @@ type MigrationRemoteEndpoint struct {
 	Interface string
 }
 
-// MigrationRemoteSpace is an implace representation of the state.RemoteSpace
+// MigrationRemoteSpace is an in-place representation of the state.RemoteSpace
 type MigrationRemoteSpace struct {
 	CloudType          string
 	Name               string
@@ -40,7 +41,7 @@ type MigrationRemoteSpace struct {
 	Subnets            []MigrationRemoteSubnet
 }
 
-// MigrationRemoteSubnet is an implace representation of the state.RemoteSubnet
+// MigrationRemoteSubnet is an in-place representation of the state.RemoteSubnet
 type MigrationRemoteSubnet struct {
 	CIDR              string
 	ProviderId        string
@@ -102,8 +103,6 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 	// or not. For this scenario, we're happy to ignore that situation.
 	url, _ := app.URL()
 
-	// Note that remote applications do not include a macaroon member at all.
-	// These are not intended for export.
 	args := description.RemoteApplicationArgs{
 		Tag:             app.Tag().(names.ApplicationTag),
 		OfferUUID:       app.OfferUUID(),
@@ -111,8 +110,10 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
+		Macaroon:        app.Macaroon(),
 	}
 	descApp := dst.AddRemoteApplication(args)
+
 	status, err := src.StatusArgs(app.GlobalKey())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -121,6 +122,7 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 	if err == nil {
 		descApp.SetStatus(status)
 	}
+
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)
