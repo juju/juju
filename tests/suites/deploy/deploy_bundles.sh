@@ -82,16 +82,16 @@ run_deploy_lxd_profile_bundle() {
     bundle=cs:~juju-qa/bundle/basic-openstack-lxd-0
     juju deploy "${bundle}"
 
+    wait_for "mysql" "$(idle_condition "mysql" 3)"
+    wait_for "rabbitmq-server" "$(idle_condition "rabbitmq-server" 9)"
     wait_for "glance" "$(idle_condition "glance" 0)"
     wait_for "keystone" "$(idle_condition "keystone" 1)"
-    wait_for "lxd" "$(idle_subordinate_condition "lxd" "nova-compute" 2)"
-    wait_for "mysql" "$(idle_condition "mysql" 3)"
     wait_for "neutron-api" "$(idle_condition "neutron-api" 4)"
     wait_for "neutron-gateway" "$(idle_condition "neutron-gateway" 5)"
+    wait_for "nova-compute" "$(idle_condition "nova-compute" 8)"
+    wait_for "lxd" "$(idle_subordinate_condition "lxd" "nova-compute" 2)"
     wait_for "neutron-openvswitch" "$(idle_subordinate_condition "neutron-openvswitch" "nova-compute" 6)"
     wait_for "nova-cloud-controller" "$(idle_condition "nova-cloud-controller" 7)"
-    wait_for "nova-compute" "$(idle_condition "nova-compute" 8)"
-    wait_for "rabbitmq-server""$(idle_condition "rabbitmq-server" 9)"
 
     lxd_profile_name="juju-${model_name}-neutron-openvswitch"
     machine_6="$(machine_path 6)"
