@@ -468,7 +468,7 @@ func (c *cacheWorker) translateRelation(d multiwatcher.Delta) interface{} {
 	if d.Removed {
 		return cache.RemoveRelation{
 			ModelUUID: id.ModelUUID,
-			Name:      id.ID,
+			Key:       id.ID,
 		}
 	}
 
@@ -479,22 +479,22 @@ func (c *cacheWorker) translateRelation(d multiwatcher.Delta) interface{} {
 	}
 
 	endpoints := make([]cache.Endpoint, len(value.Endpoints))
-	for i, ep := range value.Endpoints{
-		endpoints[i] := cache.Endpoint{
-			Application: value.ApplicationName,
-			Name: value.Relation.Name,
-			Role: value.Relation.Role,
-			Interface: value.Relation.Interface,
-			Optional: value.Relation.Optional,
-			Limit: value.Relation.Limit,
-			Scope: value.Relation.Scope,
+	for i, ep := range value.Endpoints {
+		endpoints[i] = cache.Endpoint{
+			Application: ep.ApplicationName,
+			Name:        ep.Relation.Name,
+			Role:        ep.Relation.Role,
+			Interface:   ep.Relation.Interface,
+			Optional:    ep.Relation.Optional,
+			Limit:       ep.Relation.Limit,
+			Scope:       ep.Relation.Scope,
 		}
 	}
 
 	return cache.RelationChange{
-		ModelUUID:      value.ModelUUID,
-		Key:           value.Key,
-		Endpoints:    endpoints,
+		ModelUUID: value.ModelUUID,
+		Key:       value.Key,
+		Endpoints: endpoints,
 	}
 }
 

@@ -35,6 +35,7 @@ func (s *ModelSuite) TestReport(c *gc.C) {
 		"charm-count":       0,
 		"machine-count":     0,
 		"unit-count":        0,
+		"relation-count":    0,
 		"branch-count":      0,
 	})
 }

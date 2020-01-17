@@ -146,6 +146,10 @@ func (c *Controller) loop() error {
 				c.updateUnit(ch)
 			case RemoveUnit:
 				err = c.removeUnit(ch)
+			case RelationChange:
+				c.updateRelation(ch)
+			case RemoveRelation:
+				err = c.removeRelation(ch)
 			case BranchChange:
 				c.updateBranch(ch)
 			case RemoveBranch:
@@ -301,6 +305,16 @@ func (c *Controller) updateUnit(ch UnitChange) {
 // removeUnit removes the unit from the cached model.
 func (c *Controller) removeUnit(ch RemoveUnit) error {
 	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeUnit(ch) }))
+}
+
+// updateRelation adds or updates the relation in the specified model.
+func (c *Controller) updateRelation(ch RelationChange) {
+	c.ensureModel(ch.ModelUUID).updateRelation(ch, c.manager)
+}
+
+// removeRelation removes the relation from the cached model.
+func (c *Controller) removeRelation(ch RemoveRelation) error {
+	return errors.Trace(c.removeResident(ch.ModelUUID, func(m *Model) error { return m.removeRelation(ch) }))
 }
 
 // updateMachine adds or updates the machine in the specified model.
