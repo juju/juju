@@ -313,6 +313,8 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 		return c.translateMachine(d)
 	case multiwatcher.UnitKind:
 		return c.translateUnit(d)
+	case multiwatcher.RelationKind:
+		return c.translateRelation(d)
 	case multiwatcher.CharmKind:
 		return c.translateCharm(d)
 	case multiwatcher.BranchKind:
@@ -456,6 +458,43 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		Subordinate:    value.Subordinate,
 		WorkloadStatus: coreStatus(value.WorkloadStatus),
 		AgentStatus:    coreStatus(value.AgentStatus),
+	}
+}
+
+func (c *cacheWorker) translateRelation(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityID()
+
+	if d.Removed {
+		return cache.RemoveRelation{
+			ModelUUID: id.ModelUUID,
+			Name:      id.ID,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.RelationInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	endpoints := make([]cache.Endpoint, len(value.Endpoints))
+	for i, ep := range value.Endpoints{
+		endpoints[i] := cache.Endpoint{
+			Application: value.ApplicationName,
+			Name: value.Relation.Name,
+			Role: value.Relation.Role,
+			Interface: value.Relation.Interface,
+			Optional: value.Relation.Optional,
+			Limit: value.Relation.Limit,
+			Scope: value.Relation.Scope,
+		}
+	}
+
+	return cache.RelationChange{
+		ModelUUID:      value.ModelUUID,
+		Key:           value.Key,
+		Endpoints:    endpoints,
 	}
 }
 

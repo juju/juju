@@ -178,6 +178,44 @@ type RemoveUnit struct {
 	Name      string
 }
 
+// RelationChange represents either a new relation, or a change
+// to an existing relation in a model.
+type RelationChange struct {
+	ModelUUID string
+	Key       string
+	Endpoints []Endpoint
+}
+
+// Endpoint holds all relevant information about a relation endpoint.
+type Endpoint struct {
+	Application string
+	Name        string
+	Role        string
+	Interface   string
+	Optional    bool
+	Limit       int
+	Scope       string
+}
+
+// copy returns a deep copy of the RelationChange.
+func (c RelationChange) copy() RelationChange {
+	if existing := c.Endpoints; existing != nil {
+		endpoints := make([]Endpoint, len(existing))
+		for i, ep := range existing {
+			endpoints[i] = ep
+		}
+		c.Endpoints = existing
+	}
+	return c
+}
+
+// RemoveRelation represents the situation when a relation
+// is removed from a model in the database.
+type RemoveRelation struct {
+	ModelUUID string
+	Key       string
+}
+
 // MachineChange represents either a new machine, or a change
 // to an existing machine in a model.
 type MachineChange struct {
