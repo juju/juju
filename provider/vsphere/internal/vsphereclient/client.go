@@ -22,6 +22,7 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
+	"github.com/vmware/govmomi/vslm"
 )
 
 // ErrExtendDisk is returned if we timed out trying to extend the root
@@ -40,6 +41,10 @@ func (e *extendDiskError) Error() string {
 func IsExtendDiskError(err error) bool {
 	_, ok := errors.Cause(err).(*extendDiskError)
 	return ok
+}
+
+func isNotSupported(err error) bool {
+	return err == object.ErrNotSupported
 }
 
 // Client encapsulates a vSphere client, exposing the subset of
@@ -607,24 +612,77 @@ func (c *Client) extendDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
 	datacenter *object.Datacenter,
-	datastorePath string,
+	disk *types.VirtualDisk,
+	vDeviceFileBackingInfo *types.VirtualDeviceFileBackingInfo,
+	capacityKB int64,
+	taskWaiter *taskWaiter,
+) error {
+	c.logger.Criticalf("extendDisk c.client.Version -> %q", c.client.Version)
+	err := c.extendDiskNew(ctx, vm, datacenter, disk, vDeviceFileBackingInfo, capacityKB, taskWaiter)
+	c.logger.Criticalf("extendDiskNew err %#v", err)
+	if isNotSupported(err) {
+		err = c.extendDiskLegacy(ctx, vm, datacenter, disk, vDeviceFileBackingInfo, capacityKB, taskWaiter)
+		c.logger.Criticalf("extendDiskLegacy err %#v", err)
+	}
+	return errors.Trace(err)
+}
+
+// extendDiskLegacy uses VirtualDiskManager API which deprecates since vSphere 6.5 version.
+func (c *Client) extendDiskLegacy(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+	datacenter *object.Datacenter,
+	disk *types.VirtualDisk,
+	vDeviceFileBackingInfo *types.VirtualDeviceFileBackingInfo,
 	capacityKB int64,
 	taskWaiter *taskWaiter,
 ) error {
 	// NOTE(axw) there's no ExtendVirtualDisk on the disk manager type,
 	// hence why we're dealing with request types directly. Send a patch
 	// to govmomi to add this to VirtualDiskManager.
-
 	diskManager := object.NewVirtualDiskManager(c.client.Client)
 	dcref := datacenter.Reference()
 	req := types.ExtendVirtualDisk_Task{
 		This:          diskManager.Reference(),
-		Name:          datastorePath,
+		Name:          vDeviceFileBackingInfo.FileName,
 		Datacenter:    &dcref,
 		NewCapacityKb: capacityKB,
 	}
+	c.logger.Criticalf("extendDiskLegacy vDeviceFileBackingInfo.FileName %q, capacityKB %v", vDeviceFileBackingInfo.FileName, capacityKB)
 
 	res, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	task := object.NewTask(c.client.Client, res.Returnval)
+	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
+	if err != nil {
+		return errors.Trace(&extendDiskError{err})
+	}
+	return nil
+}
+
+// extendDiskNew uses HostVStorageObjectManager API which supports vSphere 6.5 and later versions.
+func (c *Client) extendDiskNew(
+	ctx context.Context,
+	vm *object.VirtualMachine,
+	datacenter *object.Datacenter,
+	disk *types.VirtualDisk,
+	vDeviceFileBackingInfo *types.VirtualDeviceFileBackingInfo,
+	capacityKB int64,
+	taskWaiter *taskWaiter,
+) error {
+	objManager := vslm.NewObjectManager(c.client.Client, datacenter.Reference())
+	req := types.HostExtendDisk_Task{
+		This:            objManager.Reference(),
+		Id:              *disk.VDiskId,
+		Datastore:       *vDeviceFileBackingInfo.Datastore,
+		NewCapacityInMB: capacityKB / 1024,
+	}
+	c.logger.Criticalf("extendDiskNew req %#v", req)
+	c.logger.Criticalf("extendDiskNew vDeviceFileBackingInfo.FileName %q, capacityKB %v", vDeviceFileBackingInfo.FileName, capacityKB)
+
+	res, err := methods.HostExtendDisk_Task(ctx, c.client.Client, &req)
 	if err != nil {
 		return errors.Trace(err)
 	}

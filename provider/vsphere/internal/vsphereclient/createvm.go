@@ -408,9 +408,8 @@ func (c *Client) extendVMRootDisk(
 		// user-specified size, so leave it alone.
 		return nil
 	}
-	datastorePath := backing.GetVirtualDeviceFileBackingInfo().FileName
 	return errors.Trace(c.extendDisk(
-		ctx, vm, datacenter, datastorePath, newCapacityInKB, taskWaiter,
+		ctx, vm, datacenter, disk, backing.GetVirtualDeviceFileBackingInfo(), newCapacityInKB, taskWaiter,
 	))
 }
 
