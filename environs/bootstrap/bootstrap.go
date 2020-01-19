@@ -233,13 +233,13 @@ func bootstrapCAAS(
 	bootstrapParams environs.BootstrapParams,
 ) error {
 	if args.BuildAgent {
-		return errors.NewNotSupported(nil, "--build-agent when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--build-agent when bootstrapping a k8s controller")
 	}
 	if args.BootstrapImage != "" {
-		return errors.NewNotSupported(nil, "--bootstrap-image when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--bootstrap-image when bootstrapping a k8s controller")
 	}
 	if args.BootstrapSeries != "" {
-		return errors.NewNotSupported(nil, "--bootstrap-series when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--bootstrap-series when bootstrapping a k8s controller")
 	}
 
 	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
