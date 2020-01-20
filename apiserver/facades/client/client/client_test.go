@@ -156,6 +156,20 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	c.Assert(info.IsController, gc.Equals, model.IsControllerModel())
 }
 
+func (s *serverSuite) TestAddMachineVariantsReadOnlyDenied(c *gc.C) {
+	user := s.makeLocalModelUser(c, "read", "Read Only")
+	api := s.authClientForState(c, s.State, testing.FakeAuthorizer{Tag: user.UserTag})
+
+	_, err := api.AddMachines(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	_, err = api.AddMachinesV2(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	_, err = api.InjectMachines(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+}
+
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
 	testAdmin := s.AdminUserTag(c)
 	owner, err := s.State.UserAccess(testAdmin, s.Model.ModelTag())
@@ -244,7 +258,7 @@ func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
-	// factory.MakeUser will create an ModelUser for a local user by defalut
+	// factory.MakeUser will create an ModelUser for a local user by default.
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
