@@ -415,10 +415,6 @@ func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-
 	return c.AddMachinesV2(args)
 }
 
@@ -426,6 +422,9 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+	if err := c.checkCanWrite(); err != nil {
+		return params.AddMachinesResults{}, err
 	}
 	if err := c.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
@@ -442,10 +441,6 @@ func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResul
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-
 	return c.AddMachines(args)
 }
 

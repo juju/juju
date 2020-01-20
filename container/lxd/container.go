@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils/arch"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+	"github.com/lxc/lxd/shared/units"
 	"github.com/lxc/lxd/shared/version"
 
 	"github.com/juju/juju/core/constraints"
@@ -104,7 +104,7 @@ func (c *Container) Mem() uint {
 		return 0
 	}
 
-	bytes, err := shared.ParseByteSizeString(v)
+	bytes, err := units.ParseByteSizeString(v)
 	if err != nil {
 		logger.Errorf("failed to parse %q into bytes, ignoring err: %s", v, err)
 		return 0

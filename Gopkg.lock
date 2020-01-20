@@ -12,14 +12,6 @@
   revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"
 
 [[projects]]
-  branch = "master"
-  digest = "1:3dbee55971def1e4aa600dac9e3398ddb1b20ee4ca729aa08c985692b2bd1fc8"
-  name = "code.cloudfoundry.org/systemcerts"
-  packages = ["."]
-  pruneopts = ""
-  revision = "ca00b2f806f2fa1ded784ade357bad1ea3f1fbbe"
-
-[[projects]]
   digest = "1:e1b859e3d9e90007d5fbf25edf57733b224f1857f6592636130afab3af8cfae7"
   name = "contrib.go.opencensus.io/exporter/ocagent"
   packages = ["."]
@@ -870,7 +862,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:9ab3794bfaaf6e5d195027f3e3d6c53018420de5ccb759d7721926bc80211c67"
+  digest = "1:a452f9fca3583eb87f1d18d8a184ab818df034f13115c9dd9992d5653e9c70ac"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -881,10 +873,11 @@
     "shared/logger",
     "shared/osarch",
     "shared/simplestreams",
+    "shared/units",
     "shared/version",
   ]
   pruneopts = ""
-  revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
+  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
 
 [[projects]]
   digest = "1:f95025d583786875a71183888acc9d0987fc96f12d4f5afab3d7558797ea1c5a"
@@ -1889,6 +1882,7 @@
     "github.com/lxc/lxd/shared/api",
     "github.com/lxc/lxd/shared/logger",
     "github.com/lxc/lxd/shared/osarch",
+    "github.com/lxc/lxd/shared/units",
     "github.com/lxc/lxd/shared/version",
     "github.com/mattn/go-isatty",
     "github.com/oracle/oci-go-sdk/common",

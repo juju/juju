@@ -37,6 +37,7 @@ func (m *MockClock) EXPECT() *MockClockMockRecorder {
 
 // After mocks base method
 func (m *MockClock) After(arg0 time.Duration) <-chan time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "After", arg0)
 	ret0, _ := ret[0].(<-chan time.Time)
 	return ret0
@@ -44,11 +45,13 @@ func (m *MockClock) After(arg0 time.Duration) <-chan time.Time {
 
 // After indicates an expected call of After
 func (mr *MockClockMockRecorder) After(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "After", reflect.TypeOf((*MockClock)(nil).After), arg0)
 }
 
 // AfterFunc mocks base method
 func (m *MockClock) AfterFunc(arg0 time.Duration, arg1 func()) clock.Timer {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AfterFunc", arg0, arg1)
 	ret0, _ := ret[0].(clock.Timer)
 	return ret0
@@ -56,11 +59,13 @@ func (m *MockClock) AfterFunc(arg0 time.Duration, arg1 func()) clock.Timer {
 
 // AfterFunc indicates an expected call of AfterFunc
 func (mr *MockClockMockRecorder) AfterFunc(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AfterFunc", reflect.TypeOf((*MockClock)(nil).AfterFunc), arg0, arg1)
 }
 
 // NewTimer mocks base method
 func (m *MockClock) NewTimer(arg0 time.Duration) clock.Timer {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "NewTimer", arg0)
 	ret0, _ := ret[0].(clock.Timer)
 	return ret0
@@ -68,11 +73,13 @@ func (m *MockClock) NewTimer(arg0 time.Duration) clock.Timer {
 
 // NewTimer indicates an expected call of NewTimer
 func (mr *MockClockMockRecorder) NewTimer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewTimer", reflect.TypeOf((*MockClock)(nil).NewTimer), arg0)
 }
 
 // Now mocks base method
 func (m *MockClock) Now() time.Time {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Now")
 	ret0, _ := ret[0].(time.Time)
 	return ret0
@@ -80,5 +87,6 @@ func (m *MockClock) Now() time.Time {
 
 // Now indicates an expected call of Now
 func (mr *MockClockMockRecorder) Now() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Now", reflect.TypeOf((*MockClock)(nil).Now))
 }
