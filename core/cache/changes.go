@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
 )
@@ -18,12 +19,18 @@ import (
 // ModelChange represents either a new model, or a change
 // to an existing model.
 type ModelChange struct {
-	ModelUUID string
-	Name      string
-	Life      life.Value
-	Owner     string // tag maybe?
-	Config    map[string]interface{}
-	Status    status.StatusInfo
+	ModelUUID       string
+	Name            string
+	Life            life.Value
+	Owner           string // tag maybe?
+	IsController    bool
+	Cloud           string
+	CloudRegion     string
+	CloudCredential string
+	Config          map[string]interface{}
+	Status          status.StatusInfo
+
+	UserPermissions map[string]permission.Access
 }
 
 // RemoveModel represents the situation when a model is removed
@@ -169,6 +176,44 @@ func (u UnitChange) copy() UnitChange {
 type RemoveUnit struct {
 	ModelUUID string
 	Name      string
+}
+
+// RelationChange represents either a new relation, or a change
+// to an existing relation in a model.
+type RelationChange struct {
+	ModelUUID string
+	Key       string
+	Endpoints []Endpoint
+}
+
+// Endpoint holds all relevant information about a relation endpoint.
+type Endpoint struct {
+	Application string
+	Name        string
+	Role        string
+	Interface   string
+	Optional    bool
+	Limit       int
+	Scope       string
+}
+
+// copy returns a deep copy of the RelationChange.
+func (c RelationChange) copy() RelationChange {
+	if existing := c.Endpoints; existing != nil {
+		endpoints := make([]Endpoint, len(existing))
+		for i, ep := range existing {
+			endpoints[i] = ep
+		}
+		c.Endpoints = existing
+	}
+	return c
+}
+
+// RemoveRelation represents the situation when a relation
+// is removed from a model in the database.
+type RemoveRelation struct {
+	ModelUUID string
+	Key       string
 }
 
 // MachineChange represents either a new machine, or a change

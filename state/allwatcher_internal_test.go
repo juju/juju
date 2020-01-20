@@ -80,15 +80,18 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	modelStatus, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
-
-	add(&multiwatcher.ModelUpdate{
-		ModelUUID:      model.UUID(),
-		Name:           model.Name(),
-		Life:           life.Alive,
-		Owner:          model.Owner().Id(),
-		ControllerUUID: model.ControllerUUID(),
-		IsController:   model.IsControllerModel(),
-		Config:         modelCfg.AllAttrs(),
+	credential, _ := model.CloudCredential()
+	add(&multiwatcher.ModelInfo{
+		ModelUUID:       model.UUID(),
+		Name:            model.Name(),
+		Life:            life.Alive,
+		Owner:           model.Owner().Id(),
+		ControllerUUID:  model.ControllerUUID(),
+		IsController:    model.IsControllerModel(),
+		Cloud:           model.Cloud(),
+		CloudRegion:     model.CloudRegion(),
+		CloudCredential: credential.Id(),
+		Config:          modelCfg.AllAttrs(),
 		Status: multiwatcher.StatusInfo{
 			Current: modelStatus.Status,
 			Message: modelStatus.Message,
@@ -1054,7 +1057,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
 				about: "model is removed if it's not in backing",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: "some-uuid",
 				}},
 				change: watcher.Change{
@@ -1074,6 +1077,8 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			cons := constraints.MustParse("mem=4G")
 			err = st.SetModelConstraints(cons)
 			c.Assert(err, jc.ErrorIsNil)
+			credential, _ := model.CloudCredential()
+
 			return changeTestCase{
 				about: "model is added if it's in backing but not in Store",
 				change: watcher.Change{
@@ -1081,15 +1086,18 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					Id: st.ModelUUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ModelUpdate{
-						ModelUUID:      model.UUID(),
-						Name:           model.Name(),
-						Life:           life.Alive,
-						Owner:          model.Owner().Id(),
-						ControllerUUID: model.ControllerUUID(),
-						IsController:   model.IsControllerModel(),
-						Config:         cfg.AllAttrs(),
-						Constraints:    cons,
+					&multiwatcher.ModelInfo{
+						ModelUUID:       model.UUID(),
+						Name:            model.Name(),
+						Life:            life.Alive,
+						Owner:           model.Owner().Id(),
+						ControllerUUID:  model.ControllerUUID(),
+						IsController:    model.IsControllerModel(),
+						Cloud:           model.Cloud(),
+						CloudRegion:     model.CloudRegion(),
+						CloudCredential: credential.Id(),
+						Config:          cfg.AllAttrs(),
+						Constraints:     cons,
 						Status: multiwatcher.StatusInfo{
 							Current: status.Status,
 							Message: status.Message,
@@ -1112,10 +1120,11 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			status, err := model.Status()
 			c.Assert(err, jc.ErrorIsNil)
+			credential, _ := model.CloudCredential()
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ModelUpdate{
+					&multiwatcher.ModelInfo{
 						ModelUUID:      model.UUID(),
 						Name:           "",
 						Life:           life.Alive,
@@ -1142,14 +1151,17 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 					Id: model.UUID(),
 				},
 				expectContents: []multiwatcher.EntityInfo{
-					&multiwatcher.ModelUpdate{
-						ModelUUID:      model.UUID(),
-						Name:           model.Name(),
-						Life:           life.Alive,
-						Owner:          model.Owner().Id(),
-						ControllerUUID: model.ControllerUUID(),
-						IsController:   model.IsControllerModel(),
-						Config:         cfg.AllAttrs(),
+					&multiwatcher.ModelInfo{
+						ModelUUID:       model.UUID(),
+						Name:            model.Name(),
+						Life:            life.Alive,
+						Owner:           model.Owner().Id(),
+						ControllerUUID:  model.ControllerUUID(),
+						IsController:    model.IsControllerModel(),
+						Cloud:           model.Cloud(),
+						CloudRegion:     model.CloudRegion(),
+						CloudCredential: credential.Id(),
+						Config:          cfg.AllAttrs(),
 						Status: multiwatcher.StatusInfo{
 							Current: status.Status,
 							Message: status.Message,
@@ -1232,7 +1244,7 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	expectedModelSettings["http-proxy"] = "http://invalid"
 	expectedModelSettings["foo"] = "bar"
 
-	all.Update(&multiwatcher.ModelUpdate{
+	all.Update(&multiwatcher.ModelInfo{
 		ModelUUID: s.state.ModelUUID(),
 		Name:      "dummy-model",
 	})
@@ -1243,7 +1255,7 @@ func (s *allModelWatcherStateSuite) TestModelSettings(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	entities := all.All()
 	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.ModelUpdate{
+		&multiwatcher.ModelInfo{
 			ModelUUID: s.state.ModelUUID(),
 			Name:      "dummy-model",
 			Config:    expectedModelSettings,
@@ -1259,10 +1271,11 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		func(c *gc.C, st *State) changeTestCase {
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
+			credential, _ := model.CloudCredential()
 
 			return changeTestCase{
 				about: "model update keeps permissions",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					// Existance doesn't care about the other values, and they are
 					// not entirely relevent to this test.
@@ -1275,14 +1288,17 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					C:  "models",
 					Id: st.ModelUUID(),
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
-					ModelUUID:      st.ModelUUID(),
-					Name:           model.Name(),
-					Life:           "alive",
-					Owner:          model.Owner().Id(),
-					ControllerUUID: testing.ControllerTag.Id(),
-					IsController:   model.IsControllerModel(),
-					SLA:            multiwatcher.ModelSLAInfo{Level: "unsupported"},
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
+					ModelUUID:       st.ModelUUID(),
+					Name:            model.Name(),
+					Life:            "alive",
+					Owner:           model.Owner().Id(),
+					ControllerUUID:  testing.ControllerTag.Id(),
+					IsController:    model.IsControllerModel(),
+					Cloud:           model.Cloud(),
+					CloudRegion:     model.CloudRegion(),
+					CloudCredential: credential.Id(),
+					SLA:             multiwatcher.ModelSLAInfo{Level: "unsupported"},
 					UserPermissions: map[string]permission.Access{
 						"bob":  permission.ReadAccess,
 						"mary": permission.AdminAccess,
@@ -1303,7 +1319,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "adding a model user updates model",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// Existance doesn't care about the other values, and they are
@@ -1317,7 +1333,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					C:  permissionsC,
 					Id: permissionID(modelKey(st.ModelUUID()), userGlobalKey("tony@external")),
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// When the permissions are updated, only the user permissions are changed.
@@ -1335,7 +1351,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "removing a permission document removes user permission",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// Existance doesn't care about the other values, and they are
@@ -1350,7 +1366,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Id:    permissionID(modelKey(st.ModelUUID()), userGlobalKey("bob")),
 					Revno: -1,
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// When the permissions are updated, only the user permissions are changed.
@@ -1382,7 +1398,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "updating a permission document updates user permission",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				initialContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					// Existance doesn't care about the other values, and they are
@@ -1396,7 +1412,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					C:  permissionsC,
 					Id: permissionID(modelKey(st.ModelUUID()), userGlobalKey("bob")),
 				},
-				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelUpdate{
+				expectContents: []multiwatcher.EntityInfo{&multiwatcher.ModelInfo{
 					ModelUUID: st.ModelUUID(),
 					Name:      model.Name(),
 					UserPermissions: map[string]permission.Access{

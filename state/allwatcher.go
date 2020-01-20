@@ -141,13 +141,16 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 
 	// Update the context with the model type.
 	ctx.modelType_ = e.Type
-	info := &multiwatcher.ModelUpdate{
-		ModelUUID:      e.UUID,
-		Name:           e.Name,
-		Life:           life.Value(e.Life.String()),
-		Owner:          e.Owner,
-		ControllerUUID: e.ControllerUUID,
-		IsController:   ctx.state.IsController(),
+	info := &multiwatcher.ModelInfo{
+		ModelUUID:       e.UUID,
+		Name:            e.Name,
+		Life:            life.Value(e.Life.String()),
+		Owner:           e.Owner,
+		ControllerUUID:  e.ControllerUUID,
+		IsController:    ctx.state.IsController(),
+		Cloud:           e.Cloud,
+		CloudRegion:     e.CloudRegion,
+		CloudCredential: e.CloudCredential,
 		SLA: multiwatcher.ModelSLAInfo{
 			Level: e.SLA.Level.String(),
 			Owner: e.SLA.Owner,
@@ -200,7 +203,7 @@ func (e *backingModel) updated(ctx *allWatcherContext) error {
 
 		info.UserPermissions = permissions
 	} else {
-		oldInfo := oldInfo.(*multiwatcher.ModelUpdate)
+		oldInfo := oldInfo.(*multiwatcher.ModelInfo)
 		info.Config = oldInfo.Config
 		info.Constraints = oldInfo.Constraints
 		info.Status = oldInfo.Status
@@ -247,7 +250,7 @@ func (e *backingPermission) updated(ctx *allWatcherContext) error {
 		return nil
 	}
 
-	storeKey := &multiwatcher.ModelUpdate{
+	storeKey := &multiwatcher.ModelInfo{
 		ModelUUID: modelUUID,
 	}
 
@@ -256,7 +259,7 @@ func (e *backingPermission) updated(ctx *allWatcherContext) error {
 	case nil:
 		// The parent info doesn't exist. Ignore the permission until it does.
 		return nil
-	case *multiwatcher.ModelUpdate:
+	case *multiwatcher.ModelInfo:
 		// Set the access for the user in the permission map of the model.
 		info.UserPermissions[user] = permission.Access(e.Access)
 	}
@@ -274,7 +277,7 @@ func (e *backingPermission) removed(ctx *allWatcherContext) error {
 		return nil
 	}
 
-	storeKey := &multiwatcher.ModelUpdate{
+	storeKey := &multiwatcher.ModelInfo{
 		ModelUUID: modelUUID,
 	}
 
@@ -283,7 +286,7 @@ func (e *backingPermission) removed(ctx *allWatcherContext) error {
 	case nil:
 		// The parent info doesn't exist. Nothing to remove from.
 		return nil
-	case *multiwatcher.ModelUpdate:
+	case *multiwatcher.ModelInfo:
 		// Remove the user from the permission map.
 		delete(info.UserPermissions, user)
 	}
@@ -1036,7 +1039,7 @@ func (s *backingStatus) updated(ctx *allWatcherContext) error {
 			return err
 		}
 		info0 = &newInfo
-	case *multiwatcher.ModelUpdate:
+	case *multiwatcher.ModelInfo:
 		newInfo := *info
 		newInfo.Status = s.toStatusInfo()
 		info0 = &newInfo
@@ -1164,7 +1167,7 @@ func (c *backingConstraints) updated(ctx *allWatcherContext) error {
 	case *multiwatcher.UnitInfo, *multiwatcher.MachineInfo:
 		// We don't (yet) publish unit or machine constraints.
 		return nil
-	case *multiwatcher.ModelUpdate:
+	case *multiwatcher.ModelInfo:
 		newInfo := *info
 		newInfo.Constraints = constraintsDoc(*c).value()
 		info0 = &newInfo
@@ -1201,7 +1204,7 @@ func (s *backingSettings) updated(ctx *allWatcherContext) error {
 	case nil:
 		// The parent info doesn't exist. Ignore the status until it does.
 		return nil
-	case *multiwatcher.ModelUpdate:
+	case *multiwatcher.ModelInfo:
 		// We need to construct a model config so that coercion
 		// of raw settings values occurs.
 		cfg, err := config.New(config.NoDefaults, s.Settings)
@@ -1996,7 +1999,7 @@ func (ctx *allWatcherContext) getOpenedPorts(unit *Unit) ([]corenetwork.PortRang
 func (ctx *allWatcherContext) entityIDForGlobalKey(key string) (multiwatcher.EntityID, bool) {
 	var result multiwatcher.EntityInfo
 	if key == modelGlobalKey {
-		result = &multiwatcher.ModelUpdate{
+		result = &multiwatcher.ModelInfo{
 			ModelUUID: ctx.modelUUID,
 		}
 		return result.EntityID(), true

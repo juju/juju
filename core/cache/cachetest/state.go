@@ -4,6 +4,8 @@
 package cachetest
 
 import (
+	"strings"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -12,6 +14,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -32,13 +35,22 @@ func ModelChange(c *gc.C, model *state.Model) cache.ModelChange {
 	status, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
 
+	users, err := model.Users()
+	permissions := make(map[string]permission.Access)
+	for _, user := range users {
+		// Cache permission map is always lower case.
+		permissions[strings.ToLower(user.UserName)] = user.Access
+	}
+
 	return cache.ModelChange{
-		ModelUUID: model.UUID(),
-		Name:      model.Name(),
-		Life:      life.Value(model.Life().String()),
-		Owner:     model.Owner().Name(),
-		Config:    cfg.AllAttrs(),
-		Status:    status,
+		ModelUUID:       model.UUID(),
+		Name:            model.Name(),
+		Life:            life.Value(model.Life().String()),
+		Owner:           model.Owner().Name(),
+		IsController:    model.IsControllerModel(),
+		Config:          cfg.AllAttrs(),
+		Status:          status,
+		UserPermissions: permissions,
 	}
 }
 

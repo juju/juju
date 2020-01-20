@@ -137,7 +137,7 @@ func (aw *SrvAllWatcher) translate(deltas []multiwatcher.Delta) []params.Delta {
 }
 
 func (aw *SrvAllWatcher) translateModel(info multiwatcher.EntityInfo) params.EntityInfo {
-	orig, ok := info.(*multiwatcher.ModelUpdate)
+	orig, ok := info.(*multiwatcher.ModelInfo)
 	if !ok {
 		logger.Criticalf("consistency error: %s", pretty.Sprint(info))
 		return nil

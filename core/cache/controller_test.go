@@ -57,6 +57,7 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 			"charm-count":       0,
 			"machine-count":     0,
 			"unit-count":        0,
+			"relation-count":    0,
 			"branch-count":      0,
 		}})
 
@@ -280,6 +281,38 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 	s.AssertResident(c, unit.CacheId(), false)
 }
 
+func (s *ControllerSuite) TestAddRelation(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, relationChange, events)
+
+	mod, err := controller.Model(relationChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Check(mod.Report()["relation-count"], gc.Equals, 1)
+
+	relation, err := mod.Relation(relationChange.Key)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertResident(c, relation.CacheId(), true)
+}
+
+func (s *ControllerSuite) TestRemoveRelation(c *gc.C) {
+	controller, events := s.new(c)
+	s.processChange(c, relationChange, events)
+
+	mod, err := controller.Model(relationChange.ModelUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	relation, err := mod.Relation(relationChange.Key)
+	c.Assert(err, jc.ErrorIsNil)
+
+	remove := cache.RemoveRelation{
+		ModelUUID: modelChange.ModelUUID,
+		Key:       relationChange.Key,
+	}
+	s.processChange(c, remove, events)
+
+	c.Check(mod.Report()["relation-count"], gc.Equals, 0)
+	s.AssertResident(c, relation.CacheId(), false)
+}
+
 func (s *ControllerSuite) TestAddBranch(c *gc.C) {
 	controller, events := s.new(c)
 	s.processChange(c, branchChange, events)
@@ -379,6 +412,10 @@ func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
 		case cache.UnitChange:
 			send = true
 		case cache.RemoveUnit:
+			send = true
+		case cache.RelationChange:
+			send = true
+		case cache.RemoveRelation:
 			send = true
 		case cache.BranchChange:
 			send = true

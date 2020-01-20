@@ -313,6 +313,8 @@ func (c *cacheWorker) translate(d multiwatcher.Delta) interface{} {
 		return c.translateMachine(d)
 	case multiwatcher.UnitKind:
 		return c.translateUnit(d)
+	case multiwatcher.RelationKind:
+		return c.translateRelation(d)
 	case multiwatcher.CharmKind:
 		return c.translateCharm(d)
 	case multiwatcher.BranchKind:
@@ -333,20 +335,25 @@ func (c *cacheWorker) translateModel(d multiwatcher.Delta) interface{} {
 		}
 	}
 
-	value, ok := e.(*multiwatcher.ModelUpdate)
+	value, ok := e.(*multiwatcher.ModelInfo)
 	if !ok {
 		c.config.Logger.Errorf("unexpected type %T", e)
 		return nil
 	}
 
 	return cache.ModelChange{
-		ModelUUID: value.ModelUUID,
-		Name:      value.Name,
-		Life:      life.Value(value.Life),
-		Owner:     value.Owner,
-		Config:    value.Config,
-		Status:    coreStatus(value.Status),
+		ModelUUID:       value.ModelUUID,
+		Name:            value.Name,
+		Life:            life.Value(value.Life),
+		Owner:           value.Owner,
+		IsController:    value.IsController,
+		Cloud:           value.Cloud,
+		CloudRegion:     value.CloudRegion,
+		CloudCredential: value.CloudCredential,
+		Config:          value.Config,
+		Status:          coreStatus(value.Status),
 		// TODO: constraints, sla
+		UserPermissions: value.UserPermissions,
 	}
 }
 
@@ -451,6 +458,43 @@ func (c *cacheWorker) translateUnit(d multiwatcher.Delta) interface{} {
 		Subordinate:    value.Subordinate,
 		WorkloadStatus: coreStatus(value.WorkloadStatus),
 		AgentStatus:    coreStatus(value.AgentStatus),
+	}
+}
+
+func (c *cacheWorker) translateRelation(d multiwatcher.Delta) interface{} {
+	e := d.Entity
+	id := e.EntityID()
+
+	if d.Removed {
+		return cache.RemoveRelation{
+			ModelUUID: id.ModelUUID,
+			Key:       id.ID,
+		}
+	}
+
+	value, ok := e.(*multiwatcher.RelationInfo)
+	if !ok {
+		c.config.Logger.Errorf("unexpected type %T", e)
+		return nil
+	}
+
+	endpoints := make([]cache.Endpoint, len(value.Endpoints))
+	for i, ep := range value.Endpoints {
+		endpoints[i] = cache.Endpoint{
+			Application: ep.ApplicationName,
+			Name:        ep.Relation.Name,
+			Role:        ep.Relation.Role,
+			Interface:   ep.Relation.Interface,
+			Optional:    ep.Relation.Optional,
+			Limit:       ep.Relation.Limit,
+			Scope:       ep.Relation.Scope,
+		}
+	}
+
+	return cache.RelationChange{
+		ModelUUID: value.ModelUUID,
+		Key:       value.Key,
+		Endpoints: endpoints,
 	}
 }
 
