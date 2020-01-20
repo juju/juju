@@ -10,8 +10,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/schema"
-	"github.com/lxc/lxd/shared"
 	"github.com/lxc/lxd/shared/api"
+	"github.com/lxc/lxd/shared/units"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/container/lxd"
@@ -571,7 +571,7 @@ func (s *lxdFilesystemSource) ImportFilesystem(
 	// We use the magic number 999GiB to indicate that it's unknown.
 	size := uint64(999 * 1024) // 999GiB
 	if sizeString := volume.Config["size"]; sizeString != "" {
-		n, err := shared.ParseByteSizeString(sizeString)
+		n, err := units.ParseByteSizeString(sizeString)
 		if err != nil {
 			return storage.FilesystemInfo{}, errors.Annotate(err, "parsing size")
 		}
