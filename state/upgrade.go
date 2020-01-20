@@ -295,33 +295,44 @@ func (st *State) EnsureUpgradeInfo(controllerId string, previousVersion, targetV
 		ControllersReady: []string{controllerId},
 	}
 
-	machine, err := st.Machine(controllerId)
+	m, err := st.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
+	hasMachine := m.Type() == ModelTypeIAAS
 
 	ops := []txn.Op{{
 		C:      upgradeInfoC,
 		Id:     currentUpgradeId,
 		Assert: txn.DocMissing,
 		Insert: doc,
-	}, {
-		C:      instanceDataC,
-		Id:     machine.doc.DocID,
-		Assert: txn.DocExists,
 	}}
+	if hasMachine {
+		machine, err := st.Machine(controllerId)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops = append(ops, txn.Op{
+			C:      instanceDataC,
+			Id:     machine.doc.DocID,
+			Assert: txn.DocExists,
+		})
+	}
 	if err := st.runRawTransaction(ops); err == nil {
 		return &UpgradeInfo{st: st, doc: doc}, nil
 	} else if err != txn.ErrAborted {
 		return nil, errors.Annotate(err, "cannot create upgrade info")
 	}
 
-	if provisioned, err := st.isMachineProvisioned(controllerId); err != nil {
-		return nil, errors.Trace(err)
-	} else if !provisioned {
-		return nil, errors.Errorf(
-			"machine %s is not provisioned and should not be participating in upgrades",
-			controllerId)
+	if hasMachine {
+		if provisioned, err := st.isMachineProvisioned(controllerId); err != nil {
+			return nil, errors.Trace(err)
+		} else if !provisioned {
+			return nil, errors.Errorf(
+				"machine %s is not provisioned and should not be participating in upgrades",
+				controllerId)
+		}
 	}
 
 	if info, err := ensureUpgradeInfoUpdated(st, controllerId, previousVersion, targetVersion); err == nil {
