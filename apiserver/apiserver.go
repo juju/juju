@@ -907,6 +907,9 @@ func (srv *Server) healthHandler(w http.ResponseWriter, req *http.Request) {
 	srv.mu.Lock()
 	status := srv.healthStatus
 	srv.mu.Unlock()
+	if status != "running" {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	}
 
 	fmt.Fprintf(w, "%s\n", status)
 }
