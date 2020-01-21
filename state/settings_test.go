@@ -603,3 +603,56 @@ func (s *SettingsSuite) TestApplyAndRetrieveChanges(c *gc.C) {
 
 	c.Assert(s2.changes(), gc.DeepEquals, exp)
 }
+
+func (s *SettingsSuite) TestDeltaOpsSuccess(c *gc.C) {
+	s1, err := s.createSettings(s.key, map[string]interface{}{
+		"foo": []interface{}{"bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s1.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	delta := coresettings.ItemChanges{
+		coresettings.MakeModification("foo", "bar", "new-bar"),
+		coresettings.MakeAddition("new", "value"),
+	}
+
+	settings := s.state.NewSettings()
+	ops, err := settings.DeltaOps(s.key, delta)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s1.Read()
+	c.Assert(s1.Map(), gc.DeepEquals, map[string]interface{}{
+		"foo": "new-bar",
+		"new": "value",
+	})
+}
+
+func (s *SettingsSuite) TestDeltaOpsChangedError(c *gc.C) {
+	s1, err := s.createSettings(s.key, map[string]interface{}{
+		"foo": []interface{}{"bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s1.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := s.state.NewSettings()
+
+	delta := coresettings.ItemChanges{
+		coresettings.MakeModification("foo", "bar", "new-bar"),
+	}
+
+	ops, err := settings.DeltaOps(s.key, delta)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Change after settings above is materialised.
+	s1.Set("foo", "changed-bar")
+	_, err = s1.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.state.db().RunTransaction(ops)
+	c.Assert(err, gc.ErrorMatches, "transaction aborted")
+}

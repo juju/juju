@@ -39,7 +39,7 @@ func (m *settingsMap) SetBSON(raw bson.Raw) error {
 	if err := raw.Unmarshal(rawMap); err != nil {
 		return err
 	}
-	*m = settingsMap(utils.UnescapeKeys(rawMap))
+	*m = utils.UnescapeKeys(rawMap)
 	return nil
 }
 
@@ -412,7 +412,7 @@ func replaceSettingsOp(db Database, collection, key string, values map[string]in
 	}
 	newValues := utils.EscapeKeys(values)
 	op := s.assertUnchangedOp()
-	op.Update = setUnsetUpdateSettings(bson.M(newValues), deletes)
+	op.Update = setUnsetUpdateSettings(newValues, deletes)
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(db, collection, key)
 		if err != nil {
@@ -438,11 +438,11 @@ func (s *Settings) assertUnchangedOp() txn.Op {
 func setUnsetUpdateSettings(set, unset bson.M) bson.D {
 	var update bson.D
 	if len(set) > 0 {
-		set = bson.M(subDocKeys(map[string]interface{}(set), "settings"))
+		set = subDocKeys(set, "settings")
 		update = append(update, bson.DocElem{Name: "$set", Value: set})
 	}
 	if len(unset) > 0 {
-		unset = bson.M(subDocKeys(map[string]interface{}(unset), "settings"))
+		unset = subDocKeys(unset, "settings")
 		update = append(update, bson.DocElem{Name: "$unset", Value: unset})
 	}
 	if len(update) > 0 {
@@ -485,7 +485,18 @@ type StateSettings struct {
 	collection string
 }
 
+// NewSettings returns a new StateSettings reference for working with settings
+// in the current database.
+func (st *State) NewSettings() *StateSettings {
+	return NewStateSettings(st)
+}
+
 // NewStateSettings creates a StateSettings from a modelBackend (e.g. State).
+// TODO (manadart 2020-01-21): Usage of this method should be phased out in
+// favour of NewSettings, above.
+// That method facilitates state mocks and shims for testing in external
+// packages in a way that this method can not, because the package-private
+// modelBackend is inaccessible to them.
 func NewStateSettings(backend modelBackend) *StateSettings {
 	return &StateSettings{backend, settingsC}
 }
@@ -518,4 +529,26 @@ func (s *StateSettings) ReplaceSettings(key string, settings map[string]interfac
 // ListSettings exposes listSettings on state for use outside the state package.
 func (s *StateSettings) ListSettings(keyPrefix string) (map[string]map[string]interface{}, error) {
 	return listSettings(s.backend, s.collection, keyPrefix)
+}
+
+// DeltaOps returns the operations required to modify the settings document
+// identified by the input key, with the the input settings changes.
+func (s *StateSettings) DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error) {
+	cfg, err := readSettings(s.backend.db(), settingsC, key)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cfg.applyChanges(delta)
+	_, updates := cfg.settingsUpdateOps()
+
+	var ops []txn.Op
+	if len(updates) > 0 {
+		// Assert that the settings document has not changed underneath us
+		// in addition to appending the field changes.
+		ops = append(ops, cfg.assertUnchangedOp())
+		ops = append(ops, updates...)
+	}
+
+	return ops, nil
 }
