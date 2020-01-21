@@ -867,9 +867,9 @@ func (u *Unit) State() (map[string]string, error) {
 // SetState persists the state of the charm running in this unit.
 func (u *Unit) SetState(unitState map[string]string) error {
 	var results params.ErrorResults
-	req := params.SetUnitState{
-		Args: []params.UnitState{
-			params.UnitState{
+	req := params.SetUnitStateArgs{
+		Args: []params.SetUnitStateArg{
+			params.SetUnitStateArg{
 				Tag:   u.tag.String(),
 				State: unitState,
 			},

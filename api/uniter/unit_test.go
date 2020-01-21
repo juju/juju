@@ -1012,6 +1012,27 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
 }
 
+func (s *unitSuite) TestSetState(c *gc.C) {
+	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		*(response.(*params.UnitStateResults)) = params.UnitStateResults{
+			Results: []params.UnitStateResult{{}},
+		}
+		return nil
+	}
+}
+
+func (s *unitSuite) TestState(c *gc.C) {
+	facadeCaller := testing.StubFacadeCaller{Stub: &coretesting.Stub{}}
+	facadeCaller.FacadeCallFn = func(name string, args, response interface{}) error {
+		*(response.(*params.SetUnitStateArgs)) = params.SetUnitStateArgs{
+			Results: []params.SetUnitStateArg{{}},
+		}
+		return nil
+	}
+
+}
+
 type unitMetricBatchesSuite struct {
 	jujutesting.JujuConnSuite
 
