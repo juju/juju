@@ -70,6 +70,7 @@ type ModelManagerBackend interface {
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
+	HAPrimaryMachine() (names.MachineTag, error)
 
 	// Methods required by the metricsender package.
 	MetricsManager() (*state.MetricsManager, error)
@@ -132,8 +133,8 @@ func NewUserAwareModelManagerBackend(m *state.Model, pool *state.StatePool, u na
 
 // NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
-	controller := state.NewController(st.pool)
-	otherModel, otherState, err := controller.NewModel(args)
+	aController := state.NewController(st.pool)
+	otherModel, otherState, err := aController.NewModel(args)
 	if err != nil {
 		return nil, nil, err
 	}

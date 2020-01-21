@@ -52,6 +52,9 @@ type Machine struct {
 	Status      string
 	Message     string
 	Hardware    *instance.HardwareCharacteristics
+	// HAPrimary indicates whether this machine has a primary mongo instance in replicaset and,
+	// thus, can be considered a primary controller machine in HA setup.
+	HAPrimary *bool
 }
 
 // ModelInfo holds information about a model.

@@ -10178,6 +10178,9 @@
                                 }
                             }
                         },
+                        "primary-controller-machine": {
+                            "type": "boolean"
+                        },
                         "series": {
                             "type": "string"
                         },
@@ -10324,6 +10327,9 @@
                     "properties": {
                         "display-name": {
                             "type": "string"
+                        },
+                        "ha-primary": {
+                            "type": "boolean"
                         },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
@@ -13066,6 +13072,9 @@
                     "properties": {
                         "display-name": {
                             "type": "string"
+                        },
+                        "ha-primary": {
+                            "type": "boolean"
                         },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
@@ -24273,6 +24282,9 @@
                     "properties": {
                         "display-name": {
                             "type": "string"
+                        },
+                        "ha-primary": {
+                            "type": "boolean"
                         },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"

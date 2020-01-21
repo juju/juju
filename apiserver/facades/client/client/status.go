@@ -212,6 +212,18 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 	if context.controllerNodes, err = fetchControllerNodes(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
 	}
+	if len(context.controllerNodes) > 1 {
+		if primaryHAMachine, err := c.api.stateAccessor.HAPrimaryMachine(); err != nil {
+			// We do not want to return any errors here as they are all
+			// non-fatal for this call since we can still
+			// get FullStatus including machine info even if we could not get HA Primary determined.
+			// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
+			// this call will return an error.
+			logger.Warningf("could not determine if there is a primary HA machine: %v", err)
+		} else {
+			context.primaryHAMachine = &primaryHAMachine
+		}
+	}
 	// These may be empty when machines have not finished deployment.
 	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
 		fetchNetworkInterfaces(c.api.stateAccessor); err != nil {
@@ -343,7 +355,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		// TODO(wallyworld) - filter remote applications
 
 		// Filter machines
-		for status, machineList := range context.machines {
+		for aStatus, machineList := range context.machines {
 			matched := make([]*state.Machine, 0, len(machineList))
 			for _, m := range machineList {
 				machineContainers, err := m.Containers()
@@ -360,7 +372,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 					continue
 				}
 			}
-			context.machines[status] = matched
+			context.machines[aStatus] = matched
 		}
 
 		// Filter branches
@@ -447,7 +459,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 		}
 	}
 
-	status, err := m.Status()
+	aStatus, err := m.Status()
 	if err != nil {
 		return params.ModelStatusInfo{}, errors.Annotate(err, "cannot obtain model status info")
 	}
@@ -455,10 +467,10 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	info.SLA = m.SLALevel()
 
 	info.ModelStatus = params.DetailedStatus{
-		Status: status.Status.String(),
-		Info:   status.Message,
-		Since:  status.Since,
-		Data:   status.Data,
+		Status: aStatus.Status.String(),
+		Info:   aStatus.Message,
+		Since:  aStatus.Since,
+		Data:   aStatus.Data,
 	}
 
 	if info.SLA != "unsupported" {
@@ -526,6 +538,8 @@ type statusContext struct {
 	latestCharms              map[charm.URL]*state.Charm
 	leaders                   map[string]string
 	branches                  map[string]cache.Branch
+
+	primaryHAMachine *names.MachineTag
 }
 
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
@@ -855,7 +869,7 @@ func fetchBranches(m *cache.Model) map[string]cache.Branch {
 
 func (c *statusContext) processMachines() map[string]params.MachineStatus {
 	machinesMap := make(map[string]params.MachineStatus)
-	cache := make(map[string]params.MachineStatus)
+	aCache := make(map[string]params.MachineStatus)
 	for id, machines := range c.machines {
 
 		if len(machines) <= 0 {
@@ -866,18 +880,18 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 		tlMachine := machines[0]
 		hostStatus := c.makeMachineStatus(tlMachine, c.allAppsUnitsCharmBindings)
 		machinesMap[id] = hostStatus
-		cache[id] = hostStatus
+		aCache[id] = hostStatus
 
 		for _, machine := range machines[1:] {
-			parent, ok := cache[state.ParentId(machine.Id())]
+			parent, ok := aCache[state.ParentId(machine.Id())]
 			if !ok {
 				logger.Errorf("programmer error, please file a bug, reference this whole log line: %q, %q", id, machine.Id())
 				continue
 			}
 
-			status := c.makeMachineStatus(machine, c.allAppsUnitsCharmBindings)
-			parent.Containers[machine.Id()] = status
-			cache[machine.Id()] = status
+			aStatus := c.makeMachineStatus(machine, c.allAppsUnitsCharmBindings)
+			parent.Containers[machine.Id()] = aStatus
+			aCache[machine.Id()] = aStatus
 		}
 	}
 	return machinesMap
@@ -890,7 +904,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 	linkLayerDevices := c.linkLayerDevices[machineID]
 
 	var err error
-	status.Id = machine.Id()
+	status.Id = machineID
 	agentStatus := c.processMachine(machine)
 	status.AgentStatus = agentStatus
 
@@ -900,6 +914,11 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 	status.WantsVote = wantsVote
 	if wantsVote {
 		status.HasVote = node.HasVote()
+	}
+	if c.primaryHAMachine != nil {
+		if isPrimary := c.primaryHAMachine.Id() == machineID; isPrimary {
+			status.PrimaryControllerMachine = &isPrimary
+		}
 	}
 
 	// Fetch the machine instance information
@@ -1547,9 +1566,9 @@ func filterStatusData(status map[string]interface{}) map[string]interface{} {
 }
 
 func processLife(entity lifer) life.Value {
-	if life := entity.Life(); life != state.Alive {
+	if aLife := entity.Life(); aLife != state.Alive {
 		// alive is the usual state so omit it by default.
-		return life.Value()
+		return aLife.Value()
 	}
 	return life.Value("")
 }

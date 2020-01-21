@@ -10,6 +10,7 @@ import (
 	"github.com/juju/naturalsort"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -239,10 +240,53 @@ func (s *machineSuite) TestMachineInstanceInfoWithSetDisplayName(c *gc.C) {
 	})
 }
 
+func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
+	st := mockState{
+		machines: map[string]*mockMachine{
+			"1": {
+				id:          "1",
+				instId:      "123",
+				displayName: "snowflake",
+				status:      status.Down,
+			},
+		},
+		controllerNodes: map[string]*mockControllerNode{
+			"1": {
+				id:        "1",
+				hasVote:   true,
+				wantsVote: true,
+			},
+			"2": {
+				id:        "1",
+				hasVote:   true,
+				wantsVote: true,
+			},
+		},
+		haPimaryMachineF: func() (names.MachineTag, error) {
+			return names.NewMachineTag("1"), nil
+		},
+	}
+	info, err := common.ModelMachineInfo(&st)
+	c.Assert(err, jc.ErrorIsNil)
+	_true := true
+	c.Assert(info, jc.DeepEquals, []params.ModelMachineInfo{
+		{
+			Id:          "1",
+			InstanceId:  "123",
+			DisplayName: "snowflake",
+			Status:      "down",
+			HasVote:     true,
+			WantsVote:   true,
+			HAPrimary:   &_true,
+		},
+	})
+}
+
 type mockState struct {
 	common.ModelManagerBackend
-	machines        map[string]*mockMachine
-	controllerNodes map[string]*mockControllerNode
+	machines         map[string]*mockMachine
+	controllerNodes  map[string]*mockControllerNode
+	haPimaryMachineF func() (names.MachineTag, error)
 }
 
 func (st *mockState) Machine(id string) (common.Machine, error) {
@@ -271,6 +315,13 @@ func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
 		result = append(result, n)
 	}
 	return result, nil
+}
+
+func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
+	if st.haPimaryMachineF == nil {
+		return names.MachineTag{}, nil
+	}
+	return st.haPimaryMachineF()
 }
 
 type mockControllerNode struct {

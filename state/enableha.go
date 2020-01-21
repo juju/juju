@@ -438,6 +438,41 @@ func (st *State) AddControllerNode() (*controllerNode, error) {
 	return &controllerNode{doc: doc, st: st}, nil
 }
 
+// HAPrimaryMachine returns machine tag for a controller machine
+// that has a mongo instance that is primary in replicaset.
+func (st *State) HAPrimaryMachine() (names.MachineTag, error) {
+	nodeID := -1
+	// Current status of replicaset contains node state.
+	// Here we determine node id of the primary node.
+	replicaStatus, err := replicaset.CurrentStatus(st.MongoSession())
+	if err != nil {
+		return names.MachineTag{}, errors.Trace(err)
+	}
+	for _, m := range replicaStatus.Members {
+		if m.State == replicaset.PrimaryState {
+			nodeID = m.Id
+		}
+	}
+	if nodeID == -1 {
+		return names.MachineTag{}, errors.NotFoundf("HA primary machine")
+	}
+
+	// Current members collection of replicaset contains additional
+	// information for the nodes, including machine IDs.
+	ms, err := replicaset.CurrentMembers(st.MongoSession())
+	if err != nil {
+		return names.MachineTag{}, errors.Trace(err)
+	}
+	for _, m := range ms {
+		if m.Id == nodeID {
+			if machineID, k := m.Tags["juju-machine-id"]; k {
+				return names.NewMachineTag(machineID), nil
+			}
+		}
+	}
+	return names.MachineTag{}, errors.NotFoundf("HA primary machine")
+}
+
 // ControllerNodes returns all the controller nodes.
 func (st *State) ControllerNodes() ([]*controllerNode, error) {
 	controllerNodesColl, closer := st.db().GetCollection(controllerNodesC)
@@ -537,12 +572,12 @@ func (c *controllerNode) SetAgentVersion(v version.Binary) (err error) {
 	if err := checkVersionValidity(v); err != nil {
 		return err
 	}
-	tools := &tools.Tools{Version: v}
+	binaryVersion := &tools.Tools{Version: v}
 	ops := []txn.Op{{
 		C:      controllerNodesC,
 		Id:     c.doc.DocID,
 		Assert: notDeadDoc,
-		Update: bson.D{{"$set", bson.D{{"agent-version", tools}}}},
+		Update: bson.D{{"$set", bson.D{{"agent-version", binaryVersion}}}},
 	}}
 	// A "raw" transaction is needed here because this function gets
 	// called before database migrations have run so we don't
@@ -550,7 +585,7 @@ func (c *controllerNode) SetAgentVersion(v version.Binary) (err error) {
 	if err := c.st.runRawTransaction(ops); err != nil {
 		return errors.Trace(err)
 	}
-	c.doc.AgentVersion = tools
+	c.doc.AgentVersion = binaryVersion
 	return nil
 }
 

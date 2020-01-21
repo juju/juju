@@ -615,6 +615,50 @@ func (s *ShowControllerSuite) assertShowController(c *gc.C, args ...string) {
 	c.Assert(cmdtesting.Stdout(context), gc.Equals, s.expectedOutput)
 }
 
+func (s *ShowControllerSuite) TestShowControllerPrimary(c *gc.C) {
+	_ = s.createTestClientStore(c)
+	s.expectedOutput = `
+aws-test:
+  details:
+    uuid: this-is-the-aws-test-uuid
+    controller-uuid: this-is-the-aws-test-uuid
+    api-endpoints: [this-is-aws-test-of-many-api-endpoints]
+    cloud: aws
+    region: us-east-1
+    agent-version: 999.99.99
+    agent-git-commit: badf00d0badf00d0badf00d0badf00d0badf00d0
+    controller-model-version: 999.99.99
+    mongo-version: 3.5.12
+    ca-cert: this-is-aws-test-ca-cert
+  controller-machines:
+    "0":
+      instance-id: id-0
+      ha-status: ha-pending
+    "1":
+      instance-id: id-1
+      ha-status: down, lost connection
+    "2":
+      instance-id: id-2
+      ha-status: ha-enabled
+      ha-primary: true
+  models:
+    controller:
+      uuid: ghi
+      model-uuid: ghi
+      machine-count: 2
+      core-count: 4
+  current-model: admin/controller
+  account:
+    user: admin
+    access: superuser
+`[1:]
+
+	_true := true
+	s.fakeController.machines["ghi"][2].HAPrimary = &_true
+
+	s.assertShowController(c, "aws-test")
+}
+
 type fakeController struct {
 	controllerName    string
 	machines          map[string][]base.Machine
