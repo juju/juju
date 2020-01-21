@@ -310,22 +310,21 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 	c.Assert(err, gc.Equals, dependency.ErrBounce)
 }
 
-func (s *apiserverSuite) getHealth(c *gc.C) string {
+func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
 	uri := s.server.URL + "/health"
 	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
-
-	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 	body, err := ioutil.ReadAll(resp.Body)
-
 	c.Assert(err, jc.ErrorIsNil)
 	result := string(body)
 	// Ensure that the last value is a carriage return.
 	c.Assert(strings.HasSuffix(result, "\n"), jc.IsTrue)
-	return strings.TrimSuffix(result, "\n")
+	return strings.TrimSuffix(result, "\n"), resp.StatusCode
 }
 
 func (s *apiserverSuite) TestHealthRunning(c *gc.C) {
-	c.Assert(s.getHealth(c), gc.Equals, "running")
+	health, statusCode := s.getHealth(c)
+	c.Assert(health, gc.Equals, "running")
+	c.Assert(statusCode, gc.Equals, http.StatusOK)
 }
 
 func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
@@ -337,9 +336,10 @@ func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
 	// the value, so loop until we see the right health, then exit.
 	timeout := time.After(testing.LongWait)
 	for {
-		health := s.getHealth(c)
+		health, statusCode := s.getHealth(c)
 		if health == "stopping" {
 			// Expected, we're done.
+			c.Assert(statusCode, gc.Equals, http.StatusServiceUnavailable)
 			wg.Done()
 			return
 		}
