@@ -114,9 +114,32 @@ type HookProcess interface {
 	Kill() error
 }
 
+//go:generate mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
+
+// HookUnit represents the functions needed by a unit in a hook context to
+// call into state.
+type HookUnit interface {
+	AddStorage(constraints map[string][]params.StorageConstraints) error
+	Application() (*uniter.Application, error)
+	ApplicationName() string
+	ClosePorts(protocol string, fromPort, toPort int) error
+	ConfigSettings() (charm.Settings, error)
+	LogActionMessage(names.ActionTag, string) error
+	Name() string
+	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
+	OpenPorts(protocol string, fromPort, toPort int) error
+	RequestReboot() error
+	SetState(map[string]string) error
+	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
+	State() (map[string]string, error)
+	Tag() names.UnitTag
+	UnitStatus() (params.StatusResult, error)
+	UpdateNetworkInfo() error
+}
+
 // HookContext is the implementation of runner.Context.
 type HookContext struct {
-	unit *uniter.Unit
+	unit HookUnit
 
 	// state is the handle to the uniter State so that HookContext can make
 	// API calls on the state.
@@ -274,7 +297,11 @@ func (ctx *HookContext) GetCacheValue(key string) (string, error) {
 		return "", err
 	}
 
-	return ctx.cacheValues[key], nil
+	value, ok := ctx.cacheValues[key]
+	if !ok {
+		return "", errors.NotFoundf("%q", key)
+	}
+	return value, nil
 }
 
 // SetCacheValue sets the key/value pair provided in the cache.
