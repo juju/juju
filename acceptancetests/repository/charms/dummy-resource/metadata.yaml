@@ -10,6 +10,7 @@ series:
   - artful
   - bionic
   - disco
+  - eoan
 resources:
   foo:
     type: file
