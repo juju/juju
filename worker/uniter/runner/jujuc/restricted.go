@@ -31,15 +31,15 @@ func (*RestrictedContext) GoalState() (*application.GoalState, error) {
 	return &application.GoalState{}, ErrRestrictedContext
 }
 
-func (*RestrictedContext) GetStateValue(string) (string, error) {
+func (*RestrictedContext) GetCacheValue(string) (string, error) {
 	return "", ErrRestrictedContext
 }
 
-func (*RestrictedContext) DeleteStateValue(string) error {
+func (*RestrictedContext) DeleteCacheValue(string) error {
 	return ErrRestrictedContext
 }
 
-func (*RestrictedContext) SetStateValue(string, string) error {
+func (*RestrictedContext) SetCacheValue(string, string) error {
 	return ErrRestrictedContext
 }
 

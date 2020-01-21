@@ -260,40 +260,47 @@ type HookContext struct {
 
 	// A cached view of the unit's state that gets persisted by juju once
 	// the context is flushed.
-	stateValues map[string]string
+	cacheValues map[string]string
 
 	mu sync.Mutex
 }
 
-func (ctx *HookContext) GetStateValue(key string) (string, error) {
+// GetCacheValue returns the value for the given key from the cache.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) GetCacheValue(key string) (string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	if err := ctx.ensureStateValuesLoaded(); err != nil {
 		return "", err
 	}
 
-	return ctx.stateValues[key], nil
+	return ctx.cacheValues[key], nil
 }
 
-func (ctx *HookContext) SetStateValue(key, value string) error {
+// SetCacheValue sets the key/value pair provided in the cache.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) SetCacheValue(key, value string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	if err := ctx.ensureStateValuesLoaded(); err != nil {
 		return err
 	}
 
-	ctx.stateValues[key] = value
+	ctx.cacheValues[key] = value
 	return nil
 }
 
-func (ctx *HookContext) DeleteStateValue(key string) error {
+// DeleteCacheValue deletes the key/value pair for the given key from
+// the cache.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) DeleteCacheValue(key string) error {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	if err := ctx.ensureStateValuesLoaded(); err != nil {
 		return err
 	}
 
-	delete(ctx.stateValues, key)
+	delete(ctx.cacheValues, key)
 	return nil
 }
 
@@ -301,7 +308,7 @@ func (ctx *HookContext) DeleteStateValue(key string) error {
 // controller. The caller of this method must be holding the ctx mutex.
 func (ctx *HookContext) ensureStateValuesLoaded() error {
 	// NOTE: Assuming lock to be held!
-	if ctx.stateValues != nil {
+	if ctx.cacheValues != nil {
 		return nil
 	}
 
@@ -312,7 +319,7 @@ func (ctx *HookContext) ensureStateValuesLoaded() error {
 	} else if state == nil {
 		state = make(map[string]string)
 	}
-	ctx.stateValues = state
+	ctx.cacheValues = state
 	return nil
 }
 
@@ -947,8 +954,8 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// - relation data
 	// - storage changes
 	// - podspec
-	if ctx.stateValues != nil && writeChanges {
-		if e := ctx.unit.SetState(ctx.stateValues); e != nil {
+	if ctx.cacheValues != nil && writeChanges {
+		if e := ctx.unit.SetState(ctx.cacheValues); e != nil {
 			return errors.Trace(e)
 		}
 	}
