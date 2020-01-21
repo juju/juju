@@ -18,14 +18,14 @@ wait_for() {
     attempt=0
     # shellcheck disable=SC2046,SC2143
     until [ "$(juju status --format=json 2> /dev/null | jq -S "${query}" | grep "${name}")" ]; do
-        echo "[+] (attempt ${attempt}) polling status"
+        echo "[+] (attempt ${attempt}) polling status for" "${name}"
         juju status --relations 2>&1 | sed 's/^/    | /g'
         sleep "${SHORT_TIMEOUT}"
         attempt=$((attempt+1))
     done
 
     if [ "${attempt}" -gt 0 ]; then
-        echo "[+] $(green 'Completed polling status')"
+        echo "[+] $(green 'Completed polling status for')" "$(green "${name}")"
         juju status --relations 2>&1 | sed 's/^/    | /g'
         # Although juju reports as an idle condition, some charms require a
         # breathe period to ensure things have actually settled.
@@ -41,6 +41,18 @@ idle_condition() {
     unit_index=${3:-0}
 
     echo ".applications | select(.[\"$name\"] | .units | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
+}
+
+idle_subordinate_condition() {
+    local name parent app_index unit_index parent_index
+
+    name=${1}
+    parent=${2}
+    app_index=${3:-0}
+    unit_index=${4:-0}
+    parent_index=${5:-0}
+
+    echo ".applications | select(.[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
 }
 
 active_condition() {
