@@ -12,6 +12,7 @@ series:
   - artful
   - bionic
   - disco
+  - eoan
 requires:
   juju-info:
     interface: juju-info

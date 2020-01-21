@@ -13,6 +13,7 @@ series:
   - artful
   - bionic
   - disco
+  - eoan
 subordinate: false
 peers:
   xplod:
