@@ -67,6 +67,36 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 	c.Assert(app.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
+func (s *UnitSuite) TestUnitStateMutation(c *gc.C) {
+	// Try fetching the state without a state doc present
+	ust, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ust, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+
+	// Set initial state; this should create a new unitstate doc
+	initialState := map[string]string{
+		"foo":          "bar",
+		"key.with.dot": "must work",
+		"key.with.$":   "must work to",
+	}
+	err = s.unit.SetState(initialState)
+	c.Assert(err, gc.IsNil)
+
+	// Read back initial state
+	ust, err = s.unit.State()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ust, gc.DeepEquals, initialState)
+
+	// Mutate state again with an existing state doc
+	newState := map[string]string{"foo": "42"}
+	err = s.unit.SetState(newState)
+	c.Assert(err, gc.IsNil)
+
+	ust, err = s.unit.State()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ust, gc.DeepEquals, newState)
+}
+
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")

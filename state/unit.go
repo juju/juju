@@ -321,6 +321,93 @@ func (u *Unit) PasswordValid(password string) bool {
 	return false
 }
 
+// unitStateDoc records the state persisted by the charm executing in the unit.
+type unitStateDoc struct {
+	// DocID is always the same as a unit's global key.
+	DocID string `bson:"_id"`
+
+	// State encodes the unit's persisted state as a list of key-value pairs.
+	State map[string]string `bson:"state,omitempty"`
+
+	TxnRevno int64 `bson:"txn-revno"`
+}
+
+// SetState persisted the state for a unit.
+func (u *Unit) SetState(unitState map[string]string) error {
+	unitGlobalKey := u.globalKey()
+	txnDoc := struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}{}
+
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		coll, closer := u.st.db().GetCollection(unitStatesC)
+		defer closer()
+
+		if err := coll.FindId(unitGlobalKey).One(&txnDoc); err != nil {
+			if err != mgo.ErrNotFound {
+				return nil, errors.Trace(err)
+			}
+
+			escapedState := make(map[string]string, len(unitState))
+			for k, v := range unitState {
+				escapedState[mgoutils.EscapeKey(k)] = v
+			}
+
+			return []txn.Op{{
+				C:      unitStatesC,
+				Id:     unitGlobalKey,
+				Assert: txn.DocMissing,
+				Insert: unitStateDoc{
+					DocID: unitGlobalKey,
+					State: escapedState,
+				},
+			}}, nil
+		}
+
+		// State keys may contain dots or dollar chars which need to be escaped.
+		escapedState := make(bson.M, len(unitState))
+		for k, v := range unitState {
+			escapedState[mgoutils.EscapeKey(k)] = v
+		}
+
+		return []txn.Op{{
+			C:  unitStatesC,
+			Id: unitGlobalKey,
+			Assert: bson.D{
+				{"txn-revno", txnDoc.TxnRevno},
+			},
+			Update: bson.D{{"$set", bson.D{{"state", escapedState}}}},
+		}}, nil
+
+	}
+
+	if err := u.st.db().Run(buildTxn); err != nil {
+		return fmt.Errorf("cannot persist state for unit %q: %v", u, onAbort(err, ErrDead))
+	}
+	return nil
+}
+
+// State returns the persisted state for a unit.
+func (u *Unit) State() (map[string]string, error) {
+	coll, closer := u.st.db().GetCollection(unitStatesC)
+	defer closer()
+
+	var stDoc unitStateDoc
+	if err := coll.FindId(u.globalKey()).One(&stDoc); err != nil {
+		if err == mgo.ErrNotFound {
+			return nil, nil
+		}
+		return nil, errors.Trace(err)
+	}
+
+	unitState := make(map[string]string, len(stDoc.State))
+	for k, v := range stDoc.State {
+		unitState[mgoutils.UnescapeKey(k)] = v
+	}
+
+	return unitState, nil
+}
+
 // UpdateOperation returns a model operation that will update a unit.
 func (u *Unit) UpdateOperation(props UnitUpdateProperties) *UpdateUnitOperation {
 	return &UpdateUnitOperation{
