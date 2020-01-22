@@ -68,7 +68,7 @@ def destroy_model(client, new_client):
             if not_found_error in e.stderr:
                 log.info("Model fully removed")
                 break
-            removed_error = b'model "{}" has been removed from the controller'.format(old_model)
+            removed_error = b'model "admin/{}" has been removed from the controller'.format(old_model)
             if removed_error not in e.stderr:
                 error = 'unexpected error calling status\n{}'.format(e.stderr)
                 raise JujuAssertionError(error)
