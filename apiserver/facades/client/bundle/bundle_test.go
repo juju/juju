@@ -950,7 +950,10 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-offer",
-		Endpoints: []string{"endpoint-1", "endpoint-2"},
+		Endpoints: map[string]string{
+			"endpoint-1": "endpoint-1",
+			"endpoint-2": "endpoint-2",
+		},
 		ACL: map[string]string{
 			"admin": "admin",
 			"foo":   "--- {}",
@@ -989,7 +992,10 @@ UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
 
 	_ = app.AddOffer(description.ApplicationOfferArgs{
 		OfferName: "my-other-offer",
-		Endpoints: []string{"endpoint-1", "endpoint-2"},
+		Endpoints: map[string]string{
+			"endpoint-1": "endpoint-1",
+			"endpoint-2": "endpoint-2",
+		},
 	})
 
 	// Add second app without an offer
