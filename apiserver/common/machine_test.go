@@ -262,7 +262,7 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 				wantsVote: true,
 			},
 		},
-		haPimaryMachineF: func() (names.MachineTag, error) {
+		haPrimaryMachineF: func() (names.MachineTag, error) {
 			return names.NewMachineTag("1"), nil
 		},
 	}
@@ -284,9 +284,9 @@ func (s *machineSuite) TestMachineInstanceInfoWithHAPrimary(c *gc.C) {
 
 type mockState struct {
 	common.ModelManagerBackend
-	machines         map[string]*mockMachine
-	controllerNodes  map[string]*mockControllerNode
-	haPimaryMachineF func() (names.MachineTag, error)
+	machines          map[string]*mockMachine
+	controllerNodes   map[string]*mockControllerNode
+	haPrimaryMachineF func() (names.MachineTag, error)
 }
 
 func (st *mockState) Machine(id string) (common.Machine, error) {
@@ -318,10 +318,10 @@ func (st *mockState) ControllerNodes() ([]common.ControllerNode, error) {
 }
 
 func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
-	if st.haPimaryMachineF == nil {
+	if st.haPrimaryMachineF == nil {
 		return names.MachineTag{}, nil
 	}
-	return st.haPimaryMachineF()
+	return st.haPrimaryMachineF()
 }
 
 type mockControllerNode struct {
