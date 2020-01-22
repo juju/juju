@@ -309,6 +309,12 @@ func (s *StorageStateSuiteBase) volumeAttachment(c *gc.C, host names.Tag, v name
 	return attachment
 }
 
+func (s *StorageStateSuiteBase) volumeAttachmentPlan(c *gc.C, host names.Tag, v names.VolumeTag) state.VolumeAttachmentPlan {
+	attachmentPlan, err := s.storageBackend.VolumeAttachmentPlan(host, v)
+	c.Assert(err, jc.ErrorIsNil)
+	return attachmentPlan
+}
+
 func (s *StorageStateSuiteBase) storageInstanceVolume(c *gc.C, tag names.StorageTag) state.Volume {
 	volume, err := s.storageBackend.StorageInstanceVolume(tag)
 	c.Assert(err, jc.ErrorIsNil)
