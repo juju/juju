@@ -1668,6 +1668,27 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	})
 }
 
+func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
+	// Create unit state document
+	err := s.unit.SetState(map[string]string{"speed": "ludicrous"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll := s.Session.DB("juju").C("unitstates")
+	numDocs, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numDocs, gc.Equals, 1, gc.Commentf("expected a new document for the unit state to be created"))
+
+	// Destroy unit; this should also purge the state doc for the unit
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	numDocs, err = coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numDocs, gc.Equals, 0, gc.Commentf("expected unit state document to be removed when the unit is destroyed"))
+}
+
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	err := s.unit.Destroy()

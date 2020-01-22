@@ -332,6 +332,16 @@ type unitStateDoc struct {
 	TxnRevno int64 `bson:"txn-revno"`
 }
 
+// removeUnitStateOp returns the operation needed to remove the unit state
+// document associated with the given globalKey.
+func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
+	return txn.Op{
+		C:      unitStatesC,
+		Id:     mb.docID(globalKey),
+		Remove: true,
+	}
+}
+
 // SetState persisted the state for a unit.
 func (u *Unit) SetState(unitState map[string]string) error {
 	unitGlobalKey := u.globalKey()
