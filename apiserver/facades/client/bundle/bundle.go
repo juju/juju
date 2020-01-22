@@ -411,7 +411,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 			overlayOutput = strings.Replace(overlayOutput, "---", "--- # overlay.yaml", 1)
 			output += overlayOutput
 		} else {
-			return fail(errors.Errorf("unexpected overlay"))
+			return fail(errors.Errorf("expected yaml encoder to delineate multiple documents with \"---\" separator"))
 		}
 	}
 
