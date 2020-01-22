@@ -42,11 +42,12 @@ import shutil
 
 import snapcraft
 from snapcraft import common
-from snapcraft.internal import errors
+from snapcraft import file_utils
 
 logger = logging.getLogger(__name__)
 
 
+# TODO(wallyworld) - remove when we migrate to go mod
 class DepPlugin(snapcraft.BasePlugin):
     @classmethod
     def schema(cls):
@@ -61,7 +62,7 @@ class DepPlugin(snapcraft.BasePlugin):
         }
 
         # The import path must be specified.
-        schema["required"].append("go-importpath")
+        schema["required"] = ["go-importpath"]
 
         return schema
 
@@ -79,7 +80,7 @@ class DepPlugin(snapcraft.BasePlugin):
 
     def __init__(self, name, options, project):
         super().__init__(name, options, project)
-        self.build_packages.extend(["golang-go", "git"])
+        self.build_snaps.extend(["go/1.13/stable"])
         self._gopath = os.path.join(self.partdir, "go")
         self._gopath_src = os.path.join(self._gopath, "src")
         self._gopath_bin = os.path.join(self._gopath, "bin")
@@ -96,7 +97,7 @@ class DepPlugin(snapcraft.BasePlugin):
         finally:
             os.makedirs(os.path.dirname(self._path_in_gopath), exist_ok=True)
 
-        shutil.copytree(self.sourcedir, self._path_in_gopath, symlinks=True, ignore_dangling_symlinks=True)
+        file_utils.link_or_copy_tree(self.sourcedir, self._path_in_gopath)
 
         # Fetch and run dep
         logger.info("Fetching dep...")
