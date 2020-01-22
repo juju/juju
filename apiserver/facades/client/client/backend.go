@@ -56,6 +56,7 @@ type Backend interface {
 	FindEntity(names.Tag) (state.Entity, error)
 	InferEndpoints(...string) ([]state.Endpoint, error)
 	IsController() bool
+	HAPrimaryMachine() (names.MachineTag, error)
 	LatestMigration() (state.ModelMigration, error)
 	LatestPlaceholderCharm(*charm.URL) (*state.Charm, error)
 	Machine(string) (*state.Machine, error)

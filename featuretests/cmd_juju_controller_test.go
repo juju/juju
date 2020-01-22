@@ -281,7 +281,7 @@ func (s *cmdControllerSuite) testAddModel(c *gc.C, args ...string) {
 	)
 	context := s.run(c, args...)
 	c.Check(cmdtesting.Stdout(context), gc.Equals, "")
-	c.Check(cmdtesting.Stderr(context), gc.Equals, `
+	c.Check(cmdtesting.Stderr(context), jc.Contains, `
 Added 'new-model' model on dummy/dummy-region with credential 'cred' for user 'admin'
 `[1:])
 

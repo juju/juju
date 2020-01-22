@@ -196,6 +196,7 @@ func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 		{"IsController", nil},
 		{"AllMachines", nil},
 		{"ControllerNodes", nil},
+		{"HAPrimaryMachine", nil},
 		{"LatestMigration", nil},
 	})
 }
@@ -271,6 +272,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 		{"IsController", nil},
 		{"AllMachines", nil},
 		{"ControllerNodes", nil},
+		{"HAPrimaryMachine", nil},
 		{"LatestMigration", nil},
 		{"CloudCredential", []interface{}{names.NewCloudCredentialTag("some-cloud/bob/some-credential")}},
 	})
@@ -947,6 +949,11 @@ func (st *mockState) ModelConfig() (*config.Config, error) {
 func (st *mockState) MetricsManager() (*state.MetricsManager, error) {
 	st.MethodCall(st, "MetricsManager")
 	return nil, errors.New("nope")
+}
+
+func (st *mockState) HAPrimaryMachine() (names.MachineTag, error) {
+	st.MethodCall(st, "HAPrimaryMachine")
+	return names.MachineTag{}, nil
 }
 
 type mockBlock struct {

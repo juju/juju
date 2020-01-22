@@ -304,6 +304,9 @@ type ModelMachineInfo struct {
 	Message     string           `json:"message,omitempty"`
 	HasVote     bool             `json:"has-vote,omitempty"`
 	WantsVote   bool             `json:"wants-vote,omitempty"`
+	// HAPrimary indicates whether this machine has a primary mongo instance in replicaset and,
+	// thus, can be considered a primary controller machine in HA setup.
+	HAPrimary *bool `json:"ha-primary,omitempty"`
 }
 
 // MachineHardware holds information about a machine's hardware characteristics.

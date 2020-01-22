@@ -275,6 +275,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"IsController",
 		"AllMachines",
 		"ControllerNodes",
+		"HAPrimaryMachine",
 		"LatestMigration",
 	)
 
@@ -445,6 +446,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"IsController",
 		"AllMachines",
 		"ControllerNodes",
+		"HAPrimaryMachine",
 		"LatestMigration",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")

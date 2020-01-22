@@ -210,6 +210,10 @@ func (sf *statusFormatter) formatMachine(machine params.MachineStatus) machineSt
 	for _, job := range machine.Jobs {
 		if job == coremodel.JobManageModel {
 			out.HAStatus = makeHAStatus(machine.HasVote, machine.WantsVote)
+			isPrimary := machine.PrimaryControllerMachine
+			if isPrimary != nil {
+				out.HAPrimary = *isPrimary
+			}
 			break
 		}
 	}
