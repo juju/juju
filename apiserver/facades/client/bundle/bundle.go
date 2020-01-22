@@ -409,7 +409,7 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		// overlay.
 		if strings.HasPrefix(overlayOutput, "---") {
 			overlayOutput = strings.Replace(overlayOutput, "---", "--- # overlay.yaml", 1)
-			output = output + overlayOutput
+			output += overlayOutput
 		} else {
 			return fail(errors.Errorf("unexpected overlay"))
 		}
