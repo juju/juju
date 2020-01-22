@@ -875,6 +875,18 @@ type CreateSubnetParams struct {
 	IsPublic  bool     `json:"is-public"`
 }
 
+// RenameSpaceParams holds params to rename a space.
+// A `from` and `to` space tag.
+type RenameSpaceParams struct {
+	FromSpaceTag string `json:"from-space-tag"`
+	ToSpaceTag   string `json:"to-space-tag"`
+}
+
+// RenameSpacesParams holds the arguments of the RenameSpaces API call.
+type RenameSpacesParams struct {
+	SpacesRenames []RenameSpaceParams `json:"rename-spaces"`
+}
+
 // CreateSpacesParams holds the arguments of the AddSpaces API call.
 type CreateSpacesParamsV4 struct {
 	Spaces []CreateSpaceParamsV4 `json:"spaces"`

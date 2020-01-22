@@ -256,6 +256,29 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
+// RenameSpace renames the given space.
+// An error is returned if the space does not exist or if there was a problem
+// accessing its information.
+// TODO nammn 22.01.20: maybe only return ops?
+func (st *State) RenameSpace(fromSpaceName, toName string) error {
+	space, err := st.SpaceByName(fromSpaceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	ops := []txn.Op{{
+		C:      spacesC,
+		Id:     space.doc.Id,
+		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
+	}}
+
+	txnErr := st.db().RunTransaction(ops)
+
+	if txnErr == nil {
+		return nil
+	}
+	return onAbort(txnErr, errors.New("not found or cannot rename"))
+}
+
 // AllSpaceInfos return SpaceInfos for all spaces in the model.
 func (st *State) AllSpaceInfos() (network.SpaceInfos, error) {
 	spaces, err := st.AllSpaces()

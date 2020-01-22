@@ -67,6 +67,8 @@ type Backing interface {
 
 	// AllMachines loads all machines
 	AllMachines() ([]Machine, error)
+
+	RenameSpace(from, to string) error
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -265,6 +267,43 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 	err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
 	if err != nil {
 		return errors.Trace(err)
+	}
+	return nil
+}
+
+// RenameSpace renames a space.
+func (api *API) RenameSpace(args params.RenameSpacesParams) error {
+	// TODO: don't allow MAAS
+	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !isAdmin {
+		return common.ServerError(common.ErrPerm)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	if err := api.checkSupportsSpaces(); err != nil {
+		return common.ServerError(errors.Trace(err))
+	}
+
+	for _, spaceRename := range args.SpacesRenames {
+		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		_, newErr := api.backing.SpaceByName(toTag.Id())
+		if !errors.IsNotFound(newErr) {
+			return errors.Annotatef(newErr, "retrieving space: %q unexpected error, besides not found", toTag.Id())
+		}
+		if err := api.backing.RenameSpace(fromTag.Id(), toTag.Id()); err != nil {
+			return errors.Annotatef(err, "failed to rename space %q to name %q", fromTag.Id(), toTag.Id())
+		}
 	}
 	return nil
 }

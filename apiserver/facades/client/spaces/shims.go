@@ -99,3 +99,30 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	}
 	return networkingcommon.NewSubnetShim(result), nil
 }
+
+// TODO: nammn check whether we want to have ops and do transaction here? VS single transactions
+// TODO: spaces collection, constraints collection and controllerSettings
+func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
+	err := s.State.RenameSpace(fromSpaceName, toName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	constraints, err := s.State.ModelConstraints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	toUpdateConstraint := false
+	if constraints.HasSpaces() {
+		for i, space := range *constraints.Spaces {
+			if space == fromSpaceName {
+				toUpdateConstraint = true
+				//constraints.Spaces[i] = toName
+				break
+			}
+		}
+		if toUpdateConstraint {
+
+		}
+	}
+	return nil
+}
