@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	"github.com/kr/pretty"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/list"
@@ -22,7 +23,6 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"github.com/vmware/govmomi/vslm"
 )
 
 // ErrExtendDisk is returned if we timed out trying to extend the root
@@ -611,84 +611,26 @@ func (c *Client) getDiskWithFileBacking(
 func (c *Client) extendDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
-	datacenter *object.Datacenter,
 	disk *types.VirtualDisk,
-	vDeviceFileBackingInfo *types.VirtualDeviceFileBackingInfo,
-	capacityKB int64,
-	taskWaiter *taskWaiter,
+	desiredCapacityKB int64,
 ) error {
-	c.logger.Criticalf("extendDisk c.client.Version -> %q", c.client.Version)
-	err := c.extendDiskNew(ctx, vm, datacenter, disk, vDeviceFileBackingInfo, capacityKB, taskWaiter)
-	c.logger.Criticalf("extendDiskNew err %#v", err)
-	if isNotSupported(err) {
-		err = c.extendDiskLegacy(ctx, vm, datacenter, disk, vDeviceFileBackingInfo, capacityKB, taskWaiter)
-		c.logger.Criticalf("extendDiskLegacy err %#v", err)
-	}
-	return errors.Trace(err)
-}
+	c.logger.Debugf("extending disk from %v, to %v", disk.CapacityInKB, desiredCapacityKB)
 
-// extendDiskLegacy uses VirtualDiskManager API which deprecates since vSphere 6.5 version.
-func (c *Client) extendDiskLegacy(
-	ctx context.Context,
-	vm *object.VirtualMachine,
-	datacenter *object.Datacenter,
-	disk *types.VirtualDisk,
-	vDeviceFileBackingInfo *types.VirtualDeviceFileBackingInfo,
-	capacityKB int64,
-	taskWaiter *taskWaiter,
-) error {
-	// NOTE(axw) there's no ExtendVirtualDisk on the disk manager type,
-	// hence why we're dealing with request types directly. Send a patch
-	// to govmomi to add this to VirtualDiskManager.
-	diskManager := object.NewVirtualDiskManager(c.client.Client)
-	dcref := datacenter.Reference()
-	req := types.ExtendVirtualDisk_Task{
-		This:          diskManager.Reference(),
-		Name:          vDeviceFileBackingInfo.FileName,
-		Datacenter:    &dcref,
-		NewCapacityKb: capacityKB,
-	}
-	c.logger.Criticalf("extendDiskLegacy vDeviceFileBackingInfo.FileName %q, capacityKB %v", vDeviceFileBackingInfo.FileName, capacityKB)
+	// Resize the disk to desired size.
+	disk.CapacityInKB = desiredCapacityKB
 
-	res, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	task := object.NewTask(c.client.Client, res.Returnval)
-	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
+	spec := types.VirtualMachineConfigSpec{}
+	spec.DeviceChange = append(spec.DeviceChange, &types.VirtualDeviceConfigSpec{
+		Device:        disk,
+		Operation:     types.VirtualDeviceConfigSpecOperationEdit,
+		FileOperation: "",
+	})
+	c.logger.Tracef("extending disk, config change -> %s", pretty.Sprint(spec))
+	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
 		return errors.Trace(&extendDiskError{err})
 	}
-	return nil
-}
-
-// extendDiskNew uses HostVStorageObjectManager API which supports vSphere 6.5 and later versions.
-func (c *Client) extendDiskNew(
-	ctx context.Context,
-	vm *object.VirtualMachine,
-	datacenter *object.Datacenter,
-	disk *types.VirtualDisk,
-	vDeviceFileBackingInfo *types.VirtualDeviceFileBackingInfo,
-	capacityKB int64,
-	taskWaiter *taskWaiter,
-) error {
-	objManager := vslm.NewObjectManager(c.client.Client, datacenter.Reference())
-	req := types.HostExtendDisk_Task{
-		This:            objManager.Reference(),
-		Id:              *disk.VDiskId,
-		Datastore:       *vDeviceFileBackingInfo.Datastore,
-		NewCapacityInMB: capacityKB / 1024,
-	}
-	c.logger.Criticalf("extendDiskNew req %#v", req)
-	c.logger.Criticalf("extendDiskNew vDeviceFileBackingInfo.FileName %q, capacityKB %v", vDeviceFileBackingInfo.FileName, capacityKB)
-
-	res, err := methods.HostExtendDisk_Task(ctx, c.client.Client, &req)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	task := object.NewTask(c.client.Client, res.Returnval)
-	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
-	if err != nil {
+	if err := task.Wait(ctx); err != nil {
 		return errors.Trace(&extendDiskError{err})
 	}
 	return nil
