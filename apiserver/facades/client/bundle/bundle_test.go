@@ -679,6 +679,12 @@ func (s *bundleSuite) TestExportBundleFailNoApplication(c *gc.C) {
 }
 
 func (s *bundleSuite) minimalApplicationArgs(modelType string) description.ApplicationArgs {
+	return s.minimalApplicationArgsWithCharmConfig(modelType, map[string]interface{}{
+		"key": "value",
+	})
+}
+
+func (s *bundleSuite) minimalApplicationArgsWithCharmConfig(modelType string, charmConfig map[string]interface{}) description.ApplicationArgs {
 	s.st.Spaces["1"] = "vlan2"
 	s.st.Spaces[network.AlphaSpaceId] = network.AlphaSpaceName
 	result := description.ApplicationArgs{
@@ -688,10 +694,8 @@ func (s *bundleSuite) minimalApplicationArgs(modelType string) description.Appli
 		CharmURL:             "cs:trusty/ubuntu",
 		Channel:              "stable",
 		CharmModifiedVersion: 1,
-		CharmConfig: map[string]interface{}{
-			"key": "value",
-		},
-		Leader: "ubuntu/0",
+		CharmConfig:          charmConfig,
+		Leader:               "ubuntu/0",
 		LeadershipSettings: map[string]interface{}{
 			"leader": true,
 		},
@@ -889,6 +893,208 @@ applications:
         acl:
           admin: admin
           foo: consume
+      my-other-offer:
+        endpoints:
+        - endpoint-1
+        - endpoint-2
+`[1:]}
+
+	c.Assert(result, gc.Equals, expectedResult)
+	s.st.CheckCall(c, 0, "ExportPartial", s.st.GetExportConfig())
+}
+
+func (s *bundleSuite) TestExportBundleWithApplicationCharmConfig(c *gc.C) {
+	s.st.model = description.NewModel(description.ModelArgs{Owner: names.NewUserTag("magic"),
+		Config: map[string]interface{}{
+			"name": "awesome",
+			"uuid": "some-uuid",
+		},
+		CloudRegion: "some-region"})
+
+	app := s.st.model.AddApplication(s.minimalApplicationArgsWithCharmConfig(description.IAAS, map[string]interface{}{
+		"key": "value",
+		"ssl_ca": `-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: DES-EDE3-CBC,EA657EE6FE842AD0
+
+B8UX3J49NUiCPo0y/fhUJWdSzKjWicY13BJrsX5cv20gVjPLkkSo54BvUwhn8QgJ
+D0n4TJ4TcpUtQCDhbXZNiNPNQOoahRi7AkViDSoGxZ/6HKaJR7NqDHaiikgQFcb5
+6dMG8C30VjuTrbS4y5O/LqmYV9Gj6bkxuHGgxJaDN2og2RJCRJb16Ubl0HR2S129
+dZA0UyQTtDkUwlhVBaQW0Rp0nwVTFZo8g5PXpvT+MsdGgs5Pop+lYq4gSCpuw3vV
+T2UBOEQyYcok//9J3N+GRgfQbTidbgs8uGFGT4L8b8Ybji7Dhm/SkKpgVdH2wMuD
+yxKSfIt/Gm7j1I2DnZtLrd+zUSJql2UiYMeQ7suHBHBKtFriv01zFeCzChQ17uiJ
+NUo5IBzc+fagnN6aNaA5ImR07PHwMu4es4ORAEB+q/N3/0Eoe1U9h+ZBd6a7DM5V
+5A/wizu2jM25tfTNwQfaSkYCZzpGmucVwMj7NO5Rbjw2/PCOo5IP8GNahXF/cxPQ
+KqbIyT9nMPvKX8o9MR3Adzv5to5s9cPSyKSFfSZhJv+oXRdr8z9WaElIBJ0K0um/
+ueteAX4s+U2F1Y7FAG1ivUnCOrzezvivuiPq7JS2PJh/jbdyu30xAu2gG/LZRWx+
+m9zwCMUSxdrsBefl05WTzTjlpclwdjoG1sztRZ1d3/PoaMtjfLGePyEPbPFpPraq
+//Dj/MNKy9sefqX4NcqRtMvGj/0VuFspXsl3B1fHRrM7BsB8IM0+BheS22+dXfOK
+0EicO5ePw5Ji2vptC3ME+X3OztzJtfG/FN2CNvnLIKaR/N0v9Qt66U6aNoKPWD8l
+2PW+b/BV0dz0YTo16sd6txcmcaUIo5ysZrCWLYGsoRLL1uNAlgRT8Qb2jO8liEhg
+rfg5GH6RWpUL4mPo6cZ6GFAVPcdbPPSPMUSGscixeRo7oUqhnZrhvJ7L+I3TF7Pp
++aWbBpRkTvYiB3/BkgMUfZzozAv6WB2MQttHqjo7cQYgT9MklCJ80a92BkVtQsRa
+hgDd6BUMA3ag4j0LivJflEmLd7prFVAcfyuN13UFku49soESUVnbPaWogyrGtc5w
+CvbTazcsKiDEJqGuZhfT0ixCNPrgLj5dNJrWOmFdpZRqa/tgShkf91qCjtMq7AEi
+eRQ/yOFb0sPjntORQoo0hdmXP3Y+5Ob4NqL2MNbCEf4uMOZ6OtsK4yCTfzVCMQve
+pQeoosXle1nOjMrRotk6/QzbKh5rMApEjaNKekwcb47Qa8pnw2RFYZT9wsF0a7wd
+wqINbgN2rnQ6Aea4If7O6Nh1Ftkrk2BW7g8N3OVwryQTFIKQ1W6Pgq6SeqoOVy0m
+S6funfA+kqwEK+iXu2afvewDQkWY8+e5WkQc/5aGkbJ3K7pX8mnTgLdwGe8lZa+M
+3VClT/XiHxU0ka8meio/4tq/SQUqlxiNWzgw7TJZfD1if0lAStEMAcBzZ96EQrre
+HaXavAO1UPl2BczwaU2O2MDcXSE21Jw1cDCas2jc90X/iBEBM50xXTwAtNmJ84mg
+UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
+-----END RSA PRIVATE KEY-----`,
+	}))
+	app.SetStatus(minimalStatusArgs())
+	u := app.AddUnit(minimalUnitArgs(app.Type()))
+	u.SetAgentStatus(minimalStatusArgs())
+
+	_ = app.AddOffer(description.ApplicationOfferArgs{
+		OfferName: "my-offer",
+		Endpoints: []string{"endpoint-1", "endpoint-2"},
+		ACL: map[string]string{
+			"admin": "admin",
+			"foo":   "--- {}",
+			"ssl_ca": `-----BEGIN RSA PRIVATE KEY-----
+Proc-Type: 4,ENCRYPTED
+DEK-Info: DES-EDE3-CBC,EA657EE6FE842AD0
+
+B8UX3J49NUiCPo0y/fhUJWdSzKjWicY13BJrsX5cv20gVjPLkkSo54BvUwhn8QgJ
+D0n4TJ4TcpUtQCDhbXZNiNPNQOoahRi7AkViDSoGxZ/6HKaJR7NqDHaiikgQFcb5
+6dMG8C30VjuTrbS4y5O/LqmYV9Gj6bkxuHGgxJaDN2og2RJCRJb16Ubl0HR2S129
+dZA0UyQTtDkUwlhVBaQW0Rp0nwVTFZo8g5PXpvT+MsdGgs5Pop+lYq4gSCpuw3vV
+T2UBOEQyYcok//9J3N+GRgfQbTidbgs8uGFGT4L8b8Ybji7Dhm/SkKpgVdH2wMuD
+yxKSfIt/Gm7j1I2DnZtLrd+zUSJql2UiYMeQ7suHBHBKtFriv01zFeCzChQ17uiJ
+NUo5IBzc+fagnN6aNaA5ImR07PHwMu4es4ORAEB+q/N3/0Eoe1U9h+ZBd6a7DM5V
+5A/wizu2jM25tfTNwQfaSkYCZzpGmucVwMj7NO5Rbjw2/PCOo5IP8GNahXF/cxPQ
+KqbIyT9nMPvKX8o9MR3Adzv5to5s9cPSyKSFfSZhJv+oXRdr8z9WaElIBJ0K0um/
+ueteAX4s+U2F1Y7FAG1ivUnCOrzezvivuiPq7JS2PJh/jbdyu30xAu2gG/LZRWx+
+m9zwCMUSxdrsBefl05WTzTjlpclwdjoG1sztRZ1d3/PoaMtjfLGePyEPbPFpPraq
+//Dj/MNKy9sefqX4NcqRtMvGj/0VuFspXsl3B1fHRrM7BsB8IM0+BheS22+dXfOK
+0EicO5ePw5Ji2vptC3ME+X3OztzJtfG/FN2CNvnLIKaR/N0v9Qt66U6aNoKPWD8l
+2PW+b/BV0dz0YTo16sd6txcmcaUIo5ysZrCWLYGsoRLL1uNAlgRT8Qb2jO8liEhg
+rfg5GH6RWpUL4mPo6cZ6GFAVPcdbPPSPMUSGscixeRo7oUqhnZrhvJ7L+I3TF7Pp
++aWbBpRkTvYiB3/BkgMUfZzozAv6WB2MQttHqjo7cQYgT9MklCJ80a92BkVtQsRa
+hgDd6BUMA3ag4j0LivJflEmLd7prFVAcfyuN13UFku49soESUVnbPaWogyrGtc5w
+CvbTazcsKiDEJqGuZhfT0ixCNPrgLj5dNJrWOmFdpZRqa/tgShkf91qCjtMq7AEi
+eRQ/yOFb0sPjntORQoo0hdmXP3Y+5Ob4NqL2MNbCEf4uMOZ6OtsK4yCTfzVCMQve
+pQeoosXle1nOjMrRotk6/QzbKh5rMApEjaNKekwcb47Qa8pnw2RFYZT9wsF0a7wd
+wqINbgN2rnQ6Aea4If7O6Nh1Ftkrk2BW7g8N3OVwryQTFIKQ1W6Pgq6SeqoOVy0m
+S6funfA+kqwEK+iXu2afvewDQkWY8+e5WkQc/5aGkbJ3K7pX8mnTgLdwGe8lZa+M
+3VClT/XiHxU0ka8meio/4tq/SQUqlxiNWzgw7TJZfD1if0lAStEMAcBzZ96EQrre
+HaXavAO1UPl2BczwaU2O2MDcXSE21Jw1cDCas2jc90X/iBEBM50xXTwAtNmJ84mg
+UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
+-----END RSA PRIVATE KEY-----`,
+		},
+	})
+
+	_ = app.AddOffer(description.ApplicationOfferArgs{
+		OfferName: "my-other-offer",
+		Endpoints: []string{"endpoint-1", "endpoint-2"},
+	})
+
+	// Add second app without an offer
+	app2Args := s.minimalApplicationArgs(description.IAAS)
+	app2Args.Tag = names.NewApplicationTag("foo")
+	app2 := s.st.model.AddApplication(app2Args)
+	app2.SetStatus(minimalStatusArgs())
+
+	s.st.model.SetStatus(description.StatusArgs{Value: "available"})
+
+	result, err := s.facade.ExportBundle()
+	c.Assert(err, jc.ErrorIsNil)
+	expectedResult := params.StringResult{nil, `
+series: trusty
+applications:
+  foo:
+    charm: cs:trusty/ubuntu
+    options:
+      key: value
+    bindings:
+      another: alpha
+      juju-info: vlan2
+  ubuntu:
+    charm: cs:trusty/ubuntu
+    num_units: 1
+    to:
+    - "0"
+    options:
+      key: value
+      ssl_ca: |-
+        -----BEGIN RSA PRIVATE KEY-----
+        Proc-Type: 4,ENCRYPTED
+        DEK-Info: DES-EDE3-CBC,EA657EE6FE842AD0
+
+        B8UX3J49NUiCPo0y/fhUJWdSzKjWicY13BJrsX5cv20gVjPLkkSo54BvUwhn8QgJ
+        D0n4TJ4TcpUtQCDhbXZNiNPNQOoahRi7AkViDSoGxZ/6HKaJR7NqDHaiikgQFcb5
+        6dMG8C30VjuTrbS4y5O/LqmYV9Gj6bkxuHGgxJaDN2og2RJCRJb16Ubl0HR2S129
+        dZA0UyQTtDkUwlhVBaQW0Rp0nwVTFZo8g5PXpvT+MsdGgs5Pop+lYq4gSCpuw3vV
+        T2UBOEQyYcok//9J3N+GRgfQbTidbgs8uGFGT4L8b8Ybji7Dhm/SkKpgVdH2wMuD
+        yxKSfIt/Gm7j1I2DnZtLrd+zUSJql2UiYMeQ7suHBHBKtFriv01zFeCzChQ17uiJ
+        NUo5IBzc+fagnN6aNaA5ImR07PHwMu4es4ORAEB+q/N3/0Eoe1U9h+ZBd6a7DM5V
+        5A/wizu2jM25tfTNwQfaSkYCZzpGmucVwMj7NO5Rbjw2/PCOo5IP8GNahXF/cxPQ
+        KqbIyT9nMPvKX8o9MR3Adzv5to5s9cPSyKSFfSZhJv+oXRdr8z9WaElIBJ0K0um/
+        ueteAX4s+U2F1Y7FAG1ivUnCOrzezvivuiPq7JS2PJh/jbdyu30xAu2gG/LZRWx+
+        m9zwCMUSxdrsBefl05WTzTjlpclwdjoG1sztRZ1d3/PoaMtjfLGePyEPbPFpPraq
+        //Dj/MNKy9sefqX4NcqRtMvGj/0VuFspXsl3B1fHRrM7BsB8IM0+BheS22+dXfOK
+        0EicO5ePw5Ji2vptC3ME+X3OztzJtfG/FN2CNvnLIKaR/N0v9Qt66U6aNoKPWD8l
+        2PW+b/BV0dz0YTo16sd6txcmcaUIo5ysZrCWLYGsoRLL1uNAlgRT8Qb2jO8liEhg
+        rfg5GH6RWpUL4mPo6cZ6GFAVPcdbPPSPMUSGscixeRo7oUqhnZrhvJ7L+I3TF7Pp
+        +aWbBpRkTvYiB3/BkgMUfZzozAv6WB2MQttHqjo7cQYgT9MklCJ80a92BkVtQsRa
+        hgDd6BUMA3ag4j0LivJflEmLd7prFVAcfyuN13UFku49soESUVnbPaWogyrGtc5w
+        CvbTazcsKiDEJqGuZhfT0ixCNPrgLj5dNJrWOmFdpZRqa/tgShkf91qCjtMq7AEi
+        eRQ/yOFb0sPjntORQoo0hdmXP3Y+5Ob4NqL2MNbCEf4uMOZ6OtsK4yCTfzVCMQve
+        pQeoosXle1nOjMrRotk6/QzbKh5rMApEjaNKekwcb47Qa8pnw2RFYZT9wsF0a7wd
+        wqINbgN2rnQ6Aea4If7O6Nh1Ftkrk2BW7g8N3OVwryQTFIKQ1W6Pgq6SeqoOVy0m
+        S6funfA+kqwEK+iXu2afvewDQkWY8+e5WkQc/5aGkbJ3K7pX8mnTgLdwGe8lZa+M
+        3VClT/XiHxU0ka8meio/4tq/SQUqlxiNWzgw7TJZfD1if0lAStEMAcBzZ96EQrre
+        HaXavAO1UPl2BczwaU2O2MDcXSE21Jw1cDCas2jc90X/iBEBM50xXTwAtNmJ84mg
+        UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
+        -----END RSA PRIVATE KEY-----
+    bindings:
+      another: alpha
+      juju-info: vlan2
+--- # overlay.yaml
+applications:
+  ubuntu:
+    offers:
+      my-offer:
+        endpoints:
+        - endpoint-1
+        - endpoint-2
+        acl:
+          admin: admin
+          foo: '--- {}'
+          ssl_ca: |-
+            -----BEGIN RSA PRIVATE KEY-----
+            Proc-Type: 4,ENCRYPTED
+            DEK-Info: DES-EDE3-CBC,EA657EE6FE842AD0
+
+            B8UX3J49NUiCPo0y/fhUJWdSzKjWicY13BJrsX5cv20gVjPLkkSo54BvUwhn8QgJ
+            D0n4TJ4TcpUtQCDhbXZNiNPNQOoahRi7AkViDSoGxZ/6HKaJR7NqDHaiikgQFcb5
+            6dMG8C30VjuTrbS4y5O/LqmYV9Gj6bkxuHGgxJaDN2og2RJCRJb16Ubl0HR2S129
+            dZA0UyQTtDkUwlhVBaQW0Rp0nwVTFZo8g5PXpvT+MsdGgs5Pop+lYq4gSCpuw3vV
+            T2UBOEQyYcok//9J3N+GRgfQbTidbgs8uGFGT4L8b8Ybji7Dhm/SkKpgVdH2wMuD
+            yxKSfIt/Gm7j1I2DnZtLrd+zUSJql2UiYMeQ7suHBHBKtFriv01zFeCzChQ17uiJ
+            NUo5IBzc+fagnN6aNaA5ImR07PHwMu4es4ORAEB+q/N3/0Eoe1U9h+ZBd6a7DM5V
+            5A/wizu2jM25tfTNwQfaSkYCZzpGmucVwMj7NO5Rbjw2/PCOo5IP8GNahXF/cxPQ
+            KqbIyT9nMPvKX8o9MR3Adzv5to5s9cPSyKSFfSZhJv+oXRdr8z9WaElIBJ0K0um/
+            ueteAX4s+U2F1Y7FAG1ivUnCOrzezvivuiPq7JS2PJh/jbdyu30xAu2gG/LZRWx+
+            m9zwCMUSxdrsBefl05WTzTjlpclwdjoG1sztRZ1d3/PoaMtjfLGePyEPbPFpPraq
+            //Dj/MNKy9sefqX4NcqRtMvGj/0VuFspXsl3B1fHRrM7BsB8IM0+BheS22+dXfOK
+            0EicO5ePw5Ji2vptC3ME+X3OztzJtfG/FN2CNvnLIKaR/N0v9Qt66U6aNoKPWD8l
+            2PW+b/BV0dz0YTo16sd6txcmcaUIo5ysZrCWLYGsoRLL1uNAlgRT8Qb2jO8liEhg
+            rfg5GH6RWpUL4mPo6cZ6GFAVPcdbPPSPMUSGscixeRo7oUqhnZrhvJ7L+I3TF7Pp
+            +aWbBpRkTvYiB3/BkgMUfZzozAv6WB2MQttHqjo7cQYgT9MklCJ80a92BkVtQsRa
+            hgDd6BUMA3ag4j0LivJflEmLd7prFVAcfyuN13UFku49soESUVnbPaWogyrGtc5w
+            CvbTazcsKiDEJqGuZhfT0ixCNPrgLj5dNJrWOmFdpZRqa/tgShkf91qCjtMq7AEi
+            eRQ/yOFb0sPjntORQoo0hdmXP3Y+5Ob4NqL2MNbCEf4uMOZ6OtsK4yCTfzVCMQve
+            pQeoosXle1nOjMrRotk6/QzbKh5rMApEjaNKekwcb47Qa8pnw2RFYZT9wsF0a7wd
+            wqINbgN2rnQ6Aea4If7O6Nh1Ftkrk2BW7g8N3OVwryQTFIKQ1W6Pgq6SeqoOVy0m
+            S6funfA+kqwEK+iXu2afvewDQkWY8+e5WkQc/5aGkbJ3K7pX8mnTgLdwGe8lZa+M
+            3VClT/XiHxU0ka8meio/4tq/SQUqlxiNWzgw7TJZfD1if0lAStEMAcBzZ96EQrre
+            HaXavAO1UPl2BczwaU2O2MDcXSE21Jw1cDCas2jc90X/iBEBM50xXTwAtNmJ84mg
+            UGNmDMvj8tUYI7+SvffHrTBwBPvcGeXa7XP4Au+GoJUN0jHspCeik/04KwanRCmu
+            -----END RSA PRIVATE KEY-----
       my-other-offer:
         endpoints:
         - endpoint-1
