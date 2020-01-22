@@ -288,7 +288,8 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		minUnitsC: {},
+		unitStatesC: {},
+		minUnitsC:   {},
 
 		// This collection holds documents that indicate units which are queued
 		// to be assigned to machines. It is used exclusively by the
@@ -623,6 +624,7 @@ const (
 	txnLogC                    = "txns.log"
 	txnsC                      = "txns"
 	unitsC                     = "units"
+	unitStatesC                = "unitstates"
 	upgradeInfoC               = "upgradeInfo"
 	userLastLoginC             = "userLastLogin"
 	usermodelnameC             = "usermodelname"
