@@ -122,12 +122,6 @@ func NewProvisionerTask(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Get existing machine distributions.
-	err = task.populateAvailabilityZoneMachines()
-	// Not all providers implement ZonedEnviron
-	if err != nil && !errors.IsNotImplemented(err) {
-		return nil, errors.Trace(err)
-	}
 	return task, nil
 }
 
@@ -167,6 +161,13 @@ func (task *provisionerTask) Wait() error {
 }
 
 func (task *provisionerTask) loop() error {
+
+	// Get existing machine distributions.
+	err := task.populateAvailabilityZoneMachines()
+	// Not all providers implement ZonedEnviron
+	if err != nil && !errors.IsNotImplemented(err) {
+		return errors.Trace(err)
+	}
 
 	// Don't allow the harvesting mode to change until we have read at
 	// least one set of changes, which will populate the task.machines
