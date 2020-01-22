@@ -380,27 +380,42 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
+	// First create a bundle output from the bundle data.
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
+	if err != nil {
+		return fail(err)
+	}
 	if err = enc.Encode(bundleOutputFromBundleData(base)); err != nil {
 		return fail(err)
-	} else if err = enc.Encode(overlay); err != nil {
+	}
+
+	// Secondly create an output from the overlay. We do it this way, so we can
+	// insert the correct comments for users.
+	output := buf.String()
+	buf.Reset()
+	if err = enc.Encode(overlay); err != nil {
 		return fail(err)
 	} else if err = enc.Close(); err != nil {
 		return fail(err)
 	}
+	overlayOutput := buf.String()
 
-	// If the overlay part is empty, strip it off; otherwise, inject a
+	// If the overlay part is empty, ignore it; otherwise, inject a
 	// comment to let users know that the second document can be extracted
 	// out and used as a standalone overlay.
-	yamlOut := buf.String()
-	if strings.HasSuffix(yamlOut, "--- {}\n") {
-		yamlOut = yamlOut[:strings.Index(yamlOut, "---")]
-	} else {
-		yamlOut = strings.Replace(yamlOut, "---", "--- # overlay.yaml", 1)
+	if !strings.HasPrefix(overlayOutput, "--- {}\n") {
+		// strip off the first three dashes and merge the base bundle and the
+		// overlay.
+		if strings.HasPrefix(overlayOutput, "---") {
+			overlayOutput = strings.Replace(overlayOutput, "---", "--- # overlay.yaml", 1)
+			output += overlayOutput
+		} else {
+			return fail(errors.Errorf("expected yaml encoder to delineate multiple documents with \"---\" separator"))
+		}
 	}
 
-	return params.StringResult{Result: yamlOut}, nil
+	return params.StringResult{Result: output}, nil
 }
 
 // bundleOutput has the same top level keys as the charm.BundleData
