@@ -175,6 +175,189 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	})
 }
 
+func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
+
+	sa := &specs.ServiceAccountSpec{}
+	sa.AutomountServiceAccountToken = boolPtr(true)
+
+	podSpec := specs.PodSpec{
+		ServiceAccount: sa,
+	}
+
+	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodInitialized},
+				},
+				DNSPolicy: core.DNSClusterFirst,
+			},
+		},
+	}
+
+	envVar1 := core.EnvVar{
+		Name: "BACKEND_USERNAME", ValueFrom: &core.EnvVarSource{
+			SecretKeyRef: &core.SecretKeySelector{
+				Key: "backend-username",
+			},
+		},
+	}
+	envVar1.ValueFrom.SecretKeyRef.Name = "backend-user"
+
+	envVar2 := core.EnvVar{
+		Name: "SPECIAL_LEVEL_KEY", ValueFrom: &core.EnvVarSource{
+			ConfigMapKeyRef: &core.ConfigMapKeySelector{
+				Key: "special.how",
+			},
+		},
+	}
+	envVar2.ValueFrom.ConfigMapKeyRef.Name = "special-config"
+
+	envFrom1 := core.EnvFromSource{
+		ConfigMapRef: &core.ConfigMapEnvSource{},
+	}
+	envFrom1.ConfigMapRef.Name = "special-config"
+
+	envFrom2 := core.EnvFromSource{
+		SecretRef: &core.SecretEnvSource{},
+	}
+
+	envFrom2.SecretRef.Name = "test-secret"
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: specs.PullPolicy("Always"),
+			ProviderContainer: &k8sspecs.K8sContainerSpec{
+				ReadinessProbe: &core.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &core.Probe{
+					SuccessThreshold: 20,
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
+				Env: []core.EnvVar{
+					{
+						Name: "DEMO_GREETING", Value: "Hello from the environment",
+					},
+					{
+						Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
+							FieldRef: &core.ObjectFieldSelector{
+								FieldPath: "spec.nodeName",
+							},
+						},
+					},
+					envVar1, envVar2,
+					{
+						Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
+							ResourceFieldRef: &core.ResourceFieldSelector{
+								ContainerName: "test-container", Resource: "limits.memory",
+							},
+						},
+					},
+				},
+				EnvFrom: []core.EnvFromSource{
+					envFrom1,
+					envFrom2,
+				},
+			},
+		}, {
+			Name:  "test2",
+			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Image: "juju/image2",
+		},
+	}
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		RestartPolicy:                 core.RestartPolicyOnFailure,
+		ActiveDeadlineSeconds:         int64Ptr(10),
+		TerminationGracePeriodSeconds: int64Ptr(20),
+		SecurityContext: &core.PodSecurityContext{
+			RunAsNonRoot:       boolPtr(true),
+			SupplementalGroups: []int64{1, 2},
+		},
+		ReadinessGates: []core.PodReadinessGate{
+			{ConditionType: core.PodInitialized},
+		},
+		DNSPolicy:                    core.DNSClusterFirst,
+		ServiceAccountName:           "app-name",
+		AutomountServiceAccountToken: boolPtr(true),
+		InitContainers:               initContainers(),
+		Containers: []core.Container{
+			{
+				Name:            "test",
+				Image:           "juju/image",
+				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				ImagePullPolicy: core.PullAlways,
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
+				ReadinessProbe: &core.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &core.Probe{
+					SuccessThreshold: 20,
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+				VolumeMounts: dataVolumeMounts(),
+				Env: []core.EnvVar{
+					{
+						Name: "DEMO_GREETING", Value: "Hello from the environment",
+					},
+					{
+						Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
+							FieldRef: &core.ObjectFieldSelector{
+								FieldPath: "spec.nodeName",
+							},
+						},
+					},
+					envVar1, envVar2,
+					{
+						Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
+							ResourceFieldRef: &core.ResourceFieldSelector{
+								ContainerName: "test-container", Resource: "limits.memory",
+							},
+						},
+					},
+				},
+				EnvFrom: []core.EnvFromSource{
+					envFrom1,
+					envFrom2,
+				},
+			}, {
+				Name:  "test2",
+				Image: "juju/image2",
+				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
+				},
+				VolumeMounts: dataVolumeMounts(),
+			},
+		},
+		Volumes: dataVolumes(),
+	})
+}
+
 func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 	podSpec := specs.PodSpec{}
 	podSpec.Containers = []specs.ContainerSpec{
