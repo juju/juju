@@ -149,6 +149,10 @@ func (m *mvpAPIShim) ReloadSpaces() error {
 	return m.facade.ReloadSpaces()
 }
 
+func (m *mvpAPIShim) RenameSpace(oldName, newName string) error {
+	return m.facade.RenameSpace(oldName, newName)
+}
+
 func (m *mvpAPIShim) ShowSpace(name string) (network.ShowSpace, error) {
 	return m.facade.ShowSpace(name)
 }
