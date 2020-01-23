@@ -219,6 +219,9 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sure the leader units' leases are claimed in the target
 		// controller when leases are managed in raft.
 		leaseHoldersC,
+		// TODO(achilleasa) remove this once the required changes to
+		// the description package land.
+		unitStatesC,
 	)
 
 	modelCollections := set.NewStrings()
