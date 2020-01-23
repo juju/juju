@@ -5,11 +5,10 @@
 package systemd
 
 import (
-	os "os"
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	exec "github.com/juju/utils/exec"
+	os "os"
+	reflect "reflect"
 )
 
 // MockShimFileOps is a mock of ShimFileOps interface
@@ -37,6 +36,7 @@ func (m *MockShimFileOps) EXPECT() *MockShimFileOpsMockRecorder {
 
 // CreateFile mocks base method
 func (m *MockShimFileOps) CreateFile(arg0 string, arg1 []byte, arg2 os.FileMode) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -44,11 +44,13 @@ func (m *MockShimFileOps) CreateFile(arg0 string, arg1 []byte, arg2 os.FileMode)
 
 // CreateFile indicates an expected call of CreateFile
 func (mr *MockShimFileOpsMockRecorder) CreateFile(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateFile", reflect.TypeOf((*MockShimFileOps)(nil).CreateFile), arg0, arg1, arg2)
 }
 
 // MkdirAll mocks base method
 func (m *MockShimFileOps) MkdirAll(arg0 string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MkdirAll", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,19 +58,22 @@ func (m *MockShimFileOps) MkdirAll(arg0 string) error {
 
 // MkdirAll indicates an expected call of MkdirAll
 func (mr *MockShimFileOpsMockRecorder) MkdirAll(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MkdirAll", reflect.TypeOf((*MockShimFileOps)(nil).MkdirAll), arg0)
 }
 
-// RemoveAll mocks base method
-func (m *MockShimFileOps) RemoveAll(arg0 string) error {
-	ret := m.ctrl.Call(m, "RemoveAll", arg0)
+// Remove mocks base method
+func (m *MockShimFileOps) Remove(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Remove", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RemoveAll indicates an expected call of RemoveAll
-func (mr *MockShimFileOpsMockRecorder) RemoveAll(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveAll", reflect.TypeOf((*MockShimFileOps)(nil).RemoveAll), arg0)
+// Remove indicates an expected call of Remove
+func (mr *MockShimFileOpsMockRecorder) Remove(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Remove", reflect.TypeOf((*MockShimFileOps)(nil).Remove), arg0)
 }
 
 // MockShimExec is a mock of ShimExec interface
@@ -96,6 +101,7 @@ func (m *MockShimExec) EXPECT() *MockShimExecMockRecorder {
 
 // RunCommands mocks base method
 func (m *MockShimExec) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RunCommands", arg0)
 	ret0, _ := ret[0].(*exec.ExecResponse)
 	ret1, _ := ret[1].(error)
@@ -104,5 +110,6 @@ func (m *MockShimExec) RunCommands(arg0 exec.RunParams) (*exec.ExecResponse, err
 
 // RunCommands indicates an expected call of RunCommands
 func (mr *MockShimExecMockRecorder) RunCommands(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunCommands", reflect.TypeOf((*MockShimExec)(nil).RunCommands), arg0)
 }

@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	LibSystemdDir          = "/lib/systemd/system"
 	EtcSystemdDir          = "/etc/systemd/system"
 	EtcSystemdMultiUserDir = EtcSystemdDir + "/multi-user.target.wants"
 )
@@ -76,7 +75,7 @@ type Service struct {
 // NewServiceWithDefaults returns a new systemd service reference populated
 // with sensible defaults.
 func NewServiceWithDefaults(name string, conf common.Conf) (*Service, error) {
-	svc, err := NewService(name, conf, LibSystemdDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
+	svc, err := NewService(name, conf, EtcSystemdDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
 	return svc, errors.Trace(err)
 }
 
@@ -90,7 +89,7 @@ func NewService(
 	if conf.ExecStart != "" {
 		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
 	}
-	dirName := volName + renderer.Join(dataDir, name)
+	dirName := volName + renderer.Join(dataDir)
 
 	service := &Service{
 		Service: common.Service{
@@ -184,7 +183,7 @@ func (s *Service) validate(conf common.Conf) error {
 }
 
 func (s *Service) normalize(conf common.Conf) (common.Conf, []byte) {
-	scriptPath := renderer.ScriptFilename("exec-start", s.DirName)
+	scriptPath := renderer.ScriptFilename(s.execStartFileName(), s.DirName)
 	return normalize(s.Service.Name, conf, scriptPath, &renderer)
 }
 
@@ -425,8 +424,7 @@ func (s *Service) remove() error {
 	}
 	defer conn.Close()
 
-	runtime := false
-	_, err = conn.DisableUnitFiles([]string{s.UnitName}, runtime)
+	_, err = conn.DisableUnitFiles([]string{s.UnitName}, false)
 	if err != nil {
 		return s.errorf(err, "dbus disable request failed")
 	}
@@ -435,15 +433,22 @@ func (s *Service) remove() error {
 		return s.errorf(err, "dbus post-disable daemon reload request failed")
 	}
 
-	if err := removeAll(s.DirName); err != nil {
-		return s.errorf(err, "failed to delete juju-managed conf dir")
+	// Remove the service unit file and the exec-start script.
+	if err := remove(path.Join(s.DirName, s.ConfName)); err != nil {
+		return s.errorf(err, "failed to delete service unit file")
+	}
+	if err := remove(renderer.ScriptFilename(s.execStartFileName(), s.DirName)); err != nil {
+		return s.errorf(err, "failed to delete service exec-start script")
 	}
 
 	return nil
 }
 
-var removeAll = func(name string) error {
-	return os.RemoveAll(name)
+var remove = func(name string) error {
+	if _, err := os.Stat(name); os.IsNotExist(err) {
+		return nil
+	}
+	return os.Remove(name)
 }
 
 // Install implements Service.
@@ -495,13 +500,10 @@ func (s *Service) writeConf() (string, error) {
 		return "", errors.Trace(err)
 	}
 
-	if err := mkdirAll(s.DirName); err != nil {
-		return "", s.errorf(err, "failed to create juju-managed service dir %q", s.DirName)
-	}
 	filename := path.Join(s.DirName, s.ConfName)
 
 	if s.Script != nil {
-		scriptPath := renderer.ScriptFilename("exec-start", s.DirName)
+		scriptPath := renderer.ScriptFilename(s.execStartFileName(), s.DirName)
 		if scriptPath != s.Service.Conf.ExecStart {
 			err := errors.Errorf("wrong script path: expected %q, got %q", scriptPath, s.Service.Conf.ExecStart)
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
@@ -517,10 +519,6 @@ func (s *Service) writeConf() (string, error) {
 	}
 
 	return filename, nil
-}
-
-var mkdirAll = func(dirname string) error {
-	return os.MkdirAll(dirname, 0755)
 }
 
 var createFile = func(filename string, data []byte, perm os.FileMode) error {
@@ -541,11 +539,9 @@ func (s *Service) InstallCommands() ([]string, error) {
 		return nil, errors.Trace(err)
 	}
 
-	cmdList := []string{
-		cmds.mkdirs(dirname),
-	}
+	var cmdList []string
 	if s.Script != nil {
-		scriptName := renderer.Base(renderer.ScriptFilename("exec-start", ""))
+		scriptName := renderer.Base(renderer.ScriptFilename(s.execStartFileName(), ""))
 		cmdList = append(cmdList, []string{
 			// TODO(ericsnow) Use the renderer here.
 			cmds.writeFile(scriptName, dirname, s.Script),
@@ -604,6 +600,15 @@ func (s *Service) WriteService() error {
 
 	}
 	return nil
+}
+
+// scriptFileName returns the name of the file that will contain a start script
+// indicated by the service unit file `ExecStart` property.
+// This is required for non-trivial start-up logic, as bash-isms are not
+// supported.
+//See: https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines
+func (s *Service) execStartFileName() string {
+	return s.Name() + "-exec-start"
 }
 
 // SysdReload reloads Service daemon.
