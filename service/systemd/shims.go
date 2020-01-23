@@ -16,7 +16,7 @@ import (
 //go:generate mockgen -package systemd -destination shims_mock_test.go github.com/juju/juju/service/systemd ShimFileOps,ShimExec
 
 type ShimFileOps interface {
-	RemoveAll(name string) error
+	Remove(name string) error
 	MkdirAll(dirname string) error
 	CreateFile(filename string, data []byte, perm os.FileMode) error
 }

@@ -23,22 +23,16 @@ type WriteConfTest struct {
 	Script   string
 }
 
-func (wct WriteConfTest) dirname() string {
-	return fmt.Sprintf("'%s/%s'", wct.DataDir, wct.Service)
+func (wct WriteConfTest) fileName() string {
+	return fmt.Sprintf("'%s/%s.service'", wct.DataDir, wct.Service)
 }
 
-func (wct WriteConfTest) filename() string {
-	return fmt.Sprintf("'%[1]s/%[2]s/%[2]s.service'", wct.DataDir, wct.Service)
-}
-
-func (wct WriteConfTest) scriptname() string {
-	return fmt.Sprintf("'%s/%s/exec-start.sh'", wct.DataDir, wct.Service)
+func (wct WriteConfTest) scriptName() string {
+	return fmt.Sprintf("'%s/%s-exec-start.sh'", wct.DataDir, wct.Service)
 }
 
 // CheckCommands checks the given commands against the test's expectations.
 func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
-	c.Check(commands[0], gc.Equals, "mkdir -p "+wct.dirname())
-	commands = commands[1:]
 	if wct.Script != "" {
 		wct.checkWriteExecScript(c, commands[:2])
 		commands = commands[2:]
@@ -48,11 +42,11 @@ func (wct WriteConfTest) CheckCommands(c *gc.C, commands []string) {
 
 func (wct WriteConfTest) checkWriteExecScript(c *gc.C, commands []string) {
 	script := "#!/usr/bin/env bash\n\n" + wct.Script
-	testing.CheckWriteFileCommand(c, commands[0], wct.scriptname(), script, nil)
+	testing.CheckWriteFileCommand(c, commands[0], wct.scriptName(), script, nil)
 
 	// Check the remaining commands.
 	c.Check(commands[1:], jc.DeepEquals, []string{
-		"chmod 0755 " + wct.scriptname(),
+		"chmod 0755 " + wct.scriptName(),
 	})
 }
 
@@ -61,13 +55,13 @@ func (wct WriteConfTest) checkWriteConf(c *gc.C, commands []string) {
 	parse := func(lines []string) interface{} {
 		return parseConfSections(lines)
 	}
-	testing.CheckWriteFileCommand(c, commands[0], wct.filename(), wct.Expected, parse)
+	testing.CheckWriteFileCommand(c, commands[0], wct.fileName(), wct.Expected, parse)
 
 	// Check the remaining commands.
 	c.Check(commands[1:], jc.DeepEquals, []string{
-		"/bin/systemctl link " + wct.filename(),
+		"/bin/systemctl link " + wct.fileName(),
 		"/bin/systemctl daemon-reload",
-		"/bin/systemctl enable " + wct.filename(),
+		"/bin/systemctl enable " + wct.fileName(),
 	})
 }
 
