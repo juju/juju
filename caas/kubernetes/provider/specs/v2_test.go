@@ -66,6 +66,33 @@ containers:
         httpGet:
           path: /pingReady
           port: www
+      env:
+        - name: DEMO_GREETING
+          value: "Hello from the environment"
+        - name: MY_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
+        - name: BACKEND_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: backend-user
+              key: backend-username
+        - name: SPECIAL_LEVEL_KEY
+          valueFrom:
+            configMapKeyRef:
+              name: special-config
+              key: special.how
+        - name: MY_MEM_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              containerName: test-container
+              resource: limits.memory
+      envFrom:
+      - configMapRef:
+          name: special-config
+      - secretRef:
+          name: test-secret
     config:
       attr: foo=bar; name["fred"]="blogs";
       foo: bar
@@ -302,6 +329,35 @@ foo: bar
 		}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
+
+		envVar1 := core.EnvVar{
+			Name: "BACKEND_USERNAME", ValueFrom: &core.EnvVarSource{
+				SecretKeyRef: &core.SecretKeySelector{
+					Key: "backend-username",
+				},
+			},
+		}
+		envVar1.ValueFrom.SecretKeyRef.Name = "backend-user"
+
+		envVar2 := core.EnvVar{
+			Name: "SPECIAL_LEVEL_KEY", ValueFrom: &core.EnvVarSource{
+				ConfigMapKeyRef: &core.ConfigMapKeySelector{
+					Key: "special.how",
+				},
+			},
+		}
+		envVar2.ValueFrom.ConfigMapKeyRef.Name = "special-config"
+
+		envFrom1 := core.EnvFromSource{
+			ConfigMapRef: &core.ConfigMapEnvSource{},
+		}
+		envFrom1.ConfigMapRef.Name = "special-config"
+
+		envFrom2 := core.EnvFromSource{
+			SecretRef: &core.SecretEnvSource{},
+		}
+		envFrom2.SecretRef.Name = "test-secret"
+
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
 				Name:            "gitlab",
@@ -356,6 +412,30 @@ echo "do some stuff here for gitlab container"
 								Port: intstr.IntOrString{StrVal: "www", Type: 1},
 							},
 						},
+					},
+					Env: []core.EnvVar{
+						{
+							Name: "DEMO_GREETING", Value: "Hello from the environment",
+						},
+						{
+							Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
+								FieldRef: &core.ObjectFieldSelector{
+									FieldPath: "spec.nodeName",
+								},
+							},
+						},
+						envVar1, envVar2,
+						{
+							Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
+								ResourceFieldRef: &core.ResourceFieldSelector{
+									ContainerName: "test-container", Resource: "limits.memory",
+								},
+							},
+						},
+					},
+					EnvFrom: []core.EnvFromSource{
+						envFrom1,
+						envFrom2,
 					},
 				},
 			}, {
