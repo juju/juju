@@ -5,7 +5,6 @@ package spaces
 
 import (
 	"fmt"
-	"github.com/juju/loggo"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -22,8 +21,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.

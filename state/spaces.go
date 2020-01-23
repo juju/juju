@@ -4,6 +4,8 @@
 package state
 
 import (
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/settings"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -259,9 +261,17 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 // RenameSpace renames the given space. Additional ops can be added in case other places needs to be updated as well.
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
-func (st *State) RenameSpace(fromSpaceName, toName string, ops []txn.Op) error {
+func (st *State) RenameSpace(fromSpaceName, toName string, settingChanges settings.ItemChanges, newConstraints constraints.Value) error {
 	var totalOps []txn.Op
 	space, err := st.SpaceByName(fromSpaceName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	newConstraintsOps, err := st.GetModelConstraintsOps(newConstraints)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	newSettingsOps, err := st.NewSettings().DeltaOps(controllerSettingsGlobalKey, settingChanges)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -272,8 +282,10 @@ func (st *State) RenameSpace(fromSpaceName, toName string, ops []txn.Op) error {
 	}}
 
 	totalOps = append(totalOps, renameSpaceOps...)
-	totalOps = append(totalOps, ops...)
+	totalOps = append(totalOps, newConstraintsOps...)
+	totalOps = append(totalOps, newSettingsOps...)
 
+	logger.Errorf("ops to run: %q", totalOps)
 	txnErr := st.db().RunTransaction(totalOps)
 
 	if txnErr == nil {

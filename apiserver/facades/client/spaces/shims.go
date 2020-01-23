@@ -5,16 +5,18 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/mgo.v2/txn"
-
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	coresettings "github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
+	"github.com/juju/loggo"
+	"gopkg.in/juju/names.v3"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.spaces.shims")
 
 // NewStateShim returns a new state shim.
 func NewStateShim(st *state.State) (*stateShim, error) {
@@ -115,21 +117,20 @@ func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, err
 // TODO: nammn check whether we want to have ops and do transaction here? VS single transactions
 // TODO: spaces collection, constraints collection and controllerSettings
 func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
-	var totalOps []txn.Op
 
-	constraintsOps, err := updateConstraints(s.State, fromSpaceName, toName)
+	constraints, err := getChangedConstraints(s.State, fromSpaceName, toName)
 	if err != nil {
+		logger.Errorf("constraints failed: %q", err)
 		return errors.Trace(err)
 	}
-	totalOps = append(totalOps, constraintsOps...)
 
-	settingsOps, err := getSettingsOps(s.State, fromSpaceName, toName)
+	settingsChanges, err := getSettingsChanges(s.State, fromSpaceName, toName)
 	if err != nil {
+		logger.Errorf("settings failed: %q", err)
 		return errors.Trace(err)
 	}
-	totalOps = append(totalOps, settingsOps...)
 
-	err = s.State.RenameSpace(fromSpaceName, toName, totalOps)
+	err = s.State.RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -137,59 +138,41 @@ func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
 	return nil
 }
 
-func getSettingsOps(st *state.State, fromSpaceName, toName string) ([]txn.Op, error) {
+func getSettingsChanges(st *state.State, fromSpaceName, toName string) (coresettings.ItemChanges, error) {
 	config, err := st.ControllerConfig()
-	toRename := false
-	var deltas coresettings.ItemChanges
-	var ops []txn.Op
 	if err != nil {
-		return nil, err
+		logger.Errorf("failed getting conf: %q", err)
+		return nil, errors.Trace(err)
 	}
+	var deltas coresettings.ItemChanges
+
 	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace == fromSpaceName {
 		change := coresettings.MakeModification(jujucontroller.JujuManagementSpace, fromSpaceName, toName)
 		deltas = append(deltas, change)
-		toRename = true
 	}
 	if haSpace := config.JujuHASpace(); haSpace == fromSpaceName {
 		change := coresettings.MakeModification(jujucontroller.JujuHASpace, fromSpaceName, toName)
 		deltas = append(deltas, change)
-		toRename = true
 	}
-	if toRename {
-		settings := st.NewSettings()
-		ops, err = settings.DeltaOps("tocxhange", deltas)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return ops, nil
+	return deltas, nil
 }
 
-// updateConstraints will do nothing if there are no spaces constraints to update
-func updateConstraints(st *state.State, fromSpaceName, toName string) ([]txn.Op, error) {
-	constraints, err := st.ModelConstraints()
-	var ops []txn.Op
+// getChangedConstraints will do nothing if there are no spaces constraints to update
+func getChangedConstraints(st *state.State, fromSpaceName, toName string) (constraints.Value, error) {
+	modelConstraints, err := st.ModelConstraints()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return constraints.Value{}, errors.Trace(err)
 	}
-	toUpdateConstraint := false
-	if constraints.HasSpaces() {
-		deref := *constraints.Spaces
-		for i, space := range *constraints.Spaces {
+	if modelConstraints.HasSpaces() {
+		deref := *modelConstraints.Spaces
+		for i, space := range *modelConstraints.Spaces {
 			if space == fromSpaceName {
-				toUpdateConstraint = true
 				deref[i] = toName
+				modelConstraints.Spaces = &deref
 				break
 			}
 		}
-		if toUpdateConstraint {
-			constraints.Spaces = &deref
-			ops, err = st.GetModelConstraintsOps(constraints)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
+
 	}
-	return ops, nil
+	return modelConstraints, nil
 }
