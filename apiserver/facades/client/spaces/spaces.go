@@ -5,6 +5,7 @@ package spaces
 
 import (
 	"fmt"
+	"github.com/juju/loggo"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
@@ -272,40 +275,54 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 }
 
 // RenameSpace renames a space.
-func (api *API) RenameSpace(args params.RenameSpacesParams) error {
+func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults, error) {
 	// TODO: don't allow MAAS
 	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
-		return errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	if !isAdmin {
-		return common.ServerError(common.ErrPerm)
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 	if err := api.check.ChangeAllowed(); err != nil {
-		return errors.Trace(err)
+		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if err := api.checkSupportsSpaces(); err != nil {
-		return common.ServerError(errors.Trace(err))
+	if err = api.checkSupportsSpaces(); err != nil {
+		return params.ErrorResults{}, common.ServerError(errors.Trace(err))
+	}
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.SpacesRenames)),
 	}
 
-	for _, spaceRename := range args.SpacesRenames {
+	for i, spaceRename := range args.SpacesRenames {
 		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
 		if err != nil {
-			return errors.Trace(err)
+			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			continue
 		}
 		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)
 		if err != nil {
-			return errors.Trace(err)
+			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			continue
 		}
-		_, newErr := api.backing.SpaceByName(toTag.Id())
-		if !errors.IsNotFound(newErr) {
-			return errors.Annotatef(newErr, "retrieving space: %q unexpected error, besides not found", toTag.Id())
+		toSpace, err := api.backing.SpaceByName(toTag.Id())
+		if err != nil && !errors.IsNotFound(err) {
+			newErr := errors.Annotatef(err, "retrieving space: %q unexpected error, besides not found", toTag.Id())
+			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			continue
+		}
+		if toSpace != nil {
+			newErr := errors.AlreadyExistsf("space: %q", toTag.Id())
+			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			continue
 		}
 		if err := api.backing.RenameSpace(fromTag.Id(), toTag.Id()); err != nil {
-			return errors.Annotatef(err, "failed to rename space %q to name %q", fromTag.Id(), toTag.Id())
+			newErr := errors.Annotatef(err, "failed to rename space %q to name %q", fromTag.Id(), toTag.Id())
+			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			continue
 		}
 	}
-	return nil
+	return results, nil
 }
 
 func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
