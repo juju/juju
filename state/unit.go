@@ -332,6 +332,22 @@ type unitStateDoc struct {
 	TxnRevno int64 `bson:"txn-revno"`
 }
 
+// stateMatches returns true if the State map within the unitStateDoc matches
+// the provided st argument.
+func (d *unitStateDoc) stateMatches(st bson.M) bool {
+	if len(st) != len(d.State) {
+		return false
+	}
+
+	for k, v := range d.State {
+		if st[k] != v {
+			return false
+		}
+	}
+
+	return true
+}
+
 // removeUnitStateOp returns the operation needed to remove the unit state
 // document associated with the given globalKey.
 func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
@@ -346,10 +362,8 @@ func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
 // of the provided unitState parameter.
 func (u *Unit) SetState(unitState map[string]string) error {
 	unitGlobalKey := u.globalKey()
-	txnDoc := struct {
-		TxnRevno int64 `bson:"txn-revno"`
-	}{}
 
+	var stDoc unitStateDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := u.Refresh(); err != nil {
@@ -372,7 +386,7 @@ func (u *Unit) SetState(unitState map[string]string) error {
 			Assert: isAliveDoc,
 		}
 
-		if err := coll.FindId(unitGlobalKey).One(&txnDoc); err != nil {
+		if err := coll.FindId(unitGlobalKey).One(&stDoc); err != nil {
 			if err != mgo.ErrNotFound {
 				return nil, errors.Trace(err)
 			}
@@ -399,11 +413,16 @@ func (u *Unit) SetState(unitState map[string]string) error {
 			escapedState[mgoutils.EscapeKey(k)] = v
 		}
 
+		// Check if we need to update
+		if stDoc.stateMatches(escapedState) {
+			return nil, jujutxn.ErrNoOperations
+		}
+
 		return []txn.Op{unitAliveOp, {
 			C:  unitStatesC,
 			Id: unitGlobalKey,
 			Assert: bson.D{
-				{"txn-revno", txnDoc.TxnRevno},
+				{"txn-revno", stDoc.TxnRevno},
 			},
 			Update: bson.D{{"$set", bson.D{{"state", escapedState}}}},
 		}}, nil

@@ -97,6 +97,42 @@ func (s *UnitSuite) TestUnitStateMutation(c *gc.C) {
 	c.Assert(ust, gc.DeepEquals, newState)
 }
 
+func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initialState := map[string]string{
+		"foo":          "bar",
+		"key.with.dot": "must work",
+		"key.with.$":   "must work to",
+	}
+	err := s.unit.SetState(initialState)
+	c.Assert(err, gc.IsNil)
+
+	// Read revno
+	txnDoc := struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}{}
+	coll := s.Session.DB("juju").C("unitstates")
+	err = coll.Find(nil).One(&txnDoc)
+	c.Assert(err, gc.IsNil)
+	curRevNo := txnDoc.TxnRevno
+
+	// Set state using the same KV pairs; this should be a no-op
+	err = s.unit.SetState(initialState)
+	c.Assert(err, gc.IsNil)
+
+	err = coll.Find(nil).One(&txnDoc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(txnDoc.TxnRevno, gc.Equals, curRevNo, gc.Commentf("expected state doc revno to remain the same"))
+
+	// Set state using a different set of KV pairs
+	err = s.unit.SetState(map[string]string{"something": "else"})
+	c.Assert(err, gc.IsNil)
+
+	err = coll.Find(nil).One(&txnDoc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(txnDoc.TxnRevno, jc.GreaterThan, curRevNo, gc.Commentf("expected state doc revno to be bumped"))
+}
+
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
