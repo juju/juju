@@ -330,6 +330,22 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	workertest.CleanKill(c, task)
 }
 
+func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	// `ProvisionerTask.populateAvailabilityZoneMachines` calls through to this method.
+	broker := mocks.NewMockZonedEnviron(ctrl)
+	broker.EXPECT().AllRunningInstances(s.callCtx).Return(nil, errors.New("boom"))
+
+	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
+		names.NewMachineTag("0"): {"az1"},
+	})
+
+	err := workertest.CheckKill(c, task)
+	c.Assert(err, gc.ErrorMatches, "boom")
+}
+
 // setUpZonedEnviron creates a mock environ with instances based on those set
 // on the test suite, and 3 availability zones.
 func (s *ProvisionerTaskSuite) setUpZonedEnviron(ctrl *gomock.Controller) *mocks.MockZonedEnviron {
