@@ -398,7 +398,7 @@ func (c *Client) extendVMRootDisk(
 	sizeMB uint64,
 	taskWaiter *taskWaiter,
 ) error {
-	disk, _, err := c.getDiskWithFileBacking(ctx, vm)
+	disk, err := c.getDisk(ctx, vm)
 	if err != nil {
 		return errors.Trace(err)
 	}

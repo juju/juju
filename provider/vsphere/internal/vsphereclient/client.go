@@ -583,26 +583,20 @@ func customiseVAppConfig(
 	}, nil
 }
 
-func (c *Client) getDiskWithFileBacking(
+func (c *Client) getDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
-) (*types.VirtualDisk, types.BaseVirtualDeviceFileBackingInfo, error) {
+) (*types.VirtualDisk, error) {
 	var mo mo.VirtualMachine
 	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	for _, dev := range mo.Config.Hardware.Device {
-		dev, ok := dev.(*types.VirtualDisk)
-		if !ok {
-			continue
+		if dev, ok := dev.(*types.VirtualDisk); ok {
+			return dev, nil
 		}
-		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
-		if !ok {
-			continue
-		}
-		return dev, backing, nil
 	}
-	return nil, nil, errors.NotFoundf("disk")
+	return nil, errors.NotFoundf("disk")
 }
 
 func (c *Client) extendDisk(
@@ -612,7 +606,7 @@ func (c *Client) extendDisk(
 	desiredCapacityKB int64,
 ) error {
 	prettySize := func(kb int64) string { return humanize.IBytes(uint64(kb) * 1024) }
-	c.logger.Debugf("extending disk from %q, to %q", prettySize(disk.CapacityInKB), prettySize(desiredCapacityKB))
+	c.logger.Debugf("extending disk from %q to %q", prettySize(disk.CapacityInKB), prettySize(desiredCapacityKB))
 
 	// Resize the disk to desired size.
 	disk.CapacityInKB = desiredCapacityKB
