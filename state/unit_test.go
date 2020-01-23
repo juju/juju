@@ -1687,6 +1687,13 @@ func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
 	numDocs, err = coll.Count()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(numDocs, gc.Equals, 0, gc.Commentf("expected unit state document to be removed when the unit is destroyed"))
+
+	// Any attempts to read/write a unit's state when not Alive should fail
+	_, err = s.unit.State()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	err = s.unit.SetState(map[string]string{"foo": "bar"})
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {

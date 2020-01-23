@@ -342,7 +342,8 @@ func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
 	}
 }
 
-// SetState persisted the state for a unit.
+// SetState replaces the currently stored state for a unit with the contents
+// of the provided unitState parameter.
 func (u *Unit) SetState(unitState map[string]string) error {
 	unitGlobalKey := u.globalKey()
 	txnDoc := struct {
@@ -350,8 +351,26 @@ func (u *Unit) SetState(unitState map[string]string) error {
 	}{}
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := u.Refresh(); err != nil {
+				return nil, errors.Trace(err)
+			}
+		}
+
+		if u.Life() != Alive {
+			return nil, errors.NotFoundf("unit %s", u.Name())
+		}
+
 		coll, closer := u.st.db().GetCollection(unitStatesC)
 		defer closer()
+
+		// The state of a unit can only be updated if it is currently
+		// alive.
+		unitAliveOp := txn.Op{
+			C:      unitsC,
+			Id:     u.doc.DocID,
+			Assert: isAliveDoc,
+		}
 
 		if err := coll.FindId(unitGlobalKey).One(&txnDoc); err != nil {
 			if err != mgo.ErrNotFound {
@@ -363,7 +382,7 @@ func (u *Unit) SetState(unitState map[string]string) error {
 				escapedState[mgoutils.EscapeKey(k)] = v
 			}
 
-			return []txn.Op{{
+			return []txn.Op{unitAliveOp, {
 				C:      unitStatesC,
 				Id:     unitGlobalKey,
 				Assert: txn.DocMissing,
@@ -380,7 +399,7 @@ func (u *Unit) SetState(unitState map[string]string) error {
 			escapedState[mgoutils.EscapeKey(k)] = v
 		}
 
-		return []txn.Op{{
+		return []txn.Op{unitAliveOp, {
 			C:  unitStatesC,
 			Id: unitGlobalKey,
 			Assert: bson.D{
@@ -392,13 +411,17 @@ func (u *Unit) SetState(unitState map[string]string) error {
 	}
 
 	if err := u.st.db().Run(buildTxn); err != nil {
-		return fmt.Errorf("cannot persist state for unit %q: %v", u, onAbort(err, ErrDead))
+		return errors.Annotatef(onAbort(err, ErrDead), "cannot persist state for unit %q", u)
 	}
 	return nil
 }
 
 // State returns the persisted state for a unit.
 func (u *Unit) State() (map[string]string, error) {
+	if u.Life() != Alive {
+		return nil, errors.NotFoundf("unit %s", u.Name())
+	}
+
 	coll, closer := u.st.db().GetCollection(unitStatesC)
 	defer closer()
 
