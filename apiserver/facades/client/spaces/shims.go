@@ -107,21 +107,54 @@ func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	constraints, err := s.State.ModelConstraints()
+	if err = updateConstraints(s.State, fromSpaceName, toName); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err = checkSettingsSpace(s.State, fromSpaceName, toName); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+func checkSettingsSpace(st *state.State, fromSpaceName, toName string) error {
+	config, err := st.ControllerConfig()
+	if err != nil {
+		return err
+	}
+	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace == fromSpaceName {
+		// TODO: rename that space
+	}
+	if haSpace := config.JujuHASpace(); haSpace == fromSpaceName {
+		// TODO: rename that space
+	}
+
+	return nil
+}
+
+// updateConstraints will do nothing if there are no spaces constraints to update
+func updateConstraints(st *state.State, fromSpaceName, toName string) error {
+	constraints, err := st.ModelConstraints()
 	if err != nil {
 		return errors.Trace(err)
 	}
 	toUpdateConstraint := false
 	if constraints.HasSpaces() {
+		deref := *constraints.Spaces
 		for i, space := range *constraints.Spaces {
 			if space == fromSpaceName {
 				toUpdateConstraint = true
-				//constraints.Spaces[i] = toName
+				deref[i] = toName
 				break
 			}
 		}
 		if toUpdateConstraint {
-
+			constraints.Spaces = &deref
+			err := st.SetModelConstraints(constraints)
+			if err != nil {
+				return errors.Trace(err)
+			}
 		}
 	}
 	return nil
