@@ -256,22 +256,25 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// RenameSpace renames the given space.
+// RenameSpace renames the given space. Additional ops can be added in case other places needs to be updated as well.
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
-// TODO nammn 22.01.20: maybe only return ops?
-func (st *State) RenameSpace(fromSpaceName, toName string) error {
+func (st *State) RenameSpace(fromSpaceName, toName string, ops []txn.Op) error {
+	var totalOps []txn.Op
 	space, err := st.SpaceByName(fromSpaceName)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	ops := []txn.Op{{
+	renameSpaceOps := []txn.Op{{
 		C:      spacesC,
 		Id:     space.doc.Id,
 		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
 	}}
 
-	txnErr := st.db().RunTransaction(ops)
+	totalOps = append(totalOps, renameSpaceOps...)
+	totalOps = append(totalOps, ops...)
+
+	txnErr := st.db().RunTransaction(totalOps)
 
 	if txnErr == nil {
 		return nil

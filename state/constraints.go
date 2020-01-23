@@ -107,8 +107,7 @@ func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
 	return doc.value(), nil
 }
 
-func writeConstraints(mb modelBackend, id string, cons constraints.Value) error {
-	ops := []txn.Op{setConstraintsOp(id, cons)}
+func writeConstraints(mb modelBackend, ops []txn.Op) error {
 	if err := mb.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}

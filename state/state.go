@@ -849,14 +849,23 @@ func (st *State) ModelConstraints() (constraints.Value, error) {
 
 // SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
+	ops, err := st.GetModelConstraintsOps(cons)
+	if err != nil {
+		return err
+	}
+	return writeConstraints(st, ops)
+}
+
+// GetModelConstraintsOps gets the Ops to replace the current model constraints
+func (st *State) GetModelConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
 			"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-	return writeConstraints(st, modelGlobalKey, cons)
+	return []txn.Op{setConstraintsOp(modelGlobalKey, cons)}, nil
 }
 
 func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {
