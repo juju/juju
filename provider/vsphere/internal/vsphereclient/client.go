@@ -9,6 +9,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -41,10 +42,6 @@ func (e *extendDiskError) Error() string {
 func IsExtendDiskError(err error) bool {
 	_, ok := errors.Cause(err).(*extendDiskError)
 	return ok
-}
-
-func isNotSupported(err error) bool {
-	return err == object.ErrNotSupported
 }
 
 // Client encapsulates a vSphere client, exposing the subset of
@@ -614,7 +611,8 @@ func (c *Client) extendDisk(
 	disk *types.VirtualDisk,
 	desiredCapacityKB int64,
 ) error {
-	c.logger.Debugf("extending disk from %v, to %v", disk.CapacityInKB, desiredCapacityKB)
+	prettySize := func(kb int64) string { return humanize.IBytes(uint64(kb) * 1024) }
+	c.logger.Debugf("extending disk from %q, to %q", prettySize(disk.CapacityInKB), prettySize(desiredCapacityKB))
 
 	// Resize the disk to desired size.
 	disk.CapacityInKB = desiredCapacityKB
