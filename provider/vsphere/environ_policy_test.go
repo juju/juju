@@ -4,12 +4,10 @@
 package vsphere_test
 
 import (
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/object"
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/constraints"
@@ -137,25 +135,4 @@ func (s *environPolSuite) TestPrecheckInstanceChecksConstraintDatastore(c *gc.C)
 		Constraints: constraints.MustParse("root-disk-source=bar"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *environPolSuite) TestPrecheckInstanceChecksForPrivIfRootDiskSet(c *gc.C) {
-	err := s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Constraints: constraints.MustParse("root-disk=30G"),
-	})
-	c.Assert(err, gc.ErrorMatches, `the System.Read privilege is required at the root level to extend disks - please grant the ReadOnly role to "user1"`)
-
-	s.client.SetErrors(errors.New("oops"))
-	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Constraints: constraints.MustParse("root-disk=30G"),
-	})
-	c.Assert(err, gc.ErrorMatches, "oops")
-
-	s.client.hasPrivilege = true
-	err = s.env.PrecheckInstance(s.callCtx, environs.PrecheckInstanceParams{
-		Constraints: constraints.MustParse("root-disk=30G"),
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.client.CheckCall(c, 0, "UserHasRootLevelPrivilege", context.Background(), "System.Read")
 }
