@@ -2537,6 +2537,12 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		if spec.SecurityContext != nil {
 			pc.SecurityContext = spec.SecurityContext
 		}
+		if spec.Env != nil {
+			pc.Env = spec.Env
+		}
+		if spec.EnvFrom != nil {
+			pc.EnvFrom = spec.EnvFrom
+		}
 	}
 	return nil
 }
