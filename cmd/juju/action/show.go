@@ -23,7 +23,7 @@ type showCommand struct {
 	ActionCommandBase
 
 	applicationTag names.ApplicationTag
-	functionName   string
+	actionName     string
 
 	out cmd.Output
 }
@@ -49,9 +49,6 @@ func (c *showCommand) Init(args []string) error {
 	case 0:
 		return errors.New("no application name specified")
 	case 1:
-		if featureflag.Enabled(feature.JujuV3) {
-			return errors.New("no function name specified")
-		}
 		return errors.New("no action name specified")
 	case 2:
 		appName := args[0]
@@ -59,7 +56,7 @@ func (c *showCommand) Init(args []string) error {
 			return errors.Errorf("invalid application name %q", appName)
 		}
 		c.applicationTag = names.NewApplicationTag(appName)
-		c.functionName = args[1]
+		c.actionName = args[1]
 		return nil
 	default:
 		return cmd.CheckEmpty(args[2:])
@@ -74,11 +71,7 @@ func (c *showCommand) Info() *cmd.Info {
 		Doc:     showActionDoc,
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Name = "show-function"
-		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
-		info.Doc = strings.Replace(info.Doc, "an action", "a function", -1)
-		info.Doc = strings.Replace(info.Doc, "action", "function", -1)
-		info.Purpose = strings.Replace(info.Purpose, "an action", "a function", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
 	}
 	return info
 }
@@ -94,13 +87,9 @@ func (c *showCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	info, ok := actions[c.functionName]
+	info, ok := actions[c.actionName]
 	if !ok {
-		if featureflag.Enabled(feature.JujuV3) {
-			ctx.Infof("unknown function %q\n", c.functionName)
-		} else {
-			ctx.Infof("unknown action %q\n", c.functionName)
-		}
+		ctx.Infof("unknown action %q\n", c.actionName)
 		return cmd.ErrSilent
 	}
 

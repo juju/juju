@@ -80,11 +80,7 @@ func (c *listCommand) Info() *cmd.Info {
 		Aliases: []string{"list-actions"},
 	})
 	if featureflag.Enabled(feature.JujuV3) {
-		info.Name = "functions"
-		info.Aliases = []string{"list-functions"}
-		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
-		info.Doc = strings.Replace(info.Doc, "action", "function", -1)
-		info.Purpose = strings.Replace(info.Purpose, "action", "function", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
 	}
 	return info
 }
@@ -153,11 +149,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		output = shortOutput
 	default:
 		if len(sortedNames) == 0 {
-			functions := "functions"
-			if !featureflag.Enabled(feature.JujuV3) {
-				functions = "actions"
-			}
-			ctx.Infof("No %s defined for %s.", functions, c.applicationTag.Id())
+			ctx.Infof("No actions defined for %s.", c.applicationTag.Id())
 			return nil
 		}
 		var list []listOutput
@@ -188,11 +180,7 @@ func (c *listCommand) printTabular(writer io.Writer, value interface{}) error {
 	}
 
 	tw := output.TabWriter(writer)
-	if featureflag.Enabled(feature.JujuV3) {
-		fmt.Fprintf(tw, "%s\t%s\n", "Function", "Description")
-	} else {
-		fmt.Fprintf(tw, "%s\t%s\n", "Action", "Description")
-	}
+	fmt.Fprintf(tw, "%s\t%s\n", "Action", "Description")
 	for _, value := range list {
 		fmt.Fprintf(tw, "%s\t%s\n", value.action, strings.TrimSpace(value.description))
 	}

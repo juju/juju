@@ -34,22 +34,22 @@ var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 // nameRule describes the name format of an action or keyName must match to be valid.
 var nameRule = charm.GetActionNameRule()
 
-func NewCallCommand() cmd.Command {
-	return modelcmd.Wrap(&callCommand{
+func NewRunCommand() cmd.Command {
+	return modelcmd.Wrap(&runCommand{
 		logMessageHandler: func(ctx *cmd.Context, msg string) {
 			fmt.Fprintln(ctx.Stderr, msg)
 		},
 	})
 }
 
-// callCommand enqueues an Action for running on the given unit with given
+// runCommand enqueues an Action for running on the given unit with given
 // params
-type callCommand struct {
+type runCommand struct {
 	ActionCommandBase
 	api               APIClient
 	unitReceivers     []string
 	leaders           map[string]string
-	functionName      string
+	actionName        string
 	paramsYAML        cmd.FileVar
 	parseStrings      bool
 	background        bool
@@ -60,17 +60,17 @@ type callCommand struct {
 	logMessageHandler func(*cmd.Context, string)
 }
 
-const callDoc = `
-Run a charm function for execution on a given unit, with a given set of params.
+const runDoc = `
+Run a charm action for execution on a given unit, with a given set of params.
 An ID is returned for use with 'juju show-operation <ID>'.
 
-To queue a function to be run in the background without waiting for it to finish,
+To queue a action to be run in the background without waiting for it to finish,
 use the --background option.
 
-To set the maximum time to wait for a function to complete, use the --max-wait option.
+To set the maximum time to wait for a action to complete, use the --max-wait option.
 
-By default, the output of a single function will just be that function's stdout.
-For multiple functions, each function stdout is printed with the function id.
+By default, the output of a single action will just be that action's stdout.
+For multiple actions, each action stdout is printed with the action id.
 To see more detailed information about run timings etc, use --format yaml.
 
 Valid unit identifiers are: 
@@ -78,10 +78,10 @@ Valid unit identifiers are:
   leader syntax of the form <application>/leader, such as mysql/leader.
 
 If the leader syntax is used, the leader unit for the application will be
-resolved before the function is enqueued.
+resolved before the action is enqueued.
 
 Params are validated according to the charm for the unit's application.  The
-valid params can be seen using "juju functions <application> --schema".
+valid params can be seen using "juju actions <application> --schema".
 Params may be in a yaml file which is passed with the --params option, or they
 may be specified by a key.key.key...=value format (see examples below.)
 
@@ -94,18 +94,18 @@ explicit arguments will override the parameter file.
 
 Examples:
 
-    juju call mysql/3 backup --background
-    juju call mysql/3 backup --max-wait=2m
-    juju call mysql/3 backup --format yaml
-    juju call mysql/3 backup --utc
-    juju call mysql/3 backup
-    juju call mysql/leader backup
+    juju run mysql/3 backup --background
+    juju run mysql/3 backup --max-wait=2m
+    juju run mysql/3 backup --format yaml
+    juju run mysql/3 backup --utc
+    juju run mysql/3 backup
+    juju run mysql/leader backup
     juju show-operation <ID>
-    juju call mysql/3 backup --params parameters.yml
-    juju call mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
-    juju call mysql/3 backup --params p.yml file.kind=xz file.quality=high
-    juju call sleeper/0 pause time=1000
-    juju call sleeper/0 pause --string-args time=1000
+    juju run mysql/3 backup --params parameters.yml
+    juju run mysql/3 backup out=out.tar.bz2 file.kind=xz file.quality=high
+    juju run mysql/3 backup --params p.yml file.kind=xz file.quality=high
+    juju run sleeper/0 pause time=1000
+    juju run sleeper/0 pause --string-args time=1000
 
 See also:
     list-operations
@@ -113,7 +113,7 @@ See also:
 `
 
 // SetFlags offers an option for YAML output.
-func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "plain", map[string]cmd.Formatter{
 		"yaml":  cmd.FormatYaml,
@@ -123,37 +123,37 @@ func (c *callCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(&c.paramsYAML, "params", "Path to yaml-formatted params file")
 	f.BoolVar(&c.parseStrings, "string-args", false, "Use raw string values of CLI args")
-	f.BoolVar(&c.background, "background", false, "Run the function in the background")
-	f.DurationVar(&c.maxWait, "max-wait", 0, "Maximum wait time for a function to complete")
+	f.BoolVar(&c.background, "background", false, "Run the action in the background")
+	f.DurationVar(&c.maxWait, "max-wait", 0, "Maximum wait time for a action to complete")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
 
-func (c *callCommand) Info() *cmd.Info {
+func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "call",
+		Name:    "run",
 		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
-		Purpose: "Run a function on a specified unit.",
-		Doc:     callDoc,
+		Purpose: "Run a action on a specified unit.",
+		Doc:     runDoc,
 	})
 }
 
 // Init gets the unit tag(s), action name and action arguments.
-func (c *callCommand) Init(args []string) (err error) {
+func (c *runCommand) Init(args []string) (err error) {
 	for _, arg := range args {
 		if names.IsValidUnit(arg) || validLeader.MatchString(arg) {
 			c.unitReceivers = append(c.unitReceivers, arg)
 		} else if nameRule.MatchString(arg) {
-			c.functionName = arg
+			c.actionName = arg
 			break
 		} else {
-			return errors.Errorf("invalid unit or function name %q", arg)
+			return errors.Errorf("invalid unit or action name %q", arg)
 		}
 	}
 	if len(c.unitReceivers) == 0 {
 		return errors.New("no unit specified")
 	}
-	if c.functionName == "" {
-		return errors.New("no function specified")
+	if c.actionName == "" {
+		return errors.New("no action specified")
 	}
 
 	if c.background && c.maxWait > 0 {
@@ -183,7 +183,7 @@ func (c *callCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *callCommand) Run(ctx *cmd.Context) error {
+func (c *runCommand) Run(ctx *cmd.Context) error {
 	if err := c.ensureAPI(); err != nil {
 		return errors.Trace(err)
 	}
@@ -290,7 +290,7 @@ func (c *callCommand) Run(ctx *cmd.Context) error {
 	return c.out.Write(ctx, info)
 }
 
-func (c *callCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, error) {
+func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, error) {
 	actionParams := map[string]interface{}{}
 	if c.paramsYAML.Path != "" {
 		b, err := c.paramsYAML.Read(ctx)
@@ -352,7 +352,7 @@ func (c *callCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, e
 		} else {
 			actions[i].Receiver = names.NewUnitTag(unitReceiver).String()
 		}
-		actions[i].Name = c.functionName
+		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
 	results, err := c.api.Enqueue(params.Actions{Actions: actions})
@@ -445,7 +445,7 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 	return nil
 }
 
-func (c *callCommand) ensureAPI() (err error) {
+func (c *runCommand) ensureAPI() (err error) {
 	if c.api != nil {
 		return nil
 	}

@@ -12,7 +12,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 )
 
-// ActionFailCommand implements the action-fail/function-fail command.
+// ActionFailCommand implements the action-fail command.
 type ActionFailCommand struct {
 	cmd.CommandBase
 	ctx         Context
