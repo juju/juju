@@ -65,38 +65,38 @@ func stepsFor24() []Step {
 		&upgradeStep{
 			description: "Install the service file in Standard location '/lib/systemd'",
 			targets:     []Target{AllMachines},
-			run:         installServiceFile,
+			run:         writeServiceFiles(true),
 		},
 	}
 }
 
-// install the service files in Standard location - '/lib/systemd/system path.
-func installServiceFile(context Context) error {
-	hostSeries, err := series.HostSeries()
-	if err == nil {
+// writeServiceFiles writes service files into the default systemd search path.
+// The supplied boolean indicates whether the old
+// /var/lib/init files should be removed.
+func writeServiceFiles(cleanupOld bool) func(Context) error {
+	return func(ctx Context) error {
+		hostSeries, err := series.HostSeries()
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		initName, err := service.VersionInitSystem(hostSeries)
 		if err != nil {
-			logger.Errorf("unsuccessful writing the service files in /lib/systemd/system path")
-			return err
-		} else {
-			if initName == service.InitSystemSystemd {
-				oldDataDir := context.AgentConfig().DataDir()
-				oldInitDataDir := filepath.Join(oldDataDir, "init")
-
-				sysdManager := service.NewServiceManagerWithDefaults()
-				err = sysdManager.WriteServiceFiles()
-				if err != nil {
-					logger.Errorf("unsuccessful writing the service files in /lib/systemd/system path")
-					return err
-				}
-				// Cleanup the old dir - /var/lib/init
-				return os.RemoveAll(oldInitDataDir)
-			} else {
-				logger.Infof("upgrade to systemd possible only for 'xenial' and above")
-				return nil
-			}
+			return errors.Annotate(err, "writing systemd service files")
 		}
-	} else {
-		return errors.Trace(err)
+
+		if initName == service.InitSystemSystemd {
+			if err := service.NewServiceManagerWithDefaults().WriteServiceFiles(); err != nil {
+				return errors.Annotate(err, "writing systemd service files")
+			}
+
+			if cleanupOld {
+				return errors.Trace(os.RemoveAll(filepath.Join(ctx.AgentConfig().DataDir(), "init")))
+			}
+			return nil
+		}
+
+		logger.Infof("skipping upgrade for non systemd series %s", hostSeries)
+		return nil
 	}
 }
