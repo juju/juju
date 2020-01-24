@@ -156,6 +156,20 @@ func (mr *MockBackingMockRecorder) ReloadSpaces(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReloadSpaces", reflect.TypeOf((*MockBacking)(nil).ReloadSpaces), arg0)
 }
 
+// RenameSpace mocks base method
+func (m *MockBacking) RenameSpace(arg0, arg1 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// RenameSpace indicates an expected call of RenameSpace
+func (mr *MockBackingMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpace", reflect.TypeOf((*MockBacking)(nil).RenameSpace), arg0, arg1)
+}
+
 // SpaceByName mocks base method
 func (m *MockBacking) SpaceByName(arg0 string) (networkingcommon.BackingSpace, error) {
 	m.ctrl.T.Helper()

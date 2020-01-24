@@ -105,15 +105,6 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
-func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
-	result, err := s.State.SpaceByName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	space := networkingcommon.NewSpaceShim(result)
-	return space, nil
-}
-
 // TODO: nammn check whether we want to have ops and do transaction here? VS single transactions
 // TODO: spaces collection, constraints collection and controllerSettings
 func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
