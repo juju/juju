@@ -123,7 +123,7 @@ func (s *agentConfSuite) listServices() ([]string, error) {
 	return s.serviceData.InstalledNames(), nil
 }
 
-func (s *agentConfSuite) newService(name string, conf common.Conf) (service.Service, error) {
+func (s *agentConfSuite) newService(name string, _ common.Conf) (service.Service, error) {
 	for _, svc := range s.services {
 		if svc.Name() == name {
 			return svc, nil
@@ -290,7 +290,7 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 
 func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
@@ -306,7 +306,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 	)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
@@ -323,7 +323,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -342,7 +342,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, gc.ErrorMatches, "fail me")
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
