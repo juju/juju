@@ -1,6 +1,6 @@
 cat_mongo_service() {
     # shellcheck disable=SC2046
-    echo $(juju run -m controller --machine 0 'cat /lib/systemd/system/juju-db/juju-db.service' | grep "^ExecStart")
+    echo $(juju run -m controller --machine 0 'cat /etc/systemd/system/juju-db.service' | grep "^ExecStart")
 }
 
 run_mongo_memory_profile() {
