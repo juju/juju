@@ -300,12 +300,11 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 	return items, nil
 }
 
-// EnsureVMFolder creates the a VM folder with the given path if it doesn't
-// already exist.
-// LP: #1849194
-// Two string arguments needed: folderPath will be split on "/"
-// whereas credAttrFolder is added as subfolder structure from DC's root-folder
-func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, folderPath string) (*object.Folder, error) {
+// EnsureVMFolder creates the a VM folder with the given path if it doesn't already exist.
+// Two string arguments needed: relativeFolderPath will be split on "/"
+// whereas parentFolderName is the subfolder in DC's root-folder.
+// The parentFolderName will fallback to DC's root-folder if it's an empty string.
+func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, relativeFolderPath string) (*object.Folder, error) {
 
 	finder, _, err := c.finder(ctx)
 	if err != nil {
@@ -333,18 +332,12 @@ func (c *Client) EnsureVMFolder(ctx context.Context, credAttrFolder string, fold
 		return nil, errors.Trace(err)
 	}
 
-	// LP: #1849194
-	// User do not necessarily own permission to create credAttrFolder
-	// since that demands Add_folder permissions from the root-folder's DC.
-	// Join paths folders.VMFolder and credentials attribute.
-	parentFolder, err := c.FindFolder(ctx, credAttrFolder)
-	// Consider the case where folder from credential attribute comes empty:
-	// path.Join ignores empty entries.
+	parentFolder, err := c.FindFolder(ctx, parentFolderName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Creating "Juju Controller (...)" folder and then model folder, for example.
-	for _, name := range strings.Split(folderPath, "/") {
+	for _, name := range strings.Split(relativeFolderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
 			return nil, errors.Annotatef(err, "creating folder %q in %q", name, parentFolder.InventoryPath)

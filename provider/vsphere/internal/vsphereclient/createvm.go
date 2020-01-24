@@ -166,18 +166,18 @@ func (c *Client) ensureTemplateVM(
 	datastore *object.Datastore,
 	args CreateVirtualMachineParams,
 ) (vm *object.VirtualMachine, err error) {
-	finder, _, err := c.finder(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 
-	templateFolder, err := c.FindFolder(ctx, path.Join(args.Folder, vmTemplatePath(args)))
+	templateFolder, err := c.FindFolder(ctx, vmTemplatePath(args))
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
 	// Consider only the case without error: it means folder already exists
 	// and we can look if there is a template inside.
 	if err == nil {
+		finder, _, err := c.finder(ctx)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		templateVM, err := finder.VirtualMachine(ctx, path.Join(templateFolder.InventoryPath, vmTemplateName(args)))
 		if err == nil && templateVM != nil {
 			return templateVM, nil
@@ -192,7 +192,7 @@ func (c *Client) ensureTemplateVM(
 		return nil, errors.Annotate(err, "creating import spec")
 	}
 
-	vmFolder, err := c.EnsureVMFolder(ctx, args.Folder, vmTemplatePath(args))
+	vmFolder, err := c.EnsureVMFolder(ctx, "", vmTemplatePath(args))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

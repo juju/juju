@@ -57,8 +57,8 @@ func modelFolderName(modelUUID, modelName string) string {
 
 // vmdkDirectoryName returns the name of the datastore directory in which
 // the base VMDKs are stored for the controller.
-func vmdkDirectoryName(parentfolder string, controllerUUID string) string {
-	dName := path.Join("juju-vmdks", controllerUUID)
+func vmdkDirectoryName(parentfolder string, controllerFolderName string) string {
+	dName := path.Join(controllerFolderName, "templates")
 	if parentfolder != "" {
 		dName = path.Join(parentfolder, dName)
 	}
@@ -224,7 +224,7 @@ func (env *sessionEnviron) newRawInstance(
 		Series:                 series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
-		VMDKDirectory:          vmdkDirectoryName("", args.ControllerUUID),
+		VMDKDirectory:          vmdkDirectoryName(env.getVMFolder(), controllerFolderName(args.ControllerUUID)),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
