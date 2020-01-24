@@ -813,11 +813,6 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 	}
 	if ctx.actionData != nil {
 		vars = append(vars,
-			"JUJU_FUNCTION_NAME="+ctx.actionData.Name,
-			"JUJU_FUNCTION_ID="+ctx.actionData.Tag.Id(),
-			"JUJU_FUNCTION_TAG="+ctx.actionData.Tag.String(),
-
-			// TODO(ycliuhw): remove here once action is deprecated.
 			"JUJU_ACTION_NAME="+ctx.actionData.Name,
 			"JUJU_ACTION_UUID="+ctx.actionData.Tag.Id(),
 			"JUJU_ACTION_TAG="+ctx.actionData.Tag.String(),

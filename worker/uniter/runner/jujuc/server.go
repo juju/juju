@@ -70,11 +70,6 @@ var baseCommands = map[string]creator{
 	"action-set" + cmdSuffix:  constructCommandCreator("action-set", NewActionSetCommand),
 	"action-fail" + cmdSuffix: constructCommandCreator("action-fail", NewActionFailCommand),
 	"action-log" + cmdSuffix:  constructCommandCreator("action-log", NewActionLogCommand),
-
-	"function-get" + cmdSuffix:  constructCommandCreator("function-get", NewActionGetCommand),
-	"function-set" + cmdSuffix:  constructCommandCreator("function-set", NewActionSetCommand),
-	"function-fail" + cmdSuffix: constructCommandCreator("function-fail", NewActionFailCommand),
-	"function-log" + cmdSuffix:  constructCommandCreator("function-log", NewActionLogCommand),
 }
 
 type functionCmdCreator func(Context, string) (cmd.Command, error)

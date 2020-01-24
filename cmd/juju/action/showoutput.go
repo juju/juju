@@ -111,9 +111,8 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		info.Name = "show-operation"
 		info.Args = "<operation ID>"
 		info.Purpose = "Show results of a operation by ID."
-		info.Doc = strings.Replace(info.Doc, "an action", "a function call", -1)
 		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-operation", -1)
-		info.Doc = strings.Replace(info.Doc, "run-action", "call", -1)
+		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
 	}
 	return info
 }

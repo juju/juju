@@ -31,31 +31,31 @@ type CancelCommand struct {
 	*cancelCommand
 }
 
-type CallCommand struct {
-	*callCommand
+type RunCommand struct {
+	*runCommand
 }
 
-func (c *CallCommand) UnitNames() []string {
+func (c *RunCommand) UnitNames() []string {
 	return c.unitReceivers
 }
 
-func (c *CallCommand) FunctionName() string {
-	return c.functionName
+func (c *RunCommand) ActionName() string {
+	return c.actionName
 }
 
-func (c *CallCommand) ParseStrings() bool {
+func (c *RunCommand) ParseStrings() bool {
 	return c.parseStrings
 }
 
-func (c *CallCommand) ParamsYAML() cmd.FileVar {
+func (c *RunCommand) ParamsYAML() cmd.FileVar {
 	return c.paramsYAML
 }
 
-func (c *CallCommand) MaxWait() time.Duration {
+func (c *RunCommand) MaxWait() time.Duration {
 	return c.maxWait
 }
 
-func (c *CallCommand) Args() [][]string {
+func (c *RunCommand) Args() [][]string {
 	return c.args
 }
 
@@ -104,7 +104,7 @@ func (c *ShowCommand) ApplicationTag() names.ApplicationTag {
 }
 
 func (c *ShowCommand) ActionName() string {
-	return c.functionName
+	return c.actionName
 }
 
 type ListOperationsCommand struct {
@@ -144,12 +144,12 @@ func NewShowCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowComm
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowCommand{c}
 }
 
-func NewCallCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *CallCommand) {
-	c := &callCommand{
+func NewRunCommandForTest(store jujuclient.ClientStore, logMessage func(*cmd.Context, string)) (cmd.Command, *RunCommand) {
+	c := &runCommand{
 		logMessageHandler: logMessage,
 	}
 	c.SetClientStore(store)
-	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &CallCommand{c}
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &RunCommand{c}
 }
 
 func NewRunActionCommandForTest(store jujuclient.ClientStore) (cmd.Command, *RunActionCommand) {

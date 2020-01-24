@@ -54,10 +54,6 @@ Currently available charm hook tools are:
     close-port               ensure a port or range is always closed
     config-get               print application configuration
     credential-get           access cloud credentials
-    function-fail            set action/function fail status with message
-    function-get             get action/function parameters
-    function-log             record a progress message for the current action/function
-    function-set             set action/function results
     goal-state               print the status of the charm's peers and related units
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
@@ -100,10 +96,6 @@ var expectedCommands = []string{
 	"close-port",
 	"config-get",
 	"credential-get",
-	"function-fail",
-	"function-get",
-	"function-log",
-	"function-set",
 	"goal-state",
 	"is-leader",
 	"juju-log",
