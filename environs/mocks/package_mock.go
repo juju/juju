@@ -503,6 +503,21 @@ func (mr *MockNetworkingEnvironMockRecorder) SupportsContainerAddresses(arg0 int
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsContainerAddresses", reflect.TypeOf((*MockNetworkingEnviron)(nil).SupportsContainerAddresses), arg0)
 }
 
+// SupportsProviderSpaces mocks base method
+func (m *MockNetworkingEnviron) SupportsProviderSpaces(arg0 context.ProviderCallContext) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SupportsProviderSpaces", arg0)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SupportsProviderSpaces indicates an expected call of SupportsProviderSpaces
+func (mr *MockNetworkingEnvironMockRecorder) SupportsProviderSpaces(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SupportsProviderSpaces", reflect.TypeOf((*MockNetworkingEnviron)(nil).SupportsProviderSpaces), arg0)
+}
+
 // SupportsSpaceDiscovery mocks base method
 func (m *MockNetworkingEnviron) SupportsSpaceDiscovery(arg0 context.ProviderCallContext) (bool, error) {
 	m.ctrl.T.Helper()

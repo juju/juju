@@ -6,10 +6,10 @@ package spaces
 import (
 	"github.com/juju/errors"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	coresettings "github.com/juju/juju/core/settings"
+	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	"github.com/juju/loggo"
@@ -105,23 +105,9 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
-// TODO: nammn check whether we want to have ops and do transaction here? VS single transactions
-// TODO: spaces collection, constraints collection and controllerSettings
-func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
+func (s *stateShim) RenameSpace(settingsChanges settings.ItemChanges, constraints constraints.Value, fromSpaceName, toName string) error {
 
-	constraints, err := getChangedConstraints(s.State, fromSpaceName, toName)
-	if err != nil {
-		logger.Errorf("constraints failed: %q", err)
-		return errors.Trace(err)
-	}
-
-	settingsChanges, err := getSettingsChanges(s.State, fromSpaceName, toName)
-	if err != nil {
-		logger.Errorf("settings failed: %q", err)
-		return errors.Trace(err)
-	}
-
-	err = s.State.RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
+	err := s.State.RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -129,41 +115,18 @@ func (s *stateShim) RenameSpace(fromSpaceName, toName string) error {
 	return nil
 }
 
-func getSettingsChanges(st *state.State, fromSpaceName, toName string) (coresettings.ItemChanges, error) {
-	config, err := st.ControllerConfig()
-	if err != nil {
-		logger.Errorf("failed getting conf: %q", err)
-		return nil, errors.Trace(err)
-	}
-	var deltas coresettings.ItemChanges
-
-	if mgmtSpace := config.JujuManagementSpace(); mgmtSpace == fromSpaceName {
-		change := coresettings.MakeModification(jujucontroller.JujuManagementSpace, fromSpaceName, toName)
-		deltas = append(deltas, change)
-	}
-	if haSpace := config.JujuHASpace(); haSpace == fromSpaceName {
-		change := coresettings.MakeModification(jujucontroller.JujuHASpace, fromSpaceName, toName)
-		deltas = append(deltas, change)
-	}
-	return deltas, nil
-}
-
-// getChangedConstraints will do nothing if there are no spaces constraints to update
-func getChangedConstraints(st *state.State, fromSpaceName, toName string) (constraints.Value, error) {
-	modelConstraints, err := st.ModelConstraints()
+func (s *stateShim) Constraints() (constraints.Value, error) {
+	result, err := s.State.ModelConstraints()
 	if err != nil {
 		return constraints.Value{}, errors.Trace(err)
 	}
-	if modelConstraints.HasSpaces() {
-		deref := *modelConstraints.Spaces
-		for i, space := range *modelConstraints.Spaces {
-			if space == fromSpaceName {
-				deref[i] = toName
-				modelConstraints.Spaces = &deref
-				break
-			}
-		}
+	return result, nil
+}
 
+func (s *stateShim) ControllerConfig() (controller.Config, error) {
+	result, err := s.State.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return modelConstraints, nil
+	return result, nil
 }

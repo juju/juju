@@ -15,8 +15,11 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
+	coresettings "github.com/juju/juju/core/settings"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -68,7 +71,15 @@ type Backing interface {
 	// AllMachines loads all machines
 	AllMachines() ([]Machine, error)
 
-	RenameSpace(from, to string) error
+	// RenameSpace renames the given space `a` given name `b`.
+	// SettingsChanges and Constraints holds the changes to be done in the state.
+	RenameSpace(settingsChanges coresettings.ItemChanges, constraints constraints.Value, fromSpaceName, toName string) error
+
+	// ControllerConfig returns current ControllerConfig.
+	ControllerConfig() (jujucontroller.Config, error)
+
+	// Constraints returns current constraints.
+	Constraints() (constraints.Value, error)
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -273,7 +284,6 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 
 // RenameSpace renames a space.
 func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults, error) {
-	// TODO: don't allow MAAS
 	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -284,7 +294,7 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 	if err := api.check.ChangeAllowed(); err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
-	if err = api.checkSupportsSpaces(); err != nil {
+	if err = api.checkSupportsProviderSpaces(); err != nil {
 		return params.ErrorResults{}, common.ServerError(errors.Trace(err))
 	}
 	results := params.ErrorResults{
@@ -313,7 +323,22 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
-		if err := api.backing.RenameSpace(fromTag.Id(), toTag.Id()); err != nil {
+		// ControllerConfig
+		settingChanges, err := api.getSettingsChanges(fromTag.Id(), toTag.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "retrieving setting changes")
+			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			continue
+		}
+		// Constraints
+		constraintChanges, err := api.getConstraintsChanges(fromTag.Id(), toTag.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "retrieving constraint changes")
+			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			continue
+		}
+		// RenameSpace
+		if err := api.backing.RenameSpace(settingChanges, constraintChanges, fromTag.Id(), toTag.Id()); err != nil {
 			newErr := errors.Annotatef(err, "failed to rename space %q to name %q", fromTag.Id(), toTag.Id())
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
@@ -480,6 +505,19 @@ func (api *API) checkSupportsSpaces() error {
 	return nil
 }
 
+// checkSupportsSpaces checks if the environment implements NetworkingEnviron
+// and also if it supports spaces.
+func (api *API) checkSupportsProviderSpaces() error {
+	env, err := environs.GetEnviron(api.backing, environs.New)
+	if err != nil {
+		return errors.Annotate(err, "getting environ")
+	}
+	if !environs.SupportsProviderSpaces(api.context, env) {
+		return errors.NotSupportedf("provider spaces")
+	}
+	return nil
+}
+
 func (api *API) getMachineCountBySpaceID(spaceID string) (int, error) {
 	var count int
 	machines, err := api.backing.AllMachines()
@@ -513,4 +551,44 @@ func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) 
 		}
 	}
 	return applications.SortedValues(), nil
+}
+
+// getConstraintsChanges will do nothing if there are no spaces constraints to update
+func (api *API) getConstraintsChanges(fromSpaceName, toName string) (constraints.Value, error) {
+	currentConstraints, err := api.backing.Constraints()
+	if err != nil {
+		return constraints.Value{}, errors.Trace(err)
+	}
+
+	if currentConstraints.HasSpaces() {
+		deref := *currentConstraints.Spaces
+		for i, space := range *currentConstraints.Spaces {
+			if space == fromSpaceName {
+				deref[i] = toName
+				currentConstraints.Spaces = &deref
+				break
+			}
+		}
+
+	}
+	return currentConstraints, nil
+}
+
+func (api *API) getSettingsChanges(fromSpaceName, toName string) (coresettings.ItemChanges, error) {
+	currentControllerConfig, err := api.backing.ControllerConfig()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var deltas coresettings.ItemChanges
+
+	if mgmtSpace := currentControllerConfig.JujuManagementSpace(); mgmtSpace == fromSpaceName {
+		change := coresettings.MakeModification(jujucontroller.JujuManagementSpace, fromSpaceName, toName)
+		deltas = append(deltas, change)
+	}
+	if haSpace := currentControllerConfig.JujuHASpace(); haSpace == fromSpaceName {
+		change := coresettings.MakeModification(jujucontroller.JujuHASpace, fromSpaceName, toName)
+		deltas = append(deltas, change)
+	}
+	return deltas, nil
 }

@@ -30719,6 +30719,17 @@
                 "ReloadSpaces": {
                     "type": "object"
                 },
+                "RenameSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RenameSpacesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "ShowSpace": {
                     "type": "object",
                     "properties": {
@@ -30862,6 +30873,37 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "RenameSpaceParams": {
+                    "type": "object",
+                    "properties": {
+                        "from-space-tag": {
+                            "type": "string"
+                        },
+                        "to-space-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "from-space-tag",
+                        "to-space-tag"
+                    ]
+                },
+                "RenameSpacesParams": {
+                    "type": "object",
+                    "properties": {
+                        "rename-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RenameSpaceParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "rename-spaces"
                     ]
                 },
                 "ShowSpaceResult": {

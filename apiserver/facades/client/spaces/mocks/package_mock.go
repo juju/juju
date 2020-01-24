@@ -9,7 +9,10 @@ import (
 	set "github.com/juju/collections/set"
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	spaces "github.com/juju/juju/apiserver/facades/client/spaces"
+	controller "github.com/juju/juju/controller"
+	constraints "github.com/juju/juju/core/constraints"
 	network "github.com/juju/juju/core/network"
+	settings "github.com/juju/juju/core/settings"
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	names_v3 "gopkg.in/juju/names.v3"
@@ -113,6 +116,36 @@ func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
 }
 
+// Constraints mocks base method
+func (m *MockBacking) Constraints() (constraints.Value, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Constraints")
+	ret0, _ := ret[0].(constraints.Value)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Constraints indicates an expected call of Constraints
+func (mr *MockBackingMockRecorder) Constraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockBacking)(nil).Constraints))
+}
+
+// ControllerConfig mocks base method
+func (m *MockBacking) ControllerConfig() (controller.Config, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ControllerConfig")
+	ret0, _ := ret[0].(controller.Config)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ControllerConfig indicates an expected call of ControllerConfig
+func (mr *MockBackingMockRecorder) ControllerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ControllerConfig", reflect.TypeOf((*MockBacking)(nil).ControllerConfig))
+}
+
 // ModelConfig mocks base method
 func (m *MockBacking) ModelConfig() (*config.Config, error) {
 	m.ctrl.T.Helper()
@@ -157,17 +190,17 @@ func (mr *MockBackingMockRecorder) ReloadSpaces(arg0 interface{}) *gomock.Call {
 }
 
 // RenameSpace mocks base method
-func (m *MockBacking) RenameSpace(arg0, arg1 string) error {
+func (m *MockBacking) RenameSpace(arg0 settings.ItemChanges, arg1 constraints.Value, arg2, arg3 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1)
+	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // RenameSpace indicates an expected call of RenameSpace
-func (mr *MockBackingMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.Call {
+func (mr *MockBackingMockRecorder) RenameSpace(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpace", reflect.TypeOf((*MockBacking)(nil).RenameSpace), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpace", reflect.TypeOf((*MockBacking)(nil).RenameSpace), arg0, arg1, arg2, arg3)
 }
 
 // SpaceByName mocks base method
