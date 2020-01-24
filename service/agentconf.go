@@ -227,13 +227,7 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 
 		// Otherwise we need to manually ensure the service unit links.
 		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
-			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
-			return nil, nil, nil, errors.Errorf(
-				"failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
-		}
-
-		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
+		if err = os.Symlink(path.Join(systemd.EtcSystemdDir, svcFileName),
 			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
 			return nil, nil, nil, errors.Errorf(
 				"failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
