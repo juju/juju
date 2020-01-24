@@ -99,5 +99,7 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextActionHook.info = &info.ActionHook
 	ctx.ContextVersion.stub = stub
 	ctx.ContextVersion.info = &info.Version
+	ctx.ContextUnitCache.stub = stub
+	ctx.ContextUnitCache.info = &info.UnitCache
 	return &ctx
 }

@@ -5,13 +5,11 @@ package jujuctesting
 
 import (
 	"sync"
-
-	"github.com/juju/errors"
 )
 
 type UnitCache struct {
 	values map[string]string
-	mu     *sync.Mutex
+	mu     sync.Mutex
 }
 
 // ContextUnitCache is a test double for jujuc.unitCacheContext.
@@ -20,21 +18,41 @@ type ContextUnitCache struct {
 	info *UnitCache
 }
 
-// GetCacheValue implements jujuc.unitCacheContext.
-func (c *ContextUnitCache) GetCacheValue(key string) (string, error) {
-	c.stub.AddCall("GetCacheValue")
+func (u *UnitCache) SetCache(newCache map[string]string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	u.values = newCache
+}
+
+// GetCache implements jujuc.unitCacheContext.
+func (c *ContextUnitCache) GetCache() (map[string]string, error) {
+	c.stub.AddCall("GetCache")
 	_ = c.stub.NextErr()
 	c.info.mu.Lock()
 	defer c.info.mu.Unlock()
 	c.ensureValues()
-	value, ok := c.info.values[key]
-	if !ok {
-		return "", errors.NotFoundf("%q", key)
+	if len(c.info.values) == 0 {
+		return nil, nil
 	}
-	return value, nil
+
+	retVal := make(map[string]string, len(c.info.values))
+	for k, v := range c.info.values {
+		retVal[k] = v
+	}
+	return retVal, nil
 }
 
-// GetCacheValue implements jujuc.unitCacheContext.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (c *ContextUnitCache) GetSingleCacheValue(key string) (string, error) {
+	c.stub.AddCall("GetSingleCacheValue")
+	c.info.mu.Lock()
+	defer c.info.mu.Unlock()
+
+	c.ensureValues()
+	return c.info.values[key], nil
+}
+
+// GetCache implements jujuc.unitCacheContext.
 func (c *ContextUnitCache) DeleteCacheValue(key string) error {
 	c.stub.AddCall("DeleteCacheValue")
 	_ = c.stub.NextErr()
@@ -46,7 +64,7 @@ func (c *ContextUnitCache) DeleteCacheValue(key string) error {
 	return nil
 }
 
-// GetCacheValue implements jujuc.unitCacheContext.
+// GetCache implements jujuc.unitCacheContext.
 func (c *ContextUnitCache) SetCacheValue(key string, value string) error {
 	c.stub.AddCall("SetCacheValue")
 	_ = c.stub.NextErr()

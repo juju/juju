@@ -291,9 +291,29 @@ type HookContext struct {
 	mu sync.Mutex
 }
 
-// GetCacheValue returns the value for the given key from the cache.
+// GetCache returns a copy of the cache.
 // Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
-func (ctx *HookContext) GetCacheValue(key string) (string, error) {
+func (ctx *HookContext) GetCache() (map[string]string, error) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return nil, err
+	}
+
+	if len(ctx.cacheValues) == 0 {
+		return nil, nil
+	}
+
+	retVal := make(map[string]string, len(ctx.cacheValues))
+	for k, v := range ctx.cacheValues {
+		retVal[k] = v
+	}
+	return retVal, nil
+}
+
+// GetSingleCacheValue returns the value of the given key.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) GetSingleCacheValue(key string) (string, error) {
 	ctx.mu.Lock()
 	defer ctx.mu.Unlock()
 	if err := ctx.ensureStateValuesLoaded(); err != nil {
