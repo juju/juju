@@ -533,8 +533,8 @@ func (s *StateSettings) ListSettings(keyPrefix string) (map[string]map[string]in
 
 // DeltaOps returns the operations required to modify the settings document
 // identified by the input key, with the the input settings changes.
-func (s *StateSettings) DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error) {
-	cfg, err := readSettings(s.backend.db(), settingsC, key)
+func (s *StateSettings) DeltaOps(key string, delta settings.ItemChanges, collection string) ([]txn.Op, error) {
+	cfg, err := readSettings(s.backend.db(), collection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

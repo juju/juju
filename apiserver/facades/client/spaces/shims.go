@@ -106,12 +106,10 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 }
 
 func (s *stateShim) RenameSpace(settingsChanges settings.ItemChanges, constraints constraints.Value, fromSpaceName, toName string) error {
-
 	err := s.State.RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
-
 	return nil
 }
 

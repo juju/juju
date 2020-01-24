@@ -261,18 +261,22 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 // RenameSpace renames the given space. Additional ops can be added in case other places needs to be updated as well.
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
-func (st *State) RenameSpace(fromSpaceName, toName string, settingChanges settings.ItemChanges, newConstraints constraints.Value) error {
+func (st *State) RenameSpace(fromSpaceName, toName string, settingsDelta settings.ItemChanges, newConstraints constraints.Value) error {
 	var totalOps []txn.Op
 	space, err := st.SpaceByName(fromSpaceName)
+	logger.Errorf("found space %q", space)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	newConstraintsOps, err := st.GetModelConstraintsOps(newConstraints)
 	if err != nil {
+		logger.Errorf("err?", err)
 		return errors.Trace(err)
 	}
-	newSettingsOps, err := st.NewSettings().DeltaOps(controllerSettingsGlobalKey, settingChanges)
+	// TODO: may need to update the input param to support a given collection, as we may want controllers not settings
+	newSettingsOps, err := st.NewSettings().DeltaOps(controllerSettingsGlobalKey, settingsDelta, controllersC)
 	if err != nil {
+		logger.Errorf("err sett?", err)
 		return errors.Trace(err)
 	}
 	renameSpaceOps := []txn.Op{{

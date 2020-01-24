@@ -618,7 +618,7 @@ func (s *SettingsSuite) TestDeltaOpsSuccess(c *gc.C) {
 	}
 
 	settings := s.state.NewSettings()
-	ops, err := settings.DeltaOps(s.key, delta)
+	ops, err := settings.DeltaOps(s.key, delta, settingsC)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.state.db().RunTransaction(ops)
@@ -645,7 +645,7 @@ func (s *SettingsSuite) TestDeltaOpsChangedError(c *gc.C) {
 		coresettings.MakeModification("foo", "bar", "new-bar"),
 	}
 
-	ops, err := settings.DeltaOps(s.key, delta)
+	ops, err := settings.DeltaOps(s.key, delta, settingsC)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Change after settings above is materialised.
