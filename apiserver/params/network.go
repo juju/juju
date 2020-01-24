@@ -904,6 +904,22 @@ type CreateSpaceParams struct {
 }
 
 // ListSpacesResults holds the list of all available spaces.
+type ShowSpaceResult struct {
+	// Information about a given space.
+	Space Space `json:"space"`
+	// Application names which are bound to a given space.
+	Applications []string `json:"applications"`
+	// MachineCount is the number of machines connected to a given space.
+	MachineCount int    `json:"machine-count"`
+	Error        *Error `json:"error,omitempty"`
+}
+
+// ListSpacesResults holds the list of all available spaces.
+type ShowSpaceResults struct {
+	Results []ShowSpaceResult `json:"results"`
+}
+
+// ListSpacesResults holds the list of all available spaces.
 type ListSpacesResults struct {
 	Results []Space `json:"results"`
 }

@@ -40,6 +40,46 @@ func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []str
 	return err
 }
 
+func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
+	result, err := s.State.SpaceByName(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	space := networkingcommon.NewSpaceShim(result)
+	return space, nil
+}
+
+// AllEndpointBindings returns all endpoint bindings and maps it to a corresponding common type
+func (s *stateShim) AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	endpointBindings, err := model.AllEndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	all := make([]ApplicationEndpointBindingsShim, len(endpointBindings))
+	for i, value := range endpointBindings {
+		all[i].AppName = value.AppName
+		all[i].Bindings = value.Bindings.Map()
+	}
+	return all, nil
+}
+
+// AllMachines returns all machines and maps it to a corresponding common type.
+func (s *stateShim) AllMachines() ([]Machine, error) {
+	allStateMachines, err := s.State.AllMachines()
+	if err != nil {
+		return nil, err
+	}
+	all := make([]Machine, len(allStateMachines))
+	for i, m := range allStateMachines {
+		all[i] = m
+	}
+	return all, nil
+}
+
 func (s *stateShim) AllSpaces() ([]networkingcommon.BackingSpace, error) {
 	results, err := s.State.AllSpaces()
 	if err != nil {

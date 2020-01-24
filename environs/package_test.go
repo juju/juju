@@ -9,6 +9,8 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/environs NetworkingEnviron,CloudEnvironProvider
+
 func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }

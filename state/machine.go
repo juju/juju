@@ -1617,6 +1617,7 @@ func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 
 // AddressesBySpaceID groups the machine addresses by space id and
 // returns the result as a map where the space id is used a the key.
+// Loopback addresses are skipped.
 func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
@@ -1629,6 +1630,10 @@ func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, e
 		// resolved space IDs (except MAAS). For the time being, we
 		// need to pull out the space ID information from the
 		// associated subnet.
+		// we need to ignore the loopback else it will fail
+		if address.LoopbackConfigMethod() {
+			continue
+		}
 		subnet, err := address.Subnet()
 		if err != nil {
 			return nil, err

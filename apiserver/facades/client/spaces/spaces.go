@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -28,6 +29,17 @@ type BlockChecker interface {
 	RemoveAllowed() error
 }
 
+// Machine defines the methods supported by a machine used in the space context.
+type Machine interface {
+	AllSpaces() (set.Strings, error)
+}
+
+// ApplicationEndpointBindingsShim is a shim interface for stateless access to ApplicationEndpointBindings
+type ApplicationEndpointBindingsShim struct {
+	AppName  string
+	Bindings map[string]string
+}
+
 // Backend contains the state methods used in this package.
 type Backing interface {
 	environs.EnvironConfigGetter
@@ -44,8 +56,17 @@ type Backing interface {
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]networkingcommon.BackingSpace, error)
 
+	// SpaceByName returns the Juju network space given by name.
+	SpaceByName(name string) (networkingcommon.BackingSpace, error)
+
 	// ReloadSpaces loads spaces from backing environ.
 	ReloadSpaces(environ environs.BootstrapEnviron) error
+
+	// AllEndpointBindings loads all endpointBindings.
+	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
+
+	// AllMachines loads all machines
+	AllMachines() ([]Machine, error)
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -60,10 +81,15 @@ type APIv3 struct {
 
 // APIv4 provides the spaces API facade for version 4.
 type APIv4 struct {
+	*APIv5
+}
+
+// APIv5 provides the spaces API facade for version 5.
+type APIv5 struct {
 	*API
 }
 
-// API provides the spaces API facade for version 5.
+// API provides the spaces API facade for version 6.
 type API struct {
 	backing    Backing
 	resources  facade.Resources
@@ -93,11 +119,20 @@ func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*A
 
 // NewAPIv4 is a wrapper that creates a V4 spaces API.
 func NewAPIv4(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv4, error) {
-	api, err := NewAPI(st, res, auth)
+	api, err := NewAPIv5(st, res, auth)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv4{api}, nil
+}
+
+// NewAPIv4 is a wrapper that creates a V4 spaces API.
+func NewAPIv5(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv5, error) {
+	api, err := NewAPI(st, res, auth)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv5{api}, nil
 }
 
 // NewAPI creates a new Space API server-side facade with a
@@ -291,6 +326,72 @@ func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
 	return results, nil
 }
 
+func (api *APIv5) ShowSpace(_, _ struct{}) {}
+
+// ListSpaces lists all the available spaces and their associated subnets.
+func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
+	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return params.ShowSpaceResults{}, errors.Trace(err)
+	}
+	if !canRead {
+		return params.ShowSpaceResults{}, common.ServerError(common.ErrPerm)
+	}
+
+	err = api.checkSupportsSpaces()
+	if err != nil {
+		return params.ShowSpaceResults{}, common.ServerError(errors.Trace(err))
+	}
+	results := make([]params.ShowSpaceResult, len(entities.Entities))
+	for i, entity := range entities.Entities {
+		spaceName, err := names.ParseSpaceTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(errors.Trace(err))
+			continue
+		}
+		var result params.ShowSpaceResult
+		space, err := api.backing.SpaceByName(spaceName.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "fetching space %q", spaceName)
+			results[i].Error = common.ServerError(newErr)
+			continue
+		}
+		result.Space.Name = space.Name()
+		result.Space.Id = space.Id()
+		subnets, err := space.Subnets()
+		if err != nil {
+			newErr := errors.Annotatef(err, "fetching subnets")
+			results[i].Error = common.ServerError(newErr)
+			continue
+		}
+
+		result.Space.Subnets = make([]params.Subnet, len(subnets))
+		for i, subnet := range subnets {
+			result.Space.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
+		}
+
+		applications, err := api.getApplicationsBindSpace(space.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "fetching applications")
+			results[i].Error = common.ServerError(newErr)
+			continue
+		}
+		result.Applications = applications
+
+		machineCount, err := api.getMachineCountBySpaceID(space.Id())
+		if err != nil {
+			newErr := errors.Annotatef(err, "fetching machine count")
+			results[i].Error = common.ServerError(newErr)
+			continue
+		}
+
+		result.MachineCount = machineCount
+		results[i] = result
+	}
+
+	return params.ShowSpaceResults{Results: results}, err
+}
+
 // ReloadSpaces is not available via the V2 API.
 func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
@@ -324,4 +425,39 @@ func (api *API) checkSupportsSpaces() error {
 		return errors.NotSupportedf("spaces")
 	}
 	return nil
+}
+
+func (api *API) getMachineCountBySpaceID(spaceID string) (int, error) {
+	var count int
+	machines, err := api.backing.AllMachines()
+	if err != nil {
+		return 0, errors.Trace(err)
+	}
+	for _, machine := range machines {
+		spacesSet, err := machine.AllSpaces()
+		if err != nil {
+			return 0, errors.Trace(err)
+		}
+		if spacesSet.Contains(spaceID) {
+			count++
+		}
+	}
+	return count, nil
+}
+
+func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) {
+	endpointBindings, err := api.backing.AllEndpointBindings()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Using a set as we only we want the application names once.
+	applications := set.NewStrings()
+	for _, binding := range endpointBindings {
+		for _, spaceID := range binding.Bindings {
+			if spaceID == givenSpaceID {
+				applications.Add(binding.AppName)
+			}
+		}
+	}
+	return applications.SortedValues(), nil
 }
