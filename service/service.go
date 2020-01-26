@@ -128,11 +128,11 @@ var NewService = func(name string, conf common.Conf, series string) (Service, er
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newService(name, conf, initSystem, series)
+	return newService(name, conf, initSystem)
 }
 
 // this needs to be stubbed out in some tests
-func newService(name string, conf common.Conf, initSystem, series string) (Service, error) {
+func newService(name string, conf common.Conf, initSystem string) (Service, error) {
 	var svc Service
 	var err error
 
