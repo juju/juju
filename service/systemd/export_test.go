@@ -32,8 +32,7 @@ func PatchNewChan(patcher patcher) chan string {
 
 func PatchFileOps(patcher patcher, ctrl *gomock.Controller) *MockShimFileOps {
 	mock := NewMockShimFileOps(ctrl)
-	patcher.PatchValue(&removeAll, mock.RemoveAll)
-	patcher.PatchValue(&mkdirAll, mock.MkdirAll)
+	patcher.PatchValue(&remove, mock.Remove)
 	patcher.PatchValue(&createFile, mock.CreateFile)
 	return mock
 }

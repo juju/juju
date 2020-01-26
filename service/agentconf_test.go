@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	svctesting "github.com/juju/juju/service/common/testing"
-	"github.com/juju/juju/service/systemd"
 	"github.com/juju/juju/testing"
 	coretest "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -124,7 +123,7 @@ func (s *agentConfSuite) listServices() ([]string, error) {
 	return s.serviceData.InstalledNames(), nil
 }
 
-func (s *agentConfSuite) newService(name string, conf common.Conf) (service.Service, error) {
+func (s *agentConfSuite) newService(name string, _ common.Conf) (service.Service, error) {
 	for _, svc := range s.services {
 		if svc.Name() == name {
 			return svc, nil
@@ -291,7 +290,7 @@ func (s *agentConfSuite) TestCopyAgentBinaryOriginalAgentBinariesNotFound(c *gc.
 
 func (s *agentConfSuite) TestWriteSystemdAgents(c *gc.C) {
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
@@ -307,14 +306,13 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 	)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
 	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
 	c.Assert(errAgents, gc.HasLen, 0)
 	s.assertServicesCalls(c, "WriteService", len(s.services))
-	s.assertServiceSymLinks(c)
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
@@ -325,7 +323,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -344,7 +342,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
-		s.machineName, s.unitNames, s.systemdDataDir, s.systemdDir, s.systemdMultiUserDir)
+		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
 
 	c.Assert(err, gc.ErrorMatches, "fail me")
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
@@ -369,16 +367,6 @@ func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
 		linkResult, err := os.Readlink(link)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(linkResult, gc.Equals, path.Join(s.dataDir, "tools", ver.String()))
-	}
-}
-
-func (s *agentConfSuite) assertServiceSymLinks(c *gc.C) {
-	for _, name := range append(s.unitNames, s.machineName) {
-		svcName := "jujud-" + name
-		svcFileName := svcName + ".service"
-		result, err := os.Readlink(path.Join(s.systemdDir, svcFileName))
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(result, gc.Equals, path.Join(systemd.LibSystemdDir, svcName, svcFileName))
 	}
 }
 

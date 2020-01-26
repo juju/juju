@@ -679,6 +679,71 @@ func (s *VolumeStateSuite) TestDestroyVolumeNoAttachments(c *gc.C) {
 	c.Assert(volume.Life(), gc.Equals, state.Dead)
 }
 
+func (s *VolumeStateSuite) TestDetachVolumeDyingAttachment(c *gc.C) {
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
+	volumeTag := volume.VolumeTag()
+	machineTag := machine.MachineTag()
+	// Make sure the state is already dying by the time we call DetachVolume
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.storageBackend.DetachVolume(machineTag, volumeTag)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err := s.storageBackend.DetachVolume(machineTag, volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+
+	volumeAttachment := s.volumeAttachment(c, machineTag, volumeTag)
+	c.Assert(volumeAttachment.Life(), gc.Equals, state.Dying)
+	volume = s.volume(c, volumeTag)
+	c.Assert(volume.Life(), gc.Equals, state.Alive)
+	err = s.storageBackend.DestroyVolume(volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *VolumeStateSuite) TestDetachVolumeDyingAttachmentPlan(c *gc.C) {
+	volume, machine := s.setupModelScopedVolumeAttachment(c)
+	machineTag := machine.MachineTag()
+	volumeTag := volume.VolumeTag()
+	err := machine.SetProvisioned("inst-id", "", "fake_nonce", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.SetVolumeInfo(volumeTag,
+		state.VolumeInfo{
+			Size:     1024,
+			VolumeId: "vol-ume",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.storageBackend.SetVolumeAttachmentInfo(machineTag, volumeTag,
+		state.VolumeAttachmentInfo{
+			DeviceName: "bogus",
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	// Simulate a machine agent recording its intent to attach the volume
+	err = s.storageBackend.CreateVolumeAttachmentPlan(machineTag, volumeTag,
+		state.VolumeAttachmentPlanInfo{DeviceType: storage.DeviceTypeLocal})
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.storageBackend.DetachVolume(machineTag, volumeTag)
+		c.Assert(err, jc.ErrorIsNil)
+	}).Check()
+
+	err = s.storageBackend.DetachVolume(machineTag, volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	// The volume attachment shouldn't progress to dying, but its volume attachment plan should have
+	volumeAttachment := s.volumeAttachment(c, machineTag, volumeTag)
+	c.Assert(volumeAttachment.Life(), gc.Equals, state.Alive)
+	volumeAttachmentPlan := s.volumeAttachmentPlan(c, machineTag, volumeTag)
+	c.Assert(volumeAttachmentPlan.Life(), gc.Equals, state.Dying)
+	volume = s.volume(c, volumeTag)
+	// now calling RemoveAttachmentPlan removes the plan and moves the VolumeAttachment to dying
+	err = s.storageBackend.RemoveVolumeAttachmentPlan(machineTag, volumeTag)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.storageBackend.VolumeAttachmentPlan(machineTag, volumeTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	volumeAttachment = s.volumeAttachment(c, machineTag, volumeTag)
+	c.Assert(volumeAttachment.Life(), gc.Equals, state.Dying)
+}
+
 func (s *VolumeStateSuite) TestRemoveVolume(c *gc.C) {
 	volume, machine := s.setupMachineScopedVolumeAttachment(c)
 

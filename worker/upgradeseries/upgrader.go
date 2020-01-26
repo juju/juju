@@ -16,10 +16,7 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/servicemanager_mock.go github.com/juju/juju/service SystemdServiceManager
 
-var (
-	systemdDir          = systemd.EtcSystemdDir
-	systemdMultiUserDir = systemd.EtcSystemdMultiUserDir
-)
+var systemdMultiUserDir = systemd.EtcSystemdMultiUserDir
 
 // Upgrader describes methods required to perform file-system manipulation in
 // preparation for upgrading the host Ubuntu version.
@@ -108,7 +105,7 @@ func (u *upgrader) ensureSystemdFiles() error {
 	}
 
 	services, links, failed, err := u.manager.WriteSystemdAgents(
-		u.machineAgent, u.unitAgents, paths.NixDataDir, systemdDir, systemdMultiUserDir)
+		u.machineAgent, u.unitAgents, paths.NixDataDir, systemdMultiUserDir)
 
 	if len(services) > 0 {
 		u.logger.Infof("agents written and linked by systemd: %s", strings.Join(services, ", "))

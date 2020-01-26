@@ -75,7 +75,7 @@ func (s *upgraderSuite) TestToSystemdServicesWritten(c *gc.C) {
 	s.patchFrom("trusty")
 
 	s.manager.EXPECT().WriteSystemdAgents(
-		s.machineService, s.unitServices, paths.NixDataDir, systemd.EtcSystemdDir, systemd.EtcSystemdMultiUserDir,
+		s.machineService, s.unitServices, paths.NixDataDir, systemd.EtcSystemdMultiUserDir,
 	).Return(append(s.unitServices, s.machineService), nil, nil, nil)
 
 	s.manager.EXPECT().CopyAgentBinary(

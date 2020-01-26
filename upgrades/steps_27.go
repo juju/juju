@@ -8,13 +8,11 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/series"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/service"
 )
 
 // stateStepsFor27 returns upgrade steps for Juju 2.7.0.
@@ -150,38 +148,10 @@ func resetLogPermissions(context Context) error {
 		logger.Infof("skipping agent %q, is CAAS", k8sprovider.CAASProviderType)
 		return nil
 	}
-	isSystemd, err := getCurrentInit()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	if !isSystemd {
-		logger.Infof("skipping update of log file ownership as host not using systemd")
-		return nil
-	}
-	sysdManager := service.NewServiceManagerWithDefaults()
-	if err = sysdManager.WriteServiceFiles(); err != nil {
-		return errors.Trace(err)
-	}
-	logDir := context.AgentConfig().LogDir()
-	if err = setJujuFolderPermissionsToAdm(logDir); err != nil {
-		return errors.Trace(err)
-	}
-	logger.Infof("Successfully wrote service files in /lib/systemd/system path")
-	return nil
-}
 
-func getCurrentInit() (bool, error) {
-	hostSeries, err := series.HostSeries()
-	if err != nil {
-		return false, errors.Trace(err)
+	if err := writeServiceFiles(false)(context); err != nil {
+		return errors.Trace(err)
 	}
-	initName, err := service.VersionInitSystem(hostSeries)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	if initName == service.InitSystemSystemd {
-		return true, nil
-	} else {
-		return false, nil
-	}
+
+	return errors.Trace(setJujuFolderPermissionsToAdm(context.AgentConfig().LogDir()))
 }
