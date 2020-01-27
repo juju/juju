@@ -71,10 +71,13 @@ run_deploy_trusted_bundle() {
     destroy_model test-trusted-bundles-deploy
 }
 
-run_deploy_lxd_profile_bundle() {
+# run_deploy_lxd_profile_bundle_openstack is to test a more
+# real world scenario of a minimal openstack bundle with a
+# charm using an lxd profile.
+run_deploy_lxd_profile_bundle_openstack() {
     echo
 
-    model_name="test-deploy-lxd-profile-bundle"
+    model_name="test-deploy-lxd-profile-bundle-o7k"
     file="${TEST_DIR}/${model_name}.txt"
 
     ensure "${model_name}" "${file}"
@@ -100,6 +103,44 @@ run_deploy_lxd_profile_bundle() {
     destroy_model "${model_name}"
 }
 
+# run_deploy_lxd_profile_bundle is to deploy multiple units of the
+# same charm which has an lxdprofile in a bundle.  The scenario
+# created by the bundle was found to produce failure cases during
+# development of the lxd profile feature.
+run_deploy_lxd_profile_bundle() {
+    echo
+
+    model_name="test-deploy-lxd-profile-bundle"
+    file="${TEST_DIR}/${model_name}.txt"
+
+    ensure "${model_name}" "${file}"
+
+    bundle=./tests/suites/deploy/bundles/lxd-profile-bundle.yaml
+    juju deploy "${bundle}"
+
+    # 8 units of lxd-profile
+    for i in 0 1 2 3 4 5 6 7
+    do
+        wait_for "lxd-profile" "$(idle_condition "lxd-profile" 0 "${i}")"
+    done
+    # 4 units of ubuntu
+    for i in 0 1 2 3
+    do
+        wait_for "ubuntu" "$(idle_condition "ubuntu" 1 "${i}")"
+    done
+
+    lxd_profile_name="juju-${model_name}-lxd-profile"
+    for i in 0 1 2 3
+    do
+        machine_n_lxd0="$(machine_container_path "${i}" "${i}"/lxd/0)"
+        juju status --format=json | jq "${machine_n_lxd0}" | grep -q "${lxd_profile_name}"
+        machine_n_lxd1="$(machine_container_path "${i}" "${i}"/lxd/1)"
+        juju status --format=json | jq "${machine_n_lxd1}" | grep -q "${lxd_profile_name}"
+    done
+
+    destroy_model "${model_name}"
+}
+
 test_deploy_bundles() {
     if [ "$(skip 'test_deploy_bundles')" ]; then
         echo "==> TEST SKIPPED: deploy bundles"
@@ -115,6 +156,7 @@ test_deploy_bundles() {
         run "run_deploy_cmr_bundle"
         run "run_deploy_exported_bundle"
         run "run_deploy_trusted_bundle"
+        run "run_deploy_lxd_profile_bundle_openstack"
         run "run_deploy_lxd_profile_bundle"
     )
 }

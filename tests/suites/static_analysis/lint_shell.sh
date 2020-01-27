@@ -37,7 +37,7 @@ run_test_setup() {
     S=$(grep -owr "${subtest}" tests/suites)
     COUNT=$(echo "${S}" | wc -l)
     TEST_FILE=$(echo "${S}" | cut -f1 -d":")
-    if [ "${COUNT}" -ne 2 ]; then
+    if ${COUNT} % 2 == 0 ; then
       echo ""
       echo "$(red 'Found some issues:')"
       echo "Expected subtest (${subtest}) to be in the same file as test (${TEST_FILE})."
