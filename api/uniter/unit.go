@@ -869,7 +869,7 @@ func (u *Unit) SetState(unitState map[string]string) error {
 	var results params.ErrorResults
 	req := params.SetUnitStateArgs{
 		Args: []params.SetUnitStateArg{
-			params.SetUnitStateArg{
+			{
 				Tag:   u.tag.String(),
 				State: unitState,
 			},
