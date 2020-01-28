@@ -1012,6 +1012,72 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
 }
 
+func (s *unitSuite) TestSetStateSingleResult(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		},
+	)
+
+	unitState := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	err := s.apiUnit.SetState(unitState)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestSetStateMultipleReturnsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 2)
+			return nil
+		},
+	)
+
+	unitState := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	err := s.apiUnit.SetState(unitState)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *unitSuite) TestStateSingleResult(c *gc.C) {
+	expectedUnitState := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	uniter.PatchUnitResponse(s, s.apiUnit, "State",
+		func(results interface{}) error {
+			result := results.(*params.UnitStateResults)
+			result.Results = make([]params.UnitStateResult, 1)
+			result.Results[0].State = expectedUnitState
+			return nil
+		},
+	)
+
+	obtainedUnitState, err := s.apiUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expectedUnitState, gc.DeepEquals, obtainedUnitState)
+}
+
+func (s *unitSuite) TestStateMultipleReturnsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "State",
+		func(results interface{}) error {
+			result := results.(*params.UnitStateResults)
+			result.Results = make([]params.UnitStateResult, 2)
+			return nil
+		},
+	)
+
+	_, err := s.apiUnit.State()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
 type unitMetricBatchesSuite struct {
 	jujutesting.JujuConnSuite
 

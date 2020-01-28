@@ -6,6 +6,7 @@ package context_test
 import (
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
+	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -553,4 +555,105 @@ func (p *mockProcess) Kill() error {
 
 func (p *mockProcess) Pid() int {
 	return 123
+}
+
+var _ = gc.Suite(&mockHookContextSuite{})
+
+type mockHookContextSuite struct {
+	mockUnit *mocks.MockHookUnit
+}
+
+func (s *mockHookContextSuite) TestDeleteCacheValue(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	err := hookContext.DeleteCacheValue("one")
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = hookContext.GetCacheValue("one")
+	c.Assert(err, gc.ErrorMatches, "\"one\" not found")
+}
+
+func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	err := hookContext.DeleteCacheValue("five")
+	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+}
+
+func (s *mockHookContextSuite) TestGetCacheValue(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	value, err := hookContext.GetCacheValue("three")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, gc.Equals, "four")
+}
+
+func (s *mockHookContextSuite) TestGetCacheValueFail(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	_, err := hookContext.GetCacheValue("five")
+	c.Assert(err, gc.ErrorMatches, "\"five\" not found")
+}
+
+func (s *mockHookContextSuite) TestGetCacheStateErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	_, err := hookContext.GetCacheValue("five")
+	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+}
+
+func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	s.testSetCache(c)
+}
+
+func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockUnit.EXPECT().State().Return(nil, nil)
+
+	s.testSetCache(c)
+}
+
+func (s *mockHookContextSuite) testSetCache(c *gc.C) {
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	err := hookContext.SetCacheValue("five", "six")
+	c.Assert(err, jc.ErrorIsNil)
+	value, err := hookContext.GetCacheValue("five")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(value, gc.Equals, "six")
+}
+
+func (s *mockHookContextSuite) TestSetCacheStateErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	err := hookContext.SetCacheValue("five", "six")
+	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+}
+
+func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockUnit = mocks.NewMockHookUnit(ctrl)
+	return ctrl
+}
+
+func (s *mockHookContextSuite) expectStateValues() {
+	cache := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	s.mockUnit.EXPECT().State().Return(cache, nil)
 }

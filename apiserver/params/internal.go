@@ -251,6 +251,29 @@ type ConfigSettingsResults struct {
 	Results []ConfigSettingsResult `json:"results"`
 }
 
+// UnitStateResult holds a unit state map or an error.
+type UnitStateResult struct {
+	Error *Error            `json:"error,omitempty"`
+	State map[string]string `json:"state"`
+}
+
+// UnitStateResults holds multiple unit state maps or errors.
+type UnitStateResults struct {
+	Results []UnitStateResult `json:"results"`
+}
+
+// SetUnitStateArgs holds multiple SetUnitStateArg objects to be persisted by the controller.
+type SetUnitStateArgs struct {
+	Args []SetUnitStateArg `json:"args"`
+}
+
+// SetUnitStateArg holds a unit tag and a map with KV-pairs that represent a local
+// charm state to be persisted by the controller
+type SetUnitStateArg struct {
+	Tag   string            `json:"tag"`
+	State map[string]string `json:"state"`
+}
+
 // ModelConfig holds a model configuration.
 type ModelConfig map[string]interface{}
 

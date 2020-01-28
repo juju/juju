@@ -114,9 +114,32 @@ type HookProcess interface {
 	Kill() error
 }
 
+//go:generate mockgen -package mocks -destination mocks/hookunit_mock.go github.com/juju/juju/worker/uniter/runner/context HookUnit
+
+// HookUnit represents the functions needed by a unit in a hook context to
+// call into state.
+type HookUnit interface {
+	AddStorage(constraints map[string][]params.StorageConstraints) error
+	Application() (*uniter.Application, error)
+	ApplicationName() string
+	ClosePorts(protocol string, fromPort, toPort int) error
+	ConfigSettings() (charm.Settings, error)
+	LogActionMessage(names.ActionTag, string) error
+	Name() string
+	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
+	OpenPorts(protocol string, fromPort, toPort int) error
+	RequestReboot() error
+	SetState(map[string]string) error
+	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
+	State() (map[string]string, error)
+	Tag() names.UnitTag
+	UnitStatus() (params.StatusResult, error)
+	UpdateNetworkInfo() error
+}
+
 // HookContext is the implementation of runner.Context.
 type HookContext struct {
-	unit *uniter.Unit
+	unit HookUnit
 
 	// state is the handle to the uniter State so that HookContext can make
 	// API calls on the state.
@@ -258,7 +281,73 @@ type HookContext struct {
 	// podSpecYaml is the pending pod spec to be committed.
 	podSpecYaml *string
 
+	// A cached view of the unit's state that gets persisted by juju once
+	// the context is flushed.
+	cacheValues map[string]string
+
 	mu sync.Mutex
+}
+
+// GetCacheValue returns the value for the given key from the cache.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) GetCacheValue(key string) (string, error) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return "", err
+	}
+
+	value, ok := ctx.cacheValues[key]
+	if !ok {
+		return "", errors.NotFoundf("%q", key)
+	}
+	return value, nil
+}
+
+// SetCacheValue sets the key/value pair provided in the cache.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) SetCacheValue(key, value string) error {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return err
+	}
+
+	ctx.cacheValues[key] = value
+	return nil
+}
+
+// DeleteCacheValue deletes the key/value pair for the given key from
+// the cache.
+// Implements jujuc.HookContext.unitCacheContext, part of runner.Context.
+func (ctx *HookContext) DeleteCacheValue(key string) error {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
+	if err := ctx.ensureStateValuesLoaded(); err != nil {
+		return err
+	}
+
+	delete(ctx.cacheValues, key)
+	return nil
+}
+
+// ensureStateValuesLoaded retrieves and caches the unit's state from the
+// controller. The caller of this method must be holding the ctx mutex.
+func (ctx *HookContext) ensureStateValuesLoaded() error {
+	// NOTE: Assuming lock to be held!
+	if ctx.cacheValues != nil {
+		return nil
+	}
+
+	// Load from controller
+	state, err := ctx.unit.State()
+	if err != nil {
+		return errors.Annotate(err, "loading unit state from database")
+	} else if state == nil {
+		state = make(map[string]string)
+	}
+	ctx.cacheValues = state
+	return nil
 }
 
 // Component returns the ContextComponent with the supplied name if
@@ -883,6 +972,17 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 	// potential changes to already bound endpoints.
 	if process == string(hooks.ConfigChanged) {
 		if e := ctx.unit.UpdateNetworkInfo(); e != nil {
+			return errors.Trace(e)
+		}
+	}
+
+	// TODO: We need a uniter API to persist the following in a single txn:
+	// - the state
+	// - relation data
+	// - storage changes
+	// - podspec
+	if ctx.cacheValues != nil && writeChanges {
+		if e := ctx.unit.SetState(ctx.cacheValues); e != nil {
 			return errors.Trace(e)
 		}
 	}

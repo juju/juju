@@ -12,6 +12,7 @@ import (
 // ContextInfo holds the values for the hook context.
 type ContextInfo struct {
 	Unit
+	UnitCache
 	Status
 	Instance
 	NetworkInterface
@@ -57,6 +58,7 @@ type contextBase struct {
 // Context is a test double for jujuc.Context.
 type Context struct {
 	ContextUnit
+	ContextUnitCache
 	ContextStatus
 	ContextInstance
 	ContextNetworking
