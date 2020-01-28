@@ -90,9 +90,9 @@ type Service interface {
 	StartCommands() ([]string, error)
 }
 
-// ConfigureableService performs tasks that need to occur between the software
+// ConfigurableService performs tasks that need to occur between the software
 // has been installed and when has started
-type ConfigureableService interface {
+type ConfigurableService interface {
 	// Configure performs any necessary configuration steps
 	Configure() error
 
@@ -279,7 +279,7 @@ func ManuallyRestart(svc ServiceActions) error {
 	if err := svc.Stop(); err != nil {
 		logger.Errorf("could not stop service: %v", err)
 	}
-	configureableService, ok := svc.(ConfigureableService)
+	configureableService, ok := svc.(ConfigurableService)
 	if ok && configureableService.ReConfigureDuringRestart() {
 		if err := configureableService.Configure(); err != nil {
 			return errors.Trace(err)
