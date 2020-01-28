@@ -493,11 +493,11 @@ func (c *Client) cloneVM(
 		},
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "cloning VM %q from %q", args.Name, srcVM.Name())
 	}
 	info, err := taskWaiter.waitTask(ctx, task, "cloning VM")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "waiting for task %q", info.Name)
 	}
 
 	vm := object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference))
