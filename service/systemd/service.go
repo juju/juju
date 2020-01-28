@@ -566,7 +566,19 @@ func (s *Service) StartCommands() ([]string, error) {
 	return cmdList, nil
 }
 
-// WriteService implements UpgradableService.WriteService
+// RemoveOldService (UpgradableService) removes the service files that were
+// written for systemd services prior to 2.7.2.
+// The service definition and any exec-start script used to be written to a
+// directory named after the agent under /lib/systemd/system.
+// A symbolic link then pointed to this local from /etc/systemd/system.
+// We now just write files directly to /etc/systemd/system,
+// so the old directory is deleted if found.
+func (s *Service) RemoveOldService() error {
+	return nil
+}
+
+// WriteService (UpgradableService) writes a systemd unit file for the service
+// and ensures that it is linked and enabled by systemd.
 func (s *Service) WriteService() error {
 	filename, err := s.writeConf()
 	if err != nil {
@@ -585,7 +597,7 @@ func (s *Service) WriteService() error {
 	}
 	defer conn.Close()
 
-	runtime, force := false, true
+	const runtime, force = false, true
 	if _, err = conn.LinkUnitFiles([]string{filename}, runtime, force); err != nil {
 		return s.errorf(err, "dbus link request failed")
 	}
