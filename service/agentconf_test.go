@@ -316,9 +316,13 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
+	// nil errors are for calls to RemoveOldService.
 	s.services[0].SetErrors(
+		nil,
 		errors.New("No such method 'LinkUnitFiles'"),
+		nil,
 		errors.New("No such method 'LinkUnitFiles'"),
+		nil,
 		errors.New("No such method 'LinkUnitFiles'"),
 	)
 
@@ -331,11 +335,15 @@ func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
 	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
 	c.Assert(errAgents, gc.HasLen, 0)
+	s.assertServicesCalls(c, "RemoveOldService", len(s.services))
 	s.assertServicesCalls(c, "WriteService", len(s.services))
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	s.services[0].SetErrors(
+		nil,
+		nil,
+		nil,
 		nil,
 		nil,
 		errors.New("fail me"), // fail the machine
@@ -348,6 +356,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
 	c.Assert(startedSymLinkAgents, gc.DeepEquals, s.agentUnitNames())
 	c.Assert(errAgents, gc.DeepEquals, []string{s.machineName})
+	s.assertServicesCalls(c, "RemoveOldService", len(s.services))
 	s.assertServicesCalls(c, "WriteService", len(s.services))
 }
 

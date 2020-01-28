@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	LibSystemdDir          = "/lib/systemd/system"
 	EtcSystemdDir          = "/etc/systemd/system"
 	EtcSystemdMultiUserDir = EtcSystemdDir + "/multi-user.target.wants"
 )
@@ -84,11 +85,6 @@ func NewService(
 	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fileOps FileOps, fallBackDirName string,
 ) (*Service, error) {
 	confName := name + ".service"
-	var volName string
-	if conf.ExecStart != "" {
-		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
-	}
-	dirName := volName + renderer.Join(dataDir)
 
 	service := &Service{
 		Service: common.Service{
@@ -97,7 +93,7 @@ func NewService(
 		},
 		ConfName:        confName,
 		UnitName:        confName,
-		DirName:         dirName,
+		DirName:         renderer.Join(dataDir),
 		FallBackDirName: fallBackDirName,
 		fileOps:         fileOps,
 		newDBus:         newDBus,
@@ -546,7 +542,7 @@ func (s *Service) StartCommands() ([]string, error) {
 // We now just write files directly to /etc/systemd/system,
 // so the old directory is deleted if found.
 func (s *Service) RemoveOldService() error {
-	return nil
+	return errors.Trace(s.fileOps.RemoveAll(renderer.Join(LibSystemdDir, s.Name())))
 }
 
 // WriteService (UpgradableService) writes a systemd unit file for the service
