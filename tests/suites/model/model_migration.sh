@@ -184,6 +184,11 @@ run_model_migration_saas_consumer() {
     juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
     juju relate dummy-sink dummy-source
 
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju config dummy-source token=wait-for-it
+    juju switch "model-migration-saas-consume"
+    wait_for "wait-for-it" "$(workload_status "dummy-sink" 0).message"
+
     juju migrate "model-migration-consumer" "model-migration-saas-target"
     juju switch "model-migration-saas-target"
 
