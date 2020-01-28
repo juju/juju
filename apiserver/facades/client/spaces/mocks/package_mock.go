@@ -116,19 +116,19 @@ func (mr *MockBackingMockRecorder) CloudSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockBacking)(nil).CloudSpec))
 }
 
-// Constraints mocks base method
-func (m *MockBacking) Constraints() (constraints.Value, error) {
+// ConstraintsBySpace mocks base method
+func (m *MockBacking) ConstraintsBySpace(arg0 string) (map[string]constraints.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Constraints")
-	ret0, _ := ret[0].(constraints.Value)
+	ret := m.ctrl.Call(m, "ConstraintsBySpace", arg0)
+	ret0, _ := ret[0].(map[string]constraints.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Constraints indicates an expected call of Constraints
-func (mr *MockBackingMockRecorder) Constraints() *gomock.Call {
+// ConstraintsBySpace indicates an expected call of ConstraintsBySpace
+func (mr *MockBackingMockRecorder) ConstraintsBySpace(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Constraints", reflect.TypeOf((*MockBacking)(nil).Constraints))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpace", reflect.TypeOf((*MockBacking)(nil).ConstraintsBySpace), arg0)
 }
 
 // ControllerConfig mocks base method
@@ -190,7 +190,7 @@ func (mr *MockBackingMockRecorder) ReloadSpaces(arg0 interface{}) *gomock.Call {
 }
 
 // RenameSpace mocks base method
-func (m *MockBacking) RenameSpace(arg0 settings.ItemChanges, arg1 constraints.Value, arg2, arg3 string) error {
+func (m *MockBacking) RenameSpace(arg0 settings.ItemChanges, arg1 map[string]constraints.Value, arg2, arg3 string) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)

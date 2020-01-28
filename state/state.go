@@ -847,6 +847,41 @@ func (st *State) ModelConstraints() (constraints.Value, error) {
 	return cons, errors.Trace(err)
 }
 
+// ConstraintsBySpaceName returns all the constraints given by the spaceName not ID, as []constraints.Value.
+func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraints.Value, error) {
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsDoc
+	allConstraints := make(map[string]constraints.Value, len(docs))
+	query := bson.D{{"spaces", spaceName}}
+	err := constraintsCollection.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, doc := range docs {
+		allConstraints[doc.DocID] = doc.value()
+	}
+	return allConstraints, nil
+}
+
+// GetConstraintsOps gets the Ops to replace the current constraints
+// cons is a map keyed with the docID of the corresponding constraints doc.
+func (st *State) GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error) {
+	ops := make([]txn.Op, len(cons))
+	for docID, constraint := range cons {
+		unsupported, err := st.validateConstraints(constraint)
+		if len(unsupported) > 0 {
+			logger.Warningf(
+				"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
+		} else if err != nil {
+			return nil, errors.Trace(err)
+		}
+		ops = append(ops, setConstraintsOp(docID, constraint))
+	}
+	return ops, nil
+}
+
 // SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
 	ops, err := st.GetModelConstraintsOps(cons)

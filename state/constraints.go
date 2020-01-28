@@ -17,6 +17,7 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
+	DocID          string `bson:"_id"`
 	ModelUUID      string `bson:"model-uuid"`
 	Arch           *string
 	CpuCores       *uint64

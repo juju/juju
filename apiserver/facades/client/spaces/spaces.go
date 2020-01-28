@@ -72,14 +72,14 @@ type Backing interface {
 	AllMachines() ([]Machine, error)
 
 	// RenameSpace renames the given space `a` given name `b`.
-	// SettingsChanges and Constraints holds the changes to be done in the state.
-	RenameSpace(settingsChanges coresettings.ItemChanges, constraints constraints.Value, fromSpaceName, toName string) error
+	// SettingsChanges and ConstraintsBySpace holds the changes to be done in the state.
+	RenameSpace(settingsChanges coresettings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error
 
 	// ControllerConfig returns current ControllerConfig.
 	ControllerConfig() (jujucontroller.Config, error)
 
-	// Constraints returns current constraints.
-	Constraints() (constraints.Value, error)
+	// ConstraintsBySpace returns current constraints.
+	ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error)
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -330,7 +330,7 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
-		// Constraints
+		// ConstraintsBySpace
 		constraintChanges, err := api.getConstraintsChanges(fromTag.Id(), toTag.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "retrieving constraint changes")
@@ -554,23 +554,27 @@ func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) 
 }
 
 // getConstraintsChanges will do nothing if there are no spaces constraints to update
-func (api *API) getConstraintsChanges(fromSpaceName, toName string) (constraints.Value, error) {
-	currentConstraints, err := api.backing.Constraints()
+func (api *API) getConstraintsChanges(fromSpaceName, toName string) (map[string]constraints.Value, error) {
+	currentConstraints, err := api.backing.ConstraintsBySpace(fromSpaceName)
+	logger.Errorf("current constraints %+v: ", currentConstraints)
 	if err != nil {
-		return constraints.Value{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
-
-	if currentConstraints.HasSpaces() {
-		deref := *currentConstraints.Spaces
-		for i, space := range *currentConstraints.Spaces {
+	toConstraints := make(map[string]*constraints.Value, len(currentConstraints))
+	for id, constraint := range currentConstraints {
+		toConstraints[id] = &constraint
+		spaces := *constraint.Spaces
+		for i, space := range spaces {
 			if space == fromSpaceName {
-				deref[i] = toName
-				currentConstraints.Spaces = &deref
+				spaces[i] = toName
+				constraint.Spaces = &spaces
 				break
 			}
 		}
-
+		logger.Errorf("new spaces %+v: ", constraint.Spaces)
+		logger.Errorf("new to constraints %+v: ", toConstraints)
 	}
+	logger.Errorf("new all constraints %+v: ", toConstraints)
 	return currentConstraints, nil
 }
 

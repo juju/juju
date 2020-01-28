@@ -105,18 +105,19 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
-func (s *stateShim) RenameSpace(settingsChanges settings.ItemChanges, constraints constraints.Value, fromSpaceName, toName string) error {
-	err := s.State.RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
+func (s *stateShim) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
+	err := s.State.
+		RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	return nil
 }
 
-func (s *stateShim) Constraints() (constraints.Value, error) {
-	result, err := s.State.ModelConstraints()
+func (s *stateShim) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
+	result, err := s.State.ConstraintsBySpaceName(spaceName)
 	if err != nil {
-		return constraints.Value{}, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	return result, nil
 }

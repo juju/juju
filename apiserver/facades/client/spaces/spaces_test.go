@@ -328,8 +328,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorGettingConstraints(c *gc.C) {
 
 	bamErr := errors.New("bam")
 	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, "", nil), nil)
-	constraints := constraints.Value{}
-	s.mockBacking.EXPECT().Constraints().Return(constraints, bamErr)
+	s.mockBacking.EXPECT().ConstraintsBySpace(from).Return(nil, bamErr)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
 
 	args := s.getRenameArgs(from, to)
@@ -349,7 +348,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
 	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, "", nil), nil)
-	s.mockBacking.EXPECT().Constraints().Return(constraints.Value{}, nil)
+	s.mockBacking.EXPECT().ConstraintsBySpace(from).Return(nil, nil)
 	s.mockBacking.EXPECT().RenameSpace(gomock.Any(), gomock.Any(), from, to).Return(bamErr)
 	args := s.getRenameArgs(from, to)
 
@@ -365,12 +364,12 @@ func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 	defer unreg()
 	from, to := "bla", "blub"
 
-	cons := constraints.Value{Spaces: &[]string{from}}
-	expectedCons := constraints.Value{Spaces: &[]string{to}}
+	cons := map[string]constraints.Value{"id": {Spaces: &[]string{from}}}
+	expectedCons := map[string]constraints.Value{"id": {Spaces: &[]string{to}}}
 	attr := map[string]interface{}{controller.JujuHASpace: from}
 	expectedItemChanges := settings.ItemChanges{settings.MakeModification(controller.JujuHASpace, from, to)}
 
-	s.mockBacking.EXPECT().Constraints().Return(cons, nil)
+	s.mockBacking.EXPECT().ConstraintsBySpace(from).Return(cons, nil)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
 	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, from, attr), nil)
 
@@ -399,8 +398,12 @@ type stubBacking struct {
 	*apiservertesting.StubBacking
 }
 
-func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints constraints.Value, fromSpaceName, toName string) error {
-	panic("should not be called")
+func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
+	panic("implement me")
+}
+
+func (sb *stubBacking) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
+	panic("implement me")
 }
 
 func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
