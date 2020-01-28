@@ -107,7 +107,13 @@ type RestartableService interface {
 	Restart() error
 }
 
+// UpgradableService describes a service that can be upgraded.
+// It is assumed that such a service is not being upgraded across different
+// init systems; rather taking a new form for the same init system.
 type UpgradableService interface {
+	// Remove old service deletes old files made obsolete by upgrade.
+	RemoveOldService() error
+
 	// WriteService writes the service conf data. If the service is
 	// running, WriteService adds links to allow for manual and automatic
 	// starting of the service.
