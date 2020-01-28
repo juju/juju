@@ -212,6 +212,10 @@ func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMul
 		return false, errors.New("service not of type UpgradableService")
 	}
 
+	if err = uSvc.RemoveOldService(); err != nil {
+		return false, errors.Annotate(err, "deleting legacy service directory")
+	}
+
 	dbusMethodFound := true
 	if err = uSvc.WriteService(); err != nil {
 		// Note that this error is already logged by the systemd package.

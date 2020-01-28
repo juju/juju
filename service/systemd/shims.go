@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils/exec"
 )
 
@@ -27,18 +28,18 @@ func (f fileOps) Remove(name string) error {
 	if _, err := os.Stat(name); os.IsNotExist(err) {
 		return nil
 	}
-	return os.Remove(name)
+	return errors.Trace(os.Remove(name))
 }
 
 // RemoveAll (FileOps) recursively deletes everything under the input path.
 // If the path does not exist, this fact is ignored.
 func (f fileOps) RemoveAll(name string) error {
-	return os.RemoveAll(name)
+	return errors.Trace(os.RemoveAll(name))
 }
 
 // WriteFile (FileOps) writes the input data to a file with the input name.
 // If the file does not exist, it is created with the input permissions.
 // If it does exist, it is truncated before writing.
 func (f fileOps) WriteFile(fileName string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(fileName, data, perm)
+	return errors.Trace(ioutil.WriteFile(fileName, data, perm))
 }
