@@ -918,6 +918,10 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
 			args.CloudContainer = e.cloudContainer(cloudContainer)
 		}
+		if args.State, err = unit.State(); err != nil {
+			return errors.Trace(err)
+		}
+
 		exUnit := exApplication.AddUnit(args)
 
 		e.setUnitResources(exUnit, ctx.resources.UnitResources)
