@@ -17,7 +17,6 @@ import (
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	DocID          string `bson:"_id"`
 	ModelUUID      string `bson:"model-uuid"`
 	Arch           *string
 	CpuCores       *uint64
@@ -31,6 +30,13 @@ type constraintsDoc struct {
 	Spaces         *[]string
 	VirtType       *string
 	Zones          *[]string
+}
+
+// constraintsDocRead is the mongodb representation of a constraints.Value.
+// including the DocID as we do not want to use this doc for updating the immutable _id.
+type constraintsDocRead struct {
+	DocID string `bson:"_id"`
+	constraintsDoc
 }
 
 func (doc constraintsDoc) value() constraints.Value {

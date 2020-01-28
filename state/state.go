@@ -852,7 +852,7 @@ func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraint
 	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
-	var docs []constraintsDoc
+	var docs []constraintsDocRead
 	allConstraints := make(map[string]constraints.Value, len(docs))
 	query := bson.D{{"spaces", spaceName}}
 	err := constraintsCollection.Find(query).All(&docs)
