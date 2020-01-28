@@ -125,12 +125,12 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	deleteDatastoreFileCall1 := s.client.Calls()[5]
 	c.Assert(deleteDatastoreFileCall1.Args, gc.HasLen, 2)
 	c.Assert(deleteDatastoreFileCall1.Args[0], gc.Implements, new(context.Context))
-	c.Assert(deleteDatastoreFileCall1.Args[1], gc.Equals, "[bar] juju-vmdks/foo")
+	c.Assert(deleteDatastoreFileCall1.Args[1], gc.Equals, "[bar] foo/templates")
 
 	deleteDatastoreFileCall2 := s.client.Calls()[6]
 	c.Assert(deleteDatastoreFileCall2.Args, gc.HasLen, 2)
 	c.Assert(deleteDatastoreFileCall2.Args[0], gc.Implements, new(context.Context))
-	c.Assert(deleteDatastoreFileCall2.Args[1], gc.Equals, "[baz] juju-vmdks/foo")
+	c.Assert(deleteDatastoreFileCall2.Args[1], gc.Equals, "[baz] foo/templates")
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {

@@ -91,13 +91,10 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatastore1", "FakeDatastore2"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
-		retrievePropertiesStubCall("FakeRootFolder"),
-		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
-		retrievePropertiesStubCall("FakeControllerVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
 		{"CreateImportSpec", []interface{}{
 			UbuntuOVF,
@@ -109,10 +106,6 @@ func (s *clientSuite) TestCreateVirtualMachine(c *gc.C) {
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
-		retrievePropertiesStubCall("FakeRootFolder"),
-		retrievePropertiesStubCall("FakeDatacenter"),
-		retrievePropertiesStubCall("FakeVmFolder"),
-		retrievePropertiesStubCall("FakeHostFolder"),
 		{"CreateFolder", []interface{}{"juju-vmdks"}},
 		{"CreateFolder", []interface{}{"ctrl"}},
 		{"CreateFolder", []interface{}{"xenial"}},
@@ -174,7 +167,7 @@ func (s *clientSuite) TestCreateVirtualMachineNoDiskUUID(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.roundTripper.CheckCall(c, 44, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 37, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -213,13 +206,13 @@ func (s *clientSuite) TestCreateVirtualMachineDatastoreSpecified(c *gc.C) {
 	cisp := baseCisp()
 	cisp.EntityName = vmTemplateName(args)
 	s.roundTripper.CheckCall(
-		c, 21, "CreateImportSpec", UbuntuOVF,
+		c, 18, "CreateImportSpec", UbuntuOVF,
 		types.ManagedObjectReference{Type: "Datastore", Value: "FakeDatastore1"},
 		cisp,
 	)
 
 	s.roundTripper.CheckCall(
-		c, 44, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+		c, 37, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 			ExtraConfig: []types.BaseOptionValue{
 				&types.OptionValue{Key: "k", Value: "v"},
 			},
@@ -344,12 +337,12 @@ func (s *clientSuite) TestCreateVirtualMachineMultipleNetworksSpecifiedFirstDefa
 		},
 	}
 
-	s.roundTripper.CheckCall(c, 34, "ImportVApp", &types.VirtualMachineImportSpec{
+	s.roundTripper.CheckCall(c, 27, "ImportVApp", &types.VirtualMachineImportSpec{
 		ConfigSpec: types.VirtualMachineConfigSpec{
 			Name: "vm-name",
 		},
 	})
-	s.roundTripper.CheckCall(c, 44, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 37, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},
@@ -404,12 +397,12 @@ func (s *clientSuite) TestCreateVirtualMachineNetworkSpecifiedDVPortgroup(c *gc.
 	}
 
 	retrieveDVSCall := retrievePropertiesStubCall("dvs-0")
-	s.roundTripper.CheckCall(c, 43, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
+	s.roundTripper.CheckCall(c, 36, retrieveDVSCall.FuncName, retrieveDVSCall.Args...)
 
 	// When the external network is a distributed virtual portgroup,
 	// we must make an additional RetrieveProperties call to fetch
 	// the DVS's UUID. This bumps the ImportVApp position by one.
-	s.roundTripper.CheckCall(c, 45, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
+	s.roundTripper.CheckCall(c, 38, "CloneVM_Task", "vm-0", &types.VirtualMachineConfigSpec{
 		ExtraConfig: []types.BaseOptionValue{
 			&types.OptionValue{Key: "k", Value: "v"},
 		},

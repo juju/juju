@@ -129,6 +129,9 @@ func (env *sessionEnviron) newRawInstance(
 	args environs.StartInstanceParams,
 	img *OvaFileMetadata,
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
+	if args.AvailabilityZone == "" {
+		return nil, nil, errors.NotValidf("empty available zone")
+	}
 
 	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
@@ -237,7 +240,7 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
-	logger.Debugf("attempting to create VM in availability zone %s", args.AvailabilityZone)
+	logger.Debugf("attempting to create VM in availability zone %q", args.AvailabilityZone)
 	availZone, err := env.availZone(ctx, args.AvailabilityZone)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
