@@ -208,6 +208,12 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 
 		// Resources are transferred separately
 		"storedResources",
+
+		// Unit state entries will be automatically created when the
+		// operator framework code mutates the state for the charm
+		// running within a unit. This is a new feature that is not
+		// backwards compatible with older controllers.
+		unitStatesC,
 	)
 
 	// THIS SET WILL BE REMOVED WHEN MIGRATIONS ARE COMPLETE
@@ -219,9 +225,6 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sure the leader units' leases are claimed in the target
 		// controller when leases are managed in raft.
 		leaseHoldersC,
-		// TODO(achilleasa) remove this once the required changes to
-		// the description package land.
-		unitStatesC,
 	)
 
 	modelCollections := set.NewStrings()
