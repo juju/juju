@@ -170,5 +170,8 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 		}
 		return errors.Trace(err)
 	}
-	return response.OneError()
+	if err := response.Combine(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
