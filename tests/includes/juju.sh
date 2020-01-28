@@ -286,7 +286,7 @@ remove_controller_offers() {
 
     name=${1}
 
-    OUT=$(juju models -c ${name} --format=json | jq -r ".[\"models\"] | .[] | select(.[\"is-controller\"] == false) | .name" || true)
+    OUT=$(juju models -c "${name}" --format=json | jq -r ".[\"models\"] | .[] | select(.[\"is-controller\"] == false) | .name" || true)
     if [ -n "${OUT}" ]; then
         echo "${OUT}" | while read -r model; do
             OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r ".[] | .[\"offer-url\"]" || true)
