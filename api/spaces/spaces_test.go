@@ -9,11 +9,11 @@ import (
 	"math/rand"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/juju/api/base/mocks"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/api/base/mocks"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
@@ -44,7 +44,7 @@ func (s *spacesSuite) setUpMocks(c *gc.C) *gomock.Controller {
 
 	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
 	s.fCaller.EXPECT().RawAPICaller().Return(caller).AnyTimes()
-	s.API = spaces.NewStateFromCaller(s.fCaller)
+	s.API = spaces.NewAPIFromCaller(s.fCaller)
 	return ctrl
 }
 
@@ -56,7 +56,7 @@ func (s *spacesSuite) TestRenameSpace(c *gc.C) {
 		FromSpaceTag: names.NewSpaceTag(from).String(),
 		ToSpaceTag:   names.NewSpaceTag(to).String(),
 	}}}
-	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall("RenameSpaceCompleteOps", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	err := s.API.RenameSpace(from, to)
 	c.Assert(err, gc.IsNil)
@@ -75,7 +75,7 @@ func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
 		FromSpaceTag: names.NewSpaceTag(from).String(),
 		ToSpaceTag:   names.NewSpaceTag(to).String(),
 	}}}
-	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall("RenameSpaceCompleteOps", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	err := s.API.RenameSpace(from, to)
 	c.Assert(err, gc.ErrorMatches, "bam")

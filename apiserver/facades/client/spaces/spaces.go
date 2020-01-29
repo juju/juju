@@ -16,11 +16,8 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
-	coresettings "github.com/juju/juju/core/settings"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -71,18 +68,11 @@ type Backing interface {
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
 
-	// AllMachines loads all machines
+	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)
 
-	// RenameSpace renames the given space `a` given name `b`.
-	// SettingsChanges and constraints holds the changes to be added to the state.
-	RenameSpace(settingsChanges coresettings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error
-
-	// ControllerConfig returns current ControllerConfig.
-	ControllerConfig() (jujucontroller.Config, error)
-
-	//ConstraintsBySpace returns current constraints using the given spaceName.
-	ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error)
+	// ApplyOperation applies a given ModelOperation to the model.
+	ApplyOperation(state.ModelOperation) error
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -107,12 +97,13 @@ type APIv5 struct {
 
 // API provides the spaces API facade for version 6.
 type API struct {
-	backing    Backing
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	context    context.ProviderCallContext
+	backing   Backing
+	resources facade.Resources
+	auth      facade.Authorizer
+	context   context.ProviderCallContext
 
-	check BlockChecker
+	check     BlockChecker
+	opFactory OpFactory
 }
 
 // NewAPIv2 is a wrapper that creates a V2 spaces API.
@@ -158,7 +149,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, common.NewBlockChecker(st), state.CallContext(st), res, auth)
+	return newAPIWithBacking(stateShim, common.NewBlockChecker(st), state.CallContext(st), res, auth, newOpFactory(st))
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -169,24 +160,26 @@ func newAPIWithBacking(
 	ctx context.ProviderCallContext,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	factory OpFactory,
 ) (*API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backing:    backing,
-		resources:  resources,
-		authorizer: authorizer,
-		context:    ctx,
-		check:      check,
+		backing:   backing,
+		resources: resources,
+		auth:      authorizer,
+		context:   ctx,
+		check:     check,
+		opFactory: factory,
 	}, nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return results, errors.Trace(err)
 	}
@@ -216,7 +209,7 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorResults, error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -285,68 +278,6 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 	return nil
 }
 
-// RenameSpace renames a space.
-func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults, error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if !isAdmin {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if err = api.checkSupportsProviderSpaces(); err != nil {
-		return params.ErrorResults{}, common.ServerError(errors.Trace(err))
-	}
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.SpacesRenames)),
-	}
-
-	for i, spaceRename := range args.SpacesRenames {
-		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
-			continue
-		}
-		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
-			continue
-		}
-		toSpace, err := api.backing.SpaceByName(toTag.Id())
-		if err != nil && !errors.IsNotFound(err) {
-			newErr := errors.Annotatef(err, "retrieving space: %q unexpected error, besides not found", toTag.Id())
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
-			continue
-		}
-		if toSpace != nil {
-			newErr := errors.AlreadyExistsf("space: %q", toTag.Id())
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
-			continue
-		}
-		settingChanges, err := api.getSettingsChanges(fromTag.Id(), toTag.Id())
-		if err != nil {
-			newErr := errors.Annotatef(err, "retrieving setting changes")
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
-			continue
-		}
-		constraintChanges, err := api.getConstraintsChanges(fromTag.Id(), toTag.Id())
-		if err != nil {
-			newErr := errors.Annotatef(err, "retrieving constraint changes")
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
-			continue
-		}
-		if err := api.backing.RenameSpace(settingChanges, constraintChanges, fromTag.Id(), toTag.Id()); err != nil {
-			newErr := errors.Annotatef(err, "failed to rename space %q to name %q", fromTag.Id(), toTag.Id())
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
-			continue
-		}
-	}
-	return results, nil
-}
-
 func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
 	cidrs := make([]string, len(subnetTags))
 	// in lieu of keeping names.v2 around, split the expected
@@ -363,7 +294,7 @@ func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return results, errors.Trace(err)
 	}
@@ -408,7 +339,7 @@ func (api *APIv5) ShowSpace(_, _ struct{}) {}
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return params.ShowSpaceResults{}, errors.Trace(err)
 	}
@@ -475,7 +406,7 @@ func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
 // RefreshSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backing.ModelTag())
+	canWrite, err := api.auth.HasPermission(permission.WriteAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -513,7 +444,7 @@ func (api *API) checkSupportsProviderSpaces() error {
 		return errors.Annotate(err, "getting environ")
 	}
 	if !environs.SupportsProviderSpaces(api.context, env) {
-		return errors.NotSupportedf("provider spaces")
+		return errors.NotSupportedf("renaming provider-sourced spaces")
 	}
 	return nil
 }
@@ -551,44 +482,4 @@ func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) 
 		}
 	}
 	return applications.SortedValues(), nil
-}
-
-// getConstraintsChanges gets the current constraints to update.
-func (api *API) getConstraintsChanges(fromSpaceName, toName string) (map[string]constraints.Value, error) {
-	currentConstraints, err := api.backing.ConstraintsBySpace(fromSpaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	toConstraints := make(map[string]*constraints.Value, len(currentConstraints))
-	for id, constraint := range currentConstraints {
-		toConstraints[id] = &constraint
-		spaces := *constraint.Spaces
-		for i, space := range spaces {
-			if space == fromSpaceName {
-				spaces[i] = toName
-				constraint.Spaces = &spaces
-				break
-			}
-		}
-	}
-	return currentConstraints, nil
-}
-
-func (api *API) getSettingsChanges(fromSpaceName, toName string) (coresettings.ItemChanges, error) {
-	currentControllerConfig, err := api.backing.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	var deltas coresettings.ItemChanges
-
-	if mgmtSpace := currentControllerConfig.JujuManagementSpace(); mgmtSpace == fromSpaceName {
-		change := coresettings.MakeModification(jujucontroller.JujuManagementSpace, fromSpaceName, toName)
-		deltas = append(deltas, change)
-	}
-	if haSpace := currentControllerConfig.JujuHASpace(); haSpace == fromSpaceName {
-		change := coresettings.MakeModification(jujucontroller.JujuHASpace, fromSpaceName, toName)
-		deltas = append(deltas, change)
-	}
-	return deltas, nil
 }

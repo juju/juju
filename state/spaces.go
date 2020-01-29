@@ -12,9 +12,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/settings"
 )
 
 // Space represents the state of a juju network space.
@@ -113,6 +111,17 @@ func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
 		ProviderId: s.ProviderId(),
 		Subnets:    mappedSubnets,
 	}, nil
+}
+
+// RenameSpaceCompleteOps returns the database transaction operations required to
+// rename the input space `fromName` to input `toName`.
+func (s *Space) RenameSpaceCompleteOps(toName string) ([]txn.Op, error) {
+	renameSpaceOps := []txn.Op{{
+		C:      spacesC,
+		Id:     s.doc.Id,
+		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
+	}}
+	return renameSpaceOps, nil
 }
 
 // AddSpace creates and returns a new space.
@@ -256,45 +265,6 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 		return nil, errors.Annotatef(err, "cannot get space %q", name)
 	}
 	return &Space{st, doc}, nil
-}
-
-// RenameSpace renames the input space `fromName` to input `toName`.
-// settingsDelta are the delta for the controllerSettings collection.
-// newConstraints are the new constraints to be input into the database.
-// An error is returned if the space does not exist or if there was a problem
-// accessing its information.
-func (st *State) RenameSpace(fromName, toName string, settingsDelta settings.ItemChanges, newConstraints map[string]constraints.Value) error {
-	var totalOps []txn.Op
-	space, err := st.SpaceByName(fromName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	newConstraintsOps, err := st.GetConstraintsOps(newConstraints)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	newSettingsOps, err := st.NewControllerSettings().DeltaOps(controllerSettingsGlobalKey, settingsDelta)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	renameSpaceOps := []txn.Op{{
-		C:      spacesC,
-		Id:     space.doc.Id,
-		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
-	}}
-
-	totalOps = append(totalOps, newConstraintsOps...)
-	totalOps = append(totalOps, renameSpaceOps...)
-	totalOps = append(totalOps, newSettingsOps...)
-
-	txnErr := st.db().RunTransaction(totalOps)
-
-	if txnErr == nil {
-		return nil
-	}
-	return onAbort(txnErr, errors.New("not found or cannot rename"))
 }
 
 // AllSpaceInfos return SpaceInfos for all spaces in the model.

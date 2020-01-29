@@ -7,7 +7,7 @@ import (
 	"github.com/juju/juju/api/base"
 )
 
-func NewStateFromCaller(caller base.FacadeCaller) *API {
+func NewAPIFromCaller(caller base.FacadeCaller) *API {
 	return &API{
 		facade: caller,
 	}

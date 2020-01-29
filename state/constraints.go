@@ -114,3 +114,21 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 	}
 	return nil
 }
+
+// ConstraintsBySpaceName returns all the constraints given by the spaceName, as a map keyed by the DocID.
+func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraints.Value, error) {
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsWithID
+	allConstraints := make(map[string]constraints.Value, len(docs))
+	query := bson.D{{"spaces", spaceName}}
+	err := constraintsCollection.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, doc := range docs {
+		allConstraints[doc.DocID] = doc.Nested.value()
+	}
+	return allConstraints, nil
+}

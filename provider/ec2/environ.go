@@ -154,7 +154,7 @@ func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) 
 }
 
 func (e *environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
-	return true, nil
+	return false, nil
 }
 
 // SupportsContainerAddresses is specified on environs.Networking.

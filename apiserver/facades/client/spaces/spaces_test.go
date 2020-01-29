@@ -10,7 +10,6 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/juju/environs"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -29,6 +28,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/settings"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	environMocks "github.com/juju/juju/environs/mocks"
 	coretesting "github.com/juju/juju/testing"
@@ -283,7 +283,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorNoProviderSpacesSupport(c *gc.C
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.api.RenameSpace(args)
-	c.Assert(err, gc.ErrorMatches, "provider spaces not supported")
+	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
 }
 
@@ -412,11 +412,11 @@ type stubBacking struct {
 }
 
 func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
-	panic("implement me")
+	panic("should not be called")
 }
 
 func (sb *stubBacking) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
-	panic("implement me")
+	panic("should not be called")
 }
 
 func (sb *stubBacking) ControllerConfig() (controller.Config, error) {

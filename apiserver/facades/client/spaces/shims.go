@@ -8,10 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -103,27 +100,6 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
-func (s *stateShim) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
-	err := s.State.
-		RenameSpace(fromSpaceName, toName, settingsChanges, constraints)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
-func (s *stateShim) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
-	result, err := s.State.ConstraintsBySpaceName(spaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
-}
-
-func (s *stateShim) ControllerConfig() (controller.Config, error) {
-	result, err := s.State.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
+func (s *stateShim) ApplyOperation(op state.ModelOperation) error {
+	return s.State.ApplyOperation(op)
 }

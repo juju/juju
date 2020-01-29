@@ -80,6 +80,11 @@ func (ctlr *Controller) Ping() error {
 	return ctlr.pool.SystemState().Ping()
 }
 
+// ControllerSettingsGlobalKey returns the global controller settings key.
+func (st *State) ControllerSettingsGlobalKey() string {
+	return controllerSettingsGlobalKey
+}
+
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
 	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
