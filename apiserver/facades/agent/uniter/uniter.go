@@ -3182,6 +3182,10 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 	return settingsGroup.Write()
 }
 
+// State isn't on the v14 API.
+func (u *UniterAPIV14) State(_ struct{}) {}
+
+// State returns the state persisted by the charm running in this unit.
 func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
@@ -3215,6 +3219,10 @@ func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error)
 	return params.UnitStateResults{Results: res}, nil
 }
 
+// SetState isn't on the v14 API.
+func (u *UniterAPIV14) SetState(_ struct{}) {}
+
+// SetState persists the state of the charm running in this unit.
 func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
