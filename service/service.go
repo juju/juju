@@ -90,9 +90,9 @@ type Service interface {
 	StartCommands() ([]string, error)
 }
 
-// ConfigureableService performs tasks that need to occur between the software
+// ConfigurableService performs tasks that need to occur between the software
 // has been installed and when has started
-type ConfigureableService interface {
+type ConfigurableService interface {
 	// Configure performs any necessary configuration steps
 	Configure() error
 
@@ -107,7 +107,13 @@ type RestartableService interface {
 	Restart() error
 }
 
+// UpgradableService describes a service that can be upgraded.
+// It is assumed that such a service is not being upgraded across different
+// init systems; rather taking a new form for the same init system.
 type UpgradableService interface {
+	// Remove old service deletes old files made obsolete by upgrade.
+	RemoveOldService() error
+
 	// WriteService writes the service conf data. If the service is
 	// running, WriteService adds links to allow for manual and automatic
 	// starting of the service.
@@ -279,7 +285,7 @@ func ManuallyRestart(svc ServiceActions) error {
 	if err := svc.Stop(); err != nil {
 		logger.Errorf("could not stop service: %v", err)
 	}
-	configureableService, ok := svc.(ConfigureableService)
+	configureableService, ok := svc.(ConfigurableService)
 	if ok && configureableService.ReConfigureDuringRestart() {
 		if err := configureableService.Configure(); err != nil {
 			return errors.Trace(err)

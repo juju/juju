@@ -176,7 +176,6 @@ func (s *systemdServiceManager) WriteSystemdAgents(
 	for _, agentName := range append(unitAgents, machineAgent) {
 		systemdLinked, err := s.writeSystemdAgent(agentName, dataDir, systemdMultiUserDir)
 		if err != nil {
-			logger.Errorf("service creation failed for %s: %s", agentName, err.Error())
 			errAgentNames = append(errAgentNames, agentName)
 			lastError = err
 			continue
@@ -210,6 +209,10 @@ func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMul
 	uSvc, ok := svc.(UpgradableService)
 	if !ok {
 		return false, errors.New("service not of type UpgradableService")
+	}
+
+	if err = uSvc.RemoveOldService(); err != nil {
+		return false, errors.Annotate(err, "deleting legacy service directory")
 	}
 
 	dbusMethodFound := true
@@ -281,11 +284,7 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 	}
 
 	srvPath := path.Join(paths.NixLogDir, "juju")
-	info := NewAgentInfo(
-		kind,
-		tag.Id(),
-		dataDir,
-		srvPath)
+	info := NewAgentInfo(kind, tag.Id(), dataDir, srvPath)
 	return AgentConf(info, renderer), nil
 }
 
