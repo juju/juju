@@ -36,8 +36,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v14) of the Uniter API,
-// which adds GetPodSpec.
+// UniterAPI implements the latest version (v15) of the Uniter API,
+// which adds the State and SetState calls.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -74,10 +74,16 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV14 implements version (v14) of the Uniter API,
+// which adds GetPodSpec
+type UniterAPIV14 struct {
+	UniterAPI
+}
+
 // UniterAPIV13 implements version (v13) of the Uniter API,
 // which adds UpdateNetworkInfo.
 type UniterAPIV13 struct {
-	UniterAPI
+	UniterAPIV14
 }
 
 // UniterAPIV12 implements version (v12) of the Uniter API,
@@ -228,14 +234,25 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV13 creates an instance of the V13 uniter API.
-func NewUniterAPIV13(context facade.Context) (*UniterAPIV13, error) {
+// NewUniterAPIV14 creates an instance of the V14 uniter API.
+func NewUniterAPIV14(context facade.Context) (*UniterAPIV14, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	return &UniterAPIV13{
+	return &UniterAPIV14{
 		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV13 creates an instance of the V13 uniter API.
+func NewUniterAPIV13(context facade.Context) (*UniterAPIV13, error) {
+	uniterAPI, err := NewUniterAPIV14(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV13{
+		UniterAPIV14: *uniterAPI,
 	}, nil
 }
 
@@ -3099,7 +3116,7 @@ func (u *UniterAPI) UpdateNetworkInfo(args params.Entities) (params.ErrorResults
 		}
 
 		if !canAccess(unitTag) {
-			res[i].Error = common.ServerError(err)
+			res[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
@@ -3163,4 +3180,78 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 	}
 
 	return settingsGroup.Write()
+}
+
+// State isn't on the v14 API.
+func (u *UniterAPIV14) State(_ struct{}) {}
+
+// State returns the state persisted by the charm running in this unit.
+func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.UnitStateResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.UnitStateResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		unit, err := u.getUnit(unitTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if res[i].State, err = unit.State(); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+
+	return params.UnitStateResults{Results: res}, nil
+}
+
+// SetState isn't on the v14 API.
+func (u *UniterAPIV14) SetState(_ struct{}) {}
+
+// SetState persists the state of the charm running in this unit.
+func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		unitTag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		unit, err := u.getUnit(unitTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err = unit.SetState(arg.State); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+
+	return params.ErrorResults{Results: res}, nil
 }
