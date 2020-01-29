@@ -63,7 +63,7 @@ func stateStepsFor24() []Step {
 func stepsFor24() []Step {
 	return []Step{
 		&upgradeStep{
-			description: "Install the service file in Standard location '/lib/systemd'",
+			description: "Install the services file in standard location '/etc/systemd'",
 			targets:     []Target{AllMachines},
 			run:         writeServiceFiles(true),
 		},
