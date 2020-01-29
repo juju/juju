@@ -317,14 +317,8 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 
 func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	// nil errors are for calls to RemoveOldService.
-	s.services[0].SetErrors(
-		nil,
-		errors.New("No such method 'LinkUnitFiles'"),
-		nil,
-		errors.New("No such method 'LinkUnitFiles'"),
-		nil,
-		errors.New("No such method 'LinkUnitFiles'"),
-	)
+	err := errors.New("no such method 'LinkUnitFiles'")
+	s.services[0].SetErrors(nil, err, nil, err, nil, err)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
 		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
@@ -340,14 +334,8 @@ func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
-	s.services[0].SetErrors(
-		nil,
-		nil,
-		nil,
-		nil,
-		nil,
-		errors.New("fail me"), // fail the machine
-	)
+	// Return an error for the machine agent.
+	s.services[0].SetErrors(nil, nil, nil, nil, nil, errors.New("fail me"))
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
 		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
@@ -361,7 +349,7 @@ func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 }
 
 func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
-	// Check tools changes
+	// Check tools changes.
 	ver := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),
