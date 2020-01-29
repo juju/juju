@@ -227,6 +227,18 @@ destroy_controller() {
 
     echo "====> Introspection gathered"
 
+    # Unfortunately having any offers on a model, leads to failure to clean
+    # up a controller.
+    # See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+    echo "====> Removing offers"
+
+    set +e
+    remove_controller_offers "${name}"
+    set_verbosity
+
+    echo "====> Removed offers"
+
+
     output="${TEST_DIR}/${name}-destroy-controller.txt"
 
     echo "====> Destroying juju ($(green "${name}"))"
@@ -267,4 +279,23 @@ introspect_controller() {
 
     echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.txt"
     echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
+}
+
+remove_controller_offers() {
+    local name
+
+    name=${1}
+
+    OUT=$(juju models -c "${name}" --format=json | jq -r ".[\"models\"] | .[] | select(.[\"is-controller\"] == false) | .name" || true)
+    if [ -n "${OUT}" ]; then
+        echo "${OUT}" | while read -r model; do
+            OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r ".[] | .[\"offer-url\"]" || true)
+            echo "${OUT}" | while read -r offer; do
+                if [ -n "${offer}" ]; then
+                    juju remove-offer --force -y -c "${name}" "${offer}"
+                    echo "${offer}" >> "${TEST_DIR}/${name}-juju_removed_offers.txt"
+                fi
+            done
+        done
+    fi
 }
