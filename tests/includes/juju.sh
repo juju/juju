@@ -292,7 +292,7 @@ remove_controller_offers() {
             OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r ".[] | .[\"offer-url\"]" || true)
             echo "${OUT}" | while read -r offer; do
                 if [ -n "${offer}" ]; then
-                    juju remove-offer -c "${name}" "${offer}"
+                    juju remove-offer --force -y -c "${name}" "${offer}"
                     echo "${offer}" >> "${TEST_DIR}/${name}-juju_removed_offers.txt"
                 fi
             done
