@@ -521,7 +521,6 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 	}
 
 	var model common.Model
-
 	if jujucloud.CloudIsCAAS(cloud) {
 		model, err = m.newCAASModel(
 			cloudSpec,
@@ -663,6 +662,10 @@ func (m *ModelManagerAPI) newModel(
 		EnvironVersion:          env.Provider().Version(),
 	})
 	if err != nil {
+		// Clean up the environ.
+		if e := env.Destroy(m.callContext); e != nil {
+			logger.Warningf("failed to destroy environ, error %v", e)
+		}
 		return nil, errors.Annotate(err, "failed to create new model")
 	}
 	defer st.Close()

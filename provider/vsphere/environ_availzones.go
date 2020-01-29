@@ -66,7 +66,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 	if env.zones == nil {
 		computeResources, err := env.client.ComputeResources(env.ctx)
 		if err != nil {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return nil, errors.Trace(err)
 		}
 		var zones []common.AvailabilityZone
@@ -77,7 +77,7 @@ func (env *sessionEnviron) AvailabilityZones(ctx context.ProviderCallContext) ([
 			}
 			pools, err := env.client.ResourcePools(env.ctx, cr.Name+"/...")
 			if err != nil {
-				HandleCredentialError(err, ctx)
+				HandleCredentialError(err, env, ctx)
 				return nil, errors.Trace(err)
 			}
 			for _, pool := range pools {

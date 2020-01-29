@@ -55,10 +55,14 @@ func modelFolderName(modelUUID, modelName string) string {
 	return fmt.Sprintf("Model %q (%s)", modelName, modelUUID)
 }
 
-// vmdkDirectoryName returns the name of the datastore directory in which
-// the base VMDKs are stored for the controller.
-func vmdkDirectoryName(controllerUUID string) string {
-	return fmt.Sprintf("juju-vmdks/%s", controllerUUID)
+// templateDirectoryName returns the name of the datastore directory in which
+// the VM templates are stored for the controller.
+func templateDirectoryName(parentfolder string, controllerFolderName string) string {
+	dName := path.Join(controllerFolderName, "templates")
+	if parentfolder != "" {
+		dName = path.Join(parentfolder, dName)
+	}
+	return dName
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -101,7 +105,7 @@ func (env *sessionEnviron) StartInstance(ctx context.ProviderCallContext, args e
 	return &result, nil
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+// FinishInstanceConfig is exported, because it has to be rewritten in external unit tests
 var FinishInstanceConfig = instancecfg.FinishInstanceConfig
 
 // finishMachineConfig updates args.MachineConfig in place. Setting up
@@ -125,6 +129,9 @@ func (env *sessionEnviron) newRawInstance(
 	args environs.StartInstanceParams,
 	img *OvaFileMetadata,
 ) (_ *mo.VirtualMachine, _ *instance.HardwareCharacteristics, err error) {
+	if args.AvailabilityZone == "" {
+		return nil, nil, errors.NotValidf("empty available zone")
+	}
 
 	vmName, err := env.namespace.Hostname(args.InstanceConfig.MachineId)
 	if err != nil {
@@ -215,15 +222,12 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
-		Name: vmName,
-		Folder: path.Join(
-			controllerFolderName(args.ControllerUUID),
-			env.modelFolderName(),
-		),
+		Name:                   vmName,
+		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
 		Series:                 series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
-		VMDKDirectory:          vmdkDirectoryName(args.ControllerUUID),
+		VMDKDirectory:          templateDirectoryName(env.getVMFolder(), controllerFolderName(args.ControllerUUID)),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,
@@ -236,7 +240,7 @@ func (env *sessionEnviron) newRawInstance(
 	}
 
 	// Attempt to create a VM in each of the AZs in turn.
-	logger.Debugf("attempting to create VM in availability zone %s", args.AvailabilityZone)
+	logger.Debugf("attempting to create VM in availability zone %q", args.AvailabilityZone)
 	availZone, err := env.availZone(ctx, args.AvailabilityZone)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
@@ -252,8 +256,9 @@ func (env *sessionEnviron) newRawInstance(
 		err = common.ZoneIndependentError(err)
 	}
 	if err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return nil, nil, errors.Trace(err)
+
 	}
 
 	hw := &instance.HardwareCharacteristics{
@@ -278,13 +283,10 @@ func (env *environ) AllInstances(ctx context.ProviderCallContext) (instances []i
 
 // AllInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) AllInstances(ctx context.ProviderCallContext) ([]instances.Instance, error) {
-	modelFolderPath := path.Join(
-		controllerFolderName("*"),
-		env.modelFolderName(),
-	)
+	modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName())
 	vms, err := env.client.VirtualMachines(env.ctx, modelFolderPath+"/*")
 	if err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
 
@@ -318,10 +320,7 @@ func (env *environ) StopInstances(ctx context.ProviderCallContext, ids ...instan
 
 // StopInstances implements environs.InstanceBroker.
 func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ...instance.Id) error {
-	modelFolderPath := path.Join(
-		controllerFolderName("*"),
-		env.modelFolderName(),
-	)
+	modelFolderPath := path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName())
 	results := make([]error, len(ids))
 	var wg sync.WaitGroup
 	for i, id := range ids {
@@ -332,7 +331,7 @@ func (env *sessionEnviron) StopInstances(ctx context.ProviderCallContext, ids ..
 				env.ctx,
 				path.Join(modelFolderPath, string(id)),
 			)
-			HandleCredentialError(results[i], ctx)
+			HandleCredentialError(results[i], env, ctx)
 		}(i, id)
 	}
 	wg.Wait()
