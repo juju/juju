@@ -23,9 +23,9 @@ type DBusAPI interface {
 	Reload() error
 }
 
-// FileOps describes file-system operations required to install
+// FileSystemOps describes file-system operations required to install
 // and remove a service.
-type FileOps interface {
+type FileSystemOps interface {
 	Remove(name string) error
 	RemoveAll(name string) error
 	WriteFile(fileName string, data []byte, perm os.FileMode) error
