@@ -224,6 +224,20 @@ func (s *attachmentsSuite) TestAttachmentsUpdateShortCircuitDeath(c *gc.C) {
 }
 
 func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
+	s.testAttachmentsStorage(c, operation.State{Kind: operation.Continue})
+}
+
+func (s *caasAttachmentsSuite) TestAttachmentsStorageStarted(c *gc.C) {
+	opState := operation.State{
+		Kind:      operation.RunHook,
+		Step:      operation.Queued,
+		Installed: true,
+		Started:   true,
+	}
+	s.testAttachmentsStorage(c, opState)
+}
+
+func (s *attachmentsSuite) testAttachmentsStorage(c *gc.C, opState operation.State) {
 	stateDir := c.MkDir()
 	unitTag := names.NewUnitTag("mysql/0")
 	abort := make(chan struct{})
@@ -244,9 +258,7 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	assertStorageTags(c, att)
 
 	// Inform the resolver of an attachment.
-	localState := resolver.LocalState{State: operation.State{
-		Kind: operation.Continue,
-	}}
+	localState := resolver.LocalState{State: opState}
 	op, err := r.NextOp(localState, remotestate.Snapshot{
 		Life: params.Alive,
 		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
@@ -268,6 +280,47 @@ func (s *attachmentsSuite) TestAttachmentsStorage(c *gc.C) {
 	c.Assert(ctx.Tag(), gc.Equals, storageTag)
 	c.Assert(ctx.Kind(), gc.Equals, corestorage.StorageKindBlock)
 	c.Assert(ctx.Location(), gc.Equals, "/dev/sdb")
+}
+
+func (s *caasAttachmentsSuite) TestAttachmentsStorageNotStarted(c *gc.C) {
+	stateDir := c.MkDir()
+	unitTag := names.NewUnitTag("mysql/0")
+	abort := make(chan struct{})
+
+	st := &mockStorageAccessor{
+		unitStorageAttachments: func(u names.UnitTag) ([]params.StorageAttachmentId, error) {
+			return nil, nil
+		},
+	}
+
+	att, err := storage.NewAttachments(st, unitTag, stateDir, abort)
+	c.Assert(err, jc.ErrorIsNil)
+	r := storage.NewResolver(att, s.modelType)
+
+	storageTag := names.NewStorageTag("data/0")
+	_, err = att.Storage(storageTag)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	assertStorageTags(c, att)
+
+	// Inform the resolver of an attachment.
+	localState := resolver.LocalState{State: operation.State{
+		Kind:      operation.RunHook,
+		Step:      operation.Queued,
+		Installed: true,
+		Started:   false,
+	}}
+	_, err = r.NextOp(localState, remotestate.Snapshot{
+		Life: life.Alive,
+		Storage: map[names.StorageTag]remotestate.StorageSnapshot{
+			storageTag: {
+				Kind:     params.StorageKindBlock,
+				Life:     life.Alive,
+				Location: "/dev/sdb",
+				Attached: true,
+			},
+		},
+	}, &mockOperations{})
+	c.Assert(err, gc.Equals, resolver.ErrNoOperation)
 }
 
 func (s *attachmentsSuite) TestAttachmentsCommitHook(c *gc.C) {
