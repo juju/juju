@@ -1133,6 +1133,14 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// The assertion logic in unit.SetState assumes that the DocID is
+	// present.  Since the txn for creating the unit doc has completed
+	// without an error, we can safely populate the doc's model UUID and
+	// DocID.
+	udoc.ModelUUID = model.UUID()
+	udoc.DocID = ensureModelUUID(udoc.ModelUUID, udoc.Name)
+
 	unit := newUnit(i.st, model.Type(), udoc)
 	if annotations := u.Annotations(); len(annotations) > 0 {
 		if err := i.dbModel.SetAnnotations(unit, annotations); err != nil {
@@ -1148,7 +1156,11 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-
+	if unitState := u.State(); len(unitState) != 0 {
+		if err := unit.SetState(unitState); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	if i.dbModel.Type() == ModelTypeIAAS {
 		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
 			return errors.Trace(err)

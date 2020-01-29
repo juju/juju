@@ -757,6 +757,11 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 		err = unit.SetWorkloadVersion(version)
 		c.Assert(err, jc.ErrorIsNil)
 	}
+	err = unit.SetState(map[string]string{
+		"payload": "b4dc0ffee",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	dbModel, err := st.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -804,6 +809,7 @@ func (s *MigrationExportSuite) assertMigrateUnits(c *gc.C, st *state.State) {
 	c.Assert(exported.MeterStatusInfo(), gc.Equals, "some info")
 	c.Assert(exported.WorkloadVersion(), gc.Equals, "steven")
 	c.Assert(exported.Annotations(), jc.DeepEquals, testAnnotations)
+	c.Assert(exported.State(), jc.DeepEquals, map[string]string{"payload": "b4dc0ffee"})
 	constraints := exported.Constraints()
 	c.Assert(constraints, gc.NotNil)
 	c.Assert(constraints.Architecture(), gc.Equals, "amd64")
