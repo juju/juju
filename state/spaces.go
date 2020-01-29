@@ -4,8 +4,6 @@
 package state
 
 import (
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/settings"
 	"strconv"
 
 	"github.com/juju/errors"
@@ -14,7 +12,9 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/settings"
 )
 
 // Space represents the state of a juju network space.
@@ -258,40 +258,37 @@ func (st *State) SpaceByName(name string) (*Space, error) {
 	return &Space{st, doc}, nil
 }
 
-// RenameSpace renames the given space. Additional ops can be added in case other places needs to be updated as well.
+// RenameSpace renames the input space `fromName` to input `toName`.
+// settingsDelta are the delta for the controllerSettings collection.
+// newConstraints are the new constraints to be input into the database.
 // An error is returned if the space does not exist or if there was a problem
 // accessing its information.
-func (st *State) RenameSpace(fromSpaceName, toName string, settingsDelta settings.ItemChanges, newConstraints map[string]constraints.Value) error {
+func (st *State) RenameSpace(fromName, toName string, settingsDelta settings.ItemChanges, newConstraints map[string]constraints.Value) error {
 	var totalOps []txn.Op
-	space, err := st.SpaceByName(fromSpaceName)
-	logger.Errorf("found space %q", space)
+	space, err := st.SpaceByName(fromName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	newConstraintsOps, err := st.GetConstraintsOps(newConstraints)
-	logger.Errorf("\nnew ConstraintsBySpace itself %+v\n", newConstraints)
-	logger.Errorf("\nnew ConstraintsBySpace ops %+v\n", newConstraintsOps)
 	if err != nil {
-		logger.Errorf("err?", err)
 		return errors.Trace(err)
 	}
-	// This works!
+
 	newSettingsOps, err := st.NewControllerSettings().DeltaOps(controllerSettingsGlobalKey, settingsDelta)
 	if err != nil {
-		logger.Errorf("err sett?", err)
 		return errors.Trace(err)
 	}
+
 	renameSpaceOps := []txn.Op{{
 		C:      spacesC,
 		Id:     space.doc.Id,
 		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
 	}}
 
-	totalOps = append(totalOps, renameSpaceOps...)
 	totalOps = append(totalOps, newConstraintsOps...)
+	totalOps = append(totalOps, renameSpaceOps...)
 	totalOps = append(totalOps, newSettingsOps...)
 
-	logger.Errorf("ops to run: %q", totalOps)
 	txnErr := st.db().RunTransaction(totalOps)
 
 	if txnErr == nil {

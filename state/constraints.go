@@ -32,13 +32,6 @@ type constraintsDoc struct {
 	Zones          *[]string
 }
 
-// constraintsDocRead is the mongodb representation of a constraints.Value.
-// including the DocID as we do not want to use this doc for updating the immutable _id.
-type constraintsDocRead struct {
-	DocID string `bson:"_id"`
-	constraintsDoc
-}
-
 func (doc constraintsDoc) value() constraints.Value {
 	result := constraints.Value{
 		Arch:           doc.Arch,
@@ -114,7 +107,8 @@ func readConstraints(mb modelBackend, id string) (constraints.Value, error) {
 	return doc.value(), nil
 }
 
-func writeConstraints(mb modelBackend, ops []txn.Op) error {
+func writeConstraints(mb modelBackend, id string, cons constraints.Value) error {
+	ops := []txn.Op{setConstraintsOp(id, cons)}
 	if err := mb.db().RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}

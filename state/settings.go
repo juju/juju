@@ -491,7 +491,7 @@ func (st *State) NewSettings() *StateSettings {
 	return &StateSettings{st, settingsC}
 }
 
-// NewSettings returns a new StateSettings reference for working with
+// NewControllerSettings returns a new StateSettings reference for working with
 // controller settings in the current database.
 func (st *State) NewControllerSettings() *StateSettings {
 	return &StateSettings{st, controllersC}

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -24,6 +25,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
@@ -72,13 +75,13 @@ type Backing interface {
 	AllMachines() ([]Machine, error)
 
 	// RenameSpace renames the given space `a` given name `b`.
-	// SettingsChanges and ConstraintsBySpace holds the changes to be done in the state.
+	// SettingsChanges and constraints holds the changes to be added to the state.
 	RenameSpace(settingsChanges coresettings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error
 
 	// ControllerConfig returns current ControllerConfig.
 	ControllerConfig() (jujucontroller.Config, error)
 
-	// ConstraintsBySpace returns current constraints.
+	//ConstraintsBySpace returns current constraints using the given spaceName.
 	ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error)
 }
 
@@ -323,21 +326,18 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
-		// ControllerConfig
 		settingChanges, err := api.getSettingsChanges(fromTag.Id(), toTag.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "retrieving setting changes")
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
-		// ConstraintsBySpace
 		constraintChanges, err := api.getConstraintsChanges(fromTag.Id(), toTag.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "retrieving constraint changes")
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
-		// RenameSpace
 		if err := api.backing.RenameSpace(settingChanges, constraintChanges, fromTag.Id(), toTag.Id()); err != nil {
 			newErr := errors.Annotatef(err, "failed to rename space %q to name %q", fromTag.Id(), toTag.Id())
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
@@ -505,8 +505,8 @@ func (api *API) checkSupportsSpaces() error {
 	return nil
 }
 
-// checkSupportsSpaces checks if the environment implements NetworkingEnviron
-// and also if it supports spaces.
+// checkSupportsProviderSpaces checks if the environment implements NetworkingEnviron
+// and also if it support provider spaces.
 func (api *API) checkSupportsProviderSpaces() error {
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {
@@ -553,10 +553,9 @@ func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) 
 	return applications.SortedValues(), nil
 }
 
-// getConstraintsChanges will do nothing if there are no spaces constraints to update
+// getConstraintsChanges gets the current constraints to update.
 func (api *API) getConstraintsChanges(fromSpaceName, toName string) (map[string]constraints.Value, error) {
 	currentConstraints, err := api.backing.ConstraintsBySpace(fromSpaceName)
-	logger.Errorf("current constraints %+v: ", currentConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -571,10 +570,7 @@ func (api *API) getConstraintsChanges(fromSpaceName, toName string) (map[string]
 				break
 			}
 		}
-		logger.Errorf("new spaces %+v: ", constraint.Spaces)
-		logger.Errorf("new to constraints %+v: ", toConstraints)
 	}
-	logger.Errorf("new all constraints %+v: ", toConstraints)
 	return currentConstraints, nil
 }
 

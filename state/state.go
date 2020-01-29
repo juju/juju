@@ -847,12 +847,12 @@ func (st *State) ModelConstraints() (constraints.Value, error) {
 	return cons, errors.Trace(err)
 }
 
-// ConstraintsBySpaceName returns all the constraints given by the spaceName not ID, as []constraints.Value.
+// ConstraintsBySpaceName returns all the constraints given by the spaceName, as a map keyed by the DocID.
 func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraints.Value, error) {
 	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
-	var docs []constraintsDocRead
+	var docs []constraintsWithID
 	allConstraints := make(map[string]constraints.Value, len(docs))
 	query := bson.D{{"spaces", spaceName}}
 	err := constraintsCollection.Find(query).All(&docs)
@@ -860,7 +860,7 @@ func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraint
 		return nil, errors.Trace(err)
 	}
 	for _, doc := range docs {
-		allConstraints[doc.DocID] = doc.value()
+		allConstraints[doc.DocID] = doc.Nested.value()
 	}
 	return allConstraints, nil
 }
@@ -869,6 +869,7 @@ func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraint
 // cons is a map keyed with the docID of the corresponding constraints doc.
 func (st *State) GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error) {
 	ops := make([]txn.Op, len(cons))
+	i := 0
 	for docID, constraint := range cons {
 		unsupported, err := st.validateConstraints(constraint)
 		if len(unsupported) > 0 {
@@ -877,30 +878,22 @@ func (st *State) GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op,
 		} else if err != nil {
 			return nil, errors.Trace(err)
 		}
-		ops = append(ops, setConstraintsOp(docID, constraint))
+		ops[i] = setConstraintsOp(docID, constraint)
+		i++
 	}
 	return ops, nil
 }
 
 // SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
-	ops, err := st.GetModelConstraintsOps(cons)
-	if err != nil {
-		return err
-	}
-	return writeConstraints(st, ops)
-}
-
-// GetModelConstraintsOps gets the Ops to replace the current model constraints
-func (st *State) GetModelConstraintsOps(cons constraints.Value) ([]txn.Op, error) {
 	unsupported, err := st.validateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
 			"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
 	} else if err != nil {
-		return nil, errors.Trace(err)
+		return errors.Trace(err)
 	}
-	return []txn.Op{setConstraintsOp(modelGlobalKey, cons)}, nil
+	return writeConstraints(st, modelGlobalKey, cons)
 }
 
 func (st *State) allMachines(machinesCollection mongo.Collection) ([]*Machine, error) {

@@ -5,6 +5,8 @@ package spaces
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
+
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/constraints"
@@ -12,11 +14,7 @@ import (
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
-	"github.com/juju/loggo"
-	"gopkg.in/juju/names.v3"
 )
-
-var logger = loggo.GetLogger("juju.apiserver.spaces.shims")
 
 // NewStateShim returns a new state shim.
 func NewStateShim(st *state.State) (*stateShim, error) {
