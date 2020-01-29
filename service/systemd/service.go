@@ -68,21 +68,22 @@ type Service struct {
 	FallBackDirName string
 	Script          []byte
 
-	fileOps FileOps
+	fileOps FileSystemOps
 	newDBus DBusAPIFactory
 }
 
 // NewServiceWithDefaults returns a new systemd service reference populated
 // with sensible defaults.
 func NewServiceWithDefaults(name string, conf common.Conf) (*Service, error) {
-	svc, err := NewService(name, conf, EtcSystemdDir, NewDBusAPI, fileOps{}, renderer.Join(paths.NixDataDir, "init"))
+	svc, err := NewService(
+		name, conf, EtcSystemdDir, NewDBusAPI, fileSystemOps{}, renderer.Join(paths.NixDataDir, "init"))
 	return svc, errors.Trace(err)
 }
 
 // NewService returns a new reference to an object that implements the Service
 // interface for systemd.
 func NewService(
-	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fileOps FileOps, fallBackDirName string,
+	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fileOps FileSystemOps, fallBackDirName string,
 ) (*Service, error) {
 	confName := name + ".service"
 

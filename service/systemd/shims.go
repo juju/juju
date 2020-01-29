@@ -13,34 +13,34 @@ import (
 
 // ShimExec is used to indirect command-line interactions.
 // A mock for this is "patched" over the the listed methods by the test suite.
-// This should be phased out in favour of the fileOps approach below.
+// This should be phased out in favour of the fileSystemOps approach below.
 type ShimExec interface {
 	RunCommands(args exec.RunParams) (*exec.ExecResponse, error)
 }
 
-// fileOps is a shim wrapping file-system operations,
+// fileSystemOps is a shim wrapping file-system operations,
 // avoiding a hard dependency on os and io/ioutil function calls.
-type fileOps struct{}
+type fileSystemOps struct{}
 
-// Remove (FileOps) deletes the file with the input name.
+// Remove (FileSystemOps) deletes the file with the input name.
 // If the file does not exist, this fact is ignored.
-func (f fileOps) Remove(name string) error {
+func (f fileSystemOps) Remove(name string) error {
 	if _, err := os.Stat(name); os.IsNotExist(err) {
 		return nil
 	}
 	return errors.Trace(os.Remove(name))
 }
 
-// RemoveAll (FileOps) recursively deletes everything under the input path.
+// RemoveAll (FileSystemOps) recursively deletes everything under the input path.
 // If the path does not exist, this fact is ignored.
-func (f fileOps) RemoveAll(name string) error {
+func (f fileSystemOps) RemoveAll(name string) error {
 	return errors.Trace(os.RemoveAll(name))
 }
 
-// WriteFile (FileOps) writes the input data to a file with the input name.
+// WriteFile (FileSystemOps) writes the input data to a file with the input name.
 // We call Remove because legacy versions of the file may be a dangling
 // symbolic link, in which case attempting to write would return an error.
-func (f fileOps) WriteFile(fileName string, data []byte, perm os.FileMode) error {
+func (f fileSystemOps) WriteFile(fileName string, data []byte, perm os.FileMode) error {
 	_ = os.Remove(fileName)
 	return errors.Trace(ioutil.WriteFile(fileName, data, perm))
 }

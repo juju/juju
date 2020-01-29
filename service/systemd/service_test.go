@@ -58,7 +58,7 @@ type initSystemSuite struct {
 	dataDir string
 	ch      chan string
 	dBus    *MockDBusAPI
-	fops    *MockFileOps
+	fops    *MockFileSystemOps
 	exec    *systemd.MockShimExec
 
 	name    string
@@ -91,7 +91,7 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 func (s *initSystemSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.fops = NewMockFileOps(ctrl)
+	s.fops = NewMockFileSystemOps(ctrl)
 	s.dBus = NewMockDBusAPI(ctrl)
 
 	s.ch = systemd.PatchNewChan(s)

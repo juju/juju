@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate mockgen -package systemd_test -destination package_mock_test.go github.com/juju/juju/service/systemd DBusAPI,FileOps
+//go:generate mockgen -package systemd_test -destination package_mock_test.go github.com/juju/juju/service/systemd DBusAPI,FileSystemOps
 
 // TODO (manadart 2020-01-28): Phase this out
 // and generate all mocks with the command above.
