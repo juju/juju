@@ -606,7 +606,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	s.st.remoteApplications["db2"] = &mockRemoteApplication{}
 	s.st.remoteEntities[names.NewApplicationTag("db2")] = "token-db2"
 	s.st.applications["django"] = &mockApplication{}
-	s.st.remoteEntities[names.NewApplicationTag("django")] = "token-django"
+	s.st.remoteEntities[names.NewApplicationTag("offer-django")] = "token-offer-django"
 	rel := newMockRelation(1)
 	ru1 := newMockRelationUnit()
 	ru2 := newMockRelationUnit()
@@ -648,6 +648,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 		relationKey:     "db2:db django:db",
 		relationId:      1,
 	}
+	s.st.offerNames["db2:db django:db"] = "offer-django"
 	s.st.remoteEntities[names.NewRelationTag("db2:db django:db")] = "token-db2:db django:db"
 	mac, err := s.bakery.NewMacaroon(
 		[]checkers.Caveat{
@@ -670,7 +671,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 			RemoteRelationWatcherId: "1",
 			Changes: params.RemoteRelationChangeEvent{
 				RelationToken:    "token-db2:db django:db",
-				ApplicationToken: "token-django",
+				ApplicationToken: "token-offer-django",
 				Macaroons:        nil,
 				ApplicationSettings: map[string]interface{}{
 					"majoribanks": "mt victoria",
@@ -693,7 +694,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationChanges(c *gc.C) {
 	outw, ok := resource.(*commoncrossmodel.WrappedUnitsWatcher)
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(outw.RelationToken, gc.Equals, "token-db2:db django:db")
-	c.Assert(outw.ApplicationToken, gc.Equals, "token-django")
+	c.Assert(outw.ApplicationToken, gc.Equals, "token-offer-django")
 
 	// TODO(babbageclunk): add locking around updating mock
 	// relation/relunit settings.

@@ -378,7 +378,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 		if !ok {
 			return nil, empty, common.ErrPerm
 		}
-		relationToken, appToken, err := commoncrossmodel.GetRelationTokens(api.st, relationTag)
+		relationToken, appToken, err := commoncrossmodel.GetOfferingRelationTokens(api.st, relationTag)
 		if err != nil {
 			return nil, empty, errors.Trace(err)
 		}
@@ -406,6 +406,7 @@ func (api *CrossModelRelationsAPI) WatchRelationChanges(remoteRelationArgs param
 	for i, arg := range remoteRelationArgs.Args {
 		w, changes, err := watchOne(arg)
 		if err != nil {
+			logger.Tracef("not found watching relation %s: %s", arg.Token, errors.ErrorStack(err))
 			results.Results[i].Error = common.ServerError(err)
 			continue
 		}

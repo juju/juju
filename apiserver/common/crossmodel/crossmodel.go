@@ -174,9 +174,34 @@ func PublishRelationChange(backend Backend, relationTag names.Tag, change params
 	return nil
 }
 
-// GetRelationTokens returns the tokens for the relation and the local
-// application of the passed in tag.
-func GetRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
+// GetOfferingRelationTokens returns the tokens for the relation and the offer
+// of the passed in relation tag.
+func GetOfferingRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
+	offerName, err := backend.OfferNameForRelation(tag.Id())
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	relationToken, err := backend.GetToken(tag)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	appToken, err := backend.GetToken(names.NewApplicationTag(offerName))
+	if err != nil {
+		// TODO(babbageclunk): do we need to try getting the appToken
+		// for the application name instead (opposite of the fallback
+		// in
+		// apiserver/facades/controller/crossmodelrelations/crossmodelrelations.go:296)?
+		// I don't think so because this method is only called from
+		// API methods that were added after the transition to offer
+		// name as the app token.
+		return "", "", errors.Trace(err)
+	}
+	return relationToken, appToken, nil
+}
+
+// GetConsumingRelationTokens returns the tokens for the relation and the local
+// application of the passed in relation tag.
+func GetConsumingRelationTokens(backend Backend, tag names.RelationTag) (string, string, error) {
 	relation, err := backend.KeyRelation(tag.Id())
 	if err != nil {
 		return "", "", errors.Trace(err)
@@ -274,14 +299,14 @@ func ExpandChange(
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	localAppTag, err := backend.GetRemoteEntity(appToken)
+	localAppName, err := getLocalApplicationName(backend, relation)
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
 
 	var appSettings map[string]interface{}
 	if len(change.AppChanged) > 0 {
-		appSettings, err = relation.ApplicationSettings(localAppTag.Id())
+		appSettings, err = relation.ApplicationSettings(localAppName)
 		if err != nil {
 			return empty, errors.Trace(err)
 		}

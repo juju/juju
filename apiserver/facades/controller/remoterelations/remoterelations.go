@@ -358,7 +358,7 @@ func (api *RemoteRelationsAPI) WatchLocalRelationChanges(args params.Entities) (
 		if err != nil {
 			return nil, empty, errors.Trace(err)
 		}
-		relationToken, appToken, err := commoncrossmodel.GetRelationTokens(api.st, relationTag)
+		relationToken, appToken, err := commoncrossmodel.GetConsumingRelationTokens(api.st, relationTag)
 		if err != nil {
 			return nil, empty, errors.Trace(err)
 		}
