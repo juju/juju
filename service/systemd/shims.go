@@ -38,8 +38,9 @@ func (f fileOps) RemoveAll(name string) error {
 }
 
 // WriteFile (FileOps) writes the input data to a file with the input name.
-// If the file does not exist, it is created with the input permissions.
-// If it does exist, it is truncated before writing.
+// We call Remove because legacy versions of the file may be a dangling
+// symbolic link, in which case attempting to write would return an error.
 func (f fileOps) WriteFile(fileName string, data []byte, perm os.FileMode) error {
+	_ = os.Remove(fileName)
 	return errors.Trace(ioutil.WriteFile(fileName, data, perm))
 }
