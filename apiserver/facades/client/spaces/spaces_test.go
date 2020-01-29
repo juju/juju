@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	environMocks "github.com/juju/juju/environs/mocks"
+	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -42,6 +43,9 @@ type SpaceTestMockSuite struct {
 	mockBlockChecker     *mocks.MockBlockChecker
 	mockCloudCallContext *context.CloudCallContext
 	mockAuthorizer       *facademocks.MockAuthorizer
+
+	mockOpFactory *mocks.MockOpFactory
+	mockRenameOp  *mocks.MockRenameSpaceModelOp
 
 	api *spaces.API
 }
@@ -155,12 +159,6 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
-func (s *SpaceTestMockSuite) getDefaultControllerConfig(c *gc.C, space string, attr map[string]interface{}) controller.Config {
-	cfg, err := controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, attr)
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
-}
-
 func (s *SpaceTestMockSuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 	ctrl, unreg := s.setupSpacesAPI(c, true, true)
 	defer ctrl.Finish()
@@ -194,43 +192,6 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
-func (s *SpaceTestMockSuite) TestRenameSpaceErrorGettingControllerConfig(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
-	defer ctrl.Finish()
-	defer unreg()
-	from, to := "bla", "blub"
-
-	bamErr := errors.New("bam")
-	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, "", nil), bamErr)
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
-
-	args := s.getRenameArgs(from, to)
-
-	res, err := s.api.RenameSpace(args)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("retrieving setting changes: %v", bamErr.Error())
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
-}
-
-func (s *SpaceTestMockSuite) TestRenameSpaceErrorGettingConstraints(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
-	defer ctrl.Finish()
-	defer unreg()
-	from, to := "bla", "blub"
-
-	bamErr := errors.New("bam")
-	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, "", nil), nil)
-	s.mockBacking.EXPECT().ConstraintsBySpace(from).Return(nil, bamErr)
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
-
-	args := s.getRenameArgs(from, to)
-
-	res, err := s.api.RenameSpace(args)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("retrieving constraint changes: %v", bamErr.Error())
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
-}
-
 func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
 	ctrl, unreg := s.setupSpacesAPI(c, true, true)
 	defer ctrl.Finish()
@@ -238,16 +199,14 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
-	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, "", nil), nil)
-	s.mockBacking.EXPECT().ConstraintsBySpace(from).Return(nil, nil)
-	s.mockBacking.EXPECT().RenameSpace(gomock.Any(), gomock.Any(), from, to).Return(bamErr)
+	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""), nil)
 	args := s.getRenameArgs(from, to)
+
+	s.mockOpFactory.EXPECT().NewRenameSpaceModelOp(from, to).Return(nil, bamErr)
 
 	res, err := s.api.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("failed to rename space %q to name %q: %v", from, to, bamErr.Error())
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, bamErr.Error())
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
@@ -256,16 +215,9 @@ func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 	defer unreg()
 	from, to := "bla", "blub"
 
-	cons := map[string]constraints.Value{"id": {Spaces: &[]string{from}}}
-	expectedCons := map[string]constraints.Value{"id": {Spaces: &[]string{to}}}
-	attr := map[string]interface{}{controller.JujuHASpace: from}
-	expectedItemChanges := settings.ItemChanges{settings.MakeModification(controller.JujuHASpace, from, to)}
-
-	s.mockBacking.EXPECT().ConstraintsBySpace(from).Return(cons, nil)
+	s.mockOpFactory.EXPECT().NewRenameSpaceModelOp(from, to).Return(s.mockRenameOp, nil)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
-	s.mockBacking.EXPECT().ControllerConfig().Return(s.getDefaultControllerConfig(c, from, attr), nil)
-
-	s.mockBacking.EXPECT().RenameSpace(expectedItemChanges, expectedCons, from, to).Return(nil)
+	s.mockBacking.EXPECT().ApplyOperation(s.mockRenameOp).Return(nil)
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.api.RenameSpace(args)
@@ -285,18 +237,6 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorNoProviderSpacesSupport(c *gc.C
 	res, err := s.api.RenameSpace(args)
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
-}
-
-func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesParams {
-	spaceTagFrom := names.NewSpaceTag(from)
-	spaceTagTo := names.NewSpaceTag(to)
-	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{
-		{
-			FromSpaceTag: spaceTagFrom.String(),
-			ToSpaceTag:   spaceTagTo.String(),
-		},
-	}}
-	return args
 }
 
 func (s *SpaceTestMockSuite) getShowSpaceArg(name string) params.Entities {
@@ -331,6 +271,8 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, support
 	s.mockBlockChecker = mocks.NewMockBlockChecker(ctrl)
 	s.mockBlockChecker.EXPECT().ChangeAllowed().Return(nil).AnyTimes()
 	s.mockBacking = mocks.NewMockBacking(ctrl)
+	s.mockOpFactory = mocks.NewMockOpFactory(ctrl)
+	s.mockRenameOp = mocks.NewMockRenameSpaceModelOp(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
@@ -358,7 +300,7 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, support
 	s.mockBacking.EXPECT().CloudSpec().Return(cloudspec, nil)
 
 	var err error
-	s.api, err = spaces.NewAPIWithBacking(s.mockBacking, s.mockBlockChecker, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer)
+	s.api, err = spaces.NewAPIWithBacking(s.mockBacking, s.mockBlockChecker, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer, s.mockOpFactory)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl, unreg
 }
@@ -407,8 +349,30 @@ func (s *SpaceTestMockSuite) expectMachines(ctrl *gomock.Controller, addresses s
 	s.mockBacking.EXPECT().AllMachines().Return(mockMachines, machErr)
 }
 
+func (s *SpaceTestMockSuite) getDefaultControllerConfig(c *gc.C, space string, attr map[string]interface{}) controller.Config {
+	cfg, err := controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, attr)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
+func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesParams {
+	spaceTagFrom := names.NewSpaceTag(from)
+	spaceTagTo := names.NewSpaceTag(to)
+	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{
+		{
+			FromSpaceTag: spaceTagFrom.String(),
+			ToSpaceTag:   spaceTagTo.String(),
+		},
+	}}
+	return args
+}
+
 type stubBacking struct {
 	*apiservertesting.StubBacking
+}
+
+func (sb *stubBacking) ApplyOperation(state.ModelOperation) error {
+	panic("should not be called")
 }
 
 func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
@@ -486,7 +450,7 @@ func (s *SpacesSuite) SetUpTest(c *gc.C) {
 		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		s.callContext,
-		s.resources, s.authorizer,
+		s.resources, s.authorizer, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(s.facade, gc.NotNil)
@@ -505,7 +469,7 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		s.callContext,
-		s.resources, s.authorizer,
+		s.resources, s.authorizer, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(facade, gc.NotNil)
@@ -520,7 +484,7 @@ func (s *SpacesSuite) TestNewAPIWithBacking(c *gc.C) {
 		&s.blockChecker,
 		context.NewCloudCallContext(),
 		s.resources,
-		agentAuthorizer,
+		agentAuthorizer, nil,
 	)
 	c.Assert(err, jc.DeepEquals, common.ErrPerm)
 	c.Assert(facade, gc.IsNil)
@@ -932,7 +896,7 @@ func (s *SpacesSuite) TestReloadSpacesUserDenied(c *gc.C) {
 		&stubBacking{apiservertesting.BackingInstance},
 		&s.blockChecker,
 		context.NewCloudCallContext(),
-		s.resources, agentAuthorizer,
+		s.resources, agentAuthorizer, nil,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	err = facade.ReloadSpaces()
