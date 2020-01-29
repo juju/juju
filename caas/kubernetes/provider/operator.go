@@ -8,6 +8,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
+	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
+
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
@@ -18,13 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
-
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
-	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
+	"k8s.io/client-go/informers"
 )
 
 func operatorLabels(appName string) map[string]string {
@@ -394,15 +395,13 @@ func (k *kubernetesClient) DeleteOperator(appName string) (err error) {
 // WatchOperator returns a watcher which notifies when there
 // are changes to the operator of the specified application.
 func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher, error) {
-	pods := k.client().CoreV1().Pods(k.namespace)
-	w, err := pods.Watch(v1.ListOptions{
-		LabelSelector: operatorSelector(appName),
-		Watch:         true,
-	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return k.newWatcher(w, appName, k.clock)
+	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
+		informers.WithNamespace(k.namespace),
+		informers.WithTweakListOptions(func(o *v1.ListOptions) {
+			o.LabelSelector = applicationSelector(appName)
+		}),
+	)
+	return k.newWatcher(factory.Core().V1().Pods().Informer(), appName, k.clock)
 }
 
 // Operator returns an Operator with current status and life details.

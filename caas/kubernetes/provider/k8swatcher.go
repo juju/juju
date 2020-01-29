@@ -7,14 +7,18 @@ import (
 	"time"
 
 	jujuclock "github.com/juju/clock"
-	"github.com/juju/errors"
-	"gopkg.in/juju/worker.v1/catacomb"
-	core "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/watch"
-
 	"github.com/juju/juju/core/watcher"
+	"gopkg.in/juju/worker.v1/catacomb"
+
+	"k8s.io/apimachinery/pkg/api/meta"
+	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 )
+
+type KubernetesNotifyWatcher interface {
+	watcher.CoreWatcher
+	Changes() watcher.NotifyChannel
+}
 
 // kubernetesNotifyWatcher reports changes to kubernetes
 // resources. A native kubernetes watcher is passed
@@ -25,17 +29,31 @@ type kubernetesNotifyWatcher struct {
 	clock    jujuclock.Clock
 	catacomb catacomb.Catacomb
 
-	out       chan struct{}
-	name      string
-	k8watcher watch.Interface
+	out      chan struct{}
+	name     string
+	informer cache.SharedIndexInformer
 }
 
-func newKubernetesNotifyWatcher(wi watch.Interface, name string, clock jujuclock.Clock) (*kubernetesNotifyWatcher, error) {
+// NewK8sWatcherFunc defines a function which returns a k8s watcher based on the supplied config.
+type NewK8sWatcherFunc func(
+	informer cache.SharedIndexInformer,
+	name string,
+	clock jujuclock.Clock) (KubernetesNotifyWatcher, error)
+
+type WatchEvent string
+
+var (
+	WatchEventAdd    WatchEvent = "add"
+	WatchEventDelete WatchEvent = "delete"
+	WatchEventUpdate WatchEvent = "update"
+)
+
+func newKubernetesNotifyWatcher(informer cache.SharedIndexInformer, name string, clock jujuclock.Clock) (KubernetesNotifyWatcher, error) {
 	w := &kubernetesNotifyWatcher{
-		clock:     clock,
-		out:       make(chan struct{}),
-		name:      name,
-		k8watcher: wi,
+		clock:    clock,
+		informer: informer,
+		name:     name,
+		out:      make(chan struct{}),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -47,32 +65,44 @@ func newKubernetesNotifyWatcher(wi watch.Interface, name string, clock jujuclock
 const sendDelay = 1 * time.Second
 
 func (w *kubernetesNotifyWatcher) loop() error {
+	signals := make(chan struct{}, 1)
 	defer close(w.out)
-	defer w.k8watcher.Stop()
+
+	fireFn := func(evt WatchEvent) func(interface{}) {
+		return func(obj interface{}) {
+			meta, err := meta.Accessor(obj)
+			if err != nil {
+				logger.Errorf("getting kubernetes watcher event meta: %v", err)
+			} else {
+				logger.Tracef("kubernetes watch event %s %v(%v) = %v", evt,
+					meta.GetName(), meta.GetUID(), meta.GetLabels())
+			}
+
+			select {
+			case signals <- struct{}{}:
+			default:
+			}
+		}
+	}
+
+	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    fireFn("add"),
+		DeleteFunc: fireFn("delete"),
+		UpdateFunc: func(_, obj interface{}) {
+			fireFn("update")(obj)
+		},
+	})
 
 	// Set out now so that initial event is sent.
 	out := w.out
 	var delayCh <-chan time.Time
 
+	go w.informer.Run(w.catacomb.Dying())
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case evt, ok := <-w.k8watcher.ResultChan():
-			// This can happen if the k8s API connection drops.
-			if !ok {
-				return errors.Errorf("k8s event watcher closed, restarting")
-			}
-			logger.Tracef("received k8s event: %+v", evt.Type)
-			if pod, ok := evt.Object.(*core.Pod); ok {
-				logger.Tracef("%v(%v) = %v, status=%+v", pod.Name, pod.UID, pod.Labels, pod.Status)
-			}
-			if ns, ok := evt.Object.(*core.Namespace); ok {
-				logger.Tracef("%v(%v) = %v, status=%+v", ns.Name, ns.UID, ns.Labels, ns.Status)
-			}
-			if evt.Type == watch.Error {
-				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
-			}
+		case <-signals:
 			if delayCh == nil {
 				delayCh = w.clock.After(sendDelay)
 			}
@@ -102,26 +132,40 @@ func (w *kubernetesNotifyWatcher) Wait() error {
 	return w.catacomb.Wait()
 }
 
+type KubernetesStringsWatcher interface {
+	watcher.CoreWatcher
+	Changes() watcher.StringsChannel
+}
+
 type kubernetesStringsWatcher struct {
 	clock    jujuclock.Clock
 	catacomb catacomb.Catacomb
 
 	out           chan []string
 	name          string
+	informer      cache.SharedIndexInformer
 	k8watcher     watch.Interface
 	initialEvents []string
-	filterFunc    k8sStringsWatcherFilterFunc
+	filterFunc    K8sStringsWatcherFilterFunc
 }
 
-type k8sStringsWatcherFilterFunc func(evt watch.Event) (string, bool)
+type K8sStringsWatcherFilterFunc func(evt WatchEvent, obj interface{}) (string, bool)
 
-func newKubernetesStringsWatcher(wi watch.Interface, name string, clock jujuclock.Clock,
-	initialEvents []string, filterFunc k8sStringsWatcherFilterFunc) (*kubernetesStringsWatcher, error) {
+// NewK8sStringsWatcherFunc defines a function which returns a k8s string watcher
+// based on the supplied config
+type NewK8sStringsWatcherFunc func(
+	informer cache.SharedIndexInformer,
+	name string,
+	clock jujuclock.Clock, initialEvents []string,
+	filterFunc K8sStringsWatcherFilterFunc) (KubernetesStringsWatcher, error)
+
+func newKubernetesStringsWatcher(informer cache.SharedIndexInformer, name string, clock jujuclock.Clock,
+	initialEvents []string, filterFunc K8sStringsWatcherFilterFunc) (KubernetesStringsWatcher, error) {
 	w := &kubernetesStringsWatcher{
 		clock:         clock,
 		out:           make(chan []string),
+		informer:      informer,
 		name:          name,
-		k8watcher:     wi,
 		initialEvents: initialEvents,
 		filterFunc:    filterFunc,
 	}
@@ -134,7 +178,6 @@ func newKubernetesStringsWatcher(wi watch.Interface, name string, clock jujucloc
 
 func (w *kubernetesStringsWatcher) loop() error {
 	defer close(w.out)
-	defer w.k8watcher.Stop()
 
 	select {
 	case <-w.catacomb.Dying():
@@ -143,29 +186,48 @@ func (w *kubernetesStringsWatcher) loop() error {
 	}
 	w.initialEvents = nil
 
+	signals := make(chan string)
+	fireFn := func(evt WatchEvent) func(interface{}) {
+		return func(obj interface{}) {
+			meta, err := meta.Accessor(obj)
+			if err != nil {
+				logger.Errorf("getting kubernetes watcher event meta: %v", err)
+			} else {
+				logger.Tracef("kubernetes watch event %s %v(%v) = %v", evt,
+					meta.GetName(), meta.GetUID(), meta.GetLabels())
+			}
+
+			if emittedEvent, ok := w.filterFunc(evt, obj); ok {
+				select {
+				case signals <- emittedEvent:
+				case <-w.catacomb.Dying():
+				}
+			}
+		}
+	}
+
+	w.informer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    fireFn(WatchEventAdd),
+		DeleteFunc: fireFn(WatchEventDelete),
+		UpdateFunc: func(_, obj interface{}) {
+			fireFn(WatchEventUpdate)(obj)
+		},
+	})
+
 	// Set out now so that initial event is sent.
 	var out chan []string
 	var delayCh <-chan time.Time
 	var pendingEvents []string
 
+	go w.informer.Run(w.catacomb.Dying())
 	for {
 		select {
 		case <-w.catacomb.Dying():
 			return w.catacomb.ErrDying()
-		case evt, ok := <-w.k8watcher.ResultChan():
-			// This can happen if the k8s API connection drops.
-			if !ok {
-				return errors.Errorf("k8s event watcher closed, restarting")
-			}
-			if evt.Type == watch.Error {
-				return errors.Errorf("kubernetes watcher error: %v", k8serrors.FromObject(evt.Object))
-			}
-			logger.Tracef("received k8s event: %+v", evt.Type)
-			if emittedEvent, ok := w.filterFunc(evt); ok {
-				pendingEvents = append(pendingEvents, emittedEvent)
-				if delayCh == nil {
-					delayCh = w.clock.After(sendDelay)
-				}
+		case emittedEvent := <-signals:
+			pendingEvents = append(pendingEvents, emittedEvent)
+			if delayCh == nil {
+				delayCh = w.clock.After(sendDelay)
 			}
 		case <-delayCh:
 			delayCh = nil
