@@ -51,10 +51,6 @@ var baseCommands = map[string]creator{
 	"open-port" + cmdSuffix:               NewOpenPortCommand,
 	"opened-ports" + cmdSuffix:            NewOpenedPortsCommand,
 	"relation-get" + cmdSuffix:            NewRelationGetCommand,
-	"action-get" + cmdSuffix:              NewActionGetCommand,
-	"action-set" + cmdSuffix:              NewActionSetCommand,
-	"action-fail" + cmdSuffix:             NewActionFailCommand,
-	"action-log" + cmdSuffix:              NewActionLogCommand,
 	"relation-ids" + cmdSuffix:            NewRelationIdsCommand,
 	"relation-list" + cmdSuffix:           NewRelationListCommand,
 	"relation-set" + cmdSuffix:            NewRelationSetCommand,
@@ -66,8 +62,27 @@ var baseCommands = map[string]creator{
 	"network-get" + cmdSuffix:             NewNetworkGetCommand,
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
 	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
+	"pod-spec-get" + cmdSuffix:            NewPodSpecGetCommand,
 	"goal-state" + cmdSuffix:              NewGoalStateCommand,
 	"credential-get" + cmdSuffix:          NewCredentialGetCommand,
+
+	"action-get" + cmdSuffix:  constructCommandCreator("action-get", NewActionGetCommand),
+	"action-set" + cmdSuffix:  constructCommandCreator("action-set", NewActionSetCommand),
+	"action-fail" + cmdSuffix: constructCommandCreator("action-fail", NewActionFailCommand),
+	"action-log" + cmdSuffix:  constructCommandCreator("action-log", NewActionLogCommand),
+
+	"function-get" + cmdSuffix:  constructCommandCreator("function-get", NewActionGetCommand),
+	"function-set" + cmdSuffix:  constructCommandCreator("function-set", NewActionSetCommand),
+	"function-fail" + cmdSuffix: constructCommandCreator("function-fail", NewActionFailCommand),
+	"function-log" + cmdSuffix:  constructCommandCreator("function-log", NewActionLogCommand),
+}
+
+type functionCmdCreator func(Context, string) (cmd.Command, error)
+
+func constructCommandCreator(name string, newCmd functionCmdCreator) creator {
+	return func(ctx Context) (cmd.Command, error) {
+		return newCmd(ctx, name)
+	}
 }
 
 var storageCommands = map[string]creator{

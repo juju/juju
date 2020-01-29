@@ -7,6 +7,7 @@ import argparse
 import logging
 import sys
 import subprocess
+import time
 
 from deploy_stack import (
     BootstrapManager,
@@ -59,15 +60,28 @@ def destroy_model(client, new_client):
     if not old_model:
         error = 'Juju unset model after it was destroyed'
         raise JujuAssertionError(error)
-    try:
-        client.get_juju_output('status', include_e=False)
-    except subprocess.CalledProcessError as e:
-        if b'{} not found'.format(old_model) not in e.stderr:
-            error = 'unexpected error calling status\n{}'.format(e.stderr)
+    for attempt in range(10):
+        try:
+            client.get_juju_output('status', include_e=False)
+        except subprocess.CalledProcessError as e:
+            not_found_error = b'{} not found'.format(old_model)
+            if not_found_error in e.stderr:
+                log.info("Model fully removed")
+                break
+            removed_error = b'model "admin/{}" has been removed from the controller'.format(old_model)
+            if removed_error not in e.stderr:
+                error = 'unexpected error calling status\n{}'.format(e.stderr)
+                raise JujuAssertionError(error)
+            log.info("Model reported as removed...")
+        else:
+            error = 'model still valid after it was destroyed'
             raise JujuAssertionError(error)
+        time.sleep(10)
     else:
-        error = 'model still valid after it was destroyed'
-        raise JujuAssertionError(error)
+        # We didn't break out of the loop, so the model-removed message didn't
+        # change to model not found (indicating that the model hasn't been
+        # removed from the state pool).
+        raise JujuAssertionError("didn't get not found error - model still in state pool")
 
 
 def switch_model(client, current_model, current_controller):

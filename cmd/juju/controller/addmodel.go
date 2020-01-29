@@ -255,7 +255,7 @@ func (c *addModelCommand) Run(ctx *cmd.Context) error {
 		ModelUUID: model.UUID,
 		ModelType: model.Type,
 	}
-	if featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		// Default target is the master branch.
 		details.ActiveBranch = coremodel.GenerationMaster
 	}

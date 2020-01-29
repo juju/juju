@@ -12,6 +12,7 @@ series:
   - artful
   - bionic
   - disco
+  - eoan
 storage:
   single-fs:
     type: filesystem

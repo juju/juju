@@ -913,13 +913,13 @@ func (s *MigrationExportSuite) TestRelations(c *gc.C) {
 	wordpressAppSettings := map[string]interface{}{
 		"war": "worlds",
 	}
-	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressAppSettings)
+	err = rel.UpdateApplicationSettings("wordpress", &fakeToken{}, wordpressAppSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	mysqlAppSettings := map[string]interface{}{
 		"million": "one",
 	}
-	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlAppSettings)
+	err = rel.UpdateApplicationSettings("mysql", &fakeToken{}, mysqlAppSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Export()

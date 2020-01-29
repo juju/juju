@@ -459,10 +459,23 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 	_, err := client.CreateVirtualMachine(context.Background(), args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	call := findStubCall(c, s.roundTripper.Calls(), "ExtendVirtualDisk")
-	c.Assert(call.Args, jc.DeepEquals, []interface{}{
-		"disk.vmdk",
-		int64(rootDisk) * 1024, // in KiB
+	s.roundTripper.CheckCall(c, 36, "ReconfigVM_Task", types.VirtualMachineConfigSpec{
+		DeviceChange: []types.BaseVirtualDeviceConfigSpec{
+			&types.VirtualDeviceConfigSpec{
+				Operation:     types.VirtualDeviceConfigSpecOperationEdit,
+				FileOperation: "",
+				Device: &types.VirtualDisk{
+					VirtualDevice: types.VirtualDevice{
+						Backing: &types.VirtualDiskFlatVer2BackingInfo{
+							VirtualDeviceFileBackingInfo: types.VirtualDeviceFileBackingInfo{
+								FileName: "disk.vmdk",
+							},
+						},
+					},
+					CapacityInKB: 1024 * 1024 * 20, // 20 GiB
+				},
+			},
+		},
 	})
 }
 

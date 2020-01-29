@@ -41,6 +41,11 @@ func (c *RestrictedContext) SetPodSpec(specYaml string) error {
 	return ErrRestrictedContext
 }
 
+// GetPodSpec implements hooks.Context.
+func (c *RestrictedContext) GetPodSpec() (string, error) {
+	return "", ErrRestrictedContext
+}
+
 func (c *RestrictedContext) CloudSpec() (*params.CloudSpec, error) {
 	return nil, ErrRestrictedContext
 }

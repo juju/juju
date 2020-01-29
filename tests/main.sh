@@ -6,9 +6,11 @@ export SHELLCHECK_OPTS="-e SC2230 -e SC2039 -e SC2028 -e SC2002 -e SC2005"
 export BOOTSTRAP_REUSE_LOCAL="${BOOTSTRAP_REUSE_LOCAL:-}"
 export BOOTSTRAP_REUSE="${BOOTSTRAP_REUSE:-false}"
 export BOOTSTRAP_PROVIDER="${BOOTSTRAP_PROVIDER:-lxd}"
+export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 OPTIND=1
 VERBOSE=1
+RUN_ALL="false"
 SKIP_LIST=""
 ARITFACT_FILE=""
 OUTPUT_FILE=""
@@ -25,13 +27,25 @@ import_subdir_files() {
 import_subdir_files includes
 
 # If adding a test suite, then ensure to add it here to be picked up!
-TEST_NAMES="test_static_analysis \
-            test_branches \
-            test_cli \
-            test_controller \
-            test_cmr_bundles \
-            test_machine \
-            test_smoke"
+TEST_NAMES="static_analysis \
+            branches \
+            cli \
+            controller \
+            deploy \
+            machine \
+            smoke"
+
+# Show test suites, can be used to test if a test suite is available or not.
+show_test_suites() {
+    output=""
+    for test in ${TEST_NAMES}; do
+        name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
+        # shellcheck disable=SC2086
+        output="${output}\n${test}"
+    done
+    echo "${output}" | column -t -s "|"
+    exit 0
+}
 
 show_help() {
     version=$(juju version)
@@ -48,15 +62,19 @@ show_help() {
     echo ""
     echo "Usage:"
     echo "¯¯¯¯¯¯"
-    echo "cmd [-h] [-vV] [-s test] [-a file] [-x file] [-r reuse] [-p provider type <lxd|aws>]"
+    echo "Flags should appear $(red 'before') arguments."
+    echo ""
+    echo "cmd [-h] [-vV] [-A] [-s test] [-a file] [-x file] [-r] [-l controller] [-p provider type <lxd|aws>]"
     echo ""
     echo "    $(green 'cmd -h')        Display this help message"
     echo "    $(green 'cmd -v')        Verbose and debug messages"
     echo "    $(green 'cmd -V')        Very verbose and debug messages"
+    echo "    $(green 'cmd -A')        Run all the test suites"
     echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
     echo "    $(green 'cmd -a')        Create an atifact file"
     echo "    $(green 'cmd -x')        Output file from streaming the output"
-    echo "    $(green 'cmd -r')        Reuse bootstrapped controller"
+    echo "    $(green 'cmd -r')        Reuse bootstrapped controller between testing suites"
+    echo "    $(green 'cmd -l')        Local bootstrapped controller name to reuse"
     echo "    $(green 'cmd -p')        Bootstrap provider to use when bootstrapping <lxd|aws>"
     echo ""
     echo "Tests:"
@@ -89,13 +107,16 @@ show_help() {
     echo "which is then copied into the artifact tar file on test cleanup):"
     echo ""
     echo "    $(green 'cmd -V -a artifact.tar.gz -x output.log 2>&1|tee output.log')"
-    exit 0
+    exit 1
 }
 
-while getopts "h?:vVsaxrp" opt; do
+while getopts "hH?:vVAsaxrlp" opt; do
     case "${opt}" in
     h|\?)
         show_help
+        ;;
+    H)
+        show_test_suites
         ;;
     v)
         VERBOSE=2
@@ -105,6 +126,10 @@ while getopts "h?:vVsaxrp" opt; do
         VERBOSE=3
         shift
         alias juju="juju --debug"
+        ;;
+    A)
+        RUN_ALL="true"
+        shift
         ;;
     s)
         SKIP_LIST="${2}"
@@ -122,6 +147,13 @@ while getopts "h?:vVsaxrp" opt; do
         export BOOTSTRAP_REUSE="true"
         shift
         ;;
+    l)
+        export BOOTSTRAP_REUSE_LOCAL="${2}"
+        export BOOTSTRAP_REUSE="true"
+        CLOUD=$(juju show-controller "${2}" --format=json | jq -r ".[\"${2}\"] | .details | .cloud")
+        export BOOTSTRAP_PROVIDER="${CLOUD}"
+        shift 2
+        ;;
     p)
         export BOOTSTRAP_PROVIDER="${2}"
         shift 2
@@ -138,6 +170,17 @@ shift $((OPTIND-1))
 
 export VERBOSE="${VERBOSE}"
 export SKIP_LIST="${SKIP_LIST}"
+
+if [ "$#" -eq 0 ]; then
+    if [ "${RUN_ALL}" != "true" ]; then
+        echo "$(red '---------------------------------------')"
+        echo "$(red 'Run with -A to run all the test suites.')"
+        echo "$(red '---------------------------------------')"
+        echo ""
+        show_help
+        exit 1
+    fi
+fi
 
 echo ""
 
@@ -226,6 +269,22 @@ run_test() {
 
 # allow for running a specific set of tests
 if [ "$#" -gt 0 ]; then
+    # shellcheck disable=SC2143
+    if [ "$(echo "${2}" | grep -E "^run_")" ]; then
+        TEST="$(grep -lr "run \"${2}\"" "suites/${1}" | xargs sed -rn 's/.*(test_\w+)\s+?\(\)\s+?\{/\1/p')"
+        if [ -z "${TEST}" ]; then
+            echo "==> Unable to find parent test for ${2}."
+            echo "    Try and run the parent test directly."
+            exit 1
+        fi
+
+        export RUN_SUBTEST="${2}"
+        echo "==> Running subtest: ${2}"
+        run_test "test_${1}" "" "" "${TEST}"
+        TEST_RESULT=success
+        exit
+    fi
+
     run_test "test_${1}" "" "$@"
     TEST_RESULT=success
     exit
@@ -233,7 +292,7 @@ fi
 
 for test in ${TEST_NAMES}; do
     name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
-    run_test "${test}" "${name}"
+    run_test "test_${test}" "${name}"
 done
 
 TEST_RESULT=success

@@ -105,7 +105,7 @@ supplying a series argument to '--bootstrap-series'.
 An error is emitted if the determined series is not supported. Using the
 '--force' option to override this check:
 
-	juju bootstrap --bootstrap-series=eoan --force
+	juju bootstrap --bootstrap-series=focal --force
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
@@ -502,7 +502,7 @@ func (c *bootstrapCommand) initializeHostedModel(
 		ModelType: hostedModelType,
 	}
 
-	if featureflag.Enabled(feature.Generations) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		modelDetails.ActiveBranch = model.GenerationMaster
 	}
 

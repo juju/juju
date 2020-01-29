@@ -37,6 +37,15 @@ cloud-specific credential on a controller as well as the one from this client.
 
 Use --controller option to update a credential definition on a controller. 
 
+When updating cloud credential on a controller, Juju performs additional
+checks to ensure that the models that use this credential can still
+access cloud instances after the update. Occasionally, these checks may not be desired
+by the user and can be by-passed using --force option. 
+Force update may leave some models with un-reachable machines.
+Consequently, it is not recommended as a default update action.
+Models with un-reachable machines are most commonly fixed by using another cloud credential, 
+see ' + "'juju set-credential'" + ' for more information.
+
 Use --client to update a credential definition on this client.
 If a user will use a different client, say a different laptop, 
 the update will not affect that client's (laptop's) copy.
@@ -51,11 +60,13 @@ Examples:
     juju update-credential -f mine.yaml --client
     juju update-credential aws -f mine.yaml
     juju update-credential azure --region brazilsouth -f mine.yaml
+    juju update-credential -f mine.yaml --controller mycontroller --force
 
 See also: 
     add-credential
+    credentials
     remove-credential
-    credentials`[1:]
+    set-credential`[1:]
 
 type updateCredentialCommand struct {
 	modelcmd.OptionalControllerCommand
@@ -70,6 +81,9 @@ type updateCredentialCommand struct {
 
 	// Region is the region that credentials will be validated for before an update.
 	Region string
+
+	// Force determines whether the update will be forced on the controller side.
+	Force bool
 }
 
 // NewUpdateCredentialCommand returns a command to update credential details.
@@ -123,11 +137,13 @@ func (c *updateCredentialCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.CredentialsFile, "f", "", "The YAML file containing credential details to update")
 	f.StringVar(&c.CredentialsFile, "file", "", "The YAML file containing credential details to update")
 	f.StringVar(&c.Region, "region", "", "Cloud region that credential is valid for")
+	f.BoolVar(&c.Force, "force", false, "Force update controller side credential, ignore validation errors")
 }
 
 type CredentialAPI interface {
 	Clouds() (map[names.CloudTag]jujucloud.Cloud, error)
-	UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
+	AddCloudsCredentials(cloudCredentials map[string]jujucloud.Credential) ([]params.UpdateCredentialResult, error)
+	UpdateCloudsCredentials(cloudCredentials map[string]jujucloud.Credential, force bool) ([]params.UpdateCredentialResult, error)
 	BestAPIVersion() int
 	Close() error
 }
@@ -368,7 +384,7 @@ func (c *updateCredentialCommand) updateRemoteCredentials(ctx *cmd.Context, upda
 	if len(verified) == 0 {
 		return erred
 	}
-	results, err := client.UpdateCloudsCredentials(verified)
+	results, err := client.UpdateCloudsCredentials(verified, c.Force)
 	if err != nil {
 		logger.Errorf("%v", err)
 		ctx.Warningf("Could not update credentials remotely, on controller %q", c.ControllerName)

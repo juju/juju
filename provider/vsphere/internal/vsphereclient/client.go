@@ -9,10 +9,12 @@ import (
 	"path"
 	"strings"
 
+	"github.com/dustin/go-humanize"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/mutex"
+	"github.com/kr/pretty"
 	"github.com/vmware/govmomi"
 	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/list"
@@ -603,56 +605,46 @@ func customiseVAppConfig(
 	}, nil
 }
 
-func (c *Client) getDiskWithFileBacking(
+func (c *Client) getDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
-) (*types.VirtualDisk, types.BaseVirtualDeviceFileBackingInfo, error) {
+) (*types.VirtualDisk, error) {
 	var mo mo.VirtualMachine
 	if err := c.client.RetrieveOne(ctx, vm.Reference(), []string{"config.hardware"}, &mo); err != nil {
-		return nil, nil, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	for _, dev := range mo.Config.Hardware.Device {
-		dev, ok := dev.(*types.VirtualDisk)
-		if !ok {
-			continue
+		if dev, ok := dev.(*types.VirtualDisk); ok {
+			return dev, nil
 		}
-		backing, ok := dev.Backing.(types.BaseVirtualDeviceFileBackingInfo)
-		if !ok {
-			continue
-		}
-		return dev, backing, nil
 	}
-	return nil, nil, errors.NotFoundf("disk")
+	return nil, errors.NotFoundf("disk")
 }
 
 func (c *Client) extendDisk(
 	ctx context.Context,
 	vm *object.VirtualMachine,
-	datacenter *object.Datacenter,
-	datastorePath string,
-	capacityKB int64,
-	taskWaiter *taskWaiter,
+	disk *types.VirtualDisk,
+	desiredCapacityKB int64,
 ) error {
-	// NOTE(axw) there's no ExtendVirtualDisk on the disk manager type,
-	// hence why we're dealing with request types directly. Send a patch
-	// to govmomi to add this to VirtualDiskManager.
+	prettySize := func(kb int64) string { return humanize.IBytes(uint64(kb) * 1024) }
+	c.logger.Debugf("extending disk from %q to %q", prettySize(disk.CapacityInKB), prettySize(desiredCapacityKB))
 
-	diskManager := object.NewVirtualDiskManager(c.client.Client)
-	dcref := datacenter.Reference()
-	req := types.ExtendVirtualDisk_Task{
-		This:          diskManager.Reference(),
-		Name:          datastorePath,
-		Datacenter:    &dcref,
-		NewCapacityKb: capacityKB,
-	}
+	// Resize the disk to desired size.
+	disk.CapacityInKB = desiredCapacityKB
 
-	res, err := methods.ExtendVirtualDisk_Task(ctx, c.client.Client, &req)
+	spec := types.VirtualMachineConfigSpec{}
+	spec.DeviceChange = append(spec.DeviceChange, &types.VirtualDeviceConfigSpec{
+		Device:        disk,
+		Operation:     types.VirtualDeviceConfigSpecOperationEdit,
+		FileOperation: "",
+	})
+	c.logger.Tracef("extending disk, config change -> %s", pretty.Sprint(spec))
+	task, err := vm.Reconfigure(ctx, spec)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Trace(&extendDiskError{err})
 	}
-	task := object.NewTask(c.client.Client, res.Returnval)
-	_, err = taskWaiter.waitTask(ctx, task, "extending disk")
-	if err != nil {
+	if err := task.Wait(ctx); err != nil {
 		return errors.Trace(&extendDiskError{err})
 	}
 	return nil

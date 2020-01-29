@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
+	"github.com/juju/replicaset"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -62,7 +63,6 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
-	//s.State.StartSync()
 	s.client = s.clientForState(c, s.State)
 }
 
@@ -86,6 +86,20 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
 		return s.newEnviron()
 	})
+	// Wrap in a happy replicaset.
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				},
+			},
+		},
+	}
+	client.OverrideClientBackendMongoSession(apiserverClient, session)
 	return apiserverClient
 }
 
@@ -135,6 +149,20 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	})
 	c.Assert(info.ControllerUUID, gc.Equals, "controller-deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	c.Assert(info.IsController, gc.Equals, model.IsControllerModel())
+}
+
+func (s *serverSuite) TestAddMachineVariantsReadOnlyDenied(c *gc.C) {
+	user := s.makeLocalModelUser(c, "read", "Read Only")
+	api := s.authClientForState(c, s.State, testing.FakeAuthorizer{Tag: user.UserTag})
+
+	_, err := api.AddMachines(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	_, err = api.AddMachinesV2(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	_, err = api.InjectMachines(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
@@ -225,7 +253,7 @@ func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
-	// factory.MakeUser will create an ModelUser for a local user by defalut
+	// factory.MakeUser will create an ModelUser for a local user by default.
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,6 +367,43 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c 
 	}
 
 	err := client.SetModelAgentVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelVersion(c, otherSt, "2.0.4")
+}
+
+func (s *serverSuite) TestControllerModelSetModelAgentVersionChecksReplicaset(c *gc.C) {
+	// Wrap in a very unhappy replicaset.
+	session := &fakeSession{
+		err: errors.New("boom"),
+	}
+	client.OverrideClientBackendMongoSession(s.client, session)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetModelAgentVersion(args)
+	c.Assert(err.Error(), gc.Equals, "checking replicaset status: boom")
+}
+
+func (s *serverSuite) TestUserModelSetModelAgentVersionSkipsMongoCheck(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("2.0.4"),
+	}
+	apiserverClient := s.clientForState(c, otherSt)
+	// Wrap in a very unhappy replicaset.
+	session := &fakeSession{
+		err: errors.New("boom"),
+	}
+	client.OverrideClientBackendMongoSession(apiserverClient, session)
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
+		return &mockEnviron{}, nil
+	}
+
+	err := apiserverClient.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertModelVersion(c, otherSt, "2.0.4")
@@ -1754,4 +1819,105 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeNonHAGood(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHAGood(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeDown(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.DownState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 2 (192.168.42.2) has state DOWN")
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeRecovering(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.RecoveringState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 1 (192.168.42.1) has state RECOVERING")
+}
+
+type fakeSession struct {
+	status *replicaset.Status
+	err    error
+}
+
+func (s fakeSession) CurrentStatus() (*replicaset.Status, error) {
+	return s.status, s.err
 }

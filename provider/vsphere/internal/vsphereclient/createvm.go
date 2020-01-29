@@ -403,7 +403,7 @@ func (c *Client) extendVMRootDisk(
 	sizeMB uint64,
 	taskWaiter *taskWaiter,
 ) error {
-	disk, backing, err := c.getDiskWithFileBacking(ctx, vm)
+	disk, err := c.getDisk(ctx, vm)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -413,10 +413,7 @@ func (c *Client) extendVMRootDisk(
 		// user-specified size, so leave it alone.
 		return nil
 	}
-	datastorePath := backing.GetVirtualDeviceFileBackingInfo().FileName
-	return errors.Trace(c.extendDisk(
-		ctx, vm, datacenter, datastorePath, newCapacityInKB, taskWaiter,
-	))
+	return errors.Trace(c.extendDisk(ctx, vm, disk, newCapacityInKB))
 }
 
 func (c *Client) createImportSpec(

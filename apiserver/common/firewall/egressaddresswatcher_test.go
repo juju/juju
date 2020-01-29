@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -69,8 +69,8 @@ func (s *addressWatcherSuite) TestInitial(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	// django/0 is initially in scope
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -85,14 +85,14 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -100,8 +100,8 @@ func (s *addressWatcherSuite) TestUnitEntersScope(c *gc.C) {
 	wc.AssertNoChange()
 
 	// A not found unit doesn't trigger an event.
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"unknown/0": {},
 		},
 	}
@@ -114,7 +114,7 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.NewSpaceAddress("54.4.5.6")
@@ -126,8 +126,8 @@ func (s *addressWatcherSuite) TestTwoUnitsEntersScope(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 			"django/1": {},
 		},
@@ -142,14 +142,14 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -161,8 +161,8 @@ func (s *addressWatcherSuite) TestAnotherUnitsEntersScope(c *gc.C) {
 	unit.machineId = "1"
 	s.st.units["django/1"] = unit
 	s.st.machines["1"] = newMockMachine("1")
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/1": {},
 		},
 	}
@@ -176,8 +176,8 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -188,8 +188,8 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNoPublicAddress(c *gc.C) {
 	wc.AssertNoChange()
 
 	// This time no event.
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -204,8 +204,8 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -216,8 +216,8 @@ func (s *addressWatcherSuite) TestUnitEntersScopeNotAssigned(c *gc.C) {
 	wc.AssertNoChange()
 
 	// This time no event.
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -231,7 +231,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScopeInitial(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 
-	rel.ruw.changes <- params.RelationUnitsChange{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"django/0"},
 	}
 
@@ -247,7 +247,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.NewSpaceAddress("54.4.5.6")
@@ -259,8 +259,8 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 			"django/1": {},
 		},
@@ -268,7 +268,7 @@ func (s *addressWatcherSuite) TestUnitLeavesScope(c *gc.C) {
 	wc.AssertChange("54.1.2.3/32", "54.4.5.6/32")
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"django/0"},
 	}
 
@@ -282,7 +282,7 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	unit := newMockUnit("django/1")
 	unit.publicAddress = network.NewSpaceAddress("54.1.2.3")
@@ -293,8 +293,8 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 			"django/1": {},
 		},
@@ -303,14 +303,14 @@ func (s *addressWatcherSuite) TestTwoUnitsSameAddressOneLeaves(c *gc.C) {
 	wc.AssertNoChange()
 
 	// One leaves, no change.
-	rel.ruw.changes <- params.RelationUnitsChange{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"django/0"},
 	}
 
 	wc.AssertNoChange()
 
 	// Last one leaves.
-	rel.ruw.changes <- params.RelationUnitsChange{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"django/1"},
 	}
 
@@ -325,8 +325,8 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	// django/0 is initially in scope
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -339,8 +339,8 @@ func (s *addressWatcherSuite) TestSecondUnitJoinsOnSameMachine(c *gc.C) {
 	unit.machineId = "0"
 	s.st.units["django/1"] = unit
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/1": {},
 		},
 	}
@@ -363,8 +363,8 @@ func (s *addressWatcherSuite) TestSeesMachineAddressChanges(c *gc.C) {
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	// django/0 is initially in scope
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -386,8 +386,8 @@ func (s *addressWatcherSuite) TestHandlesMachineAddressChangesWithNoEffect(c *gc
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
 	// django/0 is initially in scope
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -407,8 +407,8 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	unit.publicAddress = network.NewSpaceAddress("2.3.4.5")
 	unit.machineId = "0"
 	s.st.units["django/1"] = unit
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 			"django/1": {},
 		},
@@ -422,7 +422,7 @@ func (s *addressWatcherSuite) TestHandlesUnitGoneWhenMachineAddressChanges(c *gc
 	wc.AssertChange("2.3.4.5/32")
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
 		Departed: []string{"django/1"},
 	}
 	s.st.units["django/0"].updateAddress("6.7.8.9")
@@ -439,14 +439,14 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
 	wc.AssertNoChange()
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -466,8 +466,8 @@ func (s *addressWatcherSuite) TestModelEgressAddressUsed(c *gc.C) {
 	wc.AssertNoChange()
 
 	// A not found unit doesn't trigger an event.
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"unknown/0": {},
 		},
 	}
@@ -482,7 +482,7 @@ func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, nopSyncStarter{}, w)
-	rel.ruw.changes <- params.RelationUnitsChange{}
+	rel.ruw.changes <- watcher.RelationUnitsChange{}
 
 	// Initial event.
 	wc.AssertChange()
@@ -491,8 +491,8 @@ func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
 	// New relation ingress cidr.
 	rel.ew.changes <- []string{"192.168.0.0/8"}
 
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"django/0": {},
 		},
 	}
@@ -509,8 +509,8 @@ func (s *addressWatcherSuite) TestRelationEgressAddressUsed(c *gc.C) {
 	wc.AssertNoChange()
 
 	// A not found unit doesn't trigger an event.
-	rel.ruw.changes <- params.RelationUnitsChange{
-		Changed: map[string]params.UnitSettings{
+	rel.ruw.changes <- watcher.RelationUnitsChange{
+		Changed: map[string]watcher.UnitSettings{
 			"unknown/0": {},
 		},
 	}

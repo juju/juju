@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	semversion "github.com/juju/version"
@@ -19,20 +20,31 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "2.7-rc3"
+const version = "2.7.2"
 
 const (
+	// TreeStateDirty when the build was made with a dirty checkout.
 	TreeStateDirty = "dirty"
+	// TreeStateClean when the build was made with a clean checkout.
 	TreeStateClean = "clean"
+	// TreeStateArchive when the build was made outside of a git checkout.
+	TreeStateArchive = "archive"
 )
 
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = semversion.MustParse("1.19.9")
 
+// build is injected by Jenkins, it must be an integer or empty.
+var build string
+
+// Build is a monotonic number injected by Jenkins. It is added to the Current version only when
+// the version is a development build (see IsDev(1))
+var Build = mustParseBuildInt(build)
+
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
-var Current = semversion.MustParse(version)
+var Current = mustParseVersion(version, build)
 
 // Compiler is the go compiler used to build the binary.
 var Compiler = runtime.Compiler
@@ -71,4 +83,23 @@ func IsDev(v semversion.Number) bool {
 		return isOdd(v.Minor) || v.Build > 0
 	}
 	return v.Tag != "" || v.Build > 0
+}
+
+func mustParseVersion(versionStr string, buildInt string) semversion.Number {
+	ver := semversion.MustParse(versionStr)
+	if IsDev(ver) {
+		ver.Build = mustParseBuildInt(buildInt)
+	}
+	return ver
+}
+
+func mustParseBuildInt(buildInt string) int {
+	if buildInt == "" {
+		return 0
+	}
+	i, err := strconv.Atoi(buildInt)
+	if err != nil {
+		panic(err)
+	}
+	return i
 }

@@ -5,12 +5,14 @@ package client
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
+	"github.com/juju/replicaset"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -187,7 +189,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{st, model},
+		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
 		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
 		resources,
@@ -374,10 +376,6 @@ func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-
 	return c.AddMachinesV2(args)
 }
 
@@ -385,6 +383,9 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+	if err := c.checkCanWrite(); err != nil {
+		return params.AddMachinesResults{}, err
 	}
 	if err := c.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
@@ -401,10 +402,6 @@ func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResul
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-
 	return c.AddMachines(args)
 }
 
@@ -669,6 +666,11 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
 	if c.api.stateAccessor.IsController() {
+		// Check to ensure that the replicaset is happy.
+		if err := c.CheckMongoStatusForUpgrade(c.api.stateAccessor.MongoSession()); err != nil {
+			return errors.Trace(err)
+		}
+
 		modelUUIDs, err := c.api.stateAccessor.AllModelUUIDs()
 		if err != nil {
 			return errors.Trace(err)
@@ -688,6 +690,40 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	}
 
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version, args.IgnoreAgentVersions)
+}
+
+// CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good
+// enough state for an upgrade to continue. Exported for testing.
+func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
+	if skipReplicaCheck {
+		// Skipping only occurs in tests where we need to avoid actually checking
+		// the replicaset as tests don't run with this setting.
+		return nil
+	}
+	replicaStatus, err := session.CurrentStatus()
+	if err != nil {
+		return errors.Annotate(err, "checking replicaset status")
+	}
+
+	// Iterate over the replicaset, and record any nodes that aren't either
+	// primary or secondary.
+	var notes []string
+	for _, member := range replicaStatus.Members {
+		switch member.State {
+		case replicaset.PrimaryState:
+			// All good.
+		case replicaset.SecondaryState:
+			// Also good.
+		default:
+			msg := fmt.Sprintf("node %d (%s) has state %s", member.Id, member.Address, member.State)
+			notes = append(notes, msg)
+		}
+	}
+
+	if len(notes) > 0 {
+		return errors.Errorf("unable to upgrade, database %s", strings.Join(notes, ", "))
+	}
+	return nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -809,4 +845,19 @@ func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResul
 		return params.FindToolsResult{}, errors.New("requesting agent-stream not supported by model")
 	}
 	return c.api.toolsFinder.FindTools(args)
+}
+
+// NOTE: this is necessary for the other packages that do upgrade tests.
+// Really they should be using a mocked out api server, but that is outside
+// the scope of this fix.
+var skipReplicaCheck = false
+
+// SkipReplicaCheck is required for tests only as the test mongo isn't a replica.
+func SkipReplicaCheck(patcher Patcher) {
+	patcher.PatchValue(&skipReplicaCheck, true)
+}
+
+// Patcher is provided by the test suites to temporarily change values.
+type Patcher interface {
+	PatchValue(dest, value interface{})
 }

@@ -15,20 +15,19 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/params"
+	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type CloudSpecSuite struct {
 	testing.IsolationSuite
 	testing.Stub
-	result      environs.CloudSpec
-	specChanges chan struct{}
-	authFunc    common.AuthFunc
-	api         cloudspec.CloudSpecAPI
+	result   environs.CloudSpec
+	authFunc common.AuthFunc
+	api      cloudspec.CloudSpecAPI
 }
 
 var _ = gc.Suite(&CloudSpecSuite{})
@@ -41,22 +40,7 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Auth", tag)
 		return tag == coretesting.ModelTag
 	}
-	s.specChanges = make(chan struct{}, 1)
-	s.api = cloudspec.NewCloudSpec(
-		common.NewResources(),
-		func(tag names.ModelTag) (environs.CloudSpec, error) {
-			s.AddCall("CloudSpec", tag)
-			return s.result, s.NextErr()
-		},
-		func(tag names.ModelTag) (state.NotifyWatcher, error) {
-			s.AddCall("WatchCloudSpec", tag)
-			return statetesting.NewMockNotifyWatcher(s.specChanges), s.NextErr()
-		},
-		func() (common.AuthFunc, error) {
-			s.AddCall("GetAuthFunc")
-			return s.authFunc, s.NextErr()
-		})
-
+	s.api = s.getTestCloudSpec(apiservertesting.NewFakeNotifyWatcher())
 	credential := cloud.NewCredential(
 		"auth-type",
 		map[string]string{"k": "v"},
@@ -71,6 +55,31 @@ func (s *CloudSpecSuite) SetUpTest(c *gc.C) {
 		Credential:       &credential,
 		CACertificates:   []string{coretesting.CACert},
 	}
+}
+
+func (s *CloudSpecSuite) getTestCloudSpec(credentialContentWatcher state.NotifyWatcher) cloudspec.CloudSpecAPI {
+	return cloudspec.NewCloudSpec(
+		common.NewResources(),
+		func(tag names.ModelTag) (environs.CloudSpec, error) {
+			s.AddCall("CloudSpec", tag)
+			return s.result, s.NextErr()
+		},
+		func(tag names.ModelTag) (state.NotifyWatcher, error) {
+			s.AddCall("WatchCloudSpec", tag)
+			return apiservertesting.NewFakeNotifyWatcher(), s.NextErr()
+		},
+		func(tag names.ModelTag) (state.NotifyWatcher, error) {
+			s.AddCall("WatchCredentialReference", tag)
+			return apiservertesting.NewFakeNotifyWatcher(), s.NextErr()
+		},
+		func(tag names.ModelTag) (state.NotifyWatcher, error) {
+			s.AddCall("WatchCredentialContent", tag)
+			return credentialContentWatcher, s.NextErr()
+		},
+		func() (common.AuthFunc, error) {
+			s.AddCall("GetAuthFunc")
+			return s.authFunc, s.NextErr()
+		})
 }
 
 func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
@@ -115,7 +124,6 @@ func (s *CloudSpecSuite) TestCloudSpec(c *gc.C) {
 }
 
 func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
-	s.specChanges <- struct{}{}
 	otherModelTag := names.NewModelTag(utils.MustNewUUID().String())
 	machineTag := names.NewMachineTag("42")
 	result, err := s.api.WatchCloudSpecsChanges(params.Entities{Entities: []params.Entity{
@@ -140,7 +148,27 @@ func (s *CloudSpecSuite) TestWatchCloudSpecsChanges(c *gc.C) {
 		{"GetAuthFunc", nil},
 		{"Auth", []interface{}{coretesting.ModelTag}},
 		{"WatchCloudSpec", []interface{}{coretesting.ModelTag}},
+		{"WatchCredentialReference", []interface{}{coretesting.ModelTag}},
+		{"WatchCredentialContent", []interface{}{coretesting.ModelTag}},
 		{"Auth", []interface{}{otherModelTag}},
+	})
+}
+
+func (s *CloudSpecSuite) TestWatchCloudSpecsNoCredentialContentToWatch(c *gc.C) {
+	s.api = s.getTestCloudSpec(nil)
+	result, err := s.api.WatchCloudSpecsChanges(params.Entities{Entities: []params.Entity{
+		{coretesting.ModelTag.String()},
+	}})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, jc.DeepEquals, []params.NotifyWatchResult{{
+		NotifyWatcherId: "1",
+	}})
+	s.CheckCalls(c, []testing.StubCall{
+		{"GetAuthFunc", nil},
+		{"Auth", []interface{}{coretesting.ModelTag}},
+		{"WatchCloudSpec", []interface{}{coretesting.ModelTag}},
+		{"WatchCredentialReference", []interface{}{coretesting.ModelTag}},
+		{"WatchCredentialContent", []interface{}{coretesting.ModelTag}},
 	})
 }
 

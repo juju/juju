@@ -101,11 +101,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		return nil, errors.Trace(err)
 	}
 
-	rateLimitConfig, err := getRateLimitConfig(config.AgentConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting rate limit config")
-	}
-
 	logSinkConfig, err := getLogSinkConfig(config.AgentConfig)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting log sink config")
@@ -145,7 +140,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
 		MetricsCollector:              config.MetricsCollector,
-		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,

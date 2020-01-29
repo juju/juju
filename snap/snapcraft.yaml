@@ -1,5 +1,5 @@
 name: juju
-version: 2.7-rc3
+version: 2.7.2
 summary: juju client
 description: Through the use of charms, juju provides you with shareable, re-usable, and repeatable expressions of devops best practices.
 confinement: classic
@@ -8,6 +8,9 @@ grade: devel
 apps:
   juju:
     command: wrappers/juju
+  fetch-oci:
+    daemon: oneshot
+    command: wrappers/fetch-oci
 
 parts:
   wrappers:
@@ -55,3 +58,14 @@ parts:
           sha256: $hash
       EOF
       cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin
+
+hooks:
+  install: {}
+  connect-plug-peers: {}
+  disconnect-plug-peers: {}
+
+plugs:
+  peers:
+    interface: content
+    content: microk8s
+    target: $SNAP_COMMON/.peers

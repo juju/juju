@@ -5,6 +5,7 @@ package state
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
@@ -334,7 +335,7 @@ func newAction(st *State, adoc actionDoc) Action {
 
 // MinVersionSupportNewActionID should be un-exposed after 2.7 released.
 // TODO(action): un-expose MinVersionSupportNewActionID and IsNewActionIDSupported and remove those helper functions using these two vars in tests from 2.7.0.
-var MinVersionSupportNewActionID = version.MustParse("2.7.0")
+var MinVersionSupportNewActionID = version.MustParse("2.6.999")
 
 // IsNewActionIDSupported checks if new action ID is supported for the specified version.
 func IsNewActionIDSupported(ver version.Number) bool {
@@ -430,7 +431,7 @@ func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
 // share the supplied prefix (for deprecated UUIDs), or match
 // the supplied id (for newer id integers).
 // It returns a list of corresponding ActionTags.
-func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
+func (m *Model) FindActionTagsById(idValue string) ([]names.ActionTag, error) {
 	actionLogger.Tracef("FindActionTagsById() %q", idValue)
 	var results []names.ActionTag
 	var doc struct {
@@ -441,10 +442,22 @@ func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
 	defer closer()
 
 	matchValue := m.st.docID(idValue)
-	filter := bson.D{{"$or", []bson.D{
-		{{"_id", bson.D{{"$regex", "^" + matchValue}}}},
-		{{"_id", matchValue}},
-	}}}
+	agentVersion, err := m.AgentVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newIdsSupported := IsNewActionIDSupported(agentVersion)
+	maybeOldId := strings.ContainsAny(idValue, "-abcdef")
+	var filter bson.D
+	if !newIdsSupported || maybeOldId {
+		filter = bson.D{{
+			"_id", bson.D{{"$regex", "^" + matchValue}},
+		}}
+	} else {
+		filter = bson.D{{
+			"_id", matchValue,
+		}}
+	}
 	iter := actions.Find(filter).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
@@ -455,7 +468,7 @@ func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
 		}
 	}
 	actionLogger.Tracef("FindActionTagsById() %q found %+v", idValue, results)
-	return results
+	return results, nil
 }
 
 // FindActionsByName finds Actions with the given name.

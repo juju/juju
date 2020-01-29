@@ -98,7 +98,8 @@ func (r *mockRoundTripper) RoundTrip(ctx context.Context, req, res soap.HasFault
 		r.MethodCall(r, "Logout")
 		res.Res = &types.LogoutResponse{}
 	case *methods.ReconfigVM_TaskBody:
-		r.MethodCall(r, "ReconfigVM_Task")
+		req := req.(*methods.ReconfigVM_TaskBody).Req
+		r.MethodCall(r, "ReconfigVM_Task", req.Spec)
 		res.Res = &types.ReconfigVM_TaskResponse{reconfigVMTask}
 	case *methods.Destroy_TaskBody:
 		r.MethodCall(r, "Destroy_Task")

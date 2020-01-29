@@ -16,18 +16,19 @@ import (
 type ActionLogCommand struct {
 	cmd.CommandBase
 	ctx     Context
+	name    string
 	Message string
 }
 
-func NewActionLogCommand(ctx Context) (cmd.Command, error) {
-	return &ActionLogCommand{ctx: ctx}, nil
+func NewActionLogCommand(ctx Context, name string) (cmd.Command, error) {
+	return &ActionLogCommand{ctx: ctx, name: name}, nil
 }
 
 func (c *ActionLogCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "action-log",
+		Name:    c.name,
 		Args:    "<message>",
-		Purpose: "record a progress message for the current action",
+		Purpose: "record a progress message for the current action/function",
 	})
 }
 

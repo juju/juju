@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	core "k8s.io/api/core/v1"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/juju/juju/caas/specs"
 )
@@ -24,8 +23,8 @@ type (
 )
 
 type k8sContainer struct {
-	specs.ContainerSpec `json:",inline"`
-	Kubernetes          *K8sContainerSpec `json:"kubernetes,omitempty"`
+	specs.ContainerSpec `json:",inline" yaml:",inline"`
+	Kubernetes          *K8sContainerSpec `json:"kubernetes,omitempty" yaml:"kubernetes,omitempty"`
 }
 
 // Validate validates k8sContainer.
@@ -70,9 +69,9 @@ func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 // K8sContainerSpec is a subset of v1.Container which defines
 // attributes we expose for charms to set.
 type K8sContainerSpec struct {
-	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty"`
-	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty"`
-	SecurityContext *core.SecurityContext `json:"securityContext,omitempty"`
+	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty" yaml:"livenessProbe,omitempty"`
+	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty" yaml:"readinessProbe,omitempty"`
+	SecurityContext *core.SecurityContext `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
 }
 
 // Validate validates K8sContainerSpec.
@@ -83,12 +82,12 @@ func (*K8sContainerSpec) Validate() error {
 // PodSpec is a subset of v1.PodSpec which defines
 // attributes we expose for charms to set.
 type PodSpec struct {
-	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty"`
-	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty"`
-	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty"`
-	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty"`
-	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty"`
-	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty"`
+	RestartPolicy                 core.RestartPolicy       `json:"restartPolicy,omitempty" yaml:"restartPolicy,omitempty"`
+	ActiveDeadlineSeconds         *int64                   `json:"activeDeadlineSeconds,omitempty" yaml:"activeDeadlineSeconds,omitempty"`
+	TerminationGracePeriodSeconds *int64                   `json:"terminationGracePeriodSeconds,omitempty" yaml:"terminationGracePeriodSeconds,omitempty"`
+	SecurityContext               *core.PodSecurityContext `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
+	ReadinessGates                []core.PodReadinessGate  `json:"readinessGates,omitempty" yaml:"readinessGates,omitempty"`
+	DNSPolicy                     core.DNSPolicy           `json:"dnsPolicy,omitempty" yaml:"dnsPolicy,omitempty"`
 }
 
 // IsEmpty checks if PodSpec is empty or not.
@@ -122,13 +121,18 @@ func quoteStrings(config map[string]interface{}) {
 }
 
 type k8sContainers struct {
-	Containers []k8sContainer `json:"containers"`
+	Containers []k8sContainer `json:"containers" yaml:"containers"`
 }
 
 // Validate is defined on ProviderContainer.
 func (cs *k8sContainers) Validate() error {
 	if len(cs.Containers) == 0 {
 		return errors.New("require at least one container spec")
+	}
+	for _, c := range cs.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
 	}
 	return nil
 }
@@ -138,7 +142,7 @@ type k8sContainersInterface interface {
 }
 
 func parseContainers(in string, containerSpec k8sContainersInterface) error {
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(in), len(in))
+	decoder := newStrictYAMLOrJSONDecoder(strings.NewReader(in), len(in))
 	if err := decoder.Decode(containerSpec); err != nil {
 		return errors.Trace(err)
 	}
@@ -165,14 +169,18 @@ func parsePodSpec(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	spec, err := parser(in)
+	k8sspec, err := parser(in)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	if err = spec.Validate(); err != nil {
+	if err = k8sspec.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return spec.ToLatest(), nil
+	caaSSpec := k8sspec.ToLatest()
+	if err := caaSSpec.Validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return caaSSpec, nil
 }
 
 type parserType func(string) (PodSpecConverter, error)

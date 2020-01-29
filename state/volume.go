@@ -731,6 +731,9 @@ func (sb *storageBackend) DetachVolume(host names.Tag, volume names.VolumeTag) (
 			return nil, errors.Trace(err)
 		} else {
 			if len(plans) > 0 {
+				if plans[0].Life() != Alive {
+					return nil, jujutxn.ErrNoOperations
+				}
 				return detachStorageAttachmentOps(host, volume), nil
 			}
 		}

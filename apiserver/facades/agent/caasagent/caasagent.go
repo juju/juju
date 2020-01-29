@@ -35,6 +35,8 @@ func NewStateFacade(ctx facade.Context) (*Facade, error) {
 		resources,
 		cloudspec.MakeCloudSpecGetterForModel(ctx.State()),
 		cloudspec.MakeCloudSpecWatcherForModel(ctx.State()),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(ctx.State()),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(ctx.State()),
 		common.AuthFuncForTag(model.ModelTag()),
 	)
 	return &Facade{

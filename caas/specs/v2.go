@@ -10,7 +10,7 @@ import (
 // PodSpecV2 defines the data values used to configure
 // a pod on the CAAS substrate for version 2.
 type PodSpecV2 struct {
-	podSpecBase    `yaml:",inline"`
+	podSpecBase    `json:",inline" yaml:",inline"`
 	ServiceAccount *ServiceAccountSpec `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty"`
 }
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
@@ -60,6 +61,7 @@ type allWatcherBaseSuite struct {
 func (s *allWatcherBaseSuite) SetUpTest(c *gc.C) {
 	s.internalStateSuite.SetUpTest(c)
 	s.currentTime = s.state.clock().Now()
+	loggo.GetLogger("juju.state.allwatcher").SetLogLevel(loggo.TRACE)
 }
 
 // setUpScenario adds some entities to the state so that
@@ -898,18 +900,12 @@ func (s *allWatcherStateSuite) TestApplicationSettings(c *gc.C) {
 	err = app.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 	err = b.Changed(all, watcher.Change{
-		C:  "settings",
-		Id: s.state.docID("a#dummy-application#local:quantal/quantal-dummy-1"),
+		C:  "applications",
+		Id: s.state.docID("dummy-application"),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	entities = all.All()
-	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{
-		&multiwatcher.ApplicationInfo{
-			ModelUUID: s.state.ModelUUID(),
-			Name:      "dummy-application",
-			CharmURL:  "local:quantal/quantal-dummy-1",
-		},
-	})
+	assertEntitiesEqual(c, entities, []multiwatcher.EntityInfo{})
 }
 
 // TestStateWatcher tests the integration of the state watcher

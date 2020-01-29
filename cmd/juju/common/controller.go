@@ -91,7 +91,7 @@ func WaitForAgentInitialisation(
 	for attempt := attempts.Start(); attempt.Next(); apiAttempts++ {
 		err = tryAPI(c)
 		if err == nil {
-			msg := fmt.Sprintf("\nBootstrap complete, controller %q now is available", controllerName)
+			msg := fmt.Sprintf("\nBootstrap complete, controller %q is now available", controllerName)
 			if isCAASController {
 				msg += fmt.Sprintf(" in namespace %q", caasprovider.DecideControllerNamespace(controllerName))
 			} else {

@@ -218,7 +218,7 @@ func (s *relationUnitSuite) TestApplicationSettings(c *gc.C) {
 	s.assertInScope(c, wpRelUnit, true)
 	token := s.claimLeadershipFor(c, s.wordpressUnit)
 
-	err = s.stateRelation.UpdateApplicationSettings(s.wordpressApplication, token, map[string]interface{}{
+	err = s.stateRelation.UpdateApplicationSettings("wordpress", token, map[string]interface{}{
 		"foo": "bar",
 		"baz": "1",
 	})
@@ -279,7 +279,7 @@ func (s *relationUnitSuite) TestReadApplicationSettings(c *gc.C) {
 	settings := map[string]interface{}{
 		"app": "settings",
 	}
-	err = s.stateRelation.UpdateApplicationSettings(s.mysqlApplication, token, settings)
+	err = s.stateRelation.UpdateApplicationSettings("mysql", token, settings)
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertInScope(c, myRelUnit, true)
 	_, apiRelUnit := s.getRelationUnits(c)

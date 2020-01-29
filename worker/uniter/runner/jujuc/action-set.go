@@ -20,19 +20,20 @@ var keyRule = charm.GetActionNameRule()
 type ActionSetCommand struct {
 	cmd.CommandBase
 	ctx  Context
+	name string
 	args [][]string
 }
 
 // NewActionSetCommand returns a new ActionSetCommand with the given context.
-func NewActionSetCommand(ctx Context) (cmd.Command, error) {
-	return &ActionSetCommand{ctx: ctx}, nil
+func NewActionSetCommand(ctx Context, name string) (cmd.Command, error) {
+	return &ActionSetCommand{ctx: ctx, name: name}, nil
 }
 
 // Info returns the content for --help.
 func (c *ActionSetCommand) Info() *cmd.Info {
 	doc := `
-action-set adds the given values to the results map of the Action.  This map
-is returned to the user after the completion of the Action.  Keys must start
+%s adds the given values to the results map of the Action/Function. This map
+is returned to the user after the completion of the Action/Function. Keys must start
 and end with lowercase alphanumeric, and contain only lowercase alphanumeric,
 hyphens and periods.
 
@@ -42,6 +43,7 @@ Example usage:
  action-set foo.baz.val=3
  action-set foo.bar.zab=4
  action-set foo.baz=1
+ function-set foo.baz=1
 
  will yield:
 
@@ -53,10 +55,10 @@ Example usage:
    baz: "1"
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "action-set",
+		Name:    c.name,
 		Args:    "<key>=<value> [<key>=<value> ...]",
-		Purpose: "set action results",
-		Doc:     doc,
+		Purpose: "set action/function results",
+		Doc:     fmt.Sprintf(doc, c.name),
 	})
 }
 

@@ -6,6 +6,7 @@ package action_test
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
 	"testing"
 	"time"
 
@@ -361,7 +362,14 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 					err = added.Log("hello")
 					c.Assert(err, jc.ErrorIsNil)
 					status := state.ActionCompleted
-					output := map[string]interface{}{"output": "blah, blah, blah"}
+					output := map[string]interface{}{
+						"output":         "blah, blah, blah",
+						"Stdout":         "out",
+						"StdoutEncoding": "utf-8",
+						"Stderr":         "err",
+						"StderrEncoding": "utf-8",
+						"Code":           "1",
+					}
 					message := "success"
 
 					fa, err := added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
@@ -370,7 +378,14 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 
 					exp.Status = string(status)
 					exp.Message = message
-					exp.Output = output
+					exp.Output = map[string]interface{}{
+						"output":          "blah, blah, blah",
+						"stdout":          "out",
+						"stdout-encoding": "utf-8",
+						"stderr":          "err",
+						"stderr-encoding": "utf-8",
+						"return-code":     1,
+					}
 					exp.Log = []params.ActionMessage{{Message: "hello"}}
 				}
 			}
@@ -539,7 +554,14 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 
 				if act.Execute {
 					status := state.ActionCompleted
-					output := map[string]interface{}{"output": "blah, blah, blah"}
+					output := map[string]interface{}{
+						"output":         "blah, blah, blah",
+						"Stdout":         "out",
+						"StdoutEncoding": "utf-8",
+						"Stderr":         "err",
+						"StderrEncoding": "utf-8",
+						"Code":           "1",
+					}
 					message := "success"
 
 					_, err = added.Finish(state.ActionResults{Status: status, Results: output, Message: message})
@@ -554,7 +576,14 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 						},
 						Status:  string(status),
 						Message: message,
-						Output:  output,
+						Output: map[string]interface{}{
+							"output":          "blah, blah, blah",
+							"stdout":          "out",
+							"stdout-encoding": "utf-8",
+							"stderr":          "err",
+							"stderr-encoding": "utf-8",
+							"return-code":     1,
+						},
 					}
 					cur.Actions = append(cur.Actions, exp)
 				}
@@ -780,7 +809,16 @@ func stringify(r params.ActionResult) string {
 	if a == nil {
 		a = &params.Action{}
 	}
-	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
+	// Convert action output map to ordered result.
+	var keys, orderedOut []string
+	for k := range r.Output {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		orderedOut = append(orderedOut, fmt.Sprintf("%v=%v", k, r.Output[k]))
+	}
+	return fmt.Sprintf("%s-%s-%#v-%s-%s-%v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, orderedOut)
 }
 
 func (s *actionSuite) toSupportNewActionID(c *gc.C) {
@@ -840,7 +878,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	wc.AssertNoChange()
 }
 
-func (s *actionSuite) setupTasks(c *gc.C) {
+func (s *actionSuite) setupOperations(c *gc.C) {
 	s.toSupportNewActionID(c)
 
 	arg := params.Actions{
@@ -864,9 +902,9 @@ func (s *actionSuite) setupTasks(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *actionSuite) TestTasksStatusFilter(c *gc.C) {
-	s.setupTasks(c)
-	actions, err := s.action.Tasks(params.TaskQueryArgs{
+func (s *actionSuite) TestOperationsStatusFilter(c *gc.C) {
+	s.setupOperations(c)
+	actions, err := s.action.Operations(params.OperationQueryArgs{
 		Status: []string{"running"},
 	})
 	c.Assert(err, gc.Equals, nil)
@@ -885,9 +923,9 @@ func (s *actionSuite) TestTasksStatusFilter(c *gc.C) {
 	c.Assert(result.Action.Tag, gc.Equals, "action-1")
 }
 
-func (s *actionSuite) TestTasksNameFilter(c *gc.C) {
-	s.setupTasks(c)
-	actions, err := s.action.Tasks(params.TaskQueryArgs{
+func (s *actionSuite) TestOperationsNameFilter(c *gc.C) {
+	s.setupOperations(c)
+	actions, err := s.action.Operations(params.OperationQueryArgs{
 		FunctionNames: []string{"anotherfakeaction"},
 	})
 	c.Assert(err, gc.Equals, nil)
@@ -903,9 +941,9 @@ func (s *actionSuite) TestTasksNameFilter(c *gc.C) {
 	c.Assert(result.Action.Tag, gc.Equals, "action-4")
 }
 
-func (s *actionSuite) TestTasksAppFilter(c *gc.C) {
-	s.setupTasks(c)
-	actions, err := s.action.Tasks(params.TaskQueryArgs{
+func (s *actionSuite) TestOperationsAppFilter(c *gc.C) {
+	s.setupOperations(c)
+	actions, err := s.action.Operations(params.OperationQueryArgs{
 		Applications: []string{"wordpress"},
 	})
 	c.Assert(err, gc.Equals, nil)
@@ -935,9 +973,9 @@ func (s *actionSuite) TestTasksAppFilter(c *gc.C) {
 	c.Assert(result1.Action.Tag, gc.Equals, "action-1")
 }
 
-func (s *actionSuite) TestTasksUnitFilter(c *gc.C) {
-	s.setupTasks(c)
-	actions, err := s.action.Tasks(params.TaskQueryArgs{
+func (s *actionSuite) TestOperationsUnitFilter(c *gc.C) {
+	s.setupOperations(c)
+	actions, err := s.action.Operations(params.OperationQueryArgs{
 		Units:  []string{"wordpress/0"},
 		Status: []string{"pending"},
 	})
@@ -955,9 +993,9 @@ func (s *actionSuite) TestTasksUnitFilter(c *gc.C) {
 	c.Assert(result.Action.Tag, gc.Equals, "action-3")
 }
 
-func (s *actionSuite) TestTasksAppAndUnitFilter(c *gc.C) {
-	s.setupTasks(c)
-	actions, err := s.action.Tasks(params.TaskQueryArgs{
+func (s *actionSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
+	s.setupOperations(c)
+	actions, err := s.action.Operations(params.OperationQueryArgs{
 		Applications: []string{"mysql"},
 		Units:        []string{"wordpress/0"},
 		Status:       []string{"pending"},

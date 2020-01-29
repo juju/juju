@@ -62,7 +62,7 @@ func ParseConstraints(s string) (Constraints, error) {
 		}
 		if IsValidPoolName(field) {
 			if cons.Pool != "" {
-				logger.Debugf("pool name is already set to %q, ignoring %q", cons.Pool, field)
+				return cons, errors.NotValidf("pool name is already set to %q, new value %q", cons.Pool, field)
 			} else {
 				cons.Pool = field
 			}
@@ -82,7 +82,7 @@ func ParseConstraints(s string) (Constraints, error) {
 			cons.Size = size
 			continue
 		}
-		logger.Debugf("ignoring unknown storage constraint %q", field)
+		return cons, errors.NotValidf("unrecognized storage constraint %q", field)
 	}
 	if cons.Count == 0 && cons.Size == 0 && cons.Pool == "" {
 		return Constraints{}, errors.New("storage constraints require at least one field to be specified")

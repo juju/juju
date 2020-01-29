@@ -39,7 +39,7 @@ func (s *ExecSuite) SetUpTest(c *gc.C) {
 }
 
 func newTestExecCommand(clock clock.Clock, modelType model.ModelType) cmd.Command {
-	return newExecCommand(minimalStore(modelType), clock.After)
+	return newExecCommand(minimalStore(modelType), clock.After, false)
 }
 
 func minimalStore(modelType model.ModelType) *jujuclient.MemStore {
@@ -285,7 +285,6 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 		query:   makeActionQuery(validUUID, "MachineId", names.NewMachineTag("1")),
 		expected: map[string]interface{}{
 			"MachineId": "1",
-			"Stdout":    "",
 		},
 	}, {
 		message: "other fields are copied if there",
@@ -298,15 +297,15 @@ func (s *ExecSuite) TestConvertRunResults(c *gc.C) {
 		}, "action-"+validUUID),
 		query: makeActionQuery(validUUID, "UnitId", names.NewUnitTag("unit/0")),
 		expected: map[string]interface{}{
-			"UnitId":     "unit/0",
-			"Stdout":     "stdout",
-			"Stderr":     "stderr",
-			"Message":    "msg",
-			"ReturnCode": 42,
+			"unit":        "unit/0",
+			"stdout":      "stdout",
+			"stderr":      "stderr",
+			"message":     "msg",
+			"return-code": 42,
 		},
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
-		result := ConvertActionResults(test.results, test.query)
+		result := ConvertActionResults(test.results, test.query, false)
 		c.Check(result, jc.DeepEquals, test.expected)
 	}
 }
@@ -334,8 +333,8 @@ func (s *ExecSuite) TestExecForMachineAndUnit(c *gc.C) {
 	machineQuery := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
 	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(machineResult, machineQuery),
-		ConvertActionResults(unitResult, unitQuery),
+		ConvertActionResults(machineResult, machineQuery, false),
+		ConvertActionResults(unitResult, unitQuery, false),
 	}
 
 	buff := &bytes.Buffer{}
@@ -389,8 +388,8 @@ func (s *ExecSuite) TestAllMachines(c *gc.C) {
 	machine0Query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
 	machine1Query := makeActionQuery(mock.receiverIdMap["1"], "MachineId", names.NewMachineTag("1"))
 	unformatted := []interface{}{
-		ConvertActionResults(machine0Result, machine0Query),
-		ConvertActionResults(machine1Result, machine1Query),
+		ConvertActionResults(machine0Result, machine0Query, false),
+		ConvertActionResults(machine1Result, machine1Query, false),
 		map[string]interface{}{
 			"Action":    mock.receiverIdMap["2"],
 			"MachineId": "2",
@@ -441,7 +440,7 @@ func (s *ExecSuite) TestTimeout(c *gc.C) {
 
 	var buf bytes.Buffer
 	err := cmd.FormatJson(&buf, []interface{}{
-		ConvertActionResults(machine0Result, machine0Query),
+		ConvertActionResults(machine0Result, machine0Query, false),
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -537,7 +536,7 @@ func (s *ExecSuite) TestCAASExecOnOperator(c *gc.C) {
 
 	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(unitResult, unitQuery),
+		ConvertActionResults(unitResult, unitQuery, false),
 	}
 
 	buff := &bytes.Buffer{}
@@ -574,7 +573,7 @@ func (s *ExecSuite) TestCAASExecOnWorkload(c *gc.C) {
 
 	unitQuery := makeActionQuery(mock.receiverIdMap["unit/0"], "UnitId", names.NewUnitTag("unit/0"))
 	unformatted := []interface{}{
-		ConvertActionResults(unitResult, unitQuery),
+		ConvertActionResults(unitResult, unitQuery, false),
 	}
 
 	buff := &bytes.Buffer{}
@@ -654,7 +653,7 @@ func (s *ExecSuite) TestSingleResponse(c *gc.C) {
 
 	query := makeActionQuery(mock.receiverIdMap["0"], "MachineId", names.NewMachineTag("0"))
 	unformatted := []interface{}{
-		ConvertActionResults(machineResult, query),
+		ConvertActionResults(machineResult, query, false),
 	}
 
 	jsonFormatted := &bytes.Buffer{}
@@ -780,9 +779,9 @@ func makeActionResult(mock mockResponse, actionTag string) params.ActionResult {
 		Status:  mock.status,
 		Error:   mock.error,
 		Output: map[string]interface{}{
-			"Stdout": mock.stdout,
-			"Stderr": mock.stderr,
-			"Code":   mock.code,
+			"stdout":      mock.stdout,
+			"stderr":      mock.stderr,
+			"return-code": mock.code,
 		},
 	}
 }

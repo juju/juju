@@ -139,6 +139,14 @@ type Relation interface {
 
 	// SetSuspended sets the suspended status of the relation.
 	SetSuspended(bool, string) error
+
+	// ReplaceApplicationSettings replaces the application's settings within the
+	// relation.
+	ReplaceApplicationSettings(appName string, settings map[string]interface{}) error
+
+	// ApplicationSettings returns the settings for the specified
+	// application in the relation.
+	ApplicationSettings(appName string) (map[string]interface{}, error)
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

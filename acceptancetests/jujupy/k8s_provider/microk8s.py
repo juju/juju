@@ -111,13 +111,15 @@ class MicroK8s(Base):
 
     def __ensure_microk8s_installed(self):
         # unfortunately, we need sudo!
-        if shutil.which('microk8s.kubectl') is None:
-            # install microk8s.
-            self.sh('sudo', 'snap', 'install', 'microk8s', '--classic', '--stable')
-            logger.info("microk8s installed successfully")
-        else:
-            # reset mcicrok8s.
-            self.sh('sudo', 'microk8s.reset')
+        if shutil.which('microk8s.kubectl'):
+            # The microk8s.reset sometimes left ingress namespace in dirty deleting
+            # status which causes the namespace can never be deleted anymore using kubectl.
+            self.sh('sudo', 'snap', 'remove', 'microk8s')
+
+        # install microk8s.
+        self.sh('sudo', 'snap', 'install', 'microk8s', '--classic', '--stable')
+        logger.info("microk8s installed successfully")
+
         logger.info(
             "microk8s status \n%s",
             self._microk8s_status(True),
@@ -140,7 +142,7 @@ class MicroK8s(Base):
         data['Corefile'] = data['Corefile'].replace('8.8.8.8 8.8.4.4', get_nameserver())
         coredns_cm['data'] = data
         self.kubectl_apply(json.dumps(coredns_cm))
-        
+
         # restart coredns pod by killing it.
         kubedns_pod_selector = 'k8s-app=kube-dns'
         self.kubectl('delete', 'pod', '-n', 'kube-system', '--selector=%s' % kubedns_pod_selector)

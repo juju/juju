@@ -23,6 +23,11 @@ type RemoteRelationsAPI struct {
 	authorizer facade.Authorizer
 }
 
+// RemoteRelationsAPIV1 has WatchRelationUnits rather than WatchRelationChanges.
+type RemoteRelationsAPIV1 struct {
+	*RemoteRelationsAPI
+}
+
 // NewStateRemoteRelationsAPI creates a new server-side RemoteRelationsAPI facade
 // backed by global state.
 func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error) {
@@ -32,6 +37,15 @@ func NewStateRemoteRelationsAPI(ctx facade.Context) (*RemoteRelationsAPI, error)
 		ctx.Resources(), ctx.Auth(),
 	)
 
+}
+
+// NewStateRemoteRelationsAPIV1 creates a new server-side RemoteRelations v1 API facade backed by state.
+func NewStateRemoteRelationsAPIV1(ctx facade.Context) (*RemoteRelationsAPIV1, error) {
+	api, err := NewStateRemoteRelationsAPI(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &RemoteRelationsAPIV1{api}, nil
 }
 
 // NewRemoteRelationsAPI returns a new server-side RemoteRelationsAPI facade.
@@ -132,8 +146,11 @@ func (api *RemoteRelationsAPI) SaveMacaroons(args params.EntityMacaroonArgs) (pa
 	return results, nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the local model.
-func (api *RemoteRelationsAPI) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
+// RelationUnitSettings returns the relation unit settings for the
+// given relation units in the local model. (Removed in v2 of the API
+// - the settings are included in the events from
+// WatchLocalRelationChanges.)
+func (api *RemoteRelationsAPIV1) RelationUnitSettings(relationUnits params.RelationUnits) (params.SettingsResults, error) {
 	results := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(relationUnits.RelationUnits)),
 	}
@@ -299,8 +316,8 @@ func (api *RemoteRelationsAPI) WatchRemoteApplications() (params.StringsWatchRes
 // WatchLocalRelationUnits starts a RelationUnitsWatcher for watching the local
 // relation units involved in each specified relation in the local model,
 // and returns the watcher IDs and initial values, or an error if the relation
-// units could not be watched.
-func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
+// units could not be watched. WatchLocalRelationUnits is only supported on the v1 API - later versions provide WatchLocalRelationChanges instead.
+func (api *RemoteRelationsAPIV1) WatchLocalRelationUnits(args params.Entities) (params.RelationUnitsWatchResults, error) {
 	results := params.RelationUnitsWatchResults{
 		make([]params.RelationUnitsWatchResult, len(args.Entities)),
 	}
@@ -326,6 +343,65 @@ func (api *RemoteRelationsAPI) WatchLocalRelationUnits(args params.Entities) (pa
 	}
 	return results, nil
 }
+
+// WatchLocalRelationChanges starts a RemoteRelationWatcher for each
+// specified relation, returning the watcher IDs and initial values,
+// or an error if the remote relations couldn't be watched.
+func (api *RemoteRelationsAPI) WatchLocalRelationChanges(args params.Entities) (params.RemoteRelationWatchResults, error) {
+	results := params.RemoteRelationWatchResults{
+		make([]params.RemoteRelationWatchResult, len(args.Entities)),
+	}
+
+	watchOne := func(arg params.Entity) (common.RelationUnitsWatcher, params.RemoteRelationChangeEvent, error) {
+		var empty params.RemoteRelationChangeEvent
+		relationTag, err := names.ParseRelationTag(arg.Tag)
+		if err != nil {
+			return nil, empty, errors.Trace(err)
+		}
+		relationToken, appToken, err := commoncrossmodel.GetRelationTokens(api.st, relationTag)
+		if err != nil {
+			return nil, empty, errors.Trace(err)
+		}
+		w, err := commoncrossmodel.WatchRelationUnits(api.st, relationTag)
+		if err != nil {
+			return nil, empty, errors.Trace(err)
+		}
+		change, ok := <-w.Changes()
+		if !ok {
+			return nil, empty, watcher.EnsureErr(w)
+		}
+		fullChange, err := commoncrossmodel.ExpandChange(api.st, relationToken, appToken, change)
+		if err != nil {
+			w.Kill()
+			return nil, empty, errors.Trace(err)
+		}
+		wrapped := &commoncrossmodel.WrappedUnitsWatcher{
+			RelationUnitsWatcher: w,
+			RelationToken:        relationToken,
+			ApplicationToken:     appToken,
+		}
+		return wrapped, fullChange, nil
+	}
+
+	for i, arg := range args.Entities {
+		w, changes, err := watchOne(arg)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		results.Results[i].RemoteRelationWatcherId = api.resources.Register(w)
+		results.Results[i].Changes = changes
+	}
+	return results, nil
+}
+
+// Mask out new methods from the old API versions. The API reflection
+// code in rpc/rpcreflect/type.go:newMethod skips 2-argument methods,
+// so this removes the method as far as the RPC machinery is concerned.
+//
+// WatchLocalRelationChanges doesn't exist before the v2 API.
+func (api *RemoteRelationsAPIV1) WatchLocalRelationChanges(_, _ struct{}) {}
 
 // WatchRemoteApplicationRelations starts a StringsWatcher for watching the relations of
 // each specified application in the local model, and returns the watcher IDs

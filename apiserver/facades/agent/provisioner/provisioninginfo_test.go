@@ -55,10 +55,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
+	controllerCfg := s.ControllerConfig
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
@@ -143,10 +140,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
+	controllerCfg := s.ControllerConfig
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
@@ -214,10 +208,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
+	controllerCfg := s.ControllerConfig
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
@@ -302,10 +293,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
+	controllerCfg := s.ControllerConfig
 
 	pName := fmt.Sprintf("juju-%s-lxd-profile-0", profileMachine.ModelName())
 	expected := params.ProvisioningInfoResults{
@@ -346,10 +334,7 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
+	controllerCfg := s.ControllerConfig
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
@@ -497,10 +482,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Only machine 0 and containers therein can be accessed.
 	results, err := aProvisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
-	controllerCfg := coretesting.FakeControllerConfig()
-	// Dummy provider uses a random port, which is added to cfg used to create environment.
-	apiPort := dummy.APIPort(s.Environ.Provider())
-	controllerCfg["api-port"] = apiPort
+	controllerCfg := s.ControllerConfig
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{

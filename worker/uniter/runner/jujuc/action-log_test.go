@@ -94,7 +94,7 @@ func (s *ActionLogSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-log <message>
 
 Summary:
-record a progress message for the current action
+record a progress message for the current action/function
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

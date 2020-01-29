@@ -1,0 +1,8 @@
+#!/bin/sh
+peer="$(snapctl get --slot :peers content)"
+(
+    echo "hook $0 $@"
+    echo "connected to peer $peer"
+    echo "$0 is starting $SNAP_NAME.fetch-oci"
+    snapctl start $SNAP_NAME.fetch-oci
+) >> $SNAP_COMMON/hook.log

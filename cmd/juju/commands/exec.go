@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -15,7 +14,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v3"
 
 	actionapi "github.com/juju/juju/api/action"
@@ -25,7 +23,6 @@ import (
 	"github.com/juju/juju/cmd/juju/block"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
 )
 
@@ -36,12 +33,17 @@ const leaderSnippet = "(" + names.ApplicationSnippet + ")/leader"
 var validLeader = regexp.MustCompile("^" + leaderSnippet + "$")
 
 func newDefaultRunCommand(store jujuclient.ClientStore) cmd.Command {
-	return newExecCommand(store, time.After)
+	return newExecCommand(store, time.After, true)
 }
 
-func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time) cmd.Command {
+func newDefaultExecCommand(store jujuclient.ClientStore) cmd.Command {
+	return newExecCommand(store, time.After, false)
+}
+
+func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) <-chan time.Time, compat bool) cmd.Command {
 	cmd := modelcmd.Wrap(&execCommand{
 		timeAfter: timeAfter,
+		compat:    compat,
 	})
 	cmd.SetClientStore(store)
 	return cmd
@@ -51,6 +53,7 @@ func newExecCommand(store jujuclient.ClientStore, timeAfter func(time.Duration) 
 type execCommand struct {
 	modelcmd.ModelCommandBase
 	out          cmd.Output
+	compat       bool
 	all          bool
 	operator     bool
 	timeout      time.Duration
@@ -108,20 +111,18 @@ those arguments. For example:
 
     juju exec --all -- hostname -f
 
-NOTE: Juju 2 uses "juju run" which is deprecated in favour of "juju exec".
 `
 
 func (c *execCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
-		Name:    "run",
+		Name:    "exec",
 		Args:    "<commands>",
 		Purpose: "Run the commands on the remote targets specified.",
-		Aliases: []string{"exec"},
 		Doc:     execDoc,
 	})
-	if featureflag.Enabled(feature.JujuV3) {
-		info.Name = "exec"
-		info.Aliases = nil
+	if c.compat {
+		info.Name = "run"
+		info.Doc = strings.Replace(info.Doc, "juju exec", "juju run", -1)
 	}
 	return info
 }
@@ -206,7 +207,7 @@ func (c *execCommand) Init(args []string) error {
 
 // ConvertActionResults takes the results from the api and creates a map
 // suitable for format conversion to YAML or JSON.
-func ConvertActionResults(result params.ActionResult, query actionQuery) map[string]interface{} {
+func ConvertActionResults(result params.ActionResult, query actionQuery, compat bool) map[string]interface{} {
 	values := make(map[string]interface{})
 	values[query.receiver.receiverType] = query.receiver.tag.Id()
 	if result.Error != nil {
@@ -225,29 +226,23 @@ func ConvertActionResults(result params.ActionResult, query actionQuery) map[str
 		return values
 	}
 	if result.Message != "" {
-		values["Message"] = result.Message
-	}
-	// We always want to have a string for stdout, but only show stderr,
-	// code and error if they are there.
-	if res, ok := result.Output["Stdout"].(string); ok {
-		values["Stdout"] = strings.Replace(res, "\r\n", "\n", -1)
-		if res, ok := result.Output["StdoutEncoding"].(string); ok && res != "" {
-			values["Stdout.encoding"] = res
+		messageKey := "message"
+		if compat {
+			messageKey = "Message"
 		}
-	} else {
-		values["Stdout"] = ""
+		values[messageKey] = result.Message
 	}
-	if res, ok := result.Output["Stderr"].(string); ok && res != "" {
-		values["Stderr"] = strings.Replace(res, "\r\n", "\n", -1)
-		if res, ok := result.Output["StderrEncoding"].(string); ok && res != "" {
-			values["Stderr.encoding"] = res
-		}
+	val := action.ConvertActionOutput(result.Output, compat, true)
+	for k, v := range val {
+		values[k] = v
 	}
-	if res, ok := result.Output["Code"].(string); ok {
-		code, err := strconv.Atoi(res)
-		if err == nil && code != 0 {
-			values["ReturnCode"] = code
-		}
+	if unit, ok := values["UnitId"]; ok && !compat {
+		delete(values, "UnitId")
+		values["unit"] = unit
+	}
+	if unit, ok := values["unit"]; ok && compat {
+		delete(values, "unit")
+		values["UnitId"] = unit
 	}
 	return values
 }
@@ -365,7 +360,7 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 				}
 			}
 
-			values = append(values, ConvertActionResults(result, actionsToQuery[i]))
+			values = append(values, ConvertActionResults(result, actionsToQuery[i], c.compat))
 		}
 		actionsToQuery = newActionsToQuery
 
@@ -396,13 +391,29 @@ func (c *execCommand) Run(ctx *cmd.Context) error {
 		if res, ok := result["Error"].(string); ok {
 			return errors.New(res)
 		}
-		ctx.Stdout.Write(formatOutput(result, "Stdout"))
-		ctx.Stderr.Write(formatOutput(result, "Stderr"))
-		if code, ok := result["ReturnCode"].(int); ok && code != 0 {
+		stdoutKey := "stdout"
+		if c.compat {
+			stdoutKey = "Stdout"
+		}
+		stderrKey := "stderr"
+		if c.compat {
+			stderrKey = "Stderr"
+		}
+		codeKey := "return-code"
+		if c.compat {
+			codeKey = "ReturnCode"
+		}
+		ctx.Stdout.Write(formatOutput(result, stdoutKey, c.compat))
+		ctx.Stderr.Write(formatOutput(result, stderrKey, c.compat))
+		if code, ok := result[codeKey].(int); ok && code != 0 {
 			return cmd.NewRcPassthroughError(code)
 		}
 		// Message should always contain only errors.
-		if res, ok := result["Message"].(string); ok && res != "" {
+		messageKey := "message"
+		if c.compat {
+			messageKey = "Message"
+		}
+		if res, ok := result[messageKey].(string); ok && res != "" {
 			ctx.Stderr.Write([]byte(res))
 		}
 
@@ -462,7 +473,7 @@ var getExecAPIClient = func(c *execCommand) (ExecClient, error) {
 
 // getActionResult abstracts over the action CLI function that we use here to fetch results
 var getActionResult = func(c ExecClient, actionId string, wait *time.Timer) (params.ActionResult, error) {
-	return action.GetActionResult(c, actionId, wait)
+	return action.GetActionResult(c, actionId, wait, false)
 }
 
 // entities is a convenience constructor for params.Entities.
@@ -476,12 +487,16 @@ func entities(actions []actionQuery) params.Entities {
 	return entities
 }
 
-func formatOutput(results map[string]interface{}, key string) []byte {
+func formatOutput(results map[string]interface{}, key string, compat bool) []byte {
 	res, ok := results[key].(string)
 	if !ok {
 		return []byte("")
 	}
-	if enc, ok := results[key+".encoding"].(string); ok && enc != "" {
+	encodingKey := "-encoding"
+	if compat {
+		encodingKey = ".encoding"
+	}
+	if enc, ok := results[key+encodingKey].(string); ok && enc != "" {
 		switch enc {
 		case "base64":
 			decoded, err := base64.StdEncoding.DecodeString(res)

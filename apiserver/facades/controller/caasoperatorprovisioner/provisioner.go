@@ -112,7 +112,6 @@ func (a *API) OperatorProvisioningInfo() (params.OperatorProvisioningInfo, error
 			fmt.Sprintf("agent version is missing in model config %q", modelConfig.Name()),
 		)
 	}
-	vers.Build = 0
 
 	imagePath := podcfg.GetJujuOCIImagePath(cfg, vers)
 	storageClassName, _ := modelConfig.AllAttrs()[provider.OperatorStorageKey].(string)

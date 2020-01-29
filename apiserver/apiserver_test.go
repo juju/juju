@@ -7,9 +7,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,7 +19,6 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -37,6 +38,7 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
@@ -117,7 +119,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		LeaseManager:    apitesting.StubLeaseManager{},
 		Mux:             s.mux,
 		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
 		UpgradeComplete: func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
@@ -301,14 +302,44 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 	c.Assert(err, gc.Equals, dependency.ErrBounce)
 }
 
-type noopRegisterer struct {
-	prometheus.Registerer
+func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
+	uri := s.server.URL + "/health"
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	result := string(body)
+	// Ensure that the last value is a carriage return.
+	c.Assert(strings.HasSuffix(result, "\n"), jc.IsTrue)
+	return strings.TrimSuffix(result, "\n"), resp.StatusCode
 }
 
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
+func (s *apiserverSuite) TestHealthRunning(c *gc.C) {
+	health, statusCode := s.getHealth(c)
+	c.Assert(health, gc.Equals, "running")
+	c.Assert(statusCode, gc.Equals, http.StatusOK)
 }
 
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
+func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
+	wg := apiserver.ServerWaitGroup(s.apiServer)
+	wg.Add(1)
+
+	s.apiServer.Kill()
+	// There is a race here between the test and the goroutine setting
+	// the value, so loop until we see the right health, then exit.
+	timeout := time.After(testing.LongWait)
+	for {
+		health, statusCode := s.getHealth(c)
+		if health == "stopping" {
+			// Expected, we're done.
+			c.Assert(statusCode, gc.Equals, http.StatusServiceUnavailable)
+			wg.Done()
+			return
+		}
+		select {
+		case <-timeout:
+			c.Fatalf("health not set to stopping")
+		case <-time.After(testing.ShortWait):
+			// Look again.
+		}
+	}
 }

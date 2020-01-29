@@ -713,12 +713,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:          agentName,
-			ClockName:          clockName,
-			ControllerPortName: controllerPortName,
-			StateName:          stateName,
-			Hub:                config.CentralHub,
-			NewWorker:          peergrouper.New,
+			AgentName:            agentName,
+			ClockName:            clockName,
+			ControllerPortName:   controllerPortName,
+			StateName:            stateName,
+			Hub:                  config.CentralHub,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            peergrouper.New,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
@@ -778,14 +779,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The raft forwarder accepts FSM commands from the hub and
 		// applies them to the raft leader.
 		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
-			AgentName:      agentName,
-			RaftName:       raftName,
-			StateName:      stateName,
-			CentralHubName: centralHubName,
-			RequestTopic:   leaseRequestTopic,
-			Logger:         loggo.GetLogger("juju.worker.raft.raftforwarder"),
-			NewWorker:      raftforwarder.NewWorker,
-			NewTarget:      raftforwarder.NewTarget,
+			AgentName:            agentName,
+			RaftName:             raftName,
+			StateName:            stateName,
+			CentralHubName:       centralHubName,
+			RequestTopic:         leaseRequestTopic,
+			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            raftforwarder.NewWorker,
+			NewTarget:            raftforwarder.NewTarget,
 		})),
 
 		// The global lease manager tracks lease information in the raft

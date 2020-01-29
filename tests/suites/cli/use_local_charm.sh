@@ -18,7 +18,7 @@ run_deploy_local_charm_revision() {
   wait_for "ntp" ".applications | keys[0]"
   CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
 
-  # If a error happens it means it could not use the git sha of the CWD
+  # If a error happens it means it could not use the git sha of the CWD.
   check_not_contains "${OUTPUT}" "exit status 128"
 
   if [ "${SHA_OF_NTP}" != "${CURRENT_CHARM_SHA}" ]; then
@@ -29,7 +29,7 @@ run_deploy_local_charm_revision() {
   destroy_model "local-charm-deploy"
 }
 
-# Checks the cwd has no vcs
+# Checks the cwd has no vcs of any kind.
 run_deploy_local_charm_revision_no_vcs() {
   echo
 
@@ -43,13 +43,15 @@ run_deploy_local_charm_revision_no_vcs() {
   git clone --depth=1 --quiet https://github.com/lampkicking/charm-ntp.git ntp
   cd "${TMP}/ntp" || exit 1
   rm -rf .git
+  # make sure that no version file exists.
+  rm version
 
   OUTPUT=$(juju deploy --debug . 2>&1)
 
   check_contains "${OUTPUT}" "charm is not versioned"
 }
 
-# Checks the cwd has no vcs but a version file
+# Checks the cwd has no vcs but a version file.
 run_deploy_local_charm_revision_no_vcs_but_version_file() {
   echo
 
@@ -67,17 +69,21 @@ run_deploy_local_charm_revision_no_vcs_but_version_file() {
   echo 123 >version
   VERSION_OUTPUT=\""$(cat version)"\"
 
-  DEPLOY_OUTPUT=$(juju deploy --debug . 2>&1)
+  CURRENT_DIRECTORY=$(pwd)
+
+  # this is done relative because we expect that the output will be absolute in the end.
+  OUTPUT=$(juju deploy --debug . 2>&1)
 
   wait_for "ntp" ".applications | keys[0]"
   CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
-
-  check_contains "${DEPLOY_OUTPUT}" "charm is not in version control and uses a version file"
 
   if [ "${VERSION_OUTPUT}" != "${CURRENT_CHARM_SHA}" ]; then
     echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${VERSION_OUTPUT}"
     exit 1
   fi
+
+  # we expect the debug output to be absolute and not relative.
+  check_contains "${OUTPUT}" "${CURRENT_DIRECTORY}"
 }
 
 # Checks whether the cwd is used for the juju local deploy.
@@ -120,7 +126,7 @@ run_deploy_local_charm_revision_relative_path() {
   destroy_model "relative-path"
 }
 
-# CWD with git, deploy charm with git, but -> check that git describe is correct
+# CWD with git, deploy charm with git, but -> check that git describe is correct.
 run_deploy_local_charm_revision_invalid_git() {
   echo
 
@@ -144,7 +150,7 @@ run_deploy_local_charm_revision_invalid_git() {
   juju deploy "${TMP_CHARM_GIT}"/ntp ntp
 
   wait_for "ntp" ".applications | keys[0]"
-  # We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA
+  # We still expect the SHA to be the one from the place we deploy and not the CWD, which in this case has no SHA.
   CURRENT_CHARM_SHA=$(juju status --format=json | jq '.applications.ntp."charm-version"')
   if [ "${WANTED_CHARM_SHA}" != "${CURRENT_CHARM_SHA}" ]; then
     echo "The expected sha does not equal the ntp SHA. Current sha: ${CURRENT_CHARM_SHA} expected sha: ${WANTED_CHARM_SHA}"

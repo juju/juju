@@ -13,6 +13,7 @@ import (
 	"github.com/juju/os/series"
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/juju/juju/juju/osenv"
 	jujuversion "github.com/juju/juju/version"
@@ -41,6 +42,8 @@ type versionDetail struct {
 	GitTreeState string `json:"git-tree-state,omitempty" yaml:"git-tree-state,omitempty"`
 	// Compiler reported by runtime.Compiler
 	Compiler string `json:"compiler" yaml:"compiler"`
+	// Build is a monotonic integer set by Jenkins.
+	Build int `json:"build,omitempty" yaml:"build,omitempty"`
 }
 
 // NewSuperCommand is like cmd.NewSuperCommand but
@@ -63,6 +66,7 @@ func NewSuperCommand(p cmd.SuperCommandParams) *cmd.SuperCommand {
 		GitCommit:    jujuversion.GitCommit,
 		GitTreeState: jujuversion.GitTreeState,
 		Compiler:     jujuversion.Compiler,
+		Build:        jujuversion.Build,
 	}
 
 	// p.Version should be a version.Binary, but juju/cmd does not
@@ -85,4 +89,11 @@ func Info(i *cmd.Info) *cmd.Info {
 	info.FlagKnownAs = "option"
 	info.ShowSuperFlags = []string{"show-log", "debug", "logging-config", "verbose", "quiet", "h", "help"}
 	return &info
+}
+
+// IsPiped determines if the command was used in a pipe and,
+// hence, it's stdin is not usable for user input.
+func IsPiped(ctx *cmd.Context) bool {
+	stdIn, ok := ctx.Stdin.(*os.File)
+	return ok && !terminal.IsTerminal(int(stdIn.Fd()))
 }

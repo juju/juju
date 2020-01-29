@@ -12,14 +12,6 @@
   revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"
 
 [[projects]]
-  branch = "master"
-  digest = "1:3dbee55971def1e4aa600dac9e3398ddb1b20ee4ca729aa08c985692b2bd1fc8"
-  name = "code.cloudfoundry.org/systemcerts"
-  packages = ["."]
-  pruneopts = ""
-  revision = "ca00b2f806f2fa1ded784ade357bad1ea3f1fbbe"
-
-[[projects]]
   digest = "1:e1b859e3d9e90007d5fbf25edf57733b224f1857f6592636130afab3af8cfae7"
   name = "contrib.go.opencensus.io/exporter/ocagent"
   packages = ["."]
@@ -455,11 +447,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:ebbd30a06de5bc3933e34d426cfaa69a0cefa10f575d520e6597acbf37e4d132"
+  digest = "1:ef49e9c114183e3d64d2ed7602dfb175213eb1ba5edcf822376104c4ba9e6e42"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
+  revision = "4ca814a87a328d089e9e610538fc205d7bed3987"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
@@ -641,14 +633,14 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:d8ec1fe408feff29f06246bbd4f262b66c6b1dcfabe14c9d6e843b6b8f5bfa36"
+  digest = "1:bc9a619961b397e6195984f41348ee19186f218136b1f76a6fa90c77b46c4e5c"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "44115a59837dd6cddf93ee4cfb51e48c7ba8bb73"
+  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
 
 [[projects]]
   digest = "1:294998b796d446415dd45401c62501b2ed97f215a3a25249ad5017848d223322"
@@ -927,7 +919,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:9ab3794bfaaf6e5d195027f3e3d6c53018420de5ccb759d7721926bc80211c67"
+  digest = "1:a452f9fca3583eb87f1d18d8a184ab818df034f13115c9dd9992d5653e9c70ac"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -938,10 +930,11 @@
     "shared/logger",
     "shared/osarch",
     "shared/simplestreams",
+    "shared/units",
     "shared/version",
   ]
   pruneopts = ""
-  revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
+  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
 
 [[projects]]
   digest = "1:f95025d583786875a71183888acc9d0987fc96f12d4f5afab3d7558797ea1c5a"
@@ -1494,7 +1487,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:ed6ef6587e8c42c2cdb227c2e1b164bd131e4c84d420cf725b5fcf97c29e9b19"
+  digest = "1:51030a7f5d33377ee5b7a92e45968d37a2a307320053c7b552dfa76d617c529b"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1502,7 +1495,7 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "780719c3e4a68329408cfecf46ed1ee84b530287"
+  revision = "434507794960132879955c3a0cb250f6ac5fbe47"
 
 [[projects]]
   digest = "1:dc05394e66d3dfe6ecc7b966cc0ac4ab40c3d10b0249499af92f4c4ae3ad6e85"
@@ -1515,6 +1508,18 @@
   ]
   pruneopts = ""
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
+
+[[projects]]
+  digest = "1:4c36061633490dc60772944614e06b4de202c271bddaef55335af989ea35dfb8"
+  name = "gopkg.in/juju/charmrepo.v4"
+  packages = [
+    ".",
+    "csclient",
+    "csclient/params",
+  ]
+  pruneopts = ""
+  revision = "cd05de29309bc2c97e7334b8316c916203b0be9d"
+  version = "v4.1.1"
 
 [[projects]]
   digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"
@@ -1570,11 +1575,11 @@
   revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
-  digest = "1:f30cf5494ed1ee42a972a17d1b66e3831a7f5dff9fe403ab87ad3fdfa35c3767"
+  digest = "1:64cc4822f856fd25eff368bdfc8f532c889fed9724ce184d80020efe20dae158"
   name = "gopkg.in/juju/names.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "8d2f241f8a5d0e3a16baf52a5f31be80636ee12d"
+  revision = "39289f3737654a399166e9cd65c043b5b3bfed01"
 
 [[projects]]
   digest = "1:2041c73bbc755e07a90e03f149933b8ecfce5233a5afbe6b04230386a75f8fda"
@@ -2019,6 +2024,7 @@
     "github.com/lxc/lxd/shared/api",
     "github.com/lxc/lxd/shared/logger",
     "github.com/lxc/lxd/shared/osarch",
+    "github.com/lxc/lxd/shared/units",
     "github.com/lxc/lxd/shared/version",
     "github.com/mattn/go-isatty",
     "github.com/oracle/oci-go-sdk/common",
@@ -2110,6 +2116,7 @@
     "gopkg.in/retry.v1",
     "gopkg.in/tomb.v2",
     "gopkg.in/yaml.v2",
+    "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
     "k8s.io/api/core/v1",

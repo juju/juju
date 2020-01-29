@@ -335,7 +335,7 @@ def assess_charm_removal_single_block_and_filesystem_storage(client):
     # storage status change after remove-application takes some time.
     # from experiments even 30 seconds is not enough.
     wait_for_storage_status_update(
-        client, storage_id=single_fs_id, interval=15, timeout=90)
+        client, storage_id=single_fs_id, interval=15, timeout=180)
     storage_list = get_storage_list(client)[0]
     assert_storage_count(storage_list=storage_list, expected=1)
     if single_fs_id in storage_list:

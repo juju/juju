@@ -58,7 +58,7 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
+  revision = "4ca814a87a328d089e9e610538fc205d7bed3987"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
@@ -90,7 +90,7 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  revision = "44115a59837dd6cddf93ee4cfb51e48c7ba8bb73"
+  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
   name = "github.com/juju/os"
 
 [[constraint]]
@@ -127,7 +127,7 @@
 
 [[constraint]]
   name = "github.com/lxc/lxd"
-  revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
+  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
 
 [[constraint]]
   name = "github.com/oracle/oci-go-sdk"
@@ -147,7 +147,7 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "780719c3e4a68329408cfecf46ed1ee84b530287"
+  revision = "434507794960132879955c3a0cb250f6ac5fbe47"
 
 [[constraint]]
   revision = "2adcece4e962a51e0793b8562560cf9da874026f"
@@ -158,7 +158,7 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "8d2f241f8a5d0e3a16baf52a5f31be80636ee12d"
+  revision = "39289f3737654a399166e9cd65c043b5b3bfed01"
   name = "gopkg.in/juju/names.v3"
 
 [[constraint]]

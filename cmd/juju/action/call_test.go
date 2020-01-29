@@ -362,12 +362,12 @@ result-map:
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"Code":           "0",
-				"Stdout":         "hello",
-				"Stderr":         "world",
-				"StdoutEncoding": "utf-8",
-				"StderrEncoding": "utf-8",
-				"outcome":        "success",
+				"return-code":     "0",
+				"stdout":          "hello",
+				"stderr":          "world",
+				"stdout-encoding": "utf-8",
+				"stderr-encoding": "utf-8",
+				"outcome":         "success",
 				"result-map": map[string]interface{}{
 					"message": "hello",
 				},
@@ -390,7 +390,7 @@ hello
 world`[1:],
 	}, {
 		should:   "call a basic function with no params with yaml output including stdout, stderr",
-		withArgs: []string{validUnitId, "some-function", "--format", "yaml"},
+		withArgs: []string{validUnitId, "some-function", "--format", "yaml", "--utc"},
 		withTags: tagsForIdPrefix(validActionId, validActionTagString),
 		withFunctionResults: []params.ActionResult{{
 			Action: &params.Action{
@@ -400,12 +400,12 @@ world`[1:],
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"Code":           "0",
-				"Stdout":         "hello",
-				"Stderr":         "world",
-				"StdoutEncoding": "utf-8",
-				"StderrEncoding": "utf-8",
-				"outcome":        "success",
+				"return-code":     "0",
+				"stdout":          "hello",
+				"stderr":          "world",
+				"stdout-encoding": "utf-8",
+				"stderr-encoding": "utf-8",
+				"outcome":         "success",
 				"result-map": map[string]interface{}{
 					"message": "hello",
 				},
@@ -423,14 +423,14 @@ world`[1:],
 mysql/0:
   id: f47ac10b-58cc-4372-a567-0e02b2c3d479
   results:
-    Code: "0"
-    Stderr: world
-    StderrEncoding: utf-8
-    Stdout: hello
-    StdoutEncoding: utf-8
     outcome: success
     result-map:
       message: hello
+    return-code: "0"
+    stderr: world
+    stderr-encoding: utf-8
+    stdout: hello
+    stdout-encoding: utf-8
   status: completed
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
@@ -450,12 +450,12 @@ mysql/0:
 			},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"Code":           "0",
-				"Stdout":         "hello",
-				"Stderr":         "world",
-				"StdoutEncoding": "utf-8",
-				"StderrEncoding": "utf-8",
-				"outcome":        "success",
+				"return-code":     "0",
+				"stdout":          "hello",
+				"stderr":          "world",
+				"stdout-encoding": "utf-8",
+				"stderr-encoding": "utf-8",
+				"outcome":         "success",
 				"result-map": map[string]interface{}{
 					"message": "hello",
 				},
@@ -497,12 +497,12 @@ world`[1:],
 			}},
 			Status: "completed",
 			Output: map[string]interface{}{
-				"Code":           "0",
-				"Stdout":         "hello",
-				"Stderr":         "world",
-				"StdoutEncoding": "utf-8",
-				"StderrEncoding": "utf-8",
-				"outcome":        "success",
+				"return-code":     "0",
+				"stdout":          "hello",
+				"stderr":          "world",
+				"stdout-encoding": "utf-8",
+				"stderr-encoding": "utf-8",
+				"outcome":         "success",
 				"result-map": map[string]interface{}{
 					"message": "hello",
 				},
@@ -521,17 +521,17 @@ world`[1:],
 mysql/0:
   id: f47ac10b-58cc-4372-a567-0e02b2c3d479
   log:
-  - 2015-02-14 06:06:06 log line 1
-  - 2015-02-14 06:06:06 log line 2
+  - 2015-02-14 06:06:06 +0000 UTC log line 1
+  - 2015-02-14 06:06:06 +0000 UTC log line 2
   results:
-    Code: "0"
-    Stderr: world
-    StderrEncoding: utf-8
-    Stdout: hello
-    StdoutEncoding: utf-8
     outcome: success
     result-map:
       message: hello
+    return-code: "0"
+    stderr: world
+    stderr-encoding: utf-8
+    stdout: hello
+    stdout-encoding: utf-8
   status: completed
   timing:
     completed: 2015-02-14 08:17:00 +0000 UTC
@@ -540,7 +540,7 @@ mysql/0:
   unit: mysql/0`[1:],
 	}, {
 		should:   "call action on multiple units with stdout for each action",
-		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "yaml"},
+		withArgs: []string{validUnitId, validUnitId2, "some-function", "--format", "yaml", "--utc"},
 		withTags: params.FindTagsResults{Matches: map[string][]params.Entity{
 			validActionId:  {{Tag: validActionTagString}},
 			validActionId2: {{Tag: validActionTagString2}},
@@ -894,8 +894,8 @@ mysql/1:
 
 						// Make sure the CLI responded with the expected tag
 						c.Assert(outString, gc.Equals, fmt.Sprintf(`
-Scheduled Task %s
-Check status with 'juju show-task %s'`[1:],
+Scheduled Operation %s
+Check status with 'juju show-operation %s'`[1:],
 							expectedTag.Id(), expectedTag.Id()))
 					} else {
 						outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()

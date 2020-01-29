@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/network"
 )
 
@@ -242,7 +242,7 @@ func (w *EgressAddressWatcher) unitAddress(unit Unit) (string, bool, error) {
 	return addr.Value, true, nil
 }
 
-func (w *EgressAddressWatcher) processUnitChanges(c params.RelationUnitsChange) (bool, error) {
+func (w *EgressAddressWatcher) processUnitChanges(c watcher.RelationUnitsChange) (bool, error) {
 	changed := false
 	for name := range c.Changed {
 

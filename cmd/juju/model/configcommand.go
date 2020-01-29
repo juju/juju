@@ -318,7 +318,9 @@ func (c *configCommand) getConfig(client configCommandAPI, ctx *cmd.Context) err
 		if isFileLike(c.keys[0]) {
 			return errors.Errorf("%q seems to be a file but not found", c.keys[0])
 		} else {
-			return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q", c.keys[0], attrs["name"])
+			mod, _ := c.ModelIdentifier()
+			return errors.Errorf("%q seems to be neither a file nor a key of the currently targeted model: %q",
+				c.keys[0], mod)
 		}
 	}
 	return nil

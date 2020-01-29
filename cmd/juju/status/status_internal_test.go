@@ -165,7 +165,7 @@ func (ctx *context) setAgentPresence(c *gc.C, p presence.Agent) *presence.Pinger
 func (s *StatusSuite) newContext(c *gc.C) *context {
 	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
 	err := st.UpdateControllerConfig(map[string]interface{}{
-		"features": []interface{}{feature.Generations},
+		"features": []interface{}{feature.Branches},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 

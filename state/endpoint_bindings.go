@@ -591,7 +591,7 @@ func newBindingsFromIDs(verificationMap, givenMap map[string]string) (map[string
 // MapWithSpaceNames returns the current bindingMap with space names rather than ids.
 func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	retVal := make(map[string]string, len(b.bindingsMap))
-	namesToIDs, err := b.st.SpaceNamesByID()
+	idsToNames, err := b.st.SpaceNamesByID()
 	if err != nil {
 		return nil, err
 	}
@@ -599,11 +599,11 @@ func (b *Bindings) MapWithSpaceNames() (map[string]string, error) {
 	// Assume that b.bindings is always in space id format due to
 	// Bindings constructor.
 	for k, v := range b.bindingsMap {
-		spaceID, found := namesToIDs[v]
+		spaceName, found := idsToNames[v]
 		if !found {
-			return nil, errors.NotFoundf("space id for space %q", v)
+			return nil, errors.NotFoundf("space with ID %q", v)
 		}
-		retVal[k] = spaceID
+		retVal[k] = spaceName
 	}
 	return retVal, nil
 }
