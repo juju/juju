@@ -4,11 +4,14 @@
 package vsphere_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"path"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -18,7 +21,6 @@ import (
 	"github.com/vmware/govmomi/vim25/mo"
 	"github.com/vmware/govmomi/vim25/soap"
 	"github.com/vmware/govmomi/vim25/types"
-	"golang.org/x/net/context"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -34,18 +36,19 @@ import (
 	"github.com/juju/juju/provider/vsphere"
 	"github.com/juju/juju/provider/vsphere/internal/ovatest"
 	"github.com/juju/juju/provider/vsphere/internal/vsphereclient"
+	"github.com/juju/juju/provider/vsphere/mocks"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 )
 
-type environBrokerSuite struct {
+type legacyEnvironBrokerSuite struct {
 	EnvironFixture
 	statusCallbackStub testing.Stub
 }
 
-var _ = gc.Suite(&environBrokerSuite{})
+var _ = gc.Suite(&legacyEnvironBrokerSuite{})
 
-func (s *environBrokerSuite) SetUpTest(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) SetUpTest(c *gc.C) {
 	s.EnvironFixture.SetUpTest(c)
 	s.statusCallbackStub.ResetCalls()
 
@@ -61,7 +64,7 @@ func (s *environBrokerSuite) SetUpTest(c *gc.C) {
 	s.client.createdVirtualMachine = buildVM("new-vm").vm()
 }
 
-func (s *environBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
+func (s *legacyEnvironBrokerSuite) createStartInstanceArgs(c *gc.C) environs.StartInstanceParams {
 	var cons constraints.Value
 	instanceConfig, err := instancecfg.NewBootstrapInstanceConfig(
 		coretesting.FakeControllerConfig(), cons, cons, "trusty", "",
@@ -103,7 +106,7 @@ func setInstanceConfigAuthorizedKeys(c *gc.C, instanceConfig *instancecfg.Instan
 	instanceConfig.AuthorizedKeys = config.AuthorizedKeys()
 }
 
-func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstance(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.InstanceConfig.Tags = map[string]string{
 		"k0": "v0",
@@ -161,7 +164,7 @@ func (s *environBrokerSuite) TestStartInstance(c *gc.C) {
 	c.Assert(ovaBody, jc.DeepEquals, ovatest.FakeOVAContents())
 }
 
-func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	env, err := s.provider.Open(environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -183,7 +186,7 @@ func (s *environBrokerSuite) TestStartInstanceNetwork(c *gc.C) {
 	c.Assert(createVMArgs.NetworkDevices[1].Network, gc.Equals, "bar")
 }
 
-func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	env, err := s.provider.Open(environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -205,7 +208,7 @@ func (s *environBrokerSuite) TestStartInstanceLongModelName(c *gc.C) {
 	)
 }
 
-func (s *environBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	env, err := s.provider.Open(environs.OpenParams{
 		Cloud: fakeCloudSpec(),
 		Config: fakeConfig(c, coretesting.Attrs{
@@ -224,7 +227,7 @@ func (s *environBrokerSuite) TestStartInstanceDiskUUIDDisabled(c *gc.C) {
 	c.Assert(createVMArgs.EnableDiskUUID, gc.Equals, false)
 }
 
-func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.Tools[0].Version.Arch = "someArch"
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
@@ -233,7 +236,7 @@ func (s *environBrokerSuite) TestStartInstanceWithUnsupportedConstraints(c *gc.C
 }
 
 // if tools for multiple architectures are available, provider should filter tools by arch of the selected image
-func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	tools := []*coretools.Tools{{
 		Version: version.Binary{Arch: arch.I386, Series: "trusty"},
@@ -257,7 +260,7 @@ func (s *environBrokerSuite) TestStartInstanceFilterToolByArch(c *gc.C) {
 	c.Assert(startInstArgs.InstanceConfig.AgentVersion().Arch, gc.Equals, arch.AMD64)
 }
 
-func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
@@ -282,7 +285,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultConstraintsApplied(c *gc.C)
 	})
 }
 
-func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) {
 	var (
 		cpuCores uint64 = 4
 		cpuPower uint64 = 2001
@@ -311,7 +314,7 @@ func (s *environBrokerSuite) TestStartInstanceCustomConstraintsApplied(c *gc.C) 
 	})
 }
 
-func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	s.PatchValue(&vsphere.FinishInstanceConfig, func(mcfg *instancecfg.InstanceConfig, cfg *config.Config) (err error) {
 		return errors.New("FinishMachineConfig called")
@@ -320,7 +323,7 @@ func (s *environBrokerSuite) TestStartInstanceCallsFinishMachineConfig(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "FinishMachineConfig called")
 }
 
-func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConstraintValue(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	rootDisk := uint64(1000)
 	startInstArgs.Constraints.RootDisk = &rootDisk
@@ -329,7 +332,7 @@ func (s *environBrokerSuite) TestStartInstanceDefaultDiskSizeIsUsedForSmallConst
 	c.Assert(*res.Hardware.RootDisk, gc.Equals, common.MinRootDiskSizeGiB("trusty")*uint64(1024))
 }
 
-func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	startInstArgs.AvailabilityZone = "z2"
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
@@ -345,7 +348,7 @@ func (s *environBrokerSuite) TestStartInstanceSelectZone(c *gc.C) {
 	c.Assert(createVMArgs.ComputeResource, jc.DeepEquals, s.client.computeResources[1])
 }
 
-func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C) {
 	s.client.SetErrors(nil, nil, nil, errors.New("nope"))
 	startInstArgs := s.createStartInstanceArgs(c)
 	_, err := s.env.StartInstance(s.callCtx, startInstArgs)
@@ -357,7 +360,7 @@ func (s *environBrokerSuite) TestStartInstanceFailsWithAvailabilityZone(c *gc.C)
 	c.Assert(createVMArgs1.ComputeResource, jc.DeepEquals, s.client.computeResources[0])
 }
 
-func (s *environBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
@@ -374,7 +377,7 @@ func (s *environBrokerSuite) TestStartInstanceDatastoreDefault(c *gc.C) {
 	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "datastore0")
 }
 
-func (s *environBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	cfg := s.env.Config()
 	cfg, err := cfg.Apply(map[string]interface{}{
 		"datastore": "datastore0",
@@ -388,7 +391,6 @@ func (s *environBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	args.Constraints.RootDiskSource = &datastore
 	result, err := s.env.StartInstance(s.callCtx, args)
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Assert(*result.Hardware.RootDiskSource, gc.Equals, "zebras")
 
 	call := s.client.Calls()[3]
@@ -396,49 +398,104 @@ func (s *environBrokerSuite) TestStartInstanceRootDiskSource(c *gc.C) {
 	c.Assert(*createVMArgs.Constraints.RootDiskSource, gc.Equals, "zebras")
 }
 
+type environBrokerSuite struct {
+	coretesting.BaseSuite
+
+	mockClient *mocks.MockClient
+	provider   environs.CloudEnvironProvider
+	callCtx    callcontext.ProviderCallContext
+	env        environs.Environ
+
+	imageServerURL string
+}
+
+var _ = gc.Suite(&environBrokerSuite{})
+
+func (s *environBrokerSuite) setUpClient(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	s.callCtx = callcontext.NewCloudCallContext()
+	s.mockClient = mocks.NewMockClient(ctrl)
+	s.provider = vsphere.NewEnvironProvider(vsphere.EnvironProviderConfig{
+		Dial: func(_ context.Context, _ *url.URL, _ string) (vsphere.Client, error) {
+			return s.mockClient, nil
+		},
+	})
+	env, err := s.provider.Open(environs.OpenParams{
+		Cloud: fakeCloudSpec(),
+		Config: fakeConfig(c, coretesting.Attrs{
+			"image-metadata-url": s.imageServerURL,
+		}),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	s.env = env
+	return ctrl
+}
+
 func (s *environBrokerSuite) TestStopInstances(c *gc.C) {
+	ctrl := s.setUpClient(c)
+	defer ctrl.Finish()
+
+	s.mockClient.EXPECT().
+		RemoveVirtualMachines(gomock.Any(), `Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`).
+		Return(nil)
+	s.mockClient.EXPECT().
+		RemoveVirtualMachines(gomock.Any(), `Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`).
+		Return(nil)
+	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
+
 	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 	c.Assert(err, jc.ErrorIsNil)
-
-	var paths []string
-	s.client.CheckCallNames(c, "RemoveVirtualMachines", "FindFolder", "RemoveVirtualMachines", "FindFolder", "Close")
-	paths = append(paths, s.client.Calls()[0].Args[1].(string))
-	paths = append(paths, s.client.Calls()[2].Args[1].(string))
-	// NOTE(axw) we must use SameContents, not DeepEquals, because
-	// we run the RemoveVirtualMachines calls concurrently.
-	c.Assert(paths, jc.SameContents, []string{
-		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`,
-		`Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`,
-	})
 }
 
 func (s *environBrokerSuite) TestStopInstancesOneFailure(c *gc.C) {
-	s.client.SetErrors(errors.New("bah"))
-	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
+	ctrl := s.setUpClient(c)
+	defer ctrl.Finish()
 
-	s.client.CheckCallNames(c, "RemoveVirtualMachines", "FindFolder", "RemoveVirtualMachines", "FindFolder", "Close")
-	vmName := path.Base(s.client.Calls()[0].Args[1].(string))
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to stop instance %s: bah", vmName))
+	failedRemoveVM := s.mockClient.EXPECT().
+		RemoveVirtualMachines(gomock.Any(), `Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`).
+		Return(errors.New("bah"))
+	s.mockClient.EXPECT().
+		RemoveVirtualMachines(gomock.Any(), `Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`).
+		Return(nil)
+	s.mockClient.EXPECT().
+		FindFolder(gomock.Any(), "").
+		After(failedRemoveVM).Return(nil, nil) // only do find folder check if the RemoveVirtualMachines failed.
+	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
+
+	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("failed to stop instance %s: bah", "vm-0"))
 }
 
 func (s *environBrokerSuite) TestStopInstancesMultipleFailures(c *gc.C) {
+	ctrl := s.setUpClient(c)
+	defer ctrl.Finish()
+
 	err1 := errors.New("bah")
 	err2 := errors.New("bleh")
-	s.client.SetErrors(err1, nil, err2, nil)
-	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 
-	s.client.CheckCallNames(c, "RemoveVirtualMachines", "FindFolder", "RemoveVirtualMachines", "FindFolder", "Close")
-	vmName1 := path.Base(s.client.Calls()[0].Args[1].(string))
-	if vmName1 == "vm-1" {
-		err1, err2 = err2, err1
-	}
+	failedRemoveVM1 := s.mockClient.EXPECT().
+		RemoveVirtualMachines(gomock.Any(), `Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-0`).
+		Return(err1)
+	failedRemoveVM2 := s.mockClient.EXPECT().
+		RemoveVirtualMachines(gomock.Any(), `Juju Controller (*)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)/vm-1`).
+		Return(err2)
+	s.mockClient.EXPECT().
+		FindFolder(gomock.Any(), "").
+		After(failedRemoveVM1).Return(nil, nil)
+	s.mockClient.EXPECT().
+		FindFolder(gomock.Any(), "").
+		After(failedRemoveVM2).Return(nil, nil)
+	s.mockClient.EXPECT().Close(gomock.Any()).Return(nil)
+
+	err := s.env.StopInstances(s.callCtx, "vm-0", "vm-1")
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(
 		`failed to stop instances \[vm-0 vm-1\]: \[%s %s\]`,
 		err1, err2,
 	))
 }
 
-func (s *environBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c *gc.C) {
 	s.dialStub.SetErrors(soap.WrapSoapFault(&soap.Fault{
 		Code:   "ServerFaultCode",
 		String: "You passed an incorrect user name or password, bucko.",
@@ -455,20 +512,20 @@ func (s *environBrokerSuite) TestStartInstanceLoginErrorInvalidatesCreds(c *gc.C
 	c.Assert(passedReason, gc.Equals, "cloud denied access")
 }
 
-func (s *environBrokerSuite) TestStartInstancePermissionError(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstancePermissionError(c *gc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx callcontext.ProviderCallContext) error {
 		_, err := s.env.StartInstance(ctx, s.createStartInstanceArgs(c))
 		return err
 	})
 }
 
-func (s *environBrokerSuite) TestStopInstancesPermissionError(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStopInstancesPermissionError(c *gc.C) {
 	AssertInvalidatesCredential(c, s.client, func(ctx callcontext.ProviderCallContext) error {
 		return s.env.StopInstances(ctx, "vm-0")
 	})
 }
 
-func (s *environBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	res, err := s.env.StartInstance(s.callCtx, startInstArgs)
 	c.Assert(err, jc.ErrorIsNil)
@@ -495,7 +552,7 @@ func (s *environBrokerSuite) TestStartInstanceNoDatastoreSetting(c *gc.C) {
 	})
 }
 
-func (s *environBrokerSuite) TestNotBootstrapping(c *gc.C) {
+func (s *legacyEnvironBrokerSuite) TestNotBootstrapping(c *gc.C) {
 	startInstArgs := s.createStartInstanceArgs(c)
 	nonBootstrapInstance, err := instancecfg.NewInstanceConfig(
 		names.NewControllerTag(coretesting.FakeControllerConfig().ControllerUUID()),
