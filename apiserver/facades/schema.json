@@ -34530,7 +34530,7 @@
     },
     {
         "Name": "Uniter",
-        "Version": 14,
+        "Version": 15,
         "Schema": {
             "type": "object",
             "properties": {
@@ -35134,6 +35134,17 @@
                         }
                     }
                 },
+                "SetState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetUnitStateArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "SetStatus": {
                     "type": "object",
                     "properties": {
@@ -35175,6 +35186,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "State": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UnitStateResults"
                         }
                     }
                 },
@@ -37112,6 +37134,42 @@
                         "entities"
                     ]
                 },
+                "SetUnitStateArg": {
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "state"
+                    ]
+                },
+                "SetUnitStateArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetUnitStateArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
                 "SettingsResult": {
                     "type": "object",
                     "properties": {
@@ -37534,6 +37592,41 @@
                     "additionalProperties": false,
                     "required": [
                         "version"
+                    ]
+                },
+                "UnitStateResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "state"
+                    ]
+                },
+                "UnitStateResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UnitStateResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "UpgradeSeriesStatusParam": {
