@@ -118,7 +118,7 @@ func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
 func (s *Space) RenameSpaceCompleteOps(toName string) ([]txn.Op, error) {
 	renameSpaceOps := []txn.Op{{
 		C:      spacesC,
-		Id:     s.doc.Id,
+		Id:     s.doc.DocId,
 		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
 	}}
 	return renameSpaceOps, nil
