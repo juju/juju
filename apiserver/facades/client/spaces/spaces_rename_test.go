@@ -1,7 +1,5 @@
-/*
-* // Copyright 2020 Canonical Ltd.
-* // Licensed under the AGPLv3, see LICENCE file for details.
- */
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package spaces_test
 
@@ -48,7 +46,11 @@ func (s *SpaceRenameSuite) TestSuccess(c *gc.C) {
 
 	s.state.EXPECT().ControllerSettingsGlobalKey().Return(controllerKey)
 
-	currentConstraints := map[string]constraints.Value{"DOCID_1": {Spaces: &[]string{fromName, "nochange"}}}
+	currentConstraints := map[string]constraints.Value{
+		"DOCID_1": {Spaces: &[]string{fromName, "nochange"}},
+		"DOCID_2": {Spaces: &[]string{"nochange"}},
+		"DOCID_3": {},
+	}
 	s.state.EXPECT().ConstraintsBySpace(fromName).Return(currentConstraints, nil)
 
 	expectedDelta := settings.ItemChanges{{
@@ -58,8 +60,11 @@ func (s *SpaceRenameSuite) TestSuccess(c *gc.C) {
 		NewValue: toName,
 	}}
 
-	expectedNewConstraints := map[string]constraints.Value{"DOCID_1": {Spaces: &[]string{toName, "nochange"}}}
-
+	expectedNewConstraints := map[string]constraints.Value{
+		"DOCID_1": {Spaces: &[]string{toName, "nochange"}},
+		"DOCID_2": {Spaces: &[]string{"nochange"}},
+		"DOCID_3": {},
+	}
 	s.settings.EXPECT().DeltaOps(controllerKey, expectedDelta).Return(nil, nil)
 
 	s.state.EXPECT().GetConstraintsOps(expectedNewConstraints).Return([]txn.Op{}, nil)

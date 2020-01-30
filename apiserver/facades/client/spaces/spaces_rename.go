@@ -1,7 +1,5 @@
-/*
- * // Copyright 2020 Canonical Ltd.
- * // Licensed under the AGPLv3, see LICENCE file for details.
- */
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
 
 package spaces
 
@@ -152,14 +150,14 @@ func (o *spaceRenameModelOp) getConstraintsChanges(fromSpaceName, toName string)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	toConstraints := make(map[string]*constraints.Value, len(currentConstraints))
-	for id, constraint := range currentConstraints {
-		toConstraints[id] = &constraint
-		spaces := *constraint.Spaces
-		for i, space := range spaces {
+	for _, constraint := range currentConstraints {
+		spaces := constraint.Spaces
+		if spaces == nil {
+			continue
+		}
+		for i, space := range *spaces {
 			if space == fromSpaceName {
-				spaces[i] = toName
-				constraint.Spaces = &spaces
+				(*spaces)[i] = toName
 				break
 			}
 		}
