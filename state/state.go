@@ -847,7 +847,7 @@ func (st *State) ModelConstraints() (constraints.Value, error) {
 	return cons, errors.Trace(err)
 }
 
-// GetConstraintsOps gets the Ops to replace the current constraints
+// GetConstraintsOps gets the database transactions to replace the current constraints
 // cons is a map keyed with the docID of the corresponding constraints doc.
 func (st *State) GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error) {
 	ops := make([]txn.Op, len(cons))

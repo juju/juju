@@ -22,7 +22,7 @@ type RenameSpaceModelOp interface {
 	state.ModelOperation
 }
 
-// RenameSpace describes a space that can be renamed..
+// RenameSpace describes a space that can be renamed.
 type RenameSpace interface {
 	Refresh() error
 	Id() string
@@ -38,18 +38,19 @@ type RenameSpaceState interface {
 	// ControllerConfig returns current ControllerConfig.
 	ControllerConfig() (jujucontroller.Config, error)
 
-	//ConstraintsBySpace returns current constraints using the given spaceName.
+	// ConstraintsBySpace returns current constraints using the given spaceName.
 	ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error)
 
+	// ControllerSettingsGlobalKey returns the global controller settings key..
 	ControllerSettingsGlobalKey() string
 
 	// GetConstraintsOps gets the database transaction operations for the given constraints.
-	// Cons is  a map keyed by the DocID.
+	// Cons is a map keyed by the DocID.
 	GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error)
 }
 
 // Settings describes methods for interacting with settings to apply
-// branch-based configuration deltas.
+// space-based configuration deltas.
 type Settings interface {
 	DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error)
 }
@@ -144,7 +145,7 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 	return totalOps, nil
 }
 
-// getConstraintsChanges gets the current constraints to update.
+// getConstraintsChanges gets new constraints after applying the new space name.
 func (o *spaceRenameModelOp) getConstraintsChanges(fromSpaceName, toName string) (map[string]constraints.Value, error) {
 	currentConstraints, err := o.st.ConstraintsBySpace(fromSpaceName)
 	if err != nil {

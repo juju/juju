@@ -14,7 +14,7 @@ import (
 // OpFactory describes a source of model operations
 // required by the spaces API.
 type OpFactory interface {
-	// NewRenameSpaceModelOp returns an operation for renaming space.
+	// NewRenameSpaceModelOp returns an operation for renaming a space.
 	NewRenameSpaceModelOp(fromName, toName string) (RenameSpaceModelOp, error)
 }
 
@@ -27,7 +27,7 @@ func newOpFactory(st *state.State) OpFactory {
 }
 
 // NewRenameSpaceModelOp (OpFactory) returns an operation
-// for committing a branch.
+// for renaming a space.
 func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (RenameSpaceModelOp, error) {
 	space, err := f.st.SpaceByName(fromName)
 	controllerSettings := f.st.NewControllerSettings()
