@@ -96,7 +96,7 @@ func (c *RelationSetCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *RelationSetCommand) readSettings(in io.Reader) (map[string]string, error) {
+func readSettings(in io.Reader) (map[string]string, error) {
 	data, err := ioutil.ReadAll(in)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -121,7 +121,7 @@ func (c *RelationSetCommand) handleSettingsFile(ctx *cmd.Context) error {
 	}
 	defer file.Close()
 
-	settings, err := c.readSettings(file)
+	settings, err := readSettings(file)
 	if err != nil {
 		return errors.Trace(err)
 	}
