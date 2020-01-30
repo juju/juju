@@ -164,6 +164,13 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
+//
+// TODO (manadart 2020-01-29): This method, along with its server facade should
+// be moved to the machinemanager client/facade.
+// Then the machinemanager client can be used as an implementation of
+// environs.manual.ProvisioningClientAPI.
+// Then AddMachines above can be removed along with client API facade methods
+// that add machines (AddMachines, AddMachinesV2 and InjectMachines).
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
 	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
