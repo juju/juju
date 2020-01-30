@@ -644,6 +644,44 @@ func (s *mockHookContextSuite) TestSetCacheStateErr(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
+func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	s.expectStateValues()
+
+	// The following commands are no-ops as they don't mutate the cache.
+	hookContext.SetCacheValue("one", "two")   // no-op: KV already present
+	hookContext.DeleteCacheValue("not-there") // no-op: key not present
+
+	// Flush the context with a success. As the cache is not dirty we do
+	// not expect a SetState call.
+	err := hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+
+	// We expect a single call for the following API endpoints
+	s.expectStateValues()
+	s.mockUnit.EXPECT().SetState(map[string]string{
+		"one":   "two",
+		"three": "four",
+		"lorem": "ipsum",
+	}).Return(nil)
+
+	// Mutate cache and flush; this should call out to SetState and reset
+	// the dirty flag
+	hookContext.SetCacheValue("lorem", "ipsum")
+	err := hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Flush again; as the cache is not dirty, the SetState call is skipped.
+	err = hookContext.Flush("success", nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockUnit = mocks.NewMockHookUnit(ctrl)
