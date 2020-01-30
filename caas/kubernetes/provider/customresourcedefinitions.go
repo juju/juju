@@ -335,14 +335,6 @@ func (k *kubernetesClient) getCRDsForCRs(
 }
 
 func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv1beta1.CustomResourceDefinition, version string) (dynamic.ResourceInterface, error) {
-	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped {
-		// This has already done in podspec validation for checking Juju created CRD.
-		// Here, check it again for referencing exisitng CRD which was not created by Juju.
-		return nil, errors.NewNotSupported(nil,
-			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q scope",
-				crd.GetName(), crd.Spec.Scope, apiextensionsv1beta1.NamespaceScoped),
-		)
-	}
 	if version == "" {
 		return nil, errors.NotValidf("empty version for custom resource definition %q", crd.GetName())
 	}
@@ -365,11 +357,15 @@ func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv
 	if err := checkVersion(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return k.dynamicClient().Resource(
+	client := k.dynamicClient().Resource(
 		schema.GroupVersionResource{
 			Group:    crd.Spec.Group,
 			Version:  version,
 			Resource: crd.Spec.Names.Plural,
 		},
-	).Namespace(k.namespace), nil
+	)
+	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped {
+		return client, nil
+	}
+	return client.Namespace(k.namespace), nil
 }
