@@ -99,7 +99,3 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	}
 	return networkingcommon.NewSubnetShim(result), nil
 }
-
-func (s *stateShim) ApplyOperation(op state.ModelOperation) error {
-	return s.State.ApplyOperation(op)
-}
