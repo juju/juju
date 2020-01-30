@@ -32,7 +32,7 @@ type RenameSpace interface {
 	RenameSpaceCompleteOps(toName string) ([]txn.Op, error)
 }
 
-// CommitBranchState describes state operations required
+// RenameSpaceState describes state operations required
 // to execute the renameSpace operation.
 // * This allows us to indirect state at the operation level instead of the
 // * whole API level as currently done in interface.go
