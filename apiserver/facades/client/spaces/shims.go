@@ -99,3 +99,14 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	}
 	return networkingcommon.NewSubnetShim(result), nil
 }
+
+func (s *stateShim) IsControllerModel() (bool, error) {
+	model, err := s.State.Model()
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	if !model.IsControllerModel() {
+		return false, nil
+	}
+	return true, nil
+}

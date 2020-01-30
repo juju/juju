@@ -30901,6 +30901,17 @@
                 "ReloadSpaces": {
                     "type": "object"
                 },
+                "RemoveSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/RemoveSpaceResults"
+                        }
+                    }
+                },
                 "RenameSpace": {
                     "type": "object",
                     "properties": {
@@ -31049,6 +31060,53 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Space"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "RemoveSpaceResult": {
+                    "type": "object",
+                    "properties": {
+                        "bindings": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        },
+                        "constraints": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        },
+                        "controller-settings": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "constraints",
+                        "bindings",
+                        "controller-settings"
+                    ]
+                },
+                "RemoveSpaceResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoveSpaceResult"
                             }
                         }
                     },

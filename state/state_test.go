@@ -169,6 +169,22 @@ func (s *StateSuite) TestStrictLocalID(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *StateSuite) TestParseIDToTag(c *gc.C) {
+	model := "42c4f770-86ed-4fcc-8e39-697063d082bc:e"
+	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
+	application := "c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql"
+	unit := "c9741ea1-0c2a-444d-82f5-787583a48557:u#mysql/0"
+	moTag := s.State.ParseLocalIDToTags(model)
+	maTag := s.State.ParseLocalIDToTags(machine)
+	unTag := s.State.ParseLocalIDToTags(unit)
+	apTag := s.State.ParseLocalIDToTags(application)
+
+	c.Assert(moTag.String(), gc.Equals, "model-e")
+	c.Assert(maTag.String(), gc.Equals, "machine-m#0")
+	c.Assert(unTag.String(), gc.Equals, "unit-mysql-0")
+	c.Assert(apTag.String(), gc.Equals, "application-mysql")
+}
+
 func (s *StateSuite) TestStrictLocalIDWithWrongPrefix(c *gc.C) {
 	localID, err := state.StrictLocalID(s.State, "foo:wordpress")
 	c.Assert(localID, gc.Equals, "")

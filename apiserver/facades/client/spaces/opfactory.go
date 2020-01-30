@@ -12,6 +12,9 @@ import (
 // OpFactory describes a source of model operations
 // required by the spaces API.
 type OpFactory interface {
+	// NewRemoveSpaceModelOp returns an operation for removing a space.
+	NewRemoveSpaceModelOp(fromName string) (state.ModelOperation, error)
+
 	// NewRenameSpaceModelOp returns an operation for renaming a space.
 	NewRenameSpaceModelOp(fromName, toName string) (state.ModelOperation, error)
 }
@@ -22,6 +25,24 @@ type opFactory struct {
 
 func newOpFactory(st *state.State) OpFactory {
 	return &opFactory{st: st}
+}
+
+// NewRemoveSpaceModelOp (OpFactory) returns an operation
+// for removing a space.
+func (f *opFactory) NewRemoveSpaceModelOp(fromName string) (state.ModelOperation, error) {
+	space, err := f.st.SpaceByName(fromName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	subnets, err := space.Subnets()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	n := make([]Subnet, len(subnets))
+	for i, subnet := range subnets {
+		n[i] = subnet
+	}
+	return NewRemoveSpaceModelOp(space, n), nil
 }
 
 // NewRenameSpaceModelOp (OpFactory) returns an operation

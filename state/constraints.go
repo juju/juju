@@ -5,8 +5,8 @@ package state
 
 import (
 	"fmt"
-
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -115,19 +115,41 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 	return nil
 }
 
-// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
-// to transform a constraints spaces from `a` to `b`
-func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, error) {
+// ConstraintsTagForSpaceName returns the tags for the given space.
+func (st *State) ConstraintsTagForSpaceName(name string) ([]names.Tag, error) {
+	docs, err := st.constraintsBySpaceName(name)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	tags := make([]names.Tag, len(docs))
+	for i, doc := range docs {
+		tag := st.ParseLocalIDToTags(doc.DocID)
+		if tag == nil {
+			logger.Debugf("Could not parse id: %q", doc.DocID)
+			return nil, errors.Errorf("Could not parse id: %q", doc.DocID)
+		}
+		tags[i] = tag
+	}
+	return tags, nil
+}
+
+func (st *State) constraintsBySpaceName(name string) ([]constraintsWithID, error) {
 	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
-
 	var docs []constraintsWithID
-	negatedSpace := fmt.Sprintf("^%v", from)
+	negatedSpace := fmt.Sprintf("^%v", name)
 	query := bson.D{{"$or", []bson.D{
-		{{"spaces", from}},
+		{{"spaces", name}},
 		{{"spaces", negatedSpace}},
 	}}}
 	err := constraintsCollection.Find(query).All(&docs)
+	return docs, err
+}
+
+// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
+// to transform a constraints spaces from `a` to `b`
+func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, error) {
+	docs, err := st.constraintsBySpaceName(from)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
