@@ -30,8 +30,9 @@ import (
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
-	environMocks "github.com/juju/juju/environs/mocks"
+	environmocks "github.com/juju/juju/environs/mocks"
 	"github.com/juju/juju/state"
+	statemocks "github.com/juju/juju/state/mocks"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -45,7 +46,7 @@ type SpaceTestMockSuite struct {
 	mockAuthorizer       *facademocks.MockAuthorizer
 
 	mockOpFactory *mocks.MockOpFactory
-	mockRenameOp  *mocks.MockRenameSpaceModelOp
+	mockRenameOp  *statemocks.MockModelOperation
 
 	api *spaces.API
 }
@@ -272,7 +273,7 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 	s.mockBlockChecker.EXPECT().ChangeAllowed().Return(nil).AnyTimes()
 	s.mockBacking = mocks.NewMockBacking(ctrl)
 	s.mockOpFactory = mocks.NewMockOpFactory(ctrl)
-	s.mockRenameOp = mocks.NewMockRenameSpaceModelOp(ctrl)
+	s.mockRenameOp = statemocks.NewMockModelOperation(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
@@ -281,10 +282,10 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
 	s.mockBacking.EXPECT().ModelConfig().Return(nil, nil)
 
-	mockNetworkEnviron := environMocks.NewMockNetworkingEnviron(ctrl)
+	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
 	mockNetworkEnviron.EXPECT().SupportsProviderSpaces(gomock.Any()).Return(isProviderSpaces, nil).AnyTimes()
-	mockProvider := environMocks.NewMockCloudEnvironProvider(ctrl)
+	mockProvider := environmocks.NewMockCloudEnvironProvider(ctrl)
 	mockProvider.EXPECT().Open(gomock.Any()).Return(mockNetworkEnviron, nil)
 
 	unreg := environs.RegisterProvider("mock-provider", mockProvider)
