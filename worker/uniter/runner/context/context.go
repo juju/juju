@@ -285,6 +285,9 @@ type HookContext struct {
 	// the context is flushed.
 	cacheValues map[string]string
 
+	// A flag that keeps track of whether the unit's state has been mutated.
+	cacheDirty bool
+
 	mu sync.Mutex
 }
 
@@ -313,7 +316,13 @@ func (ctx *HookContext) SetCacheValue(key, value string) error {
 		return err
 	}
 
+	curValue, exists := ctx.cacheValues[key]
+	if exists && curValue == value {
+		return nil // no-op
+	}
+
 	ctx.cacheValues[key] = value
+	ctx.cacheDirty = true
 	return nil
 }
 
@@ -327,7 +336,12 @@ func (ctx *HookContext) DeleteCacheValue(key string) error {
 		return err
 	}
 
+	if _, exists := ctx.cacheValues[key]; !exists {
+		return nil // no-op
+	}
+
 	delete(ctx.cacheValues, key)
+	ctx.cacheDirty = true
 	return nil
 }
 
@@ -976,15 +990,14 @@ func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
 		}
 	}
 
-	// TODO: We need a uniter API to persist the following in a single txn:
-	// - the state
-	// - relation data
-	// - storage changes
-	// - podspec
-	if ctx.cacheValues != nil && writeChanges {
+	// Local cache changes will only be persisted if the actual cached
+	// contents have been modified.
+	if ctx.cacheDirty && writeChanges {
 		if e := ctx.unit.SetState(ctx.cacheValues); e != nil {
 			return errors.Trace(e)
 		}
+
+		ctx.cacheDirty = false
 	}
 
 	for id, rctx := range ctx.relations {
