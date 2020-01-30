@@ -105,18 +105,18 @@ func (mr *MockSpaceAPIMockRecorder) RemoveSpace(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSpace", reflect.TypeOf((*MockSpaceAPI)(nil).RemoveSpace), arg0)
 }
 
-// RenameSpaceCompleteOps mocks base method
+// RenameSpace mocks base method
 func (m *MockSpaceAPI) RenameSpace(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RenameSpaceCompleteOps", arg0, arg1)
+	ret := m.ctrl.Call(m, "RenameSpace", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RenameSpaceCompleteOps indicates an expected call of RenameSpaceCompleteOps
+// RenameSpace indicates an expected call of RenameSpace
 func (mr *MockSpaceAPIMockRecorder) RenameSpace(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpaceCompleteOps", reflect.TypeOf((*MockSpaceAPI)(nil).RenameSpace), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RenameSpace", reflect.TypeOf((*MockSpaceAPI)(nil).RenameSpace), arg0, arg1)
 }
 
 // ShowSpace mocks base method

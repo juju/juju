@@ -443,7 +443,7 @@ func (api *API) checkSupportsProviderSpaces() error {
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
 	}
-	if !environs.SupportsProviderSpaces(api.context, env) {
+	if environs.SupportsProviderSpaces(api.context, env) {
 		return errors.NotSupportedf("renaming provider-sourced spaces")
 	}
 	return nil

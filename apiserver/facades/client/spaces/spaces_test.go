@@ -57,7 +57,7 @@ func (s *SpaceTestMockSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestShowSpaceDefault(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
@@ -96,7 +96,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceDefault(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
@@ -111,7 +111,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
@@ -126,7 +126,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
@@ -143,7 +143,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
@@ -160,7 +160,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 
@@ -176,7 +176,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 	from, to := "bla", "blub"
@@ -193,7 +193,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 	from, to := "bla", "blub"
@@ -210,7 +210,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
 	from, to := "bla", "blub"
@@ -226,8 +226,8 @@ func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 
 }
 
-func (s *SpaceTestMockSuite) TestRenameSpaceErrorNoProviderSpacesSupport(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+func (s *SpaceTestMockSuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, true)
 	defer ctrl.Finish()
 	defer unreg()
 	from, to := "bla", "blub"
@@ -264,7 +264,7 @@ func (s *SpaceTestMockSuite) getDefaultSpaces() set.Strings {
 	return strings
 }
 
-func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, supportProviderSpaces bool) (*gomock.Controller, func()) {
+func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProviderSpaces bool) (*gomock.Controller, func()) {
 	ctrl := gomock.NewController(c)
 	s.mockResource = facademocks.NewMockResources(ctrl)
 	s.mockCloudCallContext = context.NewCloudCallContext()
@@ -283,7 +283,7 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, support
 
 	mockNetworkEnviron := environMocks.NewMockNetworkingEnviron(ctrl)
 	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
-	mockNetworkEnviron.EXPECT().SupportsProviderSpaces(gomock.Any()).Return(supportProviderSpaces, nil).AnyTimes()
+	mockNetworkEnviron.EXPECT().SupportsProviderSpaces(gomock.Any()).Return(isProviderSpaces, nil).AnyTimes()
 	mockProvider := environMocks.NewMockCloudEnvironProvider(ctrl)
 	mockProvider.EXPECT().Open(gomock.Any()).Return(mockNetworkEnviron, nil)
 
@@ -347,12 +347,6 @@ func (s *SpaceTestMockSuite) expectMachines(ctrl *gomock.Controller, addresses s
 	}
 	mockMachines := []spaces.Machine{mockMachine, anotherMockMachine}
 	s.mockBacking.EXPECT().AllMachines().Return(mockMachines, machErr)
-}
-
-func (s *SpaceTestMockSuite) getDefaultControllerConfig(c *gc.C, space string, attr map[string]interface{}) controller.Config {
-	cfg, err := controller.NewConfig(coretesting.ControllerTag.Id(), coretesting.CACert, attr)
-	c.Assert(err, jc.ErrorIsNil)
-	return cfg
 }
 
 func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesParams {

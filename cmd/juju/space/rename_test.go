@@ -95,8 +95,8 @@ func (s *RenameSuite) TestRunWithValidNamesSucceeds(c *gc.C) {
 		"a-space", "another-space",
 	)
 
-	s.api.CheckCallNames(c, "RenameSpaceCompleteOps", "Close")
-	s.api.CheckCall(c, 0, "RenameSpaceCompleteOps", "a-space", "another-space")
+	s.api.CheckCallNames(c, "RenameSpace", "Close")
+	s.api.CheckCall(c, 0, "RenameSpace", "a-space", "another-space")
 }
 
 func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
@@ -107,6 +107,6 @@ func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 		"foo", "bar",
 	)
 
-	s.api.CheckCallNames(c, "RenameSpaceCompleteOps", "Close")
-	s.api.CheckCall(c, 0, "RenameSpaceCompleteOps", "foo", "bar")
+	s.api.CheckCallNames(c, "RenameSpace", "Close")
+	s.api.CheckCall(c, 0, "RenameSpace", "foo", "bar")
 }

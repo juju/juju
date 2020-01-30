@@ -508,21 +508,6 @@ func (mr *MockRenameSpaceStateMockRecorder) GetConstraintsOps(arg0 interface{}) 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetConstraintsOps", reflect.TypeOf((*MockRenameSpaceState)(nil).GetConstraintsOps), arg0)
 }
 
-// SpaceByName mocks base method
-func (m *MockRenameSpaceState) SpaceByName(arg0 string) (networkingcommon.BackingSpace, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SpaceByName", arg0)
-	ret0, _ := ret[0].(networkingcommon.BackingSpace)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SpaceByName indicates an expected call of SpaceByName
-func (mr *MockRenameSpaceStateMockRecorder) SpaceByName(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceByName", reflect.TypeOf((*MockRenameSpaceState)(nil).SpaceByName), arg0)
-}
-
 // MockSettings is a mock of Settings interface
 type MockSettings struct {
 	ctrl     *gomock.Controller

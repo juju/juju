@@ -241,7 +241,7 @@ func (sa *StubAPI) UpdateSpace(name string, subnetIds []string) error {
 }
 
 func (sa *StubAPI) RenameSpace(name, newName string) error {
-	sa.MethodCall(sa, "RenameSpaceCompleteOps", name, newName)
+	sa.MethodCall(sa, "RenameSpace", name, newName)
 	return sa.NextErr()
 }
 

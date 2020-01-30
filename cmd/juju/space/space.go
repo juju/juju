@@ -46,7 +46,7 @@ type SpaceAPI interface {
 	// the given name. The list of subnets must contain at least one entry.
 	UpdateSpace(name string, subnetIds []string) error
 
-	// RenameSpaceCompleteOps changes the name of the space.
+	// RenameSpace changes the name of the space.
 	RenameSpace(name, newName string) error
 
 	// ReloadSpaces fetches spaces and subnets from substrate

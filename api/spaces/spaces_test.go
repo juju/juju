@@ -56,7 +56,7 @@ func (s *spacesSuite) TestRenameSpace(c *gc.C) {
 		FromSpaceTag: names.NewSpaceTag(from).String(),
 		ToSpaceTag:   names.NewSpaceTag(to).String(),
 	}}}
-	s.fCaller.EXPECT().FacadeCall("RenameSpaceCompleteOps", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	err := s.API.RenameSpace(from, to)
 	c.Assert(err, gc.IsNil)
@@ -75,7 +75,7 @@ func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
 		FromSpaceTag: names.NewSpaceTag(from).String(),
 		ToSpaceTag:   names.NewSpaceTag(to).String(),
 	}}}
-	s.fCaller.EXPECT().FacadeCall("RenameSpaceCompleteOps", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
 	err := s.API.RenameSpace(from, to)
 	c.Assert(err, gc.ErrorMatches, "bam")

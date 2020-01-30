@@ -7,7 +7,6 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/txn"
 
@@ -25,7 +24,7 @@ type RenameSpaceModelOp interface {
 	state.ModelOperation
 }
 
-// RenameSpaceCompleteOps describes a space that can be renamed..
+// RenameSpace describes a space that can be renamed..
 type RenameSpace interface {
 	Refresh() error
 	Id() string
@@ -44,10 +43,6 @@ type RenameSpaceState interface {
 	//ConstraintsBySpace returns current constraints using the given spaceName.
 	ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error)
 
-	// SpaceByName returns the Juju network space given by name.
-	SpaceByName(name string) (networkingcommon.BackingSpace, error)
-
-	// ControllerSettingsGlobalKey() returns the global controller settings key.
 	ControllerSettingsGlobalKey() string
 
 	// GetConstraintsOps gets the database transaction operations for the given constraints.
@@ -89,15 +84,6 @@ func (r *renameSpaceStateShim) ConstraintsBySpace(spaceName string) (map[string]
 	return r.State.ConstraintsBySpaceName(spaceName)
 }
 
-func (r *renameSpaceStateShim) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
-	result, err := r.State.SpaceByName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	space := networkingcommon.NewSpaceShim(result)
-	return space, nil
-}
-
 func (r *renameSpaceStateShim) ControllerConfig() (jujucontroller.Config, error) {
 	result, err := r.State.ControllerConfig()
 	if err != nil {
@@ -134,13 +120,13 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 		newErr := errors.Annotatef(err, "retrieving setting changes")
 		return nil, errors.Trace(newErr)
 	}
-	constraintChanges, err := o.getConstraintsChanges(o.space.Name(), o.toName)
+	newConstraints, err := o.getConstraintsChanges(o.space.Name(), o.toName)
 	if err != nil {
 		newErr := errors.Annotatef(err, "retrieving constraint changes")
 		return nil, errors.Trace(newErr)
 	}
 
-	newConstraintsOps, err := o.st.GetConstraintsOps(constraintChanges)
+	newConstraintsOps, err := o.st.GetConstraintsOps(newConstraints)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -200,7 +186,7 @@ func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (s
 	return deltas, nil
 }
 
-// RenameSpaceCompleteOps renames a space.
+// RenameSpace renames a space.
 func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults, error) {
 	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
