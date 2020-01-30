@@ -39,7 +39,7 @@ type RenameSpaceState interface {
 	ControllerConfig() (jujucontroller.Config, error)
 
 	// ConstraintsBySpace returns current constraints using the given spaceName.
-	ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error)
+	ConstraintsBySpaceName(spaceName string) (map[string]constraints.Value, error)
 
 	// ControllerSettingsGlobalKey returns the global controller settings key..
 	ControllerSettingsGlobalKey() string
@@ -77,30 +77,6 @@ func NewRenameSpaceModelOp(settings Settings, st RenameSpaceState, space RenameS
 
 type renameSpaceStateShim struct {
 	*state.State
-}
-
-func (r *renameSpaceStateShim) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
-	return r.State.ConstraintsBySpaceName(spaceName)
-}
-
-func (r *renameSpaceStateShim) ControllerConfig() (jujucontroller.Config, error) {
-	result, err := r.State.ControllerConfig()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return result, nil
-}
-
-func (r *renameSpaceStateShim) GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error) {
-	ops, err := r.State.GetConstraintsOps(cons)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return ops, nil
-}
-
-func (r *renameSpaceStateShim) ControllerSettingsGlobalKey() string {
-	return r.State.ControllerSettingsGlobalKey()
 }
 
 // Build (state.ModelOperation) creates and returns a slice of transaction
@@ -147,7 +123,7 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 
 // getConstraintsChanges gets new constraints after applying the new space name.
 func (o *spaceRenameModelOp) getConstraintsChanges(fromSpaceName, toName string) (map[string]constraints.Value, error) {
-	currentConstraints, err := o.st.ConstraintsBySpace(fromSpaceName)
+	currentConstraints, err := o.st.ConstraintsBySpaceName(fromSpaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

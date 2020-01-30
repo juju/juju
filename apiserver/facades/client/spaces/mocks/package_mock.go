@@ -449,19 +449,19 @@ func (m *MockRenameSpaceState) EXPECT() *MockRenameSpaceStateMockRecorder {
 	return m.recorder
 }
 
-// ConstraintsBySpace mocks base method
-func (m *MockRenameSpaceState) ConstraintsBySpace(arg0 string) (map[string]constraints.Value, error) {
+// ConstraintsBySpaceName mocks base method
+func (m *MockRenameSpaceState) ConstraintsBySpaceName(arg0 string) (map[string]constraints.Value, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConstraintsBySpace", arg0)
+	ret := m.ctrl.Call(m, "ConstraintsBySpaceName", arg0)
 	ret0, _ := ret[0].(map[string]constraints.Value)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ConstraintsBySpace indicates an expected call of ConstraintsBySpace
-func (mr *MockRenameSpaceStateMockRecorder) ConstraintsBySpace(arg0 interface{}) *gomock.Call {
+// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName
+func (mr *MockRenameSpaceStateMockRecorder) ConstraintsBySpaceName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpace", reflect.TypeOf((*MockRenameSpaceState)(nil).ConstraintsBySpace), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockRenameSpaceState)(nil).ConstraintsBySpaceName), arg0)
 }
 
 // ControllerConfig mocks base method

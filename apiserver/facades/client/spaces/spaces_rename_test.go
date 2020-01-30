@@ -51,7 +51,7 @@ func (s *SpaceRenameSuite) TestSuccess(c *gc.C) {
 		"DOCID_2": {Spaces: &[]string{"nochange"}},
 		"DOCID_3": {},
 	}
-	s.state.EXPECT().ConstraintsBySpace(fromName).Return(currentConstraints, nil)
+	s.state.EXPECT().ConstraintsBySpaceName(fromName).Return(currentConstraints, nil)
 
 	expectedDelta := settings.ItemChanges{{
 		Type:     1,
@@ -110,7 +110,7 @@ func (s *SpaceRenameSuite) TestErrorConstraintsChanges(c *gc.C) {
 	s.state.EXPECT().ControllerConfig().Return(nil, nil)
 
 	bamErr := errors.New("bam")
-	s.state.EXPECT().ConstraintsBySpace(fromName).Return(nil, bamErr)
+	s.state.EXPECT().ConstraintsBySpaceName(fromName).Return(nil, bamErr)
 
 	op := spaces.NewRenameSpaceModelOp(s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
