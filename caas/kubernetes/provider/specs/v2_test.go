@@ -173,7 +173,7 @@ kubernetesResources:
   customResourceDefinitions:
     tfjobs.kubeflow.org:
       group: kubeflow.org
-      scope: Namespaced
+      scope: Cluster
       names:
         kind: TFJob
         singular: tfjob
@@ -533,7 +533,7 @@ password: shhhh`[1:],
 							{Name: "v1", Served: true, Storage: true},
 							{Name: "v1beta2", Served: true, Storage: false},
 						},
-						Scope: "Namespaced",
+						Scope: "Cluster",
 						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
@@ -734,7 +734,7 @@ kubernetesResources:
     tfjobs.kubeflow.org:
       group: kubeflow.org
       version: v1alpha2
-      scope: Cluster
+      scope: invalid-scope
       names:
         plural: "tfjobs"
         singular: "tfjob"
@@ -763,7 +763,7 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 }
 
 func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
