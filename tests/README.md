@@ -16,8 +16,6 @@ be done by running:
 ```sh
 ./main.sh
 ```
-<<<<<<< HEAD
-=======
 
 Note: running subtests, will also invoke the parent test to ensure that it has
 everything setup correctly.
@@ -41,4 +39,3 @@ Note: because you're using a local controller, you don't get the same guarantees
 of setup and cleanup that you can with letting the test suite do that for you.
 So if you expect everything to be cleaned up and leave no trace, then don't use
 this method of bootstrapping.
->>>>>>> c7d38f0830... Update README
