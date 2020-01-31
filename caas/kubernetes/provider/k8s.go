@@ -2504,7 +2504,7 @@ func defaultSecurityContext() *core.SecurityContext {
 	}
 }
 
-func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []specs.ContainerSpec) error {
+func populateContainerDetails(deploymentName string, pod *core.PodSpec, podContainers []core.Container, containers []specs.ContainerSpec) (err error) {
 	for i, c := range containers {
 		pc := &podContainers[i]
 		if c.Image != "" {
@@ -2518,6 +2518,10 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		}
 		if c.ImagePullPolicy != "" {
 			pc.ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
+		}
+
+		if pc.Env, pc.EnvFrom, err = k8sspecs.ContainerConfigToK8sEnvConfig(c.Config); err != nil {
+			return errors.Trace(err)
 		}
 
 		pc.SecurityContext = defaultSecurityContext()
@@ -2536,12 +2540,6 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 		}
 		if spec.SecurityContext != nil {
 			pc.SecurityContext = spec.SecurityContext
-		}
-		if spec.Env != nil {
-			pc.Env = spec.Env
-		}
-		if spec.EnvFrom != nil {
-			pc.EnvFrom = spec.EnvFrom
 		}
 	}
 	return nil

@@ -32,13 +32,6 @@ var containerTemplate = `
   {{end}}
   {{if .WorkingDir}}
   workingDir: {{.WorkingDir}}
-  {{end}}
-  {{if .Config}}
-  env:
-  {{- range $k, $v := .Config }}
-    - name: {{$k}}
-      value: {{$v}}
-  {{- end}}
   {{end}}`[1:]
 
 var defaultPodTemplateStr = fmt.Sprintf(`
