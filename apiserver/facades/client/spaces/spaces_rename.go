@@ -55,10 +55,17 @@ type Settings interface {
 	DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error)
 }
 
+// Model describes methods for interacting with Model to
+// check whether the current model is a controllerModel.
+type Model interface {
+	IsControllerModel() bool
+}
+
 type spaceRenameModelOp struct {
 	st       RenameSpaceState
 	space    RenameSpace
 	settings Settings
+	model    Model
 	toName   string
 }
 
@@ -66,11 +73,12 @@ func (o *spaceRenameModelOp) Done(err error) error {
 	return err
 }
 
-func NewRenameSpaceModelOp(settings Settings, st RenameSpaceState, space RenameSpace, toName string) *spaceRenameModelOp {
+func NewRenameSpaceModelOp(model Model, settings Settings, st RenameSpaceState, space RenameSpace, toName string) *spaceRenameModelOp {
 	return &spaceRenameModelOp{
 		st:       st,
 		settings: settings,
 		space:    space,
+		model:    model,
 		toName:   toName,
 	}
 }
@@ -142,7 +150,11 @@ func (o *spaceRenameModelOp) getConstraintsChanges(fromSpaceName, toName string)
 	return currentConstraints, nil
 }
 
+// getSettingsChanges get's skipped and returns nil if we are not in the controllerModel
 func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (settings.ItemChanges, error) {
+	if !o.model.IsControllerModel() {
+		return nil, nil
+	}
 	currentControllerConfig, err := o.st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)

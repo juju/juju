@@ -34,5 +34,9 @@ func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (RenameSpaceM
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return NewRenameSpaceModelOp(controllerSettings, &renameSpaceStateShim{f.st}, space, toName), nil
+	model, err := f.st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return NewRenameSpaceModelOp(model, controllerSettings, &renameSpaceStateShim{f.st}, space, toName), nil
 }
