@@ -15,9 +15,9 @@ import (
 	"syscall"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/gnuflag"
 	"github.com/juju/utils"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/juju/osenv"
 )
