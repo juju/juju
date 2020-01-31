@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -20,10 +19,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.network")
-
-// SpaceInvalidChars is a regexp for validating that space names contain no
-// invalid characters.
-var SpaceInvalidChars = regexp.MustCompile("[^0-9a-z-]")
 
 // noAddress represents an error when an address is requested but not available.
 type noAddress struct {
@@ -58,42 +53,6 @@ const DefaultLXDBridge = "lxdbr0"
 // DefaultKVMBridge is the bridge that is set up by installing libvirt-bin
 // Note: we don't import this from 'container' to avoid import loops
 const DefaultKVMBridge = "virbr0"
-
-var dashPrefix = regexp.MustCompile("^-*")
-var dashSuffix = regexp.MustCompile("-*$")
-var multipleDashes = regexp.MustCompile("--+")
-
-// ConvertSpaceName converts names between provider space names and valid juju
-// space names.
-// TODO(mfoord): once MAAS space name rules are in sync with juju space name
-// rules this can go away.
-func ConvertSpaceName(name string, existing set.Strings) string {
-	// First lower case and replace spaces with dashes.
-	name = strings.Replace(name, " ", "-", -1)
-	name = strings.ToLower(name)
-	// Replace any character that isn't in the set "-", "a-z", "0-9".
-	name = SpaceInvalidChars.ReplaceAllString(name, "")
-	// Get rid of any dashes at the start as that isn't valid.
-	name = dashPrefix.ReplaceAllString(name, "")
-	// And any at the end.
-	name = dashSuffix.ReplaceAllString(name, "")
-	// Replace multiple dashes with a single dash.
-	name = multipleDashes.ReplaceAllString(name, "-")
-	// Special case of when the space name was only dashes or invalid
-	// characters!
-	if name == "" {
-		name = "empty"
-	}
-	// If this name is in use add a numerical suffix.
-	if existing.Contains(name) {
-		counter := 2
-		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
-			counter += 1
-		}
-		name = name + fmt.Sprintf("-%d", counter)
-	}
-	return name
-}
 
 // InterfaceConfigType defines valid network interface configuration
 // types. See interfaces(5) for details
