@@ -3821,7 +3821,9 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 		{
 			Value:     "3.3.3.3",
 			SpaceName: "space3",
-			SpaceID:   "provider3",
+			// This is an invalid form, but should still be
+			// correctly matched to the ID for provider3.
+			SpaceID: "pRoViDeR3",
 		},
 	}
 	m2Private := oldAddress{

@@ -3,7 +3,13 @@
 
 package network
 
-import "strings"
+import (
+	"fmt"
+	"regexp"
+	"strings"
+
+	"github.com/juju/collections/set"
+)
 
 const (
 	// AlphaSpaceId is the ID of the alpha network space.
@@ -88,4 +94,45 @@ func (s SpaceInfos) GetByName(name string) *SpaceInfo {
 		}
 	}
 	return nil
+}
+
+var (
+	invalidSpaceNameChars = regexp.MustCompile("[^0-9a-z-]")
+	dashPrefix            = regexp.MustCompile("^-*")
+	dashSuffix            = regexp.MustCompile("-*$")
+	multipleDashes        = regexp.MustCompile("--+")
+)
+
+// ConvertSpaceName is used to massage provider-sourced (i.e. MAAS)
+// space names so that they conform to Juju's space name rules.
+func ConvertSpaceName(name string, existing set.Strings) string {
+	// Lower case and replace spaces with dashes.
+	name = strings.Replace(name, " ", "-", -1)
+	name = strings.ToLower(name)
+
+	// Remove any character not in the set "-", "a-z", "0-9".
+	name = invalidSpaceNameChars.ReplaceAllString(name, "")
+
+	// Remove any dashes at the beginning and end.
+	name = dashPrefix.ReplaceAllString(name, "")
+	name = dashSuffix.ReplaceAllString(name, "")
+
+	// Replace multiple dashes with a single dash.
+	name = multipleDashes.ReplaceAllString(name, "-")
+
+	// If the name had only invalid characters, give it a new name.
+	if name == "" {
+		name = "empty"
+	}
+
+	// If this name is in use add a numerical suffix.
+	if existing.Contains(name) {
+		counter := 2
+		for existing.Contains(name + fmt.Sprintf("-%d", counter)) {
+			counter += 1
+		}
+		name = name + fmt.Sprintf("-%d", counter)
+	}
+
+	return name
 }
