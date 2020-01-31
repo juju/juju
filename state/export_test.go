@@ -73,6 +73,7 @@ var (
 type (
 	CharmDoc       charmDoc
 	ApplicationDoc = applicationDoc
+	ConstraintsDoc = constraintsDoc
 
 	StorageBackend         = storageBackend
 	DeviceBackend          = deviceBackend
@@ -781,7 +782,7 @@ func GetApplicationConfig(st *State, app *Application) *Settings {
 // GetControllerSettings allows access to settings collection for
 // the controller.
 func GetControllerSettings(st *State) *Settings {
-	return newSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+	return newSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 }
 
 // GetPopulatedSettings returns a reference to settings with the input values

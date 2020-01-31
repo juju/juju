@@ -5,7 +5,6 @@ package state
 
 import (
 	"fmt"
-
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -115,20 +114,49 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 	return nil
 }
 
-// ConstraintsBySpaceName returns all the constraints given by the spaceName, as a map keyed by the DocID.
-func (st *State) ConstraintsBySpaceName(spaceName string) (map[string]constraints.Value, error) {
+// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
+// to transform a constraints spaces from `a` to `b`
+func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, error) {
 	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
+	// all constraints per space name
 	var docs []constraintsWithID
-	allConstraints := make(map[string]constraints.Value, len(docs))
-	query := bson.D{{"spaces", spaceName}}
+	// query can lead to docs with spaceid that re:
+	// negative : "^db"
+	// list of spaces: "alpha,alpha2,^db"
+	query := bson.D{{"spaces", from}}
 	err := constraintsCollection.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, doc := range docs {
-		allConstraints[doc.DocID] = doc.Nested.value()
+
+	cons := getConstraintsChanges(docs, from, to)
+
+	ops := make([]txn.Op, len(docs))
+	i := 0
+	for docID, constraint := range cons {
+		ops[i] = setConstraintsOp(docID, constraint)
 	}
-	return allConstraints, nil
+	return ops, nil
+}
+
+func getConstraintsChanges(cons []constraintsWithID, fromSpaceName, toName string) map[string]constraints.Value {
+	values := make(map[string]constraints.Value, len(cons))
+	for _, con := range cons {
+		values[con.DocID] = con.Nested.value()
+	}
+	for _, constraint := range values {
+		spaces := constraint.Spaces
+		if spaces == nil {
+			continue
+		}
+		for i, space := range *spaces {
+			if space == fromSpaceName {
+				(*spaces)[i] = toName
+				break
+			}
+		}
+	}
+	return values
 }

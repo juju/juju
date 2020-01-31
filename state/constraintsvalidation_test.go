@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
@@ -301,4 +302,25 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
+}
+
+func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc.C) {
+	from, to := "db", "newdb"
+	cons := constraints.MustParse("spaces=db,alpha")
+	application, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        s.applicationName,
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application, gc.NotNil)
+
+	ops, err := s.State.ConstraintsOpsForSpaceNameChange(from, to)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+
+	expectedSpace := []string{to, "alpha"}
+	spaces := ops[0].Update.(bson.D).Map()["$set"].(state.ConstraintsDoc).Spaces
+	c.Assert(&expectedSpace, gc.DeepEquals, spaces)
 }

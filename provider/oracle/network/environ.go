@@ -306,7 +306,7 @@ func (e Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
 }
 
 func (e Environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
-	return false, errors.NotSupportedf("provider spaces support")
+	return false, nil
 }
 
 // SupportsSpaceDiscovery is defined on the environs.Networking interface.

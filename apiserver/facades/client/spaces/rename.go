@@ -11,23 +11,17 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucontroller "github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 )
-
-// RenameSpaceModelOp describes a model operation for renaming a space.
-type RenameSpaceModelOp interface {
-	state.ModelOperation
-}
 
 // RenameSpace describes a space that can be renamed.
 type RenameSpace interface {
 	Refresh() error
 	Id() string
 	Name() string
-	RenameSpaceCompleteOps(toName string) ([]txn.Op, error)
+	RenameSpaceOps(toName string) []txn.Op
 }
 
 // RenameSpaceState describes state operations required
@@ -38,15 +32,9 @@ type RenameSpaceState interface {
 	// ControllerConfig returns current ControllerConfig.
 	ControllerConfig() (jujucontroller.Config, error)
 
-	// ConstraintsBySpace returns current constraints using the given spaceName.
-	ConstraintsBySpaceName(spaceName string) (map[string]constraints.Value, error)
-
-	// ControllerSettingsGlobalKey returns the global controller settings key..
-	ControllerSettingsGlobalKey() string
-
-	// GetConstraintsOps gets the database transaction operations for the given constraints.
-	// Cons is a map keyed by the DocID.
-	GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error)
+	// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
+	// to transform a constraints spaces from `a` to `b`
+	ConstraintsOpsForSpaceNameChange(spaceName, toName string) ([]txn.Op, error)
 }
 
 // Settings describes methods for interacting with settings to apply
@@ -55,31 +43,25 @@ type Settings interface {
 	DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error)
 }
 
-// Model describes methods for interacting with Model to
-// check whether the current model is a controllerModel.
-type Model interface {
-	IsControllerModel() bool
-}
-
 type spaceRenameModelOp struct {
-	st       RenameSpaceState
-	space    RenameSpace
-	settings Settings
-	model    Model
-	toName   string
+	st           RenameSpaceState
+	isController bool
+	space        RenameSpace
+	settings     Settings
+	toName       string
 }
 
 func (o *spaceRenameModelOp) Done(err error) error {
 	return err
 }
 
-func NewRenameSpaceModelOp(model Model, settings Settings, st RenameSpaceState, space RenameSpace, toName string) *spaceRenameModelOp {
+func NewRenameSpaceModelOp(isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string) *spaceRenameModelOp {
 	return &spaceRenameModelOp{
-		st:       st,
-		settings: settings,
-		space:    space,
-		model:    model,
-		toName:   toName,
+		st:           st,
+		settings:     settings,
+		space:        space,
+		isController: isController,
+		toName:       toName,
 	}
 }
 
@@ -96,65 +78,35 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 		}
 	}
 
-	var totalOps []txn.Op
-
-	settingsDelta, err := o.getSettingsChanges(o.space.Name(), o.toName)
-	if err != nil {
-		newErr := errors.Annotatef(err, "retrieving setting changes")
-		return nil, errors.Trace(newErr)
-	}
-	newConstraints, err := o.getConstraintsChanges(o.space.Name(), o.toName)
+	newConstraintsOps, err := o.st.ConstraintsOpsForSpaceNameChange(o.space.Name(), o.toName)
 	if err != nil {
 		newErr := errors.Annotatef(err, "retrieving constraint changes")
 		return nil, errors.Trace(newErr)
 	}
 
-	newConstraintsOps, err := o.st.GetConstraintsOps(newConstraints)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	newSettingsOps, err := o.settings.DeltaOps(o.st.ControllerSettingsGlobalKey(), settingsDelta)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
+	completeOps := o.space.RenameSpaceOps(o.toName)
 
-	completeOps, err := o.space.RenameSpaceCompleteOps(o.toName)
-	if err != nil {
-		return nil, errors.Trace(err)
+	totalOps := append(completeOps, newConstraintsOps...)
+
+	if o.isController {
+		settingsDelta, err := o.getSettingsChanges(o.space.Name(), o.toName)
+		if err != nil {
+			return nil, errors.Annotatef(err, "retrieving setting changes")
+		}
+
+		newSettingsOps, err := o.settings.DeltaOps(state.ControllerSettingsGlobalKey, settingsDelta)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		totalOps = append(totalOps, newSettingsOps...)
 	}
-	totalOps = append(totalOps, completeOps...)
-	totalOps = append(totalOps, newConstraintsOps...)
-	totalOps = append(totalOps, newSettingsOps...)
 
 	return totalOps, nil
 }
 
-// getConstraintsChanges gets new constraints after applying the new space name.
-func (o *spaceRenameModelOp) getConstraintsChanges(fromSpaceName, toName string) (map[string]constraints.Value, error) {
-	currentConstraints, err := o.st.ConstraintsBySpaceName(fromSpaceName)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	for _, constraint := range currentConstraints {
-		spaces := constraint.Spaces
-		if spaces == nil {
-			continue
-		}
-		for i, space := range *spaces {
-			if space == fromSpaceName {
-				(*spaces)[i] = toName
-				break
-			}
-		}
-	}
-	return currentConstraints, nil
-}
-
 // getSettingsChanges get's skipped and returns nil if we are not in the controllerModel
 func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (settings.ItemChanges, error) {
-	if !o.model.IsControllerModel() {
-		return nil, nil
-	}
 	currentControllerConfig, err := o.st.ControllerConfig()
 	if err != nil {
 		return nil, errors.Trace(err)

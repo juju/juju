@@ -847,25 +847,6 @@ func (st *State) ModelConstraints() (constraints.Value, error) {
 	return cons, errors.Trace(err)
 }
 
-// GetConstraintsOps gets the database transactions to replace the current constraints
-// cons is a map keyed with the docID of the corresponding constraints doc.
-func (st *State) GetConstraintsOps(cons map[string]constraints.Value) ([]txn.Op, error) {
-	ops := make([]txn.Op, len(cons))
-	i := 0
-	for docID, constraint := range cons {
-		unsupported, err := st.validateConstraints(constraint)
-		if len(unsupported) > 0 {
-			logger.Warningf(
-				"setting model constraints: unsupported constraints: %v", strings.Join(unsupported, ","))
-		} else if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ops[i] = setConstraintsOp(docID, constraint)
-		i++
-	}
-	return ops, nil
-}
-
 // SetModelConstraints replaces the current model constraints.
 func (st *State) SetModelConstraints(cons constraints.Value) error {
 	unsupported, err := st.validateConstraints(cons)

@@ -255,7 +255,7 @@ func Initialize(args InitializeParams) (_ *Controller, err error) {
 			Assert: txn.DocMissing,
 			Insert: &hostedModelCountDoc{},
 		},
-		createSettingsOp(controllersC, controllerSettingsGlobalKey, args.ControllerConfig),
+		createSettingsOp(controllersC, ControllerSettingsGlobalKey, args.ControllerConfig),
 		createSettingsOp(globalSettingsC, cloudGlobalKey(args.Cloud.Name), args.ControllerInheritedConfig),
 	)
 	for k, v := range args.Cloud.RegionConfig {
