@@ -61,6 +61,13 @@
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
 
 [[projects]]
+  digest = "1:7b42eeb05f45af1cd224ce9c9b1b80d128290a15846826ea447d01126b2728fd"
+  name = "github.com/ajstarks/svgo"
+  packages = ["."]
+  pruneopts = ""
+  revision = "89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518"
+
+[[projects]]
   digest = "1:eb7820bae9e7a4d601b1c7319951215554b259e8266490361363b67d9ac8eed6"
   name = "github.com/altoros/gosigma"
   packages = [
@@ -116,6 +123,14 @@
   pruneopts = ""
   revision = "7f2434bc10da710debe5c4315ed6d4df454b4024"
   version = "v0.1.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:464e77c45b541f9dd4648621594efe80368ee2e52d78771a46a776371a1286fa"
+  name = "github.com/cloud-green/monitoring"
+  packages = ["."]
+  pruneopts = ""
+  revision = "666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e"
 
 [[projects]]
   digest = "1:8783f4f99cf4e5812a0030569b6a23f53e985d10322079a37c39b837f5396a4b"
@@ -556,7 +571,11 @@
 [[projects]]
   digest = "1:e8f1ba29f4bbd088ebaa75c8e79466d0da4281ef0f149ef50293fd3b227e0ba4"
   name = "github.com/juju/idmclient"
-  packages = ["ussologin"]
+  packages = [
+    ".",
+    "params",
+    "ussologin",
+  ]
   pruneopts = ""
   revision = "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
 
@@ -590,6 +609,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "305dec07bf2f69353bb05fa849e2a0834e220f94"
+
+[[projects]]
+  branch = "master"
+  digest = "1:865ef977d949d745f5c01bce1a2eb8580ecbb46054feae767f7112321f020eb9"
+  name = "github.com/juju/mempool"
+  packages = ["."]
+  pruneopts = ""
+  revision = "24974d6c264fe5a29716e7d56ea24c4bd904b7cc"
 
 [[projects]]
   digest = "1:b043566d9b325a8416f98af1bd46a00b498b16c1aba36e6708f79eda664d88d4"
@@ -755,6 +782,7 @@
   packages = [
     ".",
     "arch",
+    "cache",
     "cert",
     "debugstatus",
     "deque",
@@ -795,6 +823,21 @@
   packages = ["."]
   pruneopts = ""
   revision = "54b8c57083b4afb7dc75da7f13e2967b2606a507"
+
+[[projects]]
+  digest = "1:7a12c645226c9f1db5f55c02a7a212ce6d00fccb6b13e807d4ca90ce9533f3a4"
+  name = "github.com/juju/xml"
+  packages = ["."]
+  pruneopts = ""
+  revision = "eb759a627588d35166bc505fceb51b88500e291e"
+
+[[projects]]
+  branch = "master"
+  digest = "1:d030c9cbec76ecda52309cf750ac81052fba1629c6390f9b5f69d228f33a27f2"
+  name = "github.com/juju/zip"
+  packages = ["."]
+  pruneopts = ""
+  revision = "f6b1e93fa2e29a1d7d49b566b2b51efb060c982a"
 
 [[projects]]
   digest = "1:c62a6d65dd114090d8dd2ce22898bb51ba1a80305a2ad002a4200ae16eec81e5"
@@ -988,6 +1031,14 @@
   packages = ["."]
   pruneopts = ""
   revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
+
+[[projects]]
+  digest = "1:7a4827b2062a21ba644241bdec27959a5be2670f8aa4038ba14cfe2ce389e8d2"
+  name = "github.com/ncw/swift"
+  packages = ["."]
+  pruneopts = ""
+  revision = "b2a7479cf26fa841ff90dd932d0221cb5c50782d"
+  version = "v1.0.39"
 
 [[projects]]
   branch = "master"
@@ -1505,6 +1556,17 @@
   revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
 
 [[projects]]
+  branch = "v3"
+  digest = "1:54e0efb933a9038efba73834ee90fdbfce31894db49b54800dfb8bcff4297ba7"
+  name = "gopkg.in/juju/jujusvg.v3"
+  packages = [
+    ".",
+    "assets",
+  ]
+  pruneopts = ""
+  revision = "1ebf5c5481e815de683e57e0f46705ac567e4e58"
+
+[[projects]]
   branch = "v2"
   digest = "1:4eaefc824f6794f155150392c6eea2c3f898b392e0b90e497cc3dd79bc4c99d5"
   name = "gopkg.in/juju/names.v2"
@@ -1565,6 +1627,7 @@
     "bakery/mgostorage",
     "bakerytest",
     "httpbakery",
+    "httpbakery/agent",
   ]
   pruneopts = ""
   revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"

@@ -15,7 +15,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/firewall"
-	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 )
@@ -477,7 +476,7 @@ func GetRelationLifeSuspendedStatusChange(
 		if migrating, mErr := st.IsMigrationActive(); mErr == nil && !migrating {
 			return &params.RelationLifeSuspendedStatusChange{
 				Key:  key,
-				Life: life.Dead,
+				Life: params.Dead,
 			}, nil
 		} else if mErr != nil {
 			err = mErr

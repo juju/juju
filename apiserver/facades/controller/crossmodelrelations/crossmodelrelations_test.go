@@ -519,7 +519,7 @@ func (s *crossmodelRelationsSuite) TestWatchRelationsStatusRelationNotFound(c *g
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results, gc.HasLen, len(args.Args))
 	c.Assert(results.Results[0].Error, gc.IsNil)
-	c.Assert(results.Results[0].Changes[0].Life, gc.Equals, life.Dead)
+	c.Assert(results.Results[0].Changes[0].Life, gc.Equals, params.Dead)
 	s.st.CheckCalls(c, []testing.StubCall{
 		{"GetRemoteEntity", []interface{}{"token-db2:db django:db"}},
 		{"KeyRelation", []interface{}{"db2:db django:db"}},
