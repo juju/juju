@@ -41,12 +41,12 @@ func (s *SpaceRenameSuite) TestSuccess(c *gc.C) {
 	defer ctrl.Finish()
 
 	s.space.EXPECT().Name().Return(fromName).Times(2)
-
-	config := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: fromName, controller.JujuManagementSpace: "nochange"})
-	s.state.EXPECT().ControllerConfig().Return(config, nil)
-
 	s.model.EXPECT().IsControllerModel().Return(true)
 	s.state.EXPECT().ControllerSettingsGlobalKey().Return(controllerKey)
+	s.space.EXPECT().RenameSpaceCompleteOps(toName).Return(nil, nil)
+
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: fromName, controller.JujuManagementSpace: "nochange"})
+	s.state.EXPECT().ControllerConfig().Return(currentConfig, nil)
 
 	currentConstraints := map[string]constraints.Value{
 		"DOCID_1": {Spaces: &[]string{fromName, "nochange"}},
@@ -55,22 +55,20 @@ func (s *SpaceRenameSuite) TestSuccess(c *gc.C) {
 	}
 	s.state.EXPECT().ConstraintsBySpaceName(fromName).Return(currentConstraints, nil)
 
-	expectedDelta := settings.ItemChanges{{
+	expectedConfigDelta := settings.ItemChanges{{
 		Type:     1,
 		Key:      controller.JujuHASpace,
 		OldValue: fromName,
 		NewValue: toName,
 	}}
-
 	expectedNewConstraints := map[string]constraints.Value{
 		"DOCID_1": {Spaces: &[]string{toName, "nochange"}},
 		"DOCID_2": {Spaces: &[]string{"nochange"}},
 		"DOCID_3": {},
 	}
-	s.settings.EXPECT().DeltaOps(controllerKey, expectedDelta).Return(nil, nil)
+	s.settings.EXPECT().DeltaOps(controllerKey, expectedConfigDelta).Return(nil, nil)
 
 	s.state.EXPECT().GetConstraintsOps(expectedNewConstraints).Return([]txn.Op{}, nil)
-	s.space.EXPECT().RenameSpaceCompleteOps(toName).Return(nil, nil)
 
 	op := spaces.NewRenameSpaceModelOp(s.model, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)

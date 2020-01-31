@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// RenameSpaceModelOp describes a model operation for committing a branch.
+// RenameSpaceModelOp describes a model operation for renaming a space.
 type RenameSpaceModelOp interface {
 	state.ModelOperation
 }
