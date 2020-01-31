@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/testing"
 	gc "gopkg.in/check.v1"
 
@@ -46,4 +47,32 @@ func (*spaceSuite) TestGetByID(c *gc.C) {
 
 	c.Assert(spaces.GetByID("space1"), gc.NotNil)
 	c.Assert(spaces.GetByID("space666"), gc.IsNil)
+}
+
+func (s *spaceSuite) TestConvertSpaceName(c *gc.C) {
+	empty := set.Strings{}
+	nameTests := []struct {
+		name     string
+		existing set.Strings
+		expected string
+	}{
+		{"foo", empty, "foo"},
+		{"foo1", empty, "foo1"},
+		{"Foo Thing", empty, "foo-thing"},
+		{"foo^9*//++!!!!", empty, "foo9"},
+		{"--Foo", empty, "foo"},
+		{"---^^&*()!", empty, "empty"},
+		{" ", empty, "empty"},
+		{"", empty, "empty"},
+		{"foo\u2318", empty, "foo"},
+		{"foo--", empty, "foo"},
+		{"-foo--foo----bar-", empty, "foo-foo-bar"},
+		{"foo-", set.NewStrings("foo", "bar", "baz"), "foo-2"},
+		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
+		{"---", set.NewStrings("empty"), "empty-2"},
+	}
+	for _, test := range nameTests {
+		result := network.ConvertSpaceName(test.name, test.existing)
+		c.Check(result, gc.Equals, test.expected)
+	}
 }

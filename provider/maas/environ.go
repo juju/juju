@@ -750,7 +750,7 @@ func (env *maasEnviron) buildSpaceMap(ctx context.ProviderCallContext) (map[stri
 	spaceMap := make(map[string]corenetwork.SpaceInfo)
 	empty := set.Strings{}
 	for _, space := range spaces {
-		jujuName := network.ConvertSpaceName(string(space.Name), empty)
+		jujuName := corenetwork.ConvertSpaceName(string(space.Name), empty)
 		spaceMap[jujuName] = space
 	}
 	return spaceMap, nil
