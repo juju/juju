@@ -179,7 +179,7 @@ const exampleInterfaceSetJSON = `
 				"subnet": {
 					"dns_servers": [],
 					"name": "public",
-					"space": "public",
+					"space": "Public",
 					"vlan": {
 						"name": "public",
 						"vid": 100,
@@ -516,11 +516,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "static",
-	Address:             newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.103"),
+	Address:             newAddressOnSpaceWithId("storage", "3", "10.250.19.103"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.2"),
+	GatewayAddress:      newAddressOnSpaceWithId("storage", "3", "10.250.19.2"),
 }, {
 	DeviceIndex:         4,
 	MACAddress:          "52:54:00:08:24:2d",
@@ -557,11 +557,11 @@ var exampleParsedInterfaceSetJSON = []network.InterfaceInfo{{
 	Disabled:            false,
 	NoAutoStart:         false,
 	ConfigType:          "dhcp",
-	Address:             newAddressOnSpaceWithId("space-0", corenetwork.Id("4"), "192.168.20.192"),
+	Address:             newAddressOnSpaceWithId("space-0", "4", "192.168.20.192"),
 	DNSServers:          nil,
 	DNSSearchDomains:    nil,
 	MTU:                 1500,
-	GatewayAddress:      newAddressOnSpaceWithId("space-0", corenetwork.Id("4"), "192.168.20.2"),
+	GatewayAddress:      newAddressOnSpaceWithId("space-0", "4", "192.168.20.2"),
 }}
 
 func (s *interfacesSuite) TestParseInterfacesNoJSON(c *gc.C) {
@@ -695,7 +695,7 @@ func (s *interfacesSuite) TestParseInterfacesExampleJSON(c *gc.C) {
 			Subnet: &maasSubnet{
 				ID:          6,
 				Name:        "public",
-				Space:       "public",
+				Space:       "Public",
 				VLAN:        vlan100,
 				GatewayIP:   "10.100.19.2",
 				DNSServers:  []string{},
@@ -786,9 +786,9 @@ func (s *interfacesSuite) TestMAASObjectNetworkInterfaces(c *gc.C) {
     }`, exampleInterfaceSetJSON)
 	obj := s.testMAASObject.TestServer.NewNode(nodeJSON)
 	subnetsMap := make(map[string]corenetwork.Id)
-	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
-	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
-	subnetsMap["192.168.20.0/24"] = corenetwork.Id("4")
+	subnetsMap["10.250.19.0/24"] = "3"
+	subnetsMap["192.168.1.0/24"] = "0"
+	subnetsMap["192.168.20.0/24"] = "4"
 
 	infos, err := maasObjectNetworkInterfaces(s.callCtx, &obj, subnetsMap)
 	c.Assert(err, jc.ErrorIsNil)
@@ -822,7 +822,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 
 	subnetPXE := fakeSubnet{
 		id:         3,
-		space:      "default",
+		space:      "Default",
 		vlan:       vlan0,
 		gateway:    "10.20.19.2",
 		cidr:       "10.20.19.0/24",
@@ -891,7 +891,7 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 					id: 519,
 					subnet: &fakeSubnet{
 						id:         6,
-						space:      "public",
+						space:      "Public",
 						vlan:       vlan100,
 						gateway:    "10.100.19.2",
 						cidr:       "10.100.19.0/24",
@@ -932,8 +932,8 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 	}
 
 	subnetsMap := make(map[string]corenetwork.Id)
-	subnetsMap["10.250.19.0/24"] = corenetwork.Id("3")
-	subnetsMap["192.168.1.0/24"] = corenetwork.Id("0")
+	subnetsMap["10.250.19.0/24"] = "3"
+	subnetsMap["192.168.1.0/24"] = "0"
 
 	expected := []network.InterfaceInfo{{
 		DeviceIndex:       0,
@@ -1034,11 +1034,11 @@ func (s *interfacesSuite) TestMAAS2NetworkInterfaces(c *gc.C) {
 		Disabled:            false,
 		NoAutoStart:         false,
 		ConfigType:          "static",
-		Address:             newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.103"),
+		Address:             newAddressOnSpaceWithId("storage", "3", "10.250.19.103"),
 		DNSServers:          nil,
 		DNSSearchDomains:    nil,
 		MTU:                 1500,
-		GatewayAddress:      newAddressOnSpaceWithId("storage", corenetwork.Id("3"), "10.250.19.2"),
+		GatewayAddress:      newAddressOnSpaceWithId("storage", "3", "10.250.19.2"),
 	}}
 	machine := &fakeMachine{interfaceSet: exampleInterfaces}
 	instance := &maas2Instance{machine: machine}
