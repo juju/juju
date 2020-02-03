@@ -1,5 +1,5 @@
-#!/usr/bin/env python
-#
+# coding=utf-8
+# !/usr/bin/env python
 # This file is part of JujuPy, a library for driving the Juju CLI.
 # Copyright 2015, 2017 Canonical Ltd.
 #
@@ -26,7 +26,6 @@ import time
 
 from utility import until_timeout
 
-
 # Generate a list of all signals that can be used with Popen.send_signal on
 # this platform.
 if sys.platform == 'win32':
@@ -35,7 +34,7 @@ if sys.platform == 'win32':
         # CTRL_C_EVENT is also supposed to work, but experience shows
         # otherwise.
         'CTRL_BREAK': signal.CTRL_BREAK_EVENT,
-        }
+    }
 else:
     # Blech.  No equivalent of errno.errorcode for signals.
     signals = dict(
