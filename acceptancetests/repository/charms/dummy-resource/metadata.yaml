@@ -9,8 +9,9 @@ series:
   - xenial
   - artful
   - bionic
-  - disco
   - eoan
+  - focal
+
 resources:
   foo:
     type: file
