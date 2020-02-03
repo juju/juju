@@ -878,7 +878,7 @@ class ModelClient:
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
             no_gui=False, agent_version=None, db_snap_path=None,
-            db_snap_asserts_path=None):
+            db_snap_asserts_path=None, force=False):
         """Return the bootstrap arguments for the substrate."""
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
@@ -894,6 +894,8 @@ class ModelClient:
             '--constraints', self._get_substrate_constraints(),
             '--default-model', self.env.environment
         ]
+        if force:
+            args.extend(['--force'])
         if upload_tools:
             if agent_version is not None:
                 raise ValueError(
@@ -1016,7 +1018,7 @@ class ModelClient:
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None, force=False):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
@@ -1033,6 +1035,7 @@ class ModelClient:
                 agent_version=agent_version,
                 db_snap_path=db_snap_path,
                 db_snap_asserts_path=db_snap_asserts_path,
+                force=force
             )
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
