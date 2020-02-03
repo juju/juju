@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/testing"
@@ -249,12 +250,13 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	for i := 0; i < 3; i++ {
 		c.Logf("test %d", i)
 		changes, _ := a.ChangesSince(int64(i))
-		c.Assert(changes, gc.DeepEquals, deltas[i:])
+		c.Assert(len(changes), gc.Equals, len(deltas)-i)
+		c.Assert(changes, jc.DeepEquals, deltas[i:])
 	}
 
 	// Check boundary cases.
 	changes, _ := a.ChangesSince(-1)
-	c.Assert(changes, gc.DeepEquals, deltas)
+	c.Assert(changes, jc.DeepEquals, deltas)
 	changes, rev := a.ChangesSince(99)
 	c.Assert(changes, gc.HasLen, 0)
 
@@ -266,7 +268,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	}
 	a.Update(m1)
 	changes, latest := a.ChangesSince(rev)
-	c.Assert(changes, gc.DeepEquals, []Delta{{Entity: m1}})
+	c.Assert(changes, jc.DeepEquals, []Delta{{Entity: m1}})
 	c.Assert(latest, gc.Equals, a.latestRevno)
 
 	// Make sure the machine isn't simply removed from
@@ -281,14 +283,14 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	// informed of its removal (even those the removed entity
 	// is still in the list.
 	changes, _ = a.ChangesSince(0)
-	c.Assert(changes, gc.DeepEquals, []Delta{{
+	c.Assert(changes, jc.DeepEquals, []Delta{{
 		Entity: &MachineInfo{ModelUUID: "uuid", ID: "2"},
 	}, {
 		Entity: m1,
 	}})
 
 	changes, _ = a.ChangesSince(rev)
-	c.Assert(changes, gc.DeepEquals, []Delta{{
+	c.Assert(changes, jc.DeepEquals, []Delta{{
 		Entity: m1,
 	}, {
 		Removed: true,
@@ -296,7 +298,7 @@ func (s *storeSuite) TestChangesSince(c *gc.C) {
 	}})
 
 	changes, _ = a.ChangesSince(rev + 1)
-	c.Assert(changes, gc.DeepEquals, []Delta{{
+	c.Assert(changes, jc.DeepEquals, []Delta{{
 		Removed: true,
 		Entity:  m0,
 	}})
@@ -381,7 +383,7 @@ func assertStoreContents(c *gc.C, a *store, latestRevno int64, entries []entityE
 		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
 		gotElems = append(gotElems, e)
 	}
-	c.Assert(gotEntries, gc.DeepEquals, entries)
+	c.Assert(gotEntries, jc.DeepEquals, entries)
 	for i, ent := range entries {
 		c.Assert(a.entities[ent.info.EntityID()], gc.Equals, gotElems[i])
 	}
