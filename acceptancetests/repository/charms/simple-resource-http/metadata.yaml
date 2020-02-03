@@ -15,6 +15,7 @@ series:
   - bionic
   - disco
   - eoan
+  - focal
 resources:
   index:
     type: file

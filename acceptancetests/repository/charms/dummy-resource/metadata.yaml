@@ -11,6 +11,7 @@ series:
   - bionic
   - disco
   - eoan
+  - focal
 resources:
   foo:
     type: file
