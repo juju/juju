@@ -247,7 +247,8 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		{"Application", []interface{}{"django"}},
 		{"GetRemoteEntity", []interface{}{"token-relation-django.db#db2.db"}},
 		{"KeyRelation", []interface{}{"django:db db2:db"}},
-		{"GetRemoteEntity", []interface{}{"token-application-django"}},
+		{"Application", []interface{}{"db2"}},
+		{"Application", []interface{}{"django"}},
 		{"KeyRelation", []interface{}{"hadoop:db db2:db"}},
 	})
 
@@ -255,6 +256,7 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 		{"Endpoints", []interface{}{}},
 		{"Endpoints", []interface{}{}},
 		{"WatchUnits", []interface{}{"django"}},
+		{"Endpoints", []interface{}{}},
 		{"ApplicationSettings", []interface{}{"django"}},
 		{"Unit", []interface{}{"django/0"}},
 	})

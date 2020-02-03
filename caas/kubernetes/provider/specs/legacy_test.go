@@ -417,7 +417,7 @@ customResourceDefinitions:
   tfjobs.kubeflow.org:
     group: kubeflow.org
     version: v1alpha2
-    scope: Cluster
+    scope: invalid-scope
     names:
       plural: "tfjobs"
       singular: "tfjob"
@@ -446,7 +446,7 @@ customResourceDefinitions:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 }
 
 func (s *legacySpecsSuite) TestUnknownFieldError(c *gc.C) {

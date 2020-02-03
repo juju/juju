@@ -4,8 +4,6 @@
 package systemd
 
 import (
-	"io/ioutil"
-	"os"
 	"path"
 	"reflect"
 	"strings"
@@ -21,6 +19,7 @@ import (
 )
 
 const (
+	LibSystemdDir          = "/lib/systemd/system"
 	EtcSystemdDir          = "/etc/systemd/system"
 	EtcSystemdMultiUserDir = EtcSystemdDir + "/multi-user.target.wants"
 )
@@ -69,27 +68,24 @@ type Service struct {
 	FallBackDirName string
 	Script          []byte
 
+	fileOps FileSystemOps
 	newDBus DBusAPIFactory
 }
 
 // NewServiceWithDefaults returns a new systemd service reference populated
 // with sensible defaults.
 func NewServiceWithDefaults(name string, conf common.Conf) (*Service, error) {
-	svc, err := NewService(name, conf, EtcSystemdDir, NewDBusAPI, renderer.Join(paths.NixDataDir, "init"))
+	svc, err := NewService(
+		name, conf, EtcSystemdDir, NewDBusAPI, fileSystemOps{}, renderer.Join(paths.NixDataDir, "init"))
 	return svc, errors.Trace(err)
 }
 
 // NewService returns a new reference to an object that implements the Service
 // interface for systemd.
 func NewService(
-	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fallBackDirName string,
+	name string, conf common.Conf, dataDir string, newDBus DBusAPIFactory, fileOps FileSystemOps, fallBackDirName string,
 ) (*Service, error) {
 	confName := name + ".service"
-	var volName string
-	if conf.ExecStart != "" {
-		volName = renderer.VolumeName(common.Unquote(strings.Fields(conf.ExecStart)[0]))
-	}
-	dirName := volName + renderer.Join(dataDir)
 
 	service := &Service{
 		Service: common.Service{
@@ -98,8 +94,9 @@ func NewService(
 		},
 		ConfName:        confName,
 		UnitName:        confName,
-		DirName:         dirName,
+		DirName:         renderer.Join(dataDir),
 		FallBackDirName: fallBackDirName,
+		fileOps:         fileOps,
 		newDBus:         newDBus,
 	}
 
@@ -108,23 +105,6 @@ func NewService(
 	}
 
 	return service, nil
-}
-
-// DBusAPI exposes all the systemd API methods needed by juju.
-// To regenerate the mock for this interface,
-// run "go generate" from the package directory.
-//go:generate mockgen -package systemd_test -destination dbusapi_mock_test.go github.com/juju/juju/service/systemd DBusAPI
-type DBusAPI interface {
-	Close()
-	ListUnits() ([]dbus.UnitStatus, error)
-	StartUnit(string, string, chan<- string) (int, error)
-	StopUnit(string, string, chan<- string) (int, error)
-	LinkUnitFiles([]string, bool, bool) ([]dbus.LinkUnitFileChange, error)
-	EnableUnitFiles([]string, bool, bool) (bool, []dbus.EnableUnitFileChange, error)
-	DisableUnitFiles([]string, bool) ([]dbus.DisableUnitFileChange, error)
-	GetUnitProperties(string) (map[string]interface{}, error)
-	GetUnitTypeProperties(string, string) (map[string]interface{}, error)
-	Reload() error
 }
 
 var NewDBusAPI = func() (DBusAPI, error) {
@@ -434,21 +414,14 @@ func (s *Service) remove() error {
 	}
 
 	// Remove the service unit file and the exec-start script.
-	if err := remove(path.Join(s.DirName, s.ConfName)); err != nil {
+	if err := s.fileOps.Remove(path.Join(s.DirName, s.ConfName)); err != nil {
 		return s.errorf(err, "failed to delete service unit file")
 	}
-	if err := remove(renderer.ScriptFilename(s.execStartFileName(), s.DirName)); err != nil {
+	if err := s.fileOps.Remove(renderer.ScriptFilename(s.execStartFileName(), s.DirName)); err != nil {
 		return s.errorf(err, "failed to delete service exec-start script")
 	}
 
 	return nil
-}
-
-var remove = func(name string) error {
-	if _, err := os.Stat(name); os.IsNotExist(err) {
-		return nil
-	}
-	return os.Remove(name)
 }
 
 // Install implements Service.
@@ -509,20 +482,16 @@ func (s *Service) writeConf() (string, error) {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 		// TODO(ericsnow) Use the renderer here for the perms.
-		if err := createFile(scriptPath, s.Script, 0755); err != nil {
+		if err := s.fileOps.WriteFile(scriptPath, s.Script, 0755); err != nil {
 			return filename, s.errorf(err, "failed to write script at %q", scriptPath)
 		}
 	}
 
-	if err := createFile(filename, data, 0644); err != nil {
+	if err := s.fileOps.WriteFile(filename, data, 0644); err != nil {
 		return filename, s.errorf(err, "failed to write conf file %q", filename)
 	}
 
 	return filename, nil
-}
-
-var createFile = func(filename string, data []byte, perm os.FileMode) error {
-	return ioutil.WriteFile(filename, data, perm)
 }
 
 // InstallCommands implements Service.
@@ -566,7 +535,19 @@ func (s *Service) StartCommands() ([]string, error) {
 	return cmdList, nil
 }
 
-// WriteService implements UpgradableService.WriteService
+// RemoveOldService (UpgradableService) removes the service files that were
+// written for systemd services prior to 2.7.2.
+// The service definition and any exec-start script used to be written to a
+// directory named after the agent under /lib/systemd/system.
+// A symbolic link then pointed to this local from /etc/systemd/system.
+// We now just write files directly to /etc/systemd/system,
+// so the old directory is deleted if found.
+func (s *Service) RemoveOldService() error {
+	return errors.Trace(s.fileOps.RemoveAll(renderer.Join(LibSystemdDir, s.Name())))
+}
+
+// WriteService (UpgradableService) writes a systemd unit file for the service
+// and ensures that it is linked and enabled by systemd.
 func (s *Service) WriteService() error {
 	filename, err := s.writeConf()
 	if err != nil {
@@ -585,7 +566,7 @@ func (s *Service) WriteService() error {
 	}
 	defer conn.Close()
 
-	runtime, force := false, true
+	const runtime, force = false, true
 	if _, err = conn.LinkUnitFiles([]string{filename}, runtime, force); err != nil {
 		return s.errorf(err, "dbus link request failed")
 	}

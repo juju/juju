@@ -12,8 +12,9 @@ series:
   - xenial
   - artful
   - bionic
-  - disco
   - eoan
+  - focal
+
 subordinate: false
 peers:
   xplod:

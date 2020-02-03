@@ -17,6 +17,7 @@ import (
 
 // Logger represents the methods used by the worker to log details.
 type Logger interface {
+	Tracef(string, ...interface{})
 	Debugf(string, ...interface{})
 	Infof(string, ...interface{})
 	Warningf(string, ...interface{})
