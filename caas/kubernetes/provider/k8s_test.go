@@ -202,40 +202,93 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 		},
 	}
 
-	envVar1 := core.EnvVar{
-		Name: "BACKEND_USERNAME", ValueFrom: &core.EnvVarSource{
-			SecretKeyRef: &core.SecretKeySelector{
-				Key: "backend-username",
-			},
+	envVarThing := core.EnvVar{
+		Name: "thing",
+		ValueFrom: &core.EnvVarSource{
+			SecretKeyRef: &core.SecretKeySelector{Key: "bar"},
 		},
 	}
-	envVar1.ValueFrom.SecretKeyRef.Name = "backend-user"
+	envVarThing.ValueFrom.SecretKeyRef.Name = "foo"
 
-	envVar2 := core.EnvVar{
-		Name: "SPECIAL_LEVEL_KEY", ValueFrom: &core.EnvVarSource{
-			ConfigMapKeyRef: &core.ConfigMapKeySelector{
-				Key: "special.how",
-			},
+	envVarThing1 := core.EnvVar{
+		Name: "thing1",
+		ValueFrom: &core.EnvVarSource{
+			ConfigMapKeyRef: &core.ConfigMapKeySelector{Key: "bar"},
 		},
 	}
-	envVar2.ValueFrom.ConfigMapKeyRef.Name = "special-config"
+	envVarThing1.ValueFrom.ConfigMapKeyRef.Name = "foo"
 
-	envFrom1 := core.EnvFromSource{
-		ConfigMapRef: &core.ConfigMapEnvSource{},
+	envFromSourceSecret1 := core.EnvFromSource{
+		SecretRef: &core.SecretEnvSource{Optional: boolPtr(true)},
 	}
-	envFrom1.ConfigMapRef.Name = "special-config"
+	envFromSourceSecret1.SecretRef.Name = "secret1"
 
-	envFrom2 := core.EnvFromSource{
+	envFromSourceSecret2 := core.EnvFromSource{
 		SecretRef: &core.SecretEnvSource{},
 	}
+	envFromSourceSecret2.SecretRef.Name = "secret2"
 
-	envFrom2.SecretRef.Name = "test-secret"
+	envFromSourceConfigmap1 := core.EnvFromSource{
+		ConfigMapRef: &core.ConfigMapEnvSource{Optional: boolPtr(true)},
+	}
+	envFromSourceConfigmap1.ConfigMapRef.Name = "configmap1"
+
+	envFromSourceConfigmap2 := core.EnvFromSource{
+		ConfigMapRef: &core.ConfigMapEnvSource{},
+	}
+	envFromSourceConfigmap2.ConfigMapRef.Name = "configmap2"
+
 	podSpec.Containers = []specs.ContainerSpec{
 		{
 			Name:            "test",
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
 			Image:           "juju/image",
 			ImagePullPolicy: specs.PullPolicy("Always"),
+			Config: map[string]interface{}{
+				"restricted": "yes",
+				"secretRef": []interface{}{
+					map[string]interface{}{
+						"optional": bool(true),
+						"name":     "secret1",
+					},
+					map[string]interface{}{
+						"name": "secret2",
+					},
+				},
+				"special": "p@ssword's",
+				"switch":  bool(true),
+				"MY_NODE_NAME": map[string]interface{}{
+					"fieldRef": map[string]interface{}{
+						"fieldPath": "spec.nodeName",
+					},
+				},
+				"attr": "foo=bar; name[\"fred\"]=\"blogs\";",
+				"configMapRef": []interface{}{
+					map[string]interface{}{
+						"name":     "configmap1",
+						"optional": bool(true),
+					},
+					map[string]interface{}{
+						"name": "configmap2",
+					},
+				},
+				"float": float64(111.11111111),
+				"thing1": map[string]interface{}{
+					"configMapKeyRef": map[string]interface{}{
+						"key":  "bar",
+						"name": "foo",
+					},
+				},
+				"brackets": "[\"hello\", \"world\"]",
+				"foo":      "bar",
+				"int":      float64(111),
+				"thing": map[string]interface{}{
+					"secretKeyRef": map[string]interface{}{
+						"key":  "bar",
+						"name": "foo",
+					},
+				},
+			},
 			ProviderContainer: &k8sspecs.K8sContainerSpec{
 				ReadinessProbe: &core.Probe{
 					InitialDelaySeconds: 10,
@@ -248,30 +301,6 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 				SecurityContext: &core.SecurityContext{
 					RunAsNonRoot: boolPtr(true),
 					Privileged:   boolPtr(true),
-				},
-				Env: []core.EnvVar{
-					{
-						Name: "DEMO_GREETING", Value: "Hello from the environment",
-					},
-					{
-						Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "spec.nodeName",
-							},
-						},
-					},
-					envVar1, envVar2,
-					{
-						Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
-							ResourceFieldRef: &core.ResourceFieldSelector{
-								ContainerName: "test-container", Resource: "limits.memory",
-							},
-						},
-					},
-				},
-				EnvFrom: []core.EnvFromSource{
-					envFrom1,
-					envFrom2,
 				},
 			},
 		}, {
@@ -318,28 +347,23 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 				},
 				VolumeMounts: dataVolumeMounts(),
 				Env: []core.EnvVar{
-					{
-						Name: "DEMO_GREETING", Value: "Hello from the environment",
-					},
-					{
-						Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
-							FieldRef: &core.ObjectFieldSelector{
-								FieldPath: "spec.nodeName",
-							},
-						},
-					},
-					envVar1, envVar2,
-					{
-						Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
-							ResourceFieldRef: &core.ResourceFieldSelector{
-								ContainerName: "test-container", Resource: "limits.memory",
-							},
-						},
-					},
+					{Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{FieldRef: &core.ObjectFieldSelector{FieldPath: "spec.nodeName"}}},
+					{Name: "attr", Value: `foo=bar; name["fred"]="blogs";`},
+					{Name: "brackets", Value: `["hello", "world"]`},
+					{Name: "float", Value: "111.11111111"},
+					{Name: "foo", Value: "bar"},
+					{Name: "int", Value: "111"},
+					{Name: "restricted", Value: "yes"},
+					{Name: "special", Value: "p@ssword's"},
+					{Name: "switch", Value: "true"},
+					envVarThing,
+					envVarThing1,
 				},
 				EnvFrom: []core.EnvFromSource{
-					envFrom1,
-					envFrom2,
+					envFromSourceConfigmap1,
+					envFromSourceConfigmap2,
+					envFromSourceSecret1,
+					envFromSourceSecret2,
 				},
 			}, {
 				Name:  "test2",
@@ -462,10 +486,10 @@ func getBasicPodspec() *specs.PodSpec {
 		WorkingDir:   "/path/to/here",
 		Config: map[string]interface{}{
 			"foo":        "bar",
-			"restricted": "'yes'",
+			"restricted": "yes",
 			"bar":        true,
-			"switch":     "on",
-			"brackets":   `'["hello", "world"]'`,
+			"switch":     true,
+			"brackets":   `["hello", "world"]`,
 		},
 	}, {
 		Name:  "test2",

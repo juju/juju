@@ -71,9 +71,6 @@ type K8sContainerSpec struct {
 	LivenessProbe   *core.Probe           `json:"livenessProbe,omitempty" yaml:"livenessProbe,omitempty"`
 	ReadinessProbe  *core.Probe           `json:"readinessProbe,omitempty" yaml:"readinessProbe,omitempty"`
 	SecurityContext *core.SecurityContext `json:"securityContext,omitempty" yaml:"securityContext,omitempty"`
-
-	EnvFrom []core.EnvFromSource `json:"envFrom,omitempty" yaml:"envFrom,omitempty"`
-	Env     []core.EnvVar        `json:"env,omitempty" yaml:"env,omitempty"`
 }
 
 // Validate validates K8sContainerSpec.

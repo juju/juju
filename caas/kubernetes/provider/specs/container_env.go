@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -134,12 +135,11 @@ func (cv configValue) to(name string) (out []core.EnvVar, err error) {
 	return out, nil
 }
 
-// JSON Unmarshal types: https://golang.org/pkg/encoding/json/#Unmarshal
+// JSON Unmarshal types - https://golang.org/pkg/encoding/json/#Unmarshal
 func stringify(i interface{}) (string, error) {
 	switch v := i.(type) {
 	case string:
-		// return v, nil
-		return quoteString(v), nil
+		return v, nil
 	case bool:
 		return strconv.FormatBool(v), nil
 	case float64:
@@ -151,7 +151,7 @@ func stringify(i interface{}) (string, error) {
 }
 
 func processMapInterfaceValue(k string, v interface{}) (envVars []core.EnvVar, envFromSources []core.EnvFromSource, err error) {
-	logger.Criticalf("processMapInterfaceValue %q, %+v", k, v)
+	logger.Tracef("processing container config key: %q, value(%T): %+v", k, v, v)
 
 	parse := func(into interface{}) error {
 		jsonbody, err := json.Marshal(v)
@@ -166,14 +166,12 @@ func processMapInterfaceValue(k string, v interface{}) (envVars []core.EnvVar, e
 		var val secretRefValue
 		defer func() {
 			envFromSources = append(envFromSources, val.to()...)
-			logger.Criticalf("processMapInterfaceValue %q result -> %s, xxxx -> %s", k, pretty.Sprint(val), pretty.Sprint(val.to()))
 		}()
 		return envVars, envFromSources, errors.Trace(parse(&val))
 	case configMapRefName:
 		var val configMapRefValue
 		defer func() {
 			envFromSources = append(envFromSources, val.to()...)
-			logger.Criticalf("processMapInterfaceValue %q result -> %s", k, pretty.Sprint(val))
 		}()
 		return envVars, envFromSources, errors.Trace(parse(&val))
 	default:
@@ -181,7 +179,6 @@ func processMapInterfaceValue(k string, v interface{}) (envVars []core.EnvVar, e
 		if err := parse(&val); err != nil {
 			return nil, nil, errors.Trace(err)
 		}
-		logger.Criticalf("processMapInterfaceValue %q result -> %s", k, pretty.Sprint(val))
 		items, err := val.to(k)
 		if err != nil {
 			return nil, nil, errors.Trace(err)
@@ -199,8 +196,6 @@ func ContainerConfigToK8sEnvConfig(cc specs.ContainerConfig) (envVars []core.Env
 			return nil, nil, errors.NotValidf("duplicated config %q", k)
 		}
 		valNames.Add(k)
-
-		logger.Criticalf("%T\t%q-> %#v", v, k, v)
 
 		if k != secretRefName && k != configMapRefName {
 			// Normal key value pairs.
@@ -223,13 +218,29 @@ func ContainerConfigToK8sEnvConfig(cc specs.ContainerConfig) (envVars []core.Env
 			envVars = append(envVars, vars...)
 			envFromSources = append(envFromSources, envFroms...)
 		default:
-			// envVars = append(envVars, core.EnvVar{Name: k, Value: fmt.Sprintf("%s", envVal)})
 			return nil, nil, errors.NotSupportedf("config %q with type %T", k, v)
 		}
 	}
 
+	// Sort for tests.
+	sort.SliceStable(envVars, func(i, j int) bool {
+		return envVars[i].Name < envVars[j].Name
+	})
+	sort.SliceStable(envFromSources, func(i, j int) bool {
+		return getEnvFromSourceName(envFromSources[i]) < getEnvFromSourceName(envFromSources[j])
+	})
+
 	logger.Criticalf("envVars -> %s", pretty.Sprint(envVars))
 	logger.Criticalf("envFromSources -> %s", pretty.Sprint(envFromSources))
-	// return envVars, envFromSources, errors.NotFoundf("xxx")
 	return envVars, envFromSources, nil
+}
+
+func getEnvFromSourceName(in core.EnvFromSource) (out string) {
+	if in.ConfigMapRef != nil {
+		return in.ConfigMapRef.Name
+	}
+	if in.SecretRef != nil {
+		return in.SecretRef.Name
+	}
+	return out
 }

@@ -5,10 +5,10 @@ package specs_test
 
 import (
 	"encoding/base64"
-	"sort"
+	// "sort"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
+	// "github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
@@ -68,33 +68,6 @@ containers:
         httpGet:
           path: /pingReady
           port: www
-      env:
-        - name: DEMO_GREETING
-          value: "Hello from the environment"
-        - name: MY_NODE_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: spec.nodeName
-        - name: BACKEND_USERNAME
-          valueFrom:
-            secretKeyRef:
-              name: backend-user
-              key: backend-username
-        - name: SPECIAL_LEVEL_KEY
-          valueFrom:
-            configMapKeyRef:
-              name: special-config
-              key: special.how
-        - name: MY_MEM_LIMIT
-          valueFrom:
-            resourceFieldRef:
-              containerName: test-container
-              resource: limits.memory
-      envFrom:
-      - configMapRef:
-          name: special-config
-      - secretRef:
-          name: test-secret
     config:
       attr: foo=bar; name["fred"]="blogs";
       foo: bar
@@ -332,33 +305,33 @@ foo: bar
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
 
-		envVar1 := core.EnvVar{
-			Name: "BACKEND_USERNAME", ValueFrom: &core.EnvVarSource{
-				SecretKeyRef: &core.SecretKeySelector{
-					Key: "backend-username",
-				},
-			},
-		}
-		envVar1.ValueFrom.SecretKeyRef.Name = "backend-user"
+		// envVar1 := core.EnvVar{
+		// 	Name: "BACKEND_USERNAME", ValueFrom: &core.EnvVarSource{
+		// 		SecretKeyRef: &core.SecretKeySelector{
+		// 			Key: "backend-username",
+		// 		},
+		// 	},
+		// }
+		// envVar1.ValueFrom.SecretKeyRef.Name = "backend-user"
 
-		envVar2 := core.EnvVar{
-			Name: "SPECIAL_LEVEL_KEY", ValueFrom: &core.EnvVarSource{
-				ConfigMapKeyRef: &core.ConfigMapKeySelector{
-					Key: "special.how",
-				},
-			},
-		}
-		envVar2.ValueFrom.ConfigMapKeyRef.Name = "special-config"
+		// envVar2 := core.EnvVar{
+		// 	Name: "SPECIAL_LEVEL_KEY", ValueFrom: &core.EnvVarSource{
+		// 		ConfigMapKeyRef: &core.ConfigMapKeySelector{
+		// 			Key: "special.how",
+		// 		},
+		// 	},
+		// }
+		// envVar2.ValueFrom.ConfigMapKeyRef.Name = "special-config"
 
-		envFrom1 := core.EnvFromSource{
-			ConfigMapRef: &core.ConfigMapEnvSource{},
-		}
-		envFrom1.ConfigMapRef.Name = "special-config"
+		// envFrom1 := core.EnvFromSource{
+		// 	ConfigMapRef: &core.ConfigMapEnvSource{},
+		// }
+		// envFrom1.ConfigMapRef.Name = "special-config"
 
-		envFrom2 := core.EnvFromSource{
-			SecretRef: &core.SecretEnvSource{},
-		}
-		envFrom2.SecretRef.Name = "test-secret"
+		// envFrom2 := core.EnvFromSource{
+		// 	SecretRef: &core.SecretEnvSource{},
+		// }
+		// envFrom2.SecretRef.Name = "test-secret"
 
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
@@ -376,12 +349,12 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       `'foo=bar; name["fred"]="blogs";'`,
+					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 				Files: []specs.FileSet{
 					{
@@ -415,30 +388,30 @@ echo "do some stuff here for gitlab container"
 							},
 						},
 					},
-					Env: []core.EnvVar{
-						{
-							Name: "DEMO_GREETING", Value: "Hello from the environment",
-						},
-						{
-							Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
-								FieldRef: &core.ObjectFieldSelector{
-									FieldPath: "spec.nodeName",
-								},
-							},
-						},
-						envVar1, envVar2,
-						{
-							Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
-								ResourceFieldRef: &core.ResourceFieldSelector{
-									ContainerName: "test-container", Resource: "limits.memory",
-								},
-							},
-						},
-					},
-					EnvFrom: []core.EnvFromSource{
-						envFrom1,
-						envFrom2,
-					},
+					// Env: []core.EnvVar{
+					// 	{
+					// 		Name: "DEMO_GREETING", Value: "Hello from the environment",
+					// 	},
+					// 	{
+					// 		Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
+					// 			FieldRef: &core.ObjectFieldSelector{
+					// 				FieldPath: "spec.nodeName",
+					// 			},
+					// 		},
+					// 	},
+					// 	envVar1, envVar2,
+					// 	{
+					// 		Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
+					// 			ResourceFieldRef: &core.ResourceFieldSelector{
+					// 				ContainerName: "test-container", Resource: "limits.memory",
+					// 			},
+					// 		},
+					// 	},
+					// },
+					// EnvFrom: []core.EnvFromSource{
+					// 	envFrom1,
+					// 	envFrom2,
+					// },
 				},
 			}, {
 				Name:  "gitlab-helper",
@@ -476,10 +449,10 @@ echo "do some stuff here for gitlab-init container"
 				},
 				Config: map[string]interface{}{
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 			},
 		}
@@ -767,124 +740,6 @@ containers:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
-}
-
-func (s *v2SpecsSuite) TestContainerConfigToK8sEnvConfig(c *gc.C) {
-
-	specStr := versionHeader + `
-containers:
-  - name: gitlab
-    image: gitlab/latest
-    config:
-      attr: foo=bar; name["fred"]="blogs";
-      foo: bar
-      brackets: '["hello", "world"]'
-      restricted: 'yes'
-      switch: on
-      special: p@ssword's
-      foo: bar
-      aFloatConfig: 111.11111111
-      anIntConfig: 111
-      current-k8s-node-name:
-        fieldRef:
-          fieldPath: spec.nodeName
-      thing:
-         secretKeyRef:
-           name: foo
-           key: bar
-      thing1:
-         configMapKeyRef:
-           name: foo
-           key: bar
-      secretRef:
-        - name: secret1
-          optional: true
-        - name: secret2
-      configMapRef:
-        - name: configmap1
-          optional: true
-        - name: configmap2
-`[1:]
-
-	envVarThing := core.EnvVar{
-		Name: "thing",
-		ValueFrom: &core.EnvVarSource{
-			SecretKeyRef: &core.SecretKeySelector{Key: "bar"},
-		},
-	}
-	envVarThing.ValueFrom.SecretKeyRef.Name = "foo"
-
-	envVarThing1 := core.EnvVar{
-		Name: "thing1",
-		ValueFrom: &core.EnvVarSource{
-			ConfigMapKeyRef: &core.ConfigMapKeySelector{Key: "bar"},
-		},
-	}
-	envVarThing1.ValueFrom.ConfigMapKeyRef.Name = "foo"
-
-	envFromSourceSecret1 := core.EnvFromSource{
-		SecretRef: &core.SecretEnvSource{Optional: boolPtr(true)},
-	}
-	envFromSourceSecret1.SecretRef.Name = "secret1"
-
-	envFromSourceSecret2 := core.EnvFromSource{
-		SecretRef: &core.SecretEnvSource{},
-	}
-	envFromSourceSecret2.SecretRef.Name = "secret2"
-
-	envFromSourceConfigmap1 := core.EnvFromSource{
-		ConfigMapRef: &core.ConfigMapEnvSource{Optional: boolPtr(true)},
-	}
-	envFromSourceConfigmap1.ConfigMapRef.Name = "configmap1"
-
-	envFromSourceConfigmap2 := core.EnvFromSource{
-		ConfigMapRef: &core.ConfigMapEnvSource{},
-	}
-	envFromSourceConfigmap2.ConfigMapRef.Name = "configmap2"
-
-	specs, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, jc.ErrorIsNil)
-	envVars, envFromSource, err := k8sspecs.ContainerConfigToK8sEnvConfig(specs.Containers[0].Config)
-	c.Assert(err, jc.ErrorIsNil)
-	expectedEnvVar := []core.EnvVar{
-		{Name: "attr", Value: `'foo=bar; name["fred"]="blogs";'`},
-		{Name: "foo", Value: "bar"},
-		{Name: "brackets", Value: `'["hello", "world"]'`},
-		{Name: "restricted", Value: "'yes'"},
-		{Name: "switch", Value: "true"},
-		{Name: "special", Value: "'p@ssword''s'"},
-		{Name: "aFloatConfig", Value: "111.11111111"},
-		{Name: "anIntConfig", Value: "111"},
-		{Name: "current-k8s-node-name", ValueFrom: &core.EnvVarSource{FieldRef: &core.ObjectFieldSelector{FieldPath: "spec.nodeName"}}},
-		envVarThing,
-		envVarThing1,
-	}
-	expectedEnvFromSource := []core.EnvFromSource{
-		envFromSourceSecret1,
-		envFromSourceSecret2,
-		envFromSourceConfigmap1,
-		envFromSourceConfigmap2,
-	}
-	sort.SliceStable(expectedEnvVar, func(i, j int) bool {
-		return len(expectedEnvVar[i].Name) < len(expectedEnvVar[j].Name)
-	})
-	sort.SliceStable(envVars, func(i, j int) bool {
-		return len(envVars[i].Name) < len(envVars[j].Name)
-	})
-	// sort.SliceStable(expectedEnvFromSource, func(i, j int) bool {
-	// 	return len(expectedEnvFromSource[i].Name) < len(expectedEnvFromSource[j].Name)
-	// })
-	// sort.SliceStable(envFromSource, func(i, j int) bool {
-	// 	return len(envFromSource[i].Name) < len(envFromSource[j].Name)
-	// })
-
-	c.Logf("envVars -> %s", pretty.Sprint(envVars))
-	c.Logf("expectedEnvVar -> %s", pretty.Sprint(expectedEnvVar))
-	c.Logf("envFromSource -> %s", pretty.Sprint(envFromSource))
-	c.Logf("expectedEnvFromSource -> %s", pretty.Sprint(expectedEnvFromSource))
-	c.Assert(envVars, jc.SameContents, expectedEnvVar)
-	c.Assert(envFromSource, jc.SameContents, expectedEnvFromSource)
-
 }
 
 func (s *v2SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
