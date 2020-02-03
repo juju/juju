@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 from __future__ import print_function
 
-
 from argparse import ArgumentParser
 from contextlib import contextmanager
+
 try:
     from contextlib import nested
 except ImportError:
@@ -66,7 +66,6 @@ from utility import (
     until_timeout,
     wait_for_port,
 )
-
 
 __metaclass__ = type
 
@@ -421,9 +420,9 @@ def assess_juju_run(client):
     for machine in responses:
         if machine.get('ReturnCode', 0) != 0:
             raise ValueError('juju run on machine %s returned %d: %s' % (
-                             machine.get('MachineId'),
-                             machine.get('ReturnCode'),
-                             machine.get('Stderr')))
+                machine.get('MachineId'),
+                machine.get('ReturnCode'),
+                machine.get('Stderr')))
     logging.info(
         "juju run succeeded on machines: %r",
         [str(machine.get("MachineId")) for machine in responses])
@@ -498,7 +497,10 @@ def deploy_job_parse_args(argv=None):
     parser.add_argument('--use-charmstore', action='store_true',
                         help='Deploy dummy charms from the charmstore.')
     parser.add_argument('--force', action='store', default=False,
-                        help='forces the controller to be deployed even though the series is not supported.')
+                        help='Forces the controller to be deployed even though the series is not supported.')
+    parser.add_argument('--config', action='store', default=None,
+                        help='Able to set config settings during deploy. E.g. alternative image-stream  --config '
+                             'image-stream=daily')
     return parser.parse_args(argv)
 
 
@@ -1253,7 +1255,7 @@ def _deploy_job(args, charm_series, series):
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
         args.keep_env, controller_strategy=controller_strategy)
-    with bs_manager.booted_context(args.upload_tools, force=args.force):
+    with bs_manager.booted_context(args.upload_tools, force=args.force, config_options=args.config):
         # Create a no-op context manager, to avoid duplicate calls of
         # deploy_dummy_stack(), as was the case prior to this revision.
         manager = nested()
@@ -1261,8 +1263,8 @@ def _deploy_job(args, charm_series, series):
             deploy_dummy_stack(client, charm_series, args.use_charmstore)
         assess_juju_relations(client)
         skip_juju_run = (
-            (client.version < "2" and sys.platform in ("win32", "darwin")) or
-            charm_series.startswith(("centos", "win")))
+                (client.version < "2" and sys.platform in ("win32", "darwin")) or
+                charm_series.startswith(("centos", "win")))
         if not skip_juju_run:
             assess_juju_run(client)
         if args.upgrade:
