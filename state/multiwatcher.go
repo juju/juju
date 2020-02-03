@@ -6,7 +6,9 @@ package state
 import (
 	"container/list"
 	"reflect"
+	"sync"
 
+	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
@@ -150,6 +152,14 @@ type storeManager struct {
 	// Each entry in the waiting map holds a linked list of Next requests
 	// outstanding for the associated Multiwatcher.
 	waiting map[*Multiwatcher]*request
+
+	// The storeManager should not block incoming events from the
+	// Backing on the processing of those events. Use a queue to
+	// store the events that are needed to be processed.
+	mutex   sync.Mutex
+	pending *deque.Deque
+	data    chan struct{}
+	closed  chan struct{}
 }
 
 // Backing is the interface required by the storeManager to access the
@@ -206,11 +216,16 @@ type request struct {
 // newStoreManagerNoRun creates the store manager
 // but does not start its run loop.
 func newStoreManagerNoRun(backing Backing) *storeManager {
+	closed := make(chan struct{})
+	close(closed)
 	return &storeManager{
 		backing: backing,
 		request: make(chan *request),
 		all:     newStore(),
 		waiting: make(map[*Multiwatcher]*request),
+		pending: deque.New(),
+		data:    make(chan struct{}, 1),
+		closed:  closed,
 	}
 }
 
@@ -247,31 +262,95 @@ func newStoreManager(backing Backing) *storeManager {
 }
 
 func (sm *storeManager) loop() error {
+	// Create the wait group, and set up the defer before the watching
+	// the backing, as we want the backing unwatch to happen before the
+	// waitgroup wait call. This is to ensure we aren't blocking the
+	// backing event generator.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	defer wg.Wait()
+
 	in := make(chan watcher.Change)
 	sm.backing.Watch(in)
 	defer sm.backing.Unwatch(in)
-	// We have no idea what changes the watcher might be trying to
-	// send us while getAll proceeds, but we don't mind, because
-	// storeManager.changed is idempotent with respect to both updates
-	// and removals.
-	// TODO(rog) Perhaps find a way to avoid blocking all other
-	// watchers while GetAll is running.
-	if err := sm.backing.GetAll(sm.all); err != nil {
-		return err
-	}
+
+	go func() {
+		sm.process(sm.tomb.Dying())
+		wg.Done()
+	}()
+
 	for {
 		select {
 		case <-sm.tomb.Dying():
 			return errors.Trace(tomb.ErrDying)
 		case change := <-in:
-			if err := sm.backing.Changed(sm.all, change); err != nil {
-				return errors.Trace(err)
+			sm.mutex.Lock()
+			sm.pending.PushBack(&change)
+			if sm.pending.Len() == 1 {
+				select {
+				// In all normal cases, we can push something onto sm.data
+				// as it is a buffered channel. And if the length is one,
+				// then data should be empty. However paranoia and all that.
+				case sm.data <- struct{}{}:
+				default:
+				}
 			}
+			sm.mutex.Unlock()
+		}
+	}
+}
+
+func (sm *storeManager) process(done <-chan struct{}) {
+	// We have no idea what changes the watcher might be trying to
+	// send us while getAll proceeds, but we don't mind, because
+	// storeManager.changed is idempotent with respect to both updates
+	// and removals.
+	if err := sm.backing.GetAll(sm.all); err != nil {
+		sm.tomb.Kill(err)
+		return
+	}
+	var next <-chan struct{}
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-sm.data:
+			// Has new data been pushed on?
+		case <-next:
+			// If there was already data, next is a closed channel.
+			// otherwise it is nil so won't pass through.
 		case req := <-sm.request:
+			// If we get a watcher request to handle while we are
+			// waiting for changes, handle it, and respond.
 			sm.handle(req)
+		}
+		change, empty := sm.popOne()
+		if empty {
+			next = nil
+		} else {
+			next = sm.closed
+		}
+		if change != nil {
+			if err := sm.backing.Changed(sm.all, *change); err != nil {
+				sm.tomb.Kill(err)
+				return
+			}
 		}
 		sm.respond()
 	}
+}
+
+func (sm *storeManager) popOne() (*watcher.Change, bool) {
+	sm.mutex.Lock()
+	defer sm.mutex.Unlock()
+	val, ok := sm.pending.PopFront()
+	if !ok {
+		// nothing to do
+		return nil, true
+	}
+	empty := sm.pending.Len() == 0
+	return val.(*watcher.Change), empty
 }
 
 // Kill implements worker.Worker.Kill.
