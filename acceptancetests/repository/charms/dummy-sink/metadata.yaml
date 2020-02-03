@@ -13,5 +13,6 @@ series:
   - xenial
   - artful
   - bionic
-  - disco
   - eoan
+  - focal
+
