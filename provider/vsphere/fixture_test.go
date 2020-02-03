@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/vmware/govmomi/vim25/soap"
@@ -136,7 +137,7 @@ func AssertInvalidatesCredential(c *gc.C, client *mockClient, f func(context.Pro
 		Detail: struct {
 			Fault types.AnyType `xml:",any,typeattr"`
 		}{Fault: types.NoPermission{}},
-	}))
+	}), errors.New("find folder failed"))
 	var called bool
 	ctx := &context.CloudCallContext{
 		InvalidateCredentialFunc: func(string) error {

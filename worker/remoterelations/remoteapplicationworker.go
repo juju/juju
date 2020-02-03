@@ -177,6 +177,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				key := change[i]
 				if err := w.relationChanged(key, result, relations); err != nil {
 					if params.IsCodeNotFound(err) {
+						w.logger.Tracef("not found from relationChanged for %#v: %s", result, errors.ErrorStack(err))
 						return w.remoteOfferRemoved()
 					}
 					return errors.Annotatef(err, "handling change for relation %q", key)

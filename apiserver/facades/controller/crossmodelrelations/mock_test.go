@@ -48,6 +48,7 @@ type mockState struct {
 	remoteApplications    map[string]*mockRemoteApplication
 	applications          map[string]*mockApplication
 	offers                map[string]*crossmodel.ApplicationOffer
+	offerNames            map[string]string
 	offerConnections      map[int]*mockOfferConnection
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
@@ -63,6 +64,7 @@ func newMockState() *mockState {
 		applications:          make(map[string]*mockApplication),
 		remoteEntities:        make(map[names.Tag]string),
 		offers:                make(map[string]*crossmodel.ApplicationOffer),
+		offerNames:            make(map[string]string),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
 		firewallRules:         make(map[corefirewall.WellKnownServiceType]*state.FirewallRule),
@@ -157,6 +159,14 @@ func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParam
 		consumerproxy:   params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
+}
+
+func (st *mockState) OfferNameForRelation(key string) (string, error) {
+	st.MethodCall(st, "OfferNameForRelation", key)
+	if err := st.NextErr(); err != nil {
+		return "", err
+	}
+	return st.offerNames[key], nil
 }
 
 func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {

@@ -275,9 +275,13 @@ func maasObjectNetworkInterfaces(
 			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID))
 			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN.ID))
 
+			// Provider addresses are created with a space name massaged
+			// to conform to Juju's space name rules.
+			space := corenetwork.ConvertSpaceName(sub.Space, nil)
+
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
-			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(sub.Space, link.IPAddress)
+			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(space, link.IPAddress)
 			spaceId, ok := subnetsMap[sub.CIDR]
 			if !ok {
 				// The space we found is not recognised.
@@ -288,8 +292,8 @@ func maasObjectNetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewProviderAddressInSpace(sub.Space, sub.GatewayIP)
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(sub.Space, sub.DNSServers...)
+			gwAddr := corenetwork.NewProviderAddressInSpace(space, sub.GatewayIP)
+			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers...)
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {
@@ -390,8 +394,13 @@ func maas2NetworkInterfaces(
 			nicInfo.ProviderSubnetId = corenetwork.Id(fmt.Sprintf("%v", sub.ID()))
 			nicInfo.ProviderVLANId = corenetwork.Id(fmt.Sprintf("%v", sub.VLAN().ID()))
 
+			// Provider addresses are created with a space name massaged
+			// to conform to Juju's space name rules.
+			space := corenetwork.ConvertSpaceName(sub.Space(), nil)
+
 			// Now we know the subnet and space, we can update the address to
 			// store the space with it.
+			//TODO: FIX ME
 			nicInfo.Addresses[0] = corenetwork.NewProviderAddressInSpace(sub.Space(), link.IPAddress())
 			spaceId, ok := subnetsMap[sub.CIDR()]
 			if !ok {
@@ -403,8 +412,8 @@ func maas2NetworkInterfaces(
 				nicInfo.ProviderSpaceId = spaceId
 			}
 
-			gwAddr := corenetwork.NewProviderAddressInSpace(sub.Space(), sub.Gateway())
-			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(sub.Space(), sub.DNSServers()...)
+			gwAddr := corenetwork.NewProviderAddressInSpace(space, sub.Gateway())
+			nicInfo.DNSServers = corenetwork.NewProviderAddressesInSpace(space, sub.DNSServers()...)
 			if ok {
 				gwAddr.ProviderSpaceID = spaceId
 				for i := range nicInfo.DNSServers {

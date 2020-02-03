@@ -62,7 +62,10 @@ func newEnviron(
 func (env *environ) withClient(ctx context.Context, callCtx callcontext.ProviderCallContext, f func(Client) error) error {
 	client, err := env.dialClient(ctx)
 	if err != nil {
-		HandleCredentialError(err, callCtx)
+		// LP #1849194: this is a case at bootstrap time, where a connection
+		// to vsphere failed. It can be wrong Credentials only, differently
+		// from all the other HandleCredentialError cases
+		common.HandleCredentialError(IsAuthorisationFailure, err, callCtx)
 		return errors.Annotate(err, "dialing client")
 	}
 	defer client.Close(ctx)
@@ -123,7 +126,7 @@ func (env *sessionEnviron) Create(ctx callcontext.ProviderCallContext, args envi
 	return env.ensureVMFolder(args.ControllerUUID, ctx)
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+// Bootstrap is exported, because it has to be rewritten in external unit tests
 var Bootstrap = common.Bootstrap
 
 // Bootstrap is part of the environs.Environ interface.
@@ -152,15 +155,15 @@ func (env *sessionEnviron) Bootstrap(
 }
 
 func (env *sessionEnviron) ensureVMFolder(controllerUUID string, ctx callcontext.ProviderCallContext) error {
-	_, err := env.client.EnsureVMFolder(env.ctx, path.Join(
+	_, err := env.client.EnsureVMFolder(env.ctx, env.getVMFolder(), path.Join(
 		controllerFolderName(controllerUUID),
 		env.modelFolderName(),
 	))
-	HandleCredentialError(err, ctx)
+	HandleCredentialError(err, env, ctx)
 	return errors.Trace(err)
 }
 
-//this variable is exported, because it has to be rewritten in external unit tests
+// DestroyEnv is exported, because it has to be rewritten in external unit tests.
 var DestroyEnv = common.Destroy
 
 // AdoptResources is part of the Environ interface.
@@ -174,13 +177,10 @@ func (env *environ) AdoptResources(ctx callcontext.ProviderCallContext, controll
 // AdoptResources is part of the Environ interface.
 func (env *sessionEnviron) AdoptResources(ctx callcontext.ProviderCallContext, controllerUUID string, fromVersion version.Number) error {
 	err := env.client.MoveVMFolderInto(env.ctx,
-		controllerFolderName(controllerUUID),
-		path.Join(
-			controllerFolderName("*"),
-			env.modelFolderName(),
-		),
+		path.Join(env.getVMFolder(), controllerFolderName(controllerUUID)),
+		path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()),
 	)
-	HandleCredentialError(err, ctx)
+	HandleCredentialError(err, env, ctx)
 	return err
 }
 
@@ -200,11 +200,10 @@ func (env *sessionEnviron) Destroy(ctx callcontext.ProviderCallContext) error {
 		// further down the stack.
 		return errors.Trace(err)
 	}
-	err := env.client.DestroyVMFolder(env.ctx, path.Join(
-		controllerFolderName("*"),
-		env.modelFolderName(),
-	))
-	HandleCredentialError(err, ctx)
+	err := env.client.DestroyVMFolder(env.ctx,
+		path.Join(env.getVMFolder(), controllerFolderName("*"), env.modelFolderName()),
+	)
+	HandleCredentialError(err, env, ctx)
 	return err
 }
 
@@ -221,16 +220,14 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		return errors.Trace(err)
 	}
 	controllerFolderName := controllerFolderName(controllerUUID)
-	if err := env.client.RemoveVirtualMachines(env.ctx, path.Join(
-		controllerFolderName,
-		modelFolderName("*", "*"),
-		"*",
-	)); err != nil {
-		HandleCredentialError(err, ctx)
+	if err := env.client.RemoveVirtualMachines(env.ctx,
+		path.Join(env.getVMFolder(), controllerFolderName, modelFolderName("*", "*"), "*"),
+	); err != nil {
+		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "removing VMs")
 	}
-	if err := env.client.DestroyVMFolder(env.ctx, controllerFolderName); err != nil {
-		HandleCredentialError(err, ctx)
+	if err := env.client.DestroyVMFolder(env.ctx, path.Join(env.getVMFolder(), controllerFolderName)); err != nil {
+		HandleCredentialError(err, env, ctx)
 		return errors.Annotate(err, "destroying VM folder")
 	}
 
@@ -242,20 +239,24 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		return errors.Annotate(err, "listing datastores")
 	}
 	for _, ds := range datastores {
-		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, vmdkDirectoryName(controllerUUID))
+		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, templateDirectoryName(env.getVMFolder(), controllerUUID))
 		logger.Debugf("deleting: %s", datastorePath)
 		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
-			HandleCredentialError(err, ctx)
+			HandleCredentialError(err, env, ctx)
 			return errors.Annotatef(err, "deleting VMDK cache from datastore %q", ds.Name)
 		}
 	}
 	return nil
 }
 
+func (env *sessionEnviron) getVMFolder() string {
+	return env.environ.cloud.Credential.Attributes()[credAttrVMFolder]
+}
+
 func (env *sessionEnviron) accessibleDatastores(ctx callcontext.ProviderCallContext) ([]*mo.Datastore, error) {
 	datastores, err := env.client.Datastores(env.ctx)
 	if err != nil {
-		HandleCredentialError(err, ctx)
+		HandleCredentialError(err, env, ctx)
 		return nil, errors.Trace(err)
 	}
 	var results []*mo.Datastore

@@ -497,6 +497,8 @@ def deploy_job_parse_args(argv=None):
             ' authentication.'))
     parser.add_argument('--use-charmstore', action='store_true',
                         help='Deploy dummy charms from the charmstore.')
+    parser.add_argument('--force', action='store', default=False,
+                        help='forces the controller to be deployed even though the series is not supported.')
     return parser.parse_args(argv)
 
 
@@ -1251,7 +1253,7 @@ def _deploy_job(args, charm_series, series):
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
         args.keep_env, controller_strategy=controller_strategy)
-    with bs_manager.booted_context(args.upload_tools):
+    with bs_manager.booted_context(args.upload_tools, force=args.force):
         # Create a no-op context manager, to avoid duplicate calls of
         # deploy_dummy_stack(), as was the case prior to this revision.
         manager = nested()

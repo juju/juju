@@ -11,8 +11,9 @@ series:
   - xenial
   - artful
   - bionic
-  - disco
   - eoan
+  - focal
+
 requires:
   juju-info:
     interface: juju-info

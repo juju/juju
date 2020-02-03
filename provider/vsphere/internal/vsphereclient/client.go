@@ -90,6 +90,48 @@ func (c *Client) lister(ref types.ManagedObjectReference) *list.Lister {
 	}
 }
 
+// FindFolder should be able to search for both entire filepaths
+// or relative (.) filepaths.
+// If the user passes "test" or "/<DC>/vm/test" as folder, it should
+// return the pointer for the same folder, and should also deal with
+// the case where folderPath is nil or empty.
+func (c *Client) FindFolder(ctx context.Context, folderPath string) (vmFolder *object.Folder, err error) {
+	if strings.Contains(folderPath, "..") {
+		// ".." not supported as per:
+		// https://github.com/vmware/govmomi/blob/master/find/finder.go#L114
+		c.logger.Errorf("vm folder path %q contains %q which is not supported", folderPath, "..")
+		return nil, errors.NotSupportedf("vm folder path contains ..")
+	}
+
+	fi, datacenter, err := c.finder(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	dcfolders, err := datacenter.Folders(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if folderPath == "" {
+		c.logger.Warningf("empty string passed as vm-folder, using Datacenter root folder instead")
+		return dcfolders.VmFolder, nil
+	}
+
+	folderPath = strings.TrimPrefix(folderPath, "./")
+	if !strings.HasPrefix(folderPath, dcfolders.VmFolder.InventoryPath) {
+		c.logger.Debugf("relative folderPath %q found, join with DC vm folder %q now", folderPath, dcfolders.VmFolder.InventoryPath)
+		folderPath = path.Join(dcfolders.VmFolder.InventoryPath, folderPath)
+	}
+
+	vmFolder, err = fi.Folder(ctx, folderPath)
+	if err == nil {
+		return vmFolder, nil
+	}
+	if _, ok := err.(*find.NotFoundError); ok {
+		return nil, errors.NotFoundf("folder path %q", folderPath)
+	}
+	return nil, errors.Trace(err)
+}
+
 func (c *Client) finder(ctx context.Context) (*find.Finder, *object.Datacenter, error) {
 	finder := find.NewFinder(c.client.Client, true)
 	datacenter, err := finder.Datacenter(ctx, c.datacenter)
@@ -260,59 +302,60 @@ func (c *Client) ResourcePools(ctx context.Context, path string) ([]*object.Reso
 	return items, nil
 }
 
-// EnsureVMFolder creates the a VM folder with the given path if it doesn't
-// already exist.
-func (c *Client) EnsureVMFolder(ctx context.Context, folderPath string) (*object.Folder, error) {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
+// EnsureVMFolder creates the a VM folder with the given path if it doesn't already exist.
+// Two string arguments needed: relativeFolderPath will be split on "/"
+// whereas parentFolderName is the subfolder in DC's root-folder.
+// The parentFolderName will fallback to DC's root-folder if it's an empty string.
+func (c *Client) EnsureVMFolder(ctx context.Context, parentFolderName string, relativeFolderPath string) (*object.Folder, error) {
+
+	finder, _, err := c.finder(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	createFolder := func(parent *object.Folder, name string) (*object.Folder, error) {
-		folder, err := parent.CreateFolder(ctx, name)
-		if err != nil && soap.IsSoapFault(err) {
+		getFolder := func() (*object.Folder, error) {
+			fd, err := finder.Folder(ctx, path.Join(parent.InventoryPath, name))
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			return fd, nil
+		}
+		fd, err := parent.CreateFolder(ctx, name)
+		if err == nil {
+			return fd, nil
+		}
+		if soap.IsSoapFault(err) {
 			switch soap.ToSoapFault(err).VimFault().(type) {
 			case types.DuplicateName:
-				return finder.Folder(ctx, parent.InventoryPath+"/"+name)
+				return getFolder()
 			}
 		}
-		return folder, err
+		return nil, errors.Trace(err)
 	}
 
-	parentFolder := folders.VmFolder
-	for _, name := range strings.Split(folderPath, "/") {
+	parentFolder, err := c.FindFolder(ctx, parentFolderName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// Creating "Juju Controller (...)" folder and then model folder, for example.
+	for _, name := range strings.Split(relativeFolderPath, "/") {
 		folder, err := createFolder(parentFolder, name)
 		if err != nil {
-			return nil, errors.Annotatef(
-				err, "creating folder %q in %q",
-				name, parentFolder.InventoryPath,
-			)
+			return nil, errors.Annotatef(err, "creating folder %q in %q", name, parentFolder.InventoryPath)
 		}
 		parentFolder = folder
 	}
 	return parentFolder, nil
 }
 
-// DestroyVMFolder destroys a folder rooted at the datacenter's base VM folder.
+// DestroyVMFolder destroys a folder(folderPath could be either relative path of vmfolder of datacenter or full path).
 func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return errors.Trace(err)
+	folder, err := c.FindFolder(ctx, folderPath)
+	if errors.IsNotFound(err) {
+		return nil
 	}
-	folders, err := datacenter.Folders(ctx)
 	if err != nil {
-		return errors.Trace(err)
-	}
-	folderPath = path.Join(folders.VmFolder.InventoryPath, folderPath)
-	folder, err := finder.Folder(ctx, folderPath)
-	if err != nil {
-		if _, ok := err.(*find.NotFoundError); ok {
-			return nil
-		}
 		return errors.Trace(err)
 	}
 
@@ -329,22 +372,11 @@ func (c *Client) DestroyVMFolder(ctx context.Context, folderPath string) error {
 
 // MoveVMFolderInto moves one VM folder into another.
 func (c *Client) MoveVMFolderInto(ctx context.Context, parentPath, childPath string) error {
-	finder, datacenter, err := c.finder(ctx)
+	parent, err := c.FindFolder(ctx, parentPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	folders, err := datacenter.Folders(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-
-	parentPath = path.Join(folders.VmFolder.InventoryPath, parentPath)
-	childPath = path.Join(folders.VmFolder.InventoryPath, childPath)
-	parent, err := finder.Folder(ctx, parentPath)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	child, err := finder.Folder(ctx, childPath)
+	child, err := c.FindFolder(ctx, childPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -365,16 +397,7 @@ func (c *Client) MoveVMsInto(
 	folderPath string,
 	vms ...types.ManagedObjectReference,
 ) error {
-	finder, datacenter, err := c.finder(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	folders, err := datacenter.Folders(ctx)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	folderPath = path.Join(folders.VmFolder.InventoryPath, folderPath)
-	folder, err := finder.Folder(ctx, folderPath)
+	folder, err := c.FindFolder(ctx, folderPath)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -461,7 +484,6 @@ func (c *Client) cloneVM(
 	if err != nil {
 		return nil, errors.Annotate(err, "building clone VM config")
 	}
-
 	datastoreRef := datastore.Reference()
 	task, err := srcVM.Clone(ctx, vmFolder, args.Name, types.VirtualMachineCloneSpec{
 		Config: vmConfigSpec,
@@ -471,11 +493,11 @@ func (c *Client) cloneVM(
 		},
 	})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "cloning VM %q from %q", args.Name, srcVM.Name())
 	}
 	info, err := taskWaiter.waitTask(ctx, task, "cloning VM")
 	if err != nil {
-		return nil, errors.Trace(err)
+		return nil, errors.Annotatef(err, "waiting for task %q", info.Name)
 	}
 
 	vm := object.NewVirtualMachine(c.client.Client, info.Result.(types.ManagedObjectReference))
@@ -501,6 +523,7 @@ func (c *Client) buildConfigSpec(
 			Reservation: &cpuPower,
 		}
 	}
+
 	spec.Flags = &types.VirtualMachineFlagInfo{
 		DiskUuidEnabled: types.NewBool(args.EnableDiskUUID),
 	}
@@ -529,7 +552,6 @@ func (c *Client) buildConfigSpec(
 		}
 		c.logger.Debugf("network device: %+v", device)
 	}
-
 	newVAppConfig, err := customiseVAppConfig(ctx, srcVM, args)
 	if err != nil {
 		return nil, errors.Annotate(err, "changing VApp config")
