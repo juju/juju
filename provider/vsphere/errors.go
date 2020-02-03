@@ -47,6 +47,18 @@ func IsAuthorisationFailure(err error) bool {
 
 // HandleCredentialError marks the current credential as invalid if
 // the passed vsphere error indicates it should be.
-func HandleCredentialError(err error, ctx context.ProviderCallContext) {
-	common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+func HandleCredentialError(err error, env *sessionEnviron, ctx context.ProviderCallContext) {
+	if err == nil {
+		return
+	}
+	// LP #1849194: fell into a situation where we can either have an invalid
+	// credential OR user issued a VM spec that has no rights to, e.g. on a
+	// Resource Pool that it has no permissions on using "zone" on add-machine.
+	// To discover if the credentials are valid, run a command that MUST return
+	// OK: find folder defined on vm-folder credentials
+	_, errfind := env.client.FindFolder(env.ctx, env.getVMFolder())
+	if errfind != nil {
+		// This is a credential issue. Now, move to mark credentials as invalid
+		common.HandleCredentialError(IsAuthorisationFailure, err, ctx)
+	}
 }

@@ -122,10 +122,10 @@ type KubernetesResources struct {
 }
 
 func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
-	if crd.Scope != apiextensionsv1beta1.NamespaceScoped {
+	if crd.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Scope != apiextensionsv1beta1.ClusterScoped {
 		return errors.NewNotSupported(nil,
-			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q scope",
-				name, crd.Scope, apiextensionsv1beta1.NamespaceScoped),
+			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
+				name, crd.Scope, apiextensionsv1beta1.NamespaceScoped, apiextensionsv1beta1.ClusterScoped),
 		)
 	}
 	return nil

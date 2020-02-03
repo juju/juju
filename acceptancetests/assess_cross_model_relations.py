@@ -240,7 +240,7 @@ def deploy_and_offer_db_app(client):
     client.deploy('cs:mysql')
     client.wait_for_started()
     client.wait_for_workloads()
-    return offer_endpoint(client, 'mysql', 'db')
+    return offer_endpoint(client, 'mysql', 'db', offer_name='offered-mysql')
 
 
 def offer_endpoint(client, app_name, relation_name, offer_name=None):

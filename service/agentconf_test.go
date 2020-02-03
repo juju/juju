@@ -316,11 +316,9 @@ func (s *agentConfSuite) TestWriteSystemdAgentsSystemdNotRunning(c *gc.C) {
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
-	s.services[0].SetErrors(
-		errors.New("No such method 'LinkUnitFiles'"),
-		errors.New("No such method 'LinkUnitFiles'"),
-		errors.New("No such method 'LinkUnitFiles'"),
-	)
+	// nil errors are for calls to RemoveOldService.
+	err := errors.New("no such method 'LinkUnitFiles'")
+	s.services[0].SetErrors(nil, err, nil, err, nil, err)
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
 		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
@@ -331,15 +329,13 @@ func (s *agentConfSuite) TestWriteSystemdAgentsDBusErrManualLink(c *gc.C) {
 	c.Assert(startedSymLinkAgents, gc.HasLen, 0)
 	c.Assert(startedSysServiceNames, gc.DeepEquals, append(s.agentUnitNames(), "jujud-"+s.machineName))
 	c.Assert(errAgents, gc.HasLen, 0)
+	s.assertServicesCalls(c, "RemoveOldService", len(s.services))
 	s.assertServicesCalls(c, "WriteService", len(s.services))
 }
 
 func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
-	s.services[0].SetErrors(
-		nil,
-		nil,
-		errors.New("fail me"), // fail the machine
-	)
+	// Return an error for the machine agent.
+	s.services[0].SetErrors(nil, nil, nil, nil, nil, errors.New("fail me"))
 
 	startedSymLinkAgents, startedSysServiceNames, errAgents, err := s.manager.WriteSystemdAgents(
 		s.machineName, s.unitNames, s.systemdDataDir, s.systemdMultiUserDir)
@@ -348,11 +344,12 @@ func (s *agentConfSuite) TestWriteSystemdAgentsWriteServiceFail(c *gc.C) {
 	c.Assert(startedSysServiceNames, gc.HasLen, 0)
 	c.Assert(startedSymLinkAgents, gc.DeepEquals, s.agentUnitNames())
 	c.Assert(errAgents, gc.DeepEquals, []string{s.machineName})
+	s.assertServicesCalls(c, "RemoveOldService", len(s.services))
 	s.assertServicesCalls(c, "WriteService", len(s.services))
 }
 
 func (s *agentConfSuite) assertToolsCopySymlink(c *gc.C, series string) {
-	// Check tools changes
+	// Check tools changes.
 	ver := version.Binary{
 		Number: jujuversion.Current,
 		Arch:   arch.HostArch(),

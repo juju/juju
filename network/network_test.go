@@ -177,34 +177,6 @@ type NetworkSuite struct {
 
 var _ = gc.Suite(&NetworkSuite{})
 
-func (s *NetworkSuite) TestConvertSpaceName(c *gc.C) {
-	empty := set.Strings{}
-	nameTests := []struct {
-		name     string
-		existing set.Strings
-		expected string
-	}{
-		{"foo", empty, "foo"},
-		{"foo1", empty, "foo1"},
-		{"Foo Thing", empty, "foo-thing"},
-		{"foo^9*//++!!!!", empty, "foo9"},
-		{"--Foo", empty, "foo"},
-		{"---^^&*()!", empty, "empty"},
-		{" ", empty, "empty"},
-		{"", empty, "empty"},
-		{"foo\u2318", empty, "foo"},
-		{"foo--", empty, "foo"},
-		{"-foo--foo----bar-", empty, "foo-foo-bar"},
-		{"foo-", set.NewStrings("foo", "bar", "baz"), "foo-2"},
-		{"foo", set.NewStrings("foo", "foo-2"), "foo-3"},
-		{"---", set.NewStrings("empty"), "empty-2"},
-	}
-	for _, test := range nameTests {
-		result := network.ConvertSpaceName(test.name, test.existing)
-		c.Check(result, gc.Equals, test.expected)
-	}
-}
-
 func (s *NetworkSuite) TestFilterBridgeAddresses(c *gc.C) {
 	lxcFakeNetConfig := filepath.Join(c.MkDir(), "lxc-net")
 	// We create an LXC bridge named "foobar", and then put 10.0.3.1,

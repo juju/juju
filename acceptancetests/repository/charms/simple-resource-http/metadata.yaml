@@ -13,8 +13,9 @@ series:
   - xenial
   - artful
   - bionic
-  - disco
   - eoan
+  - focal
+
 resources:
   index:
     type: file

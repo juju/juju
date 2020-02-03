@@ -167,15 +167,13 @@ func (ss *FakeService) Name() string {
 func (ss *FakeService) Conf() common.Conf {
 	ss.AddCall("Conf")
 
-	ss.NextErr()
+	_ = ss.NextErr()
 	return ss.Service.Conf
 }
 
 // Running implements Service.
 func (ss *FakeService) Running() (bool, error) {
-	ss.AddCall("Running")
-
-	return ss.running(), ss.NextErr()
+	return ss.running(), ss.simpleCall("Running")
 }
 
 func (ss *FakeService) running() bool {
@@ -229,9 +227,7 @@ func (ss *FakeService) managed() bool {
 
 // Installed implements Service.
 func (ss *FakeService) Installed() (bool, error) {
-	ss.AddCall("Installed")
-
-	return ss.installed(), ss.NextErr()
+	return ss.installed(), ss.simpleCall("Installed")
 }
 
 func (ss *FakeService) installed() bool {
@@ -268,24 +264,25 @@ func (ss *FakeService) Remove() error {
 
 // InstallCommands implements Service.
 func (ss *FakeService) InstallCommands() ([]string, error) {
-	ss.AddCall("InstallCommands")
-
-	return nil, ss.NextErr()
+	return nil, ss.simpleCall("InstallCommands")
 }
 
 // StartCommands implements Service.
 func (ss *FakeService) StartCommands() ([]string, error) {
-	ss.AddCall("StartCommands")
-
-	return nil, ss.NextErr()
+	return nil, ss.simpleCall("StartCommands")
 }
 
 // WriteService implements UpgradableService.
 func (ss *FakeService) WriteService() error {
-	ss.AddCall("WriteService")
-	retErr := ss.NextErr()
-	if retErr != nil {
-		return retErr
-	}
-	return nil
+	return ss.simpleCall("WriteService")
+}
+
+// RemoveOldService implements UpgradableService.
+func (ss *FakeService) RemoveOldService() error {
+	return ss.simpleCall("RemoveOldService")
+}
+
+func (ss *FakeService) simpleCall(methodName string) error {
+	ss.AddCall(methodName)
+	return ss.NextErr()
 }

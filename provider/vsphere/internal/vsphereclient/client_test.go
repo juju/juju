@@ -633,11 +633,13 @@ func (s *clientSuite) TestDestroyVMFolderRace(c *gc.C) {
 
 func (s *clientSuite) TestEnsureVMFolder(c *gc.C) {
 	client := s.newFakeClient(&s.roundTripper, "dc0")
-	folder, err := client.EnsureVMFolder(context.Background(), "foo/bar")
+	folder, err := client.EnsureVMFolder(context.Background(), "", "foo/bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(folder, gc.NotNil)
 
 	s.roundTripper.CheckCalls(c, []testing.StubCall{
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
@@ -659,6 +661,9 @@ func (s *clientSuite) TestMoveVMFolderInto(c *gc.C) {
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),
 		retrievePropertiesStubCall("FakeHostFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeRootFolder"),
+		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeRootFolder"),
 		retrievePropertiesStubCall("FakeDatacenter"),
 		retrievePropertiesStubCall("FakeVmFolder"),

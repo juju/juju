@@ -58,7 +58,7 @@ type initSystemSuite struct {
 	dataDir string
 	ch      chan string
 	dBus    *MockDBusAPI
-	fops    *systemd.MockShimFileOps
+	fops    *MockFileSystemOps
 	exec    *systemd.MockShimExec
 
 	name    string
@@ -91,9 +91,10 @@ func (s *initSystemSuite) SetUpTest(c *gc.C) {
 func (s *initSystemSuite) patch(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.fops = NewMockFileSystemOps(ctrl)
 	s.dBus = NewMockDBusAPI(ctrl)
+
 	s.ch = systemd.PatchNewChan(s)
-	s.fops = systemd.PatchFileOps(s, ctrl)
 	s.exec = systemd.PatchExec(s, ctrl)
 
 	return ctrl
@@ -109,7 +110,7 @@ func (s *initSystemSuite) newService(c *gc.C) *systemd.Service {
 		fac = func() (systemd.DBusAPI, error) { return s.dBus, nil }
 	}
 
-	svc, err := systemd.NewService(s.name, s.conf, systemd.EtcSystemdDir, fac, renderer.Join(s.dataDir, "init"))
+	svc, err := systemd.NewService(s.name, s.conf, systemd.EtcSystemdDir, fac, s.fops, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, jc.ErrorIsNil)
 	return svc
 }
@@ -218,7 +219,7 @@ exec 2>&1
 
 func (s *initSystemSuite) TestNewServiceEmptyConf(c *gc.C) {
 	svc, err := systemd.NewService(
-		s.name, common.Conf{}, systemd.EtcSystemdDir, systemd.NewDBusAPI, renderer.Join(s.dataDir, "init"))
+		s.name, common.Conf{}, systemd.EtcSystemdDir, systemd.NewDBusAPI, s.fops, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, gc.IsNil)
 	c.Check(svc.Service, jc.DeepEquals, common.Service{Name: s.name})
 	c.Check(svc.ConfName, gc.Equals, s.name+".service")
@@ -586,7 +587,7 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 
 	gomock.InOrder(
 		s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte("")}, nil),
-		s.fops.EXPECT().CreateFile(fileName, []byte(s.newConfStr(s.name)), os.FileMode(0644)).Return(nil),
+		s.fops.EXPECT().WriteFile(fileName, []byte(s.newConfStr(s.name)), os.FileMode(0644)).Return(nil),
 		s.dBus.EXPECT().LinkUnitFiles([]string{fileName}, false, true).Return(nil, nil),
 		s.dBus.EXPECT().Reload().Return(nil),
 		s.dBus.EXPECT().EnableUnitFiles([]string{fileName}, false, true).Return(true, nil, nil),
@@ -594,6 +595,18 @@ func (s *initSystemSuite) TestInstall(c *gc.C) {
 	)
 
 	err := s.newService(c).Install()
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *initSystemSuite) TestRemoveOld(c *gc.C) {
+	ctrl := s.patch(c)
+	defer ctrl.Finish()
+
+	svc := s.newService(c)
+
+	s.fops.EXPECT().RemoveAll(path.Join(systemd.LibSystemdDir, svc.Name())).Return(nil)
+
+	err := svc.RemoveOldService()
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -630,6 +643,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 		conf,
 		systemd.EtcSystemdDir,
 		func() (systemd.DBusAPI, error) { return s.dBus, nil },
+		s.fops,
 		renderer.Join(s.dataDir, "init"),
 	)
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,7 +660,7 @@ func (s *initSystemSuite) TestInstallZombie(c *gc.C) {
 	s.dBus.EXPECT().Reload().Return(nil)
 	s.fops.EXPECT().Remove(path.Join(svc.DirName, svc.ConfName)).Return(nil)
 	s.fops.EXPECT().Remove(path.Join(svc.DirName, svc.Name()+"-exec-start.sh")).Return(nil)
-	s.fops.EXPECT().CreateFile(fileName, []byte(s.newConfStrEnv(s.name, `"a=c"`)), os.FileMode(0644)).Return(nil)
+	s.fops.EXPECT().WriteFile(fileName, []byte(s.newConfStrEnv(s.name, `"a=c"`)), os.FileMode(0644)).Return(nil)
 	s.dBus.EXPECT().LinkUnitFiles([]string{fileName}, false, true).Return(nil, nil)
 	s.dBus.EXPECT().Reload().Return(nil)
 	s.dBus.EXPECT().EnableUnitFiles([]string{fileName}, false, true).Return(true, nil, nil)
@@ -669,8 +683,8 @@ func (s *initSystemSuite) TestInstallMultiLine(c *gc.C) {
 
 	gomock.InOrder(
 		s.exec.EXPECT().RunCommands(listCmdArg).Return(&exec.ExecResponse{Stdout: []byte("")}, nil),
-		s.fops.EXPECT().CreateFile(scriptPath, []byte(cmd), os.FileMode(0755)).Return(nil),
-		s.fops.EXPECT().CreateFile(fileName, []byte(s.newConfStrCmd(s.name, scriptPath)), os.FileMode(0644)).Return(nil),
+		s.fops.EXPECT().WriteFile(scriptPath, []byte(cmd), os.FileMode(0755)).Return(nil),
+		s.fops.EXPECT().WriteFile(fileName, []byte(s.newConfStrCmd(s.name, scriptPath)), os.FileMode(0644)).Return(nil),
 		s.dBus.EXPECT().LinkUnitFiles([]string{fileName}, false, true).Return(nil, nil),
 		s.dBus.EXPECT().Reload().Return(nil),
 		s.dBus.EXPECT().EnableUnitFiles([]string{fileName}, false, true).Return(true, nil, nil),
@@ -738,7 +752,7 @@ func (s *initSystemSuite) TestInstallCommandsShutdown(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	svc, err := systemd.NewService(
-		name, conf, systemd.EtcSystemdDir, systemd.NewDBusAPI, renderer.Join(s.dataDir, "init"))
+		name, conf, systemd.EtcSystemdDir, systemd.NewDBusAPI, s.fops, renderer.Join(s.dataDir, "init"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	commands, err := svc.InstallCommands()

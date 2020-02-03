@@ -32,7 +32,7 @@ type OldAddress27 struct {
 	SpaceID     string `bson:"spaceid,omitempty"`
 }
 
-// convert accepts an address and a name-to-ID space lookup and returns a
+// Upgrade accepts an address and a name-to-ID space lookup and returns a
 // new address representation based on whether space name/ID are populated.
 // An error is returned if the address has a non-empty space name that we
 // cannot map to an ID.
@@ -54,7 +54,11 @@ func (a OldAddress27) Upgrade(lookup network.SpaceInfos) (OldAddress27, error) {
 			logger.Warningf("not converting address %q with empty space name and ID %q", a.Value, a.SpaceID)
 		}
 	} else {
-		spaceInfo := lookup.GetByName(a.SpaceName)
+		// On old versions of Juju, we did not convert the space names
+		// on addresses that the instance poller received from MAAS.
+		// We need to ensure that these can be matched with the names in the
+		// spaces collected, which *are* converted when reload-spaces is run.
+		spaceInfo := lookup.GetByName(network.ConvertSpaceName(a.SpaceName, nil))
 		if spaceInfo == nil {
 			return a, errors.NotFoundf("space with name: %q", a.SpaceName)
 		}
