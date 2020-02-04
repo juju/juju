@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	statetxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -492,6 +493,35 @@ func (s *SettingsSuite) TestWriteTwice(c *gc.C) {
 	changes, err = nodeOne.Write()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(changes, gc.DeepEquals, coresettings.ItemChanges(nil))
+
+	err = nodeOne.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodeOne.key, gc.Equals, nodeTwo.key)
+	c.Assert(nodeOne.disk, gc.DeepEquals, nodeTwo.disk)
+	c.Assert(nodeOne.core, gc.DeepEquals, nodeTwo.core)
+}
+
+func (s *SettingsSuite) TestWriteTwiceUsingModelOperation(c *gc.C) {
+	// Check the correct writing into a node by two config nodes.
+	nodeOne, err := s.createSettings(s.key, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	nodeOne.Set("a", "foo")
+	err = s.state.ApplyOperation(nodeOne.WriteOperation())
+	c.Assert(err, jc.ErrorIsNil)
+
+	nodeTwo, err := s.readSettings()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(nodeTwo.Map(), gc.DeepEquals, map[string]interface{}{
+		"a": "foo",
+	}, gc.Commentf("model operation failed to update db"))
+	nodeTwo.Set("a", "bar")
+	err = s.state.ApplyOperation(nodeTwo.WriteOperation())
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Shouldn't write again. Changes were already
+	// flushed and acted upon by other parties.
+	_, err = nodeOne.WriteOperation().Build(0)
+	c.Assert(err, gc.Equals, statetxn.ErrNoOperations)
 
 	err = nodeOne.Read()
 	c.Assert(err, jc.ErrorIsNil)

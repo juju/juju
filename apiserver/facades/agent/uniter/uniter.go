@@ -3200,7 +3200,7 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 
-	settingsGroup := make(state.SettingsGroup, len(joinedRelations))
+	modelOps := make([]state.ModelOperation, len(joinedRelations))
 	for idx, rel := range joinedRelations {
 		relUnit, err := rel.Unit(unit)
 		if err != nil {
@@ -3237,10 +3237,10 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 			relSettings.Set("egress-subnets", strings.Join(egressSubnets, ","))
 		}
 
-		settingsGroup[idx] = relSettings
+		modelOps[idx] = relSettings.WriteOperation()
 	}
 
-	return settingsGroup.Write()
+	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }
 
 // State isn't on the v14 API.

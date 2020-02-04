@@ -4,6 +4,8 @@
 package state
 
 import (
+	"github.com/juju/errors"
+	statetxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -26,6 +28,72 @@ type ModelOperation interface {
 	// method may annotate the error; or run additional, non-transactional
 	// logic depending on the outcome.
 	Done(error) error
+}
+
+// modelOperationFunc is an adapter for composing a txn builder and done
+// function/closure into a type that implements ModelOperation.
+type modelOperationFunc struct {
+	buildFn func(attempt int) ([]txn.Op, error)
+	doneFn  func(err error) error
+}
+
+// Build implements ModelOperation.
+func (mof modelOperationFunc) Build(attempt int) ([]txn.Op, error) {
+	if mof.buildFn == nil {
+		return nil, nil
+	}
+	return mof.buildFn(attempt)
+}
+
+// Done implements ModelOperation.
+func (mof modelOperationFunc) Done(err error) error {
+	if mof.doneFn == nil {
+		return err
+	}
+	return mof.doneFn(err)
+}
+
+// ComposeModelOperations returns a ModelOperation which composes multiple
+// ModelOperations and executes them in a single transaction. If any of the
+// provided ModelOperations are nil, they will be automatically ignored.
+func ComposeModelOperations(modelOps ...ModelOperation) ModelOperation {
+	return modelOperationFunc{
+		buildFn: func(attempt int) ([]txn.Op, error) {
+			var ops []txn.Op
+			for _, modelOp := range modelOps {
+				if modelOp == nil {
+					continue
+				}
+				childOps, err := modelOp.Build(attempt)
+				if err != nil && err != statetxn.ErrNoOperations {
+					return nil, errors.Trace(err)
+				}
+				ops = append(ops, childOps...)
+			}
+			return ops, nil
+		},
+		doneFn: func(err error) error {
+			// Unfortunately, we cannot detect the extact
+			// ModelOperation that caused the error. For now, just
+			// pass the error to each done method and ignore the
+			// return value. Then, return the original error back
+			// to the caller.
+			//
+			// A better approach would be to compare each Done
+			// method's return value to the original error and
+			// record it if different. Unfortunately, we don't have
+			// a multi-error type to represent a collection of
+			// errors.
+			for _, modelOp := range modelOps {
+				if modelOp == nil {
+					continue
+				}
+				_ = modelOp.Done(err)
+			}
+
+			return err
+		},
+	}
 }
 
 // ApplyOperation applies a given ModelOperation to the model.
