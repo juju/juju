@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
@@ -148,6 +149,11 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			continue
+		}
+		if fromTag.Id() == network.AlphaSpaceName {
+			newErr := errors.New("the alpha space cannot be removed")
+			results.Results[i].Error = common.ServerError(newErr)
 			continue
 		}
 		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)

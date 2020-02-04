@@ -210,6 +210,19 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, bamErr.Error())
 }
 
+func (s *SpaceTestMockSuite) TestRenameAlphaSpaceError(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	from, to := "alpha", "blub"
+
+	args := s.getRenameArgs(from, to)
+
+	res, err := s.api.RenameSpace(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, "the alpha space cannot be removed")
+}
+
 func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
@@ -224,7 +237,6 @@ func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 	res, err := s.api.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.IsNil)
-
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) {
