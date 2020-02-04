@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/testing"
@@ -18,7 +19,7 @@ type containerEnvSuite struct {
 
 var _ = gc.Suite(&containerEnvSuite{})
 
-func (s *v2SpecsSuite) TestContainerConfigToK8sEnvConfig(c *gc.C) {
+func (s *containerEnvSuite) TestContainerConfigToK8sEnvConfig(c *gc.C) {
 
 	specStr := versionHeader + `
 containers:
@@ -36,24 +37,36 @@ containers:
       float: 111.11111111
       int: 111
       MY_NODE_NAME:
-        fieldRef:
-          fieldPath: spec.nodeName
+        field:
+          path: spec.nodeName
+          api-version: v1
+      my-resource-limit:
+        resource:
+          container-name: container1
+          resource: requests.cpu
+          divisor: 1m
       thing:
-         secretKeyRef:
-           name: foo
-           key: bar
+        secret:
+          name: foo
+          key: bar
+      a-secret:
+        secret:
+          name: secret1
+          optional: true
+      another-secret:
+        secret:
+          name: secret2
       thing1:
-         configMapKeyRef:
-           name: foo
-           key: bar
-      secretRef:
-        - name: secret1
+        config-map:
+          name: foo
+          key: bar
+      a-configmap:
+        config-map:
+          name: configmap1
           optional: true
-        - name: secret2
-      configMapRef:
-        - name: configmap1
-          optional: true
-        - name: configmap2
+      another-configmap:
+        config-map:
+          name: configmap2
 `[1:]
 
 	envVarThing := core.EnvVar{
@@ -97,13 +110,31 @@ containers:
 	envVars, envFromSource, err := k8sspecs.ContainerConfigToK8sEnvConfig(specs.Containers[0].Config)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedEnvVar := []core.EnvVar{
-		{Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{FieldRef: &core.ObjectFieldSelector{FieldPath: "spec.nodeName"}}},
+		{
+			Name: "MY_NODE_NAME",
+			ValueFrom: &core.EnvVarSource{
+				FieldRef: &core.ObjectFieldSelector{
+					FieldPath:  "spec.nodeName",
+					APIVersion: "v1",
+				},
+			},
+		},
 		{Name: "attr", Value: `foo=bar; name["fred"]="blogs";`},
 		{Name: "bar", Value: "true"},
 		{Name: "brackets", Value: `["hello", "world"]`},
 		{Name: "float", Value: "111.11111111"},
 		{Name: "foo", Value: "bar"},
 		{Name: "int", Value: "111"},
+		{
+			Name: "my-resource-limit",
+			ValueFrom: &core.EnvVarSource{
+				ResourceFieldRef: &core.ResourceFieldSelector{
+					ContainerName: "container1",
+					Resource:      "requests.cpu",
+					Divisor:       resource.MustParse("1m"),
+				},
+			},
+		},
 		{Name: "restricted", Value: "yes"},
 		{Name: "special", Value: "p@ssword's"},
 		{Name: "switch", Value: "true"},
@@ -121,5 +152,53 @@ containers:
 	}
 	for i := range envFromSource {
 		c.Check(envFromSource[i], jc.DeepEquals, expectedEnvFromSource[i])
+	}
+}
+
+func (s *containerEnvSuite) TestContainerConfigToK8sEnvConfigSliceNotSupported(c *gc.C) {
+	_, _, err := k8sspecs.ContainerConfigToK8sEnvConfig(map[string]interface{}{
+		"a-slice": []interface{}{},
+	})
+	c.Assert(err, gc.ErrorMatches, `config "a-slice" with type .* not supported`)
+}
+
+func (s *containerEnvSuite) TestContainerConfigToK8sEnvConfigFailedBadField(c *gc.C) {
+	_, _, err := k8sspecs.ContainerConfigToK8sEnvConfig(map[string]interface{}{
+		"a-bad-config-map": map[string]interface{}{
+			"config-map": map[string]interface{}{
+				"a-bad-field": "",
+			},
+		},
+	})
+	c.Assert(err, gc.ErrorMatches, `json: unknown field "a-bad-field"`)
+}
+
+func (s *containerEnvSuite) TestContainerConfigToK8sEnvConfigFailedRequiredFieldMissing(c *gc.C) {
+	type tc struct {
+		resourceType  string
+		optionalField string
+	}
+	for i, t := range []tc{
+		{resourceType: "secret", optionalField: "key"},
+		{resourceType: "config-map", optionalField: "key"},
+		{resourceType: "resource", optionalField: "container-name"},
+		{resourceType: "field", optionalField: "api-version"},
+	} {
+		c.Logf("checking %d: %q", i, t.resourceType)
+		_, _, err := k8sspecs.ContainerConfigToK8sEnvConfig(map[string]interface{}{
+			"empty": map[string]interface{}{
+				t.resourceType: map[string]interface{}{},
+			},
+		})
+		c.Check(err, gc.ErrorMatches, `config format of "empty" not supported`)
+
+		_, _, err = k8sspecs.ContainerConfigToK8sEnvConfig(map[string]interface{}{
+			"empty": map[string]interface{}{
+				t.resourceType: map[string]interface{}{
+					t.optionalField: "foo",
+				},
+			},
+		})
+		c.Check(err, gc.ErrorMatches, `config format of "empty" not supported`)
 	}
 }

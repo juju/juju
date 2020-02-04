@@ -9,130 +9,228 @@ import (
 	"fmt"
 	"sort"
 	"strconv"
-	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/kr/pretty"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/juju/juju/caas/specs"
 )
 
-var boolValues = set.NewStrings(
-	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
-
-var specialValues = ":{}[],&*#?|-<>=!%@`"
-
-func quoteStrings(config map[string]interface{}) {
-	// Any string config values that could be interpreted as bools
-	// or which contain special YAML chars need to be quoted.
-	for k, v := range config {
-		strValue, ok := v.(string)
-		if !ok {
-			continue
-		}
-		config[k] = quoteString(strValue)
-	}
+type fieldSelector struct {
+	APIVersion string `json:"api-version,omitempty" yaml:"api-version,omitempty"`
+	Path       string `json:"path" yaml:"path"`
 }
 
-func quoteString(i string) string {
-	if boolValues.Contains(i) || strings.IndexAny(i, specialValues) >= 0 {
-		i = strings.Replace(i, "'", "''", -1)
-		i = fmt.Sprintf("'%s'", i)
+func (fs fieldSelector) to() *core.ObjectFieldSelector {
+	if fs.Path == "" {
+		return nil
 	}
-	return i
+	return &core.ObjectFieldSelector{
+		APIVersion: fs.APIVersion,
+		FieldPath:  fs.Path,
+	}
 }
 
 type fieldRef struct {
-	FieldRef *core.ObjectFieldSelector `json:"fieldRef" yaml:"fieldRef"`
+	Field *fieldSelector `json:"field" yaml:"field"`
 }
 
 func (fr fieldRef) to(name string) (out []core.EnvVar) {
-	if fr.FieldRef != nil {
-		out = append(out, core.EnvVar{Name: name, ValueFrom: &core.EnvVarSource{FieldRef: fr.FieldRef}})
+	if fr.Field == nil {
+		return nil
 	}
-	return out
+	selector := fr.Field.to()
+	if selector == nil {
+		return
+	}
+	return append(out, core.EnvVar{
+		Name: name,
+		ValueFrom: &core.EnvVarSource{
+			FieldRef: selector,
+		},
+	})
+}
+
+type resourceSelector struct {
+	ContainerName string            `json:"container-name,omitempty" yaml:"container-name,omitempty"`
+	Resource      string            `json:"resource" yaml:"resource"`
+	Divisor       resource.Quantity `json:"divisor,omitempty" yaml:"divisor,omitempty"`
+}
+
+func (rs resourceSelector) to() *core.ResourceFieldSelector {
+	if rs.Resource == "" {
+		return nil
+	}
+	return &core.ResourceFieldSelector{
+		ContainerName: rs.ContainerName,
+		Resource:      rs.Resource,
+		Divisor:       rs.Divisor,
+	}
 }
 
 type resourceRef struct {
-	ResourceRef *core.ResourceFieldSelector `json:"resourceRef" yaml:"resourceRef"`
+	Resource *resourceSelector `json:"resource" yaml:"resource"`
 }
 
 func (rr resourceRef) to(name string) (out []core.EnvVar) {
-	if rr.ResourceRef != nil {
-		out = append(out, core.EnvVar{Name: name, ValueFrom: &core.EnvVarSource{ResourceFieldRef: rr.ResourceRef}})
+	if rr.Resource == nil {
+		return nil
 	}
+	selector := rr.Resource.to()
+	if selector == nil {
+		return
+	}
+	return append(out, core.EnvVar{
+		Name: name,
+		ValueFrom: &core.EnvVarSource{
+			ResourceFieldRef: selector,
+		},
+	})
+}
+
+type secretSelector struct {
+	Name     string `json:"name" yaml:"name"`
+	Key      string `json:"key,omitempty" yaml:"key,omitempty"`
+	Optional *bool  `json:"optional,omitempty" yaml:"optional,omitempty"`
+}
+
+func (ss secretSelector) to() *core.SecretEnvSource {
+	if ss.Name == "" {
+		return nil
+	}
+	out := &core.SecretEnvSource{Optional: ss.Optional}
+	out.Name = ss.Name
 	return out
 }
 
-const (
-	secretRefName    = "secretRef"
-	configMapRefName = "configMapRef"
-)
-
-type secretRefValue []core.SecretEnvSource
-type configMapRefValue []core.ConfigMapEnvSource
-
-func (sr secretRefValue) to() (out []core.EnvFromSource) {
-	for _, v := range sr {
-		sRef := v
-		out = append(out, core.EnvFromSource{SecretRef: &sRef})
+func (ss secretSelector) toKeySelector() *core.SecretKeySelector {
+	if ss.Key == "" || ss.Name == "" {
+		return nil
 	}
+	out := &core.SecretKeySelector{
+		Key:      ss.Key,
+		Optional: ss.Optional,
+	}
+	out.Name = ss.Name
 	return out
 }
 
-func (cmr configMapRefValue) to() (out []core.EnvFromSource) {
-	for _, v := range cmr {
-		cRef := v
-		out = append(out, core.EnvFromSource{ConfigMapRef: &cRef})
+type secretRef struct {
+	Secret *secretSelector `json:"secret" yaml:"secret"`
+}
+
+func (skr secretRef) to(name string) (envVars []core.EnvVar, envFromSources []core.EnvFromSource) {
+	if skr.Secret == nil {
+		return
 	}
+	keySelector := skr.Secret.toKeySelector()
+	if keySelector != nil {
+		envVars = append(envVars, core.EnvVar{
+			Name: name,
+			ValueFrom: &core.EnvVarSource{
+				SecretKeyRef: keySelector,
+			},
+		})
+		return
+	}
+	selector := skr.Secret.to()
+	if selector != nil {
+		envFromSources = append(envFromSources, core.EnvFromSource{SecretRef: selector})
+	}
+	return
+}
+
+type configMapSelector struct {
+	Name     string `json:"name" yaml:"name"`
+	Key      string `json:"key,omitempty" yaml:"key,omitempty"`
+	Optional *bool  `json:"optional,omitempty" yaml:"optional,omitempty"`
+}
+
+func (cms configMapSelector) to() *core.ConfigMapEnvSource {
+	if cms.Name == "" {
+		return nil
+	}
+	out := &core.ConfigMapEnvSource{Optional: cms.Optional}
+	out.Name = cms.Name
 	return out
 }
 
-type secretKeyRef struct {
-	SecretKeyRef *core.SecretKeySelector `json:"secretKeyRef" yaml:"secretKeyRef"`
-}
-
-func (skr secretKeyRef) to(name string) (out []core.EnvVar) {
-	if skr.SecretKeyRef != nil {
-		out = append(out, core.EnvVar{Name: name, ValueFrom: &core.EnvVarSource{SecretKeyRef: skr.SecretKeyRef}})
+func (cms configMapSelector) toKeySelector() *core.ConfigMapKeySelector {
+	if cms.Key == "" || cms.Name == "" {
+		return nil
 	}
+	out := &core.ConfigMapKeySelector{
+		Key:      cms.Key,
+		Optional: cms.Optional,
+	}
+	out.Name = cms.Name
 	return out
 }
 
-type configMapKeyRef struct {
-	ConfigMapKeyRef *core.ConfigMapKeySelector `json:"configMapKeyRef" yaml:"configMapKeyRef"`
+type configMapRef struct {
+	ConfigMap *configMapSelector `json:"config-map" yaml:"config-map"`
 }
 
-func (cmkr configMapKeyRef) to(name string) (out []core.EnvVar) {
-	if cmkr.ConfigMapKeyRef != nil {
-		out = append(out, core.EnvVar{Name: name, ValueFrom: &core.EnvVarSource{ConfigMapKeyRef: cmkr.ConfigMapKeyRef}})
+func (cmkr configMapRef) to(name string) (envVars []core.EnvVar, envFromSources []core.EnvFromSource) {
+	if cmkr.ConfigMap == nil {
+		return
 	}
-	return out
+	keySelector := cmkr.ConfigMap.toKeySelector()
+	if keySelector != nil {
+		envVars = append(envVars, core.EnvVar{
+			Name: name,
+			ValueFrom: &core.EnvVarSource{
+				ConfigMapKeyRef: keySelector,
+			},
+		})
+		return
+	}
+	selector := cmkr.ConfigMap.to()
+	if selector != nil {
+		envFromSources = append(envFromSources, core.EnvFromSource{ConfigMapRef: selector})
+	}
+	return
 }
 
 type configValue struct {
 	fieldRef    `json:",inline" yaml:",inline"`
 	resourceRef `json:",inline" yaml:",inline"`
 
-	secretKeyRef    `json:",inline" yaml:",inline"`
-	configMapKeyRef `json:",inline" yaml:",inline"`
+	secretRef    `json:",inline" yaml:",inline"`
+	configMapRef `json:",inline" yaml:",inline"`
 }
 
-func (cv configValue) to(name string) (out []core.EnvVar, err error) {
-	out = append(out, cv.fieldRef.to(name)...)
-	out = append(out, cv.resourceRef.to(name)...)
-	out = append(out, cv.secretKeyRef.to(name)...)
-	out = append(out, cv.configMapKeyRef.to(name)...)
+type toEnvVars interface {
+	to(string) []core.EnvVar
+}
+type toEnvVarsAndEnvFromSources interface {
+	to(string) ([]core.EnvVar, []core.EnvFromSource)
+}
 
-	if len(out) == 0 {
-		return nil, errors.NotSupportedf("config format of %q", name)
+func (cv configValue) to(name string) (envVars []core.EnvVar, envFromSources []core.EnvFromSource, err error) {
+	for _, item := range []toEnvVars{
+		cv.fieldRef,
+		cv.resourceRef,
+	} {
+		envVars = append(envVars, item.to(name)...)
 	}
-	if len(out) > 1 {
-		return nil, errors.NotValidf("duplicated values found for config %q", name)
+
+	for _, item := range []toEnvVarsAndEnvFromSources{
+		cv.secretRef,
+		cv.configMapRef,
+	} {
+		o1, o2 := item.to(name)
+		envVars = append(envVars, o1...)
+		envFromSources = append(envFromSources, o2...)
 	}
-	return out, nil
+
+	count := len(envVars) + len(envFromSources)
+	if count == 1 {
+		return envVars, envFromSources, nil
+	}
+	return nil, nil, errors.NotSupportedf("config format of %q", name)
 }
 
 // JSON Unmarshal types - https://golang.org/pkg/encoding/json/#Unmarshal
@@ -150,69 +248,43 @@ func stringify(i interface{}) (string, error) {
 	}
 }
 
-func processMapInterfaceValue(k string, v interface{}) (envVars []core.EnvVar, envFromSources []core.EnvFromSource, err error) {
+func parseVal(from, into interface{}) error {
+	jsonbody, err := json.Marshal(from)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	decoder := newStrictYAMLOrJSONDecoder(bytes.NewReader(jsonbody), len(jsonbody))
+	return decoder.Decode(&into)
+}
+
+func processMapInterfaceValue(k string, v map[string]interface{}) (envVars []core.EnvVar, envFromSources []core.EnvFromSource, err error) {
 	logger.Tracef("processing container config key: %q, value(%T): %+v", k, v, v)
 
-	parse := func(into interface{}) error {
-		jsonbody, err := json.Marshal(v)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		decoder := newStrictYAMLOrJSONDecoder(bytes.NewReader(jsonbody), len(jsonbody))
-		return decoder.Decode(&into)
+	var val configValue
+	if err := parseVal(v, &val); err != nil {
+		return nil, nil, errors.Trace(err)
 	}
-	switch k {
-	case secretRefName:
-		var val secretRefValue
-		defer func() {
-			envFromSources = append(envFromSources, val.to()...)
-		}()
-		return envVars, envFromSources, errors.Trace(parse(&val))
-	case configMapRefName:
-		var val configMapRefValue
-		defer func() {
-			envFromSources = append(envFromSources, val.to()...)
-		}()
-		return envVars, envFromSources, errors.Trace(parse(&val))
-	default:
-		var val configValue
-		if err := parse(&val); err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		items, err := val.to(k)
-		if err != nil {
-			return nil, nil, errors.Trace(err)
-		}
-		envVars = append(envVars, items...)
-		return envVars, envFromSources, nil
+	envVars, envFromSources, err = val.to(k)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
 	}
+	return envVars, envFromSources, nil
 }
 
 // ContainerConfigToK8sEnvConfig converts ContainerConfig to k8s format for container value mount.
 func ContainerConfigToK8sEnvConfig(cc specs.ContainerConfig) (envVars []core.EnvVar, envFromSources []core.EnvFromSource, err error) {
-	valNames := set.NewStrings()
 	for k, v := range cc {
-		if valNames.Contains(k) {
-			return nil, nil, errors.NotValidf("duplicated config %q", k)
-		}
-		valNames.Add(k)
-
-		if k != secretRefName && k != configMapRefName {
-			// Normal key value pairs.
-			if strV, err := stringify(v); err == nil {
-				envVars = append(envVars, core.EnvVar{Name: k, Value: strV})
-				continue
-			} else {
-				logger.Criticalf("stringify %q:%#v, err -> %+v", k, v, err)
-			}
+		// Normal key value pairs.
+		if strV, err := stringify(v); err == nil {
+			envVars = append(envVars, core.EnvVar{Name: k, Value: strV})
+			continue
 		}
 
 		switch envVal := v.(type) {
-		case map[string]interface{}, []interface{}:
-
+		case map[string]interface{}:
 			vars, envFroms, err := processMapInterfaceValue(k, envVal)
 			if err != nil {
-				logger.Criticalf("processMapInterfaceValue err -> %v", errors.ErrorStack(err))
+				logger.Tracef("processing container config %q, err -> %v", k, errors.ErrorStack(err))
 				return nil, nil, errors.Trace(err)
 			}
 			envVars = append(envVars, vars...)
@@ -230,8 +302,8 @@ func ContainerConfigToK8sEnvConfig(cc specs.ContainerConfig) (envVars []core.Env
 		return getEnvFromSourceName(envFromSources[i]) < getEnvFromSourceName(envFromSources[j])
 	})
 
-	logger.Criticalf("envVars -> %s", pretty.Sprint(envVars))
-	logger.Criticalf("envFromSources -> %s", pretty.Sprint(envFromSources))
+	logger.Tracef("envVars -> %s", pretty.Sprint(envVars))
+	logger.Tracef("envFromSources -> %s", pretty.Sprint(envFromSources))
 	return envVars, envFromSources, nil
 }
 

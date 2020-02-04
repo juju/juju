@@ -246,35 +246,39 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 			ImagePullPolicy: specs.PullPolicy("Always"),
 			Config: map[string]interface{}{
 				"restricted": "yes",
-				"secretRef": []interface{}{
-					map[string]interface{}{
+				"secret1": map[string]interface{}{
+					"secret": map[string]interface{}{
 						"optional": bool(true),
 						"name":     "secret1",
 					},
-					map[string]interface{}{
+				},
+				"secret2": map[string]interface{}{
+					"secret": map[string]interface{}{
 						"name": "secret2",
 					},
 				},
 				"special": "p@ssword's",
 				"switch":  bool(true),
 				"MY_NODE_NAME": map[string]interface{}{
-					"fieldRef": map[string]interface{}{
-						"fieldPath": "spec.nodeName",
+					"field": map[string]interface{}{
+						"path": "spec.nodeName",
 					},
 				},
 				"attr": "foo=bar; name[\"fred\"]=\"blogs\";",
-				"configMapRef": []interface{}{
-					map[string]interface{}{
+				"configmap1": map[string]interface{}{
+					"config-map": map[string]interface{}{
 						"name":     "configmap1",
 						"optional": bool(true),
 					},
-					map[string]interface{}{
+				},
+				"configmap2": map[string]interface{}{
+					"config-map": map[string]interface{}{
 						"name": "configmap2",
 					},
 				},
 				"float": float64(111.11111111),
 				"thing1": map[string]interface{}{
-					"configMapKeyRef": map[string]interface{}{
+					"config-map": map[string]interface{}{
 						"key":  "bar",
 						"name": "foo",
 					},
@@ -283,7 +287,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 				"foo":      "bar",
 				"int":      float64(111),
 				"thing": map[string]interface{}{
-					"secretKeyRef": map[string]interface{}{
+					"secret": map[string]interface{}{
 						"key":  "bar",
 						"name": "foo",
 					},

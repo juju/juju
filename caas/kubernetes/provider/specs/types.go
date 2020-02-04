@@ -45,7 +45,6 @@ type k8sContainerInterface interface {
 }
 
 func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
-	// quoteStrings(c.Config)
 	result := specs.ContainerSpec{
 		ImageDetails:    c.ImageDetails,
 		Name:            c.Name,

@@ -5,10 +5,8 @@ package specs_test
 
 import (
 	"encoding/base64"
-	// "sort"
 
 	jc "github.com/juju/testing/checkers"
-	// "github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
@@ -75,6 +73,11 @@ containers:
       restricted: 'yes'
       switch: on
       special: p@ssword's
+      my-resource-limit:
+        resource:
+          container-name: container1
+          resource: requests.cpu
+          divisor: 1m
     files:
       - name: configuration
         mountPath: /var/lib/foo
@@ -305,34 +308,6 @@ foo: bar
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
 
-		// envVar1 := core.EnvVar{
-		// 	Name: "BACKEND_USERNAME", ValueFrom: &core.EnvVarSource{
-		// 		SecretKeyRef: &core.SecretKeySelector{
-		// 			Key: "backend-username",
-		// 		},
-		// 	},
-		// }
-		// envVar1.ValueFrom.SecretKeyRef.Name = "backend-user"
-
-		// envVar2 := core.EnvVar{
-		// 	Name: "SPECIAL_LEVEL_KEY", ValueFrom: &core.EnvVarSource{
-		// 		ConfigMapKeyRef: &core.ConfigMapKeySelector{
-		// 			Key: "special.how",
-		// 		},
-		// 	},
-		// }
-		// envVar2.ValueFrom.ConfigMapKeyRef.Name = "special-config"
-
-		// envFrom1 := core.EnvFromSource{
-		// 	ConfigMapRef: &core.ConfigMapEnvSource{},
-		// }
-		// envFrom1.ConfigMapRef.Name = "special-config"
-
-		// envFrom2 := core.EnvFromSource{
-		// 	SecretRef: &core.SecretEnvSource{},
-		// }
-		// envFrom2.SecretRef.Name = "test-secret"
-
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
 				Name:            "gitlab",
@@ -355,6 +330,13 @@ echo "do some stuff here for gitlab container"
 					"switch":     true,
 					"brackets":   `["hello", "world"]`,
 					"special":    "p@ssword's",
+					"my-resource-limit": map[string]interface{}{
+						"resource": map[string]interface{}{
+							"container-name": "container1",
+							"resource":       "requests.cpu",
+							"divisor":        "1m",
+						},
+					},
 				},
 				Files: []specs.FileSet{
 					{
@@ -388,30 +370,6 @@ echo "do some stuff here for gitlab container"
 							},
 						},
 					},
-					// Env: []core.EnvVar{
-					// 	{
-					// 		Name: "DEMO_GREETING", Value: "Hello from the environment",
-					// 	},
-					// 	{
-					// 		Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{
-					// 			FieldRef: &core.ObjectFieldSelector{
-					// 				FieldPath: "spec.nodeName",
-					// 			},
-					// 		},
-					// 	},
-					// 	envVar1, envVar2,
-					// 	{
-					// 		Name: "MY_MEM_LIMIT", ValueFrom: &core.EnvVarSource{
-					// 			ResourceFieldRef: &core.ResourceFieldSelector{
-					// 				ContainerName: "test-container", Resource: "limits.memory",
-					// 			},
-					// 		},
-					// 	},
-					// },
-					// EnvFrom: []core.EnvFromSource{
-					// 	envFrom1,
-					// 	envFrom2,
-					// },
 				},
 			}, {
 				Name:  "gitlab-helper",
