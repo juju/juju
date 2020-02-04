@@ -1354,6 +1354,11 @@ func volumesToAPIServer(volumes []storage.Volume) []params.Volume {
 func volumeAttachmentsToAPIServer(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
 	result := make(map[string]params.VolumeAttachmentInfo)
 	for _, a := range attachments {
+
+		// Volume attachment plans are used in the OCI provider where actions
+		// are required on the instance itself in order to complete attachments
+		// of SCSI volumes.
+		// TODO (manadart 2020-02-04): I believe this code path to be untested.
 		var planInfo *params.VolumeAttachmentPlanInfo
 		if a.PlanInfo != nil {
 			planInfo = &params.VolumeAttachmentPlanInfo{
@@ -1361,6 +1366,7 @@ func volumeAttachmentsToAPIServer(attachments []storage.VolumeAttachment) map[st
 				DeviceAttributes: a.PlanInfo.DeviceAttributes,
 			}
 		}
+
 		result[a.Volume.String()] = params.VolumeAttachmentInfo{
 			DeviceName: a.DeviceName,
 			DeviceLink: a.DeviceLink,
