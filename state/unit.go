@@ -361,78 +361,15 @@ func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
 // SetState replaces the currently stored state for a unit with the contents
 // of the provided unitState parameter.
 func (u *Unit) SetState(unitState map[string]string) error {
-	unitGlobalKey := u.globalKey()
+	modelOp := u.SetStateOperation(unitState)
+	return u.st.ApplyOperation(modelOp)
+}
 
-	var stDoc unitStateDoc
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := u.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		if u.Life() != Alive {
-			return nil, errors.NotFoundf("unit %s", u.Name())
-		}
-
-		coll, closer := u.st.db().GetCollection(unitStatesC)
-		defer closer()
-
-		// The state of a unit can only be updated if it is currently
-		// alive.
-		unitAliveOp := txn.Op{
-			C:      unitsC,
-			Id:     u.doc.DocID,
-			Assert: isAliveDoc,
-		}
-
-		if err := coll.FindId(unitGlobalKey).One(&stDoc); err != nil {
-			if err != mgo.ErrNotFound {
-				return nil, errors.Trace(err)
-			}
-
-			escapedState := make(map[string]string, len(unitState))
-			for k, v := range unitState {
-				escapedState[mgoutils.EscapeKey(k)] = v
-			}
-
-			return []txn.Op{unitAliveOp, {
-				C:      unitStatesC,
-				Id:     unitGlobalKey,
-				Assert: txn.DocMissing,
-				Insert: unitStateDoc{
-					DocID: unitGlobalKey,
-					State: escapedState,
-				},
-			}}, nil
-		}
-
-		// State keys may contain dots or dollar chars which need to be escaped.
-		escapedState := make(bson.M, len(unitState))
-		for k, v := range unitState {
-			escapedState[mgoutils.EscapeKey(k)] = v
-		}
-
-		// Check if we need to update
-		if stDoc.stateMatches(escapedState) {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		return []txn.Op{unitAliveOp, {
-			C:  unitStatesC,
-			Id: unitGlobalKey,
-			Assert: bson.D{
-				{"txn-revno", stDoc.TxnRevno},
-			},
-			Update: bson.D{{"$set", bson.D{{"state", escapedState}}}},
-		}}, nil
-
-	}
-
-	if err := u.st.db().Run(buildTxn); err != nil {
-		return errors.Annotatef(onAbort(err, ErrDead), "cannot persist state for unit %q", u)
-	}
-	return nil
+// SetStateOperation returns a ModelOperation for replacing the currently
+// stored state for a unit with the contents of the provided unitState
+// parameter.
+func (u *Unit) SetStateOperation(unitState map[string]string) ModelOperation {
+	return &unitSetStateOperation{u: u, newState: unitState}
 }
 
 // State returns the persisted state for a unit.
