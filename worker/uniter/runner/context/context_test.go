@@ -532,7 +532,7 @@ func addStorageToContext(ctx *context.HookContext,
 	cons params.StorageConstraints,
 ) {
 	addOne := map[string]params.StorageConstraints{name: cons}
-	ctx.AddUnitStorage(addOne)
+	_ = ctx.AddUnitStorage(addOne)
 }
 
 func assertStorageAddInContext(c *gc.C,
@@ -560,7 +560,8 @@ func (p *mockProcess) Pid() int {
 var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
-	mockUnit *mocks.MockHookUnit
+	mockUnit  *mocks.MockHookUnit
+	mockCache map[string]string
 }
 
 func (s *mockHookContextSuite) TestDeleteCacheValue(c *gc.C) {
@@ -571,8 +572,9 @@ func (s *mockHookContextSuite) TestDeleteCacheValue(c *gc.C) {
 	err := hookContext.DeleteCacheValue("one")
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = hookContext.GetCacheValue("one")
-	c.Assert(err, gc.ErrorMatches, "\"one\" not found")
+	obtainedCache, err := hookContext.GetCache()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache)
 }
 
 func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
@@ -584,23 +586,14 @@ func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
-func (s *mockHookContextSuite) TestGetCacheValue(c *gc.C) {
+func (s *mockHookContextSuite) TestGetCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	s.expectStateValues()
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
-	value, err := hookContext.GetCacheValue("three")
+	obtainedCache, err := hookContext.GetCache()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(value, gc.Equals, "four")
-}
-
-func (s *mockHookContextSuite) TestGetCacheValueFail(c *gc.C) {
-	defer s.setupMocks(c).Finish()
-	s.expectStateValues()
-
-	hookContext := context.NewMockUnitHookContext(s.mockUnit)
-	_, err := hookContext.GetCacheValue("five")
-	c.Assert(err, gc.ErrorMatches, "\"five\" not found")
+	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache)
 }
 
 func (s *mockHookContextSuite) TestGetCacheStateErr(c *gc.C) {
@@ -608,7 +601,46 @@ func (s *mockHookContextSuite) TestGetCacheStateErr(c *gc.C) {
 	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
-	_, err := hookContext.GetCacheValue("five")
+	_, err := hookContext.GetCache()
+	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
+}
+
+func (s *mockHookContextSuite) TestGetSingleCacheValue(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	obtainedVale, err := hookContext.GetSingleCacheValue("one")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedVale, gc.Equals, "two")
+}
+
+func (s *mockHookContextSuite) TestGetSingleCacheValueEmpty(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	obtainedVale, err := hookContext.GetSingleCacheValue("seven")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedVale, gc.Equals, "")
+}
+
+func (s *mockHookContextSuite) TestGetSingleCacheValueNotFound(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateValues()
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	obtainedCache, err := hookContext.GetSingleCacheValue("five")
+	c.Assert(err, gc.ErrorMatches, "\"five\" not found")
+	c.Assert(obtainedCache, gc.Equals, "")
+}
+
+func (s *mockHookContextSuite) TestGetSingleCacheValueStateErr(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+
+	hookContext := context.NewMockUnitHookContext(s.mockUnit)
+	_, err := hookContext.GetSingleCacheValue("key")
 	c.Assert(err, gc.ErrorMatches, "loading unit state from database: testing an error")
 }
 
@@ -630,8 +662,10 @@ func (s *mockHookContextSuite) testSetCache(c *gc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	err := hookContext.SetCacheValue("five", "six")
 	c.Assert(err, jc.ErrorIsNil)
-	value, err := hookContext.GetCacheValue("five")
+	obtainedCache, err := hookContext.GetCache()
 	c.Assert(err, jc.ErrorIsNil)
+	value, ok := obtainedCache["five"]
+	c.Assert(ok, jc.IsTrue)
 	c.Assert(value, gc.Equals, "six")
 }
 
@@ -650,12 +684,14 @@ func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 	s.expectStateValues()
 
 	// The following commands are no-ops as they don't mutate the cache.
-	hookContext.SetCacheValue("one", "two")   // no-op: KV already present
-	hookContext.DeleteCacheValue("not-there") // no-op: key not present
+	err := hookContext.SetCacheValue("one", "two") // no-op: KV already present
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.DeleteCacheValue("not-there") // no-op: key not present
+	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush the context with a success. As the cache is not dirty we do
 	// not expect a SetState call.
-	err := hookContext.Flush("success", nil)
+	err = hookContext.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
@@ -669,12 +705,14 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 		"one":   "two",
 		"three": "four",
 		"lorem": "ipsum",
+		"seven": "",
 	}).Return(nil)
 
 	// Mutate cache and flush; this should call out to SetState and reset
 	// the dirty flag
-	hookContext.SetCacheValue("lorem", "ipsum")
-	err := hookContext.Flush("success", nil)
+	err := hookContext.SetCacheValue("lorem", "ipsum")
+	c.Assert(err, jc.ErrorIsNil)
+	err = hookContext.Flush("success", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Flush again; as the cache is not dirty, the SetState call is skipped.
@@ -689,9 +727,10 @@ func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *mockHookContextSuite) expectStateValues() {
-	cache := map[string]string{
+	s.mockCache = map[string]string{
 		"one":   "two",
 		"three": "four",
+		"seven": "",
 	}
-	s.mockUnit.EXPECT().State().Return(cache, nil)
+	s.mockUnit.EXPECT().State().Return(s.mockCache, nil)
 }

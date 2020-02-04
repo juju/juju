@@ -22,6 +22,7 @@ import (
 
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
+//go:generate mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/worker/uniter/runner/jujuc Context
 type Context interface {
 	HookContext
 	relationHookContext
@@ -98,8 +99,11 @@ type actionHookContext interface {
 
 // unitCacheContext is cache for charm state to be held in the context.
 type unitCacheContext interface {
-	// GetCacheValue returns the value for the given key from the cache.
-	GetCacheValue(string) (string, error)
+	// GetCache returns a copy of the cache.
+	GetCache() (map[string]string, error)
+
+	// GetSingleCacheValue returns the value of the given key.
+	GetSingleCacheValue(string) (string, error)
 
 	// DeleteCacheValue deletes the key/value pair for the given key from
 	// the cache.
