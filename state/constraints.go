@@ -120,12 +120,12 @@ func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, er
 	constraintsCollection, closer := st.db().GetCollection(constraintsC)
 	defer closer()
 
-	// all constraints per space name
 	var docs []constraintsWithID
-	// query can lead to docs with spaceid that re:
-	// negative : "^db"
-	// list of spaces: "alpha,alpha2,^db"
-	query := bson.D{{"spaces", from}}
+	negatedSpace := fmt.Sprintf("^%v", from)
+	query := bson.D{{"$or", []bson.D{
+		{{"spaces", from}},
+		{{"spaces", negatedSpace}},
+	}}}
 	err := constraintsCollection.Find(query).All(&docs)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -137,11 +137,15 @@ func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, er
 	i := 0
 	for docID, constraint := range cons {
 		ops[i] = setConstraintsOp(docID, constraint)
+		i++
 	}
 	return ops, nil
 }
 
-func getConstraintsChanges(cons []constraintsWithID, fromSpaceName, toName string) map[string]constraints.Value {
+func getConstraintsChanges(cons []constraintsWithID, from, to string) map[string]constraints.Value {
+	negatedFrom := fmt.Sprintf("^%v", from)
+	negatedTo := fmt.Sprintf("^%v", to)
+
 	values := make(map[string]constraints.Value, len(cons))
 	for _, con := range cons {
 		values[con.DocID] = con.Nested.value()
@@ -152,8 +156,12 @@ func getConstraintsChanges(cons []constraintsWithID, fromSpaceName, toName strin
 			continue
 		}
 		for i, space := range *spaces {
-			if space == fromSpaceName {
-				(*spaces)[i] = toName
+			if space == from {
+				(*spaces)[i] = to
+				break
+			}
+			if space == negatedFrom {
+				(*spaces)[i] = negatedTo
 				break
 			}
 		}

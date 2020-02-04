@@ -305,7 +305,7 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 }
 
 func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc.C) {
-	from, to := "db", "newdb"
+	from, to, negatedTo := "db", "newdb", "^newdb"
 	cons := constraints.MustParse("spaces=db,alpha")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        s.applicationName,
@@ -316,11 +316,28 @@ func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
+	negCons := constraints.MustParse("spaces=^db,alpha")
+	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "unimportant",
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: negCons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(negApplication, gc.NotNil)
+
 	ops, err := s.State.ConstraintsOpsForSpaceNameChange(from, to)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 1)
+	c.Assert(ops, gc.HasLen, 2)
 
+	var opsSpacesCombined []string
+	for _, op := range ops {
+		found := op.Update.(bson.D).Map()["$set"].(state.ConstraintsDoc).Spaces
+		opsSpacesCombined = append(opsSpacesCombined, *found...)
+
+	}
 	expectedSpace := []string{to, "alpha"}
-	spaces := ops[0].Update.(bson.D).Map()["$set"].(state.ConstraintsDoc).Spaces
-	c.Assert(&expectedSpace, gc.DeepEquals, spaces)
+	negExpectedSpace := []string{negatedTo, "alpha"}
+	combinedExpected := append(expectedSpace, negExpectedSpace...)
+	c.Assert(combinedExpected, gc.DeepEquals, opsSpacesCombined)
 }
