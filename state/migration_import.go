@@ -13,7 +13,6 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
@@ -27,7 +26,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
@@ -50,15 +48,6 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	} else if modelExists {
 		// We have an existing matching model.
 		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
-	}
-
-	// Ensure that we only enable CMR migrations if the feature flag is enabled
-	// otherwise just error out as usual.
-	if !featureflag.Enabled(feature.CMRMigrations) && len(model.RemoteApplications()) != 0 {
-		// Cross-model relations are currently limited to models on
-		// the same controller, while migration is for getting the
-		// model to a new controller.
-		return nil, nil, errors.New("can't import models with remote applications")
 	}
 
 	// Unfortunately a version was released that exports v4 models
