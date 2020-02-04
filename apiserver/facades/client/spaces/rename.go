@@ -152,7 +152,7 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 			continue
 		}
 		if fromTag.Id() == network.AlphaSpaceName {
-			newErr := errors.New("the alpha space cannot be removed")
+			newErr := errors.New("the alpha space cannot be renamed")
 			results.Results[i].Error = common.ServerError(newErr)
 			continue
 		}
