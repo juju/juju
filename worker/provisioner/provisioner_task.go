@@ -259,7 +259,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ids); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	// Find machines without an instance ID or that are dead.
@@ -790,7 +790,7 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(
 		zonedEnv, task.cloudCallCtx, []instance.Id{})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	instanceMachines := make(map[instance.Id]string)
@@ -957,7 +957,7 @@ func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProv
 	}
 	machineDistributionGroups, err := task.distributionGroupFinder.DistributionGroupByMachineId(machineTags...)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	var wg sync.WaitGroup
@@ -1033,11 +1033,7 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		arch = *pInfo.Constraints.Arch
 	}
 
-	possibleTools, err := task.toolsFinder.FindTools(
-		*version,
-		pInfo.Series,
-		arch,
-	)
+	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, arch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find agent binaries for machine %q", machine)
 	}
@@ -1088,7 +1084,7 @@ func (task *provisionerTask) startMachine(
 ) error {
 	v, err := machine.ModelAgentVersion()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	startInstanceParams, err := task.setupToStartMachine(machine, v)
 	if err != nil {
@@ -1190,17 +1186,18 @@ func (task *provisionerTask) startMachine(
 	networkConfig := params.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToAPIServer(result.Volumes)
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIServer(result.VolumeAttachments)
+	instanceID := result.Instance.Id()
 
-	// gather the charm LXD profile names, including the lxd profile names from
+	// Gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
-	charmLXDProfiles := task.gatherCharmLXDProfiles(
-		string(result.Instance.Id()),
-		machine.Tag().Id(),
-		startInstanceParams.CharmLXDProfiles,
-	)
+	charmLXDProfiles, err := task.gatherCharmLXDProfiles(
+		string(instanceID), machine.Tag().Id(), startInstanceParams.CharmLXDProfiles)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := machine.SetInstanceInfo(
-		result.Instance.Id(),
+		instanceID,
 		result.DisplayName,
 		startInstanceParams.InstanceConfig.MachineNonce,
 		result.Hardware,
@@ -1213,7 +1210,7 @@ func (task *provisionerTask) startMachine(
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
-		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.Instance.Id()); err2 != nil {
+		if err2 := task.broker.StopInstances(task.cloudCallCtx, instanceID); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")
@@ -1223,7 +1220,7 @@ func (task *provisionerTask) startMachine(
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
-		result.Instance.Id(),
+		instanceID,
 		result.Hardware,
 		networkConfig,
 		volumes,
@@ -1236,17 +1233,25 @@ func (task *provisionerTask) startMachine(
 
 // gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
 // sources. This includes getting the information from the broker.
-func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag string, machineProfiles []string) []string {
-	if names.IsContainerMachine(machineTag) {
-		if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
-			if profileNames, err := manager.LXDProfileNames(instanceId); err == nil {
-				return lxdprofile.LXDProfileNames(profileNames)
-			}
-		} else {
-			task.logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
-		}
+func (task *provisionerTask) gatherCharmLXDProfiles(
+	instanceId, machineTag string, machineProfiles []string,
+) ([]string, error) {
+	if !names.IsContainerMachine(machineTag) {
+		return machineProfiles, nil
 	}
-	return machineProfiles
+
+	manager, ok := task.broker.(container.LXDProfileNameRetriever)
+	if !ok {
+		task.logger.Tracef("failed to gather profile names; broker does not implement LXDProfileNameRetriever")
+		return machineProfiles, nil
+	}
+
+	profileNames, err := manager.LXDProfileNames(instanceId)
+	if err != nil {
+		return machineProfiles, errors.Trace(err)
+	}
+
+	return lxdprofile.LXDProfileNames(profileNames), nil
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
