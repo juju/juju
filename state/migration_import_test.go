@@ -31,7 +31,6 @@ import (
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
@@ -848,8 +847,6 @@ func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRMigrations)
-
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
@@ -2113,61 +2110,7 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(testPayload.Machine, gc.Equals, machineID)
 }
 
-// TODO (stickupkid): Remove this once we remove the CMRMigrations feature
-// flag.
-func (s *MigrationImportSuite) TestRemoteApplicationsWithoutFeatureFlag(c *gc.C) {
-	// For now we want to prevent importing models that have remote
-	// applications - cross-model relations don't support relations
-	// with the models in different controllers.
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "gravy-rainbow",
-		URL:         "me/model.rainbow",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "charisma",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Name:      "db",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}, {
-			Interface: "mysql-root",
-			Name:      "db-admin",
-			Limit:     5,
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}, {
-			Interface: "logging",
-			Name:      "logging",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	out, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
-	// Models for this version of Juju don't export remote
-	// applications but we still want to guard against accidentally
-	// importing any that may exist from earlier versions.
-	in.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: coretesting.ModelTag,
-		OfferUUID:   utils.MustNewUUID().String(),
-		Tag:         names.NewApplicationTag("remote"),
-	})
-
-	_, newSt, err := s.Controller.Import(in)
-	if err == nil {
-		defer newSt.Close()
-	}
-	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
-}
-
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRMigrations)
-
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
