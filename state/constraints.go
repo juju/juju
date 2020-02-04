@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+
 	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
