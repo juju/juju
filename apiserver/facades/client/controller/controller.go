@@ -10,10 +10,10 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon.v2"
 

@@ -6,10 +6,10 @@ package broker
 import (
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/arch"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v3"
 
 	apiprovisioner "github.com/juju/juju/api/provisioner"

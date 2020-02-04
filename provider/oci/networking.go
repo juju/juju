@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	ociCore "github.com/oracle/oci-go-sdk/core"
 	"gopkg.in/juju/names.v3"
 
