@@ -4392,7 +4392,10 @@ type openUnitPort struct {
 func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.OpenPort(oup.protocol, oup.number)
+
+	openPortRange, err := state.NewPortRange(oup.unitName, oup.number, oup.number, oup.protocol)
+	c.Assert(err, jc.ErrorIsNil)
+	err = u.OpenClosePortsOnSubnet("", []state.PortRange{openPortRange}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

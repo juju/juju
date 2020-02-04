@@ -479,8 +479,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				u, err := st.Unit("mysql/0")
 				c.Assert(err, jc.ErrorIsNil)
-				err = u.OpenPorts("TCP", 100, 200)
-				c.Assert(err, jc.ErrorIsNil)
+				state.AssertOpenPorts(c, u, "", "TCP", 100, 200)
 			},
 		}, {
 			about: "cleanups",

@@ -60,10 +60,8 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 
 func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	// Open some ports.
-	err := s.units[0].OpenPorts("tcp", 1234, 1400)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.units[2].OpenPort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPorts(c, s.units[0], "", "tcp", 1234, 1400)
+	s.assertOpenPort(c, s.units[2], "", "udp", 4321)
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,25 +76,45 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Close a port, make sure it's detected.
-	err = s.units[2].ClosePort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertClosePort(c, s.units[2], "", "udp", 4321)
 
 	wc.AssertChange(expectChanges[1])
 	wc.AssertNoChange()
 
 	// Close it again, no changes.
-	err = s.units[2].ClosePort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertClosePort(c, s.units[2], "", "udp", 4321)
 	wc.AssertNoChange()
 
 	// Close non-existing port, no changes.
-	err = s.units[0].ClosePort("udp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertClosePort(c, s.units[2], "", "udp", 1234)
 	wc.AssertNoChange()
 
 	// Open another port range, ensure it's detected.
-	err = s.units[1].OpenPorts("tcp", 8080, 8088)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPorts(c, s.units[1], "", "tcp", 8080, 8088)
 	wc.AssertChange("1:")
 	wc.AssertNoChange()
+}
+
+func (s *stateSuite) assertOpenPort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
+	s.assertOpenPorts(c, u, subnet, protocol, port, port)
+}
+
+func (s *stateSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *stateSuite) assertClosePort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
+	s.assertClosePorts(c, u, subnet, protocol, port, port)
+}
+
+func (s *stateSuite) assertClosePorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	closeRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, nil, []state.PortRange{closeRange})
+	c.Assert(err, jc.ErrorIsNil)
 }

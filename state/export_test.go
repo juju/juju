@@ -1021,3 +1021,27 @@ func (st *State) SetClockForTesting(clock clock.Clock) error {
 	}
 	return nil
 }
+
+func AssertOpenPort(c *gc.C, u *Unit, subnet, protocol string, port int) {
+	AssertOpenPorts(c, u, subnet, protocol, port, port)
+}
+
+func AssertOpenPorts(c *gc.C, u *Unit, subnet, protocol string, from, to int) {
+	openRange, err := NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, []PortRange{openRange}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func AssertClosePort(c *gc.C, u *Unit, subnet, protocol string, port int) {
+	AssertClosePorts(c, u, subnet, protocol, port, port)
+}
+
+func AssertClosePorts(c *gc.C, u *Unit, subnet, protocol string, from, to int) {
+	closeRange, err := NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, nil, []PortRange{closeRange})
+	c.Assert(err, jc.ErrorIsNil)
+}

@@ -108,10 +108,8 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	err = s.unit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherUnit.OpenPorts("udp", 200, 300)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPorts(c, s.unit, "", "tcp", 100, 200)
+	s.assertOpenPorts(c, otherUnit, "", "udp", 200, 300)
 
 	unitRanges, err = s.unit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,4 +229,20 @@ func (s *FlushContextSuite) TestBuiltinMetricNotGeneratedIfNotDefined(c *gc.C) {
 	batches, err := reader.Read()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(batches, gc.HasLen, 0)
+}
+
+func (s *FlushContextSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *FlushContextSuite) assertClosePorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	closeRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, nil, []state.PortRange{closeRange})
+	c.Assert(err, jc.ErrorIsNil)
 }

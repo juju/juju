@@ -56,14 +56,10 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	err = s.wordpressUnit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressUnit.OpenPorts("udp", 10, 20)
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit1.OpenPorts("tcp", 201, 250)
-	c.Assert(err, jc.ErrorIsNil)
-	err = wordpressUnit1.OpenPorts("udp", 1, 8)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPorts(c, s.wordpressUnit, "", "tcp", 100, 200)
+	s.assertOpenPorts(c, s.wordpressUnit, "", "udp", 10, 20)
+	s.assertOpenPorts(c, wordpressUnit1, "", "tcp", 201, 250)
+	s.assertOpenPorts(c, wordpressUnit1, "", "udp", 1, 8)
 
 	portsMap, err := s.uniter.AllMachinePorts(s.wordpressMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -73,4 +69,16 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 		{201, 250, "tcp"}: {Unit: wordpressUnit1.Tag().String()},
 		{1, 8, "udp"}:     {Unit: wordpressUnit1.Tag().String()},
 	})
+}
+
+func (s *stateSuite) assertOpenPort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
+	s.assertOpenPorts(c, u, subnet, protocol, port, port)
+}
+
+func (s *stateSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }

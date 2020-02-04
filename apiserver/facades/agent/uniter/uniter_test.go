@@ -1080,8 +1080,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 
 func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
-	err := s.wordpressUnit.OpenPorts("udp", 4321, 5000)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPorts(c, s.wordpressUnit, "udp", 4321, 5000)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
@@ -3340,14 +3339,10 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	err = s.wordpressUnit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressUnit.OpenPorts("udp", 10, 20)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlUnit1.OpenPorts("tcp", 201, 250)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlUnit1.OpenPorts("udp", 1, 8)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPorts(c, s.wordpressUnit, "tcp", 100, 200)
+	s.assertOpenPorts(c, s.wordpressUnit, "udp", 10, 20)
+	s.assertOpenPorts(c, mysqlUnit1, "tcp", 201, 250)
+	s.assertOpenPorts(c, mysqlUnit1, "udp", 1, 8)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -4792,6 +4787,14 @@ func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
 	result, err := s.uniter.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
+}
+
+func (s *uniterSuite) assertOpenPorts(c *gc.C, u *state.Unit, protocol string, from, to int) {
+	portRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet("", []state.PortRange{portRange}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 type cloudSpecUniterSuite struct {

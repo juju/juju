@@ -909,8 +909,7 @@ func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
-	err := unit.OpenPorts("tcp", 1234, 2345)
-	c.Assert(err, jc.ErrorIsNil)
+	state.AssertOpenPorts(c, unit, "", "tcp", 1234, 2345)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)

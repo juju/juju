@@ -1259,8 +1259,7 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
-	err := unit.OpenPorts("tcp", 1234, 2345)
-	c.Assert(err, jc.ErrorIsNil)
+	state.AssertOpenPorts(c, unit, "", "tcp", 1234, 2345)
 
 	_, newSt := s.importModel(c, s.State)
 

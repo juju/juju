@@ -980,14 +980,24 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				err = unit.OpenPorts(entity.Protocol, entity.FromPort, entity.ToPort)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
+
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		openPortRange, err := state.NewPortRange(unit.Name(), entity.FromPort, entity.ToPort, entity.Protocol)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		err = unit.OpenClosePortsOnSubnet("", []state.PortRange{openPortRange}, nil)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -1009,14 +1019,24 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				err = unit.ClosePorts(entity.Protocol, entity.FromPort, entity.ToPort)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
+
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		closePortRange, err := state.NewPortRange(unit.Name(), entity.FromPort, entity.ToPort, entity.Protocol)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		err = unit.OpenClosePortsOnSubnet("", nil, []state.PortRange{closePortRange})
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

@@ -101,8 +101,7 @@ func (s *machineSuite) TestActiveSubnets(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 0)
 
 	// Open a port and check again.
-	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPort(c, s.units[0], "", "tcp", 1234)
 	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
@@ -126,8 +125,7 @@ func (s *machineSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Open a port and check again.
-	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
+	s.assertOpenPort(c, s.units[0], "", "tcp", 1234)
 	ports, err = s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{
@@ -151,4 +149,16 @@ func (s *machineSuite) TestIsManual(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(answer, jc.IsTrue)
 
+}
+
+func (s *machineSuite) assertOpenPort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
+	s.assertOpenPorts(c, u, subnet, protocol, port, port)
+}
+
+func (s *machineSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
+	c.Assert(err, jc.ErrorIsNil)
 }

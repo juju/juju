@@ -102,11 +102,20 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	err := s.units[0].OpenPortsOnSubnet(s.subnet.ID(), "tcp", 1234, 1400)
+	s.assertOpenPorts(c, s.units[0], s.subnet.ID(), "tcp", 1234, 1400)
+	s.assertOpenPort(c, s.units[0], "", "tcp", 4321)
+	s.assertOpenPorts(c, s.units[2], "", "udp", 1111, 2222)
+}
+
+func (s *firewallerSuite) assertOpenPort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
+	s.assertOpenPorts(c, u, subnet, protocol, port, port)
+}
+
+func (s *firewallerSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
+	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.units[0].OpenPort("tcp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.units[2].OpenPorts("udp", 1111, 2222)
+
+	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
