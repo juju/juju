@@ -46,7 +46,10 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
+		operationId, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
 		a, err := s.uniterSuite.wordpressUnit.AddAction(
+			operationId,
 			actionTest.action.Name,
 			actionTest.action.Parameters)
 		c.Assert(err, jc.ErrorIsNil)
@@ -84,7 +87,9 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
 
-	action, err := s.uniterSuite.wordpressUnit.AddAction("fakeaction", nil)
+	operationId, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.uniterSuite.wordpressUnit.AddAction(operationId, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionResult := map[string]interface{}{"output": "it worked!"}
@@ -99,6 +104,9 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	c.Assert(errstr, gc.Equals, "")
 	c.Assert(res, gc.DeepEquals, actionResult)
 	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
+	operation, err := s.Model.Operation(operationId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionCompleted)
 }
 
 func (s *actionSuite) TestActionFail(c *gc.C) {
@@ -106,7 +114,9 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
 
-	action, err := s.uniterSuite.wordpressUnit.AddAction("fakeaction", nil)
+	operationId, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.uniterSuite.wordpressUnit.AddAction(operationId, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	errmsg := "it failed!"
@@ -121,4 +131,7 @@ func (s *actionSuite) TestActionFail(c *gc.C) {
 	c.Assert(errstr, gc.Equals, errmsg)
 	c.Assert(res, gc.DeepEquals, map[string]interface{}{})
 	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
+	operation, err := s.Model.Operation(operationId)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionFailed)
 }

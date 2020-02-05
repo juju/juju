@@ -619,7 +619,7 @@ func eraseStatusHistory(mb modelBackend, globalKey string) error {
 
 	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
 	deleted, err := deleteInBatches(
-		history.Writeable().Underlying(), iter,
+		history.Writeable().Underlying(), nil, "", iter,
 		logFormat, loggo.DEBUG,
 		noEarlyFinish,
 	)

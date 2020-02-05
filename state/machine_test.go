@@ -2535,7 +2535,9 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("running test %d", i)
-		action, err := m.AddAction(t.actionName, t.givenPayload)
+		operationId, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
+		action, err := m.AddAction(operationId, t.actionName, t.givenPayload)
 		if t.errString != "" {
 			c.Assert(err.Error(), gc.Equals, t.errString)
 			continue
@@ -2550,7 +2552,7 @@ func (s *MachineSuite) TestMachineAddDifferentAction(c *gc.C) {
 	m, err := s.State.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = m.AddAction("benchmark", nil)
+	_, err = m.AddAction("666", "benchmark", nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add action "benchmark" to a machine; only predefined actions allowed`)
 }
 

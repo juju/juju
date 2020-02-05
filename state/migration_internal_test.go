@@ -225,6 +225,8 @@ func (s *MigrationSuite) TestKnownCollections(c *gc.C) {
 		// sure the leader units' leases are claimed in the target
 		// controller when leases are managed in raft.
 		leaseHoldersC,
+		// TODO(wallyworld) - migrate operations
+		operationsC,
 	)
 
 	modelCollections := set.NewStrings()
@@ -721,6 +723,8 @@ func (s *MigrationSuite) TestSSHHostKeyDocFields(c *gc.C) {
 func (s *MigrationSuite) TestActionDocFields(c *gc.C) {
 	ignored := set.NewStrings(
 		"ModelUUID",
+		// TODO(wallyworld) - migrate operations
+		"Operation",
 	)
 	migrated := set.NewStrings(
 		"DocId",

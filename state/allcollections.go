@@ -411,9 +411,12 @@ func allCollections() CollectionSchema {
 		actionsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "name"},
+			}, {
+				Key: []string{"model-uuid", "operation"},
 			}},
 		},
 		actionNotificationsC: {},
+		operationsC:          {},
 
 		// -----
 
@@ -594,6 +597,7 @@ const (
 	modelsC                    = "models"
 	modelEntityRefsC           = "modelEntityRefs"
 	openedPortsC               = "openedPorts"
+	operationsC                = "operations"
 	payloadsC                  = "payloads"
 	permissionsC               = "permissions"
 	podSpecsC                  = "podSpecs"

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strconv"
 	"time" // Only used for time types.
 
 	"github.com/juju/clock"
@@ -678,34 +679,58 @@ func PrimeUnitStatusHistory(
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-// PrimeActions generates actions to be pruned. The method pads each
-// entry with a 1MB string. This should allow us to infer the
+// PrimeOperations generates operations and tasks to be pruned.
+// The method pads each entry with a 1MB string. This should allow us to infer the
 // approximate size of the entry and limit the number of entries that
 // must be generated for size related tests.
-func PrimeActions(c *gc.C, age time.Time, unit *Unit, count int) {
+func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperation int) {
+	operationsCollection, closer := unit.st.db().GetCollection(operationsC)
+	defer closer()
 	actionCollection, closer := unit.st.db().GetCollection(actionsC)
 	defer closer()
 
+	operationsCollectionWriter := operationsCollection.Writeable()
 	actionCollectionWriter := actionCollection.Writeable()
 
-	const numBytes = 1 * 1000 * 1000
+	const numBytes = 1 * 500 * 1000
 	var padding [numBytes]byte
+	var operationDocs []interface{}
 	var actionDocs []interface{}
 	for i := 0; i < count; i++ {
-		id, err := jutils.NewUUID()
+		nextId, err := sequenceWithMin(unit.st, "task", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		actionDocs = append(actionDocs, actionDoc{
-			DocId:     id.String(),
+		operationId := strconv.Itoa(nextId)
+		operationDocs = append(operationDocs, operationDoc{
+			DocId:     operationId,
 			ModelUUID: unit.st.ModelUUID(),
-			Receiver:  unit.Name(),
+			Summary:   "an operation",
 			Completed: age,
 			Status:    ActionCompleted,
-			Message:   string(padding[:numBytes]),
 		})
+		for j := 0; j < actionsPerOperation; j++ {
+			id, err := jutils.NewUUID()
+			c.Assert(err, jc.ErrorIsNil)
+			actionDocs = append(actionDocs, actionDoc{
+				DocId:     id.String(),
+				ModelUUID: unit.st.ModelUUID(),
+				Receiver:  unit.Name(),
+				Completed: age,
+				Operation: operationId,
+				Status:    ActionCompleted,
+				Message:   string(padding[:numBytes]),
+			})
+		}
 	}
 
-	err := actionCollectionWriter.Insert(actionDocs...)
+	err := operationsCollectionWriter.Insert(operationDocs...)
 	c.Assert(err, jc.ErrorIsNil)
+	err = actionCollectionWriter.Insert(actionDocs...)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+// ActionOperationId returns the parent operation of an action.
+func ActionOperationId(a Action) string {
+	return a.(*action).doc.Operation
 }
 
 // GetInternalWorkers returns the internal workers managed by a State

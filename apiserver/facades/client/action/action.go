@@ -4,6 +4,7 @@
 package action
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -270,6 +271,25 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 		return "", errors.Errorf("could not determine leader for %q", appName)
 	}
 
+	var operationName string
+	var receivers []string
+	for _, a := range arg.Actions {
+		if a.Receiver != "" {
+			receivers = append(receivers, a.Receiver)
+		}
+		if operationName == "" {
+			operationName = a.Name
+			continue
+		}
+		if operationName != a.Name {
+			operationName = "multiple actions"
+		}
+	}
+	operationId, err := a.model.EnqueueOperation(fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ",")))
+	if err != nil {
+		return params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
+	}
+
 	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
@@ -289,7 +309,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		enqueued, err := receiver.AddAction(action.Name, action.Parameters)
+		enqueued, err := receiver.AddAction(operationId, action.Name, action.Parameters)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

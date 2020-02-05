@@ -142,9 +142,9 @@ type ActionsWatcher interface {
 type ActionReceiver interface {
 	Entity
 
-	// AddAction queues an action with the given name and payload for this
-	// ActionReceiver.
-	AddAction(name string, payload map[string]interface{}) (Action, error)
+	// AddAction queues an action belonging to the specified operation,
+	// with the given name and payload for this ActionReceiver.
+	AddAction(operationId, name string, payload map[string]interface{}) (Action, error)
 
 	// CancelAction removes a pending Action from the queue for this
 	// ActionReceiver and marks it as cancelled.

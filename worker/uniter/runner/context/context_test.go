@@ -389,7 +389,9 @@ func (s *InterfaceSuite) toSupportNewActionID(c *gc.C) {
 // TestLogActionMessage ensures LogActionMessage works properly.
 func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
 	s.toSupportNewActionID(c)
-	action, err := s.unit.AddAction("fakeaction", nil)
+	operationId, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.unit.AddAction(operationId, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = action.Begin()
 	c.Assert(err, jc.ErrorIsNil)
