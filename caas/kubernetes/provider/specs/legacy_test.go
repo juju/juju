@@ -180,12 +180,12 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       `'foo=bar; name["fred"]="blogs";'`,
+					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 				Files: []specs.FileSet{
 					{
@@ -256,10 +256,10 @@ echo "do some stuff here for gitlab-init container"
 				},
 				Config: map[string]interface{}{
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 			},
 		}

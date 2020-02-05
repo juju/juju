@@ -73,6 +73,11 @@ containers:
       restricted: 'yes'
       switch: on
       special: p@ssword's
+      my-resource-limit:
+        resource:
+          container-name: container1
+          resource: requests.cpu
+          divisor: 1m
     files:
       - name: configuration
         mountPath: /var/lib/foo
@@ -302,6 +307,7 @@ foo: bar
 		}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
+
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
 				Name:            "gitlab",
@@ -318,12 +324,19 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       `'foo=bar; name["fred"]="blogs";'`,
+					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
+					"my-resource-limit": map[string]interface{}{
+						"resource": map[string]interface{}{
+							"container-name": "container1",
+							"resource":       "requests.cpu",
+							"divisor":        "1m",
+						},
+					},
 				},
 				Files: []specs.FileSet{
 					{
@@ -394,10 +407,10 @@ echo "do some stuff here for gitlab-init container"
 				},
 				Config: map[string]interface{}{
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 			},
 		}

@@ -175,6 +175,234 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 	})
 }
 
+func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
+
+	sa := &specs.ServiceAccountSpec{}
+	sa.AutomountServiceAccountToken = boolPtr(true)
+
+	podSpec := specs.PodSpec{
+		ServiceAccount: sa,
+	}
+
+	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
+		KubernetesResources: &k8sspecs.KubernetesResources{
+			Pod: &k8sspecs.PodSpec{
+				RestartPolicy:                 core.RestartPolicyOnFailure,
+				ActiveDeadlineSeconds:         int64Ptr(10),
+				TerminationGracePeriodSeconds: int64Ptr(20),
+				SecurityContext: &core.PodSecurityContext{
+					RunAsNonRoot:       boolPtr(true),
+					SupplementalGroups: []int64{1, 2},
+				},
+				ReadinessGates: []core.PodReadinessGate{
+					{ConditionType: core.PodInitialized},
+				},
+				DNSPolicy: core.DNSClusterFirst,
+			},
+		},
+	}
+
+	envVarThing := core.EnvVar{
+		Name: "thing",
+		ValueFrom: &core.EnvVarSource{
+			SecretKeyRef: &core.SecretKeySelector{Key: "bar"},
+		},
+	}
+	envVarThing.ValueFrom.SecretKeyRef.Name = "foo"
+
+	envVarThing1 := core.EnvVar{
+		Name: "thing1",
+		ValueFrom: &core.EnvVarSource{
+			ConfigMapKeyRef: &core.ConfigMapKeySelector{Key: "bar"},
+		},
+	}
+	envVarThing1.ValueFrom.ConfigMapKeyRef.Name = "foo"
+
+	envFromSourceSecret1 := core.EnvFromSource{
+		SecretRef: &core.SecretEnvSource{Optional: boolPtr(true)},
+	}
+	envFromSourceSecret1.SecretRef.Name = "secret1"
+
+	envFromSourceSecret2 := core.EnvFromSource{
+		SecretRef: &core.SecretEnvSource{},
+	}
+	envFromSourceSecret2.SecretRef.Name = "secret2"
+
+	envFromSourceConfigmap1 := core.EnvFromSource{
+		ConfigMapRef: &core.ConfigMapEnvSource{Optional: boolPtr(true)},
+	}
+	envFromSourceConfigmap1.ConfigMapRef.Name = "configmap1"
+
+	envFromSourceConfigmap2 := core.EnvFromSource{
+		ConfigMapRef: &core.ConfigMapEnvSource{},
+	}
+	envFromSourceConfigmap2.ConfigMapRef.Name = "configmap2"
+
+	podSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:            "test",
+			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+			Image:           "juju/image",
+			ImagePullPolicy: specs.PullPolicy("Always"),
+			Config: map[string]interface{}{
+				"restricted": "yes",
+				"secret1": map[string]interface{}{
+					"secret": map[string]interface{}{
+						"optional": bool(true),
+						"name":     "secret1",
+					},
+				},
+				"secret2": map[string]interface{}{
+					"secret": map[string]interface{}{
+						"name": "secret2",
+					},
+				},
+				"special": "p@ssword's",
+				"switch":  bool(true),
+				"MY_NODE_NAME": map[string]interface{}{
+					"field": map[string]interface{}{
+						"path": "spec.nodeName",
+					},
+				},
+				"my-resource-limit": map[string]interface{}{
+					"resource": map[string]interface{}{
+						"container-name": "container1",
+						"resource":       "requests.cpu",
+						"divisor":        "1m",
+					},
+				},
+				"attr": "foo=bar; name[\"fred\"]=\"blogs\";",
+				"configmap1": map[string]interface{}{
+					"config-map": map[string]interface{}{
+						"name":     "configmap1",
+						"optional": bool(true),
+					},
+				},
+				"configmap2": map[string]interface{}{
+					"config-map": map[string]interface{}{
+						"name": "configmap2",
+					},
+				},
+				"float": float64(111.11111111),
+				"thing1": map[string]interface{}{
+					"config-map": map[string]interface{}{
+						"key":  "bar",
+						"name": "foo",
+					},
+				},
+				"brackets": "[\"hello\", \"world\"]",
+				"foo":      "bar",
+				"int":      float64(111),
+				"thing": map[string]interface{}{
+					"secret": map[string]interface{}{
+						"key":  "bar",
+						"name": "foo",
+					},
+				},
+			},
+			ProviderContainer: &k8sspecs.K8sContainerSpec{
+				ReadinessProbe: &core.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &core.Probe{
+					SuccessThreshold: 20,
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
+			},
+		}, {
+			Name:  "test2",
+			Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP"}},
+			Image: "juju/image2",
+		},
+	}
+
+	spec, err := provider.PrepareWorkloadSpec("app-name", "app-name", &podSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(provider.PodSpec(spec), jc.DeepEquals, core.PodSpec{
+		RestartPolicy:                 core.RestartPolicyOnFailure,
+		ActiveDeadlineSeconds:         int64Ptr(10),
+		TerminationGracePeriodSeconds: int64Ptr(20),
+		SecurityContext: &core.PodSecurityContext{
+			RunAsNonRoot:       boolPtr(true),
+			SupplementalGroups: []int64{1, 2},
+		},
+		ReadinessGates: []core.PodReadinessGate{
+			{ConditionType: core.PodInitialized},
+		},
+		DNSPolicy:                    core.DNSClusterFirst,
+		ServiceAccountName:           "app-name",
+		AutomountServiceAccountToken: boolPtr(true),
+		InitContainers:               initContainers(),
+		Containers: []core.Container{
+			{
+				Name:            "test",
+				Image:           "juju/image",
+				Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+				ImagePullPolicy: core.PullAlways,
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot: boolPtr(true),
+					Privileged:   boolPtr(true),
+				},
+				ReadinessProbe: &core.Probe{
+					InitialDelaySeconds: 10,
+					Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+				},
+				LivenessProbe: &core.Probe{
+					SuccessThreshold: 20,
+					Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+				},
+				VolumeMounts: dataVolumeMounts(),
+				Env: []core.EnvVar{
+					{Name: "MY_NODE_NAME", ValueFrom: &core.EnvVarSource{FieldRef: &core.ObjectFieldSelector{FieldPath: "spec.nodeName"}}},
+					{Name: "attr", Value: `foo=bar; name["fred"]="blogs";`},
+					{Name: "brackets", Value: `["hello", "world"]`},
+					{Name: "float", Value: "111.11111111"},
+					{Name: "foo", Value: "bar"},
+					{Name: "int", Value: "111"},
+					{
+						Name: "my-resource-limit",
+						ValueFrom: &core.EnvVarSource{
+							ResourceFieldRef: &core.ResourceFieldSelector{
+								ContainerName: "container1",
+								Resource:      "requests.cpu",
+								Divisor:       resource.MustParse("1m"),
+							},
+						},
+					},
+					{Name: "restricted", Value: "yes"},
+					{Name: "special", Value: "p@ssword's"},
+					{Name: "switch", Value: "true"},
+					envVarThing,
+					envVarThing1,
+				},
+				EnvFrom: []core.EnvFromSource{
+					envFromSourceConfigmap1,
+					envFromSourceConfigmap2,
+					envFromSourceSecret1,
+					envFromSourceSecret2,
+				},
+			}, {
+				Name:  "test2",
+				Image: "juju/image2",
+				Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+				// Defaults since not specified.
+				SecurityContext: &core.SecurityContext{
+					RunAsNonRoot:             boolPtr(false),
+					ReadOnlyRootFilesystem:   boolPtr(false),
+					AllowPrivilegeEscalation: boolPtr(true),
+				},
+				VolumeMounts: dataVolumeMounts(),
+			},
+		},
+		Volumes: dataVolumes(),
+	})
+}
+
 func (s *K8sSuite) TestPrepareWorkloadSpecWithInitContainers(c *gc.C) {
 	podSpec := specs.PodSpec{}
 	podSpec.Containers = []specs.ContainerSpec{
@@ -279,10 +507,10 @@ func getBasicPodspec() *specs.PodSpec {
 		WorkingDir:   "/path/to/here",
 		Config: map[string]interface{}{
 			"foo":        "bar",
-			"restricted": "'yes'",
+			"restricted": "yes",
 			"bar":        true,
-			"switch":     "on",
-			"brackets":   `'["hello", "world"]'`,
+			"switch":     true,
+			"brackets":   `["hello", "world"]`,
 		},
 	}, {
 		Name:  "test2",

@@ -52,6 +52,9 @@ type ImageDetails struct {
 // PullPolicy describes a policy for if/when to pull a container image.
 type PullPolicy string
 
+// ContainerConfig describes the config used for setting up a pod container's environment variables.
+type ContainerConfig map[string]interface{}
+
 // ContainerSpec defines the data values used to configure
 // a container on the CAAS substrate.
 type ContainerSpec struct {
@@ -66,8 +69,8 @@ type ContainerSpec struct {
 	Args       []string `json:"args,omitempty" yaml:"args,omitempty"`
 	WorkingDir string   `json:"workingDir,omitempty" yaml:"workingDir,omitempty"`
 
-	Config map[string]interface{} `json:"config,omitempty" yaml:"config,omitempty"`
-	Files  []FileSet              `json:"files,omitempty" yaml:"files,omitempty"`
+	Config ContainerConfig `json:"config,omitempty" yaml:"config,omitempty"`
+	Files  []FileSet       `json:"files,omitempty" yaml:"files,omitempty"`
 
 	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
 
