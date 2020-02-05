@@ -4175,6 +4175,31 @@ func (s *upgradesSuite) TestRemoveControllerConfigMaxLogAgeAndSize(c *gc.C) {
 	s.assertUpgradedData(c, RemoveControllerConfigMaxLogAgeAndSize, upgradedData(settingsColl, expectedSettings))
 }
 
+func (s *upgradesSuite) TestIncrementTaskSequence(c *gc.C) {
+	st := s.pool.SystemState()
+	sequenceColl, closer := st.db().GetRawCollection(sequenceC)
+	defer closer()
+
+	// No tasks sequence requests, so no update.
+	err := IncrementTasksSequence(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	n, err := sequenceColl.FindId(st.ModelUUID() + ":tasks").Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	_, err = sequence(st, "tasks")
+	c.Assert(err, jc.ErrorIsNil)
+	err = IncrementTasksSequence(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var data bson.M
+	err = sequenceColl.FindId(st.ModelUUID() + ":tasks").One(&data)
+	c.Assert(err, jc.ErrorIsNil)
+	counter, ok := data["counter"].(int)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(counter, gc.Equals, 2)
+}
+
 func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {
 	col, closer := s.state.db().GetRawCollection(machinesC)
 	defer closer()

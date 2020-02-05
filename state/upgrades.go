@@ -2836,3 +2836,21 @@ func RemoveControllerConfigMaxLogAgeAndSize(pool *StatePool) error {
 	}
 	return nil
 }
+
+// IncrementTasksSequence adds 1 to the "tasks" sequence.
+// Previously, numbering started at 0, now it starts at 1
+// so we need to ensure that upgraded controllers do not
+// get a conflicting task id.
+func IncrementTasksSequence(pool *StatePool) error {
+	st := pool.SystemState()
+	// Only increment if there's previously been
+	// a request to get a task id.
+	sequenceColl, closer := st.db().GetRawCollection(sequenceC)
+	defer closer()
+	n, err := sequenceColl.FindId(st.docID("tasks")).Count()
+	if err != nil || n == 0 {
+		return errors.Trace(err)
+	}
+	_, err = sequence(st, "tasks")
+	return errors.Trace(err)
+}
