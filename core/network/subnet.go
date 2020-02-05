@@ -6,6 +6,7 @@ package network
 import (
 	"net"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 )
 
@@ -135,4 +136,24 @@ func IsValidCidr(cidr string) bool {
 		return true
 	}
 	return false
+}
+
+// FindSubnetIDsForAvailabilityZone returns a series of subnet IDs from a series
+// of zones, if zones match the zoneName.
+//
+// Returns an error if no matching subnets match the zoneName.
+func FindSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[Id][]string) ([]string, error) {
+	matchingSubnetIDs := set.NewStrings()
+	for subnetID, zones := range subnetsToZones {
+		zonesSet := set.NewStrings(zones...)
+		if zonesSet.Contains(zoneName) {
+			matchingSubnetIDs.Add(string(subnetID))
+		}
+	}
+
+	if matchingSubnetIDs.IsEmpty() {
+		return nil, errors.NotFoundf("subnets in AZ %q", zoneName)
+	}
+
+	return matchingSubnetIDs.SortedValues(), nil
 }
