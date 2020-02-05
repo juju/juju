@@ -59,55 +59,59 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController: coretesting.ControllerTag.Id(),
-					tags.JujuModel:      coretesting.ModelTag.Id(),
-					tags.JujuMachine:    "controller-machine-0",
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController: coretesting.ControllerTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
+						tags.JujuMachine:    "controller-machine-0",
+					},
 				},
 			}},
 			{Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Constraints:      template.Constraints,
-				Placement:        template.Placement,
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController: coretesting.ControllerTag.Id(),
-					tags.JujuModel:      coretesting.ModelTag.Id(),
-					tags.JujuMachine:    "controller-machine-5",
-				},
-				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-0",
-					Size:       1000,
-					Provider:   "static",
-					Attributes: map[string]interface{}{"foo": "bar"},
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Constraints:      template.Constraints,
+					Placement:        template.Placement,
+					Jobs:             []model.MachineJob{model.JobHostUnits},
 					Tags: map[string]string{
 						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
+						tags.JujuMachine:    "controller-machine-5",
 					},
-					Attachment: &params.VolumeAttachmentParams{
-						MachineTag: placementMachine.Tag().String(),
+					Volumes: []params.VolumeParams{{
 						VolumeTag:  "volume-0",
+						Size:       1000,
 						Provider:   "static",
-					},
-				}, {
-					VolumeTag:  "volume-1",
-					Size:       2000,
-					Provider:   "static",
-					Attributes: map[string]interface{}{"foo": "bar"},
-					Tags: map[string]string{
-						tags.JujuController: coretesting.ControllerTag.Id(),
-						tags.JujuModel:      coretesting.ModelTag.Id(),
-					},
-					Attachment: &params.VolumeAttachmentParams{
-						MachineTag: placementMachine.Tag().String(),
+						Attributes: map[string]interface{}{"foo": "bar"},
+						Tags: map[string]string{
+							tags.JujuController: coretesting.ControllerTag.Id(),
+							tags.JujuModel:      coretesting.ModelTag.Id(),
+						},
+						Attachment: &params.VolumeAttachmentParams{
+							MachineTag: placementMachine.Tag().String(),
+							VolumeTag:  "volume-0",
+							Provider:   "static",
+						},
+					}, {
 						VolumeTag:  "volume-1",
+						Size:       2000,
 						Provider:   "static",
-					},
-				}},
+						Attributes: map[string]interface{}{"foo": "bar"},
+						Tags: map[string]string{
+							tags.JujuController: coretesting.ControllerTag.Id(),
+							tags.JujuModel:      coretesting.ModelTag.Id(),
+						},
+						Attachment: &params.VolumeAttachmentParams{
+							MachineTag: placementMachine.Tag().String(),
+							VolumeTag:  "volume-1",
+							Provider:   "static",
+						},
+					}},
+				},
 			}},
 		},
 	}
@@ -144,15 +148,17 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Constraints:      template.Constraints,
-				Placement:        template.Placement,
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController: coretesting.ControllerTag.Id(),
-					tags.JujuModel:      coretesting.ModelTag.Id(),
-					tags.JujuMachine:    "controller-machine-5",
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Constraints:      template.Constraints,
+					Placement:        template.Placement,
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController: coretesting.ControllerTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
+						tags.JujuMachine:    "controller-machine-5",
+					},
 				},
 				SubnetsToZones: map[string][]string{
 					"subnet-1": {"zone1"},
@@ -212,21 +218,23 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController:    coretesting.ControllerTag.Id(),
-					tags.JujuModel:         coretesting.ModelTag.Id(),
-					tags.JujuMachine:       "controller-machine-5",
-					tags.JujuUnitsDeployed: wordpressUnit.Name(),
-				},
-				// Ensure space names are translated to provider IDs, where
-				// possible.
-				EndpointBindings: map[string]string{
-					"db":  "space2",         // just name, no provider ID
-					"url": "first space id", // has provider ID
-					// We expect none of the unspecified bindings in the result.
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController:    coretesting.ControllerTag.Id(),
+						tags.JujuModel:         coretesting.ModelTag.Id(),
+						tags.JujuMachine:       "controller-machine-5",
+						tags.JujuUnitsDeployed: wordpressUnit.Name(),
+					},
+					// Ensure space names are translated to provider IDs, where
+					// possible.
+					EndpointBindings: map[string]string{
+						"db":  "space2",         // just name, no provider ID
+						"url": "first space id", // has provider ID
+						// We expect none of the unspecified bindings in the result.
+					},
 				},
 			},
 		}}}
@@ -299,17 +307,19 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	expected := params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{{
 			Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController:    coretesting.ControllerTag.Id(),
-					tags.JujuModel:         coretesting.ModelTag.Id(),
-					tags.JujuMachine:       "controller-machine-5",
-					tags.JujuUnitsDeployed: profileUnit.Name(),
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController:    coretesting.ControllerTag.Id(),
+						tags.JujuModel:         coretesting.ModelTag.Id(),
+						tags.JujuMachine:       "controller-machine-5",
+						tags.JujuUnitsDeployed: profileUnit.Name(),
+					},
+					EndpointBindings: map[string]string{},
+					CharmLXDProfiles: []string{pName},
 				},
-				EndpointBindings: map[string]string{},
-				CharmLXDProfiles: []string{pName},
 			},
 		}}}
 	c.Assert(result, jc.DeepEquals, expected)
@@ -338,33 +348,35 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Constraints:      template.Constraints,
-				Placement:        template.Placement,
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController: coretesting.ControllerTag.Id(),
-					tags.JujuModel:      coretesting.ModelTag.Id(),
-					tags.JujuMachine:    "controller-machine-5",
-				},
-				// volume-0 should not be included as it is not managed by
-				// the environ provider.
-				Volumes: []params.VolumeParams{{
-					VolumeTag:  "volume-1",
-					Size:       1000,
-					Provider:   "static",
-					Attributes: nil,
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Constraints:      template.Constraints,
+					Placement:        template.Placement,
+					Jobs:             []model.MachineJob{model.JobHostUnits},
 					Tags: map[string]string{
 						tags.JujuController: coretesting.ControllerTag.Id(),
 						tags.JujuModel:      coretesting.ModelTag.Id(),
+						tags.JujuMachine:    "controller-machine-5",
 					},
-					Attachment: &params.VolumeAttachmentParams{
-						MachineTag: placementMachine.Tag().String(),
+					// volume-0 should not be included as it is not managed by
+					// the environ provider.
+					Volumes: []params.VolumeParams{{
 						VolumeTag:  "volume-1",
+						Size:       1000,
 						Provider:   "static",
-					},
-				}},
+						Attributes: nil,
+						Tags: map[string]string{
+							tags.JujuController: coretesting.ControllerTag.Id(),
+							tags.JujuModel:      coretesting.ModelTag.Id(),
+						},
+						Attachment: &params.VolumeAttachmentParams{
+							MachineTag: placementMachine.Tag().String(),
+							VolumeTag:  "volume-1",
+							Provider:   "static",
+						},
+					}},
+				},
 			}},
 		},
 	})
@@ -486,13 +498,15 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				ControllerConfig: controllerCfg,
-				Series:           "quantal",
-				Jobs:             []model.MachineJob{model.JobHostUnits},
-				Tags: map[string]string{
-					tags.JujuController: coretesting.ControllerTag.Id(),
-					tags.JujuModel:      coretesting.ModelTag.Id(),
-					tags.JujuMachine:    "controller-machine-0",
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController: coretesting.ControllerTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
+						tags.JujuMachine:    "controller-machine-0",
+					},
 				},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxd/0")},

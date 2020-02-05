@@ -743,8 +743,9 @@ type AgentVersionResult struct {
 	Version version.Number `json:"version"`
 }
 
-// ProvisioningInfo holds machine provisioning info.
-type ProvisioningInfo struct {
+// ProvisioningInfoBase holds machine provisioning info common
+// across different versions of the provisioner API facade.
+type ProvisioningInfoBase struct {
 	Constraints       constraints.Value        `json:"constraints"`
 	Series            string                   `json:"series"`
 	Placement         string                   `json:"placement"`
@@ -752,7 +753,6 @@ type ProvisioningInfo struct {
 	Volumes           []VolumeParams           `json:"volumes,omitempty"`
 	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
 	Tags              map[string]string        `json:"tags,omitempty"`
-	SubnetsToZones    map[string][]string      `json:"subnets-to-zones,omitempty"`
 	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
 	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
 	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
@@ -760,13 +760,22 @@ type ProvisioningInfo struct {
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 }
 
-// ProvisioningInfoResult holds machine provisioning info or an error.
+// ProvisioningInfo holds machine provisioning info returned by
+// versions 9 and lower of the provisioner API facade.
+type ProvisioningInfo struct {
+	ProvisioningInfoBase
+	SubnetsToZones map[string][]string `json:"subnets-to-zones,omitempty"`
+}
+
+// ProvisioningInfoResult holds machine provisioning info or an error
+// for versions 9 and lower of the provisioner API facade.
 type ProvisioningInfoResult struct {
 	Error  *Error            `json:"error,omitempty"`
 	Result *ProvisioningInfo `json:"result"`
 }
 
-// ProvisioningInfoResults holds multiple machine provisioning info results.
+// ProvisioningInfoResults holds multiple machine provisioning info results
+// for versions 9 and lower of the provisioner API facade.
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult `json:"results"`
 }

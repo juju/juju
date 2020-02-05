@@ -73,7 +73,7 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.En
 		jobs = append(jobs, job.ToParams())
 	}
 
-	tags, err := api.machineTags(m, jobs)
+	mTags, err := api.machineTags(m, jobs)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -104,19 +104,21 @@ func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.En
 	}
 
 	return &params.ProvisioningInfo{
-		Constraints:       cons,
-		Series:            m.Series(),
-		Placement:         m.Placement(),
-		Jobs:              jobs,
-		Volumes:           volumes,
-		VolumeAttachments: volumeAttachments,
-		Tags:              tags,
-		SubnetsToZones:    subnetsToZones,
-		EndpointBindings:  endpointBindings,
-		ImageMetadata:     imageMetadata,
-		ControllerConfig:  controllerCfg,
-		CloudInitUserData: env.Config().CloudInitUserData(),
-		CharmLXDProfiles:  pNames,
+		ProvisioningInfoBase: params.ProvisioningInfoBase{
+			Constraints:       cons,
+			Series:            m.Series(),
+			Placement:         m.Placement(),
+			Jobs:              jobs,
+			Volumes:           volumes,
+			VolumeAttachments: volumeAttachments,
+			Tags:              mTags,
+			EndpointBindings:  endpointBindings,
+			ImageMetadata:     imageMetadata,
+			ControllerConfig:  controllerCfg,
+			CloudInitUserData: env.Config().CloudInitUserData(),
+			CharmLXDProfiles:  pNames,
+		},
+		SubnetsToZones: subnetsToZones,
 	}, nil
 }
 
@@ -189,13 +191,14 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			// there's nothing more to do for it.
 			continue
 		}
+
+		// We are creating the machine, so no instance ID is supplied.
 		volumeAttachmentParams := params.VolumeAttachmentParams{
-			volumeTag.String(),
-			m.Tag().String(),
-			volumeInfo.VolumeId,
-			"", // we're creating the machine, so it has no instance ID.
-			volumeParams.Provider,
-			stateVolumeAttachmentParams.ReadOnly,
+			VolumeTag:  volumeTag.String(),
+			MachineTag: m.Tag().String(),
+			VolumeId:   volumeInfo.VolumeId,
+			Provider:   volumeParams.Provider,
+			ReadOnly:   stateVolumeAttachmentParams.ReadOnly,
 		}
 		if volumeProvisioned {
 			// Volume is already provisioned, so we just need to attach it.
@@ -248,20 +251,21 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 	return machineTags, nil
 }
 
-// machineSubnetsAndZones returns a map of subnet provider-specific id
-// to list of availability zone names for that subnet. The result can
-// be empty if there are no spaces constraints specified for the
-// machine, or there's an error fetching them.
+// machineSubnetsAndZones returns a map of availability zone names
+// keyed by provider subnet ID.
+// The result can be empty if there are no spaces constraints specified
+// for the machine, or there is an error fetching them.
 func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
-	mcons, err := m.Constraints()
+	cons, err := m.Constraints()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get machine constraints")
+		return nil, errors.Annotate(err, "retrieving machine constraints")
 	}
-	includeSpaces := mcons.IncludeSpaces()
+
+	includeSpaces := cons.IncludeSpaces()
 	if len(includeSpaces) < 1 {
-		// Nothing to do.
 		return nil, nil
 	}
+
 	// TODO(dimitern): For the network model MVP we only use the first
 	// included space and ignore the rest.
 	//
@@ -320,7 +324,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var names []string
+	var pNames []string
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
@@ -331,7 +335,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 			return nil, errors.Trace(err)
 		}
 		profile := ch.LXDProfile()
-		if profile == nil || (profile != nil && profile.Empty()) {
+		if profile == nil || profile.Empty() {
 			continue
 		}
 		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
@@ -342,9 +346,9 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 			return nil, errors.Trace(err)
 		}
 		api.mu.Unlock()
-		names = append(names, pName)
+		pNames = append(pNames, pName)
 	}
-	return names, nil
+	return pNames, nil
 }
 
 func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
@@ -432,7 +436,9 @@ func (api *ProvisionerAPI) spaceIdsToProviderIds() (map[string]string, error) {
 
 // availableImageMetadata returns all image metadata available to this machine
 // or an error fetching them.
-func (api *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.Environ) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) availableImageMetadata(
+	m *state.Machine, env environs.Environ,
+) ([]params.CloudImageMetadata, error) {
 	imageConstraint, err := api.constructImageConstraint(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not construct image constraint")
@@ -455,13 +461,13 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 		Stream: env.Config().ImageStream(),
 	}
 
-	mcons, err := m.Constraints()
+	cons, err := m.Constraints()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get machine constraints for machine %v", m.MachineTag().Id())
 	}
 
-	if mcons.Arch != nil {
-		lookup.Arches = []string{*mcons.Arch}
+	if cons.Arch != nil {
+		lookup.Arches = []string{*cons.Arch}
 	}
 
 	if hasRegion, ok := env.(simplestreams.HasRegion); ok {

@@ -27295,6 +27295,9 @@
                 "ProvisioningInfo": {
                     "type": "object",
                     "properties": {
+                        "ProvisioningInfoBase": {
+                            "$ref": "#/definitions/ProvisioningInfoBase"
+                        },
                         "charm-lxd-profiles": {
                             "type": "array",
                             "items": {
@@ -27358,6 +27361,92 @@
                                     }
                                 }
                             }
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "volume-attachments": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VolumeAttachmentParams"
+                            }
+                        },
+                        "volumes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VolumeParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "constraints",
+                        "series",
+                        "placement",
+                        "jobs",
+                        "ProvisioningInfoBase"
+                    ]
+                },
+                "ProvisioningInfoBase": {
+                    "type": "object",
+                    "properties": {
+                        "charm-lxd-profiles": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "cloudinit-userdata": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        },
+                        "controller-config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "endpoint-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "image-metadata": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CloudImageMetadata"
+                            }
+                        },
+                        "jobs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "placement": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "string"
                         },
                         "tags": {
                             "type": "object",

@@ -597,7 +597,7 @@ func (m *testMachine) SetInstanceStatus(_ status.Status, message string, _ map[s
 func (m *testMachine) InstanceStatus() (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return status.Status(""), m.instStatusMsg, nil
+	return "", m.instStatusMsg, nil
 }
 
 func (m *testMachine) SetModificationStatus(_ status.Status, message string, _ map[string]interface{}) error {
@@ -610,15 +610,15 @@ func (m *testMachine) SetModificationStatus(_ status.Status, message string, _ m
 func (m *testMachine) ModificationStatus() (status.Status, string, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	return status.Status(""), m.modStatusMsg, nil
+	return "", m.modStatusMsg, nil
 }
 
-func (m *testMachine) SetStatus(status status.Status, info string, data map[string]interface{}) error {
+func (m *testMachine) SetStatus(_ status.Status, _ string, _ map[string]interface{}) error {
 	return nil
 }
 
 func (m *testMachine) Status() (status.Status, string, error) {
-	return status.Status(""), "", nil
+	return "", "", nil
 }
 
 func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
@@ -626,18 +626,19 @@ func (m *testMachine) ModelAgentVersion() (*version.Number, error) {
 }
 
 func (m *testMachine) SetInstanceInfo(
-	id instance.Id, displayName string, nonce string, characteristics *instance.HardwareCharacteristics,
-	networkConfig []params.NetworkConfig, volumes []params.Volume,
-	volumeAttachments map[string]params.VolumeAttachmentInfo, charmProfiles []string,
+	_ instance.Id, _ string, _ string, _ *instance.HardwareCharacteristics, _ []params.NetworkConfig, _ []params.Volume,
+	_ map[string]params.VolumeAttachmentInfo, _ []string,
 ) error {
 	return nil
 }
 
 func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	return &params.ProvisioningInfo{
-		ControllerConfig: coretesting.FakeControllerConfig(),
-		Series:           series.DefaultSupportedLTS(),
-		Constraints:      constraints.MustParse(m.constraints),
+		ProvisioningInfoBase: params.ProvisioningInfoBase{
+			ControllerConfig: coretesting.FakeControllerConfig(),
+			Series:           series.DefaultSupportedLTS(),
+			Constraints:      constraints.MustParse(m.constraints),
+		},
 	}, nil
 }
 
