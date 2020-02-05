@@ -114,7 +114,7 @@
   name = "github.com/juju/testing"
 
 [[constraint]]
-  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
+  revision = "d40c2fe1064788d512a6ed0f3c4fcaf0e42515c6"
   name = "github.com/juju/utils"
 
 [[constraint]]
@@ -154,7 +154,7 @@
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "39289f3737654a399166e9cd65c043b5b3bfed01"
+  revision = "139ecaca454cb9101eed8ea76374ddc0be8cc8e8"
   name = "gopkg.in/juju/names.v3"
 
 [[constraint]]

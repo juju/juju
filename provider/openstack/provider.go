@@ -1067,6 +1067,7 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		BaseURL:              serviceURL,
 		HostnameVerification: verify,
 		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
+		CACertificates:       e.cloudUnlocked.CACertificates,
 	}
 	if err := cfg.Validate(); err != nil {
 		return nil, errors.Annotate(err, "simplestreams config validation failed")
@@ -1103,8 +1104,6 @@ func (e *Environ) DistributeInstances(
 	}
 	return valid, nil
 }
-
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*Environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
