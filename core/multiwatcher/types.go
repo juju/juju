@@ -50,6 +50,9 @@ type EntityInfo interface {
 	// EntityID returns an identifier that will uniquely
 	// identify the entity within its kind
 	EntityID() EntityID
+
+	// Clone returns a clone of the EntityInfo.
+	Clone() EntityInfo
 }
 
 // EntityID uniquely identifies an entity being tracked by the
@@ -99,6 +102,43 @@ func (i *MachineInfo) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.ID,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *MachineInfo) Clone() EntityInfo {
+	clone := *i
+	clone.HardwareCharacteristics = i.HardwareCharacteristics.Clone()
+	if len(i.Config) > 0 {
+		clone.Config = map[string]interface{}{}
+		for k, v := range i.Config {
+			clone.Config[k] = v
+		}
+	}
+	if len(i.SupportedContainers) > 0 {
+		clone.SupportedContainers = make([]instance.ContainerType, len(i.SupportedContainers))
+		for i, c := range i.SupportedContainers {
+			clone.SupportedContainers[i] = c
+		}
+	}
+	if len(i.CharmProfiles) > 0 {
+		clone.CharmProfiles = make([]string, len(i.CharmProfiles))
+		for i, c := range i.CharmProfiles {
+			clone.CharmProfiles[i] = c
+		}
+	}
+	if len(i.Jobs) > 0 {
+		clone.Jobs = make([]model.MachineJob, len(i.Jobs))
+		for i, j := range i.Jobs {
+			clone.Jobs[i] = j
+		}
+	}
+	if len(i.Addresses) > 0 {
+		clone.Addresses = make([]network.ProviderAddress, len(i.Addresses))
+		for i, a := range i.Addresses {
+			clone.Addresses[i] = a
+		}
+	}
+	return &clone
 }
 
 // StatusInfo holds the unit and machine status information. It is
@@ -151,11 +191,50 @@ func (i *ApplicationInfo) EntityID() EntityID {
 	}
 }
 
+// Clone returns a clone of the EntityInfo.
+func (i *ApplicationInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.Config) > 0 {
+		clone.Config = map[string]interface{}{}
+		for k, v := range i.Config {
+			clone.Config[k] = v
+		}
+	}
+	return &clone
+}
+
 // Profile is a representation of charm.v6 LXDProfile
 type Profile struct {
 	Config      map[string]string
 	Description string
 	Devices     map[string]map[string]string
+}
+
+func (p *Profile) Clone() *Profile {
+	if p == nil {
+		return nil
+	}
+	clone := *p
+	if len(p.Config) > 0 {
+		clone.Config = map[string]string{}
+		for k, v := range p.Config {
+			clone.Config[k] = v
+		}
+	}
+	if len(p.Devices) > 0 {
+		clone.Devices = map[string]map[string]string{}
+		for k, cfg := range p.Devices {
+			var cCfg map[string]string
+			if len(cfg) > 0 {
+				cCfg = map[string]string{}
+				for k, v := range cfg {
+					cCfg[k] = v
+				}
+			}
+			clone.Devices[k] = cCfg
+		}
+	}
+	return &clone
 }
 
 // CharmInfo holds the information about a charm that is tracked by the
@@ -180,6 +259,19 @@ func (i *CharmInfo) EntityID() EntityID {
 	}
 }
 
+// Clone returns a clone of the EntityInfo.
+func (i *CharmInfo) Clone() EntityInfo {
+	clone := *i
+	clone.LXDProfile = i.LXDProfile.Clone()
+	if len(i.DefaultConfig) > 0 {
+		clone.DefaultConfig = map[string]interface{}{}
+		for k, v := range i.DefaultConfig {
+			clone.DefaultConfig[k] = v
+		}
+	}
+	return &clone
+}
+
 // RemoteApplicationUpdate holds the information about a remote application that is
 // tracked by multiwatcherStore.
 type RemoteApplicationUpdate struct {
@@ -198,6 +290,12 @@ func (i *RemoteApplicationUpdate) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.Name,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *RemoteApplicationUpdate) Clone() EntityInfo {
+	clone := *i
+	return &clone
 }
 
 // ApplicationOfferInfo holds the information about an application offer that is
@@ -219,6 +317,12 @@ func (i *ApplicationOfferInfo) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.OfferName,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *ApplicationOfferInfo) Clone() EntityInfo {
+	clone := *i
+	return &clone
 }
 
 // UnitInfo holds the information about a unit
@@ -252,6 +356,24 @@ func (i *UnitInfo) EntityID() EntityID {
 	}
 }
 
+// Clone returns a clone of the EntityInfo.
+func (i *UnitInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.Ports) > 0 {
+		clone.Ports = make([]network.Port, len(i.Ports))
+		for i, p := range i.Ports {
+			clone.Ports[i] = p
+		}
+	}
+	if len(i.PortRanges) > 0 {
+		clone.PortRanges = make([]network.PortRange, len(i.PortRanges))
+		for i, p := range i.PortRanges {
+			clone.PortRanges[i] = p
+		}
+	}
+	return &clone
+}
+
 // ActionInfo holds the information about a action that is tracked by
 // multiwatcherStore.
 type ActionInfo struct {
@@ -276,6 +398,24 @@ func (i *ActionInfo) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.ID,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *ActionInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.Parameters) > 0 {
+		clone.Parameters = map[string]interface{}{}
+		for k, v := range i.Parameters {
+			clone.Parameters[k] = v
+		}
+	}
+	if len(i.Results) > 0 {
+		clone.Results = map[string]interface{}{}
+		for k, v := range i.Results {
+			clone.Results[k] = v
+		}
+	}
+	return &clone
 }
 
 // RelationInfo holds the information about a relation that is tracked
@@ -313,6 +453,18 @@ func (i *RelationInfo) EntityID() EntityID {
 	}
 }
 
+// Clone returns a clone of the EntityInfo.
+func (i *RelationInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.Endpoints) > 0 {
+		clone.Endpoints = make([]Endpoint, len(i.Endpoints))
+		for i, ep := range i.Endpoints {
+			clone.Endpoints[i] = ep
+		}
+	}
+	return &clone
+}
+
 // AnnotationInfo holds the information about an annotation that is
 // tracked by multiwatcherStore.
 type AnnotationInfo struct {
@@ -329,6 +481,18 @@ func (i *AnnotationInfo) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.Tag,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *AnnotationInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.Annotations) > 0 {
+		clone.Annotations = map[string]string{}
+		for k, v := range i.Annotations {
+			clone.Annotations[k] = v
+		}
+	}
+	return &clone
 }
 
 // BlockInfo holds the information about a block that is tracked by
@@ -349,6 +513,12 @@ func (i *BlockInfo) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.ID,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *BlockInfo) Clone() EntityInfo {
+	clone := *i
+	return &clone
 }
 
 // ModelInfo holds the information about a model that is
@@ -386,6 +556,24 @@ func (i *ModelInfo) EntityID() EntityID {
 	}
 }
 
+// Clone returns a clone of the EntityInfo.
+func (i *ModelInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.Config) > 0 {
+		clone.Config = map[string]interface{}{}
+		for k, v := range i.Config {
+			clone.Config[k] = v
+		}
+	}
+	if len(i.UserPermissions) > 0 {
+		clone.UserPermissions = map[string]permission.Access{}
+		for k, v := range i.UserPermissions {
+			clone.UserPermissions[k] = v
+		}
+	}
+	return &clone
+}
+
 // ItemChange is the multiwatcher representation of a core settings ItemChange.
 type ItemChange struct {
 	Type     int
@@ -416,4 +604,30 @@ func (i *BranchInfo) EntityID() EntityID {
 		ModelUUID: i.ModelUUID,
 		ID:        i.ID,
 	}
+}
+
+// Clone returns a clone of the EntityInfo.
+func (i *BranchInfo) Clone() EntityInfo {
+	clone := *i
+	if len(i.AssignedUnits) > 0 {
+		clone.AssignedUnits = map[string][]string{}
+		for k, units := range i.AssignedUnits {
+			cUnits := make([]string, len(units))
+			for i, u := range units {
+				cUnits[i] = u
+			}
+			clone.AssignedUnits[k] = cUnits
+		}
+	}
+	if len(i.Config) > 0 {
+		clone.Config = map[string][]ItemChange{}
+		for k, itemChanges := range i.Config {
+			cItems := make([]ItemChange, len(itemChanges))
+			for i, c := range itemChanges {
+				cItems[i] = c
+			}
+			clone.Config[k] = cItems
+		}
+	}
+	return &clone
 }

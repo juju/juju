@@ -69,6 +69,15 @@ func (hc HardwareCharacteristics) String() string {
 	return strings.Join(strs, " ")
 }
 
+// Clone returns a copy of the hardware characteristics.
+func (hc *HardwareCharacteristics) Clone() *HardwareCharacteristics {
+	if hc == nil {
+		return nil
+	}
+	clone := MustParseHardware(hc.String())
+	return &clone
+}
+
 // MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
 // as Parse, but panics on failure.
 func MustParseHardware(args ...string) HardwareCharacteristics {

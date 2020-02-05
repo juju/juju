@@ -242,9 +242,10 @@ func (a *store) ChangesSince(revno int64) ([]Delta, int64) {
 			// and removed since the revno.
 			continue
 		}
+		// Use clone to make a copy to avoid races.
 		changes = append(changes, Delta{
 			Removed: entry.removed,
-			Entity:  entry.info,
+			Entity:  entry.info.Clone(),
 		})
 	}
 	return changes, a.latestRevno

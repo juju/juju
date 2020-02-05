@@ -294,3 +294,11 @@ func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 		t.check(c)
 	}
 }
+
+func (s HardwareSuite) TestClone(c *gc.C) {
+	var hcNil *instance.HardwareCharacteristics
+	c.Assert(hcNil.Clone(), gc.IsNil)
+	hc := instance.MustParseHardware("root-disk=4G", "mem=2T", "cores=4096", "cpu-power=9001", "arch=armhf", "availability-zone=a_zone")
+	hc2 := hc.Clone()
+	c.Assert(hc, jc.DeepEquals, *hc2)
+}
