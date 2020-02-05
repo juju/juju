@@ -1906,7 +1906,7 @@ func (st *State) WatchControllerInfo() StringsWatcher {
 
 // WatchControllerConfig returns a NotifyWatcher for controller settings.
 func (st *State) WatchControllerConfig() NotifyWatcher {
-	return newEntityWatcher(st, controllersC, controllerSettingsGlobalKey)
+	return newEntityWatcher(st, controllersC, ControllerSettingsGlobalKey)
 }
 
 // Watch returns a watcher for observing changes to a controller service.

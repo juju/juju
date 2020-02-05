@@ -488,7 +488,13 @@ type StateSettings struct {
 // NewSettings returns a new StateSettings reference for working with settings
 // in the current database.
 func (st *State) NewSettings() *StateSettings {
-	return NewStateSettings(st)
+	return &StateSettings{st, settingsC}
+}
+
+// NewControllerSettings returns a new StateSettings reference for working with
+// controller settings in the current database.
+func (st *State) NewControllerSettings() *StateSettings {
+	return &StateSettings{st, controllersC}
 }
 
 // NewStateSettings creates a StateSettings from a modelBackend (e.g. State).
@@ -534,7 +540,7 @@ func (s *StateSettings) ListSettings(keyPrefix string) (map[string]map[string]in
 // DeltaOps returns the operations required to modify the settings document
 // identified by the input key, with the the input settings changes.
 func (s *StateSettings) DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error) {
-	cfg, err := readSettings(s.backend.db(), settingsC, key)
+	cfg, err := readSettings(s.backend.db(), s.collection, key)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

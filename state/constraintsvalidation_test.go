@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
@@ -301,4 +302,42 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
+}
+
+func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc.C) {
+	from, to, negatedTo := "db", "newdb", "^newdb"
+	cons := constraints.MustParse("spaces=db,alpha")
+	application, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        s.applicationName,
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: cons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(application, gc.NotNil)
+
+	negCons := constraints.MustParse("spaces=^db,alpha")
+	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
+		Name:        "unimportant",
+		Series:      "",
+		Charm:       s.testCharm,
+		Constraints: negCons,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(negApplication, gc.NotNil)
+
+	ops, err := s.State.ConstraintsOpsForSpaceNameChange(from, to)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 2)
+
+	var opsSpacesCombined []string
+	for _, op := range ops {
+		found := op.Update.(bson.D).Map()["$set"].(state.ConstraintsDoc).Spaces
+		opsSpacesCombined = append(opsSpacesCombined, *found...)
+
+	}
+	expectedSpace := []string{to, "alpha"}
+	negExpectedSpace := []string{negatedTo, "alpha"}
+	combinedExpected := append(expectedSpace, negExpectedSpace...)
+	c.Assert(combinedExpected, gc.DeepEquals, opsSpacesCombined)
 }

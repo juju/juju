@@ -706,7 +706,7 @@ func AddControllerLogCollectionsSizeSettings(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
-	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
+	if err := coll.FindId(ControllerSettingsGlobalKey).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
 			return nil
 		}
@@ -1464,7 +1464,7 @@ func MoveMongoSpaceToHASpaceConfig(pool *StatePool) error {
 
 	mongoSpace := doc.MongoSpaceName
 	if doc.MongoSpaceState == "valid" && mongoSpace != "" {
-		settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+		settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 		if err != nil {
 			return errors.Annotate(err, "cannot get controller config")
 		}
@@ -2170,7 +2170,7 @@ func AddModelLogsSize(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
-	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
+	if err := coll.FindId(ControllerSettingsGlobalKey).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
 			return nil
 		}
@@ -2811,7 +2811,7 @@ func RemoveControllerConfigMaxLogAgeAndSize(pool *StatePool) error {
 	coll, closer := st.db().GetRawCollection(controllersC)
 	defer closer()
 	var doc settingsDoc
-	if err := coll.FindId(controllerSettingsGlobalKey).One(&doc); err != nil {
+	if err := coll.FindId(ControllerSettingsGlobalKey).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
 			return nil
 		}

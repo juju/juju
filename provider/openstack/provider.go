@@ -2110,6 +2110,11 @@ func (e *Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) 
 	return false, nil
 }
 
+// SupportsSpaces is specified on environs.Networking.
+func (e *Environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
 // SupportsSpaceDiscovery is specified on environs.Networking.
 func (e *Environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil

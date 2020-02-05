@@ -113,6 +113,17 @@ func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
 	}, nil
 }
 
+// RenameSpaceOps returns the database transaction operations required to
+// rename the input space `fromName` to input `toName`.
+func (s *Space) RenameSpaceOps(toName string) []txn.Op {
+	renameSpaceOps := []txn.Op{{
+		C:      spacesC,
+		Id:     s.doc.DocId,
+		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
+	}}
+	return renameSpaceOps
+}
+
 // AddSpace creates and returns a new space.
 func (st *State) AddSpace(
 	name string, providerId network.Id, subnetIDs []string, isPublic bool) (newSpace *Space, err error,

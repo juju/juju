@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	// controllerSettingsGlobalKey is the key for the controller and its settings.
-	controllerSettingsGlobalKey = "controllerSettings"
+	// ControllerSettingsGlobalKey is the key for the controller and its settings.
+	ControllerSettingsGlobalKey = "controllerSettings"
 
 	// controllerGlobalKey is the key for controller.
 	controllerGlobalKey = "c"
@@ -82,7 +82,7 @@ func (ctlr *Controller) Ping() error {
 
 // ControllerConfig returns the config values for the controller.
 func (st *State) ControllerConfig() (jujucontroller.Config, error) {
-	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 	if err != nil {
 		return nil, errors.Annotatef(err, "controller %q", st.ControllerUUID())
 	}
@@ -99,7 +99,7 @@ func (st *State) UpdateControllerConfig(updateAttrs map[string]interface{}, remo
 		return errors.Trace(err)
 	}
 
-	settings, err := readSettings(st.db(), controllersC, controllerSettingsGlobalKey)
+	settings, err := readSettings(st.db(), controllersC, ControllerSettingsGlobalKey)
 	if err != nil {
 		return errors.Annotatef(err, "controller %q", st.ControllerUUID())
 	}

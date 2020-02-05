@@ -153,3 +153,25 @@ func (api *API) ReloadSpaces() error {
 	}
 	return err
 }
+
+func (api *API) RenameSpace(oldName string, newName string) error {
+	var response params.ErrorResults
+	spaceRenameParams := make([]params.RenameSpaceParams, 1)
+	spaceRename := params.RenameSpaceParams{
+		FromSpaceTag: names.NewSpaceTag(oldName).String(),
+		ToSpaceTag:   names.NewSpaceTag(newName).String(),
+	}
+	spaceRenameParams[0] = spaceRename
+	args := params.RenameSpacesParams{SpacesRenames: spaceRenameParams}
+	err := api.facade.FacadeCall("RenameSpace", args, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return errors.NewNotSupported(nil, err.Error())
+		}
+		return errors.Trace(err)
+	}
+	if err := response.Combine(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}

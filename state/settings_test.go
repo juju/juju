@@ -631,6 +631,20 @@ func (s *SettingsSuite) TestDeltaOpsSuccess(c *gc.C) {
 	})
 }
 
+func (s *SettingsSuite) TestDeltaOpsNoChanges(c *gc.C) {
+	s1, err := s.createSettings(s.key, map[string]interface{}{
+		"foo": []interface{}{"bar"},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s1.Write()
+	c.Assert(err, jc.ErrorIsNil)
+
+	settings := s.state.NewSettings()
+	ops, err := settings.DeltaOps(s.key, nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.IsNil)
+}
+
 func (s *SettingsSuite) TestDeltaOpsChangedError(c *gc.C) {
 	s1, err := s.createSettings(s.key, map[string]interface{}{
 		"foo": []interface{}{"bar"},

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -21,6 +22,8 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.spaces")
 
 // BlockChecker defines the block-checking functionality required by
 // the spaces facade. This is implemented by apiserver/common.BlockChecker.
@@ -65,8 +68,11 @@ type Backing interface {
 	// AllEndpointBindings loads all endpointBindings.
 	AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error)
 
-	// AllMachines loads all machines
+	// AllMachines loads all machines.
 	AllMachines() ([]Machine, error)
+
+	// ApplyOperation applies a given ModelOperation to the model.
+	ApplyOperation(state.ModelOperation) error
 }
 
 // APIv2 provides the spaces API facade for versions < 3.
@@ -91,12 +97,13 @@ type APIv5 struct {
 
 // API provides the spaces API facade for version 6.
 type API struct {
-	backing    Backing
-	resources  facade.Resources
-	authorizer facade.Authorizer
-	context    context.ProviderCallContext
+	backing   Backing
+	resources facade.Resources
+	auth      facade.Authorizer
+	context   context.ProviderCallContext
 
-	check BlockChecker
+	check     BlockChecker
+	opFactory OpFactory
 }
 
 // NewAPIv2 is a wrapper that creates a V2 spaces API.
@@ -142,7 +149,7 @@ func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateShim, common.NewBlockChecker(st), state.CallContext(st), res, auth)
+	return newAPIWithBacking(stateShim, common.NewBlockChecker(st), state.CallContext(st), res, auth, newOpFactory(st))
 }
 
 // newAPIWithBacking creates a new server-side Spaces API facade with
@@ -153,24 +160,26 @@ func newAPIWithBacking(
 	ctx context.ProviderCallContext,
 	resources facade.Resources,
 	authorizer facade.Authorizer,
+	factory OpFactory,
 ) (*API, error) {
 	// Only clients can access the Spaces facade.
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	return &API{
-		backing:    backing,
-		resources:  resources,
-		authorizer: authorizer,
-		context:    ctx,
-		check:      check,
+		backing:   backing,
+		resources: resources,
+		auth:      authorizer,
+		context:   ctx,
+		check:     check,
+		opFactory: factory,
 	}, nil
 }
 
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.ErrorResults, err error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return results, errors.Trace(err)
 	}
@@ -200,7 +209,7 @@ func (api *API) CreateSpaces(args params.CreateSpacesParams) (results params.Err
 // CreateSpaces creates a new Juju network space, associating the
 // specified subnets with it (optional; can be empty).
 func (api *APIv4) CreateSpaces(args params.CreateSpacesParamsV4) (params.ErrorResults, error) {
-	isAdmin, err := api.authorizer.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
@@ -285,7 +294,7 @@ func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ListSpaces() (results params.ListSpacesResults, err error) {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return results, errors.Trace(err)
 	}
@@ -330,7 +339,7 @@ func (api *APIv5) ShowSpace(_, _ struct{}) {}
 
 // ListSpaces lists all the available spaces and their associated subnets.
 func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, error) {
-	canRead, err := api.authorizer.HasPermission(permission.ReadAccess, api.backing.ModelTag())
+	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return params.ShowSpaceResults{}, errors.Trace(err)
 	}
@@ -397,7 +406,7 @@ func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
 // RefreshSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces() error {
-	canWrite, err := api.authorizer.HasPermission(permission.WriteAccess, api.backing.ModelTag())
+	canWrite, err := api.auth.HasPermission(permission.WriteAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -423,6 +432,19 @@ func (api *API) checkSupportsSpaces() error {
 	}
 	if !environs.SupportsSpaces(api.context, env) {
 		return errors.NotSupportedf("spaces")
+	}
+	return nil
+}
+
+// checkSupportsProviderSpaces checks if the environment implements NetworkingEnviron
+// and also if it support provider spaces.
+func (api *API) checkSupportsProviderSpaces() error {
+	env, err := environs.GetEnviron(api.backing, environs.New)
+	if err != nil {
+		return errors.Annotate(err, "getting environ")
+	}
+	if environs.SupportsProviderSpaces(api.context, env) {
+		return errors.NotSupportedf("renaming provider-sourced spaces")
 	}
 	return nil
 }

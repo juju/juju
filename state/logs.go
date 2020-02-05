@@ -121,7 +121,7 @@ func modelLogsSize(session *mgo.Session) (int, error) {
 	// is no State, Controller, nor StatePool objects just now. Use low level
 	// mgo to access the settings.
 	var doc settingsDoc
-	err := session.DB(jujuDB).C(controllersC).FindId(controllerSettingsGlobalKey).One(&doc)
+	err := session.DB(jujuDB).C(controllersC).FindId(ControllerSettingsGlobalKey).One(&doc)
 	if err != nil {
 		return 0, errors.Trace(err)
 	}

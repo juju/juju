@@ -8,16 +8,78 @@ import (
 	"fmt"
 	"math/rand"
 
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/api/base/mocks"
 	apitesting "github.com/juju/juju/api/base/testing"
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 	coretesting "github.com/juju/juju/testing"
 )
+
+// spacesSuite are using mocks instead of the apicaller stubs
+type spacesSuite struct {
+	fCaller *mocks.MockFacadeCaller
+	API     *spaces.API
+}
+
+var _ = gc.Suite(&spacesSuite{})
+
+func (s *spacesSuite) SetUpTest(c *gc.C) {
+}
+
+func (s *spacesSuite) TearDownTest(c *gc.C) {
+	s.fCaller = nil
+}
+
+func (s *spacesSuite) setUpMocks(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+
+	caller := mocks.NewMockAPICallCloser(ctrl)
+	caller.EXPECT().BestFacadeVersion(gomock.Any()).Return(0).AnyTimes()
+
+	s.fCaller = mocks.NewMockFacadeCaller(ctrl)
+	s.fCaller.EXPECT().RawAPICaller().Return(caller).AnyTimes()
+	s.API = spaces.NewAPIFromCaller(s.fCaller)
+	return ctrl
+}
+
+func (s *spacesSuite) TestRenameSpace(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	from, to := "from", "to"
+	resultSource := params.ErrorResults{}
+	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{{
+		FromSpaceTag: names.NewSpaceTag(from).String(),
+		ToSpaceTag:   names.NewSpaceTag(to).String(),
+	}}}
+	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	err := s.API.RenameSpace(from, to)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	from, to := "from", "to"
+	resultSource := params.ErrorResults{Results: []params.ErrorResult{{
+		Error: &params.Error{
+			Message: "bam",
+			Code:    "500",
+		},
+	}}}
+	args := params.RenameSpacesParams{SpacesRenames: []params.RenameSpaceParams{{
+		FromSpaceTag: names.NewSpaceTag(from).String(),
+		ToSpaceTag:   names.NewSpaceTag(to).String(),
+	}}}
+	s.fCaller.EXPECT().FacadeCall("RenameSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	err := s.API.RenameSpace(from, to)
+	c.Assert(err, gc.ErrorMatches, "bam")
+}
 
 type SpacesSuite struct {
 	coretesting.BaseSuite

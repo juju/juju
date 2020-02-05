@@ -102,7 +102,7 @@ func (s *RenameSuite) TestRunWithValidNamesSucceeds(c *gc.C) {
 func (s *RenameSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 	s.api.SetErrors(errors.New("boom"))
 
-	s.AssertRunFails(c,
+	_ = s.AssertRunFails(c,
 		`cannot rename space "foo": boom`,
 		"foo", "bar",
 	)
