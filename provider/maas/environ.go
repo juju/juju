@@ -926,8 +926,6 @@ func (env *maasEnviron) DistributeInstances(
 	return common.DistributeInstances(env, ctx, candidates, distributionGroup, limitZones)
 }
 
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
-
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*maasEnviron) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
 	return nil
