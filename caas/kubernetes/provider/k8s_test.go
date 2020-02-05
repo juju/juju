@@ -264,6 +264,13 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 						"path": "spec.nodeName",
 					},
 				},
+				"my-resource-limit": map[string]interface{}{
+					"resource": map[string]interface{}{
+						"container-name": "container1",
+						"resource":       "requests.cpu",
+						"divisor":        "1m",
+					},
+				},
 				"attr": "foo=bar; name[\"fred\"]=\"blogs\";",
 				"configmap1": map[string]interface{}{
 					"config-map": map[string]interface{}{
@@ -357,6 +364,16 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 					{Name: "float", Value: "111.11111111"},
 					{Name: "foo", Value: "bar"},
 					{Name: "int", Value: "111"},
+					{
+						Name: "my-resource-limit",
+						ValueFrom: &core.EnvVarSource{
+							ResourceFieldRef: &core.ResourceFieldSelector{
+								ContainerName: "container1",
+								Resource:      "requests.cpu",
+								Divisor:       resource.MustParse("1m"),
+							},
+						},
+					},
 					{Name: "restricted", Value: "yes"},
 					{Name: "special", Value: "p@ssword's"},
 					{Name: "switch", Value: "true"},

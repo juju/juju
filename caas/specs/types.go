@@ -52,7 +52,7 @@ type ImageDetails struct {
 // PullPolicy describes a policy for if/when to pull a container image.
 type PullPolicy string
 
-// ContainerConfig describes a config map for a container.
+// ContainerConfig describes the config used for setting up a pod container's environment variables.
 type ContainerConfig map[string]interface{}
 
 // ContainerSpec defines the data values used to configure
