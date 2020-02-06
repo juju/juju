@@ -579,7 +579,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
 	} else if args.Constraints.HasSpaces() {
-		subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+		subnetIDsForZone, subnetErr = corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
 		if subnetErr == nil && placementSubnetID != "" {
 			asSet := set.NewStrings(subnetIDsForZone...)
 			if asSet.Contains(placementSubnetID) {
