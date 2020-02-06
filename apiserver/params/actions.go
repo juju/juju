@@ -40,6 +40,12 @@ type Action struct {
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
 
+// EnqueuedActions represents the result of enqueuing actions to run.
+type EnqueuedActions struct {
+	OperationTag string         `json:"operation"`
+	Actions      []StringResult `json:"actions,omitempty"`
+}
+
 // ActionResults is a slice of ActionResult for bulk requests.
 type ActionResults struct {
 	Results []ActionResult `json:"results,omitempty"`

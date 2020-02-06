@@ -61,8 +61,14 @@ type runCommand struct {
 }
 
 const runDoc = `
-Run a charm action for execution on a given unit, with a given set of params.
+Run a charm action for execution on the given unit(s), with a given set of params.
 An ID is returned for use with 'juju show-operation <ID>'.
+
+A action executed on a given unit becomes a task with an ID that can be
+used with 'juju show-task <ID>'.
+
+Running an action returns the overall operation ID as well as the individual
+task ID(s) for each unit.
 
 To queue a action to be run in the background without waiting for it to finish,
 use the --background option.
@@ -109,7 +115,9 @@ Examples:
 
 See also:
     list-operations
+    list-tasks
     show-operation
+    show-task
 `
 
 // SetFlags offers an option for YAML output.
@@ -189,43 +197,56 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.api.Close()
 
-	results, err := c.enqueueActions(ctx)
+	// juju run action is behind a feature flag so we are
+	// free to not support running against an older controller
+	if c.api.BestAPIVersion() < 6 {
+		return errors.Errorf("juju run action not supported on this version of Juju")
+	}
+
+	operationId, results, err := c.enqueueActions(ctx)
 	if err != nil {
 		return errors.Trace(err)
 	}
+	numTasks := len(results)
+	if !c.background {
+		var plural string
+		if numTasks > 1 {
+			plural = "s"
+		}
+		ctx.Infof("Running operation %s with %d task%s", operationId, numTasks, plural)
+	}
 
 	var actionTag names.ActionTag
-	info := make(map[string]interface{}, len(results.Results))
-	for _, result := range results.Results {
-		if result.Error != nil {
-			return result.Error
+	info := make(map[string]interface{}, numTasks)
+	for i, result := range results {
+		if result.err != nil {
+			return result.err
 		}
-		if result.Action == nil {
-			return errors.Errorf("operation failed to enqueue on %q", result.Action.Receiver)
+		if result.task == "" {
+			return errors.Errorf("operation failed to enqueue on %q", result.receiver)
 		}
-		if actionTag, err = names.ParseActionTag(result.Action.Tag); err != nil {
+		if actionTag, err = names.ParseActionTag(result.task); err != nil {
 			return err
 		}
 
 		if !c.background {
-			ctx.Infof("Running Operation %s", actionTag.Id())
+			ctx.Infof("  - task %s on %s", actionTag.Id(), c.unitReceivers[i])
 		}
-		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
-		if err != nil {
-			return err
-		}
-		info[unitTag.Id()] = map[string]string{
+		info[result.receiver] = map[string]string{
 			"id": actionTag.Id(),
 		}
 	}
+	ctx.Infof("")
 	if c.background {
-		if len(results.Results) == 1 {
-			ctx.Infof("Scheduled Operation %s", actionTag.Id())
-			ctx.Infof("Check status with 'juju show-operation %s'", actionTag.Id())
+		if numTasks == 1 {
+			ctx.Infof("Scheduled operation %s with task %s", operationId, actionTag.Id())
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
+			ctx.Infof("Check task status with 'juju show-task %s'", actionTag.Id())
 		} else {
-			ctx.Infof("Scheduled Operations:")
+			ctx.Infof("Scheduled operation %s with %d tasks", operationId, numTasks)
 			cmd.FormatYaml(ctx.Stderr, info)
-			ctx.Infof("Check status with 'juju show-operation <id>'")
+			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
+			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
 		return nil
 	}
@@ -242,7 +263,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	actionDone := make(chan struct{})
 	var logsWatcher watcher.StringsWatcher
 	haveLogs := false
-	if len(results.Results) == 1 && c.api.BestAPIVersion() >= 5 {
+	if numTasks == 1 {
 		logsWatcher, err = c.api.WatchActionProgress(actionTag.Id())
 		if err != nil {
 			return errors.Trace(err)
@@ -260,14 +281,14 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	for i, result := range results.Results {
-		tag, err := names.ParseActionTag(result.Action.Tag)
+	for i, result := range results {
+		tag, err := names.ParseActionTag(result.task)
 		if err != nil {
 			waitForWatcher()
 			return errors.Trace(err)
 		}
-		fmt.Fprintf(ctx.Stderr, "Waiting for operation %v...\n", tag.Id())
-		result, err = GetActionResult(c.api, tag.Id(), wait, false)
+		fmt.Fprintf(ctx.Stderr, "Waiting for task %v...\n", tag.Id())
+		actionResult, err := GetActionResult(c.api, tag.Id(), wait, false)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
@@ -278,39 +299,41 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		unitTag, err := names.ParseUnitTag(result.Action.Receiver)
-		if err != nil {
-			return err
-		}
-		d := FormatActionResult(result, c.utc, false)
+		d := FormatActionResult(actionResult, c.utc, false)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
-		info[unitTag.Id()] = d
+		info[result.receiver] = d
 	}
 
 	return c.out.Write(ctx, info)
 }
 
-func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, error) {
+type enqueuedAction struct {
+	task     string
+	receiver string
+	err      error
+}
+
+func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction, error) {
 	actionParams := map[string]interface{}{}
 	if c.paramsYAML.Path != "" {
 		b, err := c.paramsYAML.Read(ctx)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
 
 		err = yaml.Unmarshal(b, &actionParams)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
 
 		conformantParams, err := common.ConformYAML(actionParams)
 		if err != nil {
-			return nil, errors.Trace(err)
+			return "", nil, errors.Trace(err)
 		}
 
 		betterParams, ok := conformantParams.(map[string]interface{})
 		if !ok {
-			return nil, errors.New("params must contain a YAML map with string keys")
+			return "", nil, errors.New("params must contain a YAML map with string keys")
 		}
 
 		actionParams = betterParams
@@ -325,7 +348,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, er
 		if !c.parseStrings {
 			err := yaml.Unmarshal([]byte(value), &cleansedValue)
 			if err != nil {
-				return nil, errors.Trace(err)
+				return "", nil, errors.Trace(err)
 			}
 		}
 		// Insert the value in the map.
@@ -333,18 +356,18 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, er
 	}
 	conformantParams, err := common.ConformYAML(actionParams)
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
 	typedConformantParams, ok := conformantParams.(map[string]interface{})
 	if !ok {
-		return nil, errors.Errorf("params must be a map, got %T", typedConformantParams)
+		return "", nil, errors.Errorf("params must be a map, got %T", typedConformantParams)
 	}
 	actions := make([]params.Action, len(c.unitReceivers))
 	for i, unitReceiver := range c.unitReceivers {
 		if strings.HasSuffix(unitReceiver, "leader") {
 			if c.api.BestAPIVersion() < 3 {
 				app := strings.Split(unitReceiver, "/")[0]
-				return nil, errors.Errorf("unable to determine leader for application %q"+
+				return "", nil, errors.Errorf("unable to determine leader for application %q"+
 					"\nleader determination is unsupported by this API"+
 					"\neither upgrade your controller, or explicitly specify a unit", app)
 			}
@@ -355,14 +378,28 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (*params.ActionResults, er
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.Enqueue(params.Actions{Actions: actions})
+	results, err := c.api.EnqueueV2(params.Actions{Actions: actions})
 	if err != nil {
-		return nil, errors.Trace(err)
+		return "", nil, errors.Trace(err)
 	}
-	if len(results.Results) != len(c.unitReceivers) {
-		return nil, errors.New("illegal number of results returned")
+	if len(results.Actions) != len(c.unitReceivers) {
+		return "", nil, errors.New("illegal number of results returned")
 	}
-	return &results, nil
+	tasks := make([]enqueuedAction, len(results.Actions))
+	for i, a := range results.Actions {
+		tasks[i] = enqueuedAction{
+			task:     a.Result,
+			receiver: c.unitReceivers[i],
+		}
+		if a.Error != nil {
+			tasks[i].err = a.Error
+		}
+	}
+	operationTag, err := names.ParseOperationTag(results.OperationTag)
+	if err != nil {
+		return "", nil, errors.Trace(err)
+	}
+	return operationTag.Id(), tasks, nil
 }
 
 // filteredOutputKeys are those we don't want to display as part of the

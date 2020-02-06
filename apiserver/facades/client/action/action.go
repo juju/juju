@@ -45,6 +45,11 @@ type APIv4 struct {
 
 // APIv5 provides the Action API facade for version 5.
 type APIv5 struct {
+	*APIv6
+}
+
+// APIv6 provides the Action API facade for version 6.
+type APIv6 struct {
 	*ActionAPI
 }
 
@@ -75,13 +80,22 @@ func NewActionAPIV4(ctx facade.Context) (*APIv4, error) {
 	return &APIv4{api}, nil
 }
 
-// NewActionAPIV5 returns an initialized ActionAPI for version 4.
+// NewActionAPIV5 returns an initialized ActionAPI for version 5.
 func NewActionAPIV5(ctx facade.Context) (*APIv5, error) {
-	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	api, err := NewActionAPIV6(ctx)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv5{api}, nil
+}
+
+// NewActionAPIV6 returns an initialized ActionAPI for version 6.
+func NewActionAPIV6(ctx facade.Context) (*APIv6, error) {
+	api, err := newActionAPI(ctx.State(), ctx.Resources(), ctx.Auth())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &APIv6{api}, nil
 }
 
 func newActionAPI(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ActionAPI, error) {
@@ -247,13 +261,42 @@ func (a *ActionAPI) FindActionsByNames(arg params.FindActionsByNames) (params.Ac
 	return response, nil
 }
 
+// EnqueueV2 isn't on the V5 API.
+func (*APIv5) EnqueueV2(_, _ struct{}) {}
+
+// EnqueueV2 takes a list of Actions and queues them up to be executed by
+// the designated ActionReceiver, returning the ids of the overall operation
+// and each individual task.
+func (a *ActionAPI) EnqueueV2(arg params.Actions) (params.EnqueuedActions, error) {
+	operationId, actionResults, err := a.enqueue(arg)
+	if err != nil {
+		return params.EnqueuedActions{}, err
+	}
+	results := params.EnqueuedActions{
+		OperationTag: names.NewOperationTag(operationId).String(),
+		Actions:      make([]params.StringResult, len(actionResults.Results)),
+	}
+	for i, action := range actionResults.Results {
+		results.Actions[i].Error = action.Error
+		if action.Action != nil {
+			results.Actions[i].Result = action.Action.Tag
+		}
+	}
+	return results, nil
+}
+
 // Enqueue takes a list of Actions and queues them up to be executed by
 // the designated ActionReceiver, returning the params.Action for each
 // enqueued Action, or an error if there was a problem enqueueing the
 // Action.
 func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
+	_, results, err := a.enqueue(arg)
+	return results, err
+}
+
+func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, error) {
 	if err := a.checkCanWrite(); err != nil {
-		return params.ActionResults{}, errors.Trace(err)
+		return "", params.ActionResults{}, errors.Trace(err)
 	}
 
 	var leaders map[string]string
@@ -288,7 +331,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	summary := fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ","))
 	operationID, err := a.model.EnqueueOperation(summary)
 	if err != nil {
-		return params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
+		return "", params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
 	}
 
 	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
@@ -318,7 +361,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 
 		response.Results[i] = common.MakeActionResult(receiver.Tag(), enqueued, false)
 	}
-	return response, nil
+	return operationID, response, nil
 }
 
 // ListAll takes a list of Entities representing ActionReceivers and

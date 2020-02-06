@@ -287,6 +287,87 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	c.Assert(operations[0].Summary(), gc.Equals, "multiple actions run on unit-wordpress-0,application-wordpress,unit-mysql-0,wordpress/leader")
 }
 
+func (s *actionSuite) TestEnqueueV2(c *gc.C) {
+	// Ensure wordpress unit is the leader.
+	claimer, err := s.LeaseManager.Claimer("application-leadership", s.State.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim("wordpress", "wordpress/0", time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Make sure no Actions already exist on wordpress Unit.
+	actions, err := s.wordpressUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Make sure no Actions already exist on mysql Unit.
+	actions, err = s.mysqlUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Add Actions.
+	expectedName := "fakeaction"
+	expectedParameters := map[string]interface{}{"kan jy nie": "verstaand"}
+	arg := params.Actions{
+		Actions: []params.Action{
+			// No receiver.
+			{Name: "fakeaction"},
+			// Good.
+			{Receiver: s.wordpressUnit.Tag().String(), Name: expectedName, Parameters: expectedParameters},
+			// Application tag instead of Unit tag.
+			{Receiver: s.wordpress.Tag().String(), Name: "fakeaction"},
+			// Missing name.
+			{Receiver: s.mysqlUnit.Tag().String(), Parameters: expectedParameters},
+			// Good (leader syntax).
+			{Receiver: "wordpress/leader", Name: expectedName, Parameters: expectedParameters},
+		},
+	}
+
+	// blocking changes should have no effect
+	s.BlockAllChanges(c, "Enqueue")
+
+	res, err := s.action.EnqueueV2(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Actions, gc.HasLen, 5)
+
+	emptyActionTag := names.ActionTag{}
+	c.Assert(res.Actions[0].Error, gc.DeepEquals,
+		&params.Error{Message: fmt.Sprintf("%s not valid", arg.Actions[0].Receiver), Code: ""})
+	c.Assert(res.Actions[0].Result, gc.Equals, "")
+
+	c.Assert(res.Actions[1].Error, gc.IsNil)
+	c.Assert(res.Actions[1].Result, gc.Not(gc.Equals), emptyActionTag)
+
+	errorString := fmt.Sprintf("action receiver interface on entity %s not implemented", arg.Actions[2].Receiver)
+	c.Assert(res.Actions[2].Error, gc.DeepEquals, &params.Error{Message: errorString, Code: "not implemented"})
+	c.Assert(res.Actions[2].Result, gc.Equals, "")
+
+	c.Assert(res.Actions[3].Error, gc.ErrorMatches, "no action name given")
+	c.Assert(res.Actions[3].Result, gc.Equals, "")
+
+	c.Assert(res.Actions[4].Error, gc.IsNil)
+	c.Assert(res.Actions[4].Result, gc.Not(gc.Equals), emptyActionTag)
+
+	// Make sure that 2 actions were enqueued for the wordpress Unit.
+	actions, err = s.wordpressUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 2)
+	for _, act := range actions {
+		c.Assert(act.Name(), gc.Equals, expectedName)
+		c.Assert(act.Parameters(), gc.DeepEquals, expectedParameters)
+		c.Assert(act.Receiver(), gc.Equals, s.wordpressUnit.Name())
+	}
+
+	// Make sure an Action was not enqueued for the mysql Unit.
+	actions, err = s.mysqlUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	operations, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Summary(), gc.Equals, "multiple actions run on unit-wordpress-0,application-wordpress,unit-mysql-0,wordpress/leader")
+}
+
 type testCaseAction struct {
 	Name       string
 	Parameters map[string]interface{}

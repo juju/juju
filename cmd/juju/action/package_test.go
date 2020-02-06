@@ -173,6 +173,22 @@ func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, erro
 	return params.ActionResults{Results: c.actionResults}, c.apiErr
 }
 
+func (c *fakeAPIClient) EnqueueV2(args params.Actions) (params.EnqueuedActions, error) {
+	c.enqueuedActions = args
+	actions := make([]params.StringResult, len(c.actionResults))
+	for i, a := range c.actionResults {
+		actions[i] = params.StringResult{
+			Error: a.Error,
+		}
+		if a.Action != nil {
+			actions[i].Result = a.Action.Tag
+		}
+	}
+	return params.EnqueuedActions{
+		OperationTag: "operation-1",
+		Actions:      actions}, c.apiErr
+}
+
 func (c *fakeAPIClient) ListAll(args params.Entities) (params.ActionsByReceivers, error) {
 	return params.ActionsByReceivers{
 		Actions: c.actionsByReceivers,

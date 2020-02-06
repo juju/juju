@@ -108,10 +108,10 @@ func (c *showOutputCommand) Info() *cmd.Info {
 		Doc:     showOutputDoc,
 	})
 	if !c.compat {
-		info.Name = "show-operation"
-		info.Args = "<operation ID>"
-		info.Purpose = "Show results of a operation by ID."
-		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-operation", -1)
+		info.Name = "show-task"
+		info.Args = "<task ID>"
+		info.Purpose = "Show results of a task by ID."
+		info.Doc = strings.Replace(info.Doc, "show-action-output", "show-task", -1)
 		info.Doc = strings.Replace(info.Doc, "run-action", "run", -1)
 	}
 	return info
