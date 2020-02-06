@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"path"
 	"sort"
@@ -1162,7 +1163,7 @@ func (e *Environ) startInstance(
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	networks, err := e.networksForInstance()
+	networks, err := e.networksForInstance(args)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -1403,14 +1404,14 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 
 // networksForInstance returns networks that will be attached
 // to a new Openstack instance.
-func (e *Environ) networksForInstance() ([]nova.ServerNetworks, error) {
+func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova.ServerNetworks, error) {
 	networks, err := e.networking.DefaultNetworks()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting initial networks")
 	}
 
 	usingNetwork := e.ecfg().network()
-	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
+	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {
 			// If there is no network configured, we only throw out when the
@@ -1424,11 +1425,55 @@ func (e *Environ) networksForInstance() ([]nova.ServerNetworks, error) {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		logger.Debugf("using network id %q", networkId)
-		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
+		logger.Debugf("using network id %q", networkID)
+		networks = append(networks, nova.ServerNetworks{
+			NetworkId: networkID,
+		})
 	}
 
-	return networks, nil
+	// Attempt to locate any subnet IDs for a passed in AZ.
+	availabilityZone := args.AvailabilityZone
+
+	var subnetIDsForZone []string
+	if args.Constraints.HasSpaces() {
+		var err error
+		subnetIDsForZone, err = corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+
+		switch {
+		case errors.IsNotFound(err):
+			return nil, errors.Trace(err)
+		case err != nil:
+			return nil, errors.Annotatef(err, "getting subnets for zone %q", availabilityZone)
+		}
+	}
+
+	// If there are some subnet IDs from an AZ, attempt to put them on the
+	// networks.
+	// TODO (stickupkid): Currently this logic attempts to handle multiple
+	// networks, in fact in reality it actually handles only one server network.
+	// DefaultNetworks currently returns an empty slice and ResolveNetwork only
+	// returns one network. bug #1733266
+	var subnetID string
+	if num := len(subnetIDsForZone); num > 1 {
+		// Randomize the subnetIDsForZone in order to gain a better distributed
+		// spread over the zones.
+		// Note: this won't perform an even distribution unless a new random
+		// seed has been given for every initialization.
+		subnetID = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
+		logger.Debugf("selected random subnet %q from all matching in zone %q", subnetID, availabilityZone)
+	} else if num == 1 {
+		subnetID = subnetIDsForZone[0]
+		logger.Debugf("selected subnet %q in zone %q", subnetID, availabilityZone)
+	}
+
+	// Set the subnetID on the network for all networks.
+	subnetNetworks := make([]nova.ServerNetworks, len(networks))
+	for k, network := range networks {
+		network.FixedIp = subnetID
+		subnetNetworks[k] = network
+	}
+
+	return subnetNetworks, nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
