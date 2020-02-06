@@ -1,7 +1,7 @@
 // Copyright 2019 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package migrations aims to create an intermidiate state between state and the
+// Package migrations aims to create an intermediate state between state and the
 // description package. One that aims to correctly model the dependencies
 // required for migration.
 //
