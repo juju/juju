@@ -191,6 +191,13 @@ type ProvisionerAPIV8 struct {
 // ProvisionerAPIV9 provides v9 of the provisioner facade.
 // Added SupportedContainers
 type ProvisionerAPIV9 struct {
+	*ProvisionerAPIV10
+}
+
+// ProvisionerAPIV9 provides v9 of the provisioner facade.
+// It returns a new form of ProvisioningInfo that
+// supports multiple space constraints.
+type ProvisionerAPIV10 struct {
 	*ProvisionerAPI
 }
 
@@ -241,11 +248,20 @@ func NewProvisionerAPIV8(st *state.State, resources facade.Resources, authorizer
 
 // NewProvisionerAPIV9 creates a new server-side Provisioner API facade.
 func NewProvisionerAPIV9(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV9, error) {
-	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	provisionerAPI, err := NewProvisionerAPIV10(st, resources, authorizer)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &ProvisionerAPIV9{provisionerAPI}, nil
+}
+
+// NewProvisionerAPIV10 creates a new server-side Provisioner API facade.
+func NewProvisionerAPIV10(st *state.State, resources facade.Resources, authorizer facade.Authorizer) (*ProvisionerAPIV10, error) {
+	provisionerAPI, err := NewProvisionerAPI(st, resources, authorizer)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ProvisionerAPIV10{provisionerAPI}, nil
 }
 
 func (api *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {

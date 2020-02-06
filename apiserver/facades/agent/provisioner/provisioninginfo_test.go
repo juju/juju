@@ -56,9 +56,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{
-			{Result: &params.ProvisioningInfo{
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{
+			{Result: &params.ProvisioningInfoV10{
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
@@ -70,7 +70,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 					},
 				},
 			}},
-			{Result: &params.ProvisioningInfo{
+			{Result: &params.ProvisioningInfoV10{
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
@@ -125,7 +125,7 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithStorage(c *gc.C) {
 	c.Assert(result, jc.DeepEquals, expected)
 }
 
-func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraints(c *gc.C) {
+func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositiveSpaceInConstraintsV9(c *gc.C) {
 	s.addSpacesAndSubnets(c)
 
 	cons := constraints.MustParse("cores=123 mem=8G spaces=^space1,space2")
@@ -141,7 +141,12 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: placementMachine.Tag().String()},
 	}}
-	result, err := s.provisioner.ProvisioningInfo(args)
+
+	api, err := provisioner.NewProvisionerAPIV9(s.State, s.resources, s.authorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(api, gc.NotNil)
+
+	result, err := api.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
@@ -163,6 +168,58 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithSingleNegativeAndPositi
 				SubnetsToZones: map[string][]string{
 					"subnet-1": {"zone1"},
 					"subnet-2": {"zone2"},
+				},
+			},
+		}}}
+	c.Assert(result, jc.DeepEquals, expected)
+}
+
+func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceConstraints(c *gc.C) {
+	s.addSpacesAndSubnets(c)
+
+	cons := constraints.MustParse("cores=123 mem=8G spaces=space1,space2")
+	template := state.MachineTemplate{
+		Series:      "quantal",
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: cons,
+		Placement:   "valid",
+	}
+	placementMachine, err := s.State.AddOneMachine(template)
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: placementMachine.Tag().String()},
+	}}
+
+	result, err := s.provisioner.ProvisioningInfo(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	controllerCfg := s.ControllerConfig
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{{
+			Result: &params.ProvisioningInfoV10{
+				ProvisioningInfoBase: params.ProvisioningInfoBase{
+					ControllerConfig: controllerCfg,
+					Series:           "quantal",
+					Constraints:      template.Constraints,
+					Placement:        template.Placement,
+					Jobs:             []model.MachineJob{model.JobHostUnits},
+					Tags: map[string]string{
+						tags.JujuController: coretesting.ControllerTag.Id(),
+						tags.JujuModel:      coretesting.ModelTag.Id(),
+						tags.JujuMachine:    "controller-machine-5",
+					},
+				},
+				ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
+					SubnetAZs: map[string][]string{
+						"subnet-0": {"zone0"},
+						"subnet-1": {"zone1"},
+						"subnet-2": {"zone2"},
+					},
+					SpaceSubnets: map[string][]string{
+						"space1": {"subnet-0"},
+						"space2": {"subnet-1", "subnet-2"},
+					},
 				},
 			},
 		}}}
@@ -215,9 +272,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithEndpointBindings(c *gc.
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{{
-			Result: &params.ProvisioningInfo{
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{{
+			Result: &params.ProvisioningInfoV10{
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
@@ -270,11 +327,11 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithUnsuitableSpacesConstra
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedErrorEmptySpace := `cannot match subnets to zones: ` +
+	expectedErrorEmptySpace := `matching subnets to zones: ` +
 		`cannot use space "empty" as deployment target: no subnets`
-	expectedErrorMissingSpace := `cannot match subnets to zones: ` +
+	expectedErrorMissingSpace := `matching subnets to zones: ` +
 		`space "missing"` // " not found" will be appended by NotFoundError helper below.
-	expected := params.ProvisioningInfoResults{Results: []params.ProvisioningInfoResult{
+	expected := params.ProvisioningInfoResultsV10{Results: []params.ProvisioningInfoResultV10{
 		{Error: apiservertesting.ServerError(expectedErrorEmptySpace)},
 		{Error: apiservertesting.NotFoundError(expectedErrorMissingSpace)},
 	}}
@@ -304,9 +361,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithLXDProfile(c *gc.C) {
 	controllerCfg := s.ControllerConfig
 
 	pName := fmt.Sprintf("juju-%s-lxd-profile-0", profileMachine.ModelName())
-	expected := params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{{
-			Result: &params.ProvisioningInfo{
+	expected := params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{{
+			Result: &params.ProvisioningInfoV10{
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
@@ -345,9 +402,9 @@ func (s *withoutControllerSuite) TestStorageProviderFallbackToType(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	controllerCfg := s.ControllerConfig
-	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{
-			{Result: &params.ProvisioningInfo{
+	c.Assert(result, jc.DeepEquals, params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{
+			{Result: &params.ProvisioningInfoV10{
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",
@@ -495,9 +552,9 @@ func (s *withoutControllerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	results, err := aProvisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
 	controllerCfg := s.ControllerConfig
-	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResults{
-		Results: []params.ProvisioningInfoResult{
-			{Result: &params.ProvisioningInfo{
+	c.Assert(results, jc.DeepEquals, params.ProvisioningInfoResultsV10{
+		Results: []params.ProvisioningInfoResultV10{
+			{Result: &params.ProvisioningInfoV10{
 				ProvisioningInfoBase: params.ProvisioningInfoBase{
 					ControllerConfig: controllerCfg,
 					Series:           "quantal",

@@ -181,7 +181,9 @@ func (s *ImageMetadataSuite) expectedDataSoureImageMetadata() [][]params.CloudIm
 	return expected
 }
 
-func (s *ImageMetadataSuite) assertImageMetadataResults(c *gc.C, obtained params.ProvisioningInfoResults, expected ...[]params.CloudImageMetadata) {
+func (s *ImageMetadataSuite) assertImageMetadataResults(
+	c *gc.C, obtained params.ProvisioningInfoResultsV10, expected ...[]params.CloudImageMetadata,
+) {
 	c.Assert(obtained.Results, gc.HasLen, len(expected))
 	for i, one := range obtained.Results {
 		// We are only concerned with images here

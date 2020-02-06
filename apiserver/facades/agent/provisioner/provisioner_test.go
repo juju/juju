@@ -52,7 +52,7 @@ type provisionerSuite struct {
 
 	authorizer  apiservertesting.FakeAuthorizer
 	resources   *common.Resources
-	provisioner *provisioner.ProvisionerAPIV9
+	provisioner *provisioner.ProvisionerAPIV10
 }
 
 var _ = gc.Suite(&provisionerSuite{})
@@ -93,7 +93,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withController bool) {
 	s.resources = common.NewResources()
 
 	// Create a provisioner API for the machine.
-	provisionerAPI, err := provisioner.NewProvisionerAPIV9(
+	provisionerAPI, err := provisioner.NewProvisionerAPIV10(
 		s.State,
 		s.resources,
 		s.authorizer,

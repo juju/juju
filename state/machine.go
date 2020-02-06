@@ -66,7 +66,7 @@ func (job MachineJob) ToParams() model.MachineJob {
 	return model.MachineJob(fmt.Sprintf("<unknown job %d>", int(job)))
 }
 
-// params.JobsFromJobs converts state jobs to juju jobs.
+// paramsJobsFromJobs converts state jobs to juju jobs.
 func paramsJobsFromJobs(jobs []MachineJob) []model.MachineJob {
 	jujuJobs := make([]model.MachineJob, len(jobs))
 	for i, machineJob := range jobs {
