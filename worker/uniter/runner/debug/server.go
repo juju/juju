@@ -5,6 +5,7 @@ package debug
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -49,15 +50,13 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 	if err != nil {
 		return errors.Trace(err)
 	}
-	defer os.RemoveAll(debugDir)
-	if err := s.writeDebugFiles(debugDir); err != nil {
+	defer func() { _ = os.RemoveAll(debugDir) }()
+	help := findRunHookString(hookName, hookRunner)
+	if err := s.writeDebugFiles(debugDir, help); err != nil {
 		return errors.Trace(err)
 	}
 
-	// TODO add JUJU_DISPATCH_HOOK if needed.
-	env = utils.Setenv(env, "JUJU_HOOK_NAME="+hookName)
 	env = utils.Setenv(env, "JUJU_DEBUG="+debugDir)
-	env = utils.Setenv(env, "JUJU_HOOK_RUNNER="+hookRunner)
 
 	cmd := exec.Command("/bin/bash", "-s")
 	cmd.Env = env
@@ -75,12 +74,19 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string, hookRun
 		// then kill the server hook process in case the client
 		// exited uncleanly.
 		waitClientExit(s)
-		proc.Kill()
+		_ = proc.Kill()
 	}(cmd.Process)
 	return cmd.Wait()
 }
 
-func (s *ServerSession) writeDebugFiles(debugDir string) error {
+func findRunHookString(hookName, hookRunner string) string {
+	if hookName == hookRunner {
+		return "./$JUJU_DISPATCH_PATH"
+	}
+	return "./" + hookRunner
+}
+
+func (s *ServerSession) writeDebugFiles(debugDir, help string) error {
 	// hook.sh does not inherit environment variables,
 	// so we must insert the path to the directory
 	// containing env.sh for it to source.
@@ -95,7 +101,7 @@ func (s *ServerSession) writeDebugFiles(debugDir string) error {
 		mode     os.FileMode
 	}
 	files := []file{
-		{"welcome.msg", debugHooksWelcomeMessage, 0644},
+		{"welcome.msg", fmt.Sprintf(debugHooksWelcomeMessage, help), 0644},
 		{"init.sh", debugHooksInitScript, 0755},
 		{"hook.sh", debugHooksHookScript, 0755},
 	}
@@ -176,7 +182,7 @@ const debugHooksWelcomeMessage = `This is a Juju debug-hooks tmux session. Remem
 new events for this unit without exiting a current debug-session.
 3. To run an action or hook and end the debugging session avoiding processing any more events manually, use:
 
-./hooks/$JUJU_HOOK_RUNNER # or, equivalently, ./actions/$JUJU_HOOK_RUNNER
+%s
 tmux kill-session -t $JUJU_UNIT_NAME # or, equivalently, CTRL+a d
 
 4. CTRL+a is tmux prefix.
