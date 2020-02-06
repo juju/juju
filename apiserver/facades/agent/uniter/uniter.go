@@ -1745,43 +1745,56 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 		return params.ErrorResults{}, err
 	}
 
-	updateOne := func(arg params.RelationUnitSettings) error {
-		unitTag, err := names.ParseUnitTag(arg.Unit)
-		if err != nil {
-			return common.ErrPerm
-		}
-		rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		relUnit, err := rel.Unit(unit)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.updateApplicationSettings(rel, unit, arg.ApplicationSettings)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.updateUnitSettings(relUnit, arg.Settings)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
 	for i, arg := range args.RelationUnits {
-		result.Results[i].Error = common.ServerError(updateOne(arg))
+		updateOp, err := u.updateUnitAndApplicationSettingsOp(arg, canAccess)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err = u.st.ApplyOperation(updateOp); err != nil {
+			if leadership.IsNotLeaderError(err) {
+				err = common.ErrPerm
+			}
+
+			result.Results[i].Error = common.ServerError(err)
+		}
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) updateUnitSettings(relUnit *state.RelationUnit, newSettings params.Settings) error {
+func (u *UniterAPI) updateUnitAndApplicationSettingsOp(arg params.RelationUnitSettings, canAccess common.AuthFunc) (state.ModelOperation, error) {
+	unitTag, err := names.ParseUnitTag(arg.Unit)
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	relUnit, err := rel.Unit(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appSettingsUpdateOp, err := u.updateApplicationSettingsOp(rel, unit, arg.ApplicationSettings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitSettingsUpdateOp, err := u.updateUnitSettingsOp(relUnit, arg.Settings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return state.ComposeModelOperations(appSettingsUpdateOp, unitSettingsUpdateOp), nil
+}
+
+func (u *UniterAPI) updateUnitSettingsOp(relUnit *state.RelationUnit, newSettings params.Settings) (state.ModelOperation, error) {
 	if len(newSettings) == 0 {
-		return nil
+		return nil, nil
 	}
 	settings, err := relUnit.Settings()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	for k, v := range newSettings {
 		if v == "" {
@@ -1790,24 +1803,20 @@ func (u *UniterAPI) updateUnitSettings(relUnit *state.RelationUnit, newSettings 
 			settings.Set(k, v)
 		}
 	}
-	_, err = settings.Write()
-	return errors.Trace(err)
+	return settings.WriteOperation(), nil
 }
 
-func (u *UniterAPI) updateApplicationSettings(rel *state.Relation, unit *state.Unit, settings params.Settings) error {
+func (u *UniterAPI) updateApplicationSettingsOp(rel *state.Relation, unit *state.Unit, settings params.Settings) (state.ModelOperation, error) {
 	if len(settings) == 0 {
-		return nil
+		return nil, nil
 	}
 	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
 	settingsMap := make(map[string]interface{}, len(settings))
 	for k, v := range settings {
 		settingsMap[k] = v
 	}
-	err := rel.UpdateApplicationSettings(unit.ApplicationName(), token, settingsMap)
-	if leadership.IsNotLeaderError(err) {
-		return common.ErrPerm
-	}
-	return errors.Trace(err)
+
+	return rel.UpdateApplicationSettingsOperation(unit.ApplicationName(), token, settingsMap)
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
