@@ -194,7 +194,7 @@ type ProvisionerAPIV9 struct {
 	*ProvisionerAPIV10
 }
 
-// ProvisionerAPIV9 provides v9 of the provisioner facade.
+// ProvisionerAPIV10 provides v10 of the provisioner facade.
 // It returns a new form of ProvisioningInfo that
 // supports multiple space constraints.
 type ProvisionerAPIV10 struct {

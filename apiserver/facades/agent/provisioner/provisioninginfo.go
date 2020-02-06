@@ -60,7 +60,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 
 func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfoV10, error) {
 	var err error
-	result := params.ProvisioningInfoV10{}
+	var result params.ProvisioningInfoV10
 
 	if result.ProvisioningInfoBase, err = api.getProvisioningInfoBase(m, env); err != nil {
 		return nil, errors.Trace(err)
@@ -156,7 +156,7 @@ func (api *ProvisionerAPI) getProvisioningInfoBase(
 		return result, errors.Annotate(err, "cannot get controller configuration")
 	}
 
-	var jobs = m.Jobs()
+	jobs := m.Jobs()
 	result.Jobs = make([]model.MachineJob, len(jobs))
 	for i, job := range jobs {
 		result.Jobs[i] = job.ToParams()
@@ -299,7 +299,7 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 }
 
 func (api *ProvisionerAPI) machineSpaceTopology(m *state.Machine) (params.ProvisioningNetworkTopology, error) {
-	topology := params.ProvisioningNetworkTopology{}
+	var topology params.ProvisioningNetworkTopology
 
 	cons, err := m.Constraints()
 	if err != nil {
@@ -325,7 +325,11 @@ func (api *ProvisionerAPI) machineSpaceTopology(m *state.Machine) (params.Provis
 		subnetIDs := make([]string, 0, len(subnetsAndZones))
 		for sID, zones := range subnetsAndZones {
 			// We do not expect unique provider subnets to be in more than one
-			// space, so no keys will be overwritten by subsequent spaces.
+			// space, so no subnet should be processed more than once.
+			// Log a warning if this happens.
+			if _, ok := topology.SpaceSubnets[sID]; ok {
+				logger.Warningf("subnet with provider ID %q found is present in multiple spaces", sID)
+			}
 			topology.SubnetAZs[sID] = zones
 			subnetIDs = append(subnetIDs, sID)
 		}
