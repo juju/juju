@@ -36,7 +36,7 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 			name:     "no match",
 			zoneName: "fuzz",
 			subnetsToZones: map[network.Id][]string{
-				"bar": []string{"foo", "baz"},
+				"bar": {"foo", "baz"},
 			},
 			expected:    make([]string, 0),
 			expectedErr: errors.IsNotFound,
@@ -45,7 +45,7 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 			name:     "match",
 			zoneName: "foo",
 			subnetsToZones: map[network.Id][]string{
-				"bar": []string{"foo", "baz"},
+				"bar": {"foo", "baz"},
 			},
 			expected: []string{"bar"},
 		},
@@ -53,8 +53,8 @@ func (*subnetSuite) TestFindSubnetIDsForAZ(c *gc.C) {
 			name:     "multi-match",
 			zoneName: "foo",
 			subnetsToZones: map[network.Id][]string{
-				"bar":   []string{"foo", "baz"},
-				"other": []string{"aaa", "foo", "xxx"},
+				"bar":   {"foo", "baz"},
+				"other": {"aaa", "foo", "xxx"},
 			},
 			expected: []string{"bar", "other"},
 		},
