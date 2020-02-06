@@ -174,6 +174,8 @@ type HookContext struct {
 	// id identifies the context.
 	id string
 
+	hookName string
+
 	// actionData contains the values relevant to the run of an Action:
 	// its tag, its parameters, and its results.
 	actionData *ActionData
@@ -893,6 +895,7 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 		"CHARM_DIR="+paths.GetCharmDir(), // legacy, embarrassing
 		"JUJU_CHARM_DIR="+paths.GetCharmDir(),
 		"JUJU_CONTEXT_ID="+ctx.id,
+		"JUJU_HOOK_NAME="+ctx.hookName,
 		"JUJU_AGENT_SOCKET_ADDRESS="+paths.GetJujucClientSocket(remote).Address,
 		"JUJU_AGENT_SOCKET_NETWORK="+paths.GetJujucClientSocket(remote).Network,
 		"JUJU_UNIT_NAME="+ctx.unitName,
