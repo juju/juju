@@ -24,10 +24,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
@@ -41,6 +39,7 @@ type SpaceTestMockSuite struct {
 	mockBacking          *mocks.MockBacking
 	mockResource         *facademocks.MockResources
 	mockBlockChecker     *mocks.MockBlockChecker
+	mockConstraints      *mocks.MockConstraints
 	mockCloudCallContext *context.CloudCallContext
 	mockAuthorizer       *facademocks.MockAuthorizer
 
@@ -61,7 +60,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceDefault(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 
-	s.expectDefaultSpace(ctrl, "default", nil, nil, "1")
+	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
 	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
 
@@ -101,7 +100,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSpace(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", bamErr, nil, "1")
+	s.expectDefaultSpace(ctrl, "default", bamErr, nil)
 	args := s.getShowSpaceArg("default")
 
 	res, err := s.api.ShowSpace(args)
@@ -116,7 +115,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingSubnets(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", nil, bamErr, "1")
+	s.expectDefaultSpace(ctrl, "default", nil, bamErr)
 	args := s.getShowSpaceArg("default")
 
 	res, err := s.api.ShowSpace(args)
@@ -131,7 +130,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", nil, nil, "1")
+	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), bamErr)
 
 	args := s.getShowSpaceArg("default")
@@ -148,7 +147,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	defer unreg()
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, "default", nil, nil, "1")
+	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
@@ -164,7 +163,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 
-	s.expectDefaultSpace(ctrl, "blub", nil, nil, "1")
+	s.expectDefaultSpace(ctrl, "blub", nil, nil)
 
 	from, to := "bla", "blub"
 	args := s.getRenameArgs(from, to)
@@ -182,7 +181,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, bamErr, nil, "1")
+	s.expectDefaultSpace(ctrl, to, bamErr, nil)
 
 	args := s.getRenameArgs(from, to)
 
@@ -199,7 +198,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorRename(c *gc.C) {
 	from, to := "bla", "blub"
 
 	bamErr := errors.New("bam")
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""), nil, "1")
+	s.expectDefaultSpace(ctrl, to, errors.NotFoundf(""), nil)
 	args := s.getRenameArgs(from, to)
 
 	s.mockOpFactory.EXPECT().NewRenameSpaceModelOp(from, to).Return(nil, bamErr)
@@ -229,7 +228,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 	from, to := "bla", "blub"
 
 	s.mockOpFactory.EXPECT().NewRenameSpaceModelOp(from, to).Return(s.mockRenameOp, nil)
-	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil, "1")
+	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
 	s.mockBacking.EXPECT().ApplyOperation(s.mockRenameOp).Return(nil)
 	args := s.getRenameArgs(from, to)
 
@@ -258,10 +257,10 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	space := "myspace"
 	args, tag := s.getRemoveArgs(space)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil, "1")
+	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
-	s.mockBacking.EXPECT().ConstraintsTagForSpaceName(space).Return([]names.Tag{}, nil)
-	s.mockBacking.EXPECT().IsControllerModel().Return(false, nil)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.mockBacking.EXPECT().IsController().Return(false)
 	s.mockOpFactory.EXPECT().NewRemoveSpaceModelOp(tag.Id()).Return(nil, nil)
 	s.mockBacking.EXPECT().ApplyOperation(nil).Return(nil)
 
@@ -278,10 +277,10 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	space := "myspace"
 	args, tag := s.getRemoveArgs(space)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil, "1")
+	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
-	s.mockBacking.EXPECT().ConstraintsTagForSpaceName(space).Return([]names.Tag{}, nil)
-	s.mockBacking.EXPECT().IsControllerModel().Return(true, nil)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
 	s.mockBacking.EXPECT().ControllerConfig().Return(nil, nil)
 	s.mockOpFactory.EXPECT().NewRemoveSpaceModelOp(tag.Id()).Return(nil, nil)
 	s.mockBacking.EXPECT().ApplyOperation(nil).Return(nil)
@@ -299,11 +298,10 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil, "1")
+	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
-	s.mockBacking.EXPECT().IsControllerModel().Return(false, nil)
-	s.mockBacking.EXPECT().ConstraintsTagForSpaceName(space).Return([]names.Tag{}, nil)
-
+	s.mockBacking.EXPECT().IsController().Return(false)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: []params.Entity{
 			{
@@ -331,14 +329,13 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil, "1")
+	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
-	s.mockBacking.EXPECT().IsControllerModel().Return(true, nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
 	s.mockBacking.EXPECT().ControllerConfig().Return(currentConfig, nil)
-	s.mockBacking.EXPECT().ConstraintsTagForSpaceName(space).Return([]names.Tag{}, nil)
-
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings:           nil,
 		Constraints:        nil,
@@ -359,16 +356,11 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil, "1")
+	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
-	s.mockBacking.EXPECT().IsControllerModel().Return(false, nil)
+	s.mockBacking.EXPECT().IsController().Return(false)
 
-	cApp := names.NewApplicationTag("mediawiki")
-	cMachine := names.NewMachineTag("m/1")
-	cUnit := names.NewUnitTag("u/1")
-	cModel := names.NewModelTag("e121212")
-	foundConstraintsTags := []names.Tag{cApp, cMachine, cUnit, cModel}
-	s.mockBacking.EXPECT().ConstraintsTagForSpaceName(space).Return(foundConstraintsTags, nil)
+	cApp, cModel := s.expectAllTags(space)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: nil,
@@ -387,7 +379,10 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 	res, err := s.api.RemoveSpace(args)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, expected)
+	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
+	c.Assert(res.Results[0].Bindings, gc.IsNil)
+	c.Assert(res.Results[0].ControllerSettings, gc.IsNil)
+	c.Assert(res.Results[0].Error, gc.IsNil)
 }
 
 func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
@@ -397,19 +392,14 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	space := "myspace"
 	args, _ := s.getRemoveArgs(space)
 
-	s.expectDefaultSpace(ctrl, space, nil, nil, "1")
+	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
-	s.mockBacking.EXPECT().IsControllerModel().Return(true, nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
 
 	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
 	s.mockBacking.EXPECT().ControllerConfig().Return(currentConfig, nil)
 
-	cApp := names.NewApplicationTag("mediawiki")
-	cMachine := names.NewMachineTag("m/1")
-	cUnit := names.NewUnitTag("u/1")
-	cModel := names.NewModelTag("e121212")
-	foundConstraintsTags := []names.Tag{cApp, cMachine, cUnit, cModel}
-	s.mockBacking.EXPECT().ConstraintsTagForSpaceName(space).Return(foundConstraintsTags, nil)
+	cApp, cModel := s.expectAllTags(space)
 
 	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
 		Bindings: []params.Entity{
@@ -435,7 +425,10 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	res, err := s.api.RemoveSpace(args)
 
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res, gc.DeepEquals, expected)
+	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
+	c.Assert(res.Results[0].Bindings, jc.SameContents, expected.Results[0].Bindings)
+	c.Assert(res.Results[0].ControllerSettings, jc.SameContents, expected.Results[0].ControllerSettings)
+	c.Assert(res.Results[0].Error, gc.IsNil)
 }
 
 func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
@@ -448,6 +441,19 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) 
 
 	_, err := s.api.RemoveSpace(args)
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
+}
+
+func (s *SpaceTestMockSuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
+	model := "42c4f770-86ed-4fcc-8e39-697063d082bc:e"
+	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
+	application := "c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql"
+	unit := "c9741ea1-0c2a-444d-82f5-787583a48557:u#mysql/0"
+	s.mockConstraints.EXPECT().ID().Return(model)
+	s.mockConstraints.EXPECT().ID().Return(machine)
+	s.mockConstraints.EXPECT().ID().Return(application)
+	s.mockConstraints.EXPECT().ID().Return(unit)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(spaceName).Return([]spaces.Constraints{s.mockConstraints, s.mockConstraints, s.mockConstraints, s.mockConstraints}, nil)
+	return names.NewApplicationTag("mysql"), names.NewModelTag("e")
 }
 
 func (s *SpaceTestMockSuite) getDefaultControllerConfig(c *gc.C, attr map[string]interface{}) controller.Config {
@@ -490,6 +496,7 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 	s.mockBacking = mocks.NewMockBacking(ctrl)
 	s.mockOpFactory = mocks.NewMockOpFactory(ctrl)
 	s.mockRenameOp = statemocks.NewMockModelOperation(ctrl)
+	s.mockConstraints = mocks.NewMockConstraints(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
@@ -527,7 +534,7 @@ func (s *SpaceTestMockSuite) expectEndpointBindings(endpoints []spaces.Applicati
 }
 
 // expectDefaultSpace configures a default space mock with default subnet settings
-func (s *SpaceTestMockSuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr, subnetErr error, spaceID string) {
+func (s *SpaceTestMockSuite) expectDefaultSpace(ctrl *gomock.Controller, name string, spacesErr, subnetErr error) {
 	subnetMock := networkcommonmocks.NewMockBackingSubnet(ctrl)
 	subnetMock.EXPECT().CIDR().Return("192.168.0.0/24").AnyTimes()
 	subnetMock.EXPECT().SpaceID().Return("1").AnyTimes()
@@ -592,11 +599,15 @@ type stubBacking struct {
 	*apiservertesting.StubBacking
 }
 
-func (sb *stubBacking) ConstraintsTagForSpaceName(name string) ([]names.Tag, error) {
+func (sb *stubBacking) IsController() bool {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) IsControllerModel() (bool, error) {
+func (sb *stubBacking) ParseLocalIDToTags(docID string) names.Tag {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) ConstraintsBySpaceName(name string) ([]spaces.Constraints, error) {
 	panic("should not be called")
 }
 
@@ -604,19 +615,7 @@ func (sb *stubBacking) ApplyOperation(state.ModelOperation) error {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
-	panic("should not be called")
-}
-
 func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) Constraints() (constraints.Value, error) {
 	panic("should not be called")
 }
 

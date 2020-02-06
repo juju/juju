@@ -1811,23 +1811,18 @@ func (ctx *allWatcherContext) loadPermissions() error {
 	return nil
 }
 
-type constraintsWithID struct {
-	DocID  string         `bson:"_id"`
-	Nested constraintsDoc `bson:",inline"`
-}
-
 func (ctx *allWatcherContext) loadConstraints() error {
 	col, closer := ctx.state.db().GetCollection(constraintsC)
 	defer closer()
 
-	var docs []constraintsWithID
+	var docs []constraintsDoc
 	if err := col.Find(nil).All(&docs); err != nil {
 		return errors.Errorf("cannot read all constraints")
 	}
 
 	ctx.constraints = make(map[string]constraints.Value)
 	for _, doc := range docs {
-		ctx.constraints[doc.DocID] = doc.Nested.value()
+		ctx.constraints[doc.DocID] = doc.value()
 	}
 
 	return nil

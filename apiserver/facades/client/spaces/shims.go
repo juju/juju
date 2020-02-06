@@ -19,8 +19,11 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return &stateShim{EnvironConfigGetter: stateenvirons.EnvironConfigGetter{State: st, Model: m},
-		State: st, modelTag: m.ModelTag()}, nil
+	return &stateShim{
+		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{State: st, Model: m},
+		State:               st,
+		model:               m,
+	}, nil
 }
 
 // stateShim forwards and adapts state.State methods to Backing
@@ -28,11 +31,11 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 type stateShim struct {
 	stateenvirons.EnvironConfigGetter
 	*state.State
-	modelTag names.ModelTag
+	model *state.Model
 }
 
 func (s *stateShim) ModelTag() names.ModelTag {
-	return s.modelTag
+	return s.model.ModelTag()
 }
 
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
@@ -51,11 +54,7 @@ func (s *stateShim) SpaceByName(name string) (networkingcommon.BackingSpace, err
 
 // AllEndpointBindings returns all endpoint bindings and maps it to a corresponding common type
 func (s *stateShim) AllEndpointBindings() ([]ApplicationEndpointBindingsShim, error) {
-	model, err := s.State.Model()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	endpointBindings, err := model.AllEndpointBindings()
+	endpointBindings, err := s.model.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -100,13 +99,14 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
-func (s *stateShim) IsControllerModel() (bool, error) {
-	model, err := s.State.Model()
+func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, error) {
+	found, err := s.State.ConstraintsBySpaceName(spaceName)
 	if err != nil {
-		return false, errors.Trace(err)
+		return nil, err
 	}
-	if !model.IsControllerModel() {
-		return false, nil
+	cons := make([]Constraints, len(found))
+	for i, v := range found {
+		cons[i] = v
 	}
-	return true, nil
+	return cons, nil
 }
