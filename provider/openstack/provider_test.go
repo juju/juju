@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 
+	"github.com/golang/mock/gomock"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -18,6 +19,8 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/cloud"
+	"github.com/juju/juju/core/constraints"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/network"
@@ -825,4 +828,114 @@ func (s *providerUnitTests) TestNewCredentialsWithVersion2AndDomain(c *gc.C) {
 		ProjectDomain: "openstack_projectdomain",
 	})
 	c.Check(authmode, gc.Equals, identity.AuthUserPass)
+}
+
+func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	expectDefaultNetworks(mockNetworking)
+	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+
+	environ := Environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{
+				NetworkKey: "",
+			},
+		},
+		networking: mockNetworking,
+	}
+
+	result, err := environ.networksForInstance(environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+		{
+			NetworkId: "network-id-foo",
+			FixedIp:   "",
+			PortId:    "",
+		},
+	})
+}
+
+func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	expectDefaultNetworks(mockNetworking)
+	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+
+	environ := Environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{
+				NetworkKey: "",
+			},
+		},
+		networking: mockNetworking,
+	}
+
+	result, err := environ.networksForInstance(environs.StartInstanceParams{
+		AvailabilityZone: "eu-west-az",
+		SubnetsToZones: map[corenetwork.Id][]string{
+			"subnet-foo": {"eu-west-az", "eu-east-az"},
+		},
+		Constraints: constraints.Value{
+			Spaces: &[]string{
+				"eu-west-az",
+			},
+		},
+	})
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
+		{
+			NetworkId: "network-id-foo",
+			FixedIp:   "subnet-foo",
+			PortId:    "",
+		},
+	})
+}
+
+func (s *providerUnitTests) TestNetworksForInstanceWithNoMatchingAZ(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	mockNetworking := NewMockNetworking(ctrl)
+	expectDefaultNetworks(mockNetworking)
+	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+
+	environ := Environ{
+		ecfgUnlocked: &environConfig{
+			attrs: map[string]interface{}{
+				NetworkKey: "",
+			},
+		},
+		networking: mockNetworking,
+	}
+
+	_, err := environ.networksForInstance(environs.StartInstanceParams{
+		AvailabilityZone: "us-east-az",
+		SubnetsToZones: map[corenetwork.Id][]string{
+			"subnet-foo": {"eu-west-az", "eu-east-az"},
+		},
+		Constraints: constraints.Value{
+			Spaces: &[]string{
+				"eu-west-az",
+			},
+		},
+	})
+
+	c.Assert(err, gc.ErrorMatches, "subnets in AZ \"us-east-az\" not found")
+}
+
+// expectDefaultNetworks will always return an empty slice as that's the current
+// implementation. Once that's been resolved we can then send back a non-empty
+// slice.
+// For now replicate the existing behaviour.
+func expectDefaultNetworks(mock *MockNetworking) {
+	mock.EXPECT().DefaultNetworks().Return([]nova.ServerNetworks{}, nil)
 }

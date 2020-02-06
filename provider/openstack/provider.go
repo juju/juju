@@ -1447,6 +1447,9 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 		}
 	}
 
+	// TODO (stickupkid): This is has commonalities with EC2 provider. We should
+	// work out if it's possible to extract into core/network
+
 	// If there are some subnet IDs from an AZ, attempt to put them on the
 	// networks.
 	// TODO (stickupkid): Currently this logic attempts to handle multiple
@@ -1469,6 +1472,11 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 	// Set the subnetID on the network for all networks.
 	subnetNetworks := make([]nova.ServerNetworks, len(networks))
 	for k, network := range networks {
+		// If no networkId is found we need to skip them as we can't do anything
+		// with them.
+		if network.NetworkId == "" {
+			continue
+		}
 		network.FixedIp = subnetID
 		subnetNetworks[k] = network
 	}
