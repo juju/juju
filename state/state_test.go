@@ -30,18 +30,17 @@ import (
 	mgotxn "gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/storage"
@@ -219,88 +218,6 @@ func (s *StateSuite) TestNoModelDocs(c *gc.C) {
 func (s *StateSuite) TestMongoSession(c *gc.C) {
 	session := s.State.MongoSession()
 	c.Assert(session.Ping(), gc.IsNil)
-}
-
-func (s *StateSuite) TestWatch(c *gc.C) {
-	// The allWatcher infrastructure is comprehensively tested
-	// elsewhere. This just ensures things are hooked up correctly in
-	// State.Watch()
-
-	w := s.State.Watch(state.WatchParams{IncludeOffers: true})
-	defer w.Stop()
-	deltasC := makeMultiwatcherOutput(w)
-	s.State.StartSync()
-
-	select {
-	case deltas := <-deltasC:
-		// The Watch() call results in an empty "change" reflecting
-		// the initially empty model.
-		c.Assert(deltas, gc.HasLen, 0)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-
-	m := s.Factory.MakeMachine(c, nil) // Generate event
-	s.State.StartSync()
-
-	select {
-	case deltas := <-deltasC:
-		c.Assert(deltas, gc.HasLen, 1)
-		info := deltas[0].Entity.(*params.MachineInfo)
-		c.Assert(info.ModelUUID, gc.Equals, s.State.ModelUUID())
-		c.Assert(info.Id, gc.Equals, m.Id())
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out")
-	}
-}
-
-func makeMultiwatcherOutput(w *state.Multiwatcher) chan []params.Delta {
-	deltasC := make(chan []params.Delta)
-	go func() {
-		for {
-			deltas, err := w.Next()
-			if err != nil {
-				return
-			}
-			deltasC <- deltas
-		}
-	}()
-	return deltasC
-}
-
-func (s *StateSuite) TestWatchAllModels(c *gc.C) {
-	// The allModelWatcher infrastructure is comprehensively tested
-	// elsewhere. This just ensures things are hooked up correctly in
-	// State.WatchAllModels()
-	w := s.State.WatchAllModels(s.StatePool)
-	defer w.Stop()
-	deltasC := makeMultiwatcherOutput(w)
-
-	m := s.Factory.MakeMachine(c, nil)
-	s.State.StartSync()
-	modelSeen := false
-	machineSeen := false
-	timeout := time.After(testing.LongWait)
-	for !modelSeen || !machineSeen {
-		select {
-		case deltas := <-deltasC:
-			for _, delta := range deltas {
-				switch e := delta.Entity.(type) {
-				case *params.ModelUpdate:
-					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
-					modelSeen = true
-				case *params.MachineInfo:
-					c.Assert(e.ModelUUID, gc.Equals, s.State.ModelUUID())
-					c.Assert(e.Id, gc.Equals, m.Id())
-					machineSeen = true
-				}
-			}
-		case <-timeout:
-			c.Fatal("timed out")
-		}
-	}
-	c.Assert(modelSeen, jc.IsTrue)
-	c.Assert(machineSeen, jc.IsTrue)
 }
 
 type MultiModelStateSuite struct {
@@ -663,7 +580,11 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				unit, err := st.Unit("dummy/0")
 				c.Assert(err, jc.ErrorIsNil)
-				_, err = unit.AddAction("snapshot", nil)
+				m, err := st.Model()
+				c.Assert(err, jc.ErrorIsNil)
+				operationID, err := m.EnqueueOperation("a test")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = unit.AddAction(operationID, "snapshot", nil)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -3301,6 +3222,9 @@ var findEntityTests = []findEntityTest{{
 	tag: names.NewActionTag("fedcba98-7654-4321-ba98-76543210beef"),
 	err: `action "fedcba98-7654-4321-ba98-76543210beef" not found`,
 }, {
+	tag: names.NewOperationTag("666"),
+	err: `operation "666" not found`,
+}, {
 	tag: names.NewUserTag("eric"),
 }, {
 	tag: names.NewUserTag("eric@local"),
@@ -3318,6 +3242,7 @@ var entityTypes = map[string]interface{}{
 	names.ControllerAgentTagKind: (*state.ControllerNodeInstance)(nil),
 	names.RelationTagKind:        (*state.Relation)(nil),
 	names.ActionTagKind:          (state.Action)(nil),
+	names.OperationTagKind:       (state.Operation)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -3329,7 +3254,9 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	app := s.AddTestingApplication(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit.AddAction("fakeaction", nil)
+	operationID, err := s.model.EnqueueOperation("something")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = unit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3408,7 +3335,9 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	app := s.AddTestingApplication(c, "application2", s.AddTestingCharm(c, "dummy"))
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	f, err := u.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.model.Action(f.Id())

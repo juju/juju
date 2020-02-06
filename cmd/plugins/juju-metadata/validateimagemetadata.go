@@ -241,8 +241,15 @@ var imagesDataSources = func(urls ...string) []simplestreams.DataSource {
 	dataSources := make([]simplestreams.DataSource, len(urls))
 	publicKey, _ := simplestreams.UserPublicSigningKey()
 	for i, url := range urls {
-		dataSources[i] = simplestreams.NewURLSignedDataSource(
-			"local metadata directory", "file://"+url, publicKey, utils.VerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+		dataSources[i] = simplestreams.NewDataSource(
+			simplestreams.Config{
+				Description:          "local metadata directory",
+				BaseURL:              "file://" + url,
+				PublicSigningKey:     publicKey,
+				HostnameVerification: utils.VerifySSLHostnames,
+				Priority:             simplestreams.CUSTOM_CLOUD_DATA,
+			},
+		)
 	}
 	return dataSources
 }

@@ -191,7 +191,8 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 6, controller.NewControllerAPIv6)
 	reg("Controller", 7, controller.NewControllerAPIv7)
 	reg("Controller", 8, controller.NewControllerAPIv8)
-	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPI)
+	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPIV1)
+	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI) // Adds WatchRelationChanges, removes WatchRelationUnits
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
 	reg("CredentialManager", 1, credentialmanager.NewCredentialManagerAPI)
 	reg("CredentialValidator", 1, credentialvalidator.NewCredentialValidatorAPIv1)
@@ -217,7 +218,7 @@ func AllFacades() *facade.Registry {
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
 
-	reg("InstancePoller", 3, instancepoller.NewFacade)
+	reg("InstancePoller", 4, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
 
@@ -282,7 +283,8 @@ func AllFacades() *facade.Registry {
 	reg("ProxyUpdater", 1, proxyupdater.NewFacadeV1)
 	reg("ProxyUpdater", 2, proxyupdater.NewFacadeV2)
 	reg("Reboot", 2, reboot.NewRebootAPI)
-	reg("RemoteRelations", 1, remoterelations.NewStateRemoteRelationsAPI)
+	reg("RemoteRelations", 1, remoterelations.NewAPIv1)
+	reg("RemoteRelations", 2, remoterelations.NewAPI) // Adds UpdateControllersForModels and WatchLocalRelationChanges.
 
 	reg("Resources", 1, resources.NewPublicFacade)
 	reg("ResourcesHookContext", 1, resourceshookcontext.NewStateFacade)
@@ -297,14 +299,15 @@ func AllFacades() *facade.Registry {
 	reg("Spaces", 2, spaces.NewAPIv2)
 	reg("Spaces", 3, spaces.NewAPIv3)
 	reg("Spaces", 4, spaces.NewAPIv4)
-	reg("Spaces", 5, spaces.NewAPI)
+	reg("Spaces", 5, spaces.NewAPIv5)
+	reg("Spaces", 6, spaces.NewAPI)
 
 	reg("StatusHistory", 2, statushistory.NewAPI)
 
 	reg("Storage", 3, storage.NewStorageAPIV3)
 	reg("Storage", 4, storage.NewStorageAPIV4) // changes Destroy() method signature.
 	reg("Storage", 5, storage.NewStorageAPIV5) // Update and Delete storage pools and CreatePool bulk calls.
-	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; adde DetachStorage to support force and maxWait.
+	reg("Storage", 6, storage.NewStorageAPI)   // modify Remove to support force and maxWait; add DetachStorage to support force and maxWait.
 
 	reg("StorageProvisioner", 3, storageprovisioner.NewFacadeV3)
 	reg("StorageProvisioner", 4, storageprovisioner.NewFacadeV4)
@@ -322,7 +325,9 @@ func AllFacades() *facade.Registry {
 	reg("Uniter", 10, uniter.NewUniterAPIV10)
 	reg("Uniter", 11, uniter.NewUniterAPIV11)
 	reg("Uniter", 12, uniter.NewUniterAPIV12)
-	reg("Uniter", 13, uniter.NewUniterAPI)
+	reg("Uniter", 13, uniter.NewUniterAPIV13)
+	reg("Uniter", 14, uniter.NewUniterAPIV14)
+	reg("Uniter", 15, uniter.NewUniterAPI)
 
 	reg("Upgrader", 1, upgrader.NewUpgraderFacade)
 	reg("UpgradeSeries", 1, upgradeseries.NewAPI)
@@ -341,6 +346,7 @@ func AllFacades() *facade.Registry {
 	regRaw("OfferStatusWatcher", 1, newOfferStatusWatcher, reflect.TypeOf((*srvOfferStatusWatcher)(nil)))
 	regRaw("RelationStatusWatcher", 1, newRelationStatusWatcher, reflect.TypeOf((*srvRelationStatusWatcher)(nil)))
 	regRaw("RelationUnitsWatcher", 1, newRelationUnitsWatcher, reflect.TypeOf((*srvRelationUnitsWatcher)(nil)))
+	regRaw("RemoteRelationWatcher", 1, newRemoteRelationWatcher, reflect.TypeOf((*srvRemoteRelationWatcher)(nil)))
 	regRaw("VolumeAttachmentsWatcher", 2, newVolumeAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("VolumeAttachmentPlansWatcher", 1, newVolumeAttachmentPlansWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))

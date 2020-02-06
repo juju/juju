@@ -18,8 +18,8 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/permission"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -38,7 +38,7 @@ func relationKey(endpoints []Endpoint) string {
 }
 
 // relationDoc is the internal representation of a Relation in MongoDB.
-// Note the correspondence with RelationInfo in apiserver/params.
+// Note the correspondence with RelationInfo in core/multiwatcher.
 type relationDoc struct {
 	DocID           string     `bson:"_id"`
 	Key             string     `bson:"key"`
@@ -792,35 +792,35 @@ func relationApplicationSettingsKey(id int, application string) string {
 
 // ApplicationSettings returns the application-level settings for the
 // specified application in this relation.
-func (r *Relation) ApplicationSettings(app *Application) (map[string]interface{}, error) {
-	ep, err := r.Endpoint(app.Name())
+func (r *Relation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	applicationKey := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
 	s, err := readSettings(r.st.db(), settingsC, applicationKey)
 	if err != nil {
-		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), app.Name())
+		return nil, errors.Annotatef(err, "relation %q application %q", r.String(), appName)
 	}
 	return s.Map(), nil
 }
 
 // UpdateApplicationSettings updates the given application's settings
 // in this relation. It requires a current leadership token.
-func (r *Relation) UpdateApplicationSettings(app *Application, token leadership.Token, updates map[string]interface{}) error {
+func (r *Relation) UpdateApplicationSettings(appName string, token leadership.Token, updates map[string]interface{}) error {
 	// We can calculate the actual update ahead of time; it's not dependent
 	// upon the current state of the document. (*Writing* it should depend
 	// on document state, but that's handled below.)
-	ep, err := r.Endpoint(app.Name())
+	ep, err := r.Endpoint(appName)
 	if err != nil {
 		return errors.Trace(err)
 	}
 	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
 	err = updateLeaderSettings(r.st.db(), token, key, updates)
 	if errors.IsNotFound(err) {
-		return errors.NotFoundf("relation %q application %q", r, app.Name())
+		return errors.NotFoundf("relation %q application %q", r, appName)
 	} else if err != nil {
-		return errors.Annotatef(err, "relation %q application %q", r, app.Name())
+		return errors.Annotatef(err, "relation %q application %q", r, appName)
 	}
 	return nil
 }

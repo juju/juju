@@ -4,16 +4,16 @@
 package testing
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 
 	"github.com/juju/juju/api/base"
 	coretesting "github.com/juju/juju/testing"
@@ -38,6 +38,10 @@ func (APICallerFunc) ModelTag() (names.ModelTag, bool) {
 	return coretesting.ModelTag, true
 }
 
+func (APICallerFunc) Context() context.Context {
+	return context.Background()
+}
+
 func (APICallerFunc) Close() error {
 	return nil
 }
@@ -46,7 +50,7 @@ func (APICallerFunc) HTTPClient() (*httprequest.Client, error) {
 	return nil, errors.New("no HTTP client available in this test")
 }
 
-func (APICallerFunc) BakeryClient() *httpbakery.Client {
+func (APICallerFunc) BakeryClient() base.MacaroonDischarger {
 	panic("no bakery client available in this test")
 }
 
@@ -182,19 +186,18 @@ func NotifyingAPICaller(c *gc.C, called chan<- struct{}, caller base.APICaller) 
 }
 
 type apiCallerWithBakery struct {
-	APICallerFunc
-	bakeryClient *httpbakery.Client
+	base.APICallCloser
+	bakeryClient base.MacaroonDischarger
 }
 
-func (a *apiCallerWithBakery) BakeryClient() *httpbakery.Client {
+func (a *apiCallerWithBakery) BakeryClient() base.MacaroonDischarger {
 	return a.bakeryClient
 }
 
 // APICallerWithBakery returns an api caller with a bakery client which uses the
 // specified discharge acquirer.
-func APICallerWithBakery(callerFunc APICallerFunc, dischargeAcquirer httpbakery.DischargeAcquirer) *apiCallerWithBakery {
-	client := &httpbakery.Client{DischargeAcquirer: dischargeAcquirer}
-	return &apiCallerWithBakery{callerFunc, client}
+func APICallerWithBakery(caller base.APICallCloser, discharger base.MacaroonDischarger) *apiCallerWithBakery {
+	return &apiCallerWithBakery{caller, discharger}
 }
 
 // StubFacadeCaller is a testing stub implementation of api/base.FacadeCaller.

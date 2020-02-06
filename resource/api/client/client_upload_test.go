@@ -4,6 +4,7 @@
 package client_test
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -31,7 +32,7 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 	data := "<data>"
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader(data)
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 
 	_, s.response.Resource = newResource(c, "spam", "a-user", data)
 
@@ -40,7 +41,7 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", nil)
+	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", reader)
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
@@ -49,11 +50,11 @@ func (s *UploadSuite) TestOkay(c *gc.C) {
 	req.ContentLength = int64(len(data))
 
 	s.stub.CheckCallNames(c, "Read", "Read", "Seek", "Do")
-	s.stub.CheckCall(c, 3, "Do", req, reader, s.response)
+	s.stub.CheckCall(c, 3, "Do", req, s.response)
 }
 
 func (s *UploadSuite) TestBadService(c *gc.C) {
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 
 	err := cl.Upload("???", "spam", "file.zip", nil)
 
@@ -63,7 +64,7 @@ func (s *UploadSuite) TestBadService(c *gc.C) {
 
 func (s *UploadSuite) TestBadRequest(c *gc.C) {
 	reader := &stubFile{stub: s.stub}
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(failure)
 
@@ -76,7 +77,7 @@ func (s *UploadSuite) TestBadRequest(c *gc.C) {
 func (s *UploadSuite) TestRequestFailed(c *gc.C) {
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader("<data>")
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, nil, nil, failure)
 
@@ -95,7 +96,7 @@ func (s *UploadSuite) TestPendingResources(c *gc.C) {
 	s.response.Resource = apiResult.Resources[0]
 	s.facade.pendingIDs = expected
 	cURL := charm.MustParseURL("cs:~a-user/trusty/spam-5")
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 
 	pendingIDs, err := cl.AddPendingResources(client.AddPendingResourcesArgs{
 		ApplicationID: "a-application",
@@ -121,7 +122,7 @@ func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader(data)
 	s.facade.pendingIDs = []string{expected}
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 
 	uploadID, err := cl.UploadPendingResource("a-application", res[0].Resource, "file.zip", reader)
 	c.Assert(err, jc.ErrorIsNil)
@@ -136,7 +137,7 @@ func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 
 	fp, err := charmresource.GenerateFingerprint(strings.NewReader(data))
 	c.Assert(err, jc.ErrorIsNil)
-	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", nil)
+	req, err := http.NewRequest("PUT", "/applications/a-application/resources/spam", reader)
 	c.Assert(err, jc.ErrorIsNil)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("Content-SHA384", fp.String())
@@ -145,7 +146,7 @@ func (s *UploadSuite) TestPendingResourceOkay(c *gc.C) {
 	req.URL.RawQuery = "pendingid=" + expected
 	req.Header.Set("Content-Disposition", "form-data; filename=file.zip")
 
-	s.stub.CheckCall(c, 4, "Do", req, reader, s.response)
+	s.stub.CheckCall(c, 4, "Do", req, s.response)
 	c.Check(uploadID, gc.Equals, expected)
 }
 
@@ -156,7 +157,7 @@ func (s *UploadSuite) TestPendingResourceNoFile(c *gc.C) {
 	expected := uuid.String()
 	s.response.Resource = apiResult.Resources[0]
 	s.facade.pendingIDs = []string{expected}
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 
 	uploadID, err := cl.UploadPendingResource("a-application", res[0].Resource, "file.zip", nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -170,7 +171,7 @@ func (s *UploadSuite) TestPendingResourceNoFile(c *gc.C) {
 func (s *UploadSuite) TestPendingResourceBadService(c *gc.C) {
 	res, _ := newResourceResult(c, "a-application", "spam")
 	s.facade.FacadeCallFn = nil
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 
 	_, err := cl.UploadPendingResource("???", res[0].Resource, "file.zip", nil)
 
@@ -183,7 +184,7 @@ func (s *UploadSuite) TestPendingResourceBadRequest(c *gc.C) {
 	chRes := res.Resource
 	reader := &stubFile{stub: s.stub}
 	s.facade.pendingIDs = []string{"some-unique-id"}
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, failure)
 
@@ -198,7 +199,7 @@ func (s *UploadSuite) TestPendingResourceRequestFailed(c *gc.C) {
 	reader := &stubFile{stub: s.stub}
 	reader.returnRead = strings.NewReader("<data>")
 	s.facade.pendingIDs = []string{"some-unique-id"}
-	cl := client.NewClient(s.facade, s, s.facade)
+	cl := client.NewClient(context.Background(), s.facade, s, s.facade)
 	failure := errors.New("<failure>")
 	s.stub.SetErrors(nil, nil, nil, nil, failure)
 

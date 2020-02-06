@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
@@ -34,6 +35,7 @@ type ManifoldConfig struct {
 	AuthenticatorName      string
 	ClockName              string
 	ModelCacheName         string
+	MultiwatcherName       string
 	MuxName                string
 	RestoreStatusName      string
 	StateName              string
@@ -64,6 +66,9 @@ func (config ManifoldConfig) Validate() error {
 	}
 	if config.ModelCacheName == "" {
 		return errors.NotValidf("empty ModelCacheName")
+	}
+	if config.MultiwatcherName == "" {
+		return errors.NotValidf("empty MultiwatcherName")
 	}
 	if config.MuxName == "" {
 		return errors.NotValidf("empty MuxName")
@@ -117,6 +122,7 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 			config.AuthenticatorName,
 			config.ClockName,
 			config.ModelCacheName,
+			config.MultiwatcherName,
 			config.MuxName,
 			config.RestoreStatusName,
 			config.StateName,
@@ -162,6 +168,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	var factory multiwatcher.Factory
+	if err := context.Get(config.MultiwatcherName, &factory); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -211,6 +222,7 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		Mux:                               mux,
 		StatePool:                         statePool,
 		Controller:                        controller,
+		MultiwatcherFactory:               factory,
 		LeaseManager:                      leaseManager,
 		RegisterIntrospectionHTTPHandlers: config.RegisterIntrospectionHTTPHandlers,
 		RestoreStatus:                     restoreStatus,

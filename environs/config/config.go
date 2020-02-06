@@ -18,7 +18,6 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/version"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/yaml.v2"
@@ -1271,14 +1270,6 @@ func (c *Config) ContainerImageStream() string {
 	return "released"
 }
 
-// TestMode indicates if the environment is intended for testing.
-// In this case, accessing the charm store does not affect statistical
-// data of the store.
-func (c *Config) TestMode() bool {
-	val, _ := c.defined["test-mode"].(bool)
-	return val
-}
-
 // DisableNetworkManagement reports whether Juju is allowed to
 // configure and manage networking inside the environment.
 func (c *Config) DisableNetworkManagement() (bool, bool) {
@@ -1635,20 +1626,6 @@ func (cfg *Config) ValidateUnknownAttrs(extrafields schema.Fields, defaults sche
 		}
 	}
 	return result, nil
-}
-
-// SpecializeCharmRepo customizes a repository for a given configuration.
-// It returns a charm repository with test mode enabled if applicable.
-func SpecializeCharmRepo(repo charmrepo.Interface, cfg *Config) charmrepo.Interface {
-	type specializer interface {
-		WithTestMode() charmrepo.Interface
-	}
-	if store, ok := repo.(specializer); ok {
-		if cfg.TestMode() {
-			return store.WithTestMode()
-		}
-	}
-	return repo
 }
 
 func addIfNotEmpty(settings map[string]interface{}, key, value string) {

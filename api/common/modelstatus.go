@@ -49,7 +49,7 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 			results[i].Error = errors.Trace(r.Error)
 			continue
 		}
-		model, err := names.ParseModelTag(r.ModelTag)
+		aModel, err := names.ParseModelTag(r.ModelTag)
 		if err != nil {
 			results[i].Error = errors.Trace(err)
 			continue
@@ -59,7 +59,7 @@ func (c *ModelStatusAPI) processModelStatusResults(rs []params.ModelStatus) ([]b
 			results[i].Error = errors.Trace(err)
 			continue
 		}
-		results[i] = constructModelStatus(model, owner, r)
+		results[i] = constructModelStatus(aModel, owner, r)
 	}
 	return results, nil
 }
@@ -112,6 +112,7 @@ func constructModelStatus(m names.ModelTag, owner names.UserTag, r params.ModelS
 			WantsVote:   mm.WantsVote,
 			Status:      mm.Status,
 			Message:     mm.Message,
+			HAPrimary:   mm.HAPrimary,
 		}
 	}
 	return result

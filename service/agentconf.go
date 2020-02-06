@@ -44,7 +44,7 @@ type SystemdServiceManager interface {
 	// WriteSystemdAgents creates systemd files and create symlinks for the
 	// list of machine and units passed in the standard filepath.
 	WriteSystemdAgents(
-		machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir string,
+		machineAgent string, unitAgents []string, dataDir, symLinkSystemdMultiUserDir string,
 	) ([]string, []string, []string, error)
 
 	//CreateAgentConf creates the configfile for specified agent running on a
@@ -53,13 +53,14 @@ type SystemdServiceManager interface {
 
 	// CopyAgentBinary copies all the tools into the path specified for each agent.
 	CopyAgentBinary(
-		machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number) error
+		machineAgent string, unitAgents []string, dataDir, toSeries, fromSeries string, jujuVersion version.Number,
+	) error
 
 	// StartAllAgents starts all the agents in the machine with specified series.
 	StartAllAgents(machineAgent string, unitAgents []string, dataDir string) (string, []string, error)
 
 	// WriteServiceFiles writes the service files for machine and unit agents
-	// in the '/lib/systemd/system' path.
+	// in the /etc/systemd/system path.
 	WriteServiceFiles() error
 }
 
@@ -92,7 +93,7 @@ func NewServiceManager(
 }
 
 // WriteServiceFiles writes service files to the standard
-// "/lib/systemd/system" path.
+// /etc/systemd/system path.
 func (s *systemdServiceManager) WriteServiceFiles() error {
 	machineAgent, unitAgents, _, err := s.FindAgents(paths.NixDataDir)
 	if err != nil {
@@ -103,7 +104,6 @@ func (s *systemdServiceManager) WriteServiceFiles() error {
 		machineAgent,
 		unitAgents,
 		paths.NixDataDir,
-		systemd.EtcSystemdDir,
 		systemd.EtcSystemdMultiUserDir,
 	)
 	if err != nil {
@@ -136,7 +136,7 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 	if err != nil {
 		return "", nil, nil, errors.Annotate(err, "opening agents dir")
 	}
-	defer dir.Close()
+	defer func() { _ = dir.Close() }()
 
 	entries, err := dir.Readdir(-1)
 	if err != nil {
@@ -164,85 +164,95 @@ func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []
 // WriteSystemdAgents creates systemd files and symlinks for the input machine
 // and unit agents, in the standard filepath '/var/lib/juju'.
 func (s *systemdServiceManager) WriteSystemdAgents(
-	machineAgent string, unitAgents []string, dataDir, symLinkSystemdDir, symLinkSystemdMultiUserDir string,
+	machineAgent string, unitAgents []string, dataDir, systemdMultiUserDir string,
 ) ([]string, []string, []string, error) {
 	var (
-		startedSysServiceNames []string
-		startedSymServiceNames []string
-		errAgentNames          []string
-		lastError              error
+		autoLinkedServiceNames   []string
+		manualLinkedServiceNames []string
+		errAgentNames            []string
+		lastError                error
 	)
 
 	for _, agentName := range append(unitAgents, machineAgent) {
-		conf, err := s.CreateAgentConf(agentName, dataDir)
+		systemdLinked, err := s.writeSystemdAgent(agentName, dataDir, systemdMultiUserDir)
 		if err != nil {
-			logger.Infof("%s", err)
+			errAgentNames = append(errAgentNames, agentName)
 			lastError = err
 			continue
 		}
 
-		svcName := serviceName(agentName)
-		svc, err := s.newService(svcName, conf)
-		if err != nil {
-			logger.Infof("Failed to create new service %s: ", err)
+		if systemdLinked {
+			autoLinkedServiceNames = append(autoLinkedServiceNames, serviceName(agentName))
 			continue
 		}
-
-		uSvc, ok := svc.(UpgradableService)
-		if !ok {
-			return nil, nil, nil, errors.Errorf("%s service not of type UpgradableService", svcName)
-		}
-
-		dbusMethodFound := true
-		if err = uSvc.WriteService(); err != nil {
-			// Note that this error is already logged by the systemd package.
-
-			// This is not ideal, but it is possible on an Upstart-based OS
-			// (such as Trusty) for run/systemd/system to exist, which is used
-			// for detection of systemd as the running init system.
-			// If this happens, then D-Bus will error with the message below.
-			// We need to detect this condition and fall through to linking the
-			// service files manually.
-			if strings.Contains(strings.ToLower(err.Error()), "no such method") {
-				dbusMethodFound = false
-				logger.Infof("attempting to manually link service file for %s", agentName)
-			} else {
-				errAgentNames = append(errAgentNames, agentName)
-				lastError = err
-				continue
-			}
-		} else {
-			logger.Infof("successfully wrote service for %s:", agentName)
-		}
-
-		// If systemd is the running init system on this host, *and* if the
-		// call to DBusAPI.LinkUnitFiles in WriteService above returned no
-		// error, it will have resulted in updated sym-links for the file.
-		// We are done.
-		if s.isRunning() && dbusMethodFound {
-			startedSysServiceNames = append(startedSysServiceNames, svcName)
-			logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
-			continue
-		}
-
-		// Otherwise we need to manually ensure the service unit links.
-		svcFileName := svcName + ".service"
-		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
-			path.Join(symLinkSystemdDir, svcFileName)); err != nil && !os.IsExist(err) {
-			return nil, nil, nil, errors.Errorf(
-				"failed to link service file (%s) in systemd dir: %s\n", svcFileName, err)
-		}
-
-		if err = os.Symlink(path.Join(systemd.LibSystemdDir, svcName, svcFileName),
-			path.Join(symLinkSystemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
-			return nil, nil, nil, errors.Errorf(
-				"failed to link service file (%s) in multi-user.target.wants dir: %s\n", svcFileName, err)
-		}
-
-		startedSymServiceNames = append(startedSymServiceNames, svcName)
-		logger.Infof("wrote %s agent, enabled and linked by symlink", svcName)
+		manualLinkedServiceNames = append(manualLinkedServiceNames, serviceName(agentName))
 	}
-	return startedSysServiceNames, startedSymServiceNames, errAgentNames, lastError
+	return autoLinkedServiceNames, manualLinkedServiceNames, errAgentNames, lastError
+}
+
+// WriteSystemdAgents creates systemd files and symlinks for the input
+// agentName.
+// The boolean return indicates whether systemd automatically linked the file
+// into the multi-user-target directory.
+func (s *systemdServiceManager) writeSystemdAgent(agentName, dataDir, systemdMultiUserDir string) (bool, error) {
+	conf, err := s.CreateAgentConf(agentName, dataDir)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+
+	svcName := serviceName(agentName)
+	svc, err := s.newService(svcName, conf)
+	if err != nil {
+		return false, errors.Annotate(err, "creating new service")
+	}
+
+	uSvc, ok := svc.(UpgradableService)
+	if !ok {
+		return false, errors.New("service not of type UpgradableService")
+	}
+
+	if err = uSvc.RemoveOldService(); err != nil {
+		return false, errors.Annotate(err, "deleting legacy service directory")
+	}
+
+	dbusMethodFound := true
+	if err = uSvc.WriteService(); err != nil {
+		// Note that this error is already logged by the systemd package.
+
+		// This is not ideal, but it is possible on an Upstart-based OS
+		// (such as Trusty) for run/systemd/system to exist, which is used
+		// for detection of systemd as the running init system.
+		// If this happens, then D-Bus will error with the message below.
+		// We need to detect this condition and fall through to linking the
+		// service files manually.
+		if !strings.Contains(strings.ToLower(err.Error()), "no such method") {
+			return false, errors.Trace(err)
+		} else {
+			dbusMethodFound = false
+			logger.Infof("attempting to manually link service file for %s", agentName)
+		}
+	} else {
+		logger.Infof("successfully wrote service for %s:", agentName)
+	}
+
+	// If systemd is the running init system on this host, *and* if the
+	// call to DBusAPI.LinkUnitFiles in WriteService above returned no
+	// error, it will have resulted in updated sym-links for the file.
+	// We are done.
+	if s.isRunning() && dbusMethodFound {
+		logger.Infof("wrote %s agent, enabled and linked by systemd", svcName)
+		return true, nil
+	}
+
+	// Otherwise we need to manually ensure the service unit links.
+	svcFileName := svcName + ".service"
+	if err = os.Symlink(path.Join(systemd.EtcSystemdDir, svcFileName),
+		path.Join(systemdMultiUserDir, svcFileName)); err != nil && !os.IsExist(err) {
+		return false, errors.Annotatef(err, "linking service file (%s) in multi-user.target.wants dir", svcFileName)
+	}
+
+	logger.Infof("wrote %s agent, enabled and linked by symlink", svcName)
+	return false, nil
 }
 
 // CreateAgentConf creates the configfile for specified agent running on a host with specified series.
@@ -274,11 +284,7 @@ func (s *systemdServiceManager) CreateAgentConf(name string, dataDir string) (_ 
 	}
 
 	srvPath := path.Join(paths.NixLogDir, "juju")
-	info := NewAgentInfo(
-		kind,
-		tag.Id(),
-		dataDir,
-		srvPath)
+	info := NewAgentInfo(kind, tag.Id(), dataDir, srvPath)
 	return AgentConf(info, renderer), nil
 }
 

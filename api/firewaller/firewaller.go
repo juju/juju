@@ -6,6 +6,7 @@ package firewaller
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/relation"
 	"github.com/juju/juju/core/watcher"
-	"gopkg.in/macaroon.v2-unstable"
 )
 
 const firewallerFacade = "Firewaller"

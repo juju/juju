@@ -20,9 +20,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/common"
@@ -164,6 +164,13 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 
 // ProvisioningScript returns a shell script that, when run,
 // provisions a machine agent on the machine executing the script.
+//
+// TODO (manadart 2020-01-29): This method, along with its server facade should
+// be moved to the machinemanager client/facade.
+// Then the machinemanager client can be used as an implementation of
+// environs.manual.ProvisioningClientAPI.
+// Then AddMachines above can be removed along with client API facade methods
+// that add machines (AddMachines, AddMachinesV2 and InjectMachines).
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
 	if err = c.facade.FacadeCall("ProvisioningScript", args, &result); err != nil {
@@ -538,7 +545,7 @@ func openURI(apiCaller base.APICaller, uri string, query url.Values) (io.ReadClo
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	blob, err := openBlob(httpClient, uri, query)
+	blob, err := openBlob(apiCaller.Context(), httpClient, uri, query)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -576,7 +583,7 @@ func (c *Client) UploadTools(r io.ReadSeeker, vers version.Binary, additionalSer
 }
 
 func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
-	req, err := http.NewRequest("POST", endpoint, nil)
+	req, err := http.NewRequest("POST", endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
 	}
@@ -588,7 +595,7 @@ func (c *Client) httpPost(content io.ReadSeeker, endpoint, contentType string, r
 		return errors.Trace(err)
 	}
 
-	if err := httpClient.Do(req, content, response); err != nil {
+	if err := httpClient.Do(c.facade.RawAPICaller().Context(), req, response); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

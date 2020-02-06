@@ -13,7 +13,7 @@ import (
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/testcharms"
 )
 
@@ -49,7 +49,7 @@ func (s *clientMacaroonSuite) TestAddLocalCharmWithFailedDischarge(c *gc.C) {
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
 	savedURL, err := client.AddLocalCharm(curl, charmArchive, false)
-	c.Assert(err, gc.ErrorMatches, `POST https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
+	c.Assert(err, gc.ErrorMatches, `Post https://.+: cannot get discharge from "https://.*": third party refused discharge: cannot discharge: login denied by discharger`)
 	c.Assert(savedURL, gc.IsNil)
 }
 

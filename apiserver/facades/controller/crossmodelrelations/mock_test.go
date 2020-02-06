@@ -4,6 +4,7 @@
 package crossmodelrelations_test
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -11,17 +12,19 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
-	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/authentication"
-	"github.com/juju/juju/apiserver/common"
 	commoncrossmodel "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/common/firewall"
 	"github.com/juju/juju/apiserver/facades/controller/crossmodelrelations"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/crossmodel"
+	corefirewall "github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -45,11 +48,13 @@ type mockState struct {
 	remoteApplications    map[string]*mockRemoteApplication
 	applications          map[string]*mockApplication
 	offers                map[string]*crossmodel.ApplicationOffer
+	offerNames            map[string]string
 	offerConnections      map[int]*mockOfferConnection
 	offerConnectionsByKey map[string]*mockOfferConnection
 	remoteEntities        map[names.Tag]string
-	firewallRules         map[state.WellKnownServiceType]*state.FirewallRule
+	firewallRules         map[corefirewall.WellKnownServiceType]*state.FirewallRule
 	ingressNetworks       map[string][]string
+	migrationActive       bool
 }
 
 func newMockState() *mockState {
@@ -59,9 +64,10 @@ func newMockState() *mockState {
 		applications:          make(map[string]*mockApplication),
 		remoteEntities:        make(map[names.Tag]string),
 		offers:                make(map[string]*crossmodel.ApplicationOffer),
+		offerNames:            make(map[string]string),
 		offerConnections:      make(map[int]*mockOfferConnection),
 		offerConnectionsByKey: make(map[string]*mockOfferConnection),
-		firewallRules:         make(map[state.WellKnownServiceType]*state.FirewallRule),
+		firewallRules:         make(map[corefirewall.WellKnownServiceType]*state.FirewallRule),
 		ingressNetworks:       make(map[string][]string),
 	}
 }
@@ -119,7 +125,7 @@ func (st *mockState) AddOfferConnection(arg state.AddOfferConnectionParams) (cro
 	return oc, nil
 }
 
-func (st *mockState) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+func (st *mockState) FirewallRule(service corefirewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	if r, ok := st.firewallRules[service]; ok {
 		return r, nil
 	}
@@ -153,6 +159,14 @@ func (st *mockState) AddRemoteApplication(params state.AddRemoteApplicationParam
 		consumerproxy:   params.IsConsumerProxy}
 	st.remoteApplications[params.Name] = app
 	return app, nil
+}
+
+func (st *mockState) OfferNameForRelation(key string) (string, error) {
+	st.MethodCall(st, "OfferNameForRelation", key)
+	if err := st.NextErr(); err != nil {
+		return "", err
+	}
+	return st.offerNames[key], nil
 }
 
 func (st *mockState) ImportRemoteEntity(entity names.Tag, token string) error {
@@ -216,6 +230,14 @@ func (st *mockState) KeyRelation(key string) (commoncrossmodel.Relation, error) 
 		return nil, errors.NotFoundf("relation %q", key)
 	}
 	return r, nil
+}
+
+func (st *mockState) IsMigrationActive() (bool, error) {
+	st.MethodCall(st, "IsMigrationActive")
+	if err := st.NextErr(); err != nil {
+		return false, err
+	}
+	return st.migrationActive, nil
 }
 
 func (st *mockState) RemoteApplication(id string) (commoncrossmodel.RemoteApplication, error) {
@@ -325,12 +347,17 @@ type mockRelation struct {
 	status          status.Status
 	message         string
 	units           map[string]commoncrossmodel.RelationUnit
+	endpoints       []state.Endpoint
+	watchers        map[string]*mockUnitsWatcher
+	appSettings     map[string]map[string]interface{}
 }
 
 func newMockRelation(id int) *mockRelation {
 	return &mockRelation{
-		id:    id,
-		units: make(map[string]commoncrossmodel.RelationUnit),
+		id:          id,
+		units:       make(map[string]commoncrossmodel.RelationUnit),
+		watchers:    make(map[string]*mockUnitsWatcher),
+		appSettings: make(map[string]map[string]interface{}),
 	}
 }
 
@@ -413,9 +440,38 @@ func (r *mockRelation) Unit(unitId string) (commoncrossmodel.RelationUnit, error
 	return u, nil
 }
 
-func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
-	u.MethodCall(u, "Settings")
-	return u.settings, u.NextErr()
+func (r *mockRelation) ReplaceApplicationSettings(appName string, values map[string]interface{}) error {
+	r.MethodCall(r, "ReplaceApplicationSettings", appName, values)
+	return r.NextErr()
+}
+
+func (r *mockRelation) Endpoints() []state.Endpoint {
+	r.MethodCall(r, "Endpoints")
+	return r.endpoints
+}
+
+func (r *mockRelation) WatchUnits(appName string) (state.RelationUnitsWatcher, error) {
+	r.MethodCall(r, "WatchUnits", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	w, found := r.watchers[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake watcher for %q units", appName)
+	}
+	return w, nil
+}
+
+func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	r.MethodCall(r, "ApplicationSettings", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	settings, found := r.appSettings[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake settings for %q", appName)
+	}
+	return settings, nil
 }
 
 type mockRemoteApplication struct {
@@ -510,6 +566,11 @@ func (u *mockRelationUnit) EnterScope(settings map[string]interface{}) error {
 	return nil
 }
 
+func (u *mockRelationUnit) Settings() (map[string]interface{}, error) {
+	u.MethodCall(u, "Settings")
+	return u.settings, u.NextErr()
+}
+
 func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) error {
 	u.MethodCall(u, "ReplaceSettings", settings)
 	if err := u.NextErr(); err != nil {
@@ -522,42 +583,69 @@ func (u *mockRelationUnit) ReplaceSettings(settings map[string]interface{}) erro
 	return nil
 }
 
-type mockBakeryService struct {
-	testing.Stub
-	authentication.ExpirableStorageBakeryService
+type mockAuthorizer struct{}
+
+func (mockAuthorizer) AuthorizeOps(ctx context.Context, authorizedOp bakery.Op, queryOps []bakery.Op) ([]bool, []checkers.Caveat, error) {
+	allowed := make([]bool, len(queryOps))
+	for i := range allowed {
+		allowed[i] = queryOps[i].Action == "consume" || queryOps[i].Action == "relate"
+	}
+	return allowed, nil, nil
 }
 
-func (s *mockBakeryService) NewMacaroon(caveats []checkers.Caveat) (*macaroon.Macaroon, error) {
+type mockVerifier struct {
+	ops []bakery.Op
+}
+
+func (m mockVerifier) VerifyMacaroon(ctx context.Context, ms macaroon.Slice) ([]bakery.Op, []string, error) {
+	declared := checkers.InferDeclared(charmstore.MacaroonNamespace, ms)
+	var conditions []string
+	for k, v := range declared {
+		conditions = append(conditions, fmt.Sprintf("declared %v %v", k, v))
+	}
+	return m.ops, conditions, nil
+}
+
+type mockBakeryService struct {
+	testing.Stub
+	authentication.ExpirableStorageBakery
+	ops []bakery.Op
+}
+
+func (s *mockBakeryService) NewMacaroon(ctx context.Context, version bakery.Version, caveats []checkers.Caveat, ops ...bakery.Op) (*bakery.Macaroon, error) {
 	s.MethodCall(s, "NewMacaroon", caveats)
-	mac, err := apitesting.NewMacaroon("id")
+	mac, err := macaroon.New(nil, []byte("id"), "", macaroon.LatestVersion)
 	if err != nil {
 		return nil, err
 	}
 	for _, cav := range caveats {
-		if err := mac.AddFirstPartyCaveat(cav.Condition); err != nil {
+		if err := mac.AddFirstPartyCaveat([]byte(cav.Condition)); err != nil {
 			return nil, err
 		}
 	}
-	return mac, nil
+	s.ops = ops
+	return bakery.NewLegacyMacaroon(mac)
 }
 
-func (s *mockBakeryService) CheckAny(ms []macaroon.Slice, assert map[string]string, checker checkers.Checker) (map[string]string, error) {
-	if len(ms) != 1 {
-		return nil, errors.New("unexpected macaroons")
-	}
-	if len(ms[0]) == 0 {
-		return nil, errors.New("no macaroons")
-	}
-	declared := checkers.InferDeclared(ms[0])
-	for k, v := range assert {
-		if declared[k] != v {
-			return nil, common.ErrPerm
-		}
-	}
-	return declared, nil
+func (s *mockBakeryService) Auth(mss ...macaroon.Slice) *bakery.AuthChecker {
+	s.MethodCall(s, "Auth", mss)
+	checker := bakery.NewChecker(bakery.CheckerParams{
+		OpsAuthorizer:    mockAuthorizer{},
+		MacaroonVerifier: mockVerifier{s.ops},
+	})
+	return checker.Auth(mss...)
 }
 
-func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakeryService, error) {
+func (s *mockBakeryService) ExpireStorageAfter(when time.Duration) (authentication.ExpirableStorageBakery, error) {
 	s.MethodCall(s, "ExpireStorageAfter", when)
 	return s, nil
+}
+
+type mockUnitsWatcher struct {
+	*mockWatcher
+	changes chan watcher.RelationUnitsChange
+}
+
+func (w *mockUnitsWatcher) Changes() watcher.RelationUnitsChannel {
+	return w.changes
 }

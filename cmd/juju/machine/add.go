@@ -231,16 +231,14 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	var machineManager MachineManagerAPI
-	if len(c.Disks) > 0 {
-		machineManager, err = c.getMachineManagerAPI()
-		if err != nil {
-			return errors.Trace(err)
-		}
-		defer machineManager.Close()
-		if machineManager.BestAPIVersion() < 1 {
-			return errors.New("cannot add machines with disks: not supported by the API server")
-		}
+	machineManager, err := c.getMachineManagerAPI()
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer machineManager.Close()
+
+	if len(c.Disks) > 0 && machineManager.BestAPIVersion() < 1 {
+		return errors.New("cannot add machines with disks: not supported by the API server")
 	}
 
 	logger.Infof("load config")
@@ -256,13 +254,13 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		}
 		return errors.Trace(err)
 	}
-	config, err := config.New(config.NoDefaults, configAttrs)
+	cfg, err := config.New(config.NoDefaults, configAttrs)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
 	if c.Placement != nil {
-		err := c.tryManualProvision(client, config, ctx)
+		err := c.tryManualProvision(client, cfg, ctx)
 		if err != errNonManualScope {
 			return err
 		}
@@ -296,13 +294,7 @@ func (c *addCommand) Run(ctx *cmd.Context) error {
 		machines[i] = machineParams
 	}
 
-	var results []params.AddMachinesResult
-	// If storage is specified, we attempt to use a new API on the application facade.
-	if len(c.Disks) > 0 {
-		results, err = machineManager.AddMachines(machines)
-	} else {
-		results, err = client.AddMachines(machines)
-	}
+	results, err := machineManager.AddMachines(machines)
 	if params.IsCodeOperationBlocked(err) {
 		return block.ProcessBlockedError(err, block.BlockChange)
 	}

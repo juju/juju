@@ -11,7 +11,7 @@ import (
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
 	params "github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/core/model"
+	model "github.com/juju/juju/core/model"
 	mongo "github.com/juju/juju/mongo"
 	shell "github.com/juju/utils/shell"
 	version "github.com/juju/version"

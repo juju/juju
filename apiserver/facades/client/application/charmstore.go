@@ -6,6 +6,7 @@ package application
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"strings"
@@ -14,13 +15,14 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/charmrepo.v4"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/environs/config"
@@ -30,7 +32,7 @@ import (
 )
 
 //go:generate mockgen -package mocks -destination mocks/storage_mock.go github.com/juju/juju/state/storage Storage
-//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v3 Interface
+//go:generate mockgen -package mocks -destination mocks/interface_mock.go gopkg.in/juju/charmrepo.v4 Interface
 //go:generate mockgen -package mocks -destination mocks/charm_mock.go github.com/juju/juju/apiserver/facades/client/application StateCharm
 //go:generate mockgen -package mocks -destination mocks/model_mock.go github.com/juju/juju/apiserver/facades/client/application StateModel
 //go:generate mockgen -package mocks -destination mocks/charmstore_mock.go github.com/juju/juju/apiserver/facades/client/application State
@@ -38,15 +40,7 @@ import (
 // TODO - we really want to avoid this, which we can do by refactoring code requiring this
 // to use interfaces.
 
-// NewCharmStoreRepo instantiates a new charm store repository.
-// It is exported for testing purposes.
-var NewCharmStoreRepo = newCharmStoreFromClient
-
 var newStateStorage = storage.NewStorage
-
-func newCharmStoreFromClient(csClient *csclient.Client) charmrepo.Interface {
-	return charmrepo.NewCharmStoreFromClient(csClient)
-}
 
 // StateCharm represents a Charm from the state package
 type StateCharm interface {
@@ -123,7 +117,12 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 	}
 
 	// Get the charm and its information from the store.
-	downloadedCharm, err := repo.Get(charmURL)
+	f, err := ioutil.TempFile("", charmURL.Name)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer f.Close()
+	downloadedCharm, err := repo.Get(charmURL, f.Name())
 	if err != nil {
 		cause := errors.Cause(err)
 		if httpbakery.IsDischargeError(cause) || httpbakery.IsInteractionError(cause) {
@@ -136,15 +135,9 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
-	// Open it and calculate the SHA256 hash.
-	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
-	if !ok {
-		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
-	}
-
 	// Validate the charm lxd profile once we've downloaded it.
 	if err := lxdprofile.ValidateLXDProfile(lxdCharmArchiveProfiler{
-		CharmArchive: downloadedBundle,
+		CharmArchive: downloadedCharm,
 	}); err != nil {
 		if !args.Force {
 			return errors.Annotate(err, "cannot add charm")
@@ -153,9 +146,10 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 
 	// Clean up the downloaded charm - we don't need to cache it in
 	// the filesystem as well as in blob storage.
-	defer os.Remove(downloadedBundle.Path)
+	defer os.Remove(downloadedCharm.Path)
 
-	archive, err := os.Open(downloadedBundle.Path)
+	// Open it and calculate the SHA256 hash.
+	archive, err := os.Open(downloadedCharm.Path)
 	if err != nil {
 		return errors.Annotate(err, "cannot read downloaded charm")
 	}
@@ -174,7 +168,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		Data:         archive,
 		Size:         size,
 		SHA256:       bundleSHA256,
-		CharmVersion: downloadedBundle.Version(),
+		CharmVersion: downloadedCharm.Version(),
 	}
 	if args.CharmStoreMacaroon != nil {
 		ca.Macaroon = macaroon.Slice{args.CharmStoreMacaroon}
@@ -190,7 +184,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 //
 // The authorization macaroon, args.CharmStoreMacaroon, may be
 // omitted, in which case this call is equivalent to AddCharm.
-func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) error {
+func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization, openCSRepo OpenCSRepoFunc) error {
 	return AddCharmWithAuthorizationAndRepo(st, args, func() (charmrepo.Interface, error) {
 		// determine which charmstore api url to use.
 		controllerCfg, err := st.ControllerConfig()
@@ -198,40 +192,39 @@ func AddCharmWithAuthorization(st State, args params.AddCharmWithAuthorization) 
 			return nil, err
 		}
 
-		repo, err := openCSRepo(controllerCfg.CharmStoreURL(), args)
-		if err != nil {
-			return nil, err
-		}
-		model, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		modelConfig, err := model.ModelConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		repo = config.SpecializeCharmRepo(repo, modelConfig).(*charmrepo.CharmStore)
-		return repo, nil
+		return openCSRepo(OpenCSRepoParams{
+			CSURL:              controllerCfg.CharmStoreURL(),
+			Channel:            args.Channel,
+			CharmStoreMacaroon: args.CharmStoreMacaroon,
+		})
 	})
 }
 
-func openCSRepo(csURL string, args params.AddCharmWithAuthorization) (charmrepo.Interface, error) {
-	csClient, err := openCSClient(csURL, args)
+type OpenCSRepoFunc func(args OpenCSRepoParams) (charmrepo.Interface, error)
+
+type OpenCSRepoParams struct {
+	CSURL              string
+	Channel            string
+	CharmStoreMacaroon *macaroon.Macaroon
+}
+
+var OpenCSRepo = func(args OpenCSRepoParams) (charmrepo.Interface, error) {
+	csClient, err := openCSClient(args)
 	if err != nil {
 		return nil, err
 	}
-	repo := NewCharmStoreRepo(csClient)
+	repo := charmrepo.NewCharmStoreFromClient(csClient)
 	return repo, nil
 }
 
-func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*csclient.Client, error) {
-	csURL, err := url.Parse(csAPIURL)
+func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
+	csURL, err := url.Parse(args.CSURL)
 	if err != nil {
 		return nil, err
 	}
 	csParams := csclient.Params{
-		URL:        csURL.String(),
-		HTTPClient: httpbakery.NewHTTPClient(),
+		URL:          csURL.String(),
+		BakeryClient: httpbakery.NewClient(),
 	}
 
 	if args.CharmStoreMacaroon != nil {
@@ -239,7 +232,7 @@ func openCSClient(csAPIURL string, args params.AddCharmWithAuthorization) (*cscl
 		// as a cookie in the HTTP client.
 		// TODO(cmars) discharge any third party caveats in the macaroon.
 		ms := []*macaroon.Macaroon{args.CharmStoreMacaroon}
-		httpbakery.SetCookie(csParams.HTTPClient.Jar, csURL, ms)
+		httpbakery.SetCookie(csParams.BakeryClient.Jar, csURL, charmstore.MacaroonNamespace, ms)
 	}
 	csClient := csclient.New(csParams)
 	channel := csparams.Channel(args.Channel)
@@ -372,27 +365,16 @@ func charmArchiveStoragePath(curl *charm.URL) (string, error) {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func ResolveCharms(st State, args params.ResolveCharms) (params.ResolveCharmResults, error) {
+func ResolveCharms(st State, args params.ResolveCharms, openCSRepo OpenCSRepoFunc) (params.ResolveCharmResults, error) {
 	var results params.ResolveCharmResults
 
-	model, err := st.Model()
-	if err != nil {
-		return params.ResolveCharmResults{}, errors.Trace(err)
-	}
-	envConfig, err := model.ModelConfig()
-	if err != nil {
-		return params.ResolveCharmResults{}, err
-	}
 	controllerCfg, err := st.ControllerConfig()
 	if err != nil {
 		return params.ResolveCharmResults{}, err
 	}
-	csParams := csclient.Params{
-		URL: controllerCfg.CharmStoreURL(),
-	}
-	repo := config.SpecializeCharmRepo(
-		NewCharmStoreRepo(csclient.New(csParams)),
-		envConfig)
+	repo, err := openCSRepo(OpenCSRepoParams{
+		CSURL: controllerCfg.CharmStoreURL(),
+	})
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}

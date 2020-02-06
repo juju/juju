@@ -32,7 +32,13 @@ import (
 )
 
 // toolsltsseries records the known ubuntu lts series.
-var toolsLtsSeries = series.SupportedLts()
+var toolsLtsSeries = supportedJujuSeries()
+
+func supportedJujuSeries() []string {
+	supportedJujuSeries := set.NewStrings(series.SupportedJujuControllerSeries()...)
+	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
+	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
+}
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
 // don't hit the real internet during tests.

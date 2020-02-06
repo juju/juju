@@ -20,11 +20,13 @@ import (
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 type sharedServerContextSuite struct {
@@ -39,13 +41,19 @@ var _ = gc.Suite(&sharedServerContextSuite{})
 func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.StateSuite.SetUpTest(c)
 
+	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Logger:               loggo.GetLogger("test"),
+		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		PrometheusRegisterer: noopRegisterer{},
+	})
+	// The worker itself is a coremultiwatcher.Factory.
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
+
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		InitializedGate: initialized,
-		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() modelcache.BackingWatcher {
-			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
-		},
+		InitializedGate:      initialized,
+		Logger:               loggo.GetLogger("test"),
+		WatcherFactory:       multiWatcherWorker.WatchController,
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
@@ -55,14 +63,19 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	err = modelcache.ExtractCacheController(modelCache, &controller)
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
-		statePool:    s.StatePool,
-		controller:   controller,
-		centralHub:   s.hub,
-		presence:     presence.New(clock.WallClock),
-		leaseManager: &lease.Manager{},
-		logger:       loggo.GetLogger("test"),
+		statePool:           s.StatePool,
+		controller:          controller,
+		multiwatcherFactory: multiWatcherWorker,
+		centralHub:          s.hub,
+		presence:            presence.New(clock.WallClock),
+		leaseManager:        &lease.Manager{},
+		controllerConfig:    controllerConfig,
+		logger:              loggo.GetLogger("test"),
 	}
 }
 
@@ -71,6 +84,20 @@ func (s *sharedServerContextSuite) TestConfigNoStatePool(c *gc.C) {
 	err := s.config.validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
+}
+
+func (s *sharedServerContextSuite) TestConfigNoController(c *gc.C) {
+	s.config.controller = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil controller not valid")
+}
+
+func (s *sharedServerContextSuite) TestConfigNoMultiwatcherFactory(c *gc.C) {
+	s.config.multiwatcherFactory = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil multiwatcherFactory not valid")
 }
 
 func (s *sharedServerContextSuite) TestConfigNoHub(c *gc.C) {
@@ -94,16 +121,23 @@ func (s *sharedServerContextSuite) TestConfigNoLeaseManager(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "nil leaseManager not valid")
 }
 
+func (s *sharedServerContextSuite) TestConfigNoControllerconfig(c *gc.C) {
+	s.config.controllerConfig = nil
+	err := s.config.validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "nil controllerConfig not valid")
+}
+
 func (s *sharedServerContextSuite) TestNewCallsConfigValidate(c *gc.C) {
 	s.config.statePool = nil
-	ctx, err := newSharedServerContex(s.config)
+	ctx, err := newSharedServerContext(s.config)
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "nil statePool not valid")
 	c.Check(ctx, gc.IsNil)
 }
 
 func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
-	ctx, err := newSharedServerContex(s.config)
+	ctx, err := newSharedServerContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	// Normally you wouldn't directly access features.
 	c.Assert(ctx.features, gc.HasLen, 0)
@@ -111,7 +145,7 @@ func (s *sharedServerContextSuite) TestValidConfig(c *gc.C) {
 }
 
 func (s *sharedServerContextSuite) newContext(c *gc.C) *sharedServerContext {
-	ctx, err := newSharedServerContex(s.config)
+	ctx, err := newSharedServerContext(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	s.AddCleanup(func(*gc.C) { ctx.Close() })
 	return ctx
@@ -183,10 +217,13 @@ func (s *sharedServerContextSuite) TestRemovingOldPresenceFeature(c *gc.C) {
 		"features": []string{feature.OldPresence},
 	}, nil)
 	c.Assert(err, jc.ErrorIsNil)
+	controllerConfig, err := s.State.ControllerConfig()
+	c.Assert(err, jc.ErrorIsNil)
 	// Removing the feature.OldPresence to the feature list will cause
 	// a message to be published on the hub to request an apiserver restart.
 	stub := &stubHub{StructuredHub: s.hub}
 	s.config.centralHub = stub
+	s.config.controllerConfig = controllerConfig
 	s.newContext(c)
 
 	msg := controller.ConfigChangedMessage{

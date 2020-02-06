@@ -121,11 +121,8 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(context), gc.Equals, "created machine 0\n")
 
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
-	param := s.fakeAddMachine.args[0]
-	c.Assert(param.Jobs, jc.DeepEquals, []model.MachineJob{
-		model.JobHostUnits,
-	})
+	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
+	c.Assert(s.fakeMachineManager.args[0].Jobs, jc.DeepEquals, []model.MachineJob{model.JobHostUnits})
 }
 
 func (s *AddMachineSuite) TestAddMachineUnauthorizedMentionsJujuGrant(c *gc.C) {
@@ -159,8 +156,9 @@ func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
 func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 	_, err := s.run(c, "--constraints", "mem=8G", "--series=special", "zone=nz")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 1)
-	param := s.fakeAddMachine.args[0]
+	c.Assert(s.fakeMachineManager.args, gc.HasLen, 1)
+
+	param := s.fakeMachineManager.args[0]
 	c.Assert(param.Placement.String(), gc.Equals, "fake-uuid:zone=nz")
 	c.Assert(param.Series, gc.Equals, "special")
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
@@ -169,16 +167,18 @@ func (s *AddMachineSuite) TestParamsPassedOn(c *gc.C) {
 func (s *AddMachineSuite) TestParamsPassedOnNTimes(c *gc.C) {
 	_, err := s.run(c, "-n", "3", "--constraints", "mem=8G", "--series=special")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(s.fakeAddMachine.args, gc.HasLen, 3)
-	param := s.fakeAddMachine.args[0]
+	c.Assert(s.fakeMachineManager.args, gc.HasLen, 3)
+
+	param := s.fakeMachineManager.args[0]
 	c.Assert(param.Series, gc.Equals, "special")
+
 	c.Assert(param.Constraints.String(), gc.Equals, "mem=8192M")
-	c.Assert(s.fakeAddMachine.args[0], jc.DeepEquals, s.fakeAddMachine.args[1])
-	c.Assert(s.fakeAddMachine.args[0], jc.DeepEquals, s.fakeAddMachine.args[2])
+	c.Assert(param, jc.DeepEquals, s.fakeMachineManager.args[1])
+	c.Assert(param, jc.DeepEquals, s.fakeMachineManager.args[2])
 }
 
 func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
-	s.fakeAddMachine.successOrder = []bool{true, false, false}
+	s.fakeMachineManager.successOrder = []bool{true, false, false}
 	expectedOutput := `created machine 0
 failed to create 2 machines
 `
@@ -188,7 +188,7 @@ failed to create 2 machines
 }
 
 func (s *AddMachineSuite) TestBlockedError(c *gc.C) {
-	s.fakeAddMachine.addError = common.OperationBlockedError("TestBlockedError")
+	s.fakeMachineManager.addError = common.OperationBlockedError("TestBlockedError")
 	_, err := s.run(c)
 	testing.AssertOperationWasBlocked(c, err, ".*TestBlockedError.*")
 }

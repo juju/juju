@@ -4,6 +4,7 @@
 package client
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
@@ -11,7 +12,7 @@ import (
 	"github.com/juju/errors"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -29,7 +30,7 @@ type FacadeCaller interface {
 
 // Doer
 type Doer interface {
-	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
+	Do(ctx context.Context, req *http.Request, resp interface{}) error
 }
 
 // Client is the public client for the resources API facade.
@@ -37,14 +38,16 @@ type Client struct {
 	FacadeCaller
 	io.Closer
 	doer Doer
+	ctx  context.Context
 }
 
 // NewClient returns a new Client for the given raw API caller.
-func NewClient(caller FacadeCaller, doer Doer, closer io.Closer) *Client {
+func NewClient(ctx context.Context, caller FacadeCaller, doer Doer, closer io.Closer) *Client {
 	return &Client{
 		FacadeCaller: caller,
 		Closer:       closer,
 		doer:         doer,
+		ctx:          ctx,
 	}
 }
 
@@ -117,7 +120,7 @@ func (c Client) Upload(application, name, filename string, reader io.ReadSeeker)
 	}
 
 	var response params.UploadResult // ignored
-	if err := c.doer.Do(req, reader, &response); err != nil {
+	if err := c.doer.Do(c.ctx, req, &response); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -223,7 +226,7 @@ func (c Client) UploadPendingResource(applicationID string, res charmresource.Re
 		}
 
 		var response params.UploadResult // ignored
-		if err := c.doer.Do(req, reader, &response); err != nil {
+		if err := c.doer.Do(c.ctx, req, &response); err != nil {
 			return "", errors.Trace(err)
 		}
 	}

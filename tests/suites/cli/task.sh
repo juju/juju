@@ -9,11 +9,12 @@ test_cli() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-local-charms.txt"
+    file="${TEST_DIR}/test-cli.txt"
 
-    bootstrap "test-local-charms" "${file}"
+    bootstrap "test-cli" "${file}"
 
+    test_display_clouds
     test_local_charms
 
-    destroy_controller "test-local-charms"
+    destroy_controller "test-cli"
 }

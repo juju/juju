@@ -9,7 +9,7 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/controller"
@@ -171,7 +171,7 @@ func (c *baseCharmResourcesCommand) ListResources(ids []charmstore.CharmID) ([][
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	client, err := charmstore.NewCustomClient(bakeryClient, csURL)
+	client, err := charmstore.NewCustomClientAtURL(bakeryClient, csURL)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

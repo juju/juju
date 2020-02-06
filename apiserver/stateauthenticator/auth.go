@@ -4,16 +4,19 @@
 package stateauthenticator
 
 import (
+	"context"
 	"encoding/base64"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/apiserver/authentication"
@@ -68,16 +71,21 @@ func (a *Authenticator) Maintain(done <-chan struct{}) {
 
 // CreateLocalLoginMacaroon is part of the
 // httpcontext.LocalMacaroonAuthenticator interface.
-func (a *Authenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
-	return a.authContext.CreateLocalLoginMacaroon(tag)
+func (a *Authenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
+	mac, err := a.authContext.CreateLocalLoginMacaroon(ctx, tag, version)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return mac.M(), nil
 }
 
 // AddHandlers adds the handlers to the given mux for handling local
 // macaroon logins.
 func (a *Authenticator) AddHandlers(mux *apiserverhttp.Mux) {
 	h := &localLoginHandlers{
-		authCtxt: a.authContext,
-		finder:   a.statePool.SystemState(),
+		authCtxt:   a.authContext,
+		finder:     a.statePool.SystemState(),
+		userTokens: map[string]string{},
 	}
 	h.AddHandlers(mux)
 }
@@ -92,13 +100,14 @@ func (a *Authenticator) Authenticate(req *http.Request) (httpcontext.AuthInfo, e
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}
-	return a.AuthenticateLoginRequest(req.Host, modelUUID, loginRequest)
+	return a.AuthenticateLoginRequest(req.Context(), req.Host, modelUUID, loginRequest)
 }
 
 // AuthenticateLoginRequest authenticates a LoginRequest.
 //
 // TODO(axw) we shouldn't be using params types here.
 func (a *Authenticator) AuthenticateLoginRequest(
+	ctx context.Context,
 	serverHost string,
 	modelUUID string,
 	req params.LoginRequest,
@@ -119,7 +128,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 	defer st.Release()
 
 	authenticator := a.authContext.authenticator(serverHost)
-	authInfo, err := a.checkCreds(st.State, req, authTag, true, authenticator)
+	authInfo, err := a.checkCreds(ctx, st.State, req, authTag, true, authenticator)
 	if err != nil {
 		if common.IsDischargeRequiredError(err) || errors.IsNotProvisioned(err) {
 			// TODO(axw) move out of common?
@@ -131,6 +140,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 			// Controller agents are allowed to log into any model.
 			var err2 error
 			authInfo, err2 = a.checkCreds(
+				ctx,
 				a.statePool.SystemState(),
 				req, authTag, false, authenticator,
 			)
@@ -146,6 +156,7 @@ func (a *Authenticator) AuthenticateLoginRequest(
 }
 
 func (a *Authenticator) checkCreds(
+	ctx context.Context,
 	st *state.State,
 	req params.LoginRequest,
 	authTag names.Tag,
@@ -159,7 +170,7 @@ func (a *Authenticator) checkCreds(
 		// tag is in the local domain) and the model user.
 		entityFinder = modelUserEntityFinder{st}
 	}
-	entity, err := authenticator.Authenticate(entityFinder, authTag, req)
+	entity, err := authenticator.Authenticate(ctx, entityFinder, authTag, req)
 	if err != nil {
 		return httpcontext.AuthInfo{}, errors.Trace(err)
 	}
@@ -186,7 +197,7 @@ func (a *Authenticator) checkCreds(
 		// TODO log or return error returned by
 		// UpdateLastLogin? Old code didn't do
 		// anything with it.
-		entity.UpdateLastLogin()
+		_ = entity.UpdateLastLogin()
 	}
 	return authInfo, nil
 }
@@ -197,9 +208,11 @@ func (a *Authenticator) checkCreds(
 func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	authHeader := req.Header.Get("Authorization")
 	macaroons := httpbakery.RequestMacaroons(req)
+
 	if authHeader == "" {
 		return params.LoginRequest{Macaroons: macaroons}, nil
 	}
+
 	parts := strings.Fields(authHeader)
 	if len(parts) != 2 || parts[0] != "Basic" {
 		// Invalid header format or no header provided.
@@ -221,10 +234,13 @@ func LoginRequest(req *http.Request) (params.LoginRequest, error) {
 	if _, err := names.ParseTag(tagPass[0]); err != nil {
 		return params.LoginRequest{}, errors.Trace(err)
 	}
+
+	bakeryVersion, _ := strconv.Atoi(req.Header.Get(httpbakery.BakeryProtocolHeader))
 	return params.LoginRequest{
-		AuthTag:     tagPass[0],
-		Credentials: tagPass[1],
-		Macaroons:   httpbakery.RequestMacaroons(req),
-		Nonce:       req.Header.Get(params.MachineNonceHeader),
+		AuthTag:       tagPass[0],
+		Credentials:   tagPass[1],
+		Nonce:         req.Header.Get(params.MachineNonceHeader),
+		Macaroons:     macaroons,
+		BakeryVersion: bakery.Version(bakeryVersion),
 	}, nil
 }

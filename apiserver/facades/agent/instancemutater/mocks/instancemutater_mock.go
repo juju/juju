@@ -5,12 +5,13 @@
 package mocks
 
 import (
+	reflect "reflect"
+	time "time"
+
 	gomock "github.com/golang/mock/gomock"
 	status "github.com/juju/juju/core/status"
 	state "github.com/juju/juju/state"
 	names_v3 "gopkg.in/juju/names.v3"
-	reflect "reflect"
-	time "time"
 )
 
 // MockInstanceMutaterState is a mock of InstanceMutaterState interface

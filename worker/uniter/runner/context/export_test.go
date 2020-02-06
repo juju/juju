@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
+	"github.com/juju/juju/worker/uniter/runner/context/mocks"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
@@ -90,6 +91,12 @@ func NewHookContext(hcParams HookContextParams) (*HookContext, error) {
 	return ctx, nil
 }
 
+func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit) *HookContext {
+	return &HookContext{
+		unit: mockUnit,
+	}
+}
+
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
 func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName string, remoteAppName string) {
@@ -119,7 +126,7 @@ func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]i
 
 func WithActionContext(ctx *HookContext, in map[string]interface{}) {
 	ctx.actionData = &ActionData{
-		Tag:        names.NewActionTag("1"),
+		Tag:        names.NewActionTag("2"),
 		ResultsMap: in,
 	}
 }

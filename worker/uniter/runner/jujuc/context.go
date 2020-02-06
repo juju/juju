@@ -22,10 +22,12 @@ import (
 
 // Context is the interface that all hook helper commands
 // depend on to interact with the rest of the system.
+//go:generate mockgen -package mocks -destination mocks/context_mock.go github.com/juju/juju/worker/uniter/runner/jujuc Context
 type Context interface {
 	HookContext
 	relationHookContext
 	actionHookContext
+	unitCacheContext
 }
 
 // HookContext represents the information and functionality that is
@@ -95,6 +97,22 @@ type actionHookContext interface {
 	LogActionMessage(string) error
 }
 
+// unitCacheContext is cache for charm state to be held in the context.
+type unitCacheContext interface {
+	// GetCache returns a copy of the cache.
+	GetCache() (map[string]string, error)
+
+	// GetSingleCacheValue returns the value of the given key.
+	GetSingleCacheValue(string) (string, error)
+
+	// DeleteCacheValue deletes the key/value pair for the given key from
+	// the cache.
+	DeleteCacheValue(string) error
+
+	// SetCacheValue sets the key/value pair provided in the cache.
+	SetCacheValue(string, string) error
+}
+
 // ContextUnit is the part of a hook context related to the unit.
 type ContextUnit interface {
 	// UnitName returns the executing unit's name.
@@ -108,6 +126,9 @@ type ContextUnit interface {
 
 	// SetPodSpec updates the yaml spec used to create a pod.
 	SetPodSpec(specYaml string) error
+
+	// GetPodSpec returns the yaml spec used to create a pod.
+	GetPodSpec() (string, error)
 
 	// CloudSpec returns the unit's cloud specification
 	CloudSpec() (*params.CloudSpec, error)

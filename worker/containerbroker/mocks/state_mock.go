@@ -10,8 +10,8 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/provisioner"
 	params "github.com/juju/juju/apiserver/params"
-	corenetwork "github.com/juju/juju/core/network"
-	network "github.com/juju/juju/network"
+	network "github.com/juju/juju/core/network"
+	network0 "github.com/juju/juju/network"
 	names_v3 "gopkg.in/juju/names.v3"
 )
 
@@ -65,9 +65,9 @@ func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0 interface{}) *gomoc
 }
 
 // GetContainerInterfaceInfo mocks base method
-func (m *MockState) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (m *MockState) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "GetContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
+	ret0, _ := ret[0].([]network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -91,9 +91,9 @@ func (mr *MockStateMockRecorder) GetContainerProfileInfo(arg0 interface{}) *gomo
 }
 
 // HostChangesForContainer mocks base method
-func (m *MockState) HostChangesForContainer(arg0 names_v3.MachineTag) ([]network.DeviceToBridge, int, error) {
+func (m *MockState) HostChangesForContainer(arg0 names_v3.MachineTag) ([]network0.DeviceToBridge, int, error) {
 	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0)
-	ret0, _ := ret[0].([]network.DeviceToBridge)
+	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -122,9 +122,9 @@ func (mr *MockStateMockRecorder) Machines(arg0 ...interface{}) *gomock.Call {
 }
 
 // PrepareContainerInterfaceInfo mocks base method
-func (m *MockState) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]corenetwork.InterfaceInfo, error) {
+func (m *MockState) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
 	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
-	ret0, _ := ret[0].([]corenetwork.InterfaceInfo)
+	ret0, _ := ret[0].([]network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

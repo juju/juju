@@ -324,6 +324,11 @@ func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) 
 	return false, nil
 }
 
+// SupportsSpaces implements environs.NetworkingEnviron.
+func (e *environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
 // SupportsSpaceDiscovery implements environs.NetworkingEnviron.
 func (e *environ) SupportsSpaceDiscovery(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/hashicorp/raft"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/globalclock"

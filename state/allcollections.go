@@ -205,6 +205,9 @@ func allCollections() CollectionSchema {
 		// given operation.
 		permissionsC: {
 			global: true,
+			indexes: []mgo.Index{{
+				Key: []string{"object-global-key", "subject-global-key"},
+			}},
 		},
 
 		// This collection holds information cached by autocert certificate
@@ -285,7 +288,8 @@ func allCollections() CollectionSchema {
 				Key: []string{"model-uuid", "machineid"},
 			}},
 		},
-		minUnitsC: {},
+		unitStatesC: {},
+		minUnitsC:   {},
 
 		// This collection holds documents that indicate units which are queued
 		// to be assigned to machines. It is used exclusively by the
@@ -407,9 +411,12 @@ func allCollections() CollectionSchema {
 		actionsC: {
 			indexes: []mgo.Index{{
 				Key: []string{"model-uuid", "name"},
+			}, {
+				Key: []string{"model-uuid", "operation"},
 			}},
 		},
 		actionNotificationsC: {},
+		operationsC:          {},
 
 		// -----
 
@@ -590,6 +597,7 @@ const (
 	modelsC                    = "models"
 	modelEntityRefsC           = "modelEntityRefs"
 	openedPortsC               = "openedPorts"
+	operationsC                = "operations"
 	payloadsC                  = "payloads"
 	permissionsC               = "permissions"
 	podSpecsC                  = "podSpecs"
@@ -620,6 +628,7 @@ const (
 	txnLogC                    = "txns.log"
 	txnsC                      = "txns"
 	unitsC                     = "units"
+	unitStatesC                = "unitstates"
 	upgradeInfoC               = "upgradeInfo"
 	userLastLoginC             = "userLastLogin"
 	usermodelnameC             = "usermodelname"

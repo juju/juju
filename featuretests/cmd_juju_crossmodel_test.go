@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/cmd/juju/application"
@@ -22,8 +21,8 @@ import (
 	"github.com/juju/juju/cmd/juju/crossmodel"
 	"github.com/juju/juju/cmd/juju/model"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/permission"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	"github.com/juju/juju/testing/factory"
@@ -378,12 +377,7 @@ func (s *crossmodelSuite) TestAddRelationSameControllerSameOwner(c *gc.C) {
 	mysql := testcharms.Repo.CharmDir("mysql")
 	ident := fmt.Sprintf("%s-%d", mysql.Meta().Name, mysql.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charmrepo.InferRepository(
-		curl,
-		charmrepo.NewCharmStoreParams{},
-		testcharms.Repo.Path())
-	c.Assert(err, jc.ErrorIsNil)
-	ch, err = jujutesting.PutCharm(otherModel, curl, repo, false, false)
+	ch, err := jujutesting.PutCharm(otherModel, curl, mysql)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",
@@ -409,12 +403,7 @@ func (s *crossmodelSuite) addOtherModelApplication(c *gc.C) *state.State {
 	mysql := testcharms.Repo.CharmDir("mysql")
 	ident := fmt.Sprintf("%s-%d", mysql.Meta().Name, mysql.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charmrepo.InferRepository(
-		curl,
-		charmrepo.NewCharmStoreParams{},
-		testcharms.Repo.Path())
-	c.Assert(err, jc.ErrorIsNil)
-	ch, err := jujutesting.PutCharm(otherModel, curl, repo, false, false)
+	ch, err := jujutesting.PutCharm(otherModel, curl, mysql)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = otherModel.AddApplication(state.AddApplicationArgs{
 		Name:  "mysql",

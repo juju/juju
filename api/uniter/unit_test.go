@@ -150,7 +150,9 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 }
 
 func (s *unitSuite) TestLogActionMessage(c *gc.C) {
-	anAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.wordpressUnit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,13 +648,15 @@ func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertChange()
 
 	// Add a couple of actions and make sure the changes are detected.
-	action, err := s.wordpressUnit.AddAction("fakeaction", map[string]interface{}{
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.wordpressUnit.AddAction(operationID, "fakeaction", map[string]interface{}{
 		"outfile": "foo.txt",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(action.Id())
 
-	action, err = s.wordpressUnit.AddAction("fakeaction", map[string]interface{}{
+	action, err = s.wordpressUnit.AddAction(operationID, "fakeaction", map[string]interface{}{
 		"outfile": "foo.bz2",
 		"compression": map[string]interface{}{
 			"kind":    "bzip",
@@ -1010,6 +1014,72 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 	sts, err := s.apiUnit.UpgradeSeriesStatus()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
+}
+
+func (s *unitSuite) TestSetStateSingleResult(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 1)
+			return nil
+		},
+	)
+
+	unitState := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	err := s.apiUnit.SetState(unitState)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *unitSuite) TestSetStateMultipleReturnsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
+		func(results interface{}) error {
+			result := results.(*params.ErrorResults)
+			result.Results = make([]params.ErrorResult, 2)
+			return nil
+		},
+	)
+
+	unitState := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	err := s.apiUnit.SetState(unitState)
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
+}
+
+func (s *unitSuite) TestStateSingleResult(c *gc.C) {
+	expectedUnitState := map[string]string{
+		"one":   "two",
+		"three": "four",
+	}
+	uniter.PatchUnitResponse(s, s.apiUnit, "State",
+		func(results interface{}) error {
+			result := results.(*params.UnitStateResults)
+			result.Results = make([]params.UnitStateResult, 1)
+			result.Results[0].State = expectedUnitState
+			return nil
+		},
+	)
+
+	obtainedUnitState, err := s.apiUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(expectedUnitState, gc.DeepEquals, obtainedUnitState)
+}
+
+func (s *unitSuite) TestStateMultipleReturnsError(c *gc.C) {
+	uniter.PatchUnitResponse(s, s.apiUnit, "State",
+		func(results interface{}) error {
+			result := results.(*params.UnitStateResults)
+			result.Results = make([]params.UnitStateResult, 2)
+			return nil
+		},
+	)
+
+	_, err := s.apiUnit.State()
+	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
 
 type unitMetricBatchesSuite struct {

@@ -1617,6 +1617,7 @@ func (m *Machine) ProviderAddresses() (addresses corenetwork.SpaceAddresses) {
 
 // AddressesBySpaceID groups the machine addresses by space id and
 // returns the result as a map where the space id is used a the key.
+// Loopback addresses are skipped.
 func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, error) {
 	addresses, err := m.AllAddresses()
 	if err != nil {
@@ -1629,6 +1630,10 @@ func (m *Machine) AddressesBySpaceID() (map[string][]corenetwork.SpaceAddress, e
 		// resolved space IDs (except MAAS). For the time being, we
 		// need to pull out the space ID information from the
 		// associated subnet.
+		// we need to ignore the loopback else it will fail
+		if address.LoopbackConfigMethod() {
+			continue
+		}
 		subnet, err := address.Subnet()
 		if err != nil {
 			return nil, err
@@ -2005,7 +2010,7 @@ func (m *Machine) VolumeAttachments() ([]VolumeAttachment, error) {
 }
 
 // AddAction is part of the ActionReceiver interface.
-func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action, error) {
+func (m *Machine) AddAction(operationID, name string, payload map[string]interface{}) (Action, error) {
 	spec, ok := actions.PredefinedActionsSpec[name]
 	if !ok {
 		return nil, errors.Errorf("cannot add action %q to a machine; only predefined actions allowed", name)
@@ -2026,7 +2031,7 @@ func (m *Machine) AddAction(name string, payload map[string]interface{}) (Action
 		return nil, errors.Trace(err)
 	}
 
-	return model.EnqueueAction(m.Tag(), name, payloadWithDefaults)
+	return model.EnqueueAction(operationID, m.Tag(), name, payloadWithDefaults)
 }
 
 // CancelAction is part of the ActionReceiver interface.

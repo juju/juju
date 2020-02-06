@@ -19,10 +19,10 @@ import (
 	"github.com/kr/pretty"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	"gopkg.in/juju/charmrepo.v4"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/api"
@@ -102,7 +102,10 @@ type bundleDeploySpec struct {
 	channel           csparams.Channel
 
 	apiRoot              DeployAPI
+	bundleResolver       BundleResolver
+	authorizer           macaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	deployResources      resourceadapters.DeployResourcesFunc
 
 	useExistingMachines bool
 	bundleMachines      map[string]string
@@ -198,7 +201,10 @@ type bundleHandler struct {
 
 	// api is used to interact with the environment.
 	api                  DeployAPI
+	bundleResolver       BundleResolver
+	authorizer           macaroonGetter
 	getConsumeDetailsAPI func(*charm.OfferURL) (ConsumeDetails, error)
+	deployResources      resourceadapters.DeployResourcesFunc
 
 	// bundleStorage contains a mapping of application-specific storage
 	// constraints. For each application, the storage constraints in the
@@ -272,7 +278,10 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		results:              make(map[string]string),
 		channel:              spec.channel,
 		api:                  spec.apiRoot,
+		bundleResolver:       spec.bundleResolver,
+		authorizer:           spec.authorizer,
 		getConsumeDetailsAPI: spec.getConsumeDetailsAPI,
+		deployResources:      spec.deployResources,
 		bundleStorage:        spec.bundleStorage,
 		bundleDevices:        spec.bundleDevices,
 		ctx:                  spec.ctx,
@@ -365,7 +374,7 @@ func (h *bundleHandler) resolveCharmsAndEndpoints() error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		url, _, _, err := resolveCharm(h.api.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
+		url, _, _, err := resolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(spec.Channel))
 		if err != nil {
 			return errors.Annotatef(err, "cannot resolve URL %q", spec.Charm)
 		}
@@ -529,7 +538,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Trace(err)
 	}
 
-	url, channel, _, err := resolveCharm(h.api.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
+	url, channel, _, err := resolveCharm(h.bundleResolver.ResolveWithPreferredChannel, ch, csparams.Channel(p.Channel))
 	if err != nil {
 		return errors.Annotatef(err, "cannot resolve URL %q", p.Charm)
 	}
@@ -537,7 +546,7 @@ func (h *bundleHandler) addCharm(change *bundlechanges.AddCharmChange) error {
 		return errors.Errorf("expected charm URL, got bundle URL %q", p.Charm)
 	}
 	var macaroon *macaroon.Macaroon
-	url, macaroon, err = addCharmFromURL(h.api, url, channel, h.force)
+	url, macaroon, err = addCharmFromURL(h.api, h.authorizer, url, channel, h.force)
 	if err != nil {
 		return errors.Annotatef(err, "cannot add charm %q", p.Charm)
 	}
@@ -666,7 +675,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		return errors.Trace(err)
 	}
 
-	resNames2IDs, err := resourceadapters.DeployResources(
+	resNames2IDs, err := h.deployResources(
 		p.Application,
 		chID,
 		macaroon,
@@ -965,7 +974,7 @@ func (h *bundleHandler) upgradeCharm(change *bundlechanges.UpgradeCharmChange) e
 	}
 	var resNames2IDs map[string]string
 	if len(filtered) != 0 {
-		resNames2IDs, err = resourceadapters.DeployResources(
+		resNames2IDs, err = h.deployResources(
 			p.Application,
 			chID,
 			macaroon,

@@ -126,7 +126,7 @@ def wait_for_storage_removal(client, storage_id, interval, timeout):
             break
 
 
-def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
+def make_expected_ls(storage_name, unit_name, kind='filesystem'):
     """Return the expected data from list-storage for filesystem or block."""
     if kind == 'block':
         location = ''
@@ -151,12 +151,12 @@ def make_expected_ls(client, storage_name, unit_name, kind='filesystem'):
     return data
 
 
-def make_expected_disk(client, disk_num, unit_name):
+def make_expected_disk(disk_num, unit_name):
     """Return the expected data from list storage for disks."""
     all_disk = {'storage': {}}
     for num in range(1, disk_num + 1):
         next_disk = make_expected_ls(
-            client, 'disks/{}'.format(num), unit_name, kind='block')
+            'disks/{}'.format(num), unit_name, kind='block')
         all_disk['storage'].update(next_disk['storage'])
     return all_disk
 
@@ -185,7 +185,7 @@ def storage_pool_list(client):
 
 def create_storage_charm(charm_dir, name, summary, storage):
     """Manually create a temporary charm to test with storage."""
-    storage_charm = Charm(name, summary, storage=storage, series=['trusty'])
+    storage_charm = Charm(name, summary, storage=storage, series=['bionic'])
     # Valid charms require at least one hook.
     # Add a dummy install hook.
     install = '#!/bin/sh\necho install'
@@ -281,22 +281,23 @@ def assess_multiple_provider(client, charm_series, amount, charm_name,
                                  series=charm_series,
                                  repository=os.path.dirname(charm_root),
                                  platform=platform)
+        storage_args = []
         if pool_1 == "loop":
-            command = "disks=" + pool_1 + "," + amount
+            storage_args.append("disks=" + pool_1 + "," + amount)
         else:
-            command = "data=" + pool_1 + "," + amount
+            storage_args.append("data=" + pool_1 + "," + amount)
         if pool_2 == "loop":
-            command = command + ",disks=" + pool_2
+            storage_args.append("disks=" + pool_2)
         else:
-            command = command + ",data=" + pool_2
+            storage_args.append("data=" + pool_2)
         client.deploy(charm, series=charm_series, repository=charm_dir,
-                      storage=command)
+                      storage=storage_args)
         client.wait_for_started()
 
 
 def check_storage_list(client, expected):
     storage_list_derived = storage_list(client)
-    assert_dict_is_subset(expected, storage_list_derived)
+    assert_dict_is_subset(expected['storage'], storage_list_derived['storage'])
 
 
 def assess_storage(client, charm_series):
@@ -324,9 +325,9 @@ def assess_storage(client, charm_series):
     log.info('Storage pool PASSED')
 
     log.info('Assessing filesystem rootfs')
-    assess_deploy_storage(client, charm_series,
-                          'dummy-storage-fs', 'filesystem', 'rootfs')
-    expected = make_expected_ls(client, 'data/0', 'dummy-storage-fs/0')
+    assess_deploy_storage(client, charm_series, 'dummy-storage-fs',
+                          'filesystem', 'rootfs')
+    expected = make_expected_ls('data/0', 'dummy-storage-fs/0')
     check_storage_list(client, expected)
     log.info('Filesystem rootfs PASSED')
     client.remove_application('dummy-storage-fs')
@@ -334,13 +335,13 @@ def assess_storage(client, charm_series):
     log.info('Assessing block loop disk 1')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-lp', 'block', 'loop')
-    expected_block1 = make_expected_disk(client, 1, 'dummy-storage-lp/0')
+    expected_block1 = make_expected_disk(1, 'dummy-storage-lp/0')
     check_storage_list(client, expected_block1)
     log.info('Block loop disk 1 PASSED')
 
     log.info('Assessing add storage block loop disk 2')
     assess_add_storage(client, 'dummy-storage-lp/0', 'disks', "1")
-    expected_block2 = make_expected_disk(client, 2, 'dummy-storage-lp/0')
+    expected_block2 = make_expected_disk(2, 'dummy-storage-lp/0')
     check_storage_list(client, expected_block2)
     log.info('Block loop disk 2 PASSED')
     client.remove_application('dummy-storage-lp')
@@ -348,7 +349,7 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem tmpfs')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-tp', 'filesystem', 'tmpfs')
-    expected = make_expected_ls(client, 'data/3', 'dummy-storage-tp/0')
+    expected = make_expected_ls('data/3', 'dummy-storage-tp/0')
     check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
     client.remove_application('dummy-storage-tp')
@@ -356,7 +357,7 @@ def assess_storage(client, charm_series):
     log.info('Assessing filesystem')
     assess_deploy_storage(client, charm_series,
                           'dummy-storage-np', 'filesystem')
-    expected = make_expected_ls(client, 'data/4', 'dummy-storage-np/0')
+    expected = make_expected_ls('data/4', 'dummy-storage-np/0')
     check_storage_list(client, expected)
     log.info('Filesystem tmpfs PASSED')
 
@@ -375,7 +376,7 @@ def assess_storage(client, charm_series):
     log.info('Assessing multiple filesystem, block, rootfs, loop')
     assess_multiple_provider(client, charm_series, "1G", 'dummy-storage-mp',
                              'filesystem', 'block', 'rootfs', 'loop')
-    expected = make_expected_ls(client, 'data/5', 'dummy-storage-mp/0')
+    expected = make_expected_ls('data/5', 'dummy-storage-mp/0')
     check_storage_list(client, expected)
     log.info('Multiple filesystem, block, rootfs, loop PASSED')
     client.remove_application('dummy-storage-mp')
@@ -386,7 +387,7 @@ def parse_args(argv):
     """Parse all arguments."""
     parser = argparse.ArgumentParser(description="Test Storage Feature")
     add_basic_testing_arguments(parser)
-    parser.set_defaults(series='trusty')
+    parser.set_defaults(series='bionic')
     return parser.parse_args(argv)
 
 

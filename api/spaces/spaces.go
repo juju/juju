@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 )
 
 const spacesFacade = "Spaces"
@@ -81,6 +82,56 @@ func (api *API) CreateSpace(name string, cidrs []string, public bool) error {
 	return response.OneError()
 }
 
+// ShowSpace shows details about a space.
+// Containing subnets, applications and machines count associated with it.
+func (api *API) ShowSpace(name string) (network.ShowSpace, error) {
+	var response params.ShowSpaceResults
+	var result network.ShowSpace
+	var args interface{}
+	args = params.Entities{
+		Entities: []params.Entity{{Tag: names.NewSpaceTag(name).String()}},
+	}
+	err := api.facade.FacadeCall("ShowSpace", args, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return result, errors.NewNotSupported(nil, err.Error())
+		}
+		return result, errors.Trace(err)
+	}
+	if len(response.Results) != 1 {
+		return result, errors.Errorf("expected 1 result, got %d", len(response.Results))
+	}
+	if err := response.Results[0].Error; err != nil {
+		return result, err
+	}
+	convertedSpaceResult := ShowSpaceFromResult(response.Results[0])
+	return convertedSpaceResult, err
+}
+
+// ShowSpaceFromResult converts params.ShowSpaceResult to network.ShowSpace
+func ShowSpaceFromResult(result params.ShowSpaceResult) network.ShowSpace {
+	s := result.Space
+	subnets := make([]network.SubnetInfo, len(s.Subnets))
+	for i, value := range s.Subnets {
+		subnets[i].AvailabilityZones = value.Zones
+		subnets[i].ProviderId = network.Id(value.ProviderId)
+		subnets[i].VLANTag = value.VLANTag
+		subnets[i].CIDR = value.CIDR
+		subnets[i].ProviderNetworkId = network.Id(value.ProviderNetworkId)
+		subnets[i].ProviderSpaceId = network.Id(value.ProviderSpaceId)
+	}
+	space := network.ShowSpace{
+		Space: network.SpaceInfo{
+			ID:      s.Id,
+			Name:    network.SpaceName(s.Name),
+			Subnets: subnets,
+		},
+		Applications: result.Applications,
+		MachineCount: result.MachineCount,
+	}
+	return space
+}
+
 // ListSpaces lists all available spaces and their associated subnets.
 func (api *API) ListSpaces() ([]params.Space, error) {
 	var response params.ListSpacesResults
@@ -101,4 +152,26 @@ func (api *API) ReloadSpaces() error {
 		return errors.NewNotSupported(nil, err.Error())
 	}
 	return err
+}
+
+func (api *API) RenameSpace(oldName string, newName string) error {
+	var response params.ErrorResults
+	spaceRenameParams := make([]params.RenameSpaceParams, 1)
+	spaceRename := params.RenameSpaceParams{
+		FromSpaceTag: names.NewSpaceTag(oldName).String(),
+		ToSpaceTag:   names.NewSpaceTag(newName).String(),
+	}
+	spaceRenameParams[0] = spaceRename
+	args := params.RenameSpacesParams{SpacesRenames: spaceRenameParams}
+	err := api.facade.FacadeCall("RenameSpace", args, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return errors.NewNotSupported(nil, err.Error())
+		}
+		return errors.Trace(err)
+	}
+	if err := response.Combine(); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

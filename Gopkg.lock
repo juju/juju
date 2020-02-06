@@ -12,14 +12,6 @@
   revision = "3b1ae45394a234c385be014e9a488f2bb6eef821"
 
 [[projects]]
-  branch = "master"
-  digest = "1:3dbee55971def1e4aa600dac9e3398ddb1b20ee4ca729aa08c985692b2bd1fc8"
-  name = "code.cloudfoundry.org/systemcerts"
-  packages = ["."]
-  pruneopts = ""
-  revision = "ca00b2f806f2fa1ded784ade357bad1ea3f1fbbe"
-
-[[projects]]
   digest = "1:e1b859e3d9e90007d5fbf25edf57733b224f1857f6592636130afab3af8cfae7"
   name = "contrib.go.opencensus.io/exporter/ocagent"
   packages = ["."]
@@ -67,13 +59,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
-
-[[projects]]
-  digest = "1:7b42eeb05f45af1cd224ce9c9b1b80d128290a15846826ea447d01126b2728fd"
-  name = "github.com/ajstarks/svgo"
-  packages = ["."]
-  pruneopts = ""
-  revision = "89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518"
 
 [[projects]]
   digest = "1:eb7820bae9e7a4d601b1c7319951215554b259e8266490361363b67d9ac8eed6"
@@ -131,14 +116,6 @@
   pruneopts = ""
   revision = "7f2434bc10da710debe5c4315ed6d4df454b4024"
   version = "v0.1.0"
-
-[[projects]]
-  branch = "master"
-  digest = "1:464e77c45b541f9dd4648621594efe80368ee2e52d78771a46a776371a1286fa"
-  name = "github.com/cloud-green/monitoring"
-  packages = ["."]
-  pruneopts = ""
-  revision = "666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e"
 
 [[projects]]
   digest = "1:8783f4f99cf4e5812a0030569b6a23f53e985d10322079a37c39b837f5396a4b"
@@ -455,11 +432,11 @@
   revision = "b99631de12cf04a906c1d4e4ec54fb86eae5863d"
 
 [[projects]]
-  digest = "1:ebbd30a06de5bc3933e34d426cfaa69a0cefa10f575d520e6597acbf37e4d132"
+  digest = "1:ef49e9c114183e3d64d2ed7602dfb175213eb1ba5edcf822376104c4ba9e6e42"
   name = "github.com/juju/bundlechanges"
   packages = ["."]
   pruneopts = ""
-  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
+  revision = "4ca814a87a328d089e9e610538fc205d7bed3987"
 
 [[projects]]
   digest = "1:f720ea29e073a9a7109a5080f32753292dc8616a22a905876d425cc64c21bd8d"
@@ -472,14 +449,14 @@
   revision = "9c5c9712527c7986f012361e7d13756b4d99543d"
 
 [[projects]]
-  digest = "1:68bc775aba55be0a3e178439988ba7daf3a86b805942a251146277ea506f935f"
+  digest = "1:c1e8ab6c6b6db0004d18502ef9c5554502309ca172ccdbc146b8ed0427f9613c"
   name = "github.com/juju/cmd"
   packages = [
     ".",
     "cmdtesting",
   ]
   pruneopts = ""
-  revision = "74922f23f6436a661dacd8c5fdf9cb15641e7a2e"
+  revision = "8e43f3faa5c9b0463c9b1fffd89dcdbf1f7ed620"
 
 [[projects]]
   digest = "1:243ec2217cb77ad028a956bf4d886b0f070d2dbfe861ceadfcf270412c2e7b90"
@@ -492,11 +469,11 @@
   revision = "9be91dc79b7c185fa8b08e7ceceee40562055c83"
 
 [[projects]]
-  digest = "1:12e9d8a3a8f87f24295b14721ae5a222b06db2c3215d0015b7766a3ddb559095"
+  digest = "1:4e0797209852d8675c9a6d17d49a543428f7182eef8b6f2ee9c12e4f4648bc4f"
   name = "github.com/juju/description"
   packages = ["."]
   pruneopts = ""
-  revision = "4a2d8e1a91c9355889febe294accbbcfb3a1a656"
+  revision = "d884fa94b91060a8995d85aca929f96fd100e935"
 
 [[projects]]
   digest = "1:594030c0f0ed3842773b68708d4f9716d809556b9c631460051f99b15057512d"
@@ -570,24 +547,6 @@
   revision = "14bf14c307672fd2456bdbf35d19cf0ccd3cf565"
 
 [[projects]]
-  digest = "1:02cd46216edea83aeaeee19401ce23a0417f3cf94be9f769e5856be642022d3d"
-  name = "github.com/juju/httprequest"
-  packages = ["."]
-  pruneopts = ""
-  revision = "266fd1e9debf09c037a63f074d099a2da4559ece"
-
-[[projects]]
-  digest = "1:e8f1ba29f4bbd088ebaa75c8e79466d0da4281ef0f149ef50293fd3b227e0ba4"
-  name = "github.com/juju/idmclient"
-  packages = [
-    ".",
-    "params",
-    "ussologin",
-  ]
-  pruneopts = ""
-  revision = "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
-
-[[projects]]
   digest = "1:27649bd8b71348f8eed93f5604f4d6d77f845ddc4e0ee66cf5beef82ed1d4846"
   name = "github.com/juju/jsonschema"
   packages = ["."]
@@ -619,14 +578,6 @@
   revision = "305dec07bf2f69353bb05fa849e2a0834e220f94"
 
 [[projects]]
-  branch = "master"
-  digest = "1:865ef977d949d745f5c01bce1a2eb8580ecbb46054feae767f7112321f020eb9"
-  name = "github.com/juju/mempool"
-  packages = ["."]
-  pruneopts = ""
-  revision = "24974d6c264fe5a29716e7d56ea24c4bd904b7cc"
-
-[[projects]]
   digest = "1:b043566d9b325a8416f98af1bd46a00b498b16c1aba36e6708f79eda664d88d4"
   name = "github.com/juju/mutex"
   packages = ["."]
@@ -641,14 +592,14 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:d8ec1fe408feff29f06246bbd4f262b66c6b1dcfabe14c9d6e843b6b8f5bfa36"
+  digest = "1:bc9a619961b397e6195984f41348ee19186f218136b1f76a6fa90c77b46c4e5c"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "44115a59837dd6cddf93ee4cfb51e48c7ba8bb73"
+  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
 
 [[projects]]
   digest = "1:294998b796d446415dd45401c62501b2ed97f215a3a25249ad5017848d223322"
@@ -715,7 +666,7 @@
   revision = "b058ad085c9480f110200bfe2309189aff5780b8"
 
 [[projects]]
-  digest = "1:15d8d1fbd7a685a9abd1b6ca6943fd8613f72249a854fa6bc383523caf74f768"
+  digest = "1:4bc7c0119c88b0ca18bd72c884cd99723fc5da5babfe66016c0ffa48ac46d295"
   name = "github.com/juju/romulus"
   packages = [
     ".",
@@ -729,7 +680,7 @@
     "wireformat/sla",
   ]
   pruneopts = ""
-  revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
+  revision = "fd7cab26ac5f36f7780f7bae4e9331e07dd44802"
 
 [[projects]]
   digest = "1:49b61a2d186cbe71f1e72021b7bba7012b9433af2215f7ef07456344216efeff"
@@ -746,14 +697,14 @@
   revision = "1f8aaeef09898fcee40fe43b8de422533b0cac2b"
 
 [[projects]]
-  digest = "1:e3f03b6b31f1b273e4b37b1ac54fb10a0553fbc6c66441fe5388450caa385129"
+  digest = "1:61fdcd5ca2dcd80cd6951a72e7b291e3d40afbb3a38b02cd17d71d2859b2ed98"
   name = "github.com/juju/terms-client"
   packages = [
     "api",
     "api/wireformat",
   ]
   pruneopts = ""
-  revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
+  revision = "d29f8efe0af6f5ed0e8d5bff8bccbecb16e653d1"
 
 [[projects]]
   digest = "1:0eec58cdcfcc6f4a561e68d779dd136700575148459d4d435c60483a8f721d27"
@@ -785,12 +736,11 @@
   revision = "68a59c96c178fbbad65926e7f93db50a2cd14f33"
 
 [[projects]]
-  digest = "1:ed85b6356e8e1612c96e368bbe082173ebe3993f61adbd9f9fe1456279a18db5"
+  digest = "1:85558d1ebc168aa90832e1d4b6f3068c4b1c7d985d355bea827ce9d2b36be07a"
   name = "github.com/juju/utils"
   packages = [
     ".",
     "arch",
-    "cache",
     "cert",
     "debugstatus",
     "deque",
@@ -816,14 +766,14 @@
     "zip",
   ]
   pruneopts = ""
-  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
+  revision = "d40c2fe1064788d512a6ed0f3c4fcaf0e42515c6"
 
 [[projects]]
-  digest = "1:eab278f98004677adf1d70d6cdaba1c01a446ab10dddb1cf7d83cfd1475c22cc"
+  digest = "1:ac49627092b42eca5480db7fdae2814f60066dc922907b6c49bfddd30db5824e"
   name = "github.com/juju/version"
   packages = ["."]
   pruneopts = ""
-  revision = "1f41e27e54f21acccf9b2dddae063a782a8a7ceb"
+  revision = "81c1be00b9a67de4490453f6117d13d818c9fb84"
 
 [[projects]]
   digest = "1:151d8c34a506d526d1c5605daa4efef27d7226284bd313b96c320d65b4efb617"
@@ -831,21 +781,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "54b8c57083b4afb7dc75da7f13e2967b2606a507"
-
-[[projects]]
-  digest = "1:7a12c645226c9f1db5f55c02a7a212ce6d00fccb6b13e807d4ca90ce9533f3a4"
-  name = "github.com/juju/xml"
-  packages = ["."]
-  pruneopts = ""
-  revision = "eb759a627588d35166bc505fceb51b88500e291e"
-
-[[projects]]
-  branch = "master"
-  digest = "1:d030c9cbec76ecda52309cf750ac81052fba1629c6390f9b5f69d228f33a27f2"
-  name = "github.com/juju/zip"
-  packages = ["."]
-  pruneopts = ""
-  revision = "f6b1e93fa2e29a1d7d49b566b2b51efb060c982a"
 
 [[projects]]
   digest = "1:c62a6d65dd114090d8dd2ce22898bb51ba1a80305a2ad002a4200ae16eec81e5"
@@ -927,7 +862,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:9ab3794bfaaf6e5d195027f3e3d6c53018420de5ccb759d7721926bc80211c67"
+  digest = "1:a452f9fca3583eb87f1d18d8a184ab818df034f13115c9dd9992d5653e9c70ac"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -938,10 +873,11 @@
     "shared/logger",
     "shared/osarch",
     "shared/simplestreams",
+    "shared/units",
     "shared/version",
   ]
   pruneopts = ""
-  revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
+  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
 
 [[projects]]
   digest = "1:f95025d583786875a71183888acc9d0987fc96f12d4f5afab3d7558797ea1c5a"
@@ -1038,14 +974,6 @@
   packages = ["."]
   pruneopts = ""
   revision = "c48cc78d482608239f6c4c92a4abd87eb8761c90"
-
-[[projects]]
-  digest = "1:7a4827b2062a21ba644241bdec27959a5be2670f8aa4038ba14cfe2ce389e8d2"
-  name = "github.com/ncw/swift"
-  packages = ["."]
-  pruneopts = ""
-  revision = "b2a7479cf26fa841ff90dd932d0221cb5c50782d"
-  version = "v1.0.39"
 
 [[projects]]
   branch = "master"
@@ -1494,7 +1422,7 @@
   revision = "51fa6e26128d74e445c72d3a91af555151cc3654"
 
 [[projects]]
-  digest = "1:ccd3f6144f4e55a6786e197d119b879d2b68ff26a489476cbfca7a6f83b6c5f3"
+  digest = "1:60a5ea100a756df3cbfbb3e03109b4efb480d0aaf9b717a40c41f970bd26c6dc"
   name = "gopkg.in/juju/charm.v6"
   packages = [
     ".",
@@ -1502,11 +1430,11 @@
     "resource",
   ]
   pruneopts = ""
-  revision = "4e6efee6340bbada7f1e0ce873f33c15254ac2b8"
+  revision = "50b290b88b40f6bbe10576723d0b57e22f012628"
 
 [[projects]]
-  digest = "1:e4b5e4dc87e06eae6d168f08f9787330aa88164b5f755b92d1a4600960d6c6f9"
-  name = "gopkg.in/juju/charmrepo.v3"
+  digest = "1:9ba600a74f6c996413ca895535c3ab0174f73c80673781e0dd7f42eeb077cabf"
+  name = "gopkg.in/juju/charmrepo.v4"
   packages = [
     ".",
     "csclient",
@@ -1514,31 +1442,7 @@
     "testing",
   ]
   pruneopts = ""
-  revision = "5ca139ef9e6bd138ab2ff3c59aee3c472d12ac89"
-
-[[projects]]
-  digest = "1:74fbfdf0898041a163a696f0a901b6f4740a47ceffb1839d514ba75699a60c3e"
-  name = "gopkg.in/juju/charmstore.v5"
-  packages = [
-    ".",
-    "audit",
-    "elasticsearch",
-    "internal/blobstore",
-    "internal/cache",
-    "internal/charmstore",
-    "internal/dockerauth",
-    "internal/entitycache",
-    "internal/legacy",
-    "internal/mongodoc",
-    "internal/monitoring",
-    "internal/router",
-    "internal/series",
-    "internal/v4",
-    "internal/v5",
-    "version",
-  ]
-  pruneopts = ""
-  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
+  revision = "b9bdf9c00e26a0340e8050bdaf1e042000222765"
 
 [[projects]]
   digest = "1:7654e769ed719c292d72af4420ca772d9c850299271e15c6f5af4fb89526c3fd"
@@ -1551,15 +1455,12 @@
   revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
 
 [[projects]]
-  branch = "v3"
-  digest = "1:54e0efb933a9038efba73834ee90fdbfce31894db49b54800dfb8bcff4297ba7"
-  name = "gopkg.in/juju/jujusvg.v3"
-  packages = [
-    ".",
-    "assets",
-  ]
+  branch = "v1"
+  digest = "1:4567669a83ea1f7e1dfcb91829ec3cdb806b8009aa9b699b8e063c2e9a946d14"
+  name = "gopkg.in/juju/idmclient.v1"
+  packages = ["ussologin"]
   pruneopts = ""
-  revision = "1ebf5c5481e815de683e57e0f46705ac567e4e58"
+  revision = "203d20774ce8aeaa6f662ee0b48f8cb5bc0816a1"
 
 [[projects]]
   branch = "v2"
@@ -1570,11 +1471,11 @@
   revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
-  digest = "1:f30cf5494ed1ee42a972a17d1b66e3831a7f5dff9fe403ab87ad3fdfa35c3767"
+  digest = "1:941d40c0b44b5e362c762047a191ba90c439b4df492ea8a106d964155e1f3f86"
   name = "gopkg.in/juju/names.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "8d2f241f8a5d0e3a16baf52a5f31be80636ee12d"
+  revision = "139ecaca454cb9101eed8ea76374ddc0be8cc8e8"
 
 [[projects]]
   digest = "1:2041c73bbc755e07a90e03f149933b8ecfce5233a5afbe6b04230386a75f8fda"
@@ -1590,64 +1491,29 @@
   revision = "19a698a7150fe54ef526b0602069083b4410fc98"
 
 [[projects]]
-  digest = "1:01aef8078808543c15a4cc0e669d92d37215564600e19ebabbd694939b727977"
-  name = "gopkg.in/macaroon-bakery.v1"
-  packages = [
-    "bakery",
-    "bakery/checkers",
-    "httpbakery",
-  ]
-  pruneopts = ""
-  revision = "469b44e6f1f9479e115c8ae879ef80695be624d5"
-
-[[projects]]
-  digest = "1:5a4ad627277045677205683b0602881021ec13543d142e3e880d7b86fae1eed0"
+  digest = "1:19684f857ec5be741f40934537680980827d610d0bace413befedf830e22c0ff"
   name = "gopkg.in/macaroon-bakery.v2"
   packages = [
     "bakery",
     "bakery/checkers",
+    "bakery/dbrootkeystore",
+    "bakery/identchecker",
     "bakery/internal/macaroonpb",
+    "bakery/mgorootkeystore",
+    "bakerytest",
     "httpbakery",
+    "httpbakery/form",
     "internal/httputil",
   ]
   pruneopts = ""
-  revision = "ec9d2ad6796100720c154f614b6dea8798ec1181"
+  revision = "6734dc66fe81c761f153bdd3e4ea572a105b6fe0"
 
 [[projects]]
-  digest = "1:59b747e54346538ee9f2a666580115b9a01e90184e8a1a8dde5bec1d0a15ee36"
-  name = "gopkg.in/macaroon-bakery.v2-unstable"
-  packages = [
-    "bakery",
-    "bakery/checkers",
-    "bakery/mgostorage",
-    "bakerytest",
-    "httpbakery",
-    "httpbakery/agent",
-  ]
-  pruneopts = ""
-  revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
-
-[[projects]]
-  digest = "1:382ab46fca1bf043be9b8456141c194addeaf0d704870e77bda2bdab50b655f1"
-  name = "gopkg.in/macaroon.v1"
-  packages = ["."]
-  pruneopts = ""
-  revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
-
-[[projects]]
-  digest = "1:cf4f11b1ea088ad9692972214eccb364ef5f13b005c18be2dfcdd411dc77e3e4"
+  digest = "1:7811982c180c7bd1377f5342c1ed8ea385180fa5fb468eabb172244a2edff612"
   name = "gopkg.in/macaroon.v2"
   packages = ["."]
   pruneopts = ""
-  revision = "bed2a428da6e56d950bed5b41fcbae3141e5b0d0"
-  version = "v2.0.0"
-
-[[projects]]
-  digest = "1:efca053dc30a44282a79dd8ea715e182f7f38a2957904db438238e5572eae3a8"
-  name = "gopkg.in/macaroon.v2-unstable"
-  packages = ["."]
-  pruneopts = ""
-  revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
+  revision = "1679699b0b723e05f9f16c45b4c6cbd46adb2c78"
 
 [[projects]]
   branch = "master"
@@ -1947,8 +1813,6 @@
     "github.com/juju/go-oracle-cloud/response",
     "github.com/juju/gojsonschema",
     "github.com/juju/gomaasapi",
-    "github.com/juju/httprequest",
-    "github.com/juju/idmclient/ussologin",
     "github.com/juju/jsonschema",
     "github.com/juju/jsonschema-gen",
     "github.com/juju/loggo",
@@ -2001,7 +1865,6 @@
     "github.com/juju/utils/os",
     "github.com/juju/utils/parallel",
     "github.com/juju/utils/series",
-    "github.com/juju/utils/set",
     "github.com/juju/utils/shell",
     "github.com/juju/utils/ssh",
     "github.com/juju/utils/ssh/testing",
@@ -2012,13 +1875,13 @@
     "github.com/juju/utils/zip",
     "github.com/juju/version",
     "github.com/juju/webbrowser",
-    "github.com/julienschmidt/httprouter",
     "github.com/kr/pretty",
     "github.com/lxc/lxd/client",
     "github.com/lxc/lxd/shared",
     "github.com/lxc/lxd/shared/api",
     "github.com/lxc/lxd/shared/logger",
     "github.com/lxc/lxd/shared/osarch",
+    "github.com/lxc/lxd/shared/units",
     "github.com/lxc/lxd/shared/version",
     "github.com/mattn/go-isatty",
     "github.com/oracle/oci-go-sdk/common",
@@ -2061,7 +1924,6 @@
     "gopkg.in/amz.v3/ec2",
     "gopkg.in/amz.v3/ec2/ec2test",
     "gopkg.in/check.v1",
-    "gopkg.in/errgo.v1",
     "gopkg.in/goose.v2/cinder",
     "gopkg.in/goose.v2/client",
     "gopkg.in/goose.v2/errors",
@@ -2082,25 +1944,27 @@
     "gopkg.in/juju/charm.v6",
     "gopkg.in/juju/charm.v6/hooks",
     "gopkg.in/juju/charm.v6/resource",
-    "gopkg.in/juju/charmrepo.v3",
-    "gopkg.in/juju/charmrepo.v3/csclient",
-    "gopkg.in/juju/charmrepo.v3/csclient/params",
-    "gopkg.in/juju/charmrepo.v3/testing",
-    "gopkg.in/juju/charmstore.v5",
+    "gopkg.in/juju/charmrepo.v4",
+    "gopkg.in/juju/charmrepo.v4/csclient",
+    "gopkg.in/juju/charmrepo.v4/csclient/params",
+    "gopkg.in/juju/charmrepo.v4/testing",
     "gopkg.in/juju/environschema.v1",
     "gopkg.in/juju/environschema.v1/form",
+    "gopkg.in/juju/idmclient.v1/ussologin",
     "gopkg.in/juju/names.v3",
     "gopkg.in/juju/worker.v1",
     "gopkg.in/juju/worker.v1/catacomb",
     "gopkg.in/juju/worker.v1/dependency",
     "gopkg.in/juju/worker.v1/dependency/testing",
     "gopkg.in/juju/worker.v1/workertest",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakery",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage",
-    "gopkg.in/macaroon-bakery.v2-unstable/bakerytest",
-    "gopkg.in/macaroon-bakery.v2-unstable/httpbakery",
-    "gopkg.in/macaroon.v2-unstable",
+    "gopkg.in/macaroon-bakery.v2/bakery",
+    "gopkg.in/macaroon-bakery.v2/bakery/checkers",
+    "gopkg.in/macaroon-bakery.v2/bakery/identchecker",
+    "gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore",
+    "gopkg.in/macaroon-bakery.v2/bakerytest",
+    "gopkg.in/macaroon-bakery.v2/httpbakery",
+    "gopkg.in/macaroon-bakery.v2/httpbakery/form",
+    "gopkg.in/macaroon.v2",
     "gopkg.in/mgo.v2",
     "gopkg.in/mgo.v2/bson",
     "gopkg.in/mgo.v2/txn",
@@ -2109,6 +1973,7 @@
     "gopkg.in/retry.v1",
     "gopkg.in/tomb.v2",
     "gopkg.in/yaml.v2",
+    "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
     "k8s.io/api/core/v1",

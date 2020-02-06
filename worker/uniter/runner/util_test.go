@@ -204,6 +204,8 @@ type hookSpec struct {
 	stderr string
 	// background holds a string to print in the background after 0.2s.
 	background string
+	// missingShebang will omit the '#!/bin/bash' line
+	missingShebang bool
 }
 
 // makeCharm constructs a fake charm dir containing a single named hook
@@ -230,7 +232,7 @@ func makeCharm(c *gc.C, spec hookSpec, charmDir string) {
 		_, err := fmt.Fprintf(hook, f+"\n", a...)
 		c.Assert(err, jc.ErrorIsNil)
 	}
-	if runtime.GOOS != "windows" {
+	if !spec.missingShebang && runtime.GOOS != "windows" {
 		printf("#!/bin/bash")
 	}
 	printf(echoPidScript)

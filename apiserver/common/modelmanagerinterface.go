@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -70,6 +70,7 @@ type ModelManagerBackend interface {
 	LatestMigration() (state.ModelMigration, error)
 	DumpAll() (map[string]interface{}, error)
 	Close() error
+	HAPrimaryMachine() (names.MachineTag, error)
 
 	// Methods required by the metricsender package.
 	MetricsManager() (*state.MetricsManager, error)
@@ -132,8 +133,8 @@ func NewUserAwareModelManagerBackend(m *state.Model, pool *state.StatePool, u na
 
 // NewModel implements ModelManagerBackend.
 func (st modelManagerStateShim) NewModel(args state.ModelArgs) (Model, ModelManagerBackend, error) {
-	controller := state.NewController(st.pool)
-	otherModel, otherState, err := controller.NewModel(args)
+	aController := state.NewController(st.pool)
+	otherModel, otherState, err := aController.NewModel(args)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -169,7 +170,7 @@ func (st modelManagerStateShim) GetBackend(modelUUID string) (ModelManagerBacken
 
 		// Check if this model has been migrated and this user had
 		// access to it before its migration.
-		mig, mErr := otherState.LatestRemovedModelMigration()
+		mig, mErr := otherState.CompletedMigration()
 		if mErr != nil && !errors.IsNotFound(mErr) {
 			return nil, nil, errors.Trace(mErr)
 		}

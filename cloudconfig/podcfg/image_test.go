@@ -24,10 +24,10 @@ func (*imageSuite) TestGetJujuOCIImagePath(c *gc.C) {
 
 	cfg[controller.CAASImageRepo] = "testing-repo"
 	ver := version.MustParse("2.6-beta3")
-	path := podcfg.GetJujuOCIImagePath(cfg, ver)
-	c.Assert(path, jc.DeepEquals, "testing-repo/jujud-operator:2.6-beta3")
+	path := podcfg.GetJujuOCIImagePath(cfg, ver, 666)
+	c.Assert(path, jc.DeepEquals, "testing-repo/jujud-operator:2.6-beta3.666")
 
 	cfg[controller.CAASOperatorImagePath] = "testing-old-repo/jujud-old-operator:1.6"
-	path = podcfg.GetJujuOCIImagePath(cfg, ver)
+	path = podcfg.GetJujuOCIImagePath(cfg, ver, 0)
 	c.Assert(path, jc.DeepEquals, "testing-old-repo/jujud-old-operator:2.6-beta3")
 }

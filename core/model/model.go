@@ -4,10 +4,10 @@
 package model
 
 import (
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
-	"github.com/juju/utils/set"
 )
 
 // ModelType indicates a model type.

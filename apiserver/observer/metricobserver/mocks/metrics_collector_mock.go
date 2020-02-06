@@ -5,10 +5,11 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	metricobserver "github.com/juju/juju/apiserver/observer/metricobserver"
 	prometheus "github.com/prometheus/client_golang/prometheus"
-	reflect "reflect"
 )
 
 // MockMetricsCollector is a mock of MetricsCollector interface

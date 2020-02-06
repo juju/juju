@@ -4,6 +4,7 @@
 package httpcontext_test
 
 import (
+	"context"
 	"errors"
 	"io"
 	"io/ioutil"
@@ -60,7 +61,7 @@ func (s *BasicAuthHandlerSuite) Authenticate(req *http.Request) (httpcontext.Aut
 }
 
 func (s *BasicAuthHandlerSuite) AuthenticateLoginRequest(
-	serverHost, modelUUID string, req params.LoginRequest,
+	ctx context.Context, serverHost, modelUUID string, req params.LoginRequest,
 ) (httpcontext.AuthInfo, error) {
 	panic("should not be called")
 }

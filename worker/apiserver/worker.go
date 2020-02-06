@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 )
@@ -32,6 +33,7 @@ type Config struct {
 	Hub                               *pubsub.StructuredHub
 	Presence                          presence.Recorder
 	Mux                               *apiserverhttp.Mux
+	MultiwatcherFactory               multiwatcher.Factory
 	Authenticator                     httpcontext.LocalMacaroonAuthenticator
 	StatePool                         *state.StatePool
 	Controller                        *cache.Controller
@@ -71,6 +73,9 @@ func (config Config) Validate() error {
 	if config.Mux == nil {
 		return errors.NotValidf("nil Mux")
 	}
+	if config.MultiwatcherFactory == nil {
+		return errors.NotValidf("nil MultiwatcherFactory")
+	}
 	if config.Authenticator == nil {
 		return errors.NotValidf("nil Authenticator")
 	}
@@ -99,11 +104,6 @@ func (config Config) Validate() error {
 func NewWorker(config Config) (worker.Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
-	}
-
-	rateLimitConfig, err := getRateLimitConfig(config.AgentConfig)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting rate limit config")
 	}
 
 	logSinkConfig, err := getLogSinkConfig(config.AgentConfig)
@@ -136,6 +136,7 @@ func NewWorker(config Config) (worker.Worker, error) {
 		LogDir:                        config.AgentConfig.LogDir(),
 		Hub:                           config.Hub,
 		Presence:                      config.Presence,
+		MultiwatcherFactory:           config.MultiwatcherFactory,
 		Mux:                           config.Mux,
 		Authenticator:                 config.Authenticator,
 		RestoreStatus:                 config.RestoreStatus,
@@ -145,7 +146,6 @@ func NewWorker(config Config) (worker.Worker, error) {
 		NewObserver:                   observerFactory,
 		RegisterIntrospectionHandlers: config.RegisterIntrospectionHTTPHandlers,
 		MetricsCollector:              config.MetricsCollector,
-		RateLimitConfig:               rateLimitConfig,
 		LogSinkConfig:                 &logSinkConfig,
 		GetAuditConfig:                config.GetAuditConfig,
 		LeaseManager:                  config.LeaseManager,

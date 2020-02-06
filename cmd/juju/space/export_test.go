@@ -3,6 +3,10 @@
 
 package space
 
+import (
+	"github.com/juju/juju/cmd/modelcmd"
+)
+
 func (base *SpaceCommandBase) SetAPI(api SpaceAPI) {
 	base.api = api
 }
@@ -13,4 +17,13 @@ func (c *RemoveCommand) Name() string {
 
 func (c *ListCommand) ListFormat() string {
 	return c.out.Name()
+}
+
+func NewSpaceCommandBase(api SpaceAPI) SpaceCommandBase {
+	base := SpaceCommandBase{
+		ModelCommandBase: modelcmd.ModelCommandBase{},
+		IAASOnlyCommand:  nil,
+		api:              api,
+	}
+	return base
 }

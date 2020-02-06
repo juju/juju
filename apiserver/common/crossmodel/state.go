@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/state"
 )
 
@@ -135,6 +136,19 @@ func (st stateShim) AddRemoteApplication(args state.AddRemoteApplicationParams) 
 	return remoteApplicationShim{a}, nil
 }
 
+func (st stateShim) OfferNameForRelation(key string) (string, error) {
+	oc, err := st.State.OfferConnectionForRelation(key)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	appOffers := state.NewApplicationOffers(st.State)
+	offer, err := appOffers.ApplicationOfferForUUID(oc.OfferUUID())
+	if err != nil {
+		return "", errors.Trace(err)
+	}
+	return offer.OfferName, nil
+}
+
 func (st stateShim) GetRemoteEntity(token string) (names.Tag, error) {
 	r := st.State.RemoteEntities()
 	return r.GetRemoteEntity(token)
@@ -169,7 +183,7 @@ func (s stateShim) IngressNetworks(relationKey string) (state.RelationNetworks, 
 	return api.Networks(relationKey)
 }
 
-func (s stateShim) FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error) {
+func (s stateShim) FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error) {
 	api := state.NewFirewallRules(s.State)
 	return api.Rule(service)
 }
@@ -209,6 +223,31 @@ func (r relationShim) Unit(unitId string) (RelationUnit, error) {
 		return nil, errors.Trace(err)
 	}
 	return relationUnitShim{ru}, nil
+}
+
+func (r relationShim) ReplaceApplicationSettings(appName string, values map[string]interface{}) error {
+	currentSettings, err := r.ApplicationSettings(appName)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// This is a replace rather than an update so make the update
+	// remove any settings missing from the new values.
+	for key := range currentSettings {
+		if _, found := values[key]; !found {
+			values[key] = ""
+		}
+	}
+	// We're replicating changes from another controller so we need to
+	// trust them that the leadership was managed correctly - we can't
+	// check it here.
+	return errors.Trace(r.UpdateApplicationSettings(appName, &successfulToken{}, values))
+}
+
+type successfulToken struct{}
+
+// Check is all of the lease.Token interface.
+func (t successfulToken) Check(attempt int, key interface{}) error {
+	return nil
 }
 
 type relationUnitShim struct {

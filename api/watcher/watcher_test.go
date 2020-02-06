@@ -4,6 +4,7 @@
 package watcher_test
 
 import (
+	"context"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -12,9 +13,9 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/crossmodelrelations"
@@ -24,11 +25,11 @@ import (
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/migration"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
@@ -290,24 +291,25 @@ func (s *watcherSuite) assertSetupRelationStatusWatch(
 	// Create a macaroon for authorisation.
 	store, err := s.State.NewBakeryStorage()
 	c.Assert(err, jc.ErrorIsNil)
-	bakery, err := bakery.NewService(bakery.NewServiceParams{
-		Location: "juju model " + s.State.ModelUUID(),
-		Store:    store,
+	b := bakery.New(bakery.BakeryParams{
+		RootKeyStore: store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery.NewMacaroon(
+	mac, err := b.Oven.NewMacaroon(
+		context.Background(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("relation-key", rel.String()),
 			checkers.DeclaredCaveat("username", "fred"),
-		})
+		}, bakery.NoOp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Start watching for a relation change.
 	client := crossmodelrelations.NewClient(s.stateAPI)
 	w, err := client.WatchRelationSuspendedStatus(params.RemoteEntityArg{
 		Token:     token,
-		Macaroons: macaroon.Slice{mac},
+		Macaroons: macaroon.Slice{mac.M()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	stop := func() {
@@ -424,17 +426,18 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	// Create a macaroon for authorisation.
 	store, err := s.State.NewBakeryStorage()
 	c.Assert(err, jc.ErrorIsNil)
-	bakery, err := bakery.NewService(bakery.NewServiceParams{
-		Location: "juju model " + s.State.ModelUUID(),
-		Store:    store,
+	b := bakery.New(bakery.BakeryParams{
+		RootKeyStore: store,
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	mac, err := bakery.NewMacaroon(
+	mac, err := b.Oven.NewMacaroon(
+		context.Background(),
+		bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("source-model-uuid", s.State.ModelUUID()),
 			checkers.DeclaredCaveat("offer-uuid", offer.OfferUUID),
 			checkers.DeclaredCaveat("username", "fred"),
-		})
+		}, bakery.NoOp)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
@@ -442,7 +445,7 @@ func (s *watcherSuite) setupOfferStatusWatch(
 	client := crossmodelrelations.NewClient(s.stateAPI)
 	w, err := client.WatchOfferStatus(params.OfferArg{
 		OfferUUID: offer.OfferUUID,
-		Macaroons: macaroon.Slice{mac},
+		Macaroons: macaroon.Slice{mac.M()},
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	stop := func() {

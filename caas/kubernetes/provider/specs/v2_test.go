@@ -4,10 +4,15 @@
 package specs_test
 
 import (
+	"encoding/base64"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/util/intstr"
 
@@ -68,6 +73,11 @@ containers:
       restricted: 'yes'
       switch: on
       special: p@ssword's
+      my-resource-limit:
+        resource:
+          container-name: container1
+          resource: requests.cpu
+          divisor: 1m
     files:
       - name: configuration
         mountPath: /var/lib/foo
@@ -168,7 +178,7 @@ kubernetesResources:
   customResourceDefinitions:
     tfjobs.kubeflow.org:
       group: kubeflow.org
-      scope: Namespaced
+      scope: Cluster
       names:
         kind: TFJob
         singular: tfjob
@@ -228,6 +238,44 @@ kubernetesResources:
                   containers:
                     - name: tensorflow
                       image: kubeflow/tf-dist-mnist-test:1.0
+  ingressResources:
+    - name: test-ingress
+      labels:
+        foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
+  mutatingWebhookConfigurations:
+    example-mutatingwebhookconfiguration:
+      - name: "example.mutatingwebhookconfiguration.com"
+        failurePolicy: Ignore
+        clientConfig:
+          service:
+            name: apple-service
+            namespace: apples
+            path: /apple
+          caBundle: "YXBwbGVz"
+        namespaceSelector:
+          matchExpressions:
+          - key: production
+            operator: DoesNotExist
+        rules:
+        - apiGroups:
+          - ""
+          apiVersions:
+          - v1
+          operations:
+          - CREATE
+          - UPDATE
+          resources:
+          - pods
 `[1:]
 
 	expectedFileContent := `
@@ -259,6 +307,7 @@ foo: bar
 		}
 		// always parse to latest version.
 		pSpecs.Version = specs.CurrentVersion
+
 		pSpecs.Containers = []specs.ContainerSpec{
 			{
 				Name:            "gitlab",
@@ -275,12 +324,19 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       `'foo=bar; name["fred"]="blogs";'`,
+					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
+					"my-resource-limit": map[string]interface{}{
+						"resource": map[string]interface{}{
+							"container-name": "container1",
+							"resource":       "requests.cpu",
+							"divisor":        "1m",
+						},
+					},
 				},
 				Files: []specs.FileSet{
 					{
@@ -351,10 +407,10 @@ echo "do some stuff here for gitlab-init container"
 				},
 				Config: map[string]interface{}{
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 			},
 		}
@@ -381,6 +437,69 @@ echo "do some stuff here for gitlab-init container"
 				ResourceNames: []string{"admin", "edit", "view"},
 			},
 		}
+
+		ingress1Rule1 := extensionsv1beta1.IngressRule{
+			IngressRuleValue: extensionsv1beta1.IngressRuleValue{
+				HTTP: &extensionsv1beta1.HTTPIngressRuleValue{
+					Paths: []extensionsv1beta1.HTTPIngressPath{
+						{
+							Path: "/testpath",
+							Backend: extensionsv1beta1.IngressBackend{
+								ServiceName: "test",
+								ServicePort: intstr.IntOrString{IntVal: 80},
+							},
+						},
+					},
+				},
+			},
+		}
+		ingress1 := k8sspecs.K8sIngressSpec{
+			Name: "test-ingress",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+			Annotations: map[string]string{
+				"nginx.ingress.kubernetes.io/rewrite-target": "/",
+			},
+			Spec: extensionsv1beta1.IngressSpec{
+				Rules: []extensionsv1beta1.IngressRule{ingress1Rule1},
+			},
+		}
+
+		webhook1Rule1 := admissionregistrationv1beta1.Rule{
+			APIGroups:   []string{""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+		}
+		webhookRuleWithOperations1 := admissionregistrationv1beta1.RuleWithOperations{
+			Operations: []admissionregistrationv1beta1.OperationType{
+				admissionregistrationv1beta1.Create,
+				admissionregistrationv1beta1.Update,
+			},
+		}
+		webhookRuleWithOperations1.Rule = webhook1Rule1
+		CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
+		c.Assert(err, jc.ErrorIsNil)
+		webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
+		webhook1 := admissionregistrationv1beta1.Webhook{
+			Name:          "example.mutatingwebhookconfiguration.com",
+			FailurePolicy: &webhook1FailurePolicy,
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Name:      "apple-service",
+					Namespace: "apples",
+					Path:      strPtr("/apple"),
+				},
+				CABundle: CABundle,
+			},
+			NamespaceSelector: &metav1.LabelSelector{
+				MatchExpressions: []metav1.LabelSelectorRequirement{
+					{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
+				},
+			},
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations1},
+		}
+
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
 				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
@@ -427,7 +546,7 @@ password: shhhh`[1:],
 							{Name: "v1", Served: true, Storage: true},
 							{Name: "v1beta2", Served: true, Storage: false},
 						},
-						Scope: "Namespaced",
+						Scope: "Cluster",
 						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
@@ -517,6 +636,10 @@ password: shhhh`[1:],
 							},
 						},
 					},
+				},
+				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
+				MutatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
+					"example-mutatingwebhookconfiguration": {webhook1},
 				},
 			},
 		}
@@ -624,7 +747,7 @@ kubernetesResources:
     tfjobs.kubeflow.org:
       group: kubeflow.org
       version: v1alpha2
-      scope: Cluster
+      scope: invalid-scope
       names:
         plural: "tfjobs"
         singular: "tfjob"
@@ -653,7 +776,52 @@ kubernetesResources:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
+}
+
+func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  mutatingWebhookConfigurations:
+    example-mutatingwebhookconfiguration:
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+}
+
+func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  ingressResources:
+    - labels:
+        foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
 }
 
 func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {
@@ -669,4 +837,25 @@ bar: a-bad-guy
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
+}
+
+// TODO(caas): move these pointer related value change funcs to /testing package.
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func strPtr(b string) *string {
+	return &b
 }

@@ -35,5 +35,5 @@ func (api *API) Prune(p params.ActionPruneArgs) error {
 		return common.ErrPerm
 	}
 
-	return state.PruneActions(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
+	return state.PruneOperations(api.st, p.MaxHistoryTime, p.MaxHistoryMB)
 }

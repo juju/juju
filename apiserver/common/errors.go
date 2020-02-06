@@ -11,7 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/txn"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/leadership"
@@ -62,8 +63,9 @@ func isUnknownModelError(err error) bool {
 // DischargeRequiredError is the error returned when a macaroon requires discharging
 // to complete authentication.
 type DischargeRequiredError struct {
-	Cause    error
-	Macaroon *macaroon.Macaroon
+	Cause          error
+	LegacyMacaroon *macaroon.Macaroon
+	Macaroon       *bakery.Macaroon
 }
 
 // Error implements the error interface.
@@ -99,6 +101,9 @@ type RedirectError struct {
 
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
+
+	// ControllerTag uniquely identifies the controller being redirected to.
+	ControllerTag names.ControllerTag `json:"controller-tag,omitempty"`
 
 	// An optional alias for the controller where the model got redirected to.
 	ControllerAlias string `json:"controller-alias,omitempty"`
@@ -284,16 +289,25 @@ func ServerError(err error) *params.Error {
 		dischErr := errors.Cause(err).(*DischargeRequiredError)
 		code = params.CodeDischargeRequired
 		info = params.DischargeRequiredErrorInfo{
-			Macaroon: dischErr.Macaroon,
+			Macaroon:       dischErr.LegacyMacaroon,
+			BakeryMacaroon: dischErr.Macaroon,
 			// One macaroon fits all.
 			MacaroonPath: "/",
 		}.AsMap()
 	case IsRedirectError(err):
 		redirErr := errors.Cause(err).(*RedirectError)
 		code = params.CodeRedirect
+
+		// Check for a zero-value tag. We don't send it over the wire if it is.
+		controllerTag := ""
+		if redirErr.ControllerTag.Id() != "" {
+			controllerTag = redirErr.ControllerTag.String()
+		}
+
 		info = params.RedirectErrorInfo{
 			Servers:         params.FromProviderHostsPorts(redirErr.Servers),
 			CACert:          redirErr.CACert,
+			ControllerTag:   controllerTag,
 			ControllerAlias: redirErr.ControllerAlias,
 		}.AsMap()
 	default:

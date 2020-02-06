@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
@@ -2116,6 +2116,7 @@ func (a *Application) removeUnitOps(u *Unit, asserts bson.D, op *ForcedOperation
 		removeMeterStatusOp(a.st, u.globalMeterStatusKey()),
 		removeStatusOp(a.st, u.globalAgentKey()),
 		removeStatusOp(a.st, u.globalKey()),
+		removeUnitStateOp(a.st, u.globalKey()),
 		removeStatusOp(a.st, u.globalCloudContainerKey()),
 		removeConstraintsOp(u.globalAgentKey()),
 		annotationRemoveOp(a.st, u.globalKey()),
@@ -2649,6 +2650,7 @@ func (a *Application) Status() (status.StatusInfo, error) {
 		// This in turn implies the application status document is likely to be
 		// inaccurate, so we return aggregated unit statuses instead.
 		//
+		// TODO(thumper) 2019-12-20: bug 1857075
 		// TODO(fwereade): this is completely wrong and will produce bad results
 		// in not-very-challenging scenarios. The leader unit remains responsible
 		// for setting the application status in a timely way, *whether or not the
@@ -2664,6 +2666,10 @@ func (a *Application) Status() (status.StatusInfo, error) {
 		for _, unit := range units {
 			unitStatus, err := unit.Status()
 			if err != nil {
+				// Sometimes as units are being removed, we may hit a not found error here.
+				if errors.IsNotFound(err) {
+					continue
+				}
 				return status.StatusInfo{}, errors.Annotatef(err, "deriving application status from %q", unit.Name())
 			}
 			unitStatuses = append(unitStatuses, unitStatus)

@@ -15,5 +15,5 @@ var (
 	_ EntityInfo = (*BlockInfo)(nil)
 	_ EntityInfo = (*ActionInfo)(nil)
 	_ EntityInfo = (*ModelUpdate)(nil)
-	_ EntityInfo = (*GenerationInfo)(nil)
+	_ EntityInfo = (*BranchInfo)(nil)
 )

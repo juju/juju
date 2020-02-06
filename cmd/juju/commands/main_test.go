@@ -588,6 +588,7 @@ var commandNames = []string{
 	"show-status",
 	"show-status-log",
 	"show-storage",
+	"show-space",
 	"show-user",
 	"show-wallet",
 	"sla",
@@ -630,7 +631,7 @@ var devFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"call", "show-operation", "functions", "list-functions", "show-function", "operations", "list-operations",
+	"run", "show-operation", "operations", "list-operations",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
@@ -669,7 +670,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
 	c.Assert(missing, jc.DeepEquals, set.NewStrings(
-		"actions", "list-actions", "run", "run-action", "show-action", "show-action-status", "show-action-output"))
+		"run-action", "show-action-status", "show-action-output"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {

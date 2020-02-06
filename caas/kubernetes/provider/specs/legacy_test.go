@@ -180,12 +180,12 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 443, Name: "mary"},
 				},
 				Config: map[string]interface{}{
-					"attr":       `'foo=bar; name["fred"]="blogs";'`,
+					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 				Files: []specs.FileSet{
 					{
@@ -256,10 +256,10 @@ echo "do some stuff here for gitlab-init container"
 				},
 				Config: map[string]interface{}{
 					"foo":        "bar",
-					"restricted": "'yes'",
+					"restricted": "yes",
 					"switch":     true,
-					"brackets":   `'["hello", "world"]'`,
-					"special":    "'p@ssword''s'",
+					"brackets":   `["hello", "world"]`,
+					"special":    "p@ssword's",
 				},
 			},
 		}
@@ -336,23 +336,6 @@ echo "do some stuff here for gitlab-init container"
 	spec, err := k8sspecs.ParsePodSpec(specStrBase)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
-}
-
-// TODO(caas): move these pointer related value change funcs to /testing package.
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
 }
 
 func (s *legacySpecsSuite) TestValidateMissingContainers(c *gc.C) {
@@ -434,7 +417,7 @@ customResourceDefinitions:
   tfjobs.kubeflow.org:
     group: kubeflow.org
     version: v1alpha2
-    scope: Cluster
+    scope: invalid-scope
     names:
       plural: "tfjobs"
       singular: "tfjob"
@@ -463,7 +446,7 @@ customResourceDefinitions:
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "Cluster" is not supported, please use "Namespaced" scope`)
+	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 }
 
 func (s *legacySpecsSuite) TestUnknownFieldError(c *gc.C) {

@@ -202,7 +202,7 @@ func (m metadataInfos) Less(i, j int) bool {
 		// Alphabetical order here is incidentally does what we want:
 		// we want "custom" metadata to precede
 		// "public" metadata.
-		// This may need to b revisited if more meatadata sources will be discovered.
+		// This may need to b revisited if more metadata sources will be discovered.
 		return m[i].Source < m[j].Source
 	}
 	if m[i].Series != m[j].Series {

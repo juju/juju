@@ -83,7 +83,7 @@ func setupSimpleStreamsTests(t *testing.T) {
 func registerSimpleStreamsTests() {
 	gc.Suite(&simplestreamsSuite{
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
-			Source:         simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false),
+			Source:         sstesting.VerifyDefaultCloudDataSource("test", "test:"),
 			RequireSigned:  false,
 			DataType:       tools.ContentDownload,
 			StreamsVersion: tools.CurrentStreamsVersion,
@@ -103,7 +103,13 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simplestreams.LookupConstraint, requireSigned bool) {
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
-		Source:          simplestreams.NewURLDataSource("test", baseURL, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, requireSigned),
+		Source: simplestreams.NewDataSource(simplestreams.Config{
+			Description:          "test",
+			BaseURL:              baseURL,
+			HostnameVerification: utils.VerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+			RequireSigned:        requireSigned,
+		}),
 		RequireSigned:   requireSigned,
 		DataType:        tools.ContentDownload,
 		StreamsVersion:  tools.CurrentStreamsVersion,
@@ -262,9 +268,8 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 				})
 		}
 		// Add invalid datasource and check later that resolveInfo is correct.
-		invalidSource := simplestreams.NewURLDataSource("invalid", "file://invalid", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, s.RequireSigned)
-		tools, resolveInfo, err := tools.Fetch(
-			[]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
+		invalidSource := sstesting.InvalidDataSource(s.RequireSigned)
+		toolsMetadata, resolveInfo, err := tools.Fetch([]simplestreams.DataSource{invalidSource, s.Source}, toolsConstraint)
 		if !c.Check(err, jc.ErrorIsNil) {
 			continue
 		}
@@ -272,7 +277,7 @@ func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 			tm.FullPath, err = s.Source.URL(tm.Path)
 			c.Assert(err, jc.ErrorIsNil)
 		}
-		c.Check(tools, gc.DeepEquals, t.tools)
+		c.Check(toolsMetadata, gc.DeepEquals, t.tools)
 		c.Check(resolveInfo, gc.DeepEquals, &simplestreams.ResolveInfo{
 			Source:    "test",
 			Signed:    s.RequireSigned,
@@ -1060,9 +1065,16 @@ func (s *signedSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *signedSuite) TestSignedToolsMetadata(c *gc.C) {
-	signedSource := simplestreams.NewURLSignedDataSource(
-		"test", "signedtest://host/signed", sstesting.SignedMetadataPublicKey,
-		utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true)
+	signedSource := simplestreams.NewDataSource(
+		simplestreams.Config{
+			Description:          "test",
+			BaseURL:              "signedtest://host/signed",
+			PublicSigningKey:     sstesting.SignedMetadataPublicKey,
+			HostnameVerification: utils.VerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+			RequireSigned:        true,
+		},
+	)
 	toolsConstraint := tools.NewVersionedToolsConstraint(version.MustParse("1.13.0"), simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 		Series:    []string{"precise"},

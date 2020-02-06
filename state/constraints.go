@@ -114,3 +114,58 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 	}
 	return nil
 }
+
+// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
+// to transform a constraints spaces from `a` to `b`
+func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, error) {
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsWithID
+	negatedSpace := fmt.Sprintf("^%v", from)
+	query := bson.D{{"$or", []bson.D{
+		{{"spaces", from}},
+		{{"spaces", negatedSpace}},
+	}}}
+	err := constraintsCollection.Find(query).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	cons := getConstraintsChanges(docs, from, to)
+
+	ops := make([]txn.Op, len(docs))
+	i := 0
+	for docID, constraint := range cons {
+		ops[i] = setConstraintsOp(docID, constraint)
+		i++
+	}
+	return ops, nil
+}
+
+func getConstraintsChanges(cons []constraintsWithID, from, to string) map[string]constraints.Value {
+	negatedFrom := fmt.Sprintf("^%v", from)
+	negatedTo := fmt.Sprintf("^%v", to)
+
+	values := make(map[string]constraints.Value, len(cons))
+	for _, con := range cons {
+		values[con.DocID] = con.Nested.value()
+	}
+	for _, constraint := range values {
+		spaces := constraint.Spaces
+		if spaces == nil {
+			continue
+		}
+		for i, space := range *spaces {
+			if space == from {
+				(*spaces)[i] = to
+				break
+			}
+			if space == negatedFrom {
+				(*spaces)[i] = negatedTo
+				break
+			}
+		}
+	}
+	return values
+}

@@ -6,11 +6,12 @@ package crossmodel
 import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -54,6 +55,10 @@ type Backend interface {
 	// with the supplied name (which must be unique across all applications, local and remote).
 	AddRemoteApplication(state.AddRemoteApplicationParams) (RemoteApplication, error)
 
+	// OfferNameForRelation gets the name of the offer for the
+	// specified cross-model relation key.
+	OfferNameForRelation(string) (string, error)
+
 	// GetRemoteEntity returns the tag of the entity associated with the given token.
 	GetRemoteEntity(string) (names.Tag, error)
 
@@ -83,7 +88,7 @@ type Backend interface {
 	WatchOfferStatus(offerUUID string) (state.NotifyWatcher, error)
 
 	// FirewallRule returns the firewall rule for the specified service.
-	FirewallRule(service state.WellKnownServiceType) (*state.FirewallRule, error)
+	FirewallRule(service firewall.WellKnownServiceType) (*state.FirewallRule, error)
 
 	// ApplyOperation applies a model operation to the state.
 	ApplyOperation(op state.ModelOperation) error
@@ -139,6 +144,14 @@ type Relation interface {
 
 	// SetSuspended sets the suspended status of the relation.
 	SetSuspended(bool, string) error
+
+	// ReplaceApplicationSettings replaces the application's settings within the
+	// relation.
+	ReplaceApplicationSettings(appName string, settings map[string]interface{}) error
+
+	// ApplicationSettings returns the settings for the specified
+	// application in the relation.
+	ApplicationSettings(appName string) (map[string]interface{}, error)
 }
 
 // RelationUnit provides access to the settings of a single unit in a relation,

@@ -9,12 +9,12 @@ import (
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/crossmodelrelations"
 	apitesting "github.com/juju/juju/api/testing"
 	coretesting "github.com/juju/juju/testing"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 )
 
 const longerThanExpiryTime = 11 * time.Minute
@@ -47,7 +47,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonNotExpired(c *gc.C) {
 
 	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(10 * time.Second))
-	mac.AddFirstPartyCaveat(cav.Condition)
+	mac.AddFirstPartyCaveat([]byte(cav.Condition))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
@@ -64,7 +64,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonExpiredBeforeCleanup(c *gc.C) {
 
 	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(10 * time.Second))
-	mac.AddFirstPartyCaveat(cav.Condition)
+	mac.AddFirstPartyCaveat([]byte(cav.Condition))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
@@ -80,7 +80,7 @@ func (s *MacaroonCacheSuite) TestGetMacaroonAfterCleanup(c *gc.C) {
 
 	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(60 * time.Minute))
-	mac.AddFirstPartyCaveat(cav.Condition)
+	mac.AddFirstPartyCaveat([]byte(cav.Condition))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})
@@ -97,7 +97,7 @@ func (s *MacaroonCacheSuite) TestMacaroonRemovedByCleanup(c *gc.C) {
 
 	mac, err := apitesting.NewMacaroon("id")
 	cav := checkers.TimeBeforeCaveat(clock.Now().Add(2 * time.Minute))
-	mac.AddFirstPartyCaveat(cav.Condition)
+	mac.AddFirstPartyCaveat([]byte(cav.Condition))
 	c.Assert(err, jc.ErrorIsNil)
 
 	cache.Upsert("token", macaroon.Slice{mac})

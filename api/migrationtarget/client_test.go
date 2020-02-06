@@ -5,6 +5,7 @@ package migrationtarget_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,11 +16,11 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
@@ -330,6 +331,10 @@ func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {
 	return c.httpClient, c.err
 }
 
+func (r *fakeHTTPCaller) Context() context.Context {
+	return context.Background()
+}
+
 func newFakeDoer(c *gc.C, respBody interface{}) *fakeDoer {
 	body, err := json.Marshal(respBody)
 	c.Assert(err, jc.ErrorIsNil)
@@ -355,6 +360,16 @@ type fakeDoer struct {
 func (d *fakeDoer) Do(req *http.Request) (*http.Response, error) {
 	d.method = req.Method
 	d.url = req.URL.String()
+
+	// If the body is nil, don't do anything about reading the req.Body
+	// The underlying net http go library deals with nil bodies for requests,
+	// so our fake stub should also mirror this.
+	// https://golang.org/src/net/http/client.go?s=17323:17375#L587
+	if req.Body == nil {
+		return d.response, nil
+	}
+
+	// ReadAll the body if it's found.
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		panic(err)

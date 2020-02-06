@@ -4,15 +4,18 @@
 package stateauthenticator_test
 
 import (
-	"net/http"
+	"context"
 
 	"github.com/juju/clock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery/identchecker"
+	"gopkg.in/macaroon-bakery.v2/bakerytest"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/stateauthenticator"
 	"github.com/juju/juju/controller"
@@ -51,41 +54,65 @@ type macaroonAuthSuite struct {
 var _ = gc.Suite(&macaroonAuthSuite{})
 
 func (s *macaroonAuthSuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, noCheck)
+	s.discharger = bakerytest.NewDischarger(nil)
 	s.ControllerConfig = map[string]interface{}{
 		controller.IdentityURL: s.discharger.Location(),
 	}
 	s.macaroonCommonSuite.SetUpTest(c)
 }
 
-func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
-	m, err := stateauthenticator.ServerMacaroon(s.authenticator)
-	c.Assert(err, gc.IsNil)
-	bsvc, err := stateauthenticator.ServerBakeryService(s.authenticator)
-	c.Assert(err, gc.IsNil)
-
-	// Check that we can add a third party caveat addressed to the
-	// discharger, which indirectly ensures that the discharger's public
-	// key has been added to the bakery service's locator.
-	m = m.Clone()
-	err = bsvc.AddCaveat(m, checkers.Caveat{
-		Location:  s.discharger.Location(),
-		Condition: "true",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	// Check that we can discharge the macaroon and check it with
-	// the service.
-	client := httpbakery.NewClient()
-	ms, err := client.DischargeAll(m)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = bsvc.(*bakery.Service).Check(ms, checkers.New())
-	c.Assert(err, gc.IsNil)
+type alwaysIdent struct {
+	IdentityLocation string
 }
 
-func noCheck(_ *http.Request, _, _ string) ([]checkers.Caveat, error) {
-	return nil, nil
+// IdentityFromContext implements IdentityClient.IdentityFromContext.
+func (m *alwaysIdent) IdentityFromContext(ctx context.Context) (identchecker.Identity, []checkers.Caveat, error) {
+	return identchecker.SimpleIdentity("fred"), nil, nil
+}
+
+func (alwaysIdent) DeclaredIdentity(ctx context.Context, declared map[string]string) (identchecker.Identity, error) {
+	return nil, errors.New("not called")
+}
+
+func (s *macaroonAuthSuite) TestServerBakery(c *gc.C) {
+	// TODO - remove when we use bakeryv2 everywhere
+	discharger := bakerytest.NewDischarger(nil)
+	defer discharger.Close()
+	discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(func(ctx context.Context, p httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers.Caveat, error) {
+		if p.Caveat != nil && string(p.Caveat.Condition) == "is-authenticated-user" {
+			return []checkers.Caveat{
+				checkers.DeclaredCaveat("username", "fred"),
+			}, nil
+		}
+		return nil, errors.New("unexpected caveat")
+	})
+
+	bsvc, err := stateauthenticator.ServerBakery(s.authenticator, &alwaysIdent{discharger.Location()})
+	c.Assert(err, gc.IsNil)
+
+	cav := []checkers.Caveat{
+		checkers.NeedDeclaredCaveat(
+			checkers.Caveat{
+				Location:  discharger.Location(),
+				Condition: "is-authenticated-user",
+			},
+			"username",
+		),
+	}
+	mac, err := bsvc.Oven.NewMacaroon(context.Background(), bakery.LatestVersion, cav, bakery.NoOp)
+	c.Assert(err, gc.IsNil)
+
+	client := httpbakery.NewClient()
+	ms, err := client.DischargeAll(context.Background(), mac)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, cond, err := bsvc.Oven.VerifyMacaroon(context.Background(), ms)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cond, jc.DeepEquals, []string{"declared username fred"})
+	authChecker := bsvc.Checker.Auth(ms)
+	ai, err := authChecker.Allow(context.Background(), identchecker.LoginOp)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ai.Identity.Id(), gc.Equals, "fred")
 }
 
 type macaroonAuthWrongPublicKeySuite struct {
@@ -95,7 +122,7 @@ type macaroonAuthWrongPublicKeySuite struct {
 var _ = gc.Suite(&macaroonAuthWrongPublicKeySuite{})
 
 func (s *macaroonAuthWrongPublicKeySuite) SetUpTest(c *gc.C) {
-	s.discharger = bakerytest.NewDischarger(nil, noCheck)
+	s.discharger = bakerytest.NewDischarger(nil)
 	wrongKey, err := bakery.GenerateKey()
 	c.Assert(err, gc.IsNil)
 	s.ControllerConfig = map[string]interface{}{
@@ -111,19 +138,24 @@ func (s *macaroonAuthWrongPublicKeySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *macaroonAuthWrongPublicKeySuite) TestDischargeFailsWithWrongPublicKey(c *gc.C) {
-	m, err := stateauthenticator.ServerMacaroon(s.authenticator)
-	c.Assert(err, gc.IsNil)
-	m = m.Clone()
-	bsvc, err := stateauthenticator.ServerBakeryService(s.authenticator)
-	c.Assert(err, gc.IsNil)
-	err = bsvc.AddCaveat(m, checkers.Caveat{
-		Location:  s.discharger.Location(),
-		Condition: "true",
-	})
-	c.Assert(err, gc.IsNil)
+	ctx := context.Background()
 	client := httpbakery.NewClient()
 
-	_, err = client.DischargeAll(m)
+	m, err := macaroon.New(nil, nil, "loc", macaroon.LatestVersion)
+	c.Assert(err, jc.ErrorIsNil)
+	mac, err := bakery.NewLegacyMacaroon(m)
+	c.Assert(err, jc.ErrorIsNil)
+	cav := checkers.Caveat{
+		Location:  s.discharger.Location(),
+		Condition: "true",
+	}
+	anotherKey, err := bakery.GenerateKey()
+	c.Assert(err, jc.ErrorIsNil)
+	loc := bakery.NewThirdPartyStore()
+	loc.AddInfo(s.discharger.Location(), bakery.ThirdPartyInfo{})
+	err = mac.AddCaveat(ctx, cav, anotherKey, loc)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = client.DischargeAll(ctx, mac)
 	c.Assert(err, gc.ErrorMatches, `cannot get discharge from ".*": third party refused discharge: cannot discharge: discharger cannot decode caveat id: public key mismatch`)
 }
 
@@ -134,10 +166,7 @@ type macaroonNoURLSuite struct {
 var _ = gc.Suite(&macaroonNoURLSuite{})
 
 func (s *macaroonNoURLSuite) TestNoBakeryWhenNoIdentityURL(c *gc.C) {
-	// By default, when there is no identity location, no
-	// bakery service or macaroon is created.
-	_, err := stateauthenticator.ServerMacaroon(s.authenticator)
-	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
-	_, err = stateauthenticator.ServerBakeryService(s.authenticator)
+	// By default, when there is no identity location, no bakery is created.
+	_, err := stateauthenticator.ServerBakery(s.authenticator, nil)
 	c.Assert(err, gc.ErrorMatches, "macaroon authentication is not configured")
 }

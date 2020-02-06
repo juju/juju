@@ -15,10 +15,10 @@ import (
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	utilscert "github.com/juju/utils/cert"
-	"gopkg.in/juju/charmrepo.v3/csclient"
+	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/core/resources"
@@ -42,6 +42,17 @@ const (
 	// set, the api-port isn't opened until the controllers have started
 	// properly.
 	ControllerAPIPort = "controller-api-port"
+
+	// Canonical name for the controller
+	ControllerName = "controller-name"
+
+	// AgentRateLimitMax is the maximum size of the token bucket used to
+	// ratelimit the agent connections.
+	AgentRateLimitMax = "agent-ratelimit-max"
+
+	// AgentRateLimitRate is the time taken to add a new token to the bucket.
+	// This effectively says that we can have a new agent connect per duration specified.
+	AgentRateLimitRate = "agent-ratelimit-rate"
 
 	// APIPortOpenDelay is a duration that the controller will wait
 	// between when the controller has been deemed to be ready to open
@@ -171,6 +182,14 @@ const (
 
 	// Attribute Defaults
 
+	// DefaultAgentRateLimitMax allows the first 10 agents to connect without any
+	// issue. After that the rate limiting kicks in.
+	DefaultAgentRateLimitMax = 10
+
+	// DefaultAgentRateLimitRate will allow four agents to connect every second.
+	// A token is added to the ratelimit token bucket every 250ms.
+	DefaultAgentRateLimitRate = 250 * time.Millisecond
+
 	// DefaultAuditingEnabled contains the default value for the
 	// AuditingEnabled config value.
 	DefaultAuditingEnabled = true
@@ -267,6 +286,8 @@ var (
 	// for a controller, never a model.
 	ControllerOnlyConfigAttributes = []string{
 		AllowModelAccessKey,
+		AgentRateLimitMax,
+		AgentRateLimitRate,
 		APIPort,
 		APIPortOpenDelay,
 		AutocertDNSNameKey,
@@ -274,6 +295,7 @@ var (
 		CACertKey,
 		CharmStoreURL,
 		ControllerAPIPort,
+		ControllerName,
 		ControllerUUIDKey,
 		IdentityPublicKey,
 		IdentityURL,
@@ -306,6 +328,8 @@ var (
 	// config attributes that are allowed to be updated after the
 	// controller has been created.
 	AllowedUpdateConfigAttributes = set.NewStrings(
+		AgentRateLimitMax,
+		AgentRateLimitRate,
 		APIPortOpenDelay,
 		AuditingEnabled,
 		AuditLogCaptureArgs,
@@ -313,6 +337,7 @@ var (
 		// TODO Juju 3.0: ControllerAPIPort should be required and treated
 		// more like api-port.
 		ControllerAPIPort,
+		ControllerName,
 		MaxDebugLogDuration,
 		MaxPruneTxnBatchSize,
 		MaxPruneTxnPasses,
@@ -427,6 +452,22 @@ func (c Config) mustString(name string) string {
 	return value
 }
 
+func (c Config) durationOrDefault(name string, defaultVal time.Duration) time.Duration {
+	switch v := c[name].(type) {
+	case string:
+		if v != "" {
+			// Value has already been validated.
+			value, _ := time.ParseDuration(v)
+			return value
+		}
+	case time.Duration:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return defaultVal
+}
+
 // StatePort returns the mongo server port for the environment.
 func (c Config) StatePort() int {
 	return c.mustInt(StatePort)
@@ -459,6 +500,26 @@ func (c Config) ControllerAPIPort() int {
 	// will be 0, which is what we want here.
 	value, _ := c[ControllerAPIPort].(int)
 	return value
+}
+
+// AgentRateLimitMax is the initial size of the token bucket that is used to
+// rate limit agent connections.
+func (c Config) AgentRateLimitMax() int {
+	switch v := c[AgentRateLimitMax].(type) {
+	case float64:
+		return int(v)
+	case int:
+		return v
+	default:
+		// nil type shows up here
+	}
+	return DefaultAgentRateLimitMax
+}
+
+// AgentRateLimitRate is the time taken to add a token into the token bucket
+// that is used to rate limit agent connections.
+func (c Config) AgentRateLimitRate() time.Duration {
+	return c.durationOrDefault(AgentRateLimitRate, DefaultAgentRateLimitRate)
 }
 
 // AuditingEnabled returns whether or not auditing has been enabled
@@ -525,6 +586,11 @@ func (c Config) CharmStoreURL() string {
 		return csclient.ServerURL
 	}
 	return url
+}
+
+// ControllerName returns the name for the controller
+func (c Config) ControllerName() string {
+	return c.asString(ControllerName)
 }
 
 // ControllerUUID returns the uuid for the controller.
@@ -731,6 +797,23 @@ func Validate(c Config) error {
 		return errors.Errorf("controller-uuid: expected UUID, got string(%q)", uuid)
 	}
 
+	if v, ok := c[AgentRateLimitMax].(int); ok {
+		if v < 0 {
+			return errors.NotValidf("negative %s (%d)", AgentRateLimitMax, v)
+		}
+	}
+	if v, ok := c[AgentRateLimitRate].(time.Duration); ok {
+		if v == 0 {
+			return errors.Errorf("%s cannot be zero", AgentRateLimitRate)
+		}
+		if v < 0 {
+			return errors.Errorf("%s cannot be negative", AgentRateLimitRate)
+		}
+		if v > time.Minute {
+			return errors.Errorf("%s must be between 0..1m", AgentRateLimitRate)
+		}
+	}
+
 	if mgoMemProfile, ok := c[MongoMemoryProfile].(string); ok {
 		if mgoMemProfile != MongoProfLow && mgoMemProfile != MongoProfDefault {
 			return errors.Errorf("mongo-memory-profile: expected one of %q or %q got string(%q)", MongoProfLow, MongoProfDefault, mgoMemProfile)
@@ -913,6 +996,8 @@ func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) 
 }
 
 var configChecker = schema.FieldMap(schema.Fields{
+	AgentRateLimitMax:       schema.ForceInt(),
+	AgentRateLimitRate:      schema.TimeDuration(),
 	AuditingEnabled:         schema.Bool(),
 	AuditLogCaptureArgs:     schema.Bool(),
 	AuditLogMaxSize:         schema.String(),
@@ -921,6 +1006,7 @@ var configChecker = schema.FieldMap(schema.Fields{
 	APIPort:                 schema.ForceInt(),
 	APIPortOpenDelay:        schema.String(),
 	ControllerAPIPort:       schema.ForceInt(),
+	ControllerName:          schema.String(),
 	StatePort:               schema.ForceInt(),
 	IdentityURL:             schema.String(),
 	IdentityPublicKey:       schema.String(),
@@ -946,9 +1032,12 @@ var configChecker = schema.FieldMap(schema.Fields{
 	CharmStoreURL:           schema.String(),
 	MeteringURL:             schema.String(),
 }, schema.Defaults{
+	AgentRateLimitMax:       schema.Omit,
+	AgentRateLimitRate:      schema.Omit,
 	APIPort:                 DefaultAPIPort,
 	APIPortOpenDelay:        DefaultAPIPortOpenDelay,
 	ControllerAPIPort:       schema.Omit,
+	ControllerName:          schema.Omit,
 	AuditingEnabled:         DefaultAuditingEnabled,
 	AuditLogCaptureArgs:     DefaultAuditLogCaptureArgs,
 	AuditLogMaxSize:         fmt.Sprintf("%vM", DefaultAuditLogMaxSizeMB),
@@ -983,6 +1072,15 @@ var configChecker = schema.FieldMap(schema.Fields{
 // ConfigSchema holds information on all the fields defined by
 // the config package.
 var ConfigSchema = environschema.Fields{
+
+	AgentRateLimitMax: {
+		Description: "The maximum size of the token bucket used to ratelimit agent connections",
+		Type:        environschema.Tint,
+	},
+	AgentRateLimitRate: {
+		Description: "The time taken to add a new token to the ratelimit bucket",
+		Type:        environschema.Tstring,
+	},
 	AuditingEnabled: {
 		Description: "Determines if the controller records auditing information",
 		Type:        environschema.Tbool,

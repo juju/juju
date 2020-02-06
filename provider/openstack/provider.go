@@ -162,9 +162,6 @@ func (EnvironProvider) Version() int {
 
 func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error) {
 	logger.Infof("opening model %q", args.Config.Name())
-	if err := validateCloudSpec(args.Cloud); err != nil {
-		return nil, errors.Annotate(err, "validating cloud spec")
-	}
 	uuid := args.Config.UUID()
 	namespace, err := instance.NewNamespace(uuid)
 	if err != nil {
@@ -179,17 +176,6 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		configurator: p.Configurator,
 		flavorFilter: p.FlavorFilter,
 	}
-	e.firewaller = p.FirewallerFactory.GetFirewaller(e)
-
-	var networking Networking = &switchingNetworking{env: e}
-	if p.NetworkingDecorator != nil {
-		var err error
-		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-	}
-	e.networking = networking
 
 	if err := e.SetConfig(args.Config); err != nil {
 		return nil, errors.Trace(err)
@@ -198,7 +184,47 @@ func (p EnvironProvider) Open(args environs.OpenParams) (environs.Environ, error
 		return nil, errors.Trace(err)
 	}
 
+	e.networking, e.firewaller, err = p.getEnvironNetworkingFirewaller(e)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return e, nil
+}
+
+// getEnvironNetworkingFirewaller returns Networking and Firewaller for the
+// new Environ.  Both require Neutron to be support by the OpenStack cloud,
+// so create together.
+func (p EnvironProvider) getEnvironNetworkingFirewaller(e *Environ) (Networking, Firewaller, error) {
+	// TODO (hml) 2019-12-05
+	// We want to ensure a failure if an old nova networking OpenStack is
+	// added as a new model to a multi-cloud controller.  However the
+	// current OpenStack testservice does not implement EndpointsForRegions(),
+	// thus causing failures and panics in the setup of the majority of
+	// provider unit tests.  Or a rewrite of code and/or tests.
+	// See LP:1855343
+	if err := authenticateClient(e.client()); err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+	if !e.supportsNeutron() {
+		// This should turn into a failure, left as an Error message for now to help
+		// provide context for failing networking calls by this environ.  Previously
+		// this was covered by switchingNetworking{} and switchingFirewaller{}.
+		logger.Errorf("Using unsupported OpenStack APIs. Neutron networking " +
+			"is not supported by this OpenStack cloud.\n  Please use OpenStack Queens or " +
+			"newer to maintain compatibility.")
+	}
+	networking := newNetworking(e)
+	if p.NetworkingDecorator != nil {
+		var err error
+		// The NetworkingDecorator is used by the rackspace provider, which
+		// uses a majority of this provider's code.
+		networking, err = p.NetworkingDecorator.DecorateNetworking(networking)
+		if err != nil {
+			return nil, nil, errors.Trace(err)
+		}
+	}
+	return networking, p.FirewallerFactory.GetFirewaller(e), nil
 }
 
 // DetectRegions implements environs.CloudRegionDetector.
@@ -703,17 +729,15 @@ func (e *Environ) PrepareForBootstrap(ctx environs.BootstrapContext, controllerN
 		return err
 	}
 	if !e.supportsNeutron() {
-		logger.Warningf(`Using deprecated OpenStack APIs.
+		logger.Errorf(`Using unsupported OpenStack APIs.
 
   Neutron networking is not supported by this OpenStack cloud.
-  Falling back to deprecated Nova networking.
 
-  Support for deprecated Nova networking APIs will be removed
-  in a future Juju release. Please upgrade to OpenStack Icehouse
-  or newer to maintain compatibility.
+  Please use OpenStack Queens or newer to maintain compatibility.
 
 `,
 		)
+		return errors.NewNotFound(nil, "OpenStack Neutron service")
 	}
 	return nil
 }
@@ -941,6 +965,9 @@ func (e *Environ) SetCloudSpec(spec environs.CloudSpec) error {
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
 
+	if err := validateCloudSpec(spec); err != nil {
+		return errors.Annotate(err, "validating cloud spec")
+	}
 	e.cloudUnlocked = spec
 	client, err := authClient(e.cloudUnlocked, e.ecfgUnlocked)
 	if err != nil {
@@ -1020,14 +1047,14 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 		return *datasource, nil
 	}
 
-	client := e.client()
-	if !client.IsAuthenticated() {
-		if err := authenticateClient(client); err != nil {
+	cl := e.client()
+	if !cl.IsAuthenticated() {
+		if err := authenticateClient(cl); err != nil {
 			return nil, err
 		}
 	}
 
-	url, err := makeServiceURL(client, keystoneName, "", nil)
+	serviceURL, err := makeServiceURL(cl, keystoneName, "", nil)
 	if err != nil {
 		return nil, errors.NewNotSupported(err, fmt.Sprintf("cannot make service URL: %v", err))
 	}
@@ -1035,7 +1062,17 @@ func (e *Environ) getKeystoneDataSource(mu *sync.Mutex, datasource *simplestream
 	if !e.Config().SSLHostnameVerification() {
 		verify = utils.NoVerifySSLHostnames
 	}
-	*datasource = simplestreams.NewURLDataSource("keystone catalog", url, verify, simplestreams.SPECIFIC_CLOUD_DATA, false)
+	cfg := simplestreams.Config{
+		Description:          "keystone catalog",
+		BaseURL:              serviceURL,
+		HostnameVerification: verify,
+		Priority:             simplestreams.SPECIFIC_CLOUD_DATA,
+		CACertificates:       e.cloudUnlocked.CACertificates,
+	}
+	if err := cfg.Validate(); err != nil {
+		return nil, errors.Annotate(err, "simplestreams config validation failed")
+	}
+	*datasource = simplestreams.NewDataSource(cfg)
 	return *datasource, nil
 }
 
@@ -1067,8 +1104,6 @@ func (e *Environ) DistributeInstances(
 	}
 	return valid, nil
 }
-
-var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // MaintainInstance is specified in the InstanceBroker interface.
 func (*Environ) MaintainInstance(ctx context.ProviderCallContext, args environs.StartInstanceParams) error {
@@ -2071,6 +2106,11 @@ func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 // SupportsSpaces is specified on environs.Networking.
 func (e *Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
+// SupportsSpaces is specified on environs.Networking.
+func (e *Environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
 

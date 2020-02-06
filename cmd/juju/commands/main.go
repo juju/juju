@@ -368,7 +368,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(model.NewRevokeCommand())
 	r.Register(model.NewShowCommand())
 	r.Register(model.NewModelCredentialCommand())
-	if featureflag.Enabled(feature.Branches) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		r.Register(model.NewAddBranchCommand())
 		r.Register(model.NewCommitCommand())
 		r.Register(model.NewTrackBranchCommand())
@@ -392,7 +392,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(action.NewShowCommand())
 	r.Register(action.NewCancelCommand())
 	if featureflag.Enabled(feature.JujuV3) {
-		r.Register(action.NewCallCommand())
+		r.Register(action.NewRunCommand())
 		r.Register(action.NewListOperationsCommand())
 		r.Register(action.NewShowOperationCommand())
 	} else {
@@ -437,6 +437,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(space.NewAddCommand())
 	r.Register(space.NewListCommand())
 	r.Register(space.NewReloadCommand())
+	r.Register(space.NewShowSpaceCommand())
 	if featureflag.Enabled(feature.PostNetCLIMVP) {
 		r.Register(space.NewRemoveCommand())
 		r.Register(space.NewUpdateCommand())

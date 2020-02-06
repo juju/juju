@@ -36,8 +36,8 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v13) of the Uniter API,
-// which adds UpdateNetworkInfo.
+// UniterAPI implements the latest version (v15) of the Uniter API,
+// which adds the State and SetState calls.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -74,13 +74,24 @@ type UniterAPI struct {
 	cloudSpec       cloudspec.CloudSpecAPI
 }
 
+// UniterAPIV14 implements version (v14) of the Uniter API,
+// which adds GetPodSpec
+type UniterAPIV14 struct {
+	UniterAPI
+}
+
+// UniterAPIV13 implements version (v13) of the Uniter API,
+// which adds UpdateNetworkInfo.
+type UniterAPIV13 struct {
+	UniterAPIV14
+}
+
 // UniterAPIV12 implements version (v12) of the Uniter API,
 // Removes the embedded LXDProfileAPI, which in turn removes the following;
 // RemoveUpgradeCharmProfileData, WatchUnitLXDProfileUpgradeNotifications
 // and WatchLXDProfileUpgradeNotifications
 type UniterAPIV12 struct {
-	*LXDProfileAPI
-	UniterAPI
+	UniterAPIV13
 }
 
 // UniterAPIV11 implements version (v11) of the Uniter API, which adds
@@ -146,7 +157,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 		return nil, common.ErrPerm
 	}
 	st := context.State()
-	clock := context.StatePool().Clock()
+	aClock := context.StatePool().Clock()
 	resources := context.Resources()
 	leadershipChecker, err := context.LeadershipChecker()
 	if err != nil {
@@ -179,10 +190,11 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}
 	accessUnitOrApplication := common.AuthAny(accessUnit, accessApplication)
 
-	cloudSpec := cloudspec.NewCloudSpec(
-		resources,
+	cloudSpec := cloudspec.NewCloudSpec(resources,
 		cloudspec.MakeCloudSpecGetterForModel(st),
 		cloudspec.MakeCloudSpecWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialWatcherForModel(st),
+		cloudspec.MakeCloudSpecCredentialContentWatcherForModel(st),
 		common.AuthFuncForTag(m.ModelTag()),
 	)
 
@@ -207,7 +219,7 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 
 		m:                 m,
 		st:                st,
-		clock:             clock,
+		clock:             aClock,
 		cancel:            context.Cancel(),
 		cacheModel:        cacheModel,
 		auth:              authorizer,
@@ -222,19 +234,36 @@ func NewUniterAPI(context facade.Context) (*UniterAPI, error) {
 	}, nil
 }
 
-// NewUniterAPIV12 creates an instance of the V12 uniter API.
-func NewUniterAPIV12(context facade.Context) (*UniterAPIV12, error) {
+// NewUniterAPIV14 creates an instance of the V14 uniter API.
+func NewUniterAPIV14(context facade.Context) (*UniterAPIV14, error) {
 	uniterAPI, err := NewUniterAPI(context)
 	if err != nil {
 		return nil, err
 	}
-	authorizer := context.Auth()
-	st := context.State()
-	resources := context.Resources()
-	accessUnit := unitAccessor(authorizer, st)
+	return &UniterAPIV14{
+		UniterAPI: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV13 creates an instance of the V13 uniter API.
+func NewUniterAPIV13(context facade.Context) (*UniterAPIV13, error) {
+	uniterAPI, err := NewUniterAPIV14(context)
+	if err != nil {
+		return nil, err
+	}
+	return &UniterAPIV13{
+		UniterAPIV14: *uniterAPI,
+	}, nil
+}
+
+// NewUniterAPIV12 creates an instance of the V12 uniter API.
+func NewUniterAPIV12(context facade.Context) (*UniterAPIV12, error) {
+	uniterAPI, err := NewUniterAPIV13(context)
+	if err != nil {
+		return nil, err
+	}
 	return &UniterAPIV12{
-		LXDProfileAPI: NewExternalLXDProfileAPI(st, resources, authorizer, accessUnit, logger),
-		UniterAPI:     *uniterAPI,
+		UniterAPIV13: *uniterAPI,
 	}, nil
 }
 
@@ -1461,7 +1490,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 			// ingress-address is the preferred settings attribute name as it more accurately
 			// reflects the purpose of the attribute value. We'll deprecate private-address.
 			settings["ingress-address"] = ingressAddress
-		} else {
+		} else if err != nil {
 			logger.Warningf("cannot set ingress/egress addresses for unit %v in relation %v: %v",
 				unitTag.Id(), relTag, err)
 		}
@@ -1709,15 +1738,11 @@ func (u *UniterAPI) updateApplicationSettings(rel *state.Relation, unit *state.U
 		return nil
 	}
 	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
-	application, err := unit.Application()
-	if err != nil {
-		return errors.Trace(err)
-	}
 	settingsMap := make(map[string]interface{}, len(settings))
 	for k, v := range settings {
 		settingsMap[k] = v
 	}
-	err = rel.UpdateApplicationSettings(application, token, settingsMap)
+	err := rel.UpdateApplicationSettings(unit.ApplicationName(), token, settingsMap)
 	if leadership.IsNotLeaderError(err) {
 		return common.ErrPerm
 	}
@@ -1997,14 +2022,13 @@ func (u *UniterAPI) getRelationAppSettings(canAccess common.AuthFunc, relTag str
 		return nil, common.ErrPerm
 	}
 
-	app, err := u.st.Application(appTag.Id())
+	settings, err := rel.ApplicationSettings(appTag.Id())
 	if errors.IsNotFound(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {
 		return nil, errors.Trace(err)
 	}
-
-	return rel.ApplicationSettings(app)
+	return settings, nil
 }
 
 func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag names.ApplicationTag) (map[string]interface{}, error) {
@@ -2037,12 +2061,7 @@ func (u *UniterAPI) getRemoteRelationAppSettings(rel *state.Relation, appTag nam
 		return nil, common.ErrPerm
 	}
 
-	app, err := u.st.Application(appTag.Id())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return rel.ApplicationSettings(app)
+	return rel.ApplicationSettings(appTag.Id())
 }
 
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
@@ -2108,7 +2127,11 @@ func (u *UniterAPIV8) watchOneUnitAddresses(tag names.UnitTag) (string, error) {
 }
 
 func (u *UniterAPI) watchOneRelationUnit(relUnit *state.RelationUnit) (params.RelationUnitsWatchResult, error) {
-	watch := relUnit.Watch()
+	stateWatcher := relUnit.Watch()
+	watch, err := common.RelationUnitsWatcherFromState(stateWatcher)
+	if err != nil {
+		return params.RelationUnitsWatchResult{}, errors.Trace(err)
+	}
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
 		return params.RelationUnitsWatchResult{
@@ -2663,6 +2686,57 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 	return results, nil
 }
 
+// Mask the GetPodSpec method from the v13 API. The API reflection code
+// in rpc/rpcreflect/type.go:newMethod skips 2-argument methods, so
+// this removes the method as far as the RPC machinery is concerned.
+
+// GetPodSpec isn't on the v13 API.
+func (u *UniterAPIV13) GetPodSpec(_, _ struct{}) {}
+
+// GetPodSpec gets the pod specs for a set of applications.
+func (u *UniterAPI) GetPodSpec(args params.Entities) (params.StringResults, error) {
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	authTag := u.auth.GetAuthTag()
+	canAccess := func(tag names.Tag) bool {
+		if tag, ok := tag.(names.ApplicationTag); ok {
+			switch authTag.(type) {
+			case names.UnitTag:
+				appName, err := names.UnitApplication(authTag.Id())
+				return err == nil && appName == tag.Id()
+			case names.ApplicationTag:
+				return tag == authTag
+			}
+		}
+		return false
+	}
+
+	for i, arg := range args.Entities {
+		tag, err := names.ParseApplicationTag(arg.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		cm, err := u.m.CAASModel()
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		spec, err := cm.PodSpec(tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[i].Result = spec
+	}
+	return results, nil
+}
+
 // CloudSpec returns the cloud spec used by the model in which the
 // authenticated unit or application resides.
 // A check is made beforehand to ensure that the request is made by an entity
@@ -3042,7 +3116,7 @@ func (u *UniterAPI) UpdateNetworkInfo(args params.Entities) (params.ErrorResults
 		}
 
 		if !canAccess(unitTag) {
-			res[i].Error = common.ServerError(err)
+			res[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
@@ -3106,4 +3180,78 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 	}
 
 	return settingsGroup.Write()
+}
+
+// State isn't on the v14 API.
+func (u *UniterAPIV14) State(_ struct{}) {}
+
+// State returns the state persisted by the charm running in this unit.
+func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.UnitStateResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.UnitStateResult, len(args.Entities))
+	for i, entity := range args.Entities {
+		unitTag, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		unit, err := u.getUnit(unitTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if res[i].State, err = unit.State(); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+
+	return params.UnitStateResults{Results: res}, nil
+}
+
+// SetState isn't on the v14 API.
+func (u *UniterAPIV14) SetState(_ struct{}) {}
+
+// SetState persists the state of the charm running in this unit.
+func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		unitTag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		unit, err := u.getUnit(unitTag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err = unit.SetState(arg.State); err != nil {
+			res[i].Error = common.ServerError(err)
+		}
+	}
+
+	return params.ErrorResults{Results: res}, nil
 }

@@ -114,6 +114,7 @@ func (*ImportSuite) TestImports(c *gc.C) {
 		"core/life",
 		"core/lxdprofile",
 		"core/network",
+		"core/permission",
 		"core/settings",
 		"core/status",
 	})

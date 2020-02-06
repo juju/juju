@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	semversion "github.com/juju/version"
@@ -22,12 +23,22 @@ import (
 const version = "2.8-beta1"
 
 const (
+	// TreeStateDirty when the build was made with a dirty checkout.
 	TreeStateDirty = "dirty"
+	// TreeStateClean when the build was made with a clean checkout.
 	TreeStateClean = "clean"
+	// TreeStateArchive when the build was made outside of a git checkout.
+	TreeStateArchive = "archive"
 )
 
 // The version that we switched over from old style numbering to new style.
 var switchOverVersion = semversion.MustParse("1.19.9")
+
+// build is injected by Jenkins, it must be an integer or empty.
+var build string
+
+// OfficialBuild is a monotonic number injected by Jenkins.
+var OfficialBuild = mustParseBuildInt(build)
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
@@ -71,4 +82,15 @@ func IsDev(v semversion.Number) bool {
 		return isOdd(v.Minor) || v.Build > 0
 	}
 	return v.Tag != "" || v.Build > 0
+}
+
+func mustParseBuildInt(buildInt string) int {
+	if buildInt == "" {
+		return 0
+	}
+	i, err := strconv.Atoi(buildInt)
+	if err != nil {
+		panic(err)
+	}
+	return i
 }

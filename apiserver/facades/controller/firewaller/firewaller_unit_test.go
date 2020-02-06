@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -123,10 +124,8 @@ func (s *RemoteFirewallerSuite) TestSetRelationStatus(c *gc.C) {
 }
 
 func (s *RemoteFirewallerSuite) TestFirewallRules(c *gc.C) {
-	s.st.firewallRules[state.JujuApplicationOfferRule] = &state.FirewallRule{
-		WellKnownService: state.JujuApplicationOfferRule,
-		WhitelistCIDRs:   []string{"192.168.0.0/16"},
-	}
+	rule := state.NewFirewallRule(firewall.JujuApplicationOfferRule, []string{"192.168.0.0/16"})
+	s.st.firewallRules[firewall.JujuApplicationOfferRule] = &rule
 	result, err := s.api.FirewallRules(params.KnownServiceArgs{
 		KnownServices: []params.KnownServiceValue{params.JujuApplicationOfferRule, params.SSHRule}})
 	c.Assert(err, jc.ErrorIsNil)

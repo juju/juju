@@ -12,10 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
-	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/network"

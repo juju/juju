@@ -7,7 +7,9 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apiwatcher "github.com/juju/juju/api/watcher"
@@ -58,7 +60,16 @@ func (c *Client) handleError(apiErr error) (macaroon.Slice, error) {
 		return nil, errors.Annotatef(apiErr, "unable to extract macaroon details from discharge-required response error")
 	}
 
-	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(info.Macaroon)
+	// Prefer the new bakery macaroon.
+	m := info.BakeryMacaroon
+	if m == nil {
+		var err error
+		m, err = bakery.NewLegacyMacaroon(info.Macaroon)
+		if err != nil {
+			return nil, errors.Wrap(apiErr, err)
+		}
+	}
+	ms, err := c.facade.RawAPICaller().BakeryClient().DischargeAll(c.facade.RawAPICaller().Context(), m)
 	if err == nil && logger.IsTraceEnabled() {
 		logger.Tracef("discharge macaroon ids:")
 		for _, m := range ms {
@@ -93,6 +104,7 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("publish relation changed", change.RelationToken); ok {
 		args.Changes[0].Macaroons = ms
+		args.Changes[0].BakeryVersion = bakery.LatestVersion
 	}
 
 	apiCall := func() error {
@@ -118,6 +130,7 @@ func (c *Client) PublishRelationChange(change params.RemoteRelationChangeEvent) 
 		return errors.Trace(err2)
 	}
 	args.Changes[0].Macaroons = mac
+	args.Changes[0].BakeryVersion = bakery.LatestVersion
 	c.cache.Upsert(args.Changes[0].RelationToken, mac)
 	return apiCall()
 }
@@ -129,6 +142,7 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("publish ingress network change", change.RelationToken); ok {
 		args.Changes[0].Macaroons = ms
+		args.Changes[0].BakeryVersion = bakery.LatestVersion
 	}
 
 	apiCall := func() error {
@@ -151,6 +165,7 @@ func (c *Client) PublishIngressNetworkChange(change params.IngressNetworksChange
 		return errors.Trace(err2)
 	}
 	args.Changes[0].Macaroons = mac
+	args.Changes[0].BakeryVersion = bakery.LatestVersion
 	c.cache.Upsert(args.Changes[0].RelationToken, mac)
 	return apiCall()
 }
@@ -169,6 +184,7 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 		if ms, ok := c.getCachedMacaroon("register remote relation", arg.RelationToken); ok {
 			newArg := arg
 			newArg.Macaroons = ms
+			newArg.BakeryVersion = bakery.LatestVersion
 			args.Relations[i] = newArg
 		}
 	}
@@ -208,6 +224,7 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 		}
 		retryArg := relations[i]
 		retryArg.Macaroons = mac
+		retryArg.BakeryVersion = bakery.LatestVersion
 		args.Relations = append(args.Relations, retryArg)
 		retryIndices = append(retryIndices, i)
 		c.cache.Upsert(retryArg.RelationToken, mac)
@@ -228,13 +245,20 @@ func (c *Client) RegisterRemoteRelations(relations ...params.RegisterRemoteRelat
 	return result, nil
 }
 
-// WatchRelationUnits returns a watcher that notifies of changes to the
-// units in the remote model for the relation with the given remote token.
-func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (watcher.RelationUnitsWatcher, error) {
-	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{remoteRelationArg}}
+// watchRelationUnits returns a watcher that notifies of changes to
+// the units in the remote model for the relation with the given
+// remote token. It's used for backwards compatibility when the
+// controller we're talking to only supports v1 of the API.
+func (c *Client) watchRelationUnits(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
+		Token:         relationToken,
+		Macaroons:     macs,
+		BakeryVersion: bakery.LatestVersion,
+	}}}
 	// Use any previously cached discharge macaroons.
-	if ms, ok := c.getCachedMacaroon("watch relation units", remoteRelationArg.Token); ok {
+	if ms, ok := c.getCachedMacaroon("watch relation units", relationToken); ok {
 		args.Args[0].Macaroons = ms
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
 
 	var results params.RelationUnitsWatchResults
@@ -264,6 +288,7 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 			return nil, result.Error
 		}
 		args.Args[0].Macaroons = mac
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 		c.cache.Upsert(args.Args[0].Token, mac)
 
 		if err := apiCall(); err != nil {
@@ -275,26 +300,108 @@ func (c *Client) WatchRelationUnits(remoteRelationArg params.RemoteEntityArg) (w
 		return nil, result.Error
 	}
 
-	w := apiwatcher.NewRelationUnitsWatcher(c.facade.RawAPICaller(), result)
+	// Callback so the watcher can get the unit settings for the
+	// change events that come back from the internal watcher.
+	getSettings := func(unitNames []string) ([]params.SettingsResult, error) {
+		return c.relationUnitSettings(unitNames, relationToken, args.Args[0].Macaroons)
+	}
+
+	// Return the units watcher wrapped in a compatibility watcher so
+	// it emits RemoteRelationChangeEvents.
+	w := apiwatcher.NewRemoteRelationCompatWatcher(
+		c.facade.RawAPICaller(),
+		result,
+		relationToken,
+		applicationToken,
+		getSettings,
+	)
 	return w, nil
 }
 
-// RelationUnitSettings returns the relation unit settings for the given relation units in the remote model.
-func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit) ([]params.SettingsResult, error) {
+// WatchRelationChanges returns a watcher that notifies of changes to
+// the units or application settings in the remote model for the
+// relation with the given remote token.
+func (c *Client) WatchRelationChanges(relationToken, applicationToken string, macs macaroon.Slice) (apiwatcher.RemoteRelationWatcher, error) {
+	if c.BestAPIVersion() < 2 {
+		logger.Debugf("best API version %d - falling back to v1 CMR API", c.BestAPIVersion())
+		return c.watchRelationUnits(relationToken, applicationToken, macs)
+	}
+
+	args := params.RemoteEntityArgs{Args: []params.RemoteEntityArg{{
+		Token:         relationToken,
+		Macaroons:     macs,
+		BakeryVersion: bakery.LatestVersion,
+	}}}
+	// Use any previously cached discharge macaroons.
+	if ms, ok := c.getCachedMacaroon("watch relation changes", relationToken); ok {
+		args.Args[0].Macaroons = ms
+		args.Args[0].BakeryVersion = bakery.LatestVersion
+	}
+
+	var results params.RemoteRelationWatchResults
+	apiCall := func() error {
+		// Reset the results struct before each api call.
+		results = params.RemoteRelationWatchResults{}
+		if err := c.facade.FacadeCall("WatchRelationChanges", args, &results); err != nil {
+			return errors.Trace(err)
+		}
+		if len(results.Results) != 1 {
+			return errors.Errorf("expected 1 result, got %d", len(results.Results))
+		}
+		return nil
+	}
+
+	// Make the api call the first time.
+	if err := apiCall(); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// On error, possibly discharge the macaroon and retry.
+	result := results.Results[0]
+	if result.Error != nil {
+		mac, err := c.handleError(result.Error)
+		if err != nil {
+			result.Error.Message = err.Error()
+			return nil, result.Error
+		}
+		args.Args[0].Macaroons = mac
+		args.Args[0].BakeryVersion = bakery.LatestVersion
+		c.cache.Upsert(args.Args[0].Token, mac)
+
+		if err := apiCall(); err != nil {
+			return nil, errors.Trace(err)
+		}
+		result = results.Results[0]
+	}
+	if result.Error != nil {
+		return nil, result.Error
+	}
+
+	w := apiwatcher.NewRemoteRelationWatcher(c.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// relationUnitSettings returns the relation unit settings for the given relation units in the remote model.
+func (c *Client) relationUnitSettings(unitNames []string, relationToken string, macs macaroon.Slice) ([]params.SettingsResult, error) {
 	var (
 		args         params.RemoteRelationUnits
 		retryIndices []int
 	)
 
-	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
-	// Use any previously cached discharge macaroons.
-	for i, arg := range args.RelationUnits {
-		if ms, ok := c.getCachedMacaroon("relation unit settings", arg.RelationToken); ok {
-			newArg := arg
-			newArg.Macaroons = ms
-			args.RelationUnits[i] = newArg
+	if newMacs, ok := c.getCachedMacaroon("relation unit settings", relationToken); ok {
+		macs = newMacs
+	}
+
+	relationUnits := make([]params.RemoteRelationUnit, len(unitNames))
+	for i, unit := range unitNames {
+		relationUnits[i] = params.RemoteRelationUnit{
+			RelationToken: relationToken,
+			Unit:          names.NewUnitTag(unit).String(),
+			Macaroons:     macs,
+			BakeryVersion: bakery.LatestVersion,
 		}
 	}
+	args = params.RemoteRelationUnits{RelationUnits: relationUnits}
 
 	var results params.SettingsResults
 	apiCall := func() error {
@@ -331,6 +438,7 @@ func (c *Client) RelationUnitSettings(relationUnits []params.RemoteRelationUnit)
 		}
 		retryArg := relationUnits[i]
 		retryArg.Macaroons = mac
+		retryArg.BakeryVersion = bakery.LatestVersion
 		args.RelationUnits = append(args.RelationUnits, retryArg)
 		retryIndices = append(retryIndices, i)
 		c.cache.Upsert(retryArg.RelationToken, mac)
@@ -360,6 +468,7 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation egress addresses", remoteRelationArg.Token); ok {
 		args.Args[0].Macaroons = ms
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
 
 	var results params.StringsWatchResults
@@ -389,6 +498,7 @@ func (c *Client) WatchEgressAddressesForRelation(remoteRelationArg params.Remote
 			return nil, result.Error
 		}
 		args.Args[0].Macaroons = mac
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 		c.cache.Upsert(args.Args[0].Token, mac)
 
 		if err := apiCall(); err != nil {
@@ -411,6 +521,7 @@ func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watch
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch relation status", arg.Token); ok {
 		args.Args[0].Macaroons = ms
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
 
 	var results params.RelationStatusWatchResults
@@ -440,6 +551,7 @@ func (c *Client) WatchRelationSuspendedStatus(arg params.RemoteEntityArg) (watch
 			return nil, result.Error
 		}
 		args.Args[0].Macaroons = mac
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 		c.cache.Upsert(args.Args[0].Token, mac)
 
 		if err := apiCall(); err != nil {
@@ -462,6 +574,7 @@ func (c *Client) WatchOfferStatus(arg params.OfferArg) (watcher.OfferStatusWatch
 	// Use any previously cached discharge macaroons.
 	if ms, ok := c.getCachedMacaroon("watch offer status", arg.OfferUUID); ok {
 		args.Args[0].Macaroons = ms
+		args.Args[0].BakeryVersion = bakery.LatestVersion
 	}
 
 	var results params.OfferStatusWatchResults

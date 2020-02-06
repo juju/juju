@@ -333,12 +333,20 @@ func NewScopedProviderAddress(value string, scope Scope) ProviderAddress {
 	return ProviderAddress{MachineAddress: NewScopedMachineAddress(value, scope)}
 }
 
-// NewProviderAddressInSpace creates a new ProviderAddress,
-// deriving its type and scope from the value,
-// and associating it with the given space name.
+// NewProviderAddressInSpace creates a new ProviderAddress, deriving its type
+// and scope from the value, and associating it with the given space name.
 func NewProviderAddressInSpace(spaceName string, value string) ProviderAddress {
 	return ProviderAddress{
 		MachineAddress: NewMachineAddress(value),
+		SpaceName:      SpaceName(spaceName),
+	}
+}
+
+// NewScopedProviderAddressInSpace creates a new ProviderAddress, deriving its
+// type from the value, and associating it with the given scope and space name.
+func NewScopedProviderAddressInSpace(spaceName string, value string, scope Scope) ProviderAddress {
+	return ProviderAddress{
+		MachineAddress: NewScopedMachineAddress(value, scope),
 		SpaceName:      SpaceName(spaceName),
 	}
 }
@@ -365,6 +373,20 @@ func NewProviderAddressesInSpace(spaceName string, inAddresses ...string) (outAd
 		outAddresses[i] = NewProviderAddressInSpace(spaceName, address)
 	}
 	return outAddresses
+}
+
+// ToIPAddresses transforms the ProviderAddresses to a string slice containing
+// their raw IP values.
+func (pas ProviderAddresses) ToIPAddresses() []string {
+	if pas == nil {
+		return nil
+	}
+
+	ips := make([]string, len(pas))
+	for i, addr := range pas {
+		ips[i] = addr.Value
+	}
+	return ips
 }
 
 // ToSpaceAddresses transforms the ProviderAddresses to SpaceAddresses by using
@@ -548,6 +570,23 @@ func (sas SpaceAddresses) AllMatchingScope(getMatcher ScopeMatchFunc) SpaceAddre
 	return out
 }
 
+// EqualTo returns true if this set of SpaceAddresses is equal to other.
+func (sas SpaceAddresses) EqualTo(other SpaceAddresses) bool {
+	if len(sas) != len(other) {
+		return false
+	}
+
+	SortAddresses(sas)
+	SortAddresses(other)
+	for i := 0; i < len(sas); i++ {
+		if sas[i].String() != other[i].String() {
+			return false
+		}
+	}
+
+	return true
+}
+
 // DeriveAddressType attempts to detect the type of address given.
 func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
@@ -720,4 +759,16 @@ func MergedAddresses(machineAddresses, providerAddresses []SpaceAddress) []Space
 		}
 	}
 	return merged
+}
+
+// IPToCIDRNotation receives as input an IP and a CIDR value and returns back
+// the IP in CIDR notation.
+func IPToCIDRNotation(ip, cidr string) (string, error) {
+	_, netIP, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return "", err
+	}
+
+	netIP.IP = net.ParseIP(ip)
+	return netIP.String(), nil
 }

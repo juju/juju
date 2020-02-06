@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 )
 
@@ -28,6 +27,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			expect.URL().Return("me/model.foo", true)
 			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
 			expect.IsConsumerProxy().Return(false)
+			expect.Macaroon().Return("mac")
 			expect.Bindings().Return(map[string]string{
 				"binding-key": "binding-value",
 			})
@@ -35,7 +35,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 			expect.Endpoints().Return([]MigrationRemoteEndpoint{
 				{
 					Name:      "app-uuid-1-endpoint-1",
-					Role:      charm.RelationRole("role"),
+					Role:      "role",
 					Interface: "db",
 				},
 			}, nil)
@@ -106,6 +106,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplication(c *gc.C) {
 		URL:             "me/model.foo",
 		SourceModel:     names.NewModelTag("uuid-2"),
 		IsConsumerProxy: false,
+		Macaroon:        "mac",
 		Bindings: map[string]string{
 			"binding-key": "binding-value",
 		},
@@ -130,7 +131,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithSourceFai
 	c.Assert(err, gc.ErrorMatches, "fail")
 }
 
-func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEnpointsFailure(c *gc.C) {
+func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEndpointsFailure(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()
 
@@ -141,6 +142,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEnpointsF
 			expect.URL().Return("me/model.foo", true)
 			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
 			expect.IsConsumerProxy().Return(false)
+			expect.Macaroon().Return("mac")
 			expect.Bindings().Return(map[string]string{
 				"binding-key": "binding-value",
 			})
@@ -168,6 +170,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithEnpointsF
 		URL:             "me/model.foo",
 		SourceModel:     names.NewModelTag("uuid-2"),
 		IsConsumerProxy: false,
+		Macaroon:        "mac",
 		Bindings: map[string]string{
 			"binding-key": "binding-value",
 		},
@@ -189,6 +192,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 			expect.URL().Return("me/model.foo", true)
 			expect.SourceModel().Return(names.NewModelTag("uuid-2"))
 			expect.IsConsumerProxy().Return(false)
+			expect.Macaroon().Return("mac")
 			expect.Bindings().Return(map[string]string{
 				"binding-key": "binding-value",
 			})
@@ -212,6 +216,7 @@ func (s *RemoteApplicationsExportSuite) TestExportRemoteApplicationWithStatusArg
 		URL:             "me/model.foo",
 		SourceModel:     names.NewModelTag("uuid-2"),
 		IsConsumerProxy: false,
+		Macaroon:        "mac",
 		Bindings: map[string]string{
 			"binding-key": "binding-value",
 		},

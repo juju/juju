@@ -1,55 +1,45 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package application_test
+package application
 
 import (
 	"bytes"
 	"io/ioutil"
-	"net/http/httptest"
 	"path"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd/cmdtesting"
-	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/juju/api/charms"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	charmresource "gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/juju/charmstore.v5"
+	csclientparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/mgo.v2"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
-	"github.com/juju/juju/cmd/juju/application"
-	"github.com/juju/juju/component/all"
-	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/api"
+	"github.com/juju/juju/api/base"
+	jjcharmstore "github.com/juju/juju/charmstore"
+	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/resource"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 )
 
 type UpgradeCharmResourceSuite struct {
-	application.RepoSuiteBaseSuite
+	RepoSuiteBaseSuite
 }
 
 var _ = gc.Suite(&UpgradeCharmResourceSuite{})
 
-func (s *UpgradeCharmResourceSuite) SetUpSuite(c *gc.C) {
-	s.RepoSuite.SetUpSuite(c)
-	all.RegisterForServer()
-}
-
 func (s *UpgradeCharmResourceSuite) SetUpTest(c *gc.C) {
 	s.RepoSuiteBaseSuite.SetUpTest(c)
-	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(s.CharmsPath, "riak")
-	_, err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
+	chPath := testcharms.RepoWithSeries("bionic").ClonedDirPath(c.MkDir(), "riak")
+	err := runDeploy(c, chPath, "riak", "--series", "quantal", "--force")
 	c.Assert(err, jc.ErrorIsNil)
 	curl := charm.MustParseURL("local:quantal/riak-7")
 	riak, _ := s.RepoSuite.AssertApplication(c, "riak", curl, 1, 1)
@@ -91,7 +81,7 @@ resources:
 	err = ioutil.WriteFile(resourceFile, data, 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(),
+	_, err = cmdtesting.RunCommand(c, NewUpgradeCharmCommand(),
 		"riak", "--path="+myriakPath.Path, "--resource", "data="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -125,85 +115,14 @@ resources:
 	})
 }
 
-type charmstoreClientToTestcharmsClientShim struct {
-	*csclient.Client
-}
-
-func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
-	client := c.Client.WithChannel(channel)
-	return charmstoreClientToTestcharmsClientShim{client}
-}
-
-// charmStoreSuite is a suite fixture that puts the machinery in
-// place to allow testing code that calls addCharmViaAPI.
-type charmStoreSuite struct {
-	application.JujuConnBaseSuite
-	handler    charmstore.HTTPCloseHandler
-	srv        *httptest.Server
-	srvSession *mgo.Session
-	client     charmstoreClientToTestcharmsClientShim
-}
-
-func (s *charmStoreSuite) SetUpTest(c *gc.C) {
-	srvSession, err := gitjujutesting.MgoServer.Dial()
-	c.Assert(err, gc.IsNil)
-	s.srvSession = srvSession
-
-	// Set up the charm store testing server.
-	db := s.srvSession.DB("juju-testing")
-	params := charmstore.ServerParams{
-		AuthUsername: "test-user",
-		AuthPassword: "test-password",
-	}
-	handler, err := charmstore.NewServer(db, nil, "", params, charmstore.V5)
-	c.Assert(err, jc.ErrorIsNil)
-	s.handler = handler
-	s.srv = httptest.NewServer(handler)
-	client := csclient.New(csclient.Params{
-		URL:      s.srv.URL,
-		User:     params.AuthUsername,
-		Password: params.AuthPassword,
-	})
-	s.client = charmstoreClientToTestcharmsClientShim{client}
-
-	// Set charmstore URL config so the config is set during bootstrap
-	if s.ControllerConfigAttrs == nil {
-		s.ControllerConfigAttrs = make(map[string]interface{})
-	}
-	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
-
-	s.JujuConnBaseSuite.SetUpTest(c)
-
-	// Initialize the charm cache dir.
-	s.PatchValue(&charmrepo.CacheDir, c.MkDir())
-}
-
-func (s *charmStoreSuite) TearDownTest(c *gc.C) {
-	s.handler.Close()
-	s.srv.Close()
-	s.srvSession.Close()
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 type UpgradeCharmStoreResourceSuite struct {
-	charmStoreSuite
+	FakeStoreStateSuite
 }
 
 var _ = gc.Suite(&UpgradeCharmStoreResourceSuite{})
 
-func (s *UpgradeCharmStoreResourceSuite) SetUpSuite(c *gc.C) {
-	s.charmStoreSuite.SetUpSuite(c)
-	err := all.RegisterForServer()
-	c.Assert(err, jc.ErrorIsNil)
-	err = all.RegisterForClient()
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-// TODO(ericsnow) Adapt this test to check passing revisions once the
-// charmstore endpoints are implemented.
-
 func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
-	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-1", "starsay", "bionic")
+	ch := s.setupCharm(c, "bionic/starsay-1", "starsay", "bionic")
 
 	// let's make a fake resource file to upload
 	resourceContent := "some-data"
@@ -212,15 +131,29 @@ func (s *UpgradeCharmStoreResourceSuite) TestDeployStarsaySuccess(c *gc.C) {
 	err := ioutil.WriteFile(resourceFile, []byte(resourceContent), 0644)
 	c.Assert(err, jc.ErrorIsNil)
 
-	output, err := runDeploy(c, "trusty/starsay", "--resource", "upload-resource="+resourceFile)
+	deploy := newDeployCommand()
+	deploy.DeployResources = func(applicationID string,
+		chID jjcharmstore.CharmID,
+		csMac *macaroon.Macaroon,
+		filesAndRevisions map[string]string,
+		resources map[string]charmresource.Meta,
+		conn base.APICallCloser,
+	) (ids map[string]string, err error) {
+		return deployResources(s.State, applicationID, resources)
+	}
+	deploy.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+		return s.fakeAPI.charmStoreAdaptor, nil
+	}
+
+	_, output, err := runDeployWithOutput(c, modelcmd.Wrap(deploy), "bionic/starsay", "--resource", "upload-resource="+resourceFile)
 	c.Assert(err, jc.ErrorIsNil)
 
-	expectedOutput := `Located charm "cs:trusty/starsay-1".
-Deploying charm "cs:trusty/starsay-1".`
+	expectedOutput := `Located charm "cs:bionic/starsay-1".
+Deploying charm "cs:bionic/starsay-1".`
 	c.Assert(output, gc.Equals, expectedOutput)
-	s.assertCharmsUploaded(c, "cs:trusty/starsay-1")
+	s.assertCharmsUploaded(c, "cs:bionic/starsay-1")
 	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"starsay": {charm: "cs:trusty/starsay-1"},
+		"starsay": {charm: "cs:bionic/starsay-1", config: ch.Config().DefaultSettings()},
 	})
 
 	unit, err := s.State.Unit("starsay/0")
@@ -232,14 +165,14 @@ Deploying charm "cs:trusty/starsay-1".`
 
 	res, err := s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
-	svcres, err := res.ListResources("starsay")
+	appResources, err := res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
-	sort.Sort(byname(svcres.Resources))
+	sort.Sort(byname(appResources.Resources))
 
-	c.Assert(svcres.Resources, gc.HasLen, 3)
-	c.Check(svcres.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
-	svcres.Resources[2].Timestamp = time.Time{}
+	c.Assert(appResources.Resources, gc.HasLen, 3)
+	c.Check(appResources.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
+	appResources.Resources[2].Timestamp = time.Time{}
 
 	// Note that all charm resources were uploaded by testcharms.UploadCharm
 	// so that the charm could be published.
@@ -292,38 +225,73 @@ Deploying charm "cs:trusty/starsay-1".`
 		// Timestamp is checked above
 	}}
 
-	c.Check(svcres.Resources, jc.DeepEquals, expectedResources)
+	c.Check(appResources.Resources, jc.DeepEquals, expectedResources)
 
-	oldCharmStoreResources := make([]charmresource.Resource, len(svcres.CharmStoreResources))
-	copy(oldCharmStoreResources, svcres.CharmStoreResources)
+	oldCharmStoreResources := make([]charmresource.Resource, len(appResources.CharmStoreResources))
+	copy(oldCharmStoreResources, appResources.CharmStoreResources)
 
 	sort.Sort(csbyname(oldCharmStoreResources))
 
-	testcharms.UploadCharmWithSeries(c, s.client, "trusty/starsay-2", "starsay", "bionic")
+	s.setupCharm(c, "bionic/starsay-2", "starsay", "bionic")
+	charmClient := &mockCharmClient{
+		charmInfo: &charms.CharmInfo{
+			URL:  "bionic/starsay-2",
+			Meta: &charm.Meta{},
+		},
+	}
+	charmAdder := &mockCharmAdder{}
+	upgrade := NewUpgradeCharmCommandForStateTest(
+		func(
+			bakeryClient *httpbakery.Client,
+			csURL string,
+			channel csclientparams.Channel,
+		) charmrepoForDeploy {
+			return s.fakeAPI
+		},
+		func(conn api.Connection) CharmAdder {
+			return charmAdder
+		},
+		func(conn base.APICallCloser) CharmClient {
+			return charmClient
+		},
+		func(applicationID string,
+			chID jjcharmstore.CharmID,
+			csMac *macaroon.Macaroon,
+			filesAndRevisions map[string]string,
+			resources map[string]charmresource.Meta,
+			conn base.APICallCloser,
+		) (ids map[string]string, err error) {
+			return deployResources(s.State, applicationID, resources)
+		},
+		func(conn base.APICallCloser) CharmAPIClient {
+			return &mockCharmAPIClient{
+				charmURL: charm.MustParseURL("bionic/starsay-1"),
+			}
+		},
+	)
 
-	_, err = cmdtesting.RunCommand(c, application.NewUpgradeCharmCommand(), "starsay")
+	_, err = cmdtesting.RunCommand(c, upgrade, "starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.assertApplicationsDeployed(c, map[string]applicationInfo{
-		"starsay": {charm: "cs:trusty/starsay-2"},
-	})
+	charmAdder.CheckCall(c, 0,
+		"AddCharm", charm.MustParseURL("cs:bionic/starsay-2"), csclientparams.NoChannel, false)
 
 	res, err = s.State.Resources()
 	c.Assert(err, jc.ErrorIsNil)
-	svcres, err = res.ListResources("starsay")
+	appResources, err = res.ListResources("starsay")
 	c.Assert(err, jc.ErrorIsNil)
 
-	sort.Sort(byname(svcres.Resources))
+	sort.Sort(byname(appResources.Resources))
 
-	c.Assert(svcres.Resources, gc.HasLen, 3)
-	c.Check(svcres.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
-	svcres.Resources[2].Timestamp = time.Time{}
+	c.Assert(appResources.Resources, gc.HasLen, 3)
+	c.Check(appResources.Resources[2].Timestamp, gc.Not(gc.Equals), time.Time{})
+	appResources.Resources[2].Timestamp = time.Time{}
 
 	// ensure that we haven't overridden the previously uploaded resource.
-	c.Check(svcres.Resources, jc.DeepEquals, expectedResources)
+	c.Check(appResources.Resources, jc.DeepEquals, expectedResources)
 
-	sort.Sort(csbyname(svcres.CharmStoreResources))
-	c.Check(oldCharmStoreResources, gc.DeepEquals, svcres.CharmStoreResources)
+	sort.Sort(csbyname(appResources.CharmStoreResources))
+	c.Check(oldCharmStoreResources, gc.DeepEquals, appResources.CharmStoreResources)
 }
 
 func resourceHash(content string) charmresource.Fingerprint {
@@ -345,62 +313,3 @@ type csbyname []charmresource.Resource
 func (b csbyname) Len() int           { return len(b) }
 func (b csbyname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
 func (b csbyname) Less(i, j int) bool { return b[i].Name < b[j].Name }
-
-// assertCharmsUploaded checks that the given charm ids have been uploaded.
-func (s *charmStoreSuite) assertCharmsUploaded(c *gc.C, ids ...string) {
-	charms, err := s.State.AllCharms()
-	c.Assert(err, jc.ErrorIsNil)
-	uploaded := make([]string, len(charms))
-	for i, charm := range charms {
-		uploaded[i] = charm.URL().String()
-	}
-	c.Assert(uploaded, jc.SameContents, ids)
-}
-
-// assertApplicationsDeployed checks that the given applications have been deployed.
-func (s *charmStoreSuite) assertApplicationsDeployed(c *gc.C, info map[string]applicationInfo) {
-	applications, err := s.State.AllApplications()
-	c.Assert(err, jc.ErrorIsNil)
-	deployed := make(map[string]applicationInfo, len(applications))
-	for _, app := range applications {
-		ch, _ := app.CharmURL()
-		config, err := app.CharmConfig(model.GenerationMaster)
-		c.Assert(err, jc.ErrorIsNil)
-		if len(config) == 0 {
-			config = nil
-		}
-		cons, err := app.Constraints()
-		c.Assert(err, jc.ErrorIsNil)
-		storage, err := app.StorageConstraints()
-		c.Assert(err, jc.ErrorIsNil)
-		if len(storage) == 0 {
-			storage = nil
-		}
-		deployed[app.Name()] = applicationInfo{
-			charm:       ch.String(),
-			config:      config,
-			constraints: cons,
-			exposed:     app.IsExposed(),
-			storage:     storage,
-		}
-	}
-	c.Assert(deployed, jc.DeepEquals, info)
-}
-
-// applicationInfo holds information about a deployed application.
-type applicationInfo struct {
-	charm            string
-	config           charm.Settings
-	constraints      constraints.Value
-	exposed          bool
-	storage          map[string]state.StorageConstraints
-	endpointBindings map[string]string
-}
-
-// runDeploy executes the deploy command in order to deploy the given
-// charm or bundle. The deployment stderr output and error are returned.
-// TODO(rog) delete this when tests are universally internal or external.
-func runDeploy(c *gc.C, args ...string) (string, error) {
-	ctx, err := cmdtesting.RunCommand(c, application.NewDeployCommand(), args...)
-	return strings.Trim(cmdtesting.Stderr(ctx), "\n"), err
-}

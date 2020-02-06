@@ -36,28 +36,37 @@ var (
 	_ = gc.Suite(&workerSuite{})
 
 	testAddrs = network.ProviderAddresses{
-		network.NewProviderAddress("127.0.0.1"),
+		network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
+	}
+
+	testNetIfs = []network.InterfaceInfo{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.6.6.6",
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
+			DeviceIndex:   0,
+			InterfaceName: "eth0",
+			MACAddress:    "de:ad:be:ef:00:00",
+			CIDR:          "10.0.0.0/24",
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
 			},
-			SpaceName:       "test-space",
-			ProviderSpaceID: "1",
+			ShadowAddresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
+			},
 		},
 	}
 
-	testAddrs2 = network.ProviderAddresses{
-		network.NewProviderAddress("127.0.0.1"),
+	testCoercedNetIfs = []network.InterfaceInfo{
 		{
-			MachineAddress: network.MachineAddress{
-				Value: "10.9.9.9",
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
+			DeviceIndex: 0,
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("10.0.0.1", network.ScopeCloudLocal),
 			},
-			SpaceName:       "test-space",
-			ProviderSpaceID: "1",
+		},
+		{
+			DeviceIndex: 1,
+			ShadowAddresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("1.1.1.42", network.ScopePublic),
+			},
 		},
 	}
 )
@@ -196,23 +205,22 @@ func (s *workerSuite) TestUpdateOfStatusAndAddressDetails(c *gc.C) {
 	machine.EXPECT().Id().Return("0").AnyTimes()
 	machine.EXPECT().Life().Return(life.Alive)
 	machine.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Provisioning)}, nil)
-	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil)
 
 	// The provider reports the instance status as running and also indicates
 	// that network addresses have been *changed*.
 	instInfo := mocks.NewMockInstance(ctrl)
 	instInfo.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running, Message: "Running wild"})
-	instInfo.EXPECT().Addresses(gomock.Any()).Return(testAddrs2, nil)
 
 	// When we process the instance info we expect the machine instance
 	// status and list of network addresses to be updated so they match
 	// the values reported by the provider.
 	machine.EXPECT().SetInstanceStatus(status.Running, "Running wild", nil).Return(nil)
-	machine.EXPECT().SetProviderAddresses(testAddrs2[0], testAddrs2[1]).Return(nil)
+	machine.EXPECT().SetProviderNetworkConfig(testNetIfs).Return(testAddrs, true, nil)
 
-	providerStatus, err := updWorker.processProviderInfo(entry, instInfo)
+	providerStatus, addrCount, err := updWorker.processProviderInfo(entry, instInfo, testNetIfs)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(providerStatus, gc.Equals, status.Running)
+	c.Assert(addrCount, gc.Equals, len(testAddrs))
 }
 
 func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *gc.C) {
@@ -229,13 +237,10 @@ func (s *workerSuite) TestStartedMachineWithNetAddressesMovesToLongPollGroup(c *
 	updWorker.appendToShortPollGroup(machineTag, machine)
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
 
-	// The machine is assigned a network address.
-	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil)
-
 	// The provider reports an instance status of "running"; the machine
 	// reports it's machine status as "started".
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started)
+	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started, 1)
 
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
 	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
@@ -258,7 +263,7 @@ func (s *workerSuite) TestNonStartedMachinesGetBumpedPollInterval(c *gc.C) {
 		updWorker.appendToShortPollGroup(machineTag, machine)
 		entry, _ := updWorker.lookupPolledMachine(machineTag)
 
-		updWorker.maybeSwitchPollGroup(shortPollGroup, entry, spec, status.Pending)
+		updWorker.maybeSwitchPollGroup(shortPollGroup, entry, spec, status.Pending, 0)
 		c.Assert(entry.shortPollInterval, gc.Equals, time.Duration(float64(ShortPoll)*ShortPollBackoff))
 	}
 }
@@ -274,18 +279,17 @@ func (s *workerSuite) TestMoveMachineWithUnknownStatusBackToShortPollGroup(c *gc
 	// The machine is assigned a network address.
 	machineTag := names.NewMachineTag("0")
 	machine := mocks.NewMockMachine(ctrl)
-	machine.EXPECT().ProviderAddresses().Return(testAddrs, nil).AnyTimes()
 
 	// Move the machine to the long poll group.
 	updWorker.appendToShortPollGroup(machineTag, machine)
 	entry, _ := updWorker.lookupPolledMachine(machineTag)
-	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started)
+	updWorker.maybeSwitchPollGroup(shortPollGroup, entry, status.Running, status.Started, 1)
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 0)
 	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 1)
 
 	// If we get unknown status from the provider we expect the machine to
 	// be moved back to the short poll group.
-	updWorker.maybeSwitchPollGroup(longPollGroup, entry, status.Unknown, status.Started)
+	updWorker.maybeSwitchPollGroup(longPollGroup, entry, status.Unknown, status.Started, 1)
 	c.Assert(updWorker.pollGroup[shortPollGroup], gc.HasLen, 1)
 	c.Assert(updWorker.pollGroup[longPollGroup], gc.HasLen, 0)
 	c.Assert(entry.shortPollInterval, gc.Equals, ShortPoll)
@@ -429,13 +433,59 @@ func (s *workerSuite) TestBatchPollingOfGroupMembers(c *gc.C) {
 	machine1.EXPECT().InstanceId().Return(instance.Id("b4dc0ffee"), nil)
 	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
 	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)
-	machine1.EXPECT().ProviderAddresses().Return(nil, nil).AnyTimes() // no addresses assigned yet
+	machine1.EXPECT().SetProviderNetworkConfig(testNetIfs).Return(testAddrs, false, nil)
 	updWorker.appendToShortPollGroup(machineTag1, machine1)
 
 	machine1Info := mocks.NewMockInstance(ctrl)
-	machine1Info.EXPECT().Addresses(gomock.Any()).Return(nil, nil) // no addresses reported by provider
 	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return([]instances.Instance{machine1Info}, nil)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return(
+		[][]network.InterfaceInfo{testNetIfs},
+		nil,
+	)
+
+	// Trigger a poll of the short poll group and wait for the worker loop
+	// to complete.
+	s.assertWorkerCompletesLoop(c, updWorker, func() {
+		mocked.clock.Advance(ShortPoll)
+	})
+}
+
+func (s *workerSuite) TestBatchPollingOfGroupMembersWithProviderNotSupportingNetworkInfo(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	w, mocked := s.startWorker(c, ctrl)
+	defer workertest.CleanKill(c, w)
+	updWorker := w.(*updaterWorker)
+
+	// Add two machines, one that is not yet provisioned and one that is
+	// has a "created" machine status and a "running" instance status.
+	machineTag0 := names.NewMachineTag("0")
+	machine0 := mocks.NewMockMachine(ctrl)
+	machine0.EXPECT().InstanceId().Return(instance.Id(""), common.ServerError(errors.NotProvisionedf("not there")))
+	updWorker.appendToShortPollGroup(machineTag0, machine0)
+
+	machineTag1 := names.NewMachineTag("1")
+	machine1 := mocks.NewMockMachine(ctrl)
+	machine1.EXPECT().Life().Return(life.Alive)
+	machine1.EXPECT().InstanceId().Return(instance.Id("b4dc0ffee"), nil)
+	machine1.EXPECT().InstanceStatus().Return(params.StatusResult{Status: string(status.Running)}, nil)
+	machine1.EXPECT().Status().Return(params.StatusResult{Status: string(status.Started)}, nil)
+	machine1.EXPECT().SetProviderNetworkConfig(testCoercedNetIfs).Return(testAddrs, false, nil)
+	updWorker.appendToShortPollGroup(machineTag1, machine1)
+
+	machine1Info := mocks.NewMockInstance(ctrl)
+	machine1Info.EXPECT().Status(gomock.Any()).Return(instance.Status{Status: status.Running})
+	// Since the provider does not support environ.Networking, the worker
+	// will fall-back to fetching the instance addresses and coercing them
+	// into an interface list.
+	machine1Info.EXPECT().Addresses(gomock.Any()).Return(testAddrs, nil)
+
+	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return([]instances.Instance{machine1Info}, nil)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{"b4dc0ffee"}).Return(
+		nil, errors.NotSupportedf("network interfaces"),
+	)
 
 	// Trigger a poll of the short poll group and wait for the worker loop
 	// to complete.
@@ -467,6 +517,9 @@ func (s *workerSuite) TestLongPollMachineNotKnownByProvider(c *gc.C) {
 	machine.EXPECT().InstanceId().Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		[]instances.Instance{}, environs.ErrPartialInstances,
+	)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instID}).Return(
+		nil, errors.NotSupportedf("network interfaces"),
 	)
 
 	// Advance the clock to trigger processing of both the short AND long
@@ -500,6 +553,9 @@ func (s *workerSuite) TestLongPollNoMachineInGroupKnownByProvider(c *gc.C) {
 	machine.EXPECT().InstanceId().Return(instID, nil)
 	mocked.environ.EXPECT().Instances(gomock.Any(), []instance.Id{instID}).Return(
 		nil, environs.ErrNoInstances,
+	)
+	mocked.environ.EXPECT().NetworkInterfaces(gomock.Any(), []instance.Id{instID}).Return(
+		nil, errors.NotSupportedf("network interfaces"),
 	)
 
 	// Advance the clock to trigger processing of both the short AND long

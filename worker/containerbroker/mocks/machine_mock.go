@@ -10,7 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	instance "github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
+	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version"

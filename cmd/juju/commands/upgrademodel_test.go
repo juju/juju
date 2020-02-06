@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"path"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/model"
@@ -51,6 +53,11 @@ type UpgradeBaseSuite struct {
 
 	toolsDir string
 	coretesting.CmdBlockHelper
+}
+
+func (s *UpgradeBaseSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+	client.SkipReplicaCheck(s)
 }
 
 type UpgradeJujuSuite struct {
@@ -416,10 +423,10 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 		}
 
 		// Set up state and environ, and run the command.
-		toolsDir := c.MkDir()
+		testDir := c.MkDir()
 		updateAttrs := map[string]interface{}{
 			"agent-version":      test.agentVersion,
-			"agent-metadata-url": "file://" + toolsDir + "/tools",
+			"agent-metadata-url": path.Join(testDir, "tools"),
 		}
 		err := s.Model.UpdateModelConfig(updateAttrs, nil)
 		c.Assert(err, jc.ErrorIsNil)
@@ -428,7 +435,7 @@ func (s *UpgradeBaseSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest, upgr
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			stor, err := filestorage.NewFileStorageWriter(toolsDir)
+			stor, err := filestorage.NewFileStorageWriter(testDir)
 			c.Assert(err, jc.ErrorIsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 		}
@@ -719,10 +726,10 @@ func (s *UpgradeBaseSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 	s.PatchValue(&arch.HostArch, func() string { return current.Arch })
 	s.PatchValue(&series.MustHostSeries, func() string { return current.Series })
 
-	toolsDir := c.MkDir()
+	tmpDir := c.MkDir()
 	updateAttrs := map[string]interface{}{
 		"agent-version":      agentVersion,
-		"agent-metadata-url": "file://" + toolsDir + "/tools",
+		"agent-metadata-url": path.Join(tmpDir, "tools"),
 	}
 
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)
@@ -735,7 +742,7 @@ func (s *UpgradeBaseSuite) setUpEnvAndTools(c *gc.C, currentVersion string, agen
 		}
 	}
 	if len(versions) > 0 {
-		stor, err := filestorage.NewFileStorageWriter(toolsDir)
+		stor, err := filestorage.NewFileStorageWriter(tmpDir)
 		c.Assert(err, jc.ErrorIsNil)
 		envtesting.MustUploadFakeToolsVersions(stor, s.Environ.Config().AgentStream(), versions...)
 	}

@@ -883,8 +883,9 @@ var expectedLinkLayerDeviceAdressesWithFinalNetworkConfig = []state.LinkLayerDev
 	ProviderSubnetID: "11",
 }}
 
-func (s *TypesSuite) TestNetworkConfigsToStateArgs(c *gc.C) {
-	devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(expectedFinalNetworkConfigs)
+func (s *TypesSuite) TestNetworkInterfacesToStateArgs(c *gc.C) {
+	ifaces := params.InterfaceInfoFromNetworkConfig(expectedFinalNetworkConfigs)
+	devicesArgs, devicesAddrs := networkingcommon.NetworkInterfacesToStateArgs(ifaces)
 
 	c.Check(devicesArgs, jc.DeepEquals, expectedLinkLayerDeviceArgsWithFinalNetworkConfig)
 	c.Check(devicesAddrs, jc.DeepEquals, expectedLinkLayerDeviceAdressesWithFinalNetworkConfig)

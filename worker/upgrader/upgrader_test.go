@@ -75,7 +75,9 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 func (s *UpgraderSuite) patchVersion(v version.Binary) {
 	s.PatchValue(&arch.HostArch, func() string { return v.Arch })
 	s.PatchValue(&series.MustHostSeries, func() string { return v.Series })
-	s.PatchValue(&jujuversion.Current, v.Number)
+	vers := v.Number
+	vers.Build = 666
+	s.PatchValue(&jujuversion.Current, vers)
 }
 
 type mockConfig struct {
@@ -131,6 +133,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
+	agentTools.Version.Build = 666
 	envtesting.CheckTools(c, gotTools, agentTools)
 }
 
@@ -152,6 +155,7 @@ func (s *UpgraderSuite) TestUpgraderSetVersion(c *gc.C) {
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, jc.ErrorIsNil)
+	vers.Build = 666
 	c.Assert(gotTools, gc.DeepEquals, &coretools.Tools{Version: vers})
 }
 

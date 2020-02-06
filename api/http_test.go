@@ -4,17 +4,18 @@
 package api_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apitesting "github.com/juju/juju/api/testing"
@@ -60,11 +61,11 @@ var httpClientTests = []struct {
 			Message: "something",
 		})
 	},
-	expectError: `GET http://.*/: something`,
+	expectError: `Get http://.*/: something`,
 }, {
 	about:       "non-JSON error response",
 	handler:     http.NotFound,
-	expectError: `GET http://.*/: unexpected content type text/plain; want application/json; content: 404 page not found`,
+	expectError: `Get http://.*/: unexpected content type text/plain; want application/json; content: 404 page not found`,
 }, {
 	about: "bad error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -75,7 +76,7 @@ var httpClientTests = []struct {
 			Message: make(map[string]int),
 		})
 	},
-	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
+	expectError: `Get http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
 }, {
 	about: "bad charms error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -88,7 +89,7 @@ var httpClientTests = []struct {
 			CharmURL: make(map[string]int),
 		})
 	},
-	expectError: `GET http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
+	expectError: `Get http://.*/: incompatible error response: json: cannot unmarshal object into Go .+`,
 }, {
 	about: "no message in ErrorResponse",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -96,13 +97,13 @@ var httpClientTests = []struct {
 			Error: &params.Error{},
 		})
 	},
-	expectError: `GET http://.*/: error response with no message`,
+	expectError: `Get http://.*/: error response with no message`,
 }, {
 	about: "no message in Error",
 	handler: func(w http.ResponseWriter, req *http.Request) {
 		httprequest.WriteJSON(w, http.StatusUnauthorized, params.Error{})
 	},
-	expectError: `GET http://.*/: error response with no message`,
+	expectError: `Get http://.*/: error response with no message`,
 }, {
 	about: "charms error response",
 	handler: func(w http.ResponseWriter, req *http.Request) {
@@ -127,7 +128,7 @@ var httpClientTests = []struct {
 			Code:    params.CodeDischargeRequired,
 		})
 	},
-	expectError:     `GET http://.*/: no error info found in discharge-required response error: some error`,
+	expectError:     `Get http://.*/: no error info found in discharge-required response error: some error`,
 	expectErrorCode: params.CodeDischargeRequired,
 }, {
 	about: "discharge-required response with no macaroon",
@@ -140,7 +141,7 @@ var httpClientTests = []struct {
 			}.AsMap(),
 		})
 	},
-	expectError: `GET http://.*/: no macaroon found in discharge-required response`,
+	expectError: `Get http://.*/: no macaroon found in discharge-required response`,
 }}
 
 func (s *httpSuite) TestHTTPClient(c *gc.C) {
@@ -157,7 +158,7 @@ func (s *httpSuite) TestHTTPClient(c *gc.C) {
 		if test.expectResponse != nil {
 			resp = reflect.New(reflect.TypeOf(test.expectResponse).Elem()).Interface()
 		}
-		err := s.client.Get("/", resp)
+		err := s.client.Get(context.Background(), "/", resp)
 		if test.expectError != "" {
 			c.Check(err, gc.ErrorMatches, test.expectError)
 			c.Check(params.ErrCode(err), gc.Equals, test.expectErrorCode)
@@ -215,7 +216,7 @@ func (s *httpSuite) TestControllerMachineAuthForHostedModel(c *gc.C) {
 	defer srv.Close()
 	httpClient.BaseURL = srv.URL
 	var out map[string]string
-	c.Assert(httpClient.Get("/", &out), jc.ErrorIsNil)
+	c.Assert(httpClient.Get(context.Background(), "/", &out), jc.ErrorIsNil)
 	c.Assert(out, gc.DeepEquals, map[string]string{
 		"username": m.Tag().String(),
 		"password": password,
@@ -229,13 +230,15 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	req := s.authHTTPRequest(c, apiInfo)
 	_, _, ok := req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
-	c.Assert(req.Header, gc.HasLen, 0)
+	c.Assert(req.Header, gc.HasLen, 1)
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
 	apiInfo.Nonce = "foo"
 	req = s.authHTTPRequest(c, apiInfo)
 	_, _, ok = req.BasicAuth()
 	c.Assert(ok, jc.IsFalse)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
 	apiInfo.Tag = names.NewMachineTag("123")
 	apiInfo.Password = "password"
@@ -245,18 +248,20 @@ func (s *httpSuite) TestAuthHTTPRequest(c *gc.C) {
 	c.Assert(user, gc.Equals, "machine-123")
 	c.Assert(pass, gc.Equals, "password")
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 
 	mac, err := apitesting.NewMacaroon("id")
 	c.Assert(err, jc.ErrorIsNil)
 	apiInfo.Macaroons = []macaroon.Slice{{mac}}
 	req = s.authHTTPRequest(c, apiInfo)
 	c.Assert(req.Header.Get(params.MachineNonceHeader), gc.Equals, "foo")
+	c.Assert(req.Header.Get(httpbakery.BakeryProtocolHeader), gc.Equals, "3")
 	macaroons := httpbakery.RequestMacaroons(req)
 	apitesting.MacaroonsEqual(c, macaroons, apiInfo.Macaroons)
 }
 
 func (s *httpSuite) authHTTPRequest(c *gc.C, info *api.Info) *http.Request {
-	req, err := http.NewRequest("GET", "/", nil)
+	req, err := http.NewRequest(http.MethodGet, "/", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	err = api.AuthHTTPRequest(req, info)
 	c.Assert(err, jc.ErrorIsNil)

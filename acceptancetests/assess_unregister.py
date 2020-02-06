@@ -65,7 +65,7 @@ def assess_unregister(client):
 
 def assert_switch_raises_error(client):
     try:
-        client.get_juju_output('switch', include_e=False)
+        client.get_raw_juju_output('switch', None, include_e=False)
     except subprocess.CalledProcessError as e:
         if 'no model name was passed' not in e.stderr:
             raise JujuAssertionError(

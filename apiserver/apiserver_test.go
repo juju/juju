@@ -7,9 +7,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
@@ -17,7 +19,6 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -37,9 +38,11 @@ import (
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 const (
@@ -79,13 +82,19 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	s.tlsConfig.Certificates = []tls.Certificate{*coretesting.ServerTLSCert}
 	s.mux = apiserverhttp.NewMux()
 
+	multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+		Logger:               loggo.GetLogger("test"),
+		Backing:              state.NewAllWatcherBacking(s.StatePool),
+		PrometheusRegisterer: noopRegisterer{},
+	})
+	// The worker itself is a coremultiwatcher.Factory.
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
+
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
-		InitializedGate: initialized,
-		Logger:          loggo.GetLogger("test"),
-		WatcherFactory: func() modelcache.BackingWatcher {
-			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
-		},
+		InitializedGate:      initialized,
+		Logger:               loggo.GetLogger("test"),
+		WatcherFactory:       multiWatcherWorker.WatchController,
 		PrometheusRegisterer: noopRegisterer{},
 		Cleanup:              func() {},
 	}.WithDefaultRestartStrategy())
@@ -104,21 +113,21 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 
 	machineTag := names.NewMachineTag("0")
 	s.config = apiserver.ServerConfig{
-		StatePool:       s.StatePool,
-		Controller:      controller,
-		Authenticator:   s.authenticator,
-		Clock:           clock.WallClock,
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{} },
-		Tag:             machineTag,
-		DataDir:         c.MkDir(),
-		LogDir:          c.MkDir(),
-		Hub:             centralhub.New(machineTag),
-		Presence:        presence.New(clock.WallClock),
-		LeaseManager:    apitesting.StubLeaseManager{},
-		Mux:             s.mux,
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		UpgradeComplete: func() bool { return true },
+		StatePool:           s.StatePool,
+		Controller:          controller,
+		MultiwatcherFactory: multiWatcherWorker,
+		Authenticator:       s.authenticator,
+		Clock:               clock.WallClock,
+		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },
+		Tag:                 machineTag,
+		DataDir:             c.MkDir(),
+		LogDir:              c.MkDir(),
+		Hub:                 centralhub.New(machineTag),
+		Presence:            presence.New(clock.WallClock),
+		LeaseManager:        apitesting.StubLeaseManager{},
+		Mux:                 s.mux,
+		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
+		UpgradeComplete:     func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
 		},
@@ -301,14 +310,44 @@ func (s *apiserverSuite) TestRestartMessage(c *gc.C) {
 	c.Assert(err, gc.Equals, dependency.ErrBounce)
 }
 
-type noopRegisterer struct {
-	prometheus.Registerer
+func (s *apiserverSuite) getHealth(c *gc.C) (string, int) {
+	uri := s.server.URL + "/health"
+	resp := apitesting.SendHTTPRequest(c, apitesting.HTTPRequestParams{Method: "GET", URL: uri})
+	body, err := ioutil.ReadAll(resp.Body)
+	c.Assert(err, jc.ErrorIsNil)
+	result := string(body)
+	// Ensure that the last value is a carriage return.
+	c.Assert(strings.HasSuffix(result, "\n"), jc.IsTrue)
+	return strings.TrimSuffix(result, "\n"), resp.StatusCode
 }
 
-func (noopRegisterer) Register(prometheus.Collector) error {
-	return nil
+func (s *apiserverSuite) TestHealthRunning(c *gc.C) {
+	health, statusCode := s.getHealth(c)
+	c.Assert(health, gc.Equals, "running")
+	c.Assert(statusCode, gc.Equals, http.StatusOK)
 }
 
-func (noopRegisterer) Unregister(prometheus.Collector) bool {
-	return true
+func (s *apiserverSuite) TestHealthStopping(c *gc.C) {
+	wg := apiserver.ServerWaitGroup(s.apiServer)
+	wg.Add(1)
+
+	s.apiServer.Kill()
+	// There is a race here between the test and the goroutine setting
+	// the value, so loop until we see the right health, then exit.
+	timeout := time.After(testing.LongWait)
+	for {
+		health, statusCode := s.getHealth(c)
+		if health == "stopping" {
+			// Expected, we're done.
+			c.Assert(statusCode, gc.Equals, http.StatusServiceUnavailable)
+			wg.Done()
+			return
+		}
+		select {
+		case <-timeout:
+			c.Fatalf("health not set to stopping")
+		case <-time.After(testing.ShortWait):
+			// Look again.
+		}
+	}
 }

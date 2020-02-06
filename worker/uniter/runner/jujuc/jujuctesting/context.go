@@ -12,6 +12,7 @@ import (
 // ContextInfo holds the values for the hook context.
 type ContextInfo struct {
 	Unit
+	UnitCache
 	Status
 	Instance
 	NetworkInterface
@@ -57,6 +58,7 @@ type contextBase struct {
 // Context is a test double for jujuc.Context.
 type Context struct {
 	ContextUnit
+	ContextUnitCache
 	ContextStatus
 	ContextInstance
 	ContextNetworking
@@ -97,5 +99,7 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextActionHook.info = &info.ActionHook
 	ctx.ContextVersion.stub = stub
 	ctx.ContextVersion.info = &info.Version
+	ctx.ContextUnitCache.stub = stub
+	ctx.ContextUnitCache.info = &info.UnitCache
 	return &ctx
 }

@@ -12,11 +12,11 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/migration"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing/factory"
@@ -39,7 +39,7 @@ func (s *MigrationSuite) SetUpTest(c *gc.C) {
 
 	targetControllerTag := names.NewControllerTag(utils.MustNewUUID().String())
 
-	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Plausible migration arguments to test with.
@@ -331,29 +331,19 @@ func (s *MigrationSuite) TestLatestRemovedModelMigration(c *gc.C) {
 	mig1, err := s.State2.CreateMigration(s.stdSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Cycle through the phases and complete the migration
-	phases := []migration.Phase{
-		migration.IMPORT,
-		migration.PROCESSRELATIONS,
-		migration.VALIDATION,
-		migration.SUCCESS,
-		migration.LOGTRANSFER,
-		migration.REAP,
-		migration.DONE,
-	}
-	for _, phase := range phases {
+	for _, phase := range migration.SuccessfulMigrationPhases() {
 		c.Assert(mig1.SetPhase(phase), jc.ErrorIsNil)
 	}
 
-	// LatestRemovedModelMigration should fail as the model docs are still there
-	_, err = s.State2.LatestRemovedModelMigration()
+	// CompletedMigration should fail as the model docs are still there
+	_, err = s.State2.CompletedMigration()
 	c.Assert(errors.IsNotFound(err), gc.Equals, true)
 
 	// Delete the model and check that we get back the MigrationModel
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
 	c.Assert(s.State2.RemoveDyingModel(), jc.ErrorIsNil)
 
-	mig2, err := s.State2.LatestRemovedModelMigration()
+	mig2, err := s.State2.CompletedMigration()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mig2, jc.DeepEquals, mig1)
 }
@@ -400,15 +390,7 @@ func (s *MigrationSuite) TestSuccessfulPhaseTransitions(c *gc.C) {
 	mig2, err := st.LatestMigration()
 	c.Assert(err, jc.ErrorIsNil)
 
-	phases := []migration.Phase{
-		migration.IMPORT,
-		migration.PROCESSRELATIONS,
-		migration.VALIDATION,
-		migration.SUCCESS,
-		migration.LOGTRANSFER,
-		migration.REAP,
-		migration.DONE,
-	}
+	phases := migration.SuccessfulMigrationPhases()
 
 	var successTime time.Time
 	for _, phase := range phases[:len(phases)-1] {

@@ -38,7 +38,7 @@ credential-get returns the cloud specification used by the unit's model.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *CredentialGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 // Init is part of the cmd.Command interface.

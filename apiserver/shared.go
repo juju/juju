@@ -14,6 +14,7 @@ import (
 	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/pubsub/apiserver"
@@ -37,13 +38,14 @@ type SharedHub interface {
 // All attributes in the context should be goroutine aware themselves, like the state pool, hub, and
 // presence, or protected and only accessed through methods on this context object.
 type sharedServerContext struct {
-	statePool    *state.StatePool
-	controller   *cache.Controller
-	centralHub   SharedHub
-	presence     presence.Recorder
-	leaseManager lease.Manager
-	logger       loggo.Logger
-	cancel       <-chan struct{}
+	statePool           *state.StatePool
+	controller          *cache.Controller
+	multiwatcherFactory multiwatcher.Factory
+	centralHub          SharedHub
+	presence            presence.Recorder
+	leaseManager        lease.Manager
+	logger              loggo.Logger
+	cancel              <-chan struct{}
 
 	configMutex      sync.RWMutex
 	controllerConfig jujucontroller.Config
@@ -53,12 +55,14 @@ type sharedServerContext struct {
 }
 
 type sharedServerConfig struct {
-	statePool    *state.StatePool
-	controller   *cache.Controller
-	centralHub   SharedHub
-	presence     presence.Recorder
-	leaseManager lease.Manager
-	logger       loggo.Logger
+	statePool           *state.StatePool
+	controller          *cache.Controller
+	multiwatcherFactory multiwatcher.Factory
+	centralHub          SharedHub
+	presence            presence.Recorder
+	leaseManager        lease.Manager
+	controllerConfig    jujucontroller.Config
+	logger              loggo.Logger
 }
 
 func (c *sharedServerConfig) validate() error {
@@ -67,6 +71,9 @@ func (c *sharedServerConfig) validate() error {
 	}
 	if c.controller == nil {
 		return errors.NotValidf("nil controller")
+	}
+	if c.multiwatcherFactory == nil {
+		return errors.NotValidf("nil multiwatcherFactory")
 	}
 	if c.centralHub == nil {
 		return errors.NotValidf("nil centralHub")
@@ -77,36 +84,37 @@ func (c *sharedServerConfig) validate() error {
 	if c.leaseManager == nil {
 		return errors.NotValidf("nil leaseManager")
 	}
+	if c.controllerConfig == nil {
+		return errors.NotValidf("nil controllerConfig")
+	}
 	return nil
 }
 
-func newSharedServerContex(config sharedServerConfig) (*sharedServerContext, error) {
+func newSharedServerContext(config sharedServerConfig) (*sharedServerContext, error) {
 	if err := config.validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
-	controllerConfig, err := config.statePool.SystemState().ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "unable to get controller config")
-	}
 	ctx := &sharedServerContext{
-		statePool:        config.statePool,
-		controller:       config.controller,
-		centralHub:       config.centralHub,
-		presence:         config.presence,
-		leaseManager:     config.leaseManager,
-		logger:           config.logger,
-		controllerConfig: controllerConfig,
+		statePool:           config.statePool,
+		controller:          config.controller,
+		multiwatcherFactory: config.multiwatcherFactory,
+		centralHub:          config.centralHub,
+		presence:            config.presence,
+		leaseManager:        config.leaseManager,
+		logger:              config.logger,
+		controllerConfig:    config.controllerConfig,
 	}
-	ctx.features = controllerConfig.Features()
+	ctx.features = config.controllerConfig.Features()
 	// We are able to get the current controller config before subscribing to changes
 	// because the changes are only ever published in response to an API call, and
 	// this function is called in the newServer call to create the API server,
 	// and we know that we can't make any API calls until the server has started.
-	ctx.unsubscribe, err = ctx.centralHub.Subscribe(controller.ConfigChanged, ctx.onConfigChanged)
+	unsubscribe, err := ctx.centralHub.Subscribe(controller.ConfigChanged, ctx.onConfigChanged)
 	if err != nil {
 		ctx.logger.Criticalf("programming error in subscribe function: %v", err)
 		return nil, errors.Trace(err)
 	}
+	ctx.unsubscribe = unsubscribe
 	return ctx, nil
 }
 

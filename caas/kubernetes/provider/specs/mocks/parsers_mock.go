@@ -5,9 +5,10 @@
 package mocks
 
 import (
+	reflect "reflect"
+
 	gomock "github.com/golang/mock/gomock"
 	specs "github.com/juju/juju/caas/specs"
-	reflect "reflect"
 )
 
 // MockPodSpecConverter is a mock of PodSpecConverter interface

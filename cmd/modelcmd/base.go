@@ -5,6 +5,7 @@ package modelcmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,12 +15,12 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/juju/api/authentication"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
-	"github.com/juju/juju/api/authentication"
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/modelmanager"
 	"github.com/juju/juju/apiserver/params"
@@ -117,6 +118,9 @@ type CommandBase struct {
 	authOpts      AuthOpts
 	runStarted    bool
 	refreshModels func(jujuclient.ClientStore, string) error
+
+	// StdContext is the Go context.
+	StdContext context.Context
 
 	// CanClearCurrentModel indicates that this command can reset current model in local cache, aka client store.
 	CanClearCurrentModel bool
@@ -442,6 +446,7 @@ func (c *CommandBase) ClearControllerMacaroons(store jujuclient.CookieStore, con
 }
 
 func (c *CommandBase) initContexts(ctx *cmd.Context) {
+	c.StdContext = context.Background()
 	c.cmdContext = ctx
 	c.apiContexts = make(map[string]*apiContext)
 }
@@ -495,10 +500,10 @@ func newAPIConnectionParams(
 	dialOpts.BakeryClient = bakery
 
 	if accountDetails != nil {
-		bakery.WebPageVisitor = httpbakery.NewMultiVisitor(
-			authentication.NewVisitor(accountDetails.User, getPassword),
-			bakery.WebPageVisitor,
-		)
+		bakery.InteractionMethods = []httpbakery.Interactor{
+			authentication.NewInteractor(accountDetails.User, getPassword),
+			httpbakery.WebBrowserInteractor{},
+		}
 	}
 
 	return juju.NewAPIConnectionParams{

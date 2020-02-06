@@ -4,6 +4,7 @@
 package setplan_test
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -15,9 +16,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon.v2"
 
 	rcmd "github.com/juju/juju/cmd/juju/romulus"
 	"github.com/juju/juju/cmd/juju/romulus/setplan"
@@ -142,13 +143,10 @@ func newMockAPI() (*mockapi, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	svc, err := bakery.NewService(bakery.NewServiceParams{
+	svc := bakery.NewOven(bakery.OvenParams{
 		Location: "omnibus",
 		Key:      kp,
 	})
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	return &mockapi{
 		service: svc,
 	}, nil
@@ -157,7 +155,7 @@ func newMockAPI() (*mockapi, error) {
 type mockapi struct {
 	testing.Stub
 
-	service  *bakery.Service
+	service  *bakery.Oven
 	macaroon *macaroon.Macaroon
 }
 
@@ -168,17 +166,17 @@ func (m *mockapi) Authorize(modelUUID, charmURL, applicationName, plan string, v
 	}
 	m.AddCall("Authorize", modelUUID, charmURL, applicationName)
 	macaroon, err := m.service.NewMacaroon(
-
+		context.Background(), bakery.LatestVersion,
 		[]checkers.Caveat{
 			checkers.DeclaredCaveat("environment", modelUUID),
 			checkers.DeclaredCaveat("charm", charmURL),
 			checkers.DeclaredCaveat("service", applicationName),
 			checkers.DeclaredCaveat("plan", plan),
-		})
+		}, bakery.NoOp)
 
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	m.macaroon = macaroon
+	m.macaroon = macaroon.M()
 	return m.macaroon, nil
 }

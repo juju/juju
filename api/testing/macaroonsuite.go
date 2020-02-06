@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"context"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -12,15 +13,15 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakerytest"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/controller"
+	"github.com/juju/juju/core/permission"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
 )
@@ -44,7 +45,12 @@ type MacaroonSuite struct {
 
 func (s *MacaroonSuite) SetUpTest(c *gc.C) {
 	s.DischargerLogin = nil
-	s.discharger = bakerytest.NewDischarger(nil, func(req *http.Request, cond, arg string) ([]checkers.Caveat, error) {
+	s.discharger = bakerytest.NewDischarger(nil)
+	s.discharger.CheckerP = httpbakery.ThirdPartyCaveatCheckerPFunc(func(ctx context.Context, p httpbakery.ThirdPartyCaveatCheckerParams) ([]checkers.Caveat, error) {
+		cond, _, err := checkers.ParseCaveat(string(p.Caveat.Condition))
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 		if cond != "is-authenticated-user" {
 			return nil, errors.New("unknown caveat")
 		}
@@ -193,5 +199,5 @@ func MacaroonEquals(c *gc.C, m1, m2 *macaroon.Macaroon) {
 }
 
 func NewMacaroon(id string) (*macaroon.Macaroon, error) {
-	return macaroon.New(nil, []byte(id), "")
+	return macaroon.New(nil, []byte(id), "", macaroon.LatestVersion)
 }

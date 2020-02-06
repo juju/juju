@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	core "k8s.io/api/core/v1"
@@ -46,7 +45,6 @@ type k8sContainerInterface interface {
 }
 
 func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
-	quoteStrings(c.Config)
 	result := specs.ContainerSpec{
 		ImageDetails:    c.ImageDetails,
 		Name:            c.Name,
@@ -98,26 +96,6 @@ func (ps PodSpec) IsEmpty() bool {
 		ps.SecurityContext == nil &&
 		len(ps.ReadinessGates) == 0 &&
 		ps.DNSPolicy == ""
-}
-
-var boolValues = set.NewStrings(
-	strings.Split("y|Y|yes|Yes|YES|n|N|no|No|NO|true|True|TRUE|false|False|FALSE|on|On|ON|off|Off|OFF", "|")...)
-
-var specialValues = ":{}[],&*#?|-<>=!%@`"
-
-func quoteStrings(config map[string]interface{}) {
-	// Any string config values that could be interpreted as bools
-	// or which contain special YAML chars need to be quoted.
-	for k, v := range config {
-		strValue, ok := v.(string)
-		if !ok {
-			continue
-		}
-		if boolValues.Contains(strValue) || strings.IndexAny(strValue, specialValues) >= 0 {
-			strValue = strings.Replace(strValue, "'", "''", -1)
-			config[k] = fmt.Sprintf("'%s'", strValue)
-		}
-	}
 }
 
 type k8sContainers struct {

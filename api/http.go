@@ -5,16 +5,19 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/httprequest.v1"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -60,15 +63,8 @@ type httpRequestDoer struct {
 
 var _ httprequest.Doer = httpRequestDoer{}
 
-var _ httprequest.DoerWithBody = httpRequestDoer{}
-
 // Do implements httprequest.Doer.Do.
 func (doer httpRequestDoer) Do(req *http.Request) (*http.Response, error) {
-	return doer.DoWithBody(req, nil)
-}
-
-// DoWithBody implements httprequest.DoerWithBody.DoWithBody.
-func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*http.Response, error) {
 	if err := authHTTPRequest(
 		req,
 		doer.st.tag,
@@ -78,7 +74,7 @@ func (doer httpRequestDoer) DoWithBody(req *http.Request, body io.ReadSeeker) (*
 	); err != nil {
 		return nil, errors.Trace(err)
 	}
-	return doer.st.bakeryClient.DoWithBodyAndCustomError(req, body, func(resp *http.Response) error {
+	return doer.st.bakeryClient.DoWithCustomError(req, func(resp *http.Response) error {
 		// At this point we are only interested in errors that
 		// the bakery cares about, and the CodeDischargeRequired
 		// error is the only one, and that always comes with a
@@ -110,6 +106,7 @@ func authHTTPRequest(req *http.Request, tag, password, nonce string, macaroons [
 	if nonce != "" {
 		req.Header.Set(params.MachineNonceHeader, nonce)
 	}
+	req.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	for _, ms := range macaroons {
 		encoded, err := encodeMacaroonSlice(ms)
 		if err != nil {
@@ -197,34 +194,43 @@ func bakeryError(err error) error {
 	}
 	errResp := errors.Cause(err).(*params.Error)
 	if errResp.Info == nil {
-		return errors.Annotatef(err, "no error info found in discharge-required response error")
+		return errors.Annotate(err, "no error info found in discharge-required response error")
 	}
 	// It's a discharge-required error, so make an appropriate httpbakery
 	// error from it.
 	var info params.DischargeRequiredErrorInfo
 	if errUnmarshal := errResp.UnmarshalInfo(&info); errUnmarshal != nil {
-		return errors.Annotatef(err, "unable to extract macaroon details from discharge-required response error")
+		return errors.Annotate(err, "unable to extract macaroon details from discharge-required response error")
 	}
 
-	return &httpbakery.Error{
+	bakeryErr := &httpbakery.Error{
 		Message: err.Error(),
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
-			Macaroon:     info.Macaroon,
 			MacaroonPath: info.MacaroonPath,
 		},
 	}
+	if info.Macaroon != nil || info.BakeryMacaroon != nil {
+		// Prefer the newer bakery.v2 macaroon.
+		dcMac := info.BakeryMacaroon
+		if dcMac == nil {
+			dcMac, err = bakery.NewLegacyMacaroon(info.Macaroon)
+			return errors.Annotate(err, "unable to create legacy macaroon details from discharge-required response error")
+		}
+		bakeryErr.Info.Macaroon = dcMac
+	}
+	return bakeryErr
 }
 
 // HTTPDoer exposes the functionality of httprequest.Client needed here.
 type HTTPDoer interface {
 	// Do sends the given request.
-	Do(req *http.Request, body io.ReadSeeker, resp interface{}) error
+	Do(context context.Context, req *http.Request, resp interface{}) error
 }
 
 // openBlob streams the identified blob from the controller via the
 // provided HTTP client.
-func openBlob(httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadCloser, error) {
+func openBlob(ctx context.Context, httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadCloser, error) {
 	apiURL, err := url.Parse(endpoint)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -236,7 +242,7 @@ func openBlob(httpClient HTTPDoer, endpoint string, args url.Values) (io.ReadClo
 	}
 
 	var resp *http.Response
-	if err := httpClient.Do(req, nil, &resp); err != nil {
+	if err := httpClient.Do(ctx, req, &resp); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return resp.Body, nil

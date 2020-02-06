@@ -5,52 +5,60 @@ package modelcache_test
 
 import (
 	"math"
+	"strings"
 	"time"
 
 	"github.com/juju/clock"
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/cache/cachetest"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/modelcache"
+	multiworker "github.com/juju/juju/worker/multiwatcher"
 )
+
+type WorkerConfigSuite struct {
+	jt.IsolationSuite
+	config modelcache.Config
+}
+
+var _ = gc.Suite(&WorkerConfigSuite{})
 
 type WorkerSuite struct {
 	statetesting.StateSuite
-	gate   gate.Lock
-	logger loggo.Logger
-	config modelcache.Config
-	notify func(interface{})
+	gate      gate.Lock
+	logger    loggo.Logger
+	mwFactory multiwatcher.Factory
+	config    modelcache.Config
+	notify    func(interface{})
 }
 
 var _ = gc.Suite(&WorkerSuite{})
 
-func (s *WorkerSuite) SetUpTest(c *gc.C) {
-	s.StateSuite.SetUpTest(c)
-	s.notify = nil
-	s.logger = loggo.GetLogger("test")
-	s.logger.SetLogLevel(loggo.TRACE)
-	s.gate = gate.NewLock()
+func (s *WorkerConfigSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 
 	s.config = modelcache.Config{
-		InitializedGate: s.gate,
-		Logger:          s.logger,
-		WatcherFactory: func() modelcache.BackingWatcher {
-			return s.StatePool.SystemState().WatchAllModels(s.StatePool)
+		InitializedGate: gate.NewLock(),
+		Logger:          loggo.GetLogger("test"),
+		WatcherFactory: func() multiwatcher.Watcher {
+			return &fakeWatcher{}
 		},
 		PrometheusRegisterer:   noopRegisterer{},
 		Cleanup:                func() {},
@@ -60,49 +68,77 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (s *WorkerSuite) TestConfigMissingLogger(c *gc.C) {
+func (s *WorkerSuite) SetUpTest(c *gc.C) {
+	s.StateSuite.SetUpTest(c)
+	s.notify = nil
+	s.logger = loggo.GetLogger("test")
+	s.logger.SetLogLevel(loggo.TRACE)
+	s.gate = gate.NewLock()
+	w, err := multiworker.NewWorker(
+		multiworker.Config{
+			Logger:               s.logger,
+			Backing:              state.NewAllWatcherBacking(s.StatePool),
+			PrometheusRegisterer: noopRegisterer{},
+		})
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, w) })
+	s.mwFactory = w
+
+	s.config = modelcache.Config{
+		InitializedGate:        s.gate,
+		Logger:                 s.logger,
+		WatcherFactory:         s.mwFactory.WatchController,
+		PrometheusRegisterer:   noopRegisterer{},
+		Cleanup:                func() {},
+		WatcherRestartDelayMin: time.Microsecond,
+		WatcherRestartDelayMax: time.Millisecond,
+		Clock:                  clock.WallClock,
+	}
+}
+
+func (s *WorkerConfigSuite) TestConfigMissingLogger(c *gc.C) {
 	s.config.Logger = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing logger not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingWatcherFactory(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingWatcherFactory(c *gc.C) {
 	s.config.WatcherFactory = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing watcher factory not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingRegisterer(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingRegisterer(c *gc.C) {
 	s.config.PrometheusRegisterer = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing prometheus registerer not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingCleanup(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingCleanup(c *gc.C) {
 	s.config.Cleanup = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "missing cleanup func not valid")
 }
 
-func (s *WorkerSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigNonPositiveMinRestartDelay(c *gc.C) {
 	s.config.WatcherRestartDelayMin = -10 * time.Second
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "non-positive watcher min restart delay not valid")
 }
 
-func (s *WorkerSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigNonPositiveMaxRestartDelay(c *gc.C) {
 	s.config.WatcherRestartDelayMax = 0
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
 	c.Check(err, gc.ErrorMatches, "non-positive watcher max restart delay not valid")
 }
 
-func (s *WorkerSuite) TestConfigMissingClock(c *gc.C) {
+func (s *WorkerConfigSuite) TestConfigMissingClock(c *gc.C) {
 	s.config.Clock = nil
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
@@ -142,12 +178,27 @@ func (s *WorkerSuite) checkModel(c *gc.C, obtained interface{}, model *state.Mod
 	c.Check(change.Name, gc.Equals, model.Name())
 	c.Check(change.Life, gc.Equals, life.Value(model.Life().String()))
 	c.Check(change.Owner, gc.Equals, model.Owner().Name())
+	c.Check(change.IsController, gc.Equals, model.IsControllerModel())
+	c.Check(change.Cloud, gc.Equals, model.Cloud())
+	c.Check(change.CloudRegion, gc.Equals, model.CloudRegion())
+	cred, _ := model.CloudCredential()
+	c.Check(change.CloudCredential, gc.Equals, cred.Id())
+
 	cfg, err := model.Config()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(change.Config, jc.DeepEquals, cfg.AllAttrs())
 	status, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(change.Status, jc.DeepEquals, status)
+
+	users, err := model.Users()
+	c.Assert(err, jc.ErrorIsNil)
+	permissions := make(map[string]permission.Access)
+	for _, user := range users {
+		// Cache permission map is always lower case.
+		permissions[strings.ToLower(user.UserName)] = user.Access
+	}
+	c.Check(change.UserPermissions, jc.DeepEquals, permissions)
 }
 
 func (s *WorkerSuite) TestInitialModel(c *gc.C) {
@@ -547,18 +598,18 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 	fakeModelSent := false
 	errorSent := false
 
-	s.config.WatcherFactory = func() modelcache.BackingWatcher {
+	s.config.WatcherFactory = func() multiwatcher.Watcher {
 		return testingMultiwatcher{
-			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
-			manipulate: func(deltas []params.Delta) ([]params.Delta, error) {
+			Watcher: s.mwFactory.WatchController(),
+			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
 				if !fakeModelSent || !errorSent {
 					for _, delta := range deltas {
 						// The first time we see a model, add an extra model delta.
 						// This will be cached even though it does not exist in state.
-						if delta.Entity.EntityId().Kind == "model" && !fakeModelSent {
+						if delta.Entity.EntityID().Kind == "model" && !fakeModelSent {
 							fakeModelSent = true
-							return append(deltas, params.Delta{
-								Entity: &params.ModelUpdate{
+							return append(deltas, multiwatcher.Delta{
+								Entity: &multiwatcher.ModelInfo{
 									ModelUUID: "fake-ass-model-uuid",
 									Name:      "evict-this-cat",
 								},
@@ -569,7 +620,7 @@ func (s *WorkerSuite) TestWatcherErrorCacheMarkSweep(c *gc.C) {
 						// This will restart the watcher and cause a cache refresh.
 						// We expect after this that the application will reside in
 						// the cache and our fake model will be removed.
-						if delta.Entity.EntityId().Kind == "application" && !errorSent {
+						if delta.Entity.EntityID().Kind == "application" && !errorSent {
 							errorSent = true
 							return nil, errors.New("boom")
 						}
@@ -627,10 +678,10 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 	maxErrors := 7
 
 	var errCount int
-	s.config.WatcherFactory = func() modelcache.BackingWatcher {
+	s.config.WatcherFactory = func() multiwatcher.Watcher {
 		return testingMultiwatcher{
-			Multiwatcher: s.StatePool.SystemState().WatchAllModels(s.StatePool),
-			manipulate: func(deltas []params.Delta) ([]params.Delta, error) {
+			Watcher: s.mwFactory.WatchController(),
+			manipulate: func(deltas []multiwatcher.Delta) ([]multiwatcher.Delta, error) {
 				if errCount < maxErrors {
 					errCount++
 					return nil, errors.New("boom")
@@ -670,20 +721,20 @@ func (s *WorkerSuite) TestWatcherErrorRestartBackoff(c *gc.C) {
 }
 
 func (s *WorkerSuite) TestWatcherErrorStoppedKillsWorker(c *gc.C) {
-	mw := s.StatePool.SystemState().WatchAllModels(s.StatePool)
-	s.config.WatcherFactory = func() modelcache.BackingWatcher { return mw }
+	mw := s.mwFactory.WatchController()
+	s.config.WatcherFactory = func() multiwatcher.Watcher { return mw }
 
 	config := s.config
 	config.Notify = s.notify
 	w, err := modelcache.NewWorker(config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Stop the backing params.
+	// Stop the backing multiwatcher.
 	c.Assert(mw.Stop(), jc.ErrorIsNil)
 
 	// Check that the worker is killed.
 	err = workertest.CheckKilled(c, w)
-	c.Assert(err, jc.Satisfies, state.IsErrStopped)
+	c.Assert(err, jc.Satisfies, multiwatcher.IsErrStopped)
 }
 
 func (s *WorkerSuite) captureEvents(c *gc.C, matchers ...func(interface{}) bool) <-chan interface{} {
@@ -731,19 +782,23 @@ func (noopRegisterer) Unregister(prometheus.Collector) bool {
 	return true
 }
 
+type fakeWatcher struct {
+	multiwatcher.Watcher
+}
+
 // testingMultiwatcher is a wrapper for multiwatcher that satisfies the
-// modelcache.BackingWatcher interface.
+// multiwatcher.Watcher interface.
 // It allows us to test watcher failure scenarios and manipulate the deltas.
 type testingMultiwatcher struct {
-	*state.Multiwatcher
+	multiwatcher.Watcher
 
 	// manipulate gives us the opportunity of manipulating the result of a call
 	// to the multi-watcher's "Next" method.
-	manipulate func([]params.Delta) ([]params.Delta, error)
+	manipulate func([]multiwatcher.Delta) ([]multiwatcher.Delta, error)
 }
 
-func (w testingMultiwatcher) Next() ([]params.Delta, error) {
-	delta, err := w.Multiwatcher.Next()
+func (w testingMultiwatcher) Next() ([]multiwatcher.Delta, error) {
+	delta, err := w.Watcher.Next()
 	if err == nil && w.manipulate != nil {
 		return w.manipulate(delta)
 	}

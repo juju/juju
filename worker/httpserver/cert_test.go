@@ -94,7 +94,7 @@ func (s *certSuite) TestUpdateCert(c *gc.C) {
 	// Check that we can't connect to the server because of the bad certificate.
 	s.cert = &badTLSCert
 	_, err = s.request(url)
-	c.Assert(err, gc.ErrorMatches, `.*: certificate has expired or is not yet valid`)
+	c.Assert(err, gc.ErrorMatches, `.*: certificate has expired or is not yet valid.*`)
 
 	// Replace the working certificate and check that we can connect again.
 	s.cert = coretesting.ServerTLSCert
@@ -142,8 +142,11 @@ func (s *certSuite) TestAutocertFailure(c *gc.C) {
 	})
 	// We will log the failure to get the certificate, thus assuring us that we actually tried.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
+		loggo.INFO,
+		`getting certificate for server name "somewhere.example"`,
+	}, {
 		loggo.ERROR,
-		`.*cannot get autocert certificate for "somewhere.example": Get https://0\.1\.2\.3/no-autocert-here: .*`,
+		`.*cannot get autocert certificate for "somewhere.example": Get ["]?https://0\.1\.2\.3/no-autocert-here["]?: .*`,
 	}})
 }
 

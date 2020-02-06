@@ -24,6 +24,8 @@ import (
 	"golang.org/x/crypto/nacl/secretbox"
 	"golang.org/x/crypto/ssh/terminal"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/base"
@@ -32,8 +34,8 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
 )
 
 var noModelsMessage = `
@@ -508,6 +510,7 @@ func (c *registerCommand) secretKeyLogin(addrs []string, request params.SecretKe
 		return nil, errors.Trace(err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	httpClient := utils.GetNonValidatingHTTPClient()
 	httpClient.Jar = cookieJar
 	httpResp, err := httpClient.Do(httpReq)

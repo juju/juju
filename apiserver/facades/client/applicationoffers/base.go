@@ -4,6 +4,7 @@
 package applicationoffers
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
@@ -17,8 +18,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -30,6 +31,7 @@ type BaseAPI struct {
 	StatePool            StatePool
 	getEnviron           environFromModelFunc
 	getControllerInfo    func() (apiAddrs []string, caCert string, _ error)
+	ctx                  context.Context
 }
 
 // checkPermission ensures that the logged in user holds the given permission on an entity.

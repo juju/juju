@@ -67,6 +67,8 @@ type ExportConfig struct {
 	SkipRelationData         bool
 	SkipInstanceData         bool
 	SkipApplicationOffers    bool
+	SkipOfferConnections     bool
+	SkipExternalControllers  bool
 }
 
 // ExportPartial the current model for the State optionally skipping
@@ -176,6 +178,12 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 	if err := export.remoteEntities(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	if err := export.firewallRules(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.offerConnections(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	if err := export.relationNetworks(); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -201,6 +209,9 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		return nil, errors.Trace(err)
 	}
 	if err := export.storage(); err != nil {
+		return nil, errors.Trace(err)
+	}
+	if err := export.externalControllers(); err != nil {
 		return nil, errors.Trace(err)
 	}
 
@@ -819,9 +830,9 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 
 	// Populate offer list
 	for _, offer := range ctx.offers {
-		endpoints := make([]string, 0, len(offer.Endpoints))
-		for _, ep := range offer.Endpoints {
-			endpoints = append(endpoints, ep.Name)
+		endpoints := make(map[string]string, len(offer.Endpoints))
+		for k, ep := range offer.Endpoints {
+			endpoints[k] = ep.Name
 		}
 
 		userMap, err := e.st.GetOfferUsers(offer.OfferUUID)
@@ -838,9 +849,12 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		}
 
 		_ = exApplication.AddOffer(description.ApplicationOfferArgs{
-			OfferName: offer.OfferName,
-			Endpoints: endpoints,
-			ACL:       acl,
+			OfferUUID:              offer.OfferUUID,
+			OfferName:              offer.OfferName,
+			Endpoints:              endpoints,
+			ACL:                    acl,
+			ApplicationName:        offer.ApplicationName,
+			ApplicationDescription: offer.ApplicationDescription,
 		})
 	}
 
@@ -904,6 +918,10 @@ func (e *exporter) addApplication(ctx addApplicationContext) error {
 		if cloudContainer, found := ctx.cloudContainers[unit.globalKey()]; found {
 			args.CloudContainer = e.cloudContainer(cloudContainer)
 		}
+		if args.State, err = unit.State(); err != nil {
+			return errors.Trace(err)
+		}
+
 		exUnit := exApplication.AddUnit(args)
 
 		e.setUnitResources(exUnit, ctx.resources.UnitResources)
@@ -1091,10 +1109,6 @@ func (e *exporter) relations() error {
 		}
 	}
 
-	remoteApps := make(set.Strings)
-	for _, a := range e.model.RemoteApplications() {
-		remoteApps.Add(a.Name())
-	}
 	for _, relation := range rels {
 		exRelation := e.model.AddRelation(description.RelationArgs{
 			Id:  relation.Id(),
@@ -1108,13 +1122,6 @@ func (e *exporter) relations() error {
 			return errors.Annotatef(err, "status for relation %v", relation.Id())
 		}
 
-		isRemote := false
-		for _, ep := range relation.Endpoints() {
-			if remoteApps.Contains(ep.ApplicationName) {
-				isRemote = true
-				break
-			}
-		}
 		for _, ep := range relation.Endpoints() {
 			exEndPoint := exRelation.AddEndpoint(description.EndpointArgs{
 				ApplicationName: ep.ApplicationName,
@@ -1134,12 +1141,10 @@ func (e *exporter) relations() error {
 			delete(e.modelSettings, key)
 			exEndPoint.SetApplicationSettings(appSettingsDoc.Settings)
 
-			// We expect a relationScope and settings for each of the
-			// units of the specified application, unless it is a
-			// remote application.
-			if isRemote {
-				continue
-			}
+			// We expect a relationScope and settings for each of the units of
+			// the specified application unless it is a remote application.
+			// Remote applications will have no units in the local model and
+			// are implicitly ignored.
 			units := e.units[ep.ApplicationName]
 			for _, unit := range units {
 				ru, err := relation.Unit(unit)
@@ -1172,6 +1177,41 @@ func (e *exporter) relations() error {
 	}
 	return nil
 }
+func (e *exporter) firewallRules() error {
+	e.logger.Debugf("reading firewall rules")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportFirewallRules{}
+		return m.Execute(firewallRulesShim{
+			st: migration.src,
+		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// firewallRulesShim is to handle the fact that go doesn't handle covariance
+// and the tight abstraction around the new migration export work ensures that
+// we handle our dependencies up front.
+type firewallRulesShim struct {
+	st *State
+}
+
+func (s firewallRulesShim) AllFirewallRules() ([]migrations.MigrationFirewallRule, error) {
+	fRs := firewallRulesState{st: s.st}
+	firewallRules, err := fRs.AllRules()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationFirewallRule, len(firewallRules))
+	for k, v := range firewallRules {
+		result[k] = v
+
+	}
+	return result, nil
+}
 
 func (e *exporter) remoteEntities() error {
 	e.logger.Debugf("reading remote entities")
@@ -1184,6 +1224,121 @@ func (e *exporter) remoteEntities() error {
 		return m.Execute(remoteEntitiesShim{
 			st: migration.src,
 		}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// offerConnectionsShim provides a way to model our dependencies by providing
+// a shim layer to manage the covariance of the state package to the migration
+// package.
+type offerConnectionsShim struct {
+	st *State
+}
+
+// AllOfferConnections returns all offer connections in the model.
+// The offer connection shim converts a state.OfferConnection to a
+// migrations.MigrationOfferConnection.
+func (s offerConnectionsShim) AllOfferConnections() ([]migrations.MigrationOfferConnection, error) {
+	conns, err := s.st.AllOfferConnections()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationOfferConnection, len(conns))
+	for k, v := range conns {
+		result[k] = v
+	}
+	return result, nil
+}
+
+func (e *exporter) offerConnections() error {
+	if e.cfg.SkipOfferConnections {
+		return nil
+	}
+
+	e.logger.Debugf("reading offer connections")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportOfferConnections{}
+		return m.Execute(offerConnectionsShim{st: migration.src}, migration.dst)
+	})
+	return migration.Run()
+}
+
+// externalControllersShim is to handle the fact that go doesn't handle
+// covariance and the tight abstraction around the new migration export work
+// ensures that we handle our dependencies up front.
+type externalControllerShim struct {
+	st *State
+}
+
+// externalControllerInfoShim is used to align to an interface with in the
+// migrations package.
+type externalControllerInfoShim struct {
+	info externalControllerDoc
+}
+
+// ID holds the controller ID from the external controller
+func (e externalControllerInfoShim) ID() string {
+	return e.info.Id
+}
+
+// Alias holds an alias (human friendly) name for the controller.
+func (e externalControllerInfoShim) Alias() string {
+	return e.info.Alias
+}
+
+// Addrs holds the host:port values for the external
+// controller's API server.
+func (e externalControllerInfoShim) Addrs() []string {
+	return e.info.Addrs
+}
+
+// CACert holds the certificate to validate the external
+// controller's target API server's TLS certificate.
+func (e externalControllerInfoShim) CACert() string {
+	return e.info.CACert
+}
+
+// Models holds model UUIDs hosted on this controller.
+func (e externalControllerInfoShim) Models() []string {
+	return e.info.Models
+}
+
+func (s externalControllerShim) ControllerForModel(uuid string) (migrations.MigrationExternalController, error) {
+	entity, err := s.st.ExternalControllerForModel(uuid)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return externalControllerInfoShim{
+		info: entity.doc,
+	}, nil
+}
+
+// AllRemoteApplications returns all remote applications in the model.
+func (s externalControllerShim) AllRemoteApplications() ([]migrations.MigrationRemoteApplication, error) {
+	remoteApps, err := s.st.AllRemoteApplications()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]migrations.MigrationRemoteApplication, len(remoteApps))
+	for k, v := range remoteApps {
+		result[k] = remoteApplicationShim{RemoteApplication: v}
+	}
+	return result, nil
+}
+
+func (e *exporter) externalControllers() error {
+	e.logger.Debugf("reading external controllers")
+	migration := &ExportStateMigration{
+		src: e.st,
+		dst: e.model,
+	}
+	migration.Add(func() error {
+		m := migrations.ExportExternalControllers{}
+		return m.Execute(externalControllerShim{st: migration.src}, migration.dst)
 	})
 	return migration.Run()
 }
@@ -1982,6 +2137,11 @@ func (s remoteApplicationShim) Spaces() []migrations.MigrationRemoteSpace {
 
 func (s remoteApplicationShim) GlobalKey() string {
 	return s.RemoteApplication.globalKey()
+}
+
+// Macaroon returns the encoded macaroon JSON.
+func (s remoteApplicationShim) Macaroon() string {
+	return s.RemoteApplication.doc.Macaroon
 }
 
 func (e *exporter) storage() error {

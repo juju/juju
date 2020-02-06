@@ -11,11 +11,11 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
 )
 
 // ControllerModelName is the name of the admin model in each controller.
@@ -225,7 +225,7 @@ func prepare(
 	details.Password = args.AdminSecret
 	details.LastKnownAccess = string(permission.SuperuserAccess)
 	details.ModelUUID = cfg.UUID()
-	if featureflag.Enabled(feature.Branches) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		details.ActiveBranch = model.GenerationMaster
 	}
 	details.ControllerDetails.Cloud = args.Cloud.Name

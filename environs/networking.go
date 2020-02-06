@@ -36,7 +36,7 @@ type Networking interface {
 	SuperSubnets(ctx context.ProviderCallContext) ([]string, error)
 
 	// NetworkInterfaces returns a slice with the network interfaces that
-	// correpsond to the given instance IDs. If no instances where found,
+	// correspond to the given instance IDs. If no instances where found,
 	// but there was no other error, it will return ErrNoInstances. If some
 	// but not all of the instances were found, the returned slice will
 	// have some nil slots, and an ErrPartialInstances error will be
@@ -47,6 +47,12 @@ type Networking interface {
 	// spaces. The returned error satisfies errors.IsNotSupported(),
 	// unless a general API failure occurs.
 	SupportsSpaces(ctx context.ProviderCallContext) (bool, error)
+
+	// SupportsProviderSpaces returns whether the current environment supports
+	// provider spaces. Some providers support specific crud actions, like renaming.
+	// The returned error satisfies errors.IsNotSupported(),
+	// unless a general API failure occurs.
+	SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error)
 
 	// SupportsSpaceDiscovery returns whether the current environment
 	// supports discovering spaces from the provider. The returned error
@@ -135,6 +141,23 @@ func SupportsSpaces(ctx context.ProviderCallContext, env BootstrapEnviron) bool 
 	if err != nil {
 		if !errors.IsNotSupported(err) {
 			logger.Errorf("checking model spaces support failed with: %v", err)
+		}
+		return false
+	}
+	return ok
+}
+
+// SupportsSpaces checks if the environment implements NetworkingEnviron
+// and also if it supports spaces.
+func SupportsProviderSpaces(ctx context.ProviderCallContext, env BootstrapEnviron) bool {
+	netEnv, ok := supportsNetworking(env)
+	if !ok {
+		return false
+	}
+	ok, err := netEnv.SupportsProviderSpaces(ctx)
+	if err != nil {
+		if !errors.IsNotSupported(err) {
+			logger.Errorf("checking model provider spaces support failed with: %v", err)
 		}
 		return false
 	}

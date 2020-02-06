@@ -58,6 +58,9 @@ func (s *CmdBlockHelper) Close() {
 // AssertBlocked is going to be removed as soon as all cmd tests mock out API.
 // the corect method to call will become AssertOperationWasBlocked.
 func (s *CmdBlockHelper) AssertBlocked(c *gc.C, err error, msg string) {
+	if err == nil {
+		c.Fail()
+	}
 	c.Assert(err.Error(), jc.Contains, "disabled")
 	stripped := strings.Replace(c.GetTestLog(), "\n", "", -1)
 	c.Check(stripped, gc.Matches, msg)

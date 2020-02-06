@@ -47,9 +47,12 @@ const OldPresence = "old-presence"
 // Mongo-based lease store, rather than by the Raft FSM.
 const LegacyLeases = "legacy-leases"
 
-// Branches will allow for model generation functionality to be used.
-// Historically we called this feature generations. There can be left overs where it is still called that.
+// Branches will allow for model branches functionality to be used.
 const Branches = "branches"
+
+// Generations will allow for model generation functionality to be used.
+// This is a deprecated flag name and is synonymous with "branches" above.
+const Generations = "generations"
 
 // MongoDbSnap tells Juju to install MongoDB as a snap, rather than installing
 // it from APT.
@@ -65,9 +68,3 @@ const MultiCloud = "multi-cloud"
 
 // JujuV3 indicates that new CLI commands and behaviour for v3 should be enabled.
 const JujuV3 = "juju-v3"
-
-// CMRMigrations indicates that cross model relations (CMR) can migrate
-// information from one controller to another controller.
-// This feature is disabled during import and export of information, turning
-// this on will allow that to happen.
-const CMRMigrations = "cmr-migrations"

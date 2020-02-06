@@ -143,10 +143,10 @@ func (certSuite) TestVerify(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = cert.Verify(srvCert, caCert, now.AddDate(0, 0, -8))
-	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
+	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid.*")
 
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
-	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
+	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid.*")
 
 	caCert2, caKey2, err := cert.NewCA("bar", "1", now.Add(1*time.Minute))
 	c.Assert(err, jc.ErrorIsNil)

@@ -85,6 +85,7 @@ import (
 	"github.com/juju/juju/worker/gate"
 	"github.com/juju/juju/worker/lease"
 	"github.com/juju/juju/worker/modelcache"
+	"github.com/juju/juju/worker/multiwatcher"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -273,8 +274,10 @@ type environState struct {
 	leaseManager   *lease.Manager
 	creator        string
 
-	modelCacheWorker worker.Worker
-	controller       *cache.Controller
+	multiWatcherWorker worker.Worker
+	modelCacheWorker   worker.Worker
+
+	controller *cache.Controller
 }
 
 // environ represents a client's connection to a given environment's
@@ -371,6 +374,7 @@ func (state *environState) destroyLocked() {
 	apiServer := state.apiServer
 	apiStatePool := state.apiStatePool
 	leaseManager := state.leaseManager
+	multiWatcherWorker := state.multiWatcherWorker
 	modelCacheWorker := state.modelCacheWorker
 	state.apiServer = nil
 	state.apiStatePool = nil
@@ -379,6 +383,7 @@ func (state *environState) destroyLocked() {
 	state.leaseManager = nil
 	state.bootstrapped = false
 	state.hub = nil
+	state.multiWatcherWorker = nil
 	state.modelCacheWorker = nil
 
 	// Release the lock while we close resources. In particular,
@@ -399,6 +404,13 @@ func (state *environState) destroyLocked() {
 	if modelCacheWorker != nil {
 		logger.Debugf("stopping modelCache worker")
 		if err := worker.Stop(modelCacheWorker); err != nil {
+			panic(err)
+		}
+	}
+
+	if multiWatcherWorker != nil {
+		logger.Debugf("stopping multiWatcherWorker worker")
+		if err := worker.Stop(multiWatcherWorker); err != nil {
 			panic(err)
 		}
 	}
@@ -927,13 +939,21 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 				return errors.Trace(err)
 			}
 
+			multiWatcherWorker, err := multiwatcher.NewWorker(multiwatcher.Config{
+				Logger:               loggo.GetLogger("dummy.multiwatcher"),
+				Backing:              state.NewAllWatcherBacking(statePool),
+				PrometheusRegisterer: noopRegisterer{},
+			})
+			if err != nil {
+				return errors.Trace(err)
+			}
+			estate.multiWatcherWorker = multiWatcherWorker
+
 			initialized := gate.NewLock()
 			modelCache, err := modelcache.NewWorker(modelcache.Config{
-				InitializedGate: initialized,
-				Logger:          loggo.GetLogger("dummy"),
-				WatcherFactory: func() modelcache.BackingWatcher {
-					return statePool.SystemState().WatchAllModels(statePool)
-				},
+				InitializedGate:      initialized,
+				Logger:               loggo.GetLogger("dummy.modelcache"),
+				WatcherFactory:       multiWatcherWorker.WatchController,
 				PrometheusRegisterer: noopRegisterer{},
 				Cleanup:              func() {},
 			}.WithDefaultRestartStrategy())
@@ -949,22 +969,24 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 			err = modelcache.ExtractCacheController(modelCache, &estate.controller)
 			if err != nil {
 				worker.Stop(modelCache)
+				worker.Stop(multiWatcherWorker)
 				return errors.Trace(err)
 			}
 
 			estate.apiServer, err = apiserver.NewServer(apiserver.ServerConfig{
-				StatePool:      statePool,
-				Controller:     estate.controller,
-				Authenticator:  stateAuthenticator,
-				Clock:          clock.WallClock,
-				GetAuditConfig: func() auditlog.Config { return auditlog.Config{} },
-				Tag:            machineTag,
-				DataDir:        DataDir,
-				LogDir:         LogDir,
-				Mux:            estate.mux,
-				Hub:            estate.hub,
-				Presence:       estate.presence,
-				LeaseManager:   estate.leaseManager,
+				StatePool:           statePool,
+				Controller:          estate.controller,
+				MultiwatcherFactory: multiWatcherWorker,
+				Authenticator:       stateAuthenticator,
+				Clock:               clock.WallClock,
+				GetAuditConfig:      func() auditlog.Config { return auditlog.Config{} },
+				Tag:                 machineTag,
+				DataDir:             DataDir,
+				LogDir:              LogDir,
+				Mux:                 estate.mux,
+				Hub:                 estate.hub,
+				Presence:            estate.presence,
+				LeaseManager:        estate.leaseManager,
 				NewObserver: func() observer.Observer {
 					logger := loggo.GetLogger("juju.apiserver")
 					ctx := observer.RequestObserverContext{
@@ -974,8 +996,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 					}
 					return observer.NewRequestObserver(ctx)
 				},
-				RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-				PublicDNSName:   icfg.Controller.Config.AutocertDNSName(),
+				PublicDNSName: icfg.Controller.Config.AutocertDNSName(),
 				UpgradeComplete: func() bool {
 					return true
 				},
@@ -1353,6 +1374,14 @@ func (env *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error
 	defer dummy.mu.Unlock()
 	if !dummy.supportsSpaces {
 		return false, errors.NotSupportedf("spaces")
+	}
+	return true, nil
+}
+
+// TODO: might want to write proper code for stubs
+func (env *environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
+	if err := env.checkBroken("SupportsProviderSpaces"); err != nil {
+		return false, err
 	}
 	return true, nil
 }

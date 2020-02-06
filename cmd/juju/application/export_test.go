@@ -6,11 +6,10 @@ package application
 import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
-	"github.com/juju/romulus"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	"gopkg.in/juju/charmrepo.v3/csclient/params"
+	charmresource "gopkg.in/juju/charm.v6/resource"
+	"gopkg.in/juju/charmrepo.v4"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/annotations"
@@ -18,27 +17,36 @@ import (
 	"github.com/juju/juju/api/base"
 	apicharms "github.com/juju/juju/api/charms"
 	"github.com/juju/juju/api/modelconfig"
-	"github.com/juju/juju/charmstore"
+	jujucharmstore "github.com/juju/juju/charmstore"
 	"github.com/juju/juju/cmd/modelcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/resource/resourceadapters"
-	"github.com/juju/juju/testcharms"
 )
 
 // NewDeployCommandForTest returns a command to deploy applications intended to be used only in tests.
-func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []DeployStep) modelcmd.ModelCommand {
+func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 	deployCmd := &DeployCommand{
-		Steps:      steps,
-		NewAPIRoot: newAPIRoot,
+		NewAPIRoot: func() (DeployAPI, error) {
+			return fakeApi, nil
+		},
+		DeployResources: func(
+			applicationID string,
+			chID jujucharmstore.CharmID,
+			csMac *macaroon.Macaroon,
+			filesAndRevisions map[string]string,
+			resources map[string]charmresource.Meta,
+			conn base.APICallCloser,
+		) (ids map[string]string, err error) {
+			return nil, nil
+		},
+		NewCharmRepo: func() (*charmStoreAdaptor, error) {
+			return fakeApi.charmStoreAdaptor, nil
+		},
 	}
-	if newAPIRoot == nil {
+	if fakeApi == nil {
 		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
 			apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-			bakeryClient, err := deployCmd.BakeryClient()
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
@@ -46,15 +54,10 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
 			mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}
-			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
 
 			return &deployAPIAdapter{
 				Connection:        apiRoot,
@@ -62,66 +65,30 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 				charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
 				applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
 				modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-				charmstoreClient:  &charmstoreClient{&charmstoreClientShim{cstoreClient}},
 				annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-				charmRepoClient:   &charmRepoClient{charmrepo.NewCharmStoreFromClient(cstoreClient)},
 				plansClient:       &plansClient{planURL: mURL},
 			}, nil
 		}
+		deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
+			controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bakeryClient, err := deployCmd.BakeryClient()
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			csURL, err := getCharmStoreAPIURL(controllerAPIRoot)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			cstoreClient := newCharmStoreClient(bakeryClient, csURL).WithChannel(deployCmd.Channel)
+			return &charmStoreAdaptor{
+				macaroonGetter:     cstoreClient,
+				charmrepoForDeploy: charmrepo.NewCharmStoreFromClient(cstoreClient),
+			}, nil
+		}
 	}
-	return modelcmd.Wrap(deployCmd)
-}
-
-// NewDeployCommandForTest2 returns a command to deploy applications intended to be used only in tests
-// that do not use gomock.
-func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmstore.Repository) modelcmd.ModelCommand {
-	deployCmd := &DeployCommand{
-		Steps: []DeployStep{
-			&RegisterMeteredCharm{
-				PlanURL:      romulus.DefaultAPIRoot,
-				RegisterPath: "/plan/authorize",
-				QueryPath:    "/charm",
-			},
-			&ValidateLXDProfileCharm{},
-		},
-	}
-
-	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
-		if charmstore == nil {
-			return nil, errors.NotValidf("charmstore argument must be supplied")
-		}
-
-		if charmrepo == nil {
-			return nil, errors.NotValidf("charmrepo argument must be supplied")
-		}
-
-		apiRoot, err := deployCmd.ModelCommandBase.NewAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		mURL, err := deployCmd.getMeteringAPIURL(controllerAPIRoot)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		charmstore := charmstore.WithChannel(deployCmd.Channel)
-
-		return &deployAPIAdapter{
-			Connection:        apiRoot,
-			apiClient:         &apiClient{Client: apiRoot.Client()},
-			charmsClient:      &charmsClient{Client: apicharms.NewClient(apiRoot)},
-			applicationClient: &applicationClient{Client: application.NewClient(apiRoot)},
-			modelConfigClient: &modelConfigClient{Client: modelconfig.NewClient(apiRoot)},
-			charmstoreClient:  &charmstoreClient{charmstore},
-			annotationsClient: &annotationsClient{Client: annotations.NewClient(apiRoot)},
-			charmRepoClient:   &charmRepoClient{charmrepo},
-			plansClient:       &plansClient{planURL: mURL},
-		}, nil
-	}
-
 	return modelcmd.Wrap(deployCmd)
 }
 
@@ -130,10 +97,10 @@ func NewUpgradeCharmCommandForTest(
 	apiOpen api.OpenFunc,
 	deployResources resourceadapters.DeployResourcesFunc,
 	resolveCharm ResolveCharmFunc,
+	newCharmStore NewCharmStoreFunc,
 	newCharmAdder NewCharmAdderFunc,
 	newCharmClient func(base.APICallCloser) CharmClient,
 	newCharmUpgradeClient func(base.APICallCloser) CharmAPIClient,
-	newModelConfigGetter func(base.APICallCloser) ModelConfigGetter,
 	newResourceLister func(base.APICallCloser) (ResourceLister, error),
 	charmStoreURLGetter func(base.APICallCloser) (string, error),
 	newSpacesClient func(base.APICallCloser) SpacesAPI,
@@ -144,13 +111,31 @@ func NewUpgradeCharmCommandForTest(
 		NewCharmAdder:         newCharmAdder,
 		NewCharmClient:        newCharmClient,
 		NewCharmUpgradeClient: newCharmUpgradeClient,
-		NewModelConfigGetter:  newModelConfigGetter,
 		NewResourceLister:     newResourceLister,
 		CharmStoreURLGetter:   charmStoreURLGetter,
 		NewSpacesClient:       newSpacesClient,
+		NewCharmStore:         newCharmStore,
 	}
 	cmd.SetClientStore(store)
 	cmd.SetAPIOpen(apiOpen)
+	return modelcmd.Wrap(cmd)
+}
+
+func NewUpgradeCharmCommandForStateTest(
+	newCharmStore NewCharmStoreFunc,
+	newCharmAdder NewCharmAdderFunc,
+	newCharmClient func(base.APICallCloser) CharmClient,
+	deployResources resourceadapters.DeployResourcesFunc,
+	newCharmAPIClient func(conn base.APICallCloser) CharmAPIClient,
+) cmd.Command {
+	cmd := newUpgradeCharmCommand()
+	cmd.NewCharmStore = newCharmStore
+	cmd.NewCharmAdder = newCharmAdder
+	cmd.NewCharmClient = newCharmClient
+	if newCharmAPIClient != nil {
+		cmd.NewCharmUpgradeClient = newCharmAPIClient
+	}
+	cmd.DeployResources = deployResources
 	return modelcmd.Wrap(cmd)
 }
 
@@ -299,15 +284,6 @@ func NewShowCommandForTest(api ApplicationsInfoAPI, store jujuclient.ClientStore
 	return modelcmd.Wrap(cmd)
 }
 
-type charmstoreClientToTestcharmsClientShim struct {
-	*csclient.Client
-}
-
-func (c charmstoreClientToTestcharmsClientShim) WithChannel(channel params.Channel) testcharms.CharmstoreClient {
-	client := c.Client.WithChannel(channel)
-	return charmstoreClientToTestcharmsClientShim{client}
-}
-
 // RepoSuiteBaseSuite allows the patching of the supported juju suite for
 // each test.
 type RepoSuiteBaseSuite struct {
@@ -316,19 +292,6 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
-	})
-}
-
-// JujuConnBaseSuite allows the patching of the supported juju suite for
-// each test.
-type JujuConnBaseSuite struct {
-	jujutesting.JujuConnSuite
-}
-
-func (s *JujuConnBaseSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(&supportedJujuSeries, func() []string {
 		return defaultSupportedJujuSeries
 	})

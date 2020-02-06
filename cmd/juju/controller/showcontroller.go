@@ -19,10 +19,10 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/jujuclient"
-	"github.com/juju/juju/permission"
 )
 
 var usageShowControllerSummary = `
@@ -53,10 +53,10 @@ type showControllerCommand struct {
 
 // NewShowControllerCommand returns a command to show details of the desired controllers.
 func NewShowControllerCommand() cmd.Command {
-	cmd := &showControllerCommand{
+	command := &showControllerCommand{
 		store: jujuclient.NewFileClientStore(),
 	}
-	return modelcmd.WrapBase(cmd)
+	return modelcmd.WrapBase(command)
 }
 
 // Init implements Command.Init.
@@ -350,6 +350,9 @@ type MachineDetails struct {
 
 	// HAStatus holds information informing of the HA status of the machine.
 	HAStatus string `yaml:"ha-status,omitempty" json:"ha-status,omitempty"`
+
+	// HAPrimary is set to true for a primary controller machine in HA.
+	HAPrimary bool `yaml:"ha-primary,omitempty" json:"ha-primary,omitempty"`
 }
 
 // ModelDetails holds details of a model to show.
@@ -533,6 +536,9 @@ func (c *showControllerCommand) convertMachinesForShow(
 		details := MachineDetails{InstanceID: instId}
 		if numControllers > 1 {
 			details.HAStatus = haStatus(m.HasVote, m.WantsVote, m.Status)
+			if m.HAPrimary != nil && *m.HAPrimary {
+				details.HAPrimary = *m.HAPrimary
+			}
 		}
 		nodes[m.Id] = details
 	}

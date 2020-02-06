@@ -9,6 +9,8 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/common/networkingcommon BackingSpace,BackingSubnet
+
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }

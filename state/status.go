@@ -619,7 +619,7 @@ func eraseStatusHistory(mb modelBackend, globalKey string) error {
 
 	logFormat := "deleted %d status history documents for " + fmt.Sprintf("%q", globalKey)
 	deleted, err := deleteInBatches(
-		history.Writeable().Underlying(), iter,
+		history.Writeable().Underlying(), nil, "", iter,
 		logFormat, loggo.DEBUG,
 		noEarlyFinish,
 	)
@@ -704,6 +704,6 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 }
 
 func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", NanoSeconds)
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", nil, NanoSeconds)
 	return errors.Trace(err)
 }

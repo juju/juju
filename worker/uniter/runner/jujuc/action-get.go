@@ -4,6 +4,7 @@
 package jujuc
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -16,6 +17,7 @@ import (
 type ActionGetCommand struct {
 	cmd.CommandBase
 	ctx      Context
+	name     string
 	keys     []string
 	response interface{}
 	out      cmd.Output
@@ -23,30 +25,29 @@ type ActionGetCommand struct {
 
 // NewActionGetCommand returns an ActionGetCommand for use with the given
 // context.
-func NewActionGetCommand(ctx Context) (cmd.Command, error) {
-	return &ActionGetCommand{ctx: ctx}, nil
+func NewActionGetCommand(ctx Context, name string) (cmd.Command, error) {
+	return &ActionGetCommand{ctx: ctx, name: name}, nil
 }
 
 // Info returns the content for --help.
 func (c *ActionGetCommand) Info() *cmd.Info {
 	doc := `
-action-get will print the value of the parameter at the given key, serialized
-as YAML.  If multiple keys are passed, action-get will recurse into the param
+%s will print the value of the parameter at the given key, serialized
+as YAML.  If multiple keys are passed, %s will recurse into the param
 map as needed.
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "action-get",
+		Name:    c.name,
 		Args:    "[<key>[.<key>.<key>...]]",
-		Purpose: "get action parameters",
-		Aliases: []string{"function-get"},
-		Doc:     doc,
+		Purpose: "get action/function parameters",
+		Doc:     fmt.Sprintf(doc, c.name, c.name),
 	})
 }
 
 // SetFlags handles known option flags; in this case, [--output={json|yaml}]
 // and --help.
 func (c *ActionGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 // Init makes sure there are no additional unknown arguments to action-get.

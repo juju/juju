@@ -656,13 +656,19 @@ func (s *charmsSuite) TestGetWorksForControllerMachines(c *gc.C) {
 
 func (s *charmsSuite) TestGetStarReturnsArchiveBytes(c *gc.C) {
 	// Add the dummy charm.
-	charmName := "dummy"
-	repo := testcharms.TmpRepo(c)
-	defer os.Remove(repo.Path())
-	ch := repo.CharmArchive(repo.Path(), charmName)
-	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: ch.Path})
+	ch, err := charm.ReadCharmDir(
+		testcharms.RepoWithSeries("quantal").ClonedDirPath(c.MkDir(), "dummy"))
+	c.Assert(err, jc.ErrorIsNil)
+	// Create an archive from the charm dir.
+	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
+	c.Assert(err, jc.ErrorIsNil)
+	defer tempFile.Close()
+	defer os.Remove(tempFile.Name())
+	err = ch.ArchiveTo(tempFile)
+	c.Assert(err, jc.ErrorIsNil)
+	s.uploadRequest(c, s.charmsURI("?series=quantal"), "application/zip", &fileReader{path: tempFile.Name()})
 
-	data, err := ioutil.ReadFile(ch.Path)
+	data, err := ioutil.ReadFile(tempFile.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
 	uri := s.charmsURI("?url=local:quantal/dummy-1&file=*")

@@ -8,10 +8,14 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
+	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
@@ -127,27 +131,17 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	// On the consuming side, watch for status changes to the offer.
 	var offerStatusChanges watcher.OfferStatusChannel
 	if !w.isConsumerProxy {
-		// Get the connection info for the remote controller.
-		apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
-		if err != nil {
+		if err := w.newRemoteRelationsFacadeWithRedirect(); err != nil {
 			return errors.Trace(err)
 		}
-		w.logger.Debugf("remote controller api addresses: %v", apiInfo.Addrs)
-
-		w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
-		if err != nil {
-			return errors.Annotate(err, "opening facade to remote model")
-		}
-
-		defer func() {
-			w.remoteModelFacade.Close()
-		}()
+		defer func() { w.remoteModelFacade.Close() }()
 
 		arg := params.OfferArg{
 			OfferUUID: w.offerUUID,
 		}
 		if w.offerMacaroon != nil {
 			arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+			arg.BakeryVersion = bakery.LatestVersion
 		}
 
 		offerStatusWatcher, err := w.remoteModelFacade.WatchOfferStatus(arg)
@@ -183,6 +177,7 @@ func (w *remoteApplicationWorker) loop() (err error) {
 				key := change[i]
 				if err := w.relationChanged(key, result, relations); err != nil {
 					if params.IsCodeNotFound(err) {
+						w.logger.Tracef("not found from relationChanged for %#v: %s", result, errors.ErrorStack(err))
 						return w.remoteOfferRemoved()
 					}
 					return errors.Annotatef(err, "handling change for relation %q", key)
@@ -190,6 +185,8 @@ func (w *remoteApplicationWorker) loop() (err error) {
 			}
 		case change := <-w.localRelationChanges:
 			w.logger.Debugf("local relation units changed -> publishing: %#v", change)
+			// TODO(babbageclunk): add macaroons to event here instead
+			// of in the relation units worker.
 			if err := w.remoteModelFacade.PublishRelationChange(change); err != nil {
 				w.checkOfferPermissionDenied(err, change.ApplicationToken, change.RelationToken)
 				if params.IsCodeNotFound(err) || params.IsCodeCannotEnterScope(err) {
@@ -213,6 +210,43 @@ func (w *remoteApplicationWorker) loop() (err error) {
 	}
 }
 
+// newRemoteRelationsFacadeWithRedirect attempts to open an API connection to
+// the remote model for the watcher's application.
+// If a redirect error is returned, we attempt to open a connection to the new
+// controller and update our local controller info for the model so that future
+// API connections are to the new location.
+func (w *remoteApplicationWorker) newRemoteRelationsFacadeWithRedirect() error {
+	apiInfo, err := w.localModelFacade.ControllerAPIInfoForModel(w.remoteModelUUID)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	w.logger.Debugf("remote controller API addresses: %v", apiInfo.Addrs)
+
+	w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo)
+	if redirectErr, ok := errors.Cause(err).(*api.RedirectError); ok {
+		apiInfo.Addrs = network.CollapseToHostPorts(redirectErr.Servers).Strings()
+		apiInfo.CACert = redirectErr.CACert
+
+		w.logger.Debugf("received redirect; new API addresses: %v", apiInfo.Addrs)
+
+		if w.remoteModelFacade, err = w.newRemoteModelRelationsFacadeFunc(apiInfo); err == nil {
+			// We successfully followed the redirect,
+			// so update the controller information for this model.
+			controllerInfo := crossmodel.ControllerInfo{
+				ControllerTag: redirectErr.ControllerTag,
+				Alias:         redirectErr.ControllerAlias,
+				Addrs:         apiInfo.Addrs,
+				CACert:        apiInfo.CACert,
+			}
+
+			err = errors.Annotate(w.localModelFacade.UpdateControllerForModel(controllerInfo, w.remoteModelUUID),
+				"updating external controller info")
+		}
+	}
+
+	return errors.Annotate(err, "opening facade to remote model")
+}
+
 func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, forceCleanup bool) error {
 	w.logger.Debugf("relation %v dying (%v)", key, forceCleanup)
 	// On the consuming side, inform the remote side the relation is dying
@@ -224,6 +258,7 @@ func (w *remoteApplicationWorker) processRelationDying(key string, r *relation, 
 			Life:             life.Dying,
 			ApplicationToken: r.applicationToken,
 			Macaroons:        macaroon.Slice{r.macaroon},
+			BakeryVersion:    bakery.LatestVersion,
 		}
 		// forceCleanup will be true if the worker has restarted and because the relation had
 		// already been removed, we won't get any more unit departed events.
@@ -333,36 +368,21 @@ func (w *remoteApplicationWorker) relationChanged(
 // one worker is for the local model, the other for the remote model.
 func (w *remoteApplicationWorker) startUnitsWorkers(
 	relationTag names.RelationTag,
-	applicationToken, relationToken, remoteAppToken string,
+	relationToken, remoteAppToken string,
 	applicationName string,
 	mac *macaroon.Macaroon,
 ) (*relationUnitsWorker, *relationUnitsWorker, error) {
 	// Start a watcher to track changes to the units in the relation in the local model.
-	localRelationUnitsWatcher, err := w.localModelFacade.WatchLocalRelationUnits(relationTag.Id())
+	localRelationUnitsWatcher, err := w.localModelFacade.WatchLocalRelationChanges(relationTag.Id())
 	if err != nil {
 		return nil, nil, errors.Annotatef(err, "watching local side of relation %v", relationTag.Id())
 	}
 
-	// localUnitSettingsFunc converts relations units watcher results from the local model
-	// into settings params using an api call to the local model.
-	localUnitSettingsFunc := func(changedUnitNames []string) ([]params.SettingsResult, error) {
-		relationUnits := make([]params.RelationUnit, len(changedUnitNames))
-		for i, changedName := range changedUnitNames {
-			relationUnits[i] = params.RelationUnit{
-				Relation: relationTag.String(),
-				Unit:     names.NewUnitTag(changedName).String(),
-			}
-		}
-		return w.localModelFacade.RelationUnitSettings(relationUnits)
-	}
 	localUnitsWorker, err := newRelationUnitsWorker(
 		relationTag,
-		applicationToken,
 		mac,
-		relationToken,
 		localRelationUnitsWatcher,
 		w.localRelationChanges,
-		localUnitSettingsFunc,
 		w.logger,
 	)
 	if err != nil {
@@ -373,10 +393,9 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 	}
 
 	// Start a watcher to track changes to the units in the relation in the remote model.
-	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationUnits(params.RemoteEntityArg{
-		Token:     relationToken,
-		Macaroons: macaroon.Slice{mac},
-	})
+	remoteRelationUnitsWatcher, err := w.remoteModelFacade.WatchRelationChanges(
+		relationToken, remoteAppToken, macaroon.Slice{mac},
+	)
 	if err != nil {
 		w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
 		return nil, nil, errors.Annotatef(
@@ -384,27 +403,11 @@ func (w *remoteApplicationWorker) startUnitsWorkers(
 			applicationName, relationTag.Id())
 	}
 
-	// remoteUnitSettingsFunc converts relations units watcher results from the remote model
-	// into settings params using an api call to the remote model.
-	remoteUnitSettingsFunc := func(changedUnitNames []string) ([]params.SettingsResult, error) {
-		relationUnits := make([]params.RemoteRelationUnit, len(changedUnitNames))
-		for i, changedName := range changedUnitNames {
-			relationUnits[i] = params.RemoteRelationUnit{
-				RelationToken: relationToken,
-				Unit:          names.NewUnitTag(changedName).String(),
-				Macaroons:     macaroon.Slice{mac},
-			}
-		}
-		return w.remoteModelFacade.RelationUnitSettings(relationUnits)
-	}
 	remoteUnitsWorker, err := newRelationUnitsWorker(
 		relationTag,
-		remoteAppToken,
 		mac,
-		relationToken,
 		remoteRelationUnitsWatcher,
 		w.remoteRelationChanges,
-		remoteUnitSettingsFunc,
 		w.logger,
 	)
 	if err != nil {
@@ -444,8 +447,9 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	if !relationKnown {
 		// Totally new so start the lifecycle watcher.
 		remoteRelationsWatcher, err := w.remoteModelFacade.WatchRelationSuspendedStatus(params.RemoteEntityArg{
-			Token:     relationToken,
-			Macaroons: macaroon.Slice{mac},
+			Token:         relationToken,
+			Macaroons:     macaroon.Slice{mac},
+			BakeryVersion: bakery.LatestVersion,
 		})
 		if err != nil {
 			w.checkOfferPermissionDenied(err, remoteAppToken, relationToken)
@@ -482,7 +486,7 @@ func (w *remoteApplicationWorker) processConsumingRelation(
 	if r.localRuw == nil && !remoteRelation.Suspended {
 		// Also start the units watchers (local and remote).
 		localUnitsWorker, remoteUnitsWorker, err := w.startUnitsWorkers(
-			relationTag, applicationToken, relationToken, remoteAppToken, remoteRelation.ApplicationName, mac)
+			relationTag, relationToken, remoteAppToken, remoteRelation.ApplicationName, mac)
 		if err != nil {
 			return errors.Annotate(err, "starting relation units workers")
 		}
@@ -534,6 +538,7 @@ func (w *remoteApplicationWorker) registerRemoteRelation(
 	}
 	if w.offerMacaroon != nil {
 		arg.Macaroons = macaroon.Slice{w.offerMacaroon}
+		arg.BakeryVersion = bakery.LatestVersion
 	}
 	remoteRelation, err := w.remoteModelFacade.RegisterRemoteRelations(arg)
 	if err != nil {

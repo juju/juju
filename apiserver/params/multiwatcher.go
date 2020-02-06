@@ -105,8 +105,8 @@ func (d *Delta) UnmarshalJSON(data []byte) error {
 		d.Entity = new(ActionInfo)
 	case "charm":
 		d.Entity = new(CharmInfo)
-	case "generation":
-		d.Entity = new(GenerationInfo)
+	case "branch":
+		d.Entity = new(BranchInfo)
 	default:
 		return errors.Errorf("Unexpected entity name %q", entityKind)
 	}
@@ -154,18 +154,6 @@ type StatusInfo struct {
 	Since   *time.Time             `json:"since,omitempty"`
 	Version string                 `json:"version"`
 	Data    map[string]interface{} `json:"data,omitempty"`
-}
-
-// NewStatusInfo return a new multiwatcher StatusInfo from a
-// status StatusInfo.
-func NewStatusInfo(s status.StatusInfo, err error) StatusInfo {
-	return StatusInfo{
-		Err:     err,
-		Current: s.Status,
-		Message: s.Message,
-		Since:   s.Since,
-		Data:    s.Data,
-	}
 }
 
 // ApplicationInfo holds the information about an application that is tracked
@@ -432,9 +420,9 @@ type ItemChange struct {
 	NewValue interface{} `json:"new,omitempty"`
 }
 
-// GenerationInfo holds data about a model generation (branch)
+// BranchInfo holds data about a model generation (branch)
 // that is tracked by multiwatcherStore.
-type GenerationInfo struct {
+type BranchInfo struct {
 	ModelUUID     string                  `json:"model-uuid"`
 	Id            string                  `json:"id"`
 	Name          string                  `json:"name"`
@@ -448,9 +436,9 @@ type GenerationInfo struct {
 }
 
 // EntityId returns a unique identifier for a generation.
-func (i *GenerationInfo) EntityId() EntityId {
+func (i *BranchInfo) EntityId() EntityId {
 	return EntityId{
-		Kind:      "generation",
+		Kind:      "branch",
 		ModelUUID: i.ModelUUID,
 		Id:        i.Id,
 	}

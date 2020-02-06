@@ -4,6 +4,7 @@
 package applicationoffers
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/juju/errors"
@@ -16,8 +17,8 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -58,6 +59,7 @@ func createOffersAPI(
 		dataDir:     dataDir.String(),
 		authContext: authContext,
 		BaseAPI: BaseAPI{
+			ctx:                  context.Background(),
 			Authorizer:           authorizer,
 			GetApplicationOffers: getApplicationOffers,
 			ControllerModel:      backend,
@@ -467,12 +469,12 @@ func (api *OffersAPI) GetConsumeDetails(args params.OfferURLs) (params.ConsumeOf
 		offerDetails := &offer.ApplicationOfferDetails
 		results[i].Offer = offerDetails
 		results[i].ControllerInfo = controllerInfo
-		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(offerDetails, api.Authorizer.GetAuthTag().Id())
+		offerMacaroon, err := api.authContext.CreateConsumeOfferMacaroon(api.ctx, offerDetails, api.Authorizer.GetAuthTag().Id(), args.BakeryVersion)
 		if err != nil {
 			results[i].Error = common.ServerError(err)
 			continue
 		}
-		results[i].Macaroon = offerMacaroon
+		results[i].Macaroon = offerMacaroon.M()
 	}
 	consumeResults.Results = results
 	return consumeResults, nil

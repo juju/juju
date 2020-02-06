@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
+	"gopkg.in/httprequest.v1"
 
 	"github.com/juju/juju/apiserver/params"
 )
@@ -23,6 +23,7 @@ func (c *Client) Download(id string) (io.ReadCloser, error) {
 	// Send the request.
 	var resp *http.Response
 	err := c.client.Call(
+		c.facade.RawAPICaller().Context(),
 		&downloadParams{
 			Body: params.BackupsDownloadArgs{
 				ID: id,

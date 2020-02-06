@@ -22,15 +22,16 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/mocks"
@@ -74,6 +75,12 @@ func (s *MigrationImportSuite) importModel(
 ) (*state.Model, *state.State) {
 	out, err := st.Export()
 	c.Assert(err, jc.ErrorIsNil)
+
+	// When working with importing models, it becomes very handy to read the
+	// model in a human readable format.
+	// yaml.Marshal will do this in a decent manor.
+	//	bytes, _ := yaml.Marshal(out)
+	//	fmt.Println(string(bytes))
 
 	if len(transform) > 0 {
 		var outM map[string]interface{}
@@ -766,6 +773,118 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(appStatus.Message, gc.Equals, "unit active")
 }
 
+func (s *MigrationImportSuite) TestApplicationsWithExposedOffers(c *gc.C) {
+	_ = s.Factory.MakeUser(c, &factory.UserParams{Name: "admin"})
+	fooUser := s.Factory.MakeUser(c, &factory.UserParams{Name: "foo"})
+	serverSpace, err := s.State.AddSpace("server", "", nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	wordpress := s.AddTestingApplication(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, jc.ErrorIsNil)
+
+	testCharm := s.AddTestingCharm(c, "mysql")
+	application := s.AddTestingApplicationWithBindings(c, "mysql",
+		testCharm,
+		map[string]string{
+			"server": serverSpace.Id(),
+		},
+	)
+	applicationEP, err := application.Endpoint("server")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.State.AddRelation(wordpressEP, applicationEP)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stOffers := state.NewApplicationOffers(s.State)
+	stOffer, err := stOffers.AddOffer(
+		crossmodel.AddApplicationOfferArgs{
+			OfferName:       "my-offer",
+			Owner:           "admin",
+			ApplicationName: application.Name(),
+			Endpoints: map[string]string{
+				"server": serverSpace.Name(),
+			},
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Allow "foo" to consume offer
+	err = s.State.CreateOfferAccess(
+		names.NewApplicationOfferTag("my-offer"),
+		fooUser.UserTag(),
+		permission.ConsumeAccess,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateOffers := state.NewApplicationOffers(s.State)
+	exportedOffers, err := stateOffers.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exportedOffers, gc.HasLen, 1)
+	exported := exportedOffers[0]
+
+	_, newSt := s.importModel(c, s.State)
+
+	// The following is required because we don't add charms during an import,
+	// these are added at a later date. When constructing an application offer,
+	// the charm is required for the charm.Relation, so we need to inject it
+	// into the new state.
+	state.AddTestingCharm(c, newSt, "mysql")
+
+	newStateOffers := state.NewApplicationOffers(newSt)
+	importedOffers, err := newStateOffers.AllApplicationOffers()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(importedOffers, gc.HasLen, 1)
+	imported := importedOffers[0]
+	c.Assert(exported, gc.DeepEquals, imported)
+
+	users, err := newSt.GetOfferUsers(stOffer.OfferUUID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(users, gc.HasLen, 2)
+	c.Assert(users, gc.DeepEquals, map[string]permission.Access{
+		"admin": "admin",
+		"foo":   "consume",
+	})
+}
+
+func (s *MigrationImportSuite) TestExternalControllers(c *gc.C) {
+	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
+		Name:        "gravy-rainbow",
+		URL:         "me/model.rainbow",
+		SourceModel: s.Model.ModelTag(),
+		Token:       "charisma",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateExternalCtrl := state.NewExternalControllers(s.State)
+	crossModelController, err := stateExternalCtrl.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	stateExternalController, err := s.State.ExternalControllerForModel(s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
+		err := stateExternalCtrl.Remove(s.Model.ControllerTag().Id())
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	newExternalCtrl := state.NewExternalControllers(newSt)
+
+	newCtrl, err := newExternalCtrl.ControllerForModel(s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newCtrl.ControllerInfo(), jc.DeepEquals, crossModelController.ControllerInfo())
+
+	newExternalController, err := newSt.ExternalControllerForModel(s.Model.UUID())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(stateExternalController, gc.DeepEquals, newExternalController)
+}
+
 func (s *MigrationImportSuite) TestCharmRevSequencesNotImported(c *gc.C) {
 	s.Factory.MakeApplication(c, &factory.ApplicationParams{
 		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
@@ -894,6 +1013,8 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	c.Assert(err, jc.ErrorIsNil)
 	err = testModel.SetAnnotations(exported, testAnnotations)
 	c.Assert(err, jc.ErrorIsNil)
+	err = exported.SetState(map[string]string{"payload": "0xb4c0ffee"})
+	c.Assert(err, jc.ErrorIsNil)
 
 	if testModel.Type() == state.ModelTypeCAAS {
 		var updateUnits state.UpdateUnitsOperation
@@ -965,6 +1086,10 @@ func (s *MigrationImportSuite) assertUnitsMigrated(c *gc.C, st *state.State, con
 	s.checkStatusHistory(c, exported, imported, 5)
 	s.checkStatusHistory(c, exported.Agent(), imported.Agent(), 5)
 	s.checkStatusHistory(c, exported.WorkloadVersionHistory(), imported.WorkloadVersionHistory(), 1)
+
+	unitState, err := imported.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"payload": "0xb4c0ffee"}, gc.Commentf("persisted charm state not migrated"))
 
 	newCons, err := imported.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1183,6 +1308,37 @@ func (s *MigrationImportSuite) TestSpaces(c *gc.C) {
 	imported, err = newSt.SpaceByName(spaceNoID.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(imported.Id(), gc.Not(gc.Equals), "")
+}
+
+func (s *MigrationImportSuite) TestFirewallRules(c *gc.C) {
+	serviceType := firewall.WellKnownServiceType("ssh")
+	cidr0 := []string{"192.0.2.1/24"}
+	cidr1 := []string{"192.168.2.1/16"}
+
+	fwRule0 := state.NewFirewallRule(serviceType, cidr0)
+	fwRule1 := state.NewFirewallRule(serviceType, cidr1)
+
+	firewallRuleService := state.NewFirewallRules(s.State)
+	err := firewallRuleService.Save(fwRule0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = firewallRuleService.Save(fwRule1)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, newSt := s.importModel(c, s.State, func(map[string]interface{}) {
+		err := firewallRuleService.Remove(serviceType)
+		c.Assert(err, jc.ErrorIsNil)
+	})
+
+	firewallRuleService = state.NewFirewallRules(newSt)
+	rules, err := firewallRuleService.AllRules()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rules, gc.HasLen, 1)
+
+	rule, err := firewallRuleService.Rule(serviceType)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(rule.WhitelistCIDRs(), gc.DeepEquals, fwRule1.WhitelistCIDRs())
+	c.Assert(rule.WellKnownService(), gc.Equals, fwRule1.WellKnownService())
 }
 
 func (s *MigrationImportSuite) TestDestroyEmptyModel(c *gc.C) {
@@ -1505,7 +1661,9 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	operationID, err := m.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)
@@ -1954,61 +2112,7 @@ func (s *MigrationImportSuite) TestPayloads(c *gc.C) {
 	c.Check(testPayload.Machine, gc.Equals, machineID)
 }
 
-// TODO (stickupkid): Remove this once we remove the CMRMigrations feature
-// flag.
-func (s *MigrationImportSuite) TestRemoteApplicationsWithoutFeatureFlag(c *gc.C) {
-	// For now we want to prevent importing models that have remote
-	// applications - cross-model relations don't support relations
-	// with the models in different controllers.
-	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
-		Name:        "gravy-rainbow",
-		URL:         "me/model.rainbow",
-		SourceModel: s.Model.ModelTag(),
-		Token:       "charisma",
-		Endpoints: []charm.Relation{{
-			Interface: "mysql",
-			Name:      "db",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}, {
-			Interface: "mysql-root",
-			Name:      "db-admin",
-			Limit:     5,
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}, {
-			Interface: "logging",
-			Name:      "logging",
-			Role:      charm.RoleProvider,
-			Scope:     charm.ScopeGlobal,
-		}},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-
-	out, err := s.State.Export()
-	c.Assert(err, jc.ErrorIsNil)
-
-	uuid := utils.MustNewUUID().String()
-	in := newModel(out, uuid, "new")
-	// Models for this version of Juju don't export remote
-	// applications but we still want to guard against accidentally
-	// importing any that may exist from earlier versions.
-	in.AddRemoteApplication(description.RemoteApplicationArgs{
-		SourceModel: coretesting.ModelTag,
-		OfferUUID:   utils.MustNewUUID().String(),
-		Tag:         names.NewApplicationTag("remote"),
-	})
-
-	_, newSt, err := s.Controller.Import(in)
-	if err == nil {
-		defer newSt.Close()
-	}
-	c.Assert(err, gc.ErrorMatches, "can't import models with remote applications")
-}
-
 func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
-	s.SetFeatureFlags(feature.CMRMigrations)
-
 	remoteApp, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "gravy-rainbow",
 		URL:         "me/model.rainbow",
@@ -2045,6 +2149,15 @@ func (s *MigrationImportSuite) TestRemoteApplications(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	err = remoteApp.SetStatus(status.StatusInfo{Status: status.Active})
+	c.Assert(err, jc.ErrorIsNil)
+
+	service := state.NewExternalControllers(s.State)
+	_, err = service.Save(crossmodel.ControllerInfo{
+		ControllerTag: s.Model.ControllerTag(),
+		Addrs:         []string{"192.168.1.1:8080"},
+		Alias:         "magic",
+		CACert:        "magic-ca-cert",
+	}, s.Model.UUID())
 	c.Assert(err, jc.ErrorIsNil)
 
 	out, err := s.State.Export()
@@ -2270,8 +2383,8 @@ func (s *MigrationImportSuite) TestImportingModelWithBlankType(c *gc.C) {
 }
 
 func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C) {
-	wordpress := state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
-	mysql := state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
+	state.AddTestingApplication(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
+	state.AddTestingApplication(c, s.State, "mysql", state.AddTestingCharm(c, s.State, "mysql"))
 	eps, err := s.State.InferEndpoints("mysql", "wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -2280,12 +2393,12 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 	wordpressSettings := map[string]interface{}{
 		"venusian": "superbug",
 	}
-	err = rel.UpdateApplicationSettings(wordpress, &fakeToken{}, wordpressSettings)
+	err = rel.UpdateApplicationSettings("wordpress", &fakeToken{}, wordpressSettings)
 	c.Assert(err, jc.ErrorIsNil)
 	mysqlSettings := map[string]interface{}{
 		"planet b": "perihelion",
 	}
-	err = rel.UpdateApplicationSettings(mysql, &fakeToken{}, mysqlSettings)
+	err = rel.UpdateApplicationSettings("mysql", &fakeToken{}, mysqlSettings)
 	c.Assert(err, jc.ErrorIsNil)
 
 	_, newSt := s.importModel(c, s.State)
@@ -2299,14 +2412,11 @@ func (s *MigrationImportSuite) TestImportingRelationApplicationSettings(c *gc.C)
 
 	newRel := rels[0]
 
-	newWpSettings, err := newRel.ApplicationSettings(newWordpress)
+	newWpSettings, err := newRel.ApplicationSettings("wordpress")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newWpSettings, gc.DeepEquals, wordpressSettings)
 
-	newMysql, err := newSt.Application("mysql")
-	c.Assert(err, jc.ErrorIsNil)
-
-	newMysqlSettings, err := newRel.ApplicationSettings(newMysql)
+	newMysqlSettings, err := newRel.ApplicationSettings("mysql")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(newMysqlSettings, gc.DeepEquals, mysqlSettings)
 }

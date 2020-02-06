@@ -32,7 +32,7 @@ func (c *OpenedPortsCommand) Info() *cmd.Info {
 }
 
 func (c *OpenedPortsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 }
 
 func (c *OpenedPortsCommand) Init(args []string) error {

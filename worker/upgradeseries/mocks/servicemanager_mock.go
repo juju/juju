@@ -5,11 +5,10 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	common "github.com/juju/juju/service/common"
 	version "github.com/juju/version"
+	reflect "reflect"
 )
 
 // MockSystemdServiceManager is a mock of SystemdServiceManager interface
@@ -37,6 +36,7 @@ func (m *MockSystemdServiceManager) EXPECT() *MockSystemdServiceManagerMockRecor
 
 // CopyAgentBinary mocks base method
 func (m *MockSystemdServiceManager) CopyAgentBinary(arg0 string, arg1 []string, arg2, arg3, arg4 string, arg5 version.Number) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyAgentBinary", arg0, arg1, arg2, arg3, arg4, arg5)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -44,11 +44,13 @@ func (m *MockSystemdServiceManager) CopyAgentBinary(arg0 string, arg1 []string, 
 
 // CopyAgentBinary indicates an expected call of CopyAgentBinary
 func (mr *MockSystemdServiceManagerMockRecorder) CopyAgentBinary(arg0, arg1, arg2, arg3, arg4, arg5 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CopyAgentBinary", reflect.TypeOf((*MockSystemdServiceManager)(nil).CopyAgentBinary), arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
 // CreateAgentConf mocks base method
 func (m *MockSystemdServiceManager) CreateAgentConf(arg0, arg1 string) (common.Conf, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateAgentConf", arg0, arg1)
 	ret0, _ := ret[0].(common.Conf)
 	ret1, _ := ret[1].(error)
@@ -57,11 +59,13 @@ func (m *MockSystemdServiceManager) CreateAgentConf(arg0, arg1 string) (common.C
 
 // CreateAgentConf indicates an expected call of CreateAgentConf
 func (mr *MockSystemdServiceManagerMockRecorder) CreateAgentConf(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateAgentConf", reflect.TypeOf((*MockSystemdServiceManager)(nil).CreateAgentConf), arg0, arg1)
 }
 
 // FindAgents mocks base method
 func (m *MockSystemdServiceManager) FindAgents(arg0 string) (string, []string, []string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "FindAgents", arg0)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].([]string)
@@ -72,11 +76,13 @@ func (m *MockSystemdServiceManager) FindAgents(arg0 string) (string, []string, [
 
 // FindAgents indicates an expected call of FindAgents
 func (mr *MockSystemdServiceManagerMockRecorder) FindAgents(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FindAgents", reflect.TypeOf((*MockSystemdServiceManager)(nil).FindAgents), arg0)
 }
 
 // StartAllAgents mocks base method
 func (m *MockSystemdServiceManager) StartAllAgents(arg0 string, arg1 []string, arg2 string) (string, []string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "StartAllAgents", arg0, arg1, arg2)
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].([]string)
@@ -86,11 +92,13 @@ func (m *MockSystemdServiceManager) StartAllAgents(arg0 string, arg1 []string, a
 
 // StartAllAgents indicates an expected call of StartAllAgents
 func (mr *MockSystemdServiceManagerMockRecorder) StartAllAgents(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StartAllAgents", reflect.TypeOf((*MockSystemdServiceManager)(nil).StartAllAgents), arg0, arg1, arg2)
 }
 
 // WriteServiceFiles mocks base method
 func (m *MockSystemdServiceManager) WriteServiceFiles() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WriteServiceFiles")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -98,12 +106,14 @@ func (m *MockSystemdServiceManager) WriteServiceFiles() error {
 
 // WriteServiceFiles indicates an expected call of WriteServiceFiles
 func (mr *MockSystemdServiceManagerMockRecorder) WriteServiceFiles() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteServiceFiles", reflect.TypeOf((*MockSystemdServiceManager)(nil).WriteServiceFiles))
 }
 
 // WriteSystemdAgents mocks base method
-func (m *MockSystemdServiceManager) WriteSystemdAgents(arg0 string, arg1 []string, arg2, arg3, arg4 string) ([]string, []string, []string, error) {
-	ret := m.ctrl.Call(m, "WriteSystemdAgents", arg0, arg1, arg2, arg3, arg4)
+func (m *MockSystemdServiceManager) WriteSystemdAgents(arg0 string, arg1 []string, arg2, arg3 string) ([]string, []string, []string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "WriteSystemdAgents", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].([]string)
 	ret2, _ := ret[2].([]string)
@@ -112,6 +122,7 @@ func (m *MockSystemdServiceManager) WriteSystemdAgents(arg0 string, arg1 []strin
 }
 
 // WriteSystemdAgents indicates an expected call of WriteSystemdAgents
-func (mr *MockSystemdServiceManagerMockRecorder) WriteSystemdAgents(arg0, arg1, arg2, arg3, arg4 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteSystemdAgents", reflect.TypeOf((*MockSystemdServiceManager)(nil).WriteSystemdAgents), arg0, arg1, arg2, arg3, arg4)
+func (mr *MockSystemdServiceManagerMockRecorder) WriteSystemdAgents(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WriteSystemdAgents", reflect.TypeOf((*MockSystemdServiceManager)(nil).WriteSystemdAgents), arg0, arg1, arg2, arg3)
 }

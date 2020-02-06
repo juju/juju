@@ -28,10 +28,6 @@
   name = "google.golang.org/cloud"
   revision = "f20d6dcccb44ed49de45ae3703312cb46e627db1"
 
-[[override]]
-  name = "gopkg.in/macaroon-bakery.v2-unstable"
-  revision = "5a131df02b2333d5d75c501743cbc2948ee9bbf0"
-
 [[constraint]]
   revision = "4e5a4a63d9b78757b4891b8de60be2606d8972ee"
   name = "github.com/EvilSuperstars/go-cidrman"
@@ -58,11 +54,11 @@
   name = "github.com/hashicorp/raft-boltdb"
 
 [[constraint]]
-  revision = "3ef4201dfd2495d7a56be07a4d095fa624167067"
+  revision = "4ca814a87a328d089e9e610538fc205d7bed3987"
   name = "github.com/juju/bundlechanges"
 
 [[constraint]]
-  revision = "4a2d8e1a91c9355889febe294accbbcfb3a1a656"
+  revision = "d884fa94b91060a8995d85aca929f96fd100e935"
   name = "github.com/juju/description"
 
 [[constraint]]
@@ -90,7 +86,7 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  revision = "44115a59837dd6cddf93ee4cfb51e48c7ba8bb73"
+  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
   name = "github.com/juju/os"
 
 [[constraint]]
@@ -110,7 +106,7 @@
   name = "github.com/juju/rfc"
 
 [[constraint]]
-  revision = "958d8b71e5ffa51212133b12a998ddf8362739df"
+  revision = "fd7cab26ac5f36f7780f7bae4e9331e07dd44802"
   name = "github.com/juju/romulus"
 
 [[constraint]]
@@ -118,7 +114,7 @@
   name = "github.com/juju/testing"
 
 [[constraint]]
-  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
+  revision = "d40c2fe1064788d512a6ed0f3c4fcaf0e42515c6"
   name = "github.com/juju/utils"
 
 [[constraint]]
@@ -127,7 +123,7 @@
 
 [[constraint]]
   name = "github.com/lxc/lxd"
-  revision = "4c2bbb608e7a90a9f175a566b9e638069424f0f7"
+  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
 
 [[constraint]]
   name = "github.com/oracle/oci-go-sdk"
@@ -147,18 +143,18 @@
 
 [[constraint]]
   name = "gopkg.in/juju/charm.v6"
-  revision = "4e6efee6340bbada7f1e0ce873f33c15254ac2b8"
+  revision = "50b290b88b40f6bbe10576723d0b57e22f012628"
 
 [[constraint]]
-  revision = "5ca139ef9e6bd138ab2ff3c59aee3c472d12ac89"
-  name = "gopkg.in/juju/charmrepo.v3"
+  revision = "b9bdf9c00e26a0340e8050bdaf1e042000222765"
+  name = "gopkg.in/juju/charmrepo.v4"
 
 [[constraint]]
   revision = "7359fc7857abe2b11b5b3e23811a9c64cb6b01e0"
   name = "gopkg.in/juju/environschema.v1"
 
 [[constraint]]
-  revision = "8d2f241f8a5d0e3a16baf52a5f31be80636ee12d"
+  revision = "139ecaca454cb9101eed8ea76374ddc0be8cc8e8"
   name = "gopkg.in/juju/names.v3"
 
 [[constraint]]
@@ -176,10 +172,6 @@
 [[constraint]]
   revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
   name = "k8s.io/apimachinery"
-
-[[constraint]]
-  name = "gopkg.in/juju/charmstore.v5"
-  revision = "743b5ab3209d901b82aaa6594c405e017e0761a9"
 
 [[override]]
   name = "github.com/masterzen/xmlpath"
@@ -288,7 +280,7 @@
 
 [[constraint]]
   name = "github.com/juju/cmd"
-  revision = "74922f23f6436a661dacd8c5fdf9cb15641e7a2e"
+  revision = "8e43f3faa5c9b0463c9b1fffd89dcdbf1f7ed620"
 
 [[constraint]]
   name = "github.com/juju/collections"
@@ -301,14 +293,6 @@
 [[constraint]]
   name = "github.com/juju/go-oracle-cloud"
   revision = "932a8cea00a1cd5cba3829a672c823955db674ae"
-
-[[constraint]]
-  name = "github.com/juju/httprequest"
-  revision = "266fd1e9debf09c037a63f074d099a2da4559ece"
-
-[[constraint]]
-  name = "github.com/juju/idmclient"
-  revision = "fb1dc7175251ac8e2dc460897313e05175cbbc0d"
 
 [[constraint]]
   name = "github.com/juju/loggo"
@@ -340,7 +324,7 @@
 
 [[constraint]]
   name = "github.com/juju/terms-client"
-  revision = "9b925afd677234e4146dde3cb1a11e187cbed64e"
+  revision = "d29f8efe0af6f5ed0e8d5bff8bccbecb16e653d1"
 
 [[constraint]]
   revision = "5f348e78887d8757a402c7bb81e707c3b244c6da"
@@ -352,13 +336,13 @@
 
 [[constraint]]
   name = "github.com/juju/version"
-  revision = "1f41e27e54f21acccf9b2dddae063a782a8a7ceb"
+  revision = "81c1be00b9a67de4490453f6117d13d818c9fb84"
 
 [[override]]
   name = "github.com/juju/xml"
   revision = "eb759a627588d35166bc505fceb51b88500e291e"
 
-[[constraint]]
+[[override]]
   name = "github.com/julienschmidt/httprouter"
   revision = "77a895ad01ebc98a4dc95d8355bc825ce80a56f6"
 
@@ -407,8 +391,8 @@
   revision = "7a535cd943fccaeed196718896beec3fb51aff41"
 
 [[constraint]]
-  name = "gopkg.in/macaroon.v2-unstable"
-  revision = "66ab28d0d56f39a383f7cf5cf3ac9a4e9ab32865"
+  name = "gopkg.in/macaroon.v2"
+  revision = "1679699b0b723e05f9f16c45b4c6cbd46adb2c78"
 
 [[constraint]]
   name = "github.com/prometheus/client_golang"
@@ -483,10 +467,6 @@
   revision = "4f90aeace3a26ad7021961c297b22c42160c7b25"
 
 [[constraint]]
-  name = "gopkg.in/errgo.v1"
-  revision = "442357a80af5c6bf9b6d51ae791a39c3421004f3"
-
-[[constraint]]
   name = "gopkg.in/goose.v2"
   revision = "f18d0f2f8f9bc5b5234a338670210c4bf4328ab4"
 
@@ -499,16 +479,8 @@
   revision = "19a698a7150fe54ef526b0602069083b4410fc98"
 
 [[override]]
-  name = "gopkg.in/macaroon-bakery.v1"
-  revision = "469b44e6f1f9479e115c8ae879ef80695be624d5"
-
-[[override]]
   name = "gopkg.in/macaroon-bakery.v2"
-  revision = "ec9d2ad6796100720c154f614b6dea8798ec1181"
-
-[[override]]
-  name = "gopkg.in/macaroon.v1"
-  revision = "ab3940c6c16510a850e1c2dd628b919f0f3f1464"
+  revision = "6734dc66fe81c761f153bdd3e4ea572a105b6fe0"
 
 [[constraint]]
   name = "gopkg.in/mgo.v2"

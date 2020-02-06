@@ -90,14 +90,38 @@ func (s *Space) Subnets() ([]*Subnet, error) {
 	return results, nil
 }
 
-func (s *Space) NetworkSpace() network.SpaceInfo {
+// NetworkSpace maps the space fields into a network.SpaceInfo.
+func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
+	subnets, err := s.Subnets()
+	if err != nil {
+		return network.SpaceInfo{}, errors.Trace(err)
+	}
+
+	mappedSubnets := make([]network.SubnetInfo, len(subnets))
+	for i, subnet := range subnets {
+		mappedSubnet := subnet.networkSubnet()
+		mappedSubnet.SpaceID = s.Id()
+		mappedSubnet.SpaceName = s.Name()
+		mappedSubnets[i] = mappedSubnet
+	}
+
 	return network.SpaceInfo{
 		ID:         s.Id(),
 		Name:       network.SpaceName(s.Name()),
 		ProviderId: s.ProviderId(),
-		// TODO (manadart 2019-08-13): Populate these after subnet refactor.
-		Subnets: nil,
-	}
+		Subnets:    mappedSubnets,
+	}, nil
+}
+
+// RenameSpaceOps returns the database transaction operations required to
+// rename the input space `fromName` to input `toName`.
+func (s *Space) RenameSpaceOps(toName string) []txn.Op {
+	renameSpaceOps := []txn.Op{{
+		C:      spacesC,
+		Id:     s.doc.DocId,
+		Update: bson.D{{"$set", bson.D{{"name", toName}}}},
+	}}
+	return renameSpaceOps
 }
 
 // AddSpace creates and returns a new space.
@@ -251,7 +275,9 @@ func (st *State) AllSpaceInfos() (network.SpaceInfos, error) {
 	}
 	result := make(network.SpaceInfos, len(spaces))
 	for i, space := range spaces {
-		result[i] = space.NetworkSpace()
+		if result[i], err = space.NetworkSpace(); err != nil {
+			return nil, err
+		}
 	}
 	return result, nil
 }

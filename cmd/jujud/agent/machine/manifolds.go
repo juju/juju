@@ -73,6 +73,7 @@ import (
 	"github.com/juju/juju/worker/migrationminion"
 	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/modelworkermanager"
+	"github.com/juju/juju/worker/multiwatcher"
 	"github.com/juju/juju/worker/peergrouper"
 	prworker "github.com/juju/juju/worker/presence"
 	"github.com/juju/juju/worker/proxyupdater"
@@ -403,6 +404,16 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			SetStatePool:           config.SetStatePool,
 		}),
 
+		// The multiwatcher manifold watches all the changes in the database
+		// through the AllWatcherBacking and manages notifying the multiwatchers.
+		multiwatcherName: ifDatabaseUpgradeComplete(ifController(multiwatcher.Manifold(multiwatcher.ManifoldConfig{
+			StateName:            stateName,
+			Logger:               loggo.GetLogger("juju.worker.multiwatcher"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            multiwatcher.NewWorkerShim,
+			NewAllWatcher:        state.NewAllWatcherBacking,
+		}))),
+
 		// The model cache initialized gate is used to make sure the api server
 		// isn't created before the model cache has been initialized with the
 		// initial state of the world.
@@ -416,7 +427,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
 		modelCacheName: ifDatabaseUpgradeComplete(ifController(modelcache.Manifold(modelcache.ManifoldConfig{
-			StateName:            stateName,
+			MultiwatcherName:     multiwatcherName,
 			InitializedGateName:  modelCacheInitializedGateName,
 			Logger:               loggo.GetLogger("juju.worker.modelcache"),
 			PrometheusRegisterer: config.PrometheusRegisterer,
@@ -685,6 +696,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 			ClockName:              clockName,
 			StateName:              stateName,
 			ModelCacheName:         modelCacheName,
+			MultiwatcherName:       multiwatcherName,
 			MuxName:                httpServerArgsName,
 			LeaseManagerName:       leaseManagerName,
 			UpgradeGateName:        upgradeStepsGateName,
@@ -713,12 +725,13 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		})),
 
 		peergrouperName: ifFullyUpgraded(peergrouper.Manifold(peergrouper.ManifoldConfig{
-			AgentName:          agentName,
-			ClockName:          clockName,
-			ControllerPortName: controllerPortName,
-			StateName:          stateName,
-			Hub:                config.CentralHub,
-			NewWorker:          peergrouper.New,
+			AgentName:            agentName,
+			ClockName:            clockName,
+			ControllerPortName:   controllerPortName,
+			StateName:            stateName,
+			Hub:                  config.CentralHub,
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            peergrouper.New,
 		})),
 
 		restoreWatcherName: restorewatcher.Manifold(restorewatcher.ManifoldConfig{
@@ -778,14 +791,15 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// The raft forwarder accepts FSM commands from the hub and
 		// applies them to the raft leader.
 		raftForwarderName: ifRaftLeader(raftforwarder.Manifold(raftforwarder.ManifoldConfig{
-			AgentName:      agentName,
-			RaftName:       raftName,
-			StateName:      stateName,
-			CentralHubName: centralHubName,
-			RequestTopic:   leaseRequestTopic,
-			Logger:         loggo.GetLogger("juju.worker.raft.raftforwarder"),
-			NewWorker:      raftforwarder.NewWorker,
-			NewTarget:      raftforwarder.NewTarget,
+			AgentName:            agentName,
+			RaftName:             raftName,
+			StateName:            stateName,
+			CentralHubName:       centralHubName,
+			RequestTopic:         leaseRequestTopic,
+			Logger:               loggo.GetLogger("juju.worker.raft.raftforwarder"),
+			PrometheusRegisterer: config.PrometheusRegisterer,
+			NewWorker:            raftforwarder.NewWorker,
+			NewTarget:            raftforwarder.NewTarget,
 		})),
 
 		// The global lease manager tracks lease information in the raft
@@ -1141,6 +1155,7 @@ const (
 	modelCacheInitializedFlagName = "model-cache-initialized-flag"
 	modelCacheInitializedGateName = "model-cache-initialized-gate"
 	modelWorkerManagerName        = "model-worker-manager"
+	multiwatcherName              = "multiwatcher"
 	peergrouperName               = "peer-grouper"
 	restoreWatcherName            = "restore-watcher"
 	certificateUpdaterName        = "certificate-updater"

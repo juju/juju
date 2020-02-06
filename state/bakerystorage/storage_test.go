@@ -4,14 +4,15 @@
 package bakerystorage
 
 import (
+	"context"
 	"encoding/json"
 	"time" // Only used for time types.
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/mgostorage"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/mgorootkeystore"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/mongo"
@@ -22,7 +23,7 @@ type StorageSuite struct {
 	testing.BaseSuite
 	gitjujutesting.Stub
 	collection      mockCollection
-	memStorage      bakery.Storage
+	memStorage      bakery.RootKeyStore
 	closeCollection func()
 	config          Config
 }
@@ -37,14 +38,14 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 		s.AddCall("Close")
 		s.PopNoErr()
 	}
-	s.memStorage = bakery.NewMemStorage()
+	s.memStorage = bakery.NewMemRootKeyStore()
 	s.config = Config{
 		GetCollection: func() (mongo.Collection, func()) {
 			s.AddCall("GetCollection")
 			s.PopNoErr()
 			return &s.collection, s.closeCollection
 		},
-		GetStorage: func(rootKeys *mgostorage.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.Storage {
+		GetStorage: func(rootKeys *mgorootkeystore.RootKeys, coll mongo.Collection, expireAfter time.Duration) bakery.RootKeyStore {
 			s.AddCall("GetStorage", coll, expireAfter)
 			s.PopNoErr()
 			return s.memStorage
@@ -76,10 +77,11 @@ func (s *StorageSuite) TestGet(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 
-	rootKey, id, err := store.RootKey()
+	ctx := context.Background()
+	rootKey, id, err := store.RootKey(ctx)
 	c.Assert(err, jc.ErrorIsNil)
 
-	item, err := store.Get(id)
+	item, err := store.Get(ctx, id)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(item, jc.DeepEquals, rootKey)
 	s.CheckCalls(c, []gitjujutesting.StubCall{
@@ -96,7 +98,7 @@ func (s *StorageSuite) TestGetNotFound(c *gc.C) {
 	store, err := New(s.config)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Log("1.")
-	_, err = store.Get([]byte("foo"))
+	_, err = store.Get(context.Background(), []byte("foo"))
 	c.Log("2.")
 	c.Assert(err, gc.Equals, bakery.ErrNotFound)
 }
@@ -109,7 +111,7 @@ func (s *StorageSuite) TestGetLegacyFallback(c *gc.C) {
 	err = json.Unmarshal([]byte("{\"RootKey\":\"ibbhlQv5+yf7UMNI77W4hxQeQjRdMxs0\"}"), &rk)
 	c.Assert(err, jc.ErrorIsNil)
 
-	item, err := store.Get([]byte("oldkey"))
+	item, err := store.Get(context.Background(), []byte("oldkey"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(item, jc.DeepEquals, rk.RootKey)
 	s.CheckCalls(c, []gitjujutesting.StubCall{

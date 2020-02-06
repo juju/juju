@@ -4210,6 +4210,9 @@
                 "OfferURLs": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "offer-urls": {
                             "type": "array",
                             "items": {
@@ -10175,6 +10178,9 @@
                                 }
                             }
                         },
+                        "primary-controller-machine": {
+                            "type": "boolean"
+                        },
                         "series": {
                             "type": "string"
                         },
@@ -10321,6 +10327,9 @@
                     "properties": {
                         "display-name": {
                             "type": "string"
+                        },
+                        "ha-primary": {
+                            "type": "boolean"
                         },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
@@ -13064,6 +13073,9 @@
                         "display-name": {
                             "type": "string"
                         },
+                        "ha-primary": {
+                            "type": "boolean"
+                        },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
                         },
@@ -13685,7 +13697,7 @@
     },
     {
         "Name": "CrossModelRelations",
-        "Version": 1,
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
@@ -13722,17 +13734,6 @@
                         }
                     }
                 },
-                "RelationUnitSettings": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RemoteRelationUnits"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/SettingsResults"
-                        }
-                    }
-                },
                 "WatchEgressAddressesForRelations": {
                     "type": "object",
                     "properties": {
@@ -13755,14 +13756,14 @@
                         }
                     }
                 },
-                "WatchRelationUnits": {
+                "WatchRelationChanges": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/RemoteEntityArgs"
                         },
                         "Result": {
-                            "$ref": "#/definitions/RelationUnitsWatchResults"
+                            "$ref": "#/definitions/RemoteRelationWatchResults"
                         }
                     }
                 },
@@ -13864,6 +13865,9 @@
                         "application-token": {
                             "type": "string"
                         },
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "ingress-required": {
                             "type": "boolean"
                         },
@@ -13909,6 +13913,9 @@
                 "OfferArg": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "macaroons": {
                             "type": "array",
                             "items": {
@@ -13997,6 +14004,9 @@
                     "properties": {
                         "application-token": {
                             "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
                         },
                         "local-endpoint-name": {
                             "type": "string"
@@ -14134,71 +14144,6 @@
                         "results"
                     ]
                 },
-                "RelationUnitsChange": {
-                    "type": "object",
-                    "properties": {
-                        "app-changed": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "integer"
-                                }
-                            }
-                        },
-                        "changed": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/UnitSettings"
-                                }
-                            }
-                        },
-                        "departed": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "changed"
-                    ]
-                },
-                "RelationUnitsWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "changes": {
-                            "$ref": "#/definitions/RelationUnitsChange"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "watcher-id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "watcher-id",
-                        "changes"
-                    ]
-                },
-                "RelationUnitsWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RelationUnitsWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "RemoteEndpoint": {
                     "type": "object",
                     "properties": {
@@ -14226,6 +14171,9 @@
                 "RemoteEntityArg": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "macaroons": {
                             "type": "array",
                             "items": {
@@ -14259,8 +14207,20 @@
                 "RemoteRelationChangeEvent": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
                         "application-token": {
                             "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
                         },
                         "changed-units": {
                             "type": "array",
@@ -14306,6 +14266,9 @@
                 "RemoteRelationDetails": {
                     "type": "object",
                     "properties": {
+                        "bakery-version": {
+                            "type": "integer"
+                        },
                         "macaroon": {
                             "$ref": "#/definitions/Macaroon"
                         },
@@ -14316,28 +14279,6 @@
                     "additionalProperties": false,
                     "required": [
                         "relation-token"
-                    ]
-                },
-                "RemoteRelationUnit": {
-                    "type": "object",
-                    "properties": {
-                        "macaroons": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/Macaroon"
-                            }
-                        },
-                        "relation-token": {
-                            "type": "string"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation-token",
-                        "unit"
                     ]
                 },
                 "RemoteRelationUnitChange": {
@@ -14361,19 +14302,38 @@
                         "unit-id"
                     ]
                 },
-                "RemoteRelationUnits": {
+                "RemoteRelationWatchResult": {
                     "type": "object",
                     "properties": {
-                        "relation-units": {
+                        "changes": {
+                            "$ref": "#/definitions/RemoteRelationChangeEvent"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                },
+                "RemoteRelationWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/RemoteRelationUnit"
+                                "$ref": "#/definitions/RemoteRelationWatchResult"
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "relation-units"
+                        "results"
                     ]
                 },
                 "RemoteRelationsChanges": {
@@ -14423,41 +14383,6 @@
                         "provider-id",
                         "provider-attributes",
                         "subnets"
-                    ]
-                },
-                "SettingsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "settings"
-                    ]
-                },
-                "SettingsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SettingsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "StringsWatchResult": {
@@ -14537,18 +14462,6 @@
                         "life",
                         "space-tag",
                         "zones"
-                    ]
-                },
-                "UnitSettings": {
-                    "type": "object",
-                    "properties": {
-                        "version": {
-                            "type": "integer"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "version"
                     ]
                 }
             }
@@ -17632,7 +17545,7 @@
     },
     {
         "Name": "InstancePoller",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -17718,6 +17631,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "SetProviderNetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetProviderNetworkConfig"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SetProviderNetworkConfigResults"
                         }
                     }
                 },
@@ -18020,6 +17944,139 @@
                         "config"
                     ]
                 },
+                "NetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "address": {
+                            "type": "string"
+                        },
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "config-type": {
+                            "type": "string"
+                        },
+                        "device-index": {
+                            "type": "integer"
+                        },
+                        "disabled": {
+                            "type": "boolean"
+                        },
+                        "dns-search-domains": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "dns-servers": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "gateway-address": {
+                            "type": "string"
+                        },
+                        "interface-name": {
+                            "type": "string"
+                        },
+                        "interface-type": {
+                            "type": "string"
+                        },
+                        "is-default-gateway": {
+                            "type": "boolean"
+                        },
+                        "mac-address": {
+                            "type": "string"
+                        },
+                        "mtu": {
+                            "type": "integer"
+                        },
+                        "no-auto-start": {
+                            "type": "boolean"
+                        },
+                        "parent-interface-name": {
+                            "type": "string"
+                        },
+                        "provider-address-id": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "provider-subnet-id": {
+                            "type": "string"
+                        },
+                        "provider-vlan-id": {
+                            "type": "string"
+                        },
+                        "routes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "device-index",
+                        "mac-address",
+                        "cidr",
+                        "mtu",
+                        "provider-id",
+                        "provider-network-id",
+                        "provider-subnet-id",
+                        "provider-space-id",
+                        "provider-address-id",
+                        "provider-vlan-id",
+                        "vlan-tag",
+                        "interface-name",
+                        "parent-interface-name",
+                        "interface-type",
+                        "disabled"
+                    ]
+                },
+                "NetworkRoute": {
+                    "type": "object",
+                    "properties": {
+                        "destination-cidr": {
+                            "type": "string"
+                        },
+                        "gateway-ip": {
+                            "type": "string"
+                        },
+                        "metric": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "destination-cidr",
+                        "gateway-ip",
+                        "metric"
+                    ]
+                },
                 "NotifyWatchResult": {
                     "type": "object",
                     "properties": {
@@ -18035,6 +18092,25 @@
                         "NotifyWatcherId"
                     ]
                 },
+                "ProviderNetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "config": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/NetworkConfig"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "config"
+                    ]
+                },
                 "SetMachinesAddresses": {
                     "type": "object",
                     "properties": {
@@ -18048,6 +18124,58 @@
                     "additionalProperties": false,
                     "required": [
                         "machine-addresses"
+                    ]
+                },
+                "SetProviderNetworkConfig": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ProviderNetworkConfig"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "SetProviderNetworkConfigResult": {
+                    "type": "object",
+                    "properties": {
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "modified": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "addresses",
+                        "modified"
+                    ]
+                },
+                "SetProviderNetworkConfigResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetProviderNetworkConfigResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "SetStatus": {
@@ -20885,6 +21013,12 @@
                         "address": {
                             "type": "string"
                         },
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
                         "cidr": {
                             "type": "string"
                         },
@@ -20955,6 +21089,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
                             }
                         },
                         "vlan-tag": {
@@ -21922,14 +22062,6 @@
                 "Prechecks": {
                     "type": "object"
                 },
-                "PrechecksCrossModel": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/MigratingCrossModelResult"
-                        }
-                    }
-                },
                 "ProcessRelations": {
                     "type": "object",
                     "properties": {
@@ -22000,33 +22132,6 @@
                         "code"
                     ]
                 },
-                "ExternalControllerInfo": {
-                    "type": "object",
-                    "properties": {
-                        "addrs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "ca-cert": {
-                            "type": "string"
-                        },
-                        "controller-alias": {
-                            "type": "string"
-                        },
-                        "controller-tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "controller-tag",
-                        "controller-alias",
-                        "addrs",
-                        "ca-cert"
-                    ]
-                },
                 "MasterMigrationStatus": {
                     "type": "object",
                     "properties": {
@@ -22050,57 +22155,6 @@
                         "migration-id",
                         "phase",
                         "phase-changed-time"
-                    ]
-                },
-                "MigratingCrossModelResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "external-controllers": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/ExternalControllerInfo"
-                                }
-                            }
-                        },
-                        "offer-connections": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MigratingOfferConnection"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "offer-connections",
-                        "external-controllers"
-                    ]
-                },
-                "MigratingOfferConnection": {
-                    "type": "object",
-                    "properties": {
-                        "offer-uuid": {
-                            "type": "string"
-                        },
-                        "relation-id": {
-                            "type": "integer"
-                        },
-                        "source-model-tag": {
-                            "type": "string"
-                        },
-                        "username": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "offer-uuid",
-                        "source-model-tag",
-                        "relation-id",
-                        "username"
                     ]
                 },
                 "MigrationModelInfo": {
@@ -24228,6 +24282,9 @@
                     "properties": {
                         "display-name": {
                             "type": "string"
+                        },
+                        "ha-primary": {
+                            "type": "boolean"
                         },
                         "hardware": {
                             "$ref": "#/definitions/MachineHardware"
@@ -27065,6 +27122,12 @@
                         "address": {
                             "type": "string"
                         },
+                        "addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
+                            }
+                        },
                         "cidr": {
                             "type": "string"
                         },
@@ -27135,6 +27198,12 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/NetworkRoute"
+                            }
+                        },
+                        "shadow-addresses": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Address"
                             }
                         },
                         "vlan-tag": {
@@ -28469,8 +28538,158 @@
         }
     },
     {
-        "Name": "RemoteRelations",
+        "Name": "RemoteRelationWatcher",
         "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/RemoteRelationWatchResult"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "Error": {
+                    "type": "object",
+                    "properties": {
+                        "code": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "message",
+                        "code"
+                    ]
+                },
+                "Macaroon": {
+                    "type": "object",
+                    "additionalProperties": false
+                },
+                "RemoteRelationChangeEvent": {
+                    "type": "object",
+                    "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "application-token": {
+                            "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
+                        },
+                        "changed-units": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteRelationUnitChange"
+                            }
+                        },
+                        "departed-units": {
+                            "type": "array",
+                            "items": {
+                                "type": "integer"
+                            }
+                        },
+                        "force-cleanup": {
+                            "type": "boolean"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "macaroons": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Macaroon"
+                            }
+                        },
+                        "relation-token": {
+                            "type": "string"
+                        },
+                        "suspended": {
+                            "type": "boolean"
+                        },
+                        "suspended-reason": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "relation-token",
+                        "application-token",
+                        "life"
+                    ]
+                },
+                "RemoteRelationUnitChange": {
+                    "type": "object",
+                    "properties": {
+                        "settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "unit-id": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "unit-id"
+                    ]
+                },
+                "RemoteRelationWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "$ref": "#/definitions/RemoteRelationChangeEvent"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                }
+            }
+        }
+    },
+    {
+        "Name": "RemoteRelations",
+        "Version": 2,
         "Schema": {
             "type": "object",
             "properties": {
@@ -28537,17 +28756,6 @@
                         }
                     }
                 },
-                "RelationUnitSettings": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/RelationUnits"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/SettingsResults"
-                        }
-                    }
-                },
                 "Relations": {
                     "type": "object",
                     "properties": {
@@ -28592,14 +28800,25 @@
                         }
                     }
                 },
-                "WatchLocalRelationUnits": {
+                "UpdateControllersForModels": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/UpdateControllersForModelsParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "WatchLocalRelationChanges": {
                     "type": "object",
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/RelationUnitsWatchResults"
+                            "$ref": "#/definitions/RemoteRelationWatchResults"
                         }
                     }
                 },
@@ -28824,6 +29043,33 @@
                         "results"
                     ]
                 },
+                "ExternalControllerInfo": {
+                    "type": "object",
+                    "properties": {
+                        "addrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "ca-cert": {
+                            "type": "string"
+                        },
+                        "controller-alias": {
+                            "type": "string"
+                        },
+                        "controller-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "controller-tag",
+                        "controller-alias",
+                        "addrs",
+                        "ca-cert"
+                    ]
+                },
                 "GetTokenArg": {
                     "type": "object",
                     "properties": {
@@ -28854,102 +29100,6 @@
                 "Macaroon": {
                     "type": "object",
                     "additionalProperties": false
-                },
-                "RelationUnit": {
-                    "type": "object",
-                    "properties": {
-                        "relation": {
-                            "type": "string"
-                        },
-                        "unit": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation",
-                        "unit"
-                    ]
-                },
-                "RelationUnits": {
-                    "type": "object",
-                    "properties": {
-                        "relation-units": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RelationUnit"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "relation-units"
-                    ]
-                },
-                "RelationUnitsChange": {
-                    "type": "object",
-                    "properties": {
-                        "app-changed": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "integer"
-                                }
-                            }
-                        },
-                        "changed": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "$ref": "#/definitions/UnitSettings"
-                                }
-                            }
-                        },
-                        "departed": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "changed"
-                    ]
-                },
-                "RelationUnitsWatchResult": {
-                    "type": "object",
-                    "properties": {
-                        "changes": {
-                            "$ref": "#/definitions/RelationUnitsChange"
-                        },
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "watcher-id": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "watcher-id",
-                        "changes"
-                    ]
-                },
-                "RelationUnitsWatchResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/RelationUnitsWatchResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
                 },
                 "RemoteApplication": {
                     "type": "object",
@@ -29109,8 +29259,20 @@
                 "RemoteRelationChangeEvent": {
                     "type": "object",
                     "properties": {
+                        "application-settings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
                         "application-token": {
                             "type": "string"
+                        },
+                        "bakery-version": {
+                            "type": "integer"
                         },
                         "changed-units": {
                             "type": "array",
@@ -29201,6 +29363,40 @@
                         "unit-id"
                     ]
                 },
+                "RemoteRelationWatchResult": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "$ref": "#/definitions/RemoteRelationChangeEvent"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id",
+                        "changes"
+                    ]
+                },
+                "RemoteRelationWatchResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoteRelationWatchResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
                 "RemoteRelationsChanges": {
                     "type": "object",
                     "properties": {
@@ -29226,41 +29422,6 @@
                     "additionalProperties": false,
                     "required": [
                         "entities"
-                    ]
-                },
-                "SettingsResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "settings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "settings"
-                    ]
-                },
-                "SettingsResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SettingsResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
                     ]
                 },
                 "StringResult": {
@@ -29353,16 +29514,35 @@
                     },
                     "additionalProperties": false
                 },
-                "UnitSettings": {
+                "UpdateControllerForModel": {
                     "type": "object",
                     "properties": {
-                        "version": {
-                            "type": "integer"
+                        "info": {
+                            "$ref": "#/definitions/ExternalControllerInfo"
+                        },
+                        "model-tag": {
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
                     "required": [
-                        "version"
+                        "model-tag",
+                        "info"
+                    ]
+                },
+                "UpdateControllersForModelsParams": {
+                    "type": "object",
+                    "properties": {
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UpdateControllerForModel"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "changes"
                     ]
                 }
             }
@@ -30513,7 +30693,7 @@
     },
     {
         "Name": "Spaces",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -30538,6 +30718,28 @@
                 },
                 "ReloadSpaces": {
                     "type": "object"
+                },
+                "RenameSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/RenameSpacesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "ShowSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ShowSpaceResults"
+                        }
+                    }
                 }
             },
             "definitions": {
@@ -30580,6 +30782,33 @@
                     "additionalProperties": false,
                     "required": [
                         "spaces"
+                    ]
+                },
+                "Entities": {
+                    "type": "object",
+                    "properties": {
+                        "entities": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "entities"
+                    ]
+                },
+                "Entity": {
+                    "type": "object",
+                    "properties": {
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
                     ]
                 },
                 "Error": {
@@ -30638,6 +30867,78 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Space"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "RenameSpaceParams": {
+                    "type": "object",
+                    "properties": {
+                        "from-space-tag": {
+                            "type": "string"
+                        },
+                        "to-space-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "from-space-tag",
+                        "to-space-tag"
+                    ]
+                },
+                "RenameSpacesParams": {
+                    "type": "object",
+                    "properties": {
+                        "rename-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RenameSpaceParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "rename-spaces"
+                    ]
+                },
+                "ShowSpaceResult": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "machine-count": {
+                            "type": "integer"
+                        },
+                        "space": {
+                            "$ref": "#/definitions/Space"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "space",
+                        "applications",
+                        "machine-count"
+                    ]
+                },
+                "ShowSpaceResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ShowSpaceResult"
                             }
                         }
                     },
@@ -34271,7 +34572,7 @@
     },
     {
         "Name": "Uniter",
-        "Version": 13,
+        "Version": 15,
         "Schema": {
             "type": "object",
             "properties": {
@@ -34543,6 +34844,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/MeterStatusResults"
+                        }
+                    }
+                },
+                "GetPodSpec": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
                         }
                     }
                 },
@@ -34864,6 +35176,17 @@
                         }
                     }
                 },
+                "SetState": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/SetUnitStateArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "SetStatus": {
                     "type": "object",
                     "properties": {
@@ -34905,6 +35228,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
+                "State": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/UnitStateResults"
                         }
                     }
                 },
@@ -36842,6 +37176,42 @@
                         "entities"
                     ]
                 },
+                "SetUnitStateArg": {
+                    "type": "object",
+                    "properties": {
+                        "state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "state"
+                    ]
+                },
+                "SetUnitStateArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SetUnitStateArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
                 "SettingsResult": {
                     "type": "object",
                     "properties": {
@@ -37264,6 +37634,41 @@
                     "additionalProperties": false,
                     "required": [
                         "version"
+                    ]
+                },
+                "UnitStateResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "state": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "state"
+                    ]
+                },
+                "UnitStateResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/UnitStateResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
                     ]
                 },
                 "UpgradeSeriesStatusParam": {

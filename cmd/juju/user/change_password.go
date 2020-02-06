@@ -12,10 +12,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"golang.org/x/crypto/ssh/terminal"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/authentication"
 	jujucmd "github.com/juju/juju/cmd"
@@ -23,6 +19,9 @@ import (
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"golang.org/x/crypto/ssh/terminal"
+	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 const userChangePasswordDoc = `
@@ -243,12 +242,12 @@ func (c *changePasswordCommand) recordMacaroon(password string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	args.DialOpts.BakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
-		authentication.NewVisitor(accountDetails.User, func(string) (string, error) {
+	args.DialOpts.BakeryClient.InteractionMethods = []httpbakery.Interactor{
+		authentication.NewInteractor(accountDetails.User, func(string) (string, error) {
 			return password, nil
 		}),
-		args.DialOpts.BakeryClient.WebPageVisitor,
-	)
+		httpbakery.WebBrowserInteractor{},
+	}
 	api, err := c.newAPIConnection(args)
 	if err != nil {
 		return errors.Annotate(err, "connecting to API")

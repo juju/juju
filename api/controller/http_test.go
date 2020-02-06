@@ -4,14 +4,15 @@
 package controller_test
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
 
-	"github.com/juju/httprequest"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/base"
@@ -82,6 +83,11 @@ func (*httpAPICallCloser) ModelTag() (names.ModelTag, bool) {
 // BestFacadeVersion implements base.APICallCloser.
 func (*httpAPICallCloser) BestFacadeVersion(facade string) int {
 	return 42
+}
+
+// BestFacadeVersion implements base.APICallCloser.
+func (*httpAPICallCloser) Context() context.Context {
+	return context.Background()
 }
 
 // HTTPClient implements base.APICallCloser. The returned HTTP client can be

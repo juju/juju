@@ -10,15 +10,15 @@ import (
 	"github.com/juju/testing"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
 	"github.com/juju/juju/apiserver/facades/controller/remoterelations"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -208,6 +208,14 @@ func (st *mockState) ApplyOperation(op state.ModelOperation) error {
 	return st.NextErr()
 }
 
+func (st *mockState) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+	st.MethodCall(st, "UpdateControllerForModel", controller, modelUUID)
+	if err := st.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type mockControllerInfo struct {
 	uuid string
 	info crossmodel.ControllerInfo
@@ -232,6 +240,7 @@ type mockRelation struct {
 	remoteUnits           map[string]common.RelationUnit
 	endpoints             []state.Endpoint
 	endpointUnitsWatchers map[string]*mockRelationUnitsWatcher
+	appSettings           map[string]map[string]interface{}
 }
 
 func newMockRelation(id int) *mockRelation {
@@ -241,6 +250,7 @@ func newMockRelation(id int) *mockRelation {
 		units:                 make(map[string]common.RelationUnit),
 		remoteUnits:           make(map[string]common.RelationUnit),
 		endpointUnitsWatchers: make(map[string]*mockRelationUnitsWatcher),
+		appSettings:           make(map[string]map[string]interface{}),
 	}
 }
 
@@ -305,6 +315,18 @@ func (r *mockRelation) WatchUnits(applicationName string) (state.RelationUnitsWa
 	return w, nil
 }
 
+func (r *mockRelation) ApplicationSettings(appName string) (map[string]interface{}, error) {
+	r.MethodCall(r, "ApplicationSettings", appName)
+	if err := r.NextErr(); err != nil {
+		return nil, err
+	}
+	settings, found := r.appSettings[appName]
+	if !found {
+		return nil, errors.NotFoundf("fake settings for %q", appName)
+	}
+	return settings, nil
+}
+
 type mockRemoteApplication struct {
 	common.RemoteApplication
 	testing.Stub
@@ -367,7 +389,7 @@ func (r *mockRemoteApplication) SourceModel() names.ModelTag {
 
 func (r *mockRemoteApplication) Macaroon() (*macaroon.Macaroon, error) {
 	r.MethodCall(r, "Macaroon")
-	return macaroon.New(nil, []byte("test"), "")
+	return macaroon.New(nil, []byte("test"), "", macaroon.LatestVersion)
 }
 
 func (r *mockRemoteApplication) SetStatus(info status.StatusInfo) error {
@@ -456,12 +478,12 @@ func (w *mockStringsWatcher) Changes() <-chan []string {
 
 type mockRelationUnitsWatcher struct {
 	mockWatcher
-	changes chan params.RelationUnitsChange
+	changes chan watcher.RelationUnitsChange
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	w := &mockRelationUnitsWatcher{
-		changes: make(chan params.RelationUnitsChange, 1),
+		changes: make(chan watcher.RelationUnitsChange, 1),
 	}
 	w.Tomb.Go(func() error {
 		<-w.Tomb.Dying()
@@ -470,7 +492,7 @@ func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 	return w
 }
 
-func (w *mockRelationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	w.MethodCall(w, "Changes")
 	return w.changes
 }

@@ -6,9 +6,10 @@ package remoterelations
 import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	common "github.com/juju/juju/apiserver/common/crossmodel"
+	"github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/state"
 )
 
@@ -22,7 +23,7 @@ type RemoteRelationsState interface {
 	WatchRemoteApplications() state.StringsWatcher
 
 	// WatchRemoteApplicationRelations returns a StringsWatcher that notifies of
-	// changes to the lifecycles of relations involving the specified remote
+	// changes to the life-cycles of relations involving the specified remote
 	// application.
 	WatchRemoteApplicationRelations(applicationName string) (state.StringsWatcher, error)
 
@@ -35,6 +36,10 @@ type RemoteRelationsState interface {
 
 	// SaveMacaroon saves the given macaroon for the specified entity.
 	SaveMacaroon(entity names.Tag, mac *macaroon.Macaroon) error
+
+	// UpdateControllerForModel ensures that there is an external controller
+	// record for the input info, associated with the input model ID.
+	UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error
 }
 
 // TODO - CAAS(ericclaudejones): This should contain state alone, model will be
@@ -73,4 +78,13 @@ func (st stateShim) WatchRemoteApplicationRelations(applicationName string) (sta
 		return nil, errors.Trace(err)
 	}
 	return a.WatchRelations(), nil
+}
+
+// UpdateControllerForModel (RemoteRelationsState) ensures
+// that there is an external controller record for the input info,
+// associated with the input model UUID.
+// If the model UUID is associated with another external controller record,
+// that record will be modified to remove it.
+func (st stateShim) UpdateControllerForModel(controller crossmodel.ControllerInfo, modelUUID string) error {
+	return errors.Trace(state.NewExternalControllers(st.st).SaveAndMoveModels(controller, modelUUID))
 }

@@ -152,40 +152,29 @@ func (m *Machine) SetInstanceStatus(status status.Status, message string, data m
 	return result.OneError()
 }
 
-// ProviderAddresses returns all addresses of the machine
-// known to the cloud provider.
-func (m *Machine) ProviderAddresses() (network.ProviderAddresses, error) {
-	var results params.MachineAddressesResults
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: m.tag.String()},
-	}}
-	err := m.facade.FacadeCall("ProviderAddresses", args, &results)
-	if err != nil {
-		return nil, errors.Trace(err)
+// SetProviderNetworkConfig updates the provider addresses for this machine.
+func (m *Machine) SetProviderNetworkConfig(ifList []network.InterfaceInfo) (network.ProviderAddresses, bool, error) {
+	var results params.SetProviderNetworkConfigResults
+	args := params.SetProviderNetworkConfig{
+		Args: []params.ProviderNetworkConfig{{
+			Tag:     m.tag.String(),
+			Configs: params.NetworkConfigFromInterfaceInfo(ifList),
+		}},
 	}
+
+	err := m.facade.FacadeCall("SetProviderNetworkConfig", args, &results)
+	if err != nil {
+		return nil, false, err
+	}
+
 	if len(results.Results) != 1 {
 		err := errors.Errorf("expected 1 result, got %d", len(results.Results))
-		return nil, err
+		return nil, false, err
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, result.Error
+		return nil, false, result.Error
 	}
-	return params.ToProviderAddresses(result.Addresses...), nil
-}
 
-// SetProviderAddresses sets the cached provider
-// addresses for the machine.
-func (m *Machine) SetProviderAddresses(addrs ...network.ProviderAddress) error {
-	var result params.ErrorResults
-	args := params.SetMachinesAddresses{
-		MachineAddresses: []params.MachineAddresses{{
-			Tag:       m.tag.String(),
-			Addresses: params.FromProviderAddresses(addrs...),
-		}}}
-	err := m.facade.FacadeCall("SetProviderAddresses", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.OneError()
+	return params.ToProviderAddresses(result.Addresses...), result.Modified, nil
 }

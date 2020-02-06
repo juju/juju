@@ -8,12 +8,13 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/relation"
-	"github.com/juju/juju/permission"
 )
 
 var logger = loggo.GetLogger("juju.api.applicationoffers")
@@ -205,7 +206,7 @@ func (c *Client) ApplicationOffer(urlStr string) (*crossmodel.ApplicationOfferDe
 
 	found := params.ApplicationOffersResults{}
 
-	err = c.facade.FacadeCall("ApplicationOffers", params.OfferURLs{[]string{urlStr}}, &found)
+	err = c.facade.FacadeCall("ApplicationOffers", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -265,7 +266,7 @@ func (c *Client) GetConsumeDetails(urlStr string) (params.ConsumeOfferDetails, e
 
 	found := params.ConsumeOfferDetailsResults{}
 
-	err = c.facade.FacadeCall("GetConsumeDetails", params.OfferURLs{[]string{urlStr}}, &found)
+	err = c.facade.FacadeCall("GetConsumeDetails", params.OfferURLs{[]string{urlStr}, bakery.LatestVersion}, &found)
 	if err != nil {
 		return params.ConsumeOfferDetails{}, errors.Trace(err)
 	}

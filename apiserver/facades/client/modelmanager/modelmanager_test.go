@@ -24,12 +24,12 @@ import (
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
 	_ "github.com/juju/juju/provider/azure"
 	"github.com/juju/juju/provider/dummy"
 	_ "github.com/juju/juju/provider/ec2"
@@ -275,6 +275,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 		"IsController",
 		"AllMachines",
 		"ControllerNodes",
+		"HAPrimaryMachine",
 		"LatestMigration",
 	)
 
@@ -436,6 +437,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
+		"ComposeNewModelConfig",
 		"ControllerConfig",
 		"NewModel",
 		"Close",
@@ -444,6 +446,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 		"IsController",
 		"AllMachines",
 		"ControllerNodes",
+		"HAPrimaryMachine",
 		"LatestMigration",
 	)
 	s.caasBroker.CheckCallNames(c, "Create")
@@ -466,10 +469,15 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 	c.Assert(uuid, gc.Not(gc.Equals), s.caasSt.controllerModel.cfg.UUID())
 
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"name":          "foo",
-		"type":          "kubernetes",
-		"uuid":          uuid,
-		"agent-version": jujuversion.Current.String(),
+		"name":                              "foo",
+		"type":                              "kubernetes",
+		"uuid":                              uuid,
+		"agent-version":                     jujuversion.Current.String(),
+		"storage-default-block-source":      "kubernetes",
+		"storage-default-filesystem-source": "kubernetes",
+		"something":                         "value",
+		"operator-storage":                  "",
+		"workload-storage":                  "",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -1639,16 +1647,8 @@ func (s *modelManagerStateSuite) TestModelInfoForMigratedModel(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	phases := []migration.Phase{
-		migration.IMPORT,
-		migration.PROCESSRELATIONS,
-		migration.VALIDATION,
-		migration.SUCCESS,
-		migration.LOGTRANSFER,
-		migration.REAP,
-		migration.DONE,
-	}
-	for _, phase := range phases {
+
+	for _, phase := range migration.SuccessfulMigrationPhases() {
 		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
 	}
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)

@@ -12,6 +12,8 @@ import (
 	"gopkg.in/juju/worker.v1"
 
 	"github.com/juju/juju/api/remoterelations"
+	apiwatcher "github.com/juju/juju/api/watcher"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -124,7 +126,7 @@ func assertNoRemoteRelationsChange(c *gc.C, ss statetesting.SyncStarter, w watch
 	}
 }
 
-func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
+func (s *remoteRelationsSuite) TestWatchLocalRelationChanges(c *gc.C) {
 	_, err := s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "mysql",
 		SourceModel: testing.ModelTag,
@@ -140,17 +142,23 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	rel, err := s.State.AddRelation(eps[0], eps[1])
 	c.Assert(err, jc.ErrorIsNil)
+	remoteEntities := s.State.RemoteEntities()
+	relToken, err := remoteEntities.ExportLocalEntity(rel.Tag())
+	c.Assert(err, jc.ErrorIsNil)
+	appToken, err := remoteEntities.ExportLocalEntity(wordpress.Tag())
+	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
-	w, err := s.client.WatchLocalRelationUnits(rel.String())
+	w, err := s.client.WatchLocalRelationChanges(rel.String())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w, gc.NotNil)
 	defer func() {
 		c.Assert(worker.Stop(w), jc.ErrorIsNil)
 	}()
 
-	assertRelationUnitsChange(c, s.BackingState, w, watcher.RelationUnitsChange{
-		AppChanged: map[string]int64{"wordpress": 0},
+	assertRelationUnitsChange(c, s.BackingState, w, params.RemoteRelationChangeEvent{
+		RelationToken:    relToken,
+		ApplicationToken: appToken,
 	})
 	assertNoRelationUnitsChange(c, s.BackingState, w)
 
@@ -162,8 +170,15 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = ru.EnterScope(settings)
 	c.Assert(err, jc.ErrorIsNil)
-	expect := watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{"wordpress/0": {Version: 0}},
+	expect := params.RemoteRelationChangeEvent{
+		RelationToken:    relToken,
+		ApplicationToken: appToken,
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]interface{}{
+				"key": "value",
+			},
+		}},
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
@@ -177,8 +192,16 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	// Numeric settings values are unmarshalled as float64.
 	settings["quay"] = float64(123)
-	expect = watcher.RelationUnitsChange{
-		Changed: map[string]watcher.UnitSettings{"wordpress/0": {Version: 1}},
+	expect = params.RemoteRelationChangeEvent{
+		RelationToken:    relToken,
+		ApplicationToken: appToken,
+		ChangedUnits: []params.RemoteRelationUnitChange{{
+			UnitId: 0,
+			Settings: map[string]interface{}{
+				"key":  "value",
+				"quay": float64(123),
+			},
+		}},
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
@@ -186,15 +209,17 @@ func (s *remoteRelationsSuite) TestWatchLocalRelationUnits(c *gc.C) {
 	// Remove a unit of wordpress, expect a change.
 	err = ru.LeaveScope()
 	c.Assert(err, jc.ErrorIsNil)
-	expect = watcher.RelationUnitsChange{
-		Departed: []string{"wordpress/0"},
+	expect = params.RemoteRelationChangeEvent{
+		RelationToken:    relToken,
+		ApplicationToken: appToken,
+		DepartedUnits:    []int{0},
 	}
 	assertRelationUnitsChange(c, s.BackingState, w, expect)
 	assertNoRelationUnitsChange(c, s.BackingState, w)
 }
 
 func assertRelationUnitsChange(
-	c *gc.C, ss statetesting.SyncStarter, w watcher.RelationUnitsWatcher, expect watcher.RelationUnitsChange,
+	c *gc.C, ss statetesting.SyncStarter, w apiwatcher.RemoteRelationWatcher, expect params.RemoteRelationChangeEvent,
 ) {
 	ss.StartSync()
 	select {
@@ -206,7 +231,7 @@ func assertRelationUnitsChange(
 	}
 }
 
-func assertNoRelationUnitsChange(c *gc.C, ss statetesting.SyncStarter, w watcher.RelationUnitsWatcher) {
+func assertNoRelationUnitsChange(c *gc.C, ss statetesting.SyncStarter, w apiwatcher.RemoteRelationWatcher) {
 	ss.StartSync()
 	select {
 	case change, ok := <-w.Changes():

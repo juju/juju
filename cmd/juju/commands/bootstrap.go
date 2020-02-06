@@ -105,7 +105,7 @@ supplying a series argument to '--bootstrap-series'.
 An error is emitted if the determined series is not supported. Using the
 '--force' option to override this check:
 
-	juju bootstrap --bootstrap-series=eoan --force
+	juju bootstrap --bootstrap-series=focal --force
 
 Private clouds may need to specify their own custom image metadata and
 tools/agent. Use '--metadata-source' whose value is a local directory.
@@ -502,7 +502,7 @@ func (c *bootstrapCommand) initializeHostedModel(
 		ModelType: hostedModelType,
 	}
 
-	if featureflag.Enabled(feature.Branches) {
+	if featureflag.Enabled(feature.Branches) || featureflag.Enabled(feature.Generations) {
 		modelDetails.ActiveBranch = model.GenerationMaster
 	}
 
@@ -631,6 +631,7 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if c.controllerName == "" {
 		c.setControllerName(defaultControllerName(cloud.Name, region.Name))
 	}
@@ -644,6 +645,7 @@ to create a new model to deploy k8s workloads.
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	if !isCAASController {
 		if bootstrapCfg.bootstrap.ControllerServiceType != "" ||
 			bootstrapCfg.bootstrap.ControllerExternalName != "" ||
@@ -651,6 +653,10 @@ to create a new model to deploy k8s workloads.
 			return errors.Errorf("%q, %q and %q\nare only allowed for kubernetes controllers",
 				bootstrap.ControllerServiceType, bootstrap.ControllerExternalName, bootstrap.ControllerExternalIPs)
 		}
+	}
+
+	if bootstrapCfg.controller.ControllerName() != "" {
+		return errors.NewNotValid(nil, "controller name cannot be set via config, please use cmd args")
 	}
 
 	// Read existing current controller so we can clean up on error.
@@ -683,6 +689,7 @@ to create a new model to deploy k8s workloads.
 		}
 	}()
 
+	bootstrapCfg.controller[controller.ControllerName] = c.controllerName
 	bootstrapCtx := modelcmd.BootstrapContext(ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
 		ModelConfig:      bootstrapCfg.bootstrapModel,

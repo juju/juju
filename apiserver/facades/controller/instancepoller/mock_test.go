@@ -33,6 +33,8 @@ type mockState struct {
 
 	config   *config.Config
 	machines map[string]*mockMachine
+
+	spaceInfos network.SpaceInfos
 }
 
 func NewMockState() *mockState {
@@ -48,6 +50,12 @@ var _ instancepoller.StateInterface = (*mockState)(nil)
 // testing.Stub.CheckCall for FindEntity.
 func (m *mockState) CheckFindEntityCall(c *gc.C, index int, machineId string) {
 	m.CheckCall(c, index, "FindEntity", interface{}(names.NewMachineTag(machineId)))
+}
+
+// CheckMachineCall is a helper wrapper around
+// testing.Stub.CheckCall for Machine.
+func (m *mockState) CheckMachineCall(c *gc.C, index int, machineId string) {
+	m.CheckCall(c, index, "Machine", machineId)
 }
 
 // CheckSetProviderAddressesCall is a helper wrapper around
@@ -183,6 +191,18 @@ func (m *mockState) SetMachineInfo(c *gc.C, args machineInfo) {
 	}
 }
 
+// SetMachineLinkLayerDevices sets the link layer device list returned by
+// the AllLinkLayerDevices machine call for a particular machine instance.
+func (m *mockState) SetMachineLinkLayerDevices(c *gc.C, machineID string, devList []instancepoller.StateLinkLayerDevice) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	machine, found := m.machines[machineID]
+	c.Assert(found, gc.Equals, true, gc.Commentf("machine with ID %q has not yet been created", machineID))
+	machine.linklayerDevices = devList
+	m.machines[machineID] = machine
+}
+
 // RemoveMachine removes an existing mockMachine with the given id.
 // Triggers the machines watchers on success. If the id is not found
 // no error occurs and no change is reported by the watchers.
@@ -224,7 +244,14 @@ func (m *mockState) Machine(id string) (instancepoller.StateMachine, error) {
 // This method never throws an error.
 func (m *mockState) AllSpaceInfos() (network.SpaceInfos, error) {
 	m.MethodCall(m, "AllSpaceInfos")
-	return network.SpaceInfos{}, nil
+	return m.spaceInfos, nil
+}
+
+// SetSpaceInfo updates the mocked space infos returned by AllSpaceInfos()
+func (m *mockState) SetSpaceInfo(infos network.SpaceInfos) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.spaceInfos = infos
 }
 
 // StartSync implements statetesting.SyncStarter, so mockState can be
@@ -237,6 +264,7 @@ type machineInfo struct {
 	status            status.StatusInfo
 	instanceStatus    status.StatusInfo
 	providerAddresses []network.SpaceAddress
+	linklayerDevices  []instancepoller.StateLinkLayerDevice
 	life              state.Life
 	isManual          bool
 }
@@ -251,6 +279,15 @@ type mockMachine struct {
 }
 
 var _ instancepoller.StateMachine = (*mockMachine)(nil)
+
+// Id implements StateMachine.
+func (m *mockMachine) Id() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.MethodCall(m, "Id")
+	return m.id
+}
 
 // InstanceId implements StateMachine.
 func (m *mockMachine) InstanceId() (instance.Id, error) {
@@ -288,6 +325,48 @@ func (m *mockMachine) SetProviderAddresses(addrs ...network.SpaceAddress) error 
 		return err
 	}
 	m.providerAddresses = addrs
+	return nil
+}
+
+// AllLinkLayerDevices implements StateMachine.
+func (m *mockMachine) AllLinkLayerDevices() ([]instancepoller.StateLinkLayerDevice, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.MethodCall(m, "AllLinkLayerDevices")
+	if err := m.NextErr(); err != nil {
+		return nil, err
+	}
+	return m.linklayerDevices, nil
+}
+
+func (m *mockMachine) SetParentLinkLayerDevicesBeforeTheirChildren(devArgs []state.LinkLayerDeviceArgs) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	args := make([]interface{}, len(devArgs))
+	for i, devArg := range devArgs {
+		args[i] = devArg
+	}
+	m.MethodCall(m, "SetParentLinkLayerDevicesBeforeTheirChildren", args...)
+	if err := m.NextErr(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *mockMachine) SetDevicesAddressesIdempotently(addrs []state.LinkLayerDeviceAddress) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	args := make([]interface{}, len(addrs))
+	for i, addr := range addrs {
+		args[i] = addr
+	}
+	m.MethodCall(m, "SetDevicesAddressesIdempotently", args...)
+	if err := m.NextErr(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -342,6 +421,49 @@ func (m *mockMachine) Status() (status.StatusInfo, error) {
 
 	m.MethodCall(m, "Status")
 	return m.status, m.NextErr()
+}
+
+type mockLinkLayerDeviceAddress struct {
+	configMethod     state.AddressConfigMethod
+	subnetCIDR       string
+	dnsServers       []string
+	dnsSearchDomains []string
+	gatewayAddress   string
+	isDefaultGateway bool
+	value            string
+}
+
+func (m mockLinkLayerDeviceAddress) ConfigMethod() state.AddressConfigMethod { return m.configMethod }
+func (m mockLinkLayerDeviceAddress) SubnetCIDR() string                      { return m.subnetCIDR }
+func (m mockLinkLayerDeviceAddress) DNSServers() []string                    { return m.dnsServers }
+func (m mockLinkLayerDeviceAddress) DNSSearchDomains() []string              { return m.dnsSearchDomains }
+func (m mockLinkLayerDeviceAddress) GatewayAddress() string                  { return m.gatewayAddress }
+func (m mockLinkLayerDeviceAddress) IsDefaultGateway() bool                  { return m.isDefaultGateway }
+func (m mockLinkLayerDeviceAddress) Value() string                           { return m.value }
+
+type mockLinkLayerDevice struct {
+	name             string
+	mtu              uint
+	devType          network.LinkLayerDeviceType
+	isLoopbackDevice bool
+	macAddress       string
+	isAutoStart      bool
+	isUp             bool
+	parentName       string
+
+	addresses []instancepoller.StateLinkLayerDeviceAddress
+}
+
+func (m mockLinkLayerDevice) Name() string                      { return m.name }
+func (m mockLinkLayerDevice) MTU() uint                         { return m.mtu }
+func (m mockLinkLayerDevice) Type() network.LinkLayerDeviceType { return m.devType }
+func (m mockLinkLayerDevice) IsLoopbackDevice() bool            { return m.isLoopbackDevice }
+func (m mockLinkLayerDevice) MACAddress() string                { return m.macAddress }
+func (m mockLinkLayerDevice) IsAutoStart() bool                 { return m.isAutoStart }
+func (m mockLinkLayerDevice) IsUp() bool                        { return m.isUp }
+func (m mockLinkLayerDevice) ParentName() string                { return m.parentName }
+func (m mockLinkLayerDevice) Addresses() ([]instancepoller.StateLinkLayerDeviceAddress, error) {
+	return m.addresses, nil
 }
 
 type mockBaseWatcher struct {

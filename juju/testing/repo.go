@@ -19,12 +19,10 @@ import (
 
 type RepoSuite struct {
 	JujuConnSuite
-	CharmsPath string
 }
 
 func (s *RepoSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.CharmsPath = c.MkDir()
 	// Change the environ's config to ensure we're using the one in state.
 	updateAttrs := map[string]interface{}{"default-series": series.DefaultSupportedLTS()}
 	err := s.Model.UpdateModelConfig(updateAttrs, nil)

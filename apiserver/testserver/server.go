@@ -24,6 +24,7 @@ import (
 	apitesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/state"
@@ -31,21 +32,24 @@ import (
 )
 
 // DefaultServerConfig returns the default configuration for starting a test server.
-func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
+func DefaultServerConfig(c *gc.C, testclock clock.Clock) apiserver.ServerConfig {
+	if testclock == nil {
+		testclock = clock.WallClock
+	}
 	fakeOrigin := names.NewMachineTag("0")
 	hub := centralhub.New(fakeOrigin)
 	return apiserver.ServerConfig{
-		Clock:           clock.WallClock,
-		Tag:             names.NewMachineTag("0"),
-		LogDir:          c.MkDir(),
-		Hub:             hub,
-		Controller:      &cache.Controller{}, // Not useful for anything except providing a default.
-		Presence:        presence.New(clock.WallClock),
-		LeaseManager:    apitesting.StubLeaseManager{},
-		NewObserver:     func() observer.Observer { return &fakeobserver.Instance{} },
-		RateLimitConfig: apiserver.DefaultRateLimitConfig(),
-		GetAuditConfig:  func() auditlog.Config { return auditlog.Config{Enabled: false} },
-		UpgradeComplete: func() bool { return true },
+		Clock:               testclock,
+		Tag:                 names.NewMachineTag("0"),
+		LogDir:              c.MkDir(),
+		Hub:                 hub,
+		Controller:          &cache.Controller{}, // Not useful for anything except providing a default.
+		MultiwatcherFactory: &fakeMultiwatcherFactory{},
+		Presence:            presence.New(testclock),
+		LeaseManager:        apitesting.StubLeaseManager{},
+		NewObserver:         func() observer.Observer { return &fakeobserver.Instance{} },
+		GetAuditConfig:      func() auditlog.Config { return auditlog.Config{Enabled: false} },
+		UpgradeComplete:     func() bool { return true },
 		RestoreStatus: func() state.RestoreStatus {
 			return state.RestoreNotActive
 		},
@@ -61,7 +65,7 @@ func DefaultServerConfig(c *gc.C) apiserver.ServerConfig {
 // without any authentication information or model tag, and the server
 // that's been started.
 func NewServer(c *gc.C, statePool *state.StatePool, controller *cache.Controller) *Server {
-	config := DefaultServerConfig(c)
+	config := DefaultServerConfig(c, nil)
 	config.Controller = controller
 	return NewServerWithConfig(c, statePool, config)
 }
@@ -127,4 +131,8 @@ type Server struct {
 func (s *Server) Stop() error {
 	s.HTTPServer.Close()
 	return s.APIServer.Stop()
+}
+
+type fakeMultiwatcherFactory struct {
+	multiwatcher.Factory
 }

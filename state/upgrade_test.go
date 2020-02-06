@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type UpgradeSuite struct {
@@ -69,36 +70,52 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.provision(c, s.serverIdA)
 }
 
-func (s *UpgradeSuite) TestEnsureUpgradeInfo(c *gc.C) {
+func (s *UpgradeSuite) assertEnsureUpgradeInfo(c *gc.C, st *state.State, controllerId string) {
 	vPrevious := vers("1.2.3")
 	vTarget := vers("2.3.4")
 	vMismatch := vers("1.9.1")
 
 	// create
-	info, err := s.State.EnsureUpgradeInfo(s.serverIdA, vPrevious, vTarget)
+	info, err := st.EnsureUpgradeInfo(controllerId, vPrevious, vTarget)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.PreviousVersion(), gc.DeepEquals, vPrevious)
 	c.Assert(info.TargetVersion(), gc.DeepEquals, vTarget)
 	c.Assert(info.Status(), gc.Equals, state.UpgradePending)
 	c.Assert(info.Started().IsZero(), jc.IsFalse)
-	c.Assert(info.ControllersReady(), gc.DeepEquals, []string{s.serverIdA})
+	c.Assert(info.ControllersReady(), gc.DeepEquals, []string{controllerId})
 	c.Assert(info.ControllersDone(), gc.HasLen, 0)
 
 	// retrieve existing
-	info, err = s.State.EnsureUpgradeInfo(s.serverIdA, vPrevious, vTarget)
+	info, err = st.EnsureUpgradeInfo(controllerId, vPrevious, vTarget)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(info.PreviousVersion(), gc.DeepEquals, vPrevious)
 	c.Assert(info.TargetVersion(), gc.DeepEquals, vTarget)
 
 	// mismatching previous
-	info, err = s.State.EnsureUpgradeInfo(s.serverIdA, vMismatch, vTarget)
+	info, err = st.EnsureUpgradeInfo(controllerId, vMismatch, vTarget)
 	c.Assert(err, gc.ErrorMatches, "current upgrade info mismatch: expected previous version 1.9.1, got 1.2.3")
 	c.Assert(info, gc.IsNil)
 
 	// mismatching target
-	info, err = s.State.EnsureUpgradeInfo(s.serverIdA, vPrevious, vMismatch)
+	info, err = st.EnsureUpgradeInfo(controllerId, vPrevious, vMismatch)
 	c.Assert(err, gc.ErrorMatches, "current upgrade info mismatch: expected target version 1.9.1, got 2.3.4")
 	c.Assert(info, gc.IsNil)
+}
+
+func (s *UpgradeSuite) TestEnsureUpgradeInfo(c *gc.C) {
+	s.assertEnsureUpgradeInfo(c, s.State, s.serverIdA)
+}
+
+func (s *UpgradeSuite) TestCAASEnsureUpgradeInfo(c *gc.C) {
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name: "caas-model",
+		Type: state.ModelTypeCAAS,
+	})
+	defer st.Close()
+	node, err := st.AddControllerNode()
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertEnsureUpgradeInfo(c, st, node.Id())
 }
 
 func (s *UpgradeSuite) TestControllersReadyCopies(c *gc.C) {

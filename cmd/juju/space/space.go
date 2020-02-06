@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/api/spaces"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 )
 
 // SpaceAPI defines the necessary API methods needed by the space
@@ -50,6 +51,9 @@ type SpaceAPI interface {
 
 	// ReloadSpaces fetches spaces and subnets from substrate
 	ReloadSpaces() error
+
+	// ShowSpace fetches space information.
+	ShowSpace(name string) (network.ShowSpace, error)
 }
 
 var logger = loggo.GetLogger("juju.cmd.juju.space")
@@ -120,29 +124,37 @@ func CheckCIDRs(args []string, cidrsOptional bool) (set.Strings, error) {
 	return CIDRs, nil
 }
 
-// mvpAPIShim forwards SpaceAPI methods to the real API facade for
-// implemented methods only. Tested with a feature test only.
-type mvpAPIShim struct {
+// APIShim forwards SpaceAPI methods to the real API facade for
+// implemented methods only.
+type APIShim struct {
 	SpaceAPI
 
 	apiState api.Connection
 	facade   *spaces.API
 }
 
-func (m *mvpAPIShim) Close() error {
+func (m *APIShim) Close() error {
 	return m.apiState.Close()
 }
 
-func (m *mvpAPIShim) AddSpace(name string, subnetIds []string, public bool) error {
+func (m *APIShim) AddSpace(name string, subnetIds []string, public bool) error {
 	return m.facade.CreateSpace(name, subnetIds, public)
 }
 
-func (m *mvpAPIShim) ListSpaces() ([]params.Space, error) {
+func (m *APIShim) ListSpaces() ([]params.Space, error) {
 	return m.facade.ListSpaces()
 }
 
-func (m *mvpAPIShim) ReloadSpaces() error {
+func (m *APIShim) ReloadSpaces() error {
 	return m.facade.ReloadSpaces()
+}
+
+func (m *APIShim) RenameSpace(oldName, newName string) error {
+	return m.facade.RenameSpace(oldName, newName)
+}
+
+func (m *APIShim) ShowSpace(name string) (network.ShowSpace, error) {
+	return m.facade.ShowSpace(name)
 }
 
 // NewAPI returns a SpaceAPI for the root api endpoint that the
@@ -158,7 +170,7 @@ func (c *SpaceCommandBase) NewAPI() (SpaceAPI, error) {
 	}
 
 	// This is tested with a feature test.
-	shim := &mvpAPIShim{
+	shim := &APIShim{
 		apiState: root,
 		facade:   spaces.NewAPI(root),
 	}

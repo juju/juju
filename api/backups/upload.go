@@ -20,17 +20,17 @@ func (c *Client) Upload(archive io.ReadSeeker, meta params.BackupsMetadataResult
 	meta.ID = ""
 	meta.Stored = time.Time{}
 
-	req, err := http.NewRequest("PUT", "/backups", nil)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
 	body, contentType, err := httpattachment.NewBody(archive, meta, "juju-backup.tar.gz")
 	if err != nil {
 		return "", errors.Annotatef(err, "cannot create multipart body")
 	}
+	req, err := http.NewRequest("PUT", "/backups", body)
+	if err != nil {
+		return "", errors.Trace(err)
+	}
 	req.Header.Set("Content-Type", contentType)
 	var result params.BackupsUploadResult
-	if err := c.client.Do(req, body, &result); err != nil {
+	if err := c.client.Do(c.facade.RawAPICaller().Context(), req, &result); err != nil {
 		return "", errors.Trace(err)
 	}
 	return result.ID, nil

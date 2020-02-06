@@ -7,6 +7,7 @@ package bundle
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -26,7 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/devices"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/storage"
 )
@@ -380,27 +381,42 @@ func (b *BundleAPI) ExportBundle() (params.StringResult, error) {
 		return fail(err)
 	}
 
+	// First create a bundle output from the bundle data.
 	var buf bytes.Buffer
 	enc := yaml.NewEncoder(&buf)
+	if err != nil {
+		return fail(err)
+	}
 	if err = enc.Encode(bundleOutputFromBundleData(base)); err != nil {
 		return fail(err)
-	} else if err = enc.Encode(overlay); err != nil {
+	}
+
+	// Secondly create an output from the overlay. We do it this way, so we can
+	// insert the correct comments for users.
+	output := buf.String()
+	buf.Reset()
+	if err = enc.Encode(overlay); err != nil {
 		return fail(err)
 	} else if err = enc.Close(); err != nil {
 		return fail(err)
 	}
+	overlayOutput := buf.String()
 
-	// If the overlay part is empty, strip it off; otherwise, inject a
+	// If the overlay part is empty, ignore it; otherwise, inject a
 	// comment to let users know that the second document can be extracted
 	// out and used as a standalone overlay.
-	yamlOut := buf.String()
-	if strings.HasSuffix(yamlOut, "--- {}\n") {
-		yamlOut = yamlOut[:strings.Index(yamlOut, "---")]
-	} else {
-		yamlOut = strings.Replace(yamlOut, "---", "--- # overlay.yaml", 1)
+	if !strings.HasPrefix(overlayOutput, "--- {}\n") {
+		// strip off the first three dashes and merge the base bundle and the
+		// overlay.
+		if strings.HasPrefix(overlayOutput, "---") {
+			overlayOutput = strings.Replace(overlayOutput, "---", "--- # overlay.yaml", 1)
+			output += overlayOutput
+		} else {
+			return fail(errors.Errorf("expected yaml encoder to delineate multiple documents with \"---\" separator"))
+		}
 	}
 
-	return params.StringResult{Result: yamlOut}, nil
+	return params.StringResult{Result: output}, nil
 }
 
 // bundleOutput has the same top level keys as the charm.BundleData
@@ -533,8 +549,14 @@ func (b *BundleAPI) fillBundleData(model description.Model) (*charm.BundleData, 
 		if offerList := application.Offers(); offerList != nil {
 			newApplication.Offers = make(map[string]*charm.OfferSpec)
 			for _, offer := range offerList {
+				endpoints := offer.Endpoints()
+				exposedEndpointNames := make([]string, 0, len(endpoints))
+				for _, ep := range endpoints {
+					exposedEndpointNames = append(exposedEndpointNames, ep)
+				}
+				sort.Strings(exposedEndpointNames)
 				newApplication.Offers[offer.OfferName()] = &charm.OfferSpec{
-					Endpoints: offer.Endpoints(),
+					Endpoints: exposedEndpointNames,
 					ACL:       b.filterOfferACL(offer.ACL()),
 				}
 			}
@@ -652,36 +674,42 @@ func (b *BundleAPI) constraints(cons description.Constraints) []string {
 		return []string{}
 	}
 
-	var constraints []string
+	var result []string
 	if arch := cons.Architecture(); arch != "" {
-		constraints = append(constraints, "arch="+arch)
+		result = append(result, "arch="+arch)
 	}
 	if cores := cons.CpuCores(); cores != 0 {
-		constraints = append(constraints, "cpu-cores="+strconv.Itoa(int(cores)))
+		result = append(result, "cpu-cores="+strconv.Itoa(int(cores)))
 	}
 	if power := cons.CpuPower(); power != 0 {
-		constraints = append(constraints, "cpu-power="+strconv.Itoa(int(power)))
+		result = append(result, "cpu-power="+strconv.Itoa(int(power)))
 	}
 	if mem := cons.Memory(); mem != 0 {
-		constraints = append(constraints, "mem="+strconv.Itoa(int(mem)))
+		result = append(result, "mem="+strconv.Itoa(int(mem)))
 	}
 	if disk := cons.RootDisk(); disk != 0 {
-		constraints = append(constraints, "root-disk="+strconv.Itoa(int(disk)))
+		result = append(result, "root-disk="+strconv.Itoa(int(disk)))
 	}
 	if instType := cons.InstanceType(); instType != "" {
-		constraints = append(constraints, "instance-type="+instType)
+		result = append(result, "instance-type="+instType)
 	}
 	if container := cons.Container(); container != "" {
-		constraints = append(constraints, "container="+container)
+		result = append(result, "container="+container)
 	}
 	if virtType := cons.VirtType(); virtType != "" {
-		constraints = append(constraints, "virt-type="+virtType)
+		result = append(result, "virt-type="+virtType)
 	}
 	if tags := cons.Tags(); len(tags) != 0 {
-		constraints = append(constraints, "tags="+strings.Join(tags, ","))
+		result = append(result, "tags="+strings.Join(tags, ","))
 	}
 	if spaces := cons.Spaces(); len(spaces) != 0 {
-		constraints = append(constraints, "spaces="+strings.Join(spaces, ","))
+		result = append(result, "spaces="+strings.Join(spaces, ","))
 	}
-	return constraints
+	if zones := cons.Zones(); len(zones) != 0 {
+		result = append(result, "zones="+strings.Join(zones, ","))
+	}
+	if rootDiskSource := cons.RootDiskSource(); rootDiskSource != "" {
+		result = append(result, "root-disk-source="+rootDiskSource)
+	}
+	return result
 }

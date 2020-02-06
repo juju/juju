@@ -36,6 +36,7 @@ func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *
 		charms:       make(map[string]*Charm),
 		machines:     make(map[string]*Machine),
 		units:        make(map[string]*Unit),
+		relations:    make(map[string]*Relation),
 		branches:     make(map[string]*Branch),
 	}
 	return m
@@ -59,6 +60,7 @@ type Model struct {
 	charms       map[string]*Charm
 	machines     map[string]*Machine
 	units        map[string]*Unit
+	relations    map[string]*Relation
 	branches     map[string]*Branch
 }
 
@@ -105,6 +107,7 @@ func (m *Model) Report() map[string]interface{} {
 		"charm-count":       len(m.charms),
 		"machine-count":     len(m.machines),
 		"unit-count":        len(m.units),
+		"relation-count":    len(m.relations),
 		"branch-count":      len(m.branches),
 	}
 }
@@ -117,7 +120,7 @@ func (m *Model) Branches() []Branch {
 	i := 0
 	for _, b := range m.branches {
 		branches[i] = b.copy()
-		i += 1
+		i++
 	}
 
 	m.mu.Unlock()
@@ -337,6 +340,59 @@ func (m *Model) removeUnit(ch RemoveUnit) error {
 			return errors.Trace(err)
 		}
 		delete(m.units, ch.Name)
+	}
+	return nil
+}
+
+// Relation returns the relation with the specified key.
+// If the relation is not found, a NotFoundError is returned.
+func (m *Model) Relation(key string) (Relation, error) {
+	defer m.doLocked()()
+
+	relation, found := m.relations[key]
+	if !found {
+		return Relation{}, errors.NotFoundf("relation %q", key)
+	}
+	return relation.copy(), nil
+}
+
+// Relations returns all relations in the model.
+func (m *Model) Relations() map[string]Relation {
+	m.mu.Lock()
+
+	relations := make(map[string]Relation, len(m.relations))
+	for key, r := range m.relations {
+		relations[key] = r.copy()
+	}
+
+	m.mu.Unlock()
+	return relations
+}
+
+// updateRelation adds or updates the relation in the model.
+func (m *Model) updateRelation(ch RelationChange, rm *residentManager) {
+	m.mu.Lock()
+
+	relation, found := m.relations[ch.Key]
+	if !found {
+		relation = newRelation(m, rm.new())
+		m.relations[ch.Key] = relation
+	}
+	relation.setDetails(ch)
+
+	m.mu.Unlock()
+}
+
+// removeRelation removes the relation from the model.
+func (m *Model) removeRelation(ch RemoveRelation) error {
+	defer m.doLocked()()
+
+	relation, ok := m.relations[ch.Key]
+	if ok {
+		if err := relation.evict(); err != nil {
+			return errors.Trace(err)
+		}
+		delete(m.relations, ch.Key)
 	}
 	return nil
 }

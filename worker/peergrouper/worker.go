@@ -17,6 +17,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/replicaset"
 	"github.com/kr/pretty"
+	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
@@ -61,7 +62,7 @@ type ControllerHost interface {
 }
 
 type Space interface {
-	NetworkSpace() network.SpaceInfo
+	NetworkSpace() (network.SpaceInfo, error)
 }
 
 type MongoSession interface {
@@ -134,6 +135,8 @@ type pgWorker struct {
 	// It is used to detect changes since the last publish.
 	serverDetails apiserver.Details
 
+	metrics *Collector
+
 	idleFunc func()
 }
 
@@ -154,6 +157,8 @@ type Config struct {
 	// and is used to publish the details of the
 	// API servers.
 	Hub Hub
+
+	PrometheusRegisterer prometheus.Registerer
 
 	// UpdateNotify is called when the update channel is signalled.
 	// Used solely for test synchronization.
@@ -176,6 +181,9 @@ func (config Config) Validate() error {
 	}
 	if config.Hub == nil {
 		return errors.NotValidf("nil Hub")
+	}
+	if config.PrometheusRegisterer == nil {
+		return errors.NotValidf("nil PrometheusRegisterer")
 	}
 	if config.MongoPort <= 0 {
 		return errors.NotValidf("non-positive MongoPort")
@@ -200,6 +208,7 @@ func New(config Config) (worker.Worker, error) {
 		controllerTrackers: make(map[string]*controllerTracker),
 		detailsRequests:    make(chan string),
 		idleFunc:           IdleFunc,
+		metrics:            NewMetricsCollector(),
 	}
 	err := catacomb.Invoke(catacomb.Plan{
 		Site: &w.catacomb,
@@ -221,7 +230,15 @@ func (w *pgWorker) Wait() error {
 	return w.catacomb.Wait()
 }
 
+// Report is shown in the engine report.
+func (w *pgWorker) Report() map[string]interface{} {
+	return w.metrics.report()
+}
+
 func (w *pgWorker) loop() error {
+	_ = w.config.PrometheusRegisterer.Register(w.metrics)
+	defer w.config.PrometheusRegisterer.Unregister(w.metrics)
+
 	controllerChanges, err := w.watchForControllerChanges()
 	if err != nil {
 		return errors.Trace(err)
@@ -580,6 +597,8 @@ func (w *pgWorker) updateReplicaSet() (map[string]*replicaset.Member, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "creating peer group info")
 	}
+	// Update the metrics collector with the replicaset statuses.
+	w.metrics.update(info.statuses)
 	desired, err := desiredPeerGroup(info)
 	// membersChanged, members, voting, err
 	if err != nil {
@@ -757,7 +776,7 @@ func (w *pgWorker) getHASpaceFromConfig() (network.SpaceInfo, error) {
 	if err != nil {
 		return network.SpaceInfo{}, errors.Trace(err)
 	}
-	return space.NetworkSpace(), nil
+	return space.NetworkSpace()
 }
 
 // setHasVote sets the HasVote status of all the given nodes to hasVote.

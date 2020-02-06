@@ -122,12 +122,6 @@ func NewProvisionerTask(
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Get existing machine distributions.
-	err = task.populateAvailabilityZoneMachines()
-	// Not all providers implement ZonedEnviron
-	if err != nil && !errors.IsNotImplemented(err) {
-		return nil, errors.Trace(err)
-	}
 	return task, nil
 }
 
@@ -168,6 +162,13 @@ func (task *provisionerTask) Wait() error {
 
 func (task *provisionerTask) loop() error {
 
+	// Get existing machine distributions.
+	err := task.populateAvailabilityZoneMachines()
+	// Not all providers implement ZonedEnviron
+	if err != nil && !errors.IsNotImplemented(err) {
+		return errors.Trace(err)
+	}
+
 	// Don't allow the harvesting mode to change until we have read at
 	// least one set of changes, which will populate the task.machines
 	// map. Otherwise we will potentially see all legitimate instances
@@ -189,8 +190,8 @@ func (task *provisionerTask) loop() error {
 			if err := task.processMachines(ids); err != nil {
 				return errors.Annotate(err, "failed to process updated machines")
 			}
-			// We've seen a set of changes. Enable modification of
-			// harvesting mode.
+			// We've seen a set of changes.
+			// Enable modification of harvesting mode.
 			harvestModeChan = task.harvestModeChan
 		case harvestMode := <-harvestModeChan:
 			if harvestMode == task.harvestMode {
@@ -258,73 +259,26 @@ func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Populate the tasks maps of current instances and machines.
 	if err := task.populateMachineMaps(ids); err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	// Find machines without an instance id or that are dead
+	// Find machines without an instance ID or that are dead.
 	pending, dead, maintain, err := task.pendingOrDeadOrMaintain(ids)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	// Stop all machines that are dead
-	stopping := task.instancesForDeadMachines(dead)
-
-	// Find running instances that have no machines associated
-	unknown, err := task.findUnknownInstances(stopping)
-	if err != nil {
-		return err
-	}
-	if !task.harvestMode.HarvestUnknown() {
-		task.logger.Infof(
-			"%s is set to %s; unknown instances not stopped %v",
-			config.ProvisionerHarvestModeKey,
-			task.harvestMode.String(),
-			instanceIds(unknown),
-		)
-		unknown = nil
-	}
-	if task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed() {
-		task.logger.Infof(
-			`%s is set to "%s"; will not harvest %s`,
-			config.ProvisionerHarvestModeKey,
-			task.harvestMode.String(),
-			instanceIds(stopping),
-		)
-		stopping = nil
+	if err := task.removeMachines(dead); err != nil {
+		return errors.Trace(err)
 	}
 
-	if len(stopping) > 0 {
-		task.logger.Infof("stopping known instances %v", stopping)
-	}
-	if len(unknown) > 0 {
-		task.logger.Infof("stopping unknown instances %v", instanceIds(unknown))
-	}
-	// It's important that we stop unknown instances before starting
-	// pending ones, because if we start an instance and then fail to
-	// set its InstanceId on the machine we don't want to start a new
-	// instance for the same machine ID.
-	if err := task.stopInstances(append(stopping, unknown...)); err != nil {
-		return err
+	// Any machines that require maintenance get pinged.
+	if err := task.maintainMachines(maintain); err != nil {
+		return errors.Trace(err)
 	}
 
-	// Remove any dead machines from state.
-	for _, machine := range dead {
-		task.logger.Infof("removing dead machine %q", machine.Id())
-		if err := machine.MarkForRemoval(); err != nil {
-			task.logger.Errorf("failed to remove dead machine %q", machine.Id())
-		}
-		task.removeMachineFromAZMap(machine)
-		task.machinesMutex.Lock()
-		delete(task.machines, machine.Id())
-		task.machinesMutex.Unlock()
-	}
-
-	// Any machines that require maintenance get pinged
-	task.maintainMachines(maintain)
-
-	// Start an instance for the pending ones
-	return task.startMachines(pending)
+	// Start an instance for the pending ones.
+	return errors.Trace(task.startMachines(pending))
 }
 
 func instanceIds(instances []instances.Instance) []string {
@@ -340,11 +294,11 @@ func instanceIds(instances []instances.Instance) []string {
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[instance.Id]instances.Instance)
 
-	instances, err := task.broker.AllRunningInstances(task.cloudCallCtx)
+	allInstances, err := task.broker.AllRunningInstances(task.cloudCallCtx)
 	if err != nil {
 		return errors.Annotate(err, "failed to get all instances from broker")
 	}
-	for _, i := range instances {
+	for _, i := range allInstances {
 		task.instances[i.Id()] = i
 	}
 
@@ -376,7 +330,9 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 // pendingOrDead looks up machines with ids and returns those that do not
 // have an instance id assigned yet, and also those that are dead.
-func (task *provisionerTask) pendingOrDeadOrMaintain(ids []string) (pending, dead, maintain []apiprovisioner.MachineProvisioner, err error) {
+func (task *provisionerTask) pendingOrDeadOrMaintain(
+	ids []string,
+) (pending, dead, maintain []apiprovisioner.MachineProvisioner, err error) {
 	task.machinesMutex.RLock()
 	defer task.machinesMutex.RUnlock()
 	for _, id := range ids {
@@ -505,12 +461,72 @@ func (task *provisionerTask) findUnknownInstances(stopping []instances.Instance)
 	return unknown, nil
 }
 
-// instancesForDeadMachines returns a list of instances.Instance that represent
-// the list of dead machines running in the provider. Missing machines are
-// omitted from the list.
-func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisioner.MachineProvisioner) []instances.Instance {
-	var instances []instances.Instance
-	for _, machine := range deadMachines {
+func (task *provisionerTask) removeMachines(dead []apiprovisioner.MachineProvisioner) error {
+	// Stop all machines that are dead.
+	stopping := task.instancesForDeadMachines(dead)
+
+	// Find running instances that have no machines associated.
+	unknown, err := task.findUnknownInstances(stopping)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	if !task.harvestMode.HarvestUnknown() {
+		task.logger.Infof(
+			"%s is set to %s; unknown instances not stopped %v",
+			config.ProvisionerHarvestModeKey,
+			task.harvestMode.String(),
+			instanceIds(unknown),
+		)
+		unknown = nil
+	}
+
+	if task.harvestMode.HarvestNone() || !task.harvestMode.HarvestDestroyed() {
+		task.logger.Infof(
+			`%s is set to "%s"; will not harvest %s`,
+			config.ProvisionerHarvestModeKey,
+			task.harvestMode.String(),
+			instanceIds(stopping),
+		)
+		stopping = nil
+	}
+
+	if len(stopping) > 0 {
+		task.logger.Infof("stopping known instances %v", stopping)
+	}
+	if len(unknown) > 0 {
+		task.logger.Infof("stopping unknown instances %v", instanceIds(unknown))
+	}
+
+	// It is important that we stop unknown instances before starting
+	// pending ones, because if we start an instance and then fail to
+	// set its InstanceId on the machine.
+	// We don't want to start a new instance for the same machine ID.
+	if err := task.stopInstances(append(stopping, unknown...)); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Remove any dead machines from state.
+	for _, machine := range dead {
+		task.logger.Infof("removing dead machine %q", machine.Id())
+		if err := machine.MarkForRemoval(); err != nil {
+			task.logger.Errorf("failed to remove dead machine %q", machine.Id())
+		}
+		task.removeMachineFromAZMap(machine)
+		task.machinesMutex.Lock()
+		delete(task.machines, machine.Id())
+		task.machinesMutex.Unlock()
+	}
+
+	return nil
+}
+
+// instancesForDeadMachines returns a list of instances that
+// correspond to machines with a life of "dead" in state.
+// Missing machines are omitted from the list.
+func (task *provisionerTask) instancesForDeadMachines(dead []apiprovisioner.MachineProvisioner) []instances.Instance {
+	var deadInstances []instances.Instance
+	for _, machine := range dead {
 		instId, err := machine.InstanceId()
 		if err == nil {
 			keep, _ := machine.KeepInstance()
@@ -518,14 +534,15 @@ func (task *provisionerTask) instancesForDeadMachines(deadMachines []apiprovisio
 				task.logger.Debugf("machine %v is dead but keep-instance is true", instId)
 				continue
 			}
+
 			inst, found := task.instances[instId]
 			// If the instance is not found we can't stop it.
 			if found {
-				instances = append(instances, inst)
+				deadInstances = append(deadInstances, inst)
 			}
 		}
 	}
-	return instances
+	return deadInstances
 }
 
 func (task *provisionerTask) stopInstances(instances []instances.Instance) error {
@@ -588,7 +605,7 @@ func (task *provisionerTask) constructInstanceConfig(
 	if model.AnyJobNeedsState(instanceConfig.Jobs...) {
 		publicKey, err := simplestreams.UserPublicSigningKey()
 		if err != nil {
-			return nil, err
+			return nil, errors.Trace(err)
 		}
 		instanceConfig.Controller = &instancecfg.ControllerConfig{
 			PublicImageSigningKey: publicKey,
@@ -773,7 +790,7 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	availabilityZoneInstances, err := providercommon.AvailabilityZoneAllocations(
 		zonedEnv, task.cloudCallCtx, []instance.Id{})
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	instanceMachines := make(map[instance.Id]string)
@@ -788,15 +805,15 @@ func (task *provisionerTask) populateAvailabilityZoneMachines() error {
 	// convert instances IDs to machines IDs to aid distributing
 	// not yet created instances across availability zones.
 	task.availabilityZoneMachines = make([]*AvailabilityZoneMachine, len(availabilityZoneInstances))
-	for i, instances := range availabilityZoneInstances {
+	for i, azInstances := range availabilityZoneInstances {
 		machineIds := set.NewStrings()
-		for _, instanceId := range instances.Instances {
+		for _, instanceId := range azInstances.Instances {
 			if id, ok := instanceMachines[instanceId]; ok {
 				machineIds.Add(id)
 			}
 		}
 		task.availabilityZoneMachines[i] = &AvailabilityZoneMachine{
-			ZoneName:           instances.ZoneName,
+			ZoneName:           azInstances.ZoneName,
 			MachineIds:         machineIds,
 			FailedMachineIds:   set.NewStrings(),
 			ExcludedMachineIds: set.NewStrings(),
@@ -940,17 +957,18 @@ func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProv
 	}
 	machineDistributionGroups, err := task.distributionGroupFinder.DistributionGroupByMachineId(machineTags...)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	var wg sync.WaitGroup
 	errMachines := make([]error, len(machines))
 	for i, m := range machines {
 		if machineDistributionGroups[i].Err != nil {
-			task.setErrorStatus(
-				"fetching distribution groups for machine %q: %v",
-				m, machineDistributionGroups[i].Err,
-			)
+			if err := task.setErrorStatus(
+				"fetching distribution groups for machine %q: %v", m, machineDistributionGroups[i].Err,
+			); err != nil {
+				return errors.Trace(err)
+			}
 			continue
 		}
 		wg.Add(1)
@@ -981,8 +999,8 @@ func (task *provisionerTask) startMachines(machines []apiprovisioner.MachineProv
 	return nil
 }
 
-func (task *provisionerTask) setErrorStatus(message string, machine apiprovisioner.MachineProvisioner, err error) error {
-	task.logger.Errorf(message, machine, err)
+func (task *provisionerTask) setErrorStatus(msg string, machine apiprovisioner.MachineProvisioner, err error) error {
+	task.logger.Errorf(msg, machine, err)
 	errForStatus := errors.Cause(err)
 	if err2 := machine.SetInstanceStatus(status.ProvisioningError, errForStatus.Error(), nil); err2 != nil {
 		// Something is wrong with this machine, better report it back.
@@ -1015,11 +1033,7 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		arch = *pInfo.Constraints.Arch
 	}
 
-	possibleTools, err := task.toolsFinder.FindTools(
-		*version,
-		pInfo.Series,
-		arch,
-	)
+	possibleTools, err := task.toolsFinder.FindTools(*version, pInfo.Series, arch)
 	if err != nil {
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "cannot find agent binaries for machine %q", machine)
 	}
@@ -1070,7 +1084,7 @@ func (task *provisionerTask) startMachine(
 ) error {
 	v, err := machine.ModelAgentVersion()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	startInstanceParams, err := task.setupToStartMachine(machine, v)
 	if err != nil {
@@ -1172,17 +1186,18 @@ func (task *provisionerTask) startMachine(
 	networkConfig := params.NetworkConfigFromInterfaceInfo(result.NetworkInfo)
 	volumes := volumesToAPIServer(result.Volumes)
 	volumeNameToAttachmentInfo := volumeAttachmentsToAPIServer(result.VolumeAttachments)
+	instanceID := result.Instance.Id()
 
-	// gather the charm LXD profile names, including the lxd profile names from
+	// Gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
-	charmLXDProfiles := task.gatherCharmLXDProfiles(
-		string(result.Instance.Id()),
-		machine.Tag().Id(),
-		startInstanceParams.CharmLXDProfiles,
-	)
+	charmLXDProfiles, err := task.gatherCharmLXDProfiles(
+		string(instanceID), machine.Tag().Id(), startInstanceParams.CharmLXDProfiles)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := machine.SetInstanceInfo(
-		result.Instance.Id(),
+		instanceID,
 		result.DisplayName,
 		startInstanceParams.InstanceConfig.MachineNonce,
 		result.Hardware,
@@ -1195,7 +1210,7 @@ func (task *provisionerTask) startMachine(
 		if err2 := task.setErrorStatus("cannot register instance for machine %v: %v", machine, err); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "cannot set machine's status"))
 		}
-		if err2 := task.broker.StopInstances(task.cloudCallCtx, result.Instance.Id()); err2 != nil {
+		if err2 := task.broker.StopInstances(task.cloudCallCtx, instanceID); err2 != nil {
 			task.logger.Errorf("%v", errors.Annotate(err2, "after failing to set instance info"))
 		}
 		return errors.Annotate(err, "cannot set instance info")
@@ -1205,7 +1220,7 @@ func (task *provisionerTask) startMachine(
 		"started machine %s as instance %s with hardware %q, network config %+v, "+
 			"volumes %v, volume attachments %v, subnets to zones %v, lxd profiles %v",
 		machine,
-		result.Instance.Id(),
+		instanceID,
 		result.Hardware,
 		networkConfig,
 		volumes,
@@ -1218,17 +1233,25 @@ func (task *provisionerTask) startMachine(
 
 // gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
 // sources. This includes getting the information from the broker.
-func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag string, machineProfiles []string) []string {
-	if names.IsContainerMachine(machineTag) {
-		if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
-			if profileNames, err := manager.LXDProfileNames(instanceId); err == nil {
-				return lxdprofile.LXDProfileNames(profileNames)
-			}
-		} else {
-			task.logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
-		}
+func (task *provisionerTask) gatherCharmLXDProfiles(
+	instanceId, machineTag string, machineProfiles []string,
+) ([]string, error) {
+	if !names.IsContainerMachine(machineTag) {
+		return machineProfiles, nil
 	}
-	return machineProfiles
+
+	manager, ok := task.broker.(container.LXDProfileNameRetriever)
+	if !ok {
+		task.logger.Tracef("failed to gather profile names; broker does not implement LXDProfileNameRetriever")
+		return machineProfiles, nil
+	}
+
+	profileNames, err := manager.LXDProfileNames(instanceId)
+	if err != nil {
+		return machineProfiles, errors.Trace(err)
+	}
+
+	return lxdprofile.LXDProfileNames(profileNames), nil
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
@@ -1331,11 +1354,19 @@ func volumesToAPIServer(volumes []storage.Volume) []params.Volume {
 func volumeAttachmentsToAPIServer(attachments []storage.VolumeAttachment) map[string]params.VolumeAttachmentInfo {
 	result := make(map[string]params.VolumeAttachmentInfo)
 	for _, a := range attachments {
+
+		// Volume attachment plans are used in the OCI provider where actions
+		// are required on the instance itself in order to complete attachments
+		// of SCSI volumes.
+		// TODO (manadart 2020-02-04): I believe this code path to be untested.
 		var planInfo *params.VolumeAttachmentPlanInfo
 		if a.PlanInfo != nil {
-			planInfo.DeviceType = a.PlanInfo.DeviceType
-			planInfo.DeviceAttributes = a.PlanInfo.DeviceAttributes
+			planInfo = &params.VolumeAttachmentPlanInfo{
+				DeviceType:       a.PlanInfo.DeviceType,
+				DeviceAttributes: a.PlanInfo.DeviceAttributes,
+			}
 		}
+
 		result[a.Volume.String()] = params.VolumeAttachmentInfo{
 			DeviceName: a.DeviceName,
 			DeviceLink: a.DeviceLink,

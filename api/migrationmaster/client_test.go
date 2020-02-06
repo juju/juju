@@ -4,6 +4,7 @@
 package migrationmaster_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"io/ioutil"
@@ -13,15 +14,15 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	apitesting "github.com/juju/juju/api/base/testing"
@@ -71,7 +72,7 @@ func (s *ClientSuite) TestWatchCallError(c *gc.C) {
 }
 
 func (s *ClientSuite) TestMigrationStatus(c *gc.C) {
-	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location")
+	mac, err := macaroon.New([]byte("secret"), []byte("id"), "location", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	macs := []macaroon.Slice{{mac}}
 	macsJSON, err := json.Marshal(macs)
@@ -595,6 +596,10 @@ type fakeHTTPCaller struct {
 
 func (fakeHTTPCaller) BestFacadeVersion(string) int {
 	return 0
+}
+
+func (r *fakeHTTPCaller) Context() context.Context {
+	return context.Background()
 }
 
 func (c fakeHTTPCaller) HTTPClient() (*httprequest.Client, error) {

@@ -4,16 +4,17 @@
 package action
 
 import (
+	"fmt"
 	"strings"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/utils/set"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/watcher"
 )
@@ -200,7 +201,10 @@ func (a *ActionAPI) FindActionTagsByPrefix(arg params.FindTags) (params.FindTags
 		if err != nil {
 			return params.FindTagsResults{}, errors.Trace(err)
 		}
-		found := m.FindActionTagsById(prefix)
+		found, err := m.FindActionTagsById(prefix)
+		if err != nil {
+			return params.FindTagsResults{}, errors.Trace(err)
+		}
 		matches := make([]params.Entity, len(found))
 		for i, tag := range found {
 			matches[i] = params.Entity{Tag: tag.String()}
@@ -267,6 +271,26 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 		return "", errors.Errorf("could not determine leader for %q", appName)
 	}
 
+	var operationName string
+	var receivers []string
+	for _, a := range arg.Actions {
+		if a.Receiver != "" {
+			receivers = append(receivers, a.Receiver)
+		}
+		if operationName == "" {
+			operationName = a.Name
+			continue
+		}
+		if operationName != a.Name {
+			operationName = "multiple actions"
+		}
+	}
+	summary := fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ","))
+	operationID, err := a.model.EnqueueOperation(summary)
+	if err != nil {
+		return params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
+	}
+
 	tagToActionReceiver := common.TagToActionReceiverFn(a.state.FindEntity)
 	response := params.ActionResults{Results: make([]params.ActionResult, len(arg.Actions))}
 	for i, action := range arg.Actions {
@@ -286,7 +310,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		enqueued, err := receiver.AddAction(action.Name, action.Parameters)
+		enqueued, err := receiver.AddAction(operationID, action.Name, action.Parameters)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

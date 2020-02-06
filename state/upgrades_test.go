@@ -2240,7 +2240,7 @@ func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenNotValid(c *gc.C)
 }
 
 func (s *upgradesSuite) TestNoCopyMongoSpaceToHASpaceConfigWhenAlreadySet(c *gc.C) {
-	settings, err := readSettings(s.state.db(), controllersC, controllerSettingsGlobalKey)
+	settings, err := readSettings(s.state.db(), controllersC, ControllerSettingsGlobalKey)
 	c.Assert(err, jc.ErrorIsNil)
 	settings.Set(controller.JujuHASpace, "already-set")
 	_, err = settings.Write()
@@ -3821,7 +3821,9 @@ func (s *upgradesSuite) TestConvertAddressSpaceIDs(c *gc.C) {
 		{
 			Value:     "3.3.3.3",
 			SpaceName: "space3",
-			SpaceID:   "provider3",
+			// This is an invalid form, but should still be
+			// correctly matched to the ID for provider3.
+			SpaceID: "pRoViDeR3",
 		},
 	}
 	m2Private := oldAddress{
@@ -4171,6 +4173,31 @@ func (s *upgradesSuite) TestRemoveControllerConfigMaxLogAgeAndSize(c *gc.C) {
 		},
 	}
 	s.assertUpgradedData(c, RemoveControllerConfigMaxLogAgeAndSize, upgradedData(settingsColl, expectedSettings))
+}
+
+func (s *upgradesSuite) TestIncrementTaskSequence(c *gc.C) {
+	st := s.pool.SystemState()
+	sequenceColl, closer := st.db().GetRawCollection(sequenceC)
+	defer closer()
+
+	// No tasks sequence requests, so no update.
+	err := IncrementTasksSequence(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+	n, err := sequenceColl.FindId(st.ModelUUID() + ":tasks").Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(n, gc.Equals, 0)
+
+	_, err = sequence(st, "tasks")
+	c.Assert(err, jc.ErrorIsNil)
+	err = IncrementTasksSequence(s.pool)
+	c.Assert(err, jc.ErrorIsNil)
+
+	var data bson.M
+	err = sequenceColl.FindId(st.ModelUUID() + ":tasks").One(&data)
+	c.Assert(err, jc.ErrorIsNil)
+	counter, ok := data["counter"].(int)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(counter, gc.Equals, 2)
 }
 
 func (s *upgradesSuite) makeMachine(c *gc.C, uuid, id string, life Life) {

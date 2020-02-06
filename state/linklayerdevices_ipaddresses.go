@@ -281,7 +281,8 @@ func updateIPAddressDocOp(existingDoc, newDoc *ipAddressDoc) (txn.Op, bool) {
 		// Only allow changing the ProviderID if it was empty.
 		changes["providerid"] = newDoc.ProviderID
 	}
-	if existingDoc.ProviderSubnetID != newDoc.ProviderSubnetID {
+	if existingDoc.ProviderSubnetID == "" && newDoc.ProviderSubnetID != "" {
+		// Only allow changing the ProviderSubnetID if it was empty.
 		changes["provider-subnet-id"] = newDoc.ProviderSubnetID
 	}
 	if existingDoc.ConfigMethod != newDoc.ConfigMethod {

@@ -45,10 +45,10 @@ Juju charms can access a series of built-in helpers called 'hook-tools'.
 These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
-    action-fail              set action fail status with message
-    action-get               get action parameters
-    action-log               record a progress message for the current action
-    action-set               set action results
+    action-fail              set action/function fail status with message
+    action-get               get action/function parameters
+    action-log               record a progress message for the current action/function
+    action-set               set action/function results
     add-metric               add metrics
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
@@ -63,11 +63,15 @@ Currently available charm hook tools are:
     network-get              get network config
     open-port                register a port or range to open
     opened-ports             lists all ports or ranges opened by the unit
+    pod-spec-get             get pod spec information
     pod-spec-set             set pod spec information
     relation-get             get relation settings
     relation-ids             list all relation ids with the given relation name
     relation-list            list relation units
     relation-set             set relation settings
+    state-delete             delete server-side-state key value pair
+    state-get                print server-side-state value
+    state-set                set server-side-state values
     status-get               print status information
     status-set               set status information
     storage-add              add storage instances
@@ -107,12 +111,16 @@ var expectedCommands = []string{
 	"payload-register",
 	"payload-status-set",
 	"payload-unregister",
+	"pod-spec-get",
 	"pod-spec-set",
 	"relation-get",
 	"relation-ids",
 	"relation-list",
 	"relation-set",
 	"resource-get",
+	"state-delete",
+	"state-get",
+	"state-set",
 	"status-get",
 	"status-set",
 	"storage-add",

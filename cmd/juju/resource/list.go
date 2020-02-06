@@ -165,10 +165,7 @@ func (c *ListCommand) formatUnitResources(ctx *cmd.Context, unit, application st
 	}
 
 	if c.details {
-		formatted, err := detailedResources(unit, sr)
-		if err != nil {
-			return errors.Trace(err)
-		}
+		formatted := detailedResources(unit, sr)
 		return c.out.Write(ctx, FormattedUnitDetails(formatted))
 	}
 

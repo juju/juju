@@ -10,20 +10,22 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/state"
 )
 
 // Context implements facade.Context in the simplest possible way.
 type Context struct {
-	Auth_       facade.Authorizer
-	Dispose_    func()
-	Hub_        facade.Hub
-	Resources_  facade.Resources
-	State_      *state.State
-	StatePool_  *state.StatePool
-	Controller_ *cache.Controller
-	ID_         string
-	Cancel_     <-chan struct{}
+	Auth_                facade.Authorizer
+	Dispose_             func()
+	Hub_                 facade.Hub
+	Resources_           facade.Resources
+	State_               *state.State
+	StatePool_           *state.StatePool
+	Controller_          *cache.Controller
+	MultiwatcherFactory_ multiwatcher.Factory
+	ID_                  string
+	Cancel_              <-chan struct{}
 
 	LeadershipClaimer_ leadership.Claimer
 	LeadershipChecker_ leadership.Checker
@@ -58,6 +60,11 @@ func (context Context) Hub() facade.Hub {
 // Controller is part of the facade.Context interface.
 func (context Context) Controller() *cache.Controller {
 	return context.Controller_
+}
+
+// MultiwatcherFactory is part of the facade.Context interface.
+func (context Context) MultiwatcherFactory() multiwatcher.Factory {
+	return context.MultiwatcherFactory_
 }
 
 // CachedModel is part of the facade.Context interface.

@@ -45,9 +45,9 @@ func (s *environSuite) TestBootstrap(c *gc.C) {
 	s.dialStub.CheckCallNames(c, "Dial")
 	s.client.CheckCallNames(c, "EnsureVMFolder", "Close")
 	ensureVMFolderCall := s.client.Calls()[0]
-	c.Assert(ensureVMFolderCall.Args, gc.HasLen, 2)
+	c.Assert(ensureVMFolderCall.Args, gc.HasLen, 3)
 	c.Assert(ensureVMFolderCall.Args[0], gc.Implements, new(context.Context))
-	c.Assert(ensureVMFolderCall.Args[1], gc.Equals,
+	c.Assert(ensureVMFolderCall.Args[2], gc.Equals,
 		`Juju Controller (deadbeef-1bad-500d-9000-4b1d0d06f00d)/Model "testmodel" (2d02eeac-9dbb-11e4-89d3-123b93f75cba)`,
 	)
 }
@@ -125,12 +125,12 @@ func (s *environSuite) TestDestroyController(c *gc.C) {
 	deleteDatastoreFileCall1 := s.client.Calls()[4]
 	c.Assert(deleteDatastoreFileCall1.Args, gc.HasLen, 2)
 	c.Assert(deleteDatastoreFileCall1.Args[0], gc.Implements, new(context.Context))
-	c.Assert(deleteDatastoreFileCall1.Args[1], gc.Equals, "[bar] juju-vmdks/foo")
+	c.Assert(deleteDatastoreFileCall1.Args[1], gc.Equals, "[bar] foo/templates")
 
 	deleteDatastoreFileCall2 := s.client.Calls()[5]
 	c.Assert(deleteDatastoreFileCall2.Args, gc.HasLen, 2)
 	c.Assert(deleteDatastoreFileCall2.Args[0], gc.Implements, new(context.Context))
-	c.Assert(deleteDatastoreFileCall2.Args[1], gc.Equals, "[baz] juju-vmdks/foo")
+	c.Assert(deleteDatastoreFileCall2.Args[1], gc.Equals, "[baz] foo/templates")
 }
 
 func (s *environSuite) TestAdoptResources(c *gc.C) {

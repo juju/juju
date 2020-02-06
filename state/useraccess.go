@@ -12,7 +12,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 type userAccessDoc struct {

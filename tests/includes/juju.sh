@@ -64,7 +64,7 @@ bootstrap() {
     output=${1}
     shift
 
-    rnd=$(cat /dev/urandom | tr -dc 'a-z0-9' | fold -w 8 | head -n 1)
+    rnd=$(head /dev/urandom | tr -dc a-z0-9 | head -c 8; echo '')
     name="ctrl-${rnd}"
 
     if [ ! -f "${TEST_DIR}/jujus" ]; then
@@ -203,12 +203,13 @@ destroy_controller() {
     shift
 
     # shellcheck disable=SC2034
-    OUT=$(juju controllers --format=json | jq '.controllers | keys' | grep "^${name}$" || true)
+    OUT=$(juju controllers --format=json | jq '.controllers | keys[]' | grep "${name}" || true)
     # shellcheck disable=SC2181
     if [ -z "${OUT}" ]; then
         OUT=$(juju models --format=json | jq -r ".models | .[] | .[\"short-name\"]" | grep "^${name}$" || true)
         if [ -z "${OUT}" ]; then
-            return
+            echo "====> ERROR Destroy controller/model. Unable to locate $(red "${name}")"
+            exit 1
         fi
         echo "====> Destroying model ($(green "${name}"))"
 
@@ -226,6 +227,18 @@ destroy_controller() {
     set_verbosity
 
     echo "====> Introspection gathered"
+
+    # Unfortunately having any offers on a model, leads to failure to clean
+    # up a controller.
+    # See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+    echo "====> Removing offers"
+
+    set +e
+    remove_controller_offers "${name}"
+    set_verbosity
+
+    echo "====> Removed offers"
+
 
     output="${TEST_DIR}/${name}-destroy-controller.txt"
 
@@ -267,4 +280,23 @@ introspect_controller() {
 
     echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_engine_report" > "${TEST_DIR}/${name}-juju_engine_reports.txt"
     echo "${idents}" | xargs -I % juju ssh -m "${name}:controller" % bash -lc "juju_goroutines" > "${TEST_DIR}/${name}-juju_goroutines.txt"
+}
+
+remove_controller_offers() {
+    local name
+
+    name=${1}
+
+    OUT=$(juju models -c "${name}" --format=json | jq -r ".[\"models\"] | .[] | select(.[\"is-controller\"] == false) | .name" || true)
+    if [ -n "${OUT}" ]; then
+        echo "${OUT}" | while read -r model; do
+            OUT=$(juju offers -m "${name}:${model}" --format=json | jq -r ".[] | .[\"offer-url\"]" || true)
+            echo "${OUT}" | while read -r offer; do
+                if [ -n "${offer}" ]; then
+                    juju remove-offer --force -y -c "${name}" "${offer}"
+                    echo "${offer}" >> "${TEST_DIR}/${name}-juju_removed_offers.txt"
+                fi
+            done
+        done
+    fi
 }

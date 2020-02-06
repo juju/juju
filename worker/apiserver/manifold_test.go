@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/presence"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -38,20 +39,22 @@ import (
 type ManifoldSuite struct {
 	testing.IsolationSuite
 
-	manifold             dependency.Manifold
-	context              dependency.Context
+	manifold dependency.Manifold
+
 	agent                *mockAgent
+	auditConfig          stubAuditConfig
 	authenticator        *mockAuthenticator
 	clock                *testclock.Clock
+	context              dependency.Context
 	controller           *cache.Controller
-	mux                  *apiserverhttp.Mux
-	state                stubStateTracker
-	prometheusRegisterer stubPrometheusRegisterer
 	hub                  pubsub.StructuredHub
-	upgradeGate          stubGateWaiter
-	auditConfig          stubAuditConfig
 	leaseManager         *lease.Manager
 	metricsCollector     *coreapiserver.Collector
+	multiwatcherFactory  multiwatcher.Factory
+	mux                  *apiserverhttp.Mux
+	prometheusRegisterer stubPrometheusRegisterer
+	state                stubStateTracker
+	upgradeGate          stubGateWaiter
 
 	stub testing.Stub
 }
@@ -74,6 +77,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.metricsCollector = coreapiserver.NewMetricsCollector()
 	s.upgradeGate = stubGateWaiter{}
 	s.auditConfig = stubAuditConfig{}
+	s.multiwatcherFactory = &fakeMultiwatcherFactory{}
 	s.leaseManager = &lease.Manager{}
 	s.stub.ResetCalls()
 
@@ -84,6 +88,7 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 		ClockName:                         "clock",
 		MuxName:                           "mux",
 		ModelCacheName:                    "modelcache",
+		MultiwatcherName:                  "multiwatcher",
 		RestoreStatusName:                 "restore-status",
 		StateName:                         "state",
 		UpgradeGateName:                   "upgrade",
@@ -106,6 +111,7 @@ func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Co
 		"clock":               s.clock,
 		"mux":                 s.mux,
 		"modelcache":          s.controller,
+		"multiwatcher":        s.multiwatcherFactory,
 		"restore-status":      s.RestoreStatus,
 		"state":               &s.state,
 		"upgrade":             &s.upgradeGate,
@@ -137,7 +143,9 @@ func (s *ManifoldSuite) newMetricsCollector() *coreapiserver.Collector {
 }
 
 var expectedInputs = []string{
-	"agent", "authenticator", "clock", "modelcache", "mux", "restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager", "raft-transport",
+	"agent", "authenticator", "clock", "modelcache", "multiwatcher", "mux",
+	"restore-status", "state", "upgrade", "auditconfig-updater", "lease-manager",
+	"raft-transport",
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
@@ -195,15 +203,16 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.NewServer = nil
 
 	c.Assert(config, jc.DeepEquals, apiserver.Config{
-		AgentConfig:      &s.agent.conf,
-		Authenticator:    s.authenticator,
-		Clock:            s.clock,
-		Controller:       s.controller,
-		Mux:              s.mux,
-		StatePool:        &s.state.pool,
-		LeaseManager:     s.leaseManager,
-		MetricsCollector: s.metricsCollector,
-		Hub:              &s.hub,
+		AgentConfig:         &s.agent.conf,
+		Authenticator:       s.authenticator,
+		Clock:               s.clock,
+		Controller:          s.controller,
+		Mux:                 s.mux,
+		MultiwatcherFactory: s.multiwatcherFactory,
+		StatePool:           &s.state.pool,
+		LeaseManager:        s.leaseManager,
+		MetricsCollector:    s.metricsCollector,
+		Hub:                 &s.hub,
 	})
 }
 
@@ -347,4 +356,8 @@ func (c *stubAuditConfig) get() auditlog.Config {
 
 type mockAuthenticator struct {
 	httpcontext.LocalMacaroonAuthenticator
+}
+
+type fakeMultiwatcherFactory struct {
+	multiwatcher.Factory
 }

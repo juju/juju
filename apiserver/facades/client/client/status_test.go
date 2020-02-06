@@ -638,11 +638,6 @@ func (s *statusUpgradeUnitSuite) SetUpSuite(c *gc.C) {
 	s.CharmSuite.SetUpSuite(c, &s.JujuConnSuite)
 }
 
-func (s *statusUpgradeUnitSuite) TearDownSuite(c *gc.C) {
-	s.CharmSuite.TearDownSuite(c)
-	s.JujuConnSuite.TearDownSuite(c)
-}
-
 func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.CharmSuite.SetUpTest(c)
@@ -654,11 +649,6 @@ func (s *statusUpgradeUnitSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.charmrevisionupdater, err = charmrevisionupdater.NewCharmRevisionUpdaterAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *statusUpgradeUnitSuite) TearDownTest(c *gc.C) {
-	s.CharmSuite.TearDownTest(c)
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *statusUpgradeUnitSuite) TestUpdateRevisions(c *gc.C) {

@@ -625,13 +625,14 @@ func (s *upgradeSuite) TestStateUpgradeOperationsVersions(c *gc.C) {
 		"2.6.3",
 		"2.6.5",
 		"2.7.0",
+		"2.8.0",
 	})
 }
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	versions := extractUpgradeVersions(c, (*upgrades.UpgradeOperations)())
 	c.Assert(versions, gc.DeepEquals, []string{
-		"2.0.0", "2.2.0", "2.4.0", "2.4.5", "2.6.3", "2.7.0",
+		"2.0.0", "2.2.0", "2.4.0", "2.4.5", "2.6.3", "2.7.0", "2.7.2",
 	})
 }
 

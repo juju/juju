@@ -28,12 +28,14 @@ import (
 	"github.com/juju/utils/parallel"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/retry.v1"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
@@ -66,6 +68,7 @@ type rpcConnection interface {
 
 // state is the internal implementation of the Connection interface.
 type state struct {
+	ctx    context.Context
 	client rpcConnection
 	conn   jsoncodec.JSONConn
 	clock  clock.Clock
@@ -169,9 +172,12 @@ type RedirectError struct {
 	// needs to automatically follow the redirect to the new controller.
 	FollowRedirect bool
 
-	// An optional alias for the controller the model got redirected to. It
-	// can be used by the client to present the user with a more meaningful
-	// juju login -c XYZ command
+	// ControllerTag uniquely identifies the controller being redirected to.
+	ControllerTag names.ControllerTag
+
+	// An optional alias for the controller the model got redirected to.
+	// It can be used by the client to present the user with a more
+	// meaningful juju login -c XYZ command
 	ControllerAlias string
 }
 
@@ -195,7 +201,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	if opts.Clock == nil {
 		opts.Clock = clock.WallClock
 	}
-	ctx := context.TODO()
+	ctx := context.Background()
 	dialCtx := ctx
 	if opts.Timeout > 0 {
 		ctx1, cancel := utils.ContextWithTimeout(dialCtx, opts.Clock, opts.Timeout)
@@ -231,6 +237,7 @@ func Open(info *Info, opts DialOpts) (Connection, error) {
 	}
 
 	st := &state{
+		ctx:    context.Background(),
 		client: client,
 		conn:   dialResult.conn,
 		clock:  opts.Clock,
@@ -315,6 +322,11 @@ func (t *hostSwitchingTransport) RoundTrip(req *http.Request) (*http.Response, e
 	return t.fallback.RoundTrip(req)
 }
 
+// Context returns the context associated with this state.
+func (st *state) Context() context.Context {
+	return st.ctx
+}
+
 // ConnectStream implements StreamConnector.ConnectStream. The stream
 // returned will apply a 30-second write deadline, so WriteJSON should
 // only be called from one goroutine.
@@ -366,7 +378,7 @@ func (st *state) connectStreamWithRetry(path string, attrs url.Values, headers h
 	if params.ErrCode(err) != params.CodeDischargeRequired {
 		return nil, errors.Trace(err)
 	}
-	if err := st.bakeryClient.HandleError(st.cookieURL, bakeryError(err)); err != nil {
+	if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, bakeryError(err)); err != nil {
 		return nil, errors.Trace(err)
 	}
 	// Try again with the discharged macaroon.
@@ -484,13 +496,14 @@ func (st *state) addCookiesToHeader(h http.Header) error {
 		// logtransfer connection for a migration.)
 		// See https://bugs.launchpad.net/juju/+bug/1650451
 		for _, macaroon := range st.macaroons {
-			cookie, err := httpbakery.NewCookie(macaroon)
+			cookie, err := httpbakery.NewCookie(charmstore.MacaroonNamespace, macaroon)
 			if err != nil {
 				return errors.Trace(err)
 			}
 			req.AddCookie(cookie)
 		}
 	}
+	h.Set(httpbakery.BakeryProtocolHeader, fmt.Sprint(bakery.LatestVersion))
 	return nil
 }
 
@@ -1205,7 +1218,7 @@ func (s *state) Close() error {
 }
 
 // BakeryClient implements api.Connection.
-func (s *state) BakeryClient() *httpbakery.Client {
+func (s *state) BakeryClient() base.MacaroonDischarger {
 	return s.bakeryClient
 }
 

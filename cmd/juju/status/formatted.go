@@ -77,6 +77,7 @@ type machineStatus struct {
 	Constraints        string                        `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 	Hardware           string                        `json:"hardware,omitempty" yaml:"hardware,omitempty"`
 	HAStatus           string                        `json:"controller-member-status,omitempty" yaml:"controller-member-status,omitempty"`
+	HAPrimary          bool                          `json:"ha-primary,omitempty" yaml:"ha-primary,omitempty"`
 	LXDProfiles        map[string]lxdProfileContents `json:"lxd-profiles,omitempty" yaml:"lxd-profiles,omitempty"`
 }
 

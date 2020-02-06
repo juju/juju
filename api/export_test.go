@@ -10,8 +10,8 @@ import (
 	"github.com/juju/clock"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/core/network"
@@ -137,8 +137,16 @@ func (f *resultCaller) BestAPIVersion() int {
 	return 0
 }
 
+type rawAPICaller struct {
+	base.APICaller
+}
+
+func (r *rawAPICaller) Context() context.Context {
+	return context.Background()
+}
+
 func (f *resultCaller) RawAPICaller() base.APICaller {
-	return nil
+	return &rawAPICaller{}
 }
 
 // IsMinVersionError returns true if the given error was caused by the charm

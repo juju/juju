@@ -5,8 +5,10 @@ package state
 
 import (
 	"strconv"
+	"strings"
 	"time"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -95,6 +97,9 @@ type actionDoc struct {
 
 	// Completed reflects the time that the action was finished.
 	Completed time.Time `bson:"completed"`
+
+	// Operation is the parent operation of the action.
+	Operation string `bson:"operation"`
 
 	// Status represents the end state of the Action; ActionFailed for an
 	// action that was removed prematurely, or that failed, and
@@ -215,18 +220,53 @@ func (a *action) Begin() (Action, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	err = m.st.db().RunTransaction([]txn.Op{
-		{
-			C:      actionsC,
-			Id:     a.doc.DocId,
-			Assert: bson.D{{"status", ActionPending}},
-			Update: bson.D{{"$set", bson.D{
-				{"status", ActionRunning},
-				{"started", a.st.nowToTheSecond()},
-			}}},
-		}})
-	if err != nil {
-		return nil, err
+	parentOperation, err := m.Operation(a.doc.Operation)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	startedTime := a.st.nowToTheSecond()
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		// If this is the first action to be marked as running
+		// for the parent operation, the operation itself is
+		// marked as running also.
+		var updateOperationOp *txn.Op
+		var err error
+		if parentOperation != nil {
+			if attempt > 0 {
+				err = parentOperation.Refresh()
+				if err != nil && !errors.IsNotFound(err) {
+					return nil, errors.Trace(err)
+				}
+			}
+			if err == nil && parentOperation.(*operation).doc.Status == ActionPending {
+				updateOperationOp = &txn.Op{
+					C:      operationsC,
+					Id:     a.st.docID(parentOperation.Id()),
+					Assert: bson.D{{"status", ActionPending}},
+					Update: bson.D{{"$set", bson.D{
+						{"status", ActionRunning},
+						{"started", startedTime},
+					}}},
+				}
+			}
+		}
+		ops := []txn.Op{
+			{
+				C:      actionsC,
+				Id:     a.doc.DocId,
+				Assert: bson.D{{"status", ActionPending}},
+				Update: bson.D{{"$set", bson.D{
+					{"status", ActionRunning},
+					{"started", startedTime},
+				}}},
+			}}
+		if updateOperationOp != nil {
+			ops = append(ops, *updateOperationOp)
+		}
+		return ops, nil
+	}
+	if err = m.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return m.Action(a.Id())
 }
@@ -246,29 +286,94 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 		return nil, errors.Trace(err)
 	}
 
-	err = m.st.db().RunTransaction([]txn.Op{
-		{
-			C:  actionsC,
-			Id: a.doc.DocId,
-			Assert: bson.D{{"status", bson.D{
-				{"$nin", []interface{}{
-					ActionCompleted,
-					ActionCancelled,
-					ActionFailed,
-				}}}}},
-			Update: bson.D{{"$set", bson.D{
-				{"status", finalStatus},
-				{"message", message},
-				{"results", results},
-				{"completed", a.st.nowToTheSecond()},
-			}}},
-		}, {
-			C:      actionNotificationsC,
-			Id:     m.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
-			Remove: true,
-		}})
-	if err != nil {
-		return nil, err
+	parentOperation, err := m.Operation(a.doc.Operation)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	completedTime := a.st.nowToTheSecond()
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		assertNotComplete := bson.D{{"status", bson.D{
+			{"$nin", []interface{}{
+				ActionCompleted,
+				ActionCancelled,
+				ActionFailed,
+			}}}}}
+		// If this is the last action to be marked as completed
+		// for the parent operation, the operation itself is also
+		// marked as complete.
+		var updateOperationOp *txn.Op
+		var err error
+		if parentOperation != nil {
+			if attempt > 0 {
+				err = parentOperation.Refresh()
+				if err != nil && !errors.IsNotFound(err) {
+					return nil, errors.Trace(err)
+				}
+			}
+			tasks := parentOperation.(*operation).taskStatus
+			statusStats := set.NewStrings(string(finalStatus))
+			var numComplete int
+			for _, status := range tasks {
+				statusStats.Add(string(status))
+				if status != ActionPending && status != ActionRunning {
+					numComplete++
+				}
+			}
+			if numComplete == len(tasks)-1 {
+				// Set the operation status based on the individual
+				// task status values. eg if any task is failed,
+				// the entire operation is considered failed.
+				finalOperationStatus := finalStatus
+				for _, s := range statusCompletedOrder {
+					if statusStats.Contains(string(s)) {
+						finalOperationStatus = s
+						break
+					}
+				}
+				updateOperationOp = &txn.Op{
+					C:      operationsC,
+					Id:     a.st.docID(parentOperation.Id()),
+					Assert: assertNotComplete,
+					Update: bson.D{{"$set", bson.D{
+						{"status", finalOperationStatus},
+						{"completed", completedTime},
+						{"complete-task-count", numComplete + 1},
+					}}},
+				}
+			} else {
+				updateOperationOp = &txn.Op{
+					C:      operationsC,
+					Id:     a.st.docID(parentOperation.Id()),
+					Assert: bson.D{{"complete-task-count", parentOperation.(*operation).doc.CompleteTaskCount}},
+					Update: bson.D{{"$set", bson.D{
+						{"complete-task-count", numComplete + 1},
+					}}},
+				}
+			}
+		}
+		ops := []txn.Op{
+			{
+				C:      actionsC,
+				Id:     a.doc.DocId,
+				Assert: assertNotComplete,
+				Update: bson.D{{"$set", bson.D{
+					{"status", finalStatus},
+					{"message", message},
+					{"results", results},
+					{"completed", completedTime},
+				}}},
+			}, {
+				C:      actionNotificationsC,
+				Id:     m.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
+				Remove: true,
+			}}
+		if updateOperationOp != nil {
+			ops = append(ops, *updateOperationOp)
+		}
+		return ops, nil
+	}
+	if err = m.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
 	}
 	return m.Action(a.Id())
 }
@@ -342,7 +447,7 @@ func IsNewActionIDSupported(ver version.Number) bool {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	// For actions run on units, we want to use a user friendly action id.
 	// Theoretically, an action receiver could also be a machine, but for
@@ -351,12 +456,11 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 	// we support machine actions anymore.
 	var actionId string
 	if receiverTag.Kind() == names.UnitTagKind && IsNewActionIDSupported(modelAgentVersion) {
-		id, err := sequence(mb, "task")
+		id, err := sequenceWithMin(mb, "task", 1)
 		if err != nil {
 			return actionDoc{}, actionNotificationDoc{}, err
 		}
-		// Start numbering from 1 not 0.
-		actionId = strconv.Itoa(id + 1)
+		actionId = strconv.Itoa(id)
 	} else {
 		actionUUID, err := NewUUID()
 		if err != nil {
@@ -373,6 +477,7 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 			Name:       actionName,
 			Parameters: parameters,
 			Enqueued:   mb.nowToTheSecond(),
+			Operation:  operationID,
 			Status:     ActionPending,
 		}, actionNotificationDoc{
 			DocId:     mb.docID(prefix + actionId),
@@ -384,7 +489,7 @@ func newActionDoc(mb modelBackend, receiverTag names.Tag, actionName string, par
 
 var ensureActionMarker = ensureSuffixFn(actionMarker)
 
-// Action returns an Action by Id, which is a UUID.
+// Action returns an Action by Id.
 func (m *Model) Action(id string) (Action, error) {
 	actionLogger.Tracef("Action() %q", id)
 	st := m.st
@@ -430,7 +535,7 @@ func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
 // share the supplied prefix (for deprecated UUIDs), or match
 // the supplied id (for newer id integers).
 // It returns a list of corresponding ActionTags.
-func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
+func (m *Model) FindActionTagsById(idValue string) ([]names.ActionTag, error) {
 	actionLogger.Tracef("FindActionTagsById() %q", idValue)
 	var results []names.ActionTag
 	var doc struct {
@@ -441,10 +546,22 @@ func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
 	defer closer()
 
 	matchValue := m.st.docID(idValue)
-	filter := bson.D{{"$or", []bson.D{
-		{{"_id", bson.D{{"$regex", "^" + matchValue}}}},
-		{{"_id", matchValue}},
-	}}}
+	agentVersion, err := m.AgentVersion()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newIdsSupported := IsNewActionIDSupported(agentVersion)
+	maybeOldId := strings.ContainsAny(idValue, "-abcdef")
+	var filter bson.D
+	if !newIdsSupported || maybeOldId {
+		filter = bson.D{{
+			"_id", bson.D{{"$regex", "^" + matchValue}},
+		}}
+	} else {
+		filter = bson.D{{
+			"_id", matchValue,
+		}}
+	}
 	iter := actions.Find(filter).Iter()
 	defer iter.Close()
 	for iter.Next(&doc) {
@@ -455,7 +572,7 @@ func (m *Model) FindActionTagsById(idValue string) []names.ActionTag {
 		}
 	}
 	actionLogger.Tracef("FindActionTagsById() %q found %+v", idValue, results)
-	return results
+	return results, nil
 }
 
 // FindActionsByName finds Actions with the given name.
@@ -474,7 +591,7 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 }
 
 // EnqueueAction caches the action doc to the database.
-func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
+func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -487,7 +604,7 @@ func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	doc, ndoc, err := newActionDoc(m.st, receiver, actionName, payload, agentVersion)
+	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, agentVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -496,6 +613,10 @@ func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map
 		C:      receiverCollectionName,
 		Id:     receiverId,
 		Assert: notDeadDoc,
+	}, {
+		C:      operationsC,
+		Id:     m.st.docID(operationID),
+		Assert: txn.DocExists,
 	}, {
 		C:      actionsC,
 		Id:     doc.DocId,
@@ -514,6 +635,10 @@ func (m *Model) EnqueueAction(receiver names.Tag, actionName string, payload map
 		} else if !notDead {
 			return nil, ErrDead
 		} else if attempt != 0 {
+			_, err := m.Operation(operationID)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			return nil, errors.Errorf("unexpected attempt number '%d'", attempt)
 		}
 		return ops, nil
@@ -587,11 +712,38 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 	return actions, errors.Trace(iter.Close())
 }
 
-// PruneActions removes action entries until
+// PruneOperations removes operation entries and their sub-tasks until
 // only logs newer than <maxLogTime> remain and also ensures
-// that the collection is smaller than <maxLogsMB> after the
-// deletion.
-func PruneActions(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", GoTime)
+// that the actions collection is smaller than <maxLogsMB> after the deletion.
+func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	// There may be older actions without parent operations so try those first.
+	hasNoOperation := bson.D{{"$or", []bson.D{
+		{{"operation", ""}},
+		{{"operation", bson.D{{"$exists", false}}}},
+	}}}
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", hasNoOperation, GoTime)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	// First calculate the average ratio of tasks to operations. Since deletion is
+	// done at the operation level, and any associated tasks are then deleted, but
+	// the actions collection is where the disk space goes, we approximate the
+	// number of operations to delete to achieve a given size deduction based on
+	// the average ratio of number of operations to tasks.
+	operationsColl, closer := st.db().GetRawCollection(operationsC)
+	defer closer()
+	operationsCount, err := operationsColl.Count()
+	if err != nil {
+		return errors.Annotate(err, "retrieving operations collection count")
+	}
+	actionsColl, closer := st.db().GetRawCollection(actionsC)
+	defer closer()
+	actionsCount, err := actionsColl.Count()
+	if err != nil {
+		return errors.Annotate(err, "retrieving actions collection count")
+	}
+	sizeFactor := float64(actionsCount) / float64(operationsCount)
+
+	err = pruneCollectionAndChildren(st, maxHistoryTime, maxHistoryMB, operationsC, "completed", actionsC, "operation", nil, sizeFactor, GoTime)
 	return errors.Trace(err)
 }

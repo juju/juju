@@ -22,8 +22,9 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/lease"
+	"github.com/juju/juju/core/multiwatcher"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
@@ -82,7 +83,7 @@ func newAPIHandler(srv *Server, st *state.State, rpcConn *rpc.Conn, modelUUID st
 		// migrated allow clients to connect and wait for a login
 		// request to decide whether the users should be redirected to
 		// the new controller for this model or not.
-		if _, migErr := st.LatestRemovedModelMigration(); migErr != nil {
+		if _, migErr := st.CompletedMigration(); migErr != nil {
 			return nil, errors.Trace(err) // return original NotFound error
 		}
 	}
@@ -485,6 +486,11 @@ func (ctx *facadeContext) State() *state.State {
 // StatePool is part of the facade.Context interface.
 func (ctx *facadeContext) StatePool() *state.StatePool {
 	return ctx.r.shared.statePool
+}
+
+// MultiwatcherFactory is part of the facade.Context interface.
+func (ctx *facadeContext) MultiwatcherFactory() multiwatcher.Factory {
+	return ctx.r.shared.multiwatcherFactory
 }
 
 // ID is part of the facade.Context interface.

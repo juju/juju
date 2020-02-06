@@ -20,11 +20,13 @@ import errno
 import json
 import logging
 import os
+import pexpect
 import re
 import shutil
 import subprocess
 import sys
 import time
+import yaml
 from collections import (
     defaultdict,
     namedtuple,
@@ -35,9 +37,6 @@ from contextlib import (
 from copy import deepcopy
 from itertools import chain
 from locale import getpreferredencoding
-
-import pexpect
-import yaml
 
 from jujupy.backend import (
     JujuBackend,
@@ -879,7 +878,7 @@ class ModelClient:
             self, upload_tools, config_filename, bootstrap_series=None,
             credential=None, auto_upgrade=False, metadata_source=None,
             no_gui=False, agent_version=None, db_snap_path=None,
-            db_snap_asserts_path=None):
+            db_snap_asserts_path=None, force=False):
         """Return the bootstrap arguments for the substrate."""
         cloud_region = self.get_cloud_region(self.env.get_cloud(),
                                              self.env.get_region())
@@ -895,6 +894,8 @@ class ModelClient:
             '--constraints', self._get_substrate_constraints(),
             '--default-model', self.env.environment
         ]
+        if force:
+            args.extend(['--force'])
         if upload_tools:
             if agent_version is not None:
                 raise ValueError(
@@ -1017,7 +1018,7 @@ class ModelClient:
     def bootstrap(self, upload_tools=False, bootstrap_series=None,
                   credential=None, auto_upgrade=False, metadata_source=None,
                   no_gui=False, agent_version=None, db_snap_path=None,
-                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None):
+                  db_snap_asserts_path=None, mongo_memory_profile=None, caas_image_repo=None, force=False):
         """Bootstrap a controller."""
         self._check_bootstrap()
         with self._bootstrap_config(
@@ -1034,6 +1035,7 @@ class ModelClient:
                 agent_version=agent_version,
                 db_snap_path=db_snap_path,
                 db_snap_asserts_path=db_snap_asserts_path,
+                force=force
             )
             self.update_user_name()
             retvar, ct = self.juju('bootstrap', args, include_e=False)
@@ -1143,6 +1145,20 @@ class ModelClient:
         """
         model = self._cmd_model(kwargs.get('include_e', True),
                                 kwargs.get('controller', False))
+        # Get the model here first, before using the get_raw_juju_output, so
+        # we can ensure that the model exists on the controller.
+        return self.get_raw_juju_output(command, model, *args, **kwargs)
+
+    def get_raw_juju_output(self, command, model, *args, **kwargs):
+        """Call a juju command without calling a model for it's values first.
+        Passing in the model, ensures that we target the juju command with the
+        right model. For global commands that aren't model specific, then you
+        can pass None.
+
+        Sub process will be called as 'juju <command> <args> <kwargs>'. Note
+        that <command> may be a space delimited list of arguments. The -e
+        <environment> flag will be placed after <command> and before args.
+        """
         pass_kwargs = dict(
             (k, kwargs[k]) for k in kwargs if k in ['timeout', 'merge_stderr'])
         return self._backend.get_juju_output(

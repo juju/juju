@@ -13,16 +13,20 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os/series"
+	"github.com/juju/replicaset"
+	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/facade/facadetest"
+	"github.com/juju/juju/apiserver/facades/client/application"
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testing"
@@ -32,7 +36,9 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -40,7 +46,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -63,7 +68,6 @@ func (s *serverSuite) SetUpTest(c *gc.C) {
 		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	s.baseSuite.SetUpTest(c)
-	//s.State.StartSync()
 	s.client = s.clientForState(c, s.State)
 }
 
@@ -87,6 +91,20 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
 		return s.newEnviron()
 	})
+	// Wrap in a happy replicaset.
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				},
+			},
+		},
+	}
+	client.OverrideClientBackendMongoSession(apiserverClient, session)
 	return apiserverClient
 }
 
@@ -136,6 +154,20 @@ func (s *serverSuite) TestModelInfo(c *gc.C) {
 	})
 	c.Assert(info.ControllerUUID, gc.Equals, "controller-deadbeef-1bad-500d-9000-4b1d0d06f00d")
 	c.Assert(info.IsController, gc.Equals, model.IsControllerModel())
+}
+
+func (s *serverSuite) TestAddMachineVariantsReadOnlyDenied(c *gc.C) {
+	user := s.makeLocalModelUser(c, "read", "Read Only")
+	api := s.authClientForState(c, s.State, testing.FakeAuthorizer{Tag: user.UserTag})
+
+	_, err := api.AddMachines(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	_, err = api.AddMachinesV2(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
+
+	_, err = api.InjectMachines(params.AddMachines{})
+	c.Check(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *serverSuite) TestModelUsersInfo(c *gc.C) {
@@ -226,7 +258,7 @@ func (a ByUserName) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a ByUserName) Less(i, j int) bool { return a[i].Result.UserName < a[j].Result.UserName }
 
 func (s *serverSuite) makeLocalModelUser(c *gc.C, username, displayname string) permission.UserAccess {
-	// factory.MakeUser will create an ModelUser for a local user by defalut
+	// factory.MakeUser will create an ModelUser for a local user by default.
 	user := s.Factory.MakeUser(c, &factory.UserParams{Name: username, DisplayName: displayname})
 	modelUser, err := s.State.UserAccess(user.UserTag(), s.Model.ModelTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -340,6 +372,43 @@ func (s *serverSuite) TestUserModelSetModelAgentVersionNotAffectedByMigration(c 
 	}
 
 	err := client.SetModelAgentVersion(args)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.assertModelVersion(c, otherSt, "2.0.4")
+}
+
+func (s *serverSuite) TestControllerModelSetModelAgentVersionChecksReplicaset(c *gc.C) {
+	// Wrap in a very unhappy replicaset.
+	session := &fakeSession{
+		err: errors.New("boom"),
+	}
+	client.OverrideClientBackendMongoSession(s.client, session)
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("9.8.7"),
+	}
+	err := s.client.SetModelAgentVersion(args)
+	c.Assert(err.Error(), gc.Equals, "checking replicaset status: boom")
+}
+
+func (s *serverSuite) TestUserModelSetModelAgentVersionSkipsMongoCheck(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "some-user"})
+	otherSt := s.Factory.MakeModel(c, nil)
+	defer otherSt.Close()
+
+	args := params.SetModelAgentVersion{
+		Version: version.MustParse("2.0.4"),
+	}
+	apiserverClient := s.clientForState(c, otherSt)
+	// Wrap in a very unhappy replicaset.
+	session := &fakeSession{
+		err: errors.New("boom"),
+	}
+	client.OverrideClientBackendMongoSession(apiserverClient, session)
+	s.newEnviron = func() (environs.BootstrapEnviron, error) {
+		return &mockEnviron{}, nil
+	}
+
+	err := apiserverClient.SetModelAgentVersion(args)
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.assertModelVersion(c, otherSt, "2.0.4")
@@ -764,35 +833,56 @@ func (s *clientSuite) TestBlockChangeUnitResolved(c *gc.C) {
 	s.assertResolvedBlocked(c, u, "TestBlockChangeUnitResolved")
 }
 
+type mockRepo struct {
+	charmrepo.Interface
+	*jtesting.CallMocker
+}
+
+func (m *mockRepo) Resolve(ref *charm.URL) (canonRef *charm.URL, supportedSeries []string, err error) {
+	results := m.MethodCall(m, "Resolve", ref)
+	if results == nil {
+		entity := "charm or bundle"
+		if ref.Series != "" {
+			entity = "charm"
+		}
+		return nil, nil, errors.NotFoundf(`cannot resolve URL %q: %s`, ref, entity)
+	}
+	return results[0].(*charm.URL), []string{"bionic"}, nil
+}
+
 type clientRepoSuite struct {
 	baseSuite
-	testing.CharmStoreSuite
+	repo *mockRepo
 }
 
 var _ = gc.Suite(&clientRepoSuite{})
 
-func (s *clientRepoSuite) SetUpSuite(c *gc.C) {
-	s.CharmStoreSuite.SetUpSuite(c)
-	s.baseSuite.SetUpSuite(c)
-
-}
-
-func (s *clientRepoSuite) TearDownSuite(c *gc.C) {
-	s.CharmStoreSuite.TearDownSuite(c)
-	s.baseSuite.TearDownSuite(c)
-}
-
 func (s *clientRepoSuite) SetUpTest(c *gc.C) {
 	s.baseSuite.SetUpTest(c)
-	s.CharmStoreSuite.Session = s.baseSuite.Session
-	s.CharmStoreSuite.SetUpTest(c)
-
 	c.Assert(s.APIState, gc.NotNil)
+
+	var logger loggo.Logger
+	s.repo = &mockRepo{
+		CallMocker: jtesting.NewCallMocker(logger),
+	}
+
+	s.PatchValue(&application.OpenCSRepo, func(args application.OpenCSRepoParams) (charmrepo.Interface, error) {
+		return s.repo, nil
+	})
 }
 
-func (s *clientRepoSuite) TearDownTest(c *gc.C) {
-	s.CharmStoreSuite.TearDownTest(c)
-	s.baseSuite.TearDownTest(c)
+func (s *clientRepoSuite) UploadCharm(url string) {
+	resultURL := charm.MustParseURL(url)
+	baseURL := *resultURL
+	baseURL.Series = ""
+	baseURL.Revision = -1
+	norevURL := *resultURL
+	norevURL.Revision = -1
+	for _, url := range []*charm.URL{resultURL, &baseURL, &norevURL} {
+		s.repo.Call("Resolve", url).Returns(
+			resultURL,
+		)
+	}
 }
 
 func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
@@ -804,6 +894,7 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Password: "ro-password",
 	})
@@ -819,31 +910,37 @@ func (s *clientSuite) TestClientWatchAllReadPermission(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(len(deltas), gc.Equals, 1)
-	d0, ok := deltas[0].Entity.(*params.MachineInfo)
-	c.Assert(ok, jc.IsTrue)
+	// Model and machine deltas returned.
+	c.Assert(len(deltas), gc.Equals, 2)
+	var d0 *params.MachineInfo
+	for _, delta := range deltas {
+		d, ok := delta.Entity.(*params.MachineInfo)
+		if ok {
+			d0 = d
+			break
+		}
+	}
+	c.Assert(d0, gc.NotNil)
 	d0.AgentStatus.Since = nil
 	d0.InstanceStatus.Since = nil
-	if !c.Check(deltas, jc.DeepEquals, []params.Delta{{
-		Entity: &params.MachineInfo{
-			ModelUUID:  s.State.ModelUUID(),
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			AgentStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			InstanceStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			Life:                    life.Alive,
-			Series:                  "quantal",
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []params.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
+	if !c.Check(d0, jc.DeepEquals, &params.MachineInfo{
+		ModelUUID:  s.State.ModelUUID(),
+		Id:         m.Id(),
+		InstanceId: "i-0",
+		AgentStatus: params.StatusInfo{
+			Current: status.Pending,
 		},
-	}}) {
+		InstanceStatus: params.StatusInfo{
+			Current: status.Pending,
+		},
+		Life:                    life.Alive,
+		Series:                  "quantal",
+		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+		Addresses:               []params.Address{},
+		HardwareCharacteristics: &instance.HardwareCharacteristics{},
+		HasVote:                 false,
+		WantsVote:               true,
+	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)
@@ -860,6 +957,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	err = m.SetProvisioned("i-0", "", agent.BootstrapNonce, nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Include a remote app that needs admin access to see.
+
 	_, err = s.State.AddRemoteApplication(state.AddRemoteApplicationParams{
 		Name:        "remote-db2",
 		OfferUUID:   "offer-uuid",
@@ -875,6 +973,7 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, jc.ErrorIsNil)
@@ -884,59 +983,59 @@ func (s *clientSuite) TestClientWatchAllAdminPermission(c *gc.C) {
 	}()
 	deltas, err := watcher.Next()
 	c.Assert(err, jc.ErrorIsNil)
-
-	c.Assert(len(deltas), gc.Equals, 2)
-	mIndex := 0
-	aIndex := 1
-	dMachine, ok0 := deltas[mIndex].Entity.(*params.MachineInfo)
-	dApp, ok1 := deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
-	if !ok0 {
-		mIndex = 1
-		aIndex = 0
-		dMachine, ok0 = deltas[mIndex].Entity.(*params.MachineInfo)
-		dApp, ok1 = deltas[aIndex].Entity.(*params.RemoteApplicationUpdate)
+	// model, machine, and remote application
+	c.Assert(len(deltas), gc.Equals, 3)
+	var dMachine *params.MachineInfo
+	var dApp *params.RemoteApplicationUpdate
+	for i := 0; (dMachine == nil || dApp == nil) && i < len(deltas); i++ {
+		entity := deltas[i].Entity
+		switch entity.EntityId().Kind {
+		case multiwatcher.MachineKind:
+			dMachine = entity.(*params.MachineInfo)
+		case multiwatcher.RemoteApplicationKind:
+			dApp = entity.(*params.RemoteApplicationUpdate)
+		default:
+			// don't worry about the model
+		}
 	}
-	c.Assert(ok0, jc.IsTrue)
-	c.Assert(ok1, jc.IsTrue)
+	c.Assert(dMachine, gc.NotNil)
+	c.Assert(dApp, gc.NotNil)
+
 	dMachine.AgentStatus.Since = nil
 	dMachine.InstanceStatus.Since = nil
 	dApp.Status.Since = nil
 
-	if !c.Check(deltas[mIndex], jc.DeepEquals, params.Delta{
-		Entity: &params.MachineInfo{
-			ModelUUID:  s.State.ModelUUID(),
-			Id:         m.Id(),
-			InstanceId: "i-0",
-			AgentStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			InstanceStatus: params.StatusInfo{
-				Current: status.Pending,
-			},
-			Life:                    life.Alive,
-			Series:                  "quantal",
-			Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
-			Addresses:               []params.Address{},
-			HardwareCharacteristics: &instance.HardwareCharacteristics{},
-			HasVote:                 false,
-			WantsVote:               true,
+	if !c.Check(dMachine, jc.DeepEquals, &params.MachineInfo{
+		ModelUUID:  s.State.ModelUUID(),
+		Id:         m.Id(),
+		InstanceId: "i-0",
+		AgentStatus: params.StatusInfo{
+			Current: status.Pending,
 		},
+		InstanceStatus: params.StatusInfo{
+			Current: status.Pending,
+		},
+		Life:                    life.Alive,
+		Series:                  "quantal",
+		Jobs:                    []model.MachineJob{state.JobManageModel.ToParams()},
+		Addresses:               []params.Address{},
+		HardwareCharacteristics: &instance.HardwareCharacteristics{},
+		HasVote:                 false,
+		WantsVote:               true,
 	}) {
 		c.Logf("got:")
 		for _, d := range deltas {
 			c.Logf("%#v\n", d.Entity)
 		}
 	}
-	if !c.Check(deltas[aIndex], jc.DeepEquals, params.Delta{
-		Entity: &params.RemoteApplicationUpdate{
-			Name:      "remote-db2",
-			ModelUUID: s.State.ModelUUID(),
-			OfferUUID: "offer-uuid",
-			OfferURL:  "admin/prod.db2",
-			Life:      "alive",
-			Status: params.StatusInfo{
-				Current: status.Unknown,
-			},
+	if !c.Check(dApp, jc.DeepEquals, &params.RemoteApplicationUpdate{
+		Name:      "remote-db2",
+		ModelUUID: s.State.ModelUUID(),
+		OfferUUID: "offer-uuid",
+		OfferURL:  "admin/prod.db2",
+		Life:      "alive",
+		Status: params.StatusInfo{
+			Current: status.Unknown,
 		},
 	}) {
 		c.Logf("got:")
@@ -1484,10 +1583,6 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		url:      "cs:mysql",
 		resolved: "cs:precise/mysql",
 	}, {
-		about:    "riak resolved",
-		url:      "cs:riak",
-		resolved: "cs:trusty/riak",
-	}, {
 		about:    "fully qualified char reference",
 		url:      "cs:utopic/riak-5",
 		resolved: "cs:utopic/riak-5",
@@ -1522,7 +1617,7 @@ func (s *clientRepoSuite) TestResolveCharm(c *gc.C) {
 		"trusty/riak-4",
 		"utopic/riak-5",
 	} {
-		s.UploadCharm(c, url, "wordpress")
+		s.UploadCharm(url)
 	}
 
 	// Run the tests.
@@ -1755,4 +1850,105 @@ func (s *clientSuite) assertForceDestroyMachines(c *gc.C) {
 	assertLife(c, m1, state.Dead)
 	assertLife(c, m2, state.Dead)
 	assertRemoved(c, u)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeNonHAGood(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHAGood(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeDown(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.DownState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 2 (192.168.42.2) has state DOWN")
+}
+
+func (s *serverSuite) TestCheckMongoStatusForUpgradeHANodeRecovering(c *gc.C) {
+	session := &fakeSession{
+		status: &replicaset.Status{
+			Name: "test",
+			Members: []replicaset.MemberStatus{
+				{
+					Id:      1,
+					State:   replicaset.RecoveringState,
+					Address: "192.168.42.1",
+				}, {
+					Id:      2,
+					State:   replicaset.PrimaryState,
+					Address: "192.168.42.2",
+				}, {
+					Id:      3,
+					State:   replicaset.SecondaryState,
+					Address: "192.168.42.3",
+				},
+			},
+		},
+	}
+	err := s.client.CheckMongoStatusForUpgrade(session)
+	c.Assert(err.Error(), gc.Equals, "unable to upgrade, database node 1 (192.168.42.1) has state RECOVERING")
+}
+
+type fakeSession struct {
+	status *replicaset.Status
+	err    error
+}
+
+func (s fakeSession) CurrentStatus() (*replicaset.Status, error) {
+	return s.status, s.err
 }

@@ -11,7 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.params")
@@ -82,6 +83,13 @@ type DischargeRequiredErrorInfo struct {
 	// error code.
 	Macaroon *macaroon.Macaroon `json:"macaroon,omitempty"`
 
+	// BakeryMacaroon may hold a macaroon that, when
+	// discharged, may allow access to the juju API.
+	// This field is associated with the ErrDischargeRequired
+	// error code.
+	// This is the macaroon emitted by newer Juju controllers using bakery.v2.
+	BakeryMacaroon *bakery.Macaroon `json:"bakery-macaroon,omitempty"`
+
 	// MacaroonPath holds the URL path to be associated
 	// with the macaroon. The macaroon is potentially
 	// valid for all URLs under the given path.
@@ -102,6 +110,9 @@ type RedirectErrorInfo struct {
 
 	// CACert holds the certificate of the remote server.
 	CACert string `json:"ca-cert"`
+
+	// ControllerTag uniquely identifies the controller being redirected to.
+	ControllerTag string `json:"controller-tag,omitempty"`
 
 	// An optional alias for the controller the model migrated to.
 	ControllerAlias string `json:"controller-alias,omitempty"`

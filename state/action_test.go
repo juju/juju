@@ -6,12 +6,15 @@ package state_test
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/juju/clock/testclock"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
+	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -86,7 +89,9 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ActionSuite) TestActionTag(c *gc.C) {
-	action, err := s.unit.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	tag := action.Tag()
@@ -148,7 +153,9 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 		}
 
 		// Verify we can add an Action
-		a, err := t.whichUnit.AddAction(t.name, params)
+		operationID, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
+		a, err := t.whichUnit.AddAction(operationID, t.name, params)
 
 		if t.expectedErr == "" {
 			c.Assert(err, jc.ErrorIsNil)
@@ -165,6 +172,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action, gc.NotNil)
 			c.Check(action.Id(), gc.Equals, a.Id())
+			c.Check(state.ActionOperationId(action), gc.Equals, operationID)
 
 			// verify we get out what we put in
 			c.Check(action.Name(), gc.Equals, t.name)
@@ -266,10 +274,161 @@ act:
 		// of malformed schemas, and schema objects can only be
 		// created from valid schemas.  The error handling for this
 		// is tested in the gojsonschema package.
-		action, err := u.AddAction("act", t.params)
+		operationID, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
+		action, err := u.AddAction(operationID, "act", t.params)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Check(action.Parameters(), jc.DeepEquals, t.expectedParams)
 	}
+}
+
+func (s *ActionSuite) TestActionBeginStartsOperation(c *gc.C) {
+	s.toSupportNewActionID(c)
+
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	anAction2, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	operation, err := s.model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionRunning)
+	c.Assert(operation.Started(), gc.Equals, anAction.Started())
+
+	// Starting a second action does not affect the original start time.
+	clock.Advance(5 * time.Second)
+	anAction2, err = anAction2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	err = operation.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionRunning)
+	c.Assert(operation.Started(), gc.Equals, anAction.Started())
+	c.Assert(operation.Started(), gc.Not(gc.Equals), anAction2.Started())
+}
+
+func (s *ActionSuite) TestActionBeginStartsOperationRace(c *gc.C) {
+	s.toSupportNewActionID(c)
+
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	anAction2, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		clock.Advance(5 * time.Second)
+		anAction2, err = anAction2.Begin()
+		c.Assert(err, jc.ErrorIsNil)
+	})()
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	operation, err := s.model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(operation.Status(), gc.Equals, state.ActionRunning)
+	c.Assert(operation.Started(), gc.Equals, anAction2.Started())
+	c.Assert(operation.Started(), gc.Not(gc.Equals), anAction.Started())
+}
+
+func (s *ActionSuite) TestLastActionFinishCompletesOperation(c *gc.C) {
+	s.toSupportNewActionID(c)
+
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	anAction2, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	clock.Advance(5 * time.Second)
+	anAction2, err = anAction2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Finishing only one action does not complete the operation.
+	anAction, err = anAction.Finish(state.ActionResults{
+		Status: state.ActionFailed,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	operation, err := s.model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionRunning)
+	c.Assert(operation.Completed(), gc.Equals, time.Time{})
+
+	clock.Advance(5 * time.Second)
+	anAction2, err = anAction2.Finish(state.ActionResults{
+		Status: state.ActionCompleted,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = operation.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	// Failed task precedence over completed.
+	c.Assert(operation.Status(), gc.Equals, state.ActionFailed)
+	c.Assert(operation.Completed(), gc.Equals, anAction2.Completed())
+}
+
+func (s *ActionSuite) TestLastActionFinishCompletesOperationRace(c *gc.C) {
+	s.toSupportNewActionID(c)
+
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	anAction2, err := s.unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	anAction, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	clock.Advance(5 * time.Second)
+	anAction2, err = anAction2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	operation, err := s.model.Operation(operationID)
+	defer state.SetBeforeHooks(c, s.State, func() {
+		clock.Advance(5 * time.Second)
+		anAction2, err = anAction2.Finish(state.ActionResults{
+			Status: state.ActionCancelled,
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		err = operation.Refresh()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(operation.Status(), gc.Equals, state.ActionRunning)
+		c.Assert(operation.Completed(), gc.Equals, time.Time{})
+	})()
+
+	// Finishing does complete the operation due to the other action
+	// finishing during the update of this one.
+	anAction, err = anAction.Finish(state.ActionResults{
+		Status: state.ActionCompleted,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	err = operation.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionCancelled)
+	c.Assert(operation.Completed(), gc.Equals, anAction.Completed())
 }
 
 func (s *ActionSuite) TestActionMessages(c *gc.C) {
@@ -279,13 +438,15 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anAction, err := s.unit.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(anAction.Messages(), gc.HasLen, 0)
 
 	// Cannot log messages until action is running.
 	err = anAction.Log("hello")
-	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status pending`)
+	c.Assert(err, gc.ErrorMatches, `cannot log message to task "2" with status pending`)
 
 	anAction, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -308,7 +469,7 @@ func (s *ActionSuite) TestActionMessages(c *gc.C) {
 	_, err = anAction.Finish(state.ActionResults{Status: state.ActionCompleted})
 	c.Assert(err, jc.ErrorIsNil)
 	err = anAction.Log("hello")
-	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status completed`)
+	c.Assert(err, gc.ErrorMatches, `cannot log message to task "2" with status completed`)
 }
 
 func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
@@ -321,6 +482,16 @@ func (s *ActionSuite) toSupportNewActionID(c *gc.C) {
 	}
 }
 
+func (s *ActionSuite) toSupportOldActionID(c *gc.C) {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(version.MustParse("2.6.0"), true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
 	s.toSupportNewActionID(c)
 
@@ -328,7 +499,9 @@ func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 
-	anAction, err := s.unit.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(anAction.Messages(), gc.HasLen, 0)
 
@@ -341,7 +514,7 @@ func (s *ActionSuite) TestActionLogMessageRace(c *gc.C) {
 	})()
 
 	err = anAction.Log("hello")
-	c.Assert(err, gc.ErrorMatches, `cannot log message to task "1" with status completed`)
+	c.Assert(err, gc.ErrorMatches, `cannot log message to task "2" with status completed`)
 }
 
 // makeUnits prepares units with given Action schemas
@@ -380,8 +553,15 @@ func (s *ActionSuite) TestEnqueueActionRequiresName(c *gc.C) {
 	name := ""
 
 	// verify can not enqueue an Action without a name
-	_, err := s.model.EnqueueAction(s.unit.Tag(), name, nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.model.EnqueueAction(operationID, s.unit.Tag(), name, nil)
 	c.Assert(err, gc.ErrorMatches, "action name required")
+}
+
+func (s *ActionSuite) TestEnqueueActionRequiresValidOperation(c *gc.C) {
+	_, err := s.model.EnqueueAction("666", s.unit.Tag(), "test", nil)
+	c.Assert(err, gc.ErrorMatches, `operation "666" not found`)
 }
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
@@ -390,10 +570,12 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	params2 := map[string]interface{}{"infile": "infile.zip"}
 
 	// verify can add two actions with same name
-	a1, err := s.unit.AddAction(name, params1)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	a1, err := s.unit.AddAction(operationID, name, params1)
 	c.Assert(err, jc.ErrorIsNil)
 
-	a2, err := s.unit.AddAction(name, params2)
+	a2, err := s.unit.AddAction(operationID, name, params2)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(a1.Id(), gc.Not(gc.Equals), a2.Id())
@@ -433,7 +615,9 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// can add action to a dying unit
-	_, err = unit.AddAction("snapshot", map[string]interface{}{})
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = unit.AddAction(operationID, "snapshot", map[string]interface{}{})
 	c.Assert(err, jc.ErrorIsNil)
 
 	// make sure unit is dead
@@ -441,7 +625,7 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// cannot add action to a dead unit
-	_, err = unit.AddAction("snapshot", map[string]interface{}{})
+	_, err = unit.AddAction(operationID, "snapshot", map[string]interface{}{})
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -458,7 +642,9 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	}
 	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
-	_, err = unit.AddAction("snapshot", map[string]interface{}{})
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = unit.AddAction(operationID, "snapshot", map[string]interface{}{})
 	c.Assert(err, gc.Equals, state.ErrDead)
 }
 
@@ -468,7 +654,9 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	a, err := unit.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	a, err := unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -518,7 +706,9 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	a, err := unit.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	a, err := unit.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -568,15 +758,61 @@ func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
 		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
 	}
 
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
 	for _, action := range actions {
-		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), action.Name, action.Parameters)
 		c.Check(err, gc.Equals, nil)
 	}
 
-	tags := s.model.FindActionTagsById("1")
+	tags, err := s.model.FindActionTagsById("2")
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(tags), gc.Equals, 1)
-	c.Assert(tags[0].Id(), gc.Equals, "1")
+	c.Assert(tags[0].Id(), gc.Equals, "2")
+}
+
+func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
+	// Create an action with an old id (uuid).
+	s.toSupportOldActionID(c)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	var actionToUse state.Action
+	var uuid string
+	for {
+		a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		if unicode.IsDigit(rune(a.Id()[0])) && a.Id()[0] != '0' {
+			actionToUse = a
+			uuid = a.Id()
+			break
+		}
+	}
+	c.Logf(uuid)
+
+	// Ensure there's a new action with a numeric id which
+	// matches the starting digit of the uuid above.
+	s.toSupportNewActionID(c)
+	idNum, _ := strconv.Atoi(actionToUse.Id()[0:1])
+	for i := 1; i <= idNum; i++ {
+		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
+	// Searching for that numeric id only matches the id.
+	idStr := fmt.Sprintf("%d", idNum)
+	tags, err := s.model.FindActionTagsById(idStr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(tags), gc.Equals, 1)
+	c.Assert(tags[0].Id(), gc.Equals, idStr)
+
+	// Searching for legacy prefix still works.
+	tags, err = s.model.FindActionTagsById(uuid[0:9])
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(len(tags), gc.Equals, 1)
+	c.Assert(tags[0].Id(), gc.Equals, uuid)
 }
 
 func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
@@ -591,8 +827,10 @@ func (s *ActionSuite) TestFindActionsByName(c *gc.C) {
 		{Name: "blarney", Parameters: map[string]interface{}{"conversation": []string{"what", "now"}}},
 	}
 
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
 	for _, action := range actions {
-		_, err := s.model.EnqueueAction(s.unit.Tag(), action.Name, action.Parameters)
+		_, err := s.model.EnqueueAction(operationID, s.unit.Tag(), action.Name, action.Parameters)
 		c.Assert(err, gc.Equals, nil)
 	}
 
@@ -624,10 +862,12 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	preventUnitDestroyRemove(c, u)
 
-	// queue up actions
-	a1, err := u.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	a2, err := u.AddAction("snapshot", nil)
+	// queue up actions
+	a1, err := u.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	a2, err := u.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// start watcher but don't consume Changes() yet
@@ -658,9 +898,11 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	preventUnitDestroyRemove(c, unit2)
 
 	// queue some actions before starting the watcher
-	fa1, err := unit1.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	fa2, err := unit1.AddAction("snapshot", nil)
+	fa1, err := unit1.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa2, err := unit1.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
@@ -682,7 +924,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
 	// and unit2 watcher does
-	fa3, err := unit2.AddAction("snapshot", nil)
+	fa3, err := unit2.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertNoChange()
 	expect2 := expectActionIds(fa3)
@@ -690,9 +932,9 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
-	fa4, err := unit1.AddAction("snapshot", nil)
+	fa4, err := unit1.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	fa5, err := unit1.AddAction("snapshot", nil)
+	fa5, err := unit1.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	expect = expectActionIds(fa4, fa5)
@@ -829,11 +1071,13 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertNoChange()
 
 	// add 3 actions
-	fa1, err := u.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	fa2, err := u.AddAction("snapshot", nil)
+	fa1, err := u.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	fa3, err := u.AddAction("snapshot", nil)
+	fa2, err := u.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	fa3, err := u.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	model, err := s.State.Model()
@@ -891,7 +1135,9 @@ func (s *ActionSuite) TestActionStatusWatcher(c *gc.C) {
 	expect := map[state.ActionStatus][]state.Action{}
 	all := []state.Action{}
 	for _, tcase := range testCase {
-		a, err := tcase.receiver.AddAction(tcase.name, nil)
+		operationID, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
+		a, err := tcase.receiver.AddAction(operationID, tcase.name, nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		model, err := s.State.Model()
@@ -932,8 +1178,10 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	unit1, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, jc.ErrorIsNil)
 
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
 	// queue some actions before starting the watcher
-	fa1, err := unit1.AddAction("snapshot", nil)
+	fa1, err := unit1.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	fa1, err = fa1.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -941,7 +1189,7 @@ func (s *ActionSuite) TestWatchActionLogs(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Ensure no cross contamination - add another action.
-	fa2, err := unit1.AddAction("snapshot", nil)
+	fa2, err := unit1.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	fa2, err = fa2.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1075,7 +1323,7 @@ type mockAR struct {
 
 var _ state.ActionReceiver = (*mockAR)(nil)
 
-func (r mockAR) AddAction(name string, payload map[string]interface{}) (state.Action, error) {
+func (r mockAR) AddAction(operationID, name string, payload map[string]interface{}) (state.Action, error) {
 	return nil, nil
 }
 func (r mockAR) CancelAction(state.Action) (state.Action, error) { return nil, nil }
@@ -1092,60 +1340,69 @@ type ActionPruningSuite struct {
 
 var _ = gc.Suite(&ActionPruningSuite{})
 
-func (s *ActionPruningSuite) TestPruneActionsBySize(c *gc.C) {
+func (s *ActionPruningSuite) TestPruneOperationsBySize(c *gc.C) {
 	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
-	// PrimeActions generates the actions to be pruned.
-	const numActionEntries = 15 //At slightly > 1MB per entry
-	const maxLogSize = 5        //MB
-	state.PrimeActions(c, clock.Now(), unit, numActionEntries)
+	// PrimeOperations generates the operations and tasks to be pruned.
+	const numOperationEntries = 15 // At slightly > 500kB per entry
+	const tasksPerOperation = 2
+	const maxLogSize = 5 //MB
+	state.PrimeOperations(c, clock.Now(), unit, numOperationEntries, tasksPerOperation)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, numActionEntries)
-
-	err = state.PruneActions(s.State, 0, maxLogSize)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numOperationEntries)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numOperationEntries)
+	err = state.PruneOperations(s.State, 0, maxLogSize)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	actionsLen := len(actions)
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
 
 	// The test here is to see if the remaining count is relatively close to
-	// the max log size. I would expect the number of remaining entries to
-	// be no greater than 1.5x the max log size in MB since each entry is
-	// about 1MB (in memory) in size. 1.5x is probably good enough to ensure
+	// the max log size x 2. I would expect the number of remaining entries to
+	// be no greater than 2 x 1.5 x the max log size in MB since each entry is
+	// about 500kB (in memory) in size. 1.5x is probably good enough to ensure
 	// this test doesn't flake.
-	c.Assert(float64(actionsLen), jc.LessThan, 1.5*maxLogSize)
+	c.Assert(float64(len(actions)), jc.LessThan, 2.0*maxLogSize*1.5)
+	c.Assert(float64(len(ops)), gc.Equals, float64(len(actions))/2.0)
 }
 
-func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
+func (s *ActionPruningSuite) TestPruneOperationsBySizeOldestFirst(c *gc.C) {
 	clock := testclock.NewClock(coretesting.NonZeroTime())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
-	const numActionEntriesOlder = 5
-	const numActionEntriesYounger = 5
-	const numActionEntries = numActionEntriesOlder + numActionEntriesYounger
+	const numOperationEntriesOlder = 5
+	const numOperationEntriesYounger = 5
+	const tasksPerOperation = 3
+	const numOperationEntries = numOperationEntriesOlder + numOperationEntriesYounger
 	const maxLogSize = 5 //MB
 
 	olderTime := clock.Now().Add(-1 * time.Hour)
 	youngerTime := clock.Now()
 
-	state.PrimeActions(c, olderTime, unit, numActionEntriesOlder)
-	state.PrimeActions(c, youngerTime, unit, numActionEntriesYounger)
+	state.PrimeOperations(c, olderTime, unit, numOperationEntriesOlder, tasksPerOperation)
+	state.PrimeOperations(c, youngerTime, unit, numOperationEntriesYounger, tasksPerOperation)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, numActionEntries)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numOperationEntries)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numOperationEntries)
 
-	err = state.PruneActions(s.State, 0, maxLogSize)
+	err = state.PruneOperations(s.State, 0, maxLogSize)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
@@ -1160,42 +1417,60 @@ func (s *ActionPruningSuite) TestPruneActionsBySizeOldestFirst(c *gc.C) {
 			youngerEntries = append(youngerEntries, entry.Completed())
 		}
 	}
+	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
 
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	olderEntries = nil
+	youngerEntries = nil
+	for _, entry := range actions {
+		if entry.Completed().Before(youngerTime.Round(time.Second)) {
+			olderEntries = append(olderEntries, entry.Completed())
+		} else {
+			youngerEntries = append(youngerEntries, entry.Completed())
+		}
+	}
 	c.Assert(len(youngerEntries), jc.GreaterThan, len(olderEntries))
 }
 
-func (s *ActionPruningSuite) TestPruneActionByAge(c *gc.C) {
+func (s *ActionPruningSuite) TestPruneOperationsByAge(c *gc.C) {
 	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 	application := s.Factory.MakeApplication(c, nil)
 	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
 
-	const numCurrentActionEntries = 5
-	const numExpiredActionEntries = 5
+	const numCurrentOperationEntries = 5
+	const numExpiredOperationEntries = 5
+	const tasksPerOperation = 3
 	const ageOfExpired = 10 * time.Hour
 
-	state.PrimeActions(c, clock.Now(), unit, numCurrentActionEntries)
-	state.PrimeActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredActionEntries)
+	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries, tasksPerOperation)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions, gc.HasLen, numCurrentActionEntries+numExpiredActionEntries)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*(numCurrentOperationEntries+numExpiredOperationEntries))
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numCurrentOperationEntries+numExpiredOperationEntries)
 
-	err = state.PruneActions(s.State, 1*time.Hour, 0)
+	err = state.PruneOperations(s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	actionsLen := len(actions)
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Log(actions)
-	c.Assert(actionsLen, gc.Equals, numCurrentActionEntries)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numCurrentOperationEntries)
+	c.Assert(ops, gc.HasLen, numCurrentOperationEntries)
 }
 
-// Pruner should not prune actions with age of epoch time since the epoch is a
-// special value denoting an incomplete action.
-func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
+// Pruner should not prune operations with age of epoch time since the epoch is a
+// special value denoting an incomplete operation.
+func (s *ActionPruningSuite) TestDoNotPruneIncompleteOperations(c *gc.C) {
 	clock := testclock.NewClock(time.Now())
 	err := s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
@@ -1204,17 +1479,58 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteActions(c *gc.C) {
 
 	// Completed times with the zero value are designated not complete
 	const numZeroValueEntries = 5
-	state.PrimeActions(c, time.Time{}, unit, numZeroValueEntries)
+	const tasksPerOperation = 3
+	state.PrimeOperations(c, time.Time{}, unit, numZeroValueEntries, tasksPerOperation)
 
 	_, err = unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
+	_, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
 
-	err = state.PruneActions(s.State, 1*time.Hour, 0)
+	err = state.PruneOperations(s.State, 1*time.Hour, 0)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actions, err := unit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
-	actionsLen := len(actions)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(actionsLen, gc.Equals, numZeroValueEntries)
+	c.Assert(len(actions), gc.Equals, tasksPerOperation*numZeroValueEntries)
+	c.Assert(len(ops), gc.Equals, numZeroValueEntries)
+}
+
+func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
+	clock := testclock.NewClock(time.Now())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numCurrentOperationEntries = 5
+	const numExpiredOperationEntries = 5
+	const tasksPerOperation = 3
+	const ageOfExpired = 10 * time.Hour
+
+	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries, tasksPerOperation)
+	state.PrimeLegacyActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*(numCurrentOperationEntries+numExpiredOperationEntries)+numExpiredOperationEntries)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numCurrentOperationEntries+numExpiredOperationEntries)
+
+	err = state.PruneOperations(s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Log(actions)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numCurrentOperationEntries)
+	c.Assert(ops, gc.HasLen, numCurrentOperationEntries)
 }

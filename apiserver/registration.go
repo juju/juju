@@ -12,10 +12,11 @@ import (
 	"github.com/juju/errors"
 	"golang.org/x/crypto/nacl/secretbox"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/charmstore"
 	"github.com/juju/juju/state"
 )
 
@@ -58,14 +59,14 @@ func (h *registerUserHandler) ServeHTTP(w http.ResponseWriter, req *http.Request
 
 	// Set a short-lived macaroon as a cookie on the response,
 	// which the client can use to obtain a discharge macaroon.
-	m, err := h.ctxt.srv.authenticator.CreateLocalLoginMacaroon(userTag)
+	m, err := h.ctxt.srv.authenticator.CreateLocalLoginMacaroon(req.Context(), userTag, httpbakery.RequestVersion(req))
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)
 		}
 		return
 	}
-	cookie, err := httpbakery.NewCookie(macaroon.Slice{m})
+	cookie, err := httpbakery.NewCookie(charmstore.MacaroonNamespace, macaroon.Slice{m})
 	if err != nil {
 		if err := sendError(w, err); err != nil {
 			logger.Errorf("%v", err)

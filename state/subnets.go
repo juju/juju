@@ -301,6 +301,28 @@ func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
 	return spaceNameChange && spaceName != "" && s.doc.FanLocalUnderlay == "", nil
 }
 
+// networkSubnet maps the subnet fields into a network.SubnetInfo.
+func (s *Subnet) networkSubnet() network.SubnetInfo {
+	var fanInfo *network.FanCIDRs
+	if s.doc.FanLocalUnderlay != "" || s.doc.FanOverlay != "" {
+		fanInfo = &network.FanCIDRs{
+			FanLocalUnderlay: s.doc.FanLocalUnderlay,
+			FanOverlay:       s.doc.FanOverlay,
+		}
+	}
+
+	return network.SubnetInfo{
+		CIDR:              s.doc.CIDR,
+		ProviderId:        network.Id(s.doc.ProviderId),
+		ProviderNetworkId: network.Id(s.doc.ProviderNetworkId),
+		VLANTag:           s.doc.VLANTag,
+		AvailabilityZones: s.doc.AvailabilityZones,
+		// SpaceName and ID will be populated by space.NetworkSpace
+		FanInfo:  fanInfo,
+		IsPublic: s.doc.IsPublic,
+	}
+}
+
 // SubnetUpdate adds new info to the subnet based on provided info.
 func (st *State) SubnetUpdate(args network.SubnetInfo) error {
 	s, err := st.SubnetByCIDR(args.CIDR)

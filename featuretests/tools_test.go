@@ -7,7 +7,6 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -21,7 +20,8 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	apiauthentication "github.com/juju/juju/api/authentication"
 	apitesting "github.com/juju/juju/api/testing"
@@ -225,10 +225,10 @@ func (s *toolsWithMacaroonsSuite) TestWithNoBasicAuthReturnsDischargeRequiredErr
 
 	charmResponse := assertResponse(c, resp, http.StatusUnauthorized)
 	c.Assert(charmResponse.Error, gc.NotNil)
-	c.Assert(charmResponse.Error.Message, gc.Equals, "verification failed: no macaroons")
+	c.Assert(charmResponse.Error.Message, gc.Equals, "macaroon discharge required: authentication required")
 	c.Assert(charmResponse.Error.Code, gc.Equals, params.CodeDischargeRequired)
 	c.Assert(charmResponse.Error.Info, gc.NotNil)
-	c.Assert(charmResponse.Error.Info["macaroon"], gc.NotNil)
+	c.Assert(charmResponse.Error.Info["bakery-macaroon"], gc.NotNil)
 }
 
 func (s *toolsWithMacaroonsSuite) TestCanPostWithDischargedMacaroon(c *gc.C) {
@@ -263,7 +263,7 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 	client.Jar = jar
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Client = client
-	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(apiauthentication.NewVisitor(
+	bakeryClient.AddInteractor(apiauthentication.NewInteractor(
 		user.UserTag().Id(),
 		func(username string) (string, error) {
 			c.Assert(username, gc.Equals, user.UserTag().Id())
@@ -272,13 +272,8 @@ func (s *toolsWithMacaroonsSuite) TestCanPostWithLocalLogin(c *gc.C) {
 		},
 	))
 	bakeryDo := func(req *http.Request) (*http.Response, error) {
-		var body io.ReadSeeker
-		if req.Body != nil {
-			body = req.Body.(io.ReadSeeker)
-			req.Body = nil
-		}
 		c.Logf("req.URL: %#v", req.URL)
-		return bakeryClient.DoWithBodyAndCustomError(req, body, bakeryGetError)
+		return bakeryClient.DoWithCustomError(req, bakeryGetError)
 	}
 
 	resp := servertesting.SendHTTPRequest(c, servertesting.HTTPRequestParams{
@@ -313,12 +308,7 @@ func bakeryDo(client *http.Client, getBakeryError func(*http.Response) error) fu
 		bclient.Client.Transport = utils.NewHttpTLSTransport(tlsConfig)
 	}
 	return func(req *http.Request) (*http.Response, error) {
-		var body io.ReadSeeker
-		if req.Body != nil {
-			body = req.Body.(io.ReadSeeker)
-			req.Body = nil
-		}
-		return bclient.DoWithBodyAndCustomError(req, body, getBakeryError)
+		return bclient.DoWithCustomError(req, getBakeryError)
 	}
 }
 
@@ -353,11 +343,19 @@ func bakeryGetError(resp *http.Response) error {
 		return errors.Annotatef(err, "unable to extract macaroon details from discharge-required response error")
 	}
 
+	mac := info.BakeryMacaroon
+	if mac == nil {
+		var err error
+		mac, err = bakery.NewLegacyMacaroon(info.Macaroon)
+		if err != nil {
+			return errors.Trace(err)
+		}
+	}
 	return &httpbakery.Error{
 		Message: errResp.Error.Message,
 		Code:    httpbakery.ErrDischargeRequired,
 		Info: &httpbakery.ErrorInfo{
-			Macaroon:     info.Macaroon,
+			Macaroon:     mac,
 			MacaroonPath: info.MacaroonPath,
 		},
 	}

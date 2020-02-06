@@ -804,7 +804,8 @@ func (api *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Er
 			return err
 		}
 
-		devicesArgs, devicesAddrs := networkingcommon.NetworkConfigsToStateArgs(arg.NetworkConfig)
+		ifaces := params.InterfaceInfoFromNetworkConfig(arg.NetworkConfig)
+		devicesArgs, devicesAddrs := networkingcommon.NetworkInterfacesToStateArgs(ifaces)
 
 		err = machine.SetInstanceInfo(
 			arg.InstanceId, arg.DisplayName, arg.Nonce, arg.Characteristics,

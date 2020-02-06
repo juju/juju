@@ -19,6 +19,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
+	"gopkg.in/macaroon-bakery.v2/bakery"
 
 	"github.com/juju/juju/api"
 	basetesting "github.com/juju/juju/api/base/testing"
@@ -29,6 +30,7 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/crossmodel"
+	"github.com/juju/juju/core/firewall"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -812,6 +814,7 @@ func (s *InstanceModeSuite) setupRemoteRelationRequirerRoleConsumingSide(
 
 		changes.Changes[0].Networks = nil
 		expected.Changes[0].IngressRequired = argIngressRequired
+		expected.Changes[0].BakeryVersion = bakery.LatestVersion
 		c.Check(arg, gc.DeepEquals, expected)
 
 		if !*ingressRequired {
@@ -1214,10 +1217,7 @@ func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToPublic(c *gc.C) {
 
 func (s *InstanceModeSuite) TestRemoteRelationIngressFallbackToWhitelist(c *gc.C) {
 	fwRules := state.NewFirewallRules(s.State)
-	err := fwRules.Save(state.FirewallRule{
-		WellKnownService: state.JujuApplicationOfferRule,
-		WhitelistCIDRs:   []string{"192.168.1.0/16"},
-	})
+	err := fwRules.Save(state.NewFirewallRule(firewall.JujuApplicationOfferRule, []string{"192.168.1.0/16"}))
 	c.Assert(err, jc.ErrorIsNil)
 	var ingress []string
 	for i := 1; i < 30; i++ {

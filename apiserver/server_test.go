@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"context"
 	"crypto/x509"
 	"fmt"
 	"net"
@@ -16,7 +17,8 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	apimachiner "github.com/juju/juju/api/machiner"
@@ -25,9 +27,9 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/apiserver/testserver"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/feature"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -345,7 +347,7 @@ func (s *serverSuite) TestAPIHandlerConnectedModel(c *gc.C) {
 }
 
 func (s *serverSuite) TestClosesStateFromPool(c *gc.C) {
-	cfg := testserver.DefaultServerConfig(c)
+	cfg := testserver.DefaultServerConfig(c, nil)
 	cfg.Controller = s.Controller
 	server := testserver.NewServerWithConfig(c, s.StatePool, cfg)
 	defer assertStop(c, server)
@@ -417,6 +419,7 @@ func (a *mockAuthenticator) Authenticate(req *http.Request) (httpcontext.AuthInf
 }
 
 func (a *mockAuthenticator) AuthenticateLoginRequest(
+	ctx context.Context,
 	serverHost string,
 	modelUUID string,
 	req params.LoginRequest,
@@ -430,7 +433,7 @@ func (a *mockAuthenticator) AuthenticateLoginRequest(
 	}, nil
 }
 
-func (a *mockAuthenticator) CreateLocalLoginMacaroon(tag names.UserTag) (*macaroon.Macaroon, error) {
+func (a *mockAuthenticator) CreateLocalLoginMacaroon(ctx context.Context, tag names.UserTag, version bakery.Version) (*macaroon.Macaroon, error) {
 	return nil, nil
 }
 

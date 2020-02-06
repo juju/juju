@@ -12,7 +12,6 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
@@ -712,32 +711,6 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneSuccess(c *gc.C) {
 	c.Check(subnetIDs, jc.DeepEquals, []string{"subnet-0", "subnet-1"})
 
 	s.stubAPI.CheckSingleSubnetsCall(c, anyVPC)
-}
-
-var fakeSubnetsToZones = map[network.Id][]string{
-	"subnet-foo": {"az1", "az2"},
-	"subnet-bar": {"az1"},
-	"subnet-oof": {"az3"},
-}
-
-func (s *vpcSuite) TestFindSubnetIDsForAvailabilityZoneNoneFound(c *gc.C) {
-	subnetIDs, err := findSubnetIDsForAvailabilityZone("unknown-zone", fakeSubnetsToZones)
-	c.Assert(err, gc.ErrorMatches, `subnets in AZ "unknown-zone" not found`)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(subnetIDs, gc.IsNil)
-}
-
-func (s *vpcSuite) TestFindSubnetIDsForAvailabilityOneMatched(c *gc.C) {
-	subnetIDs, err := findSubnetIDsForAvailabilityZone("az3", fakeSubnetsToZones)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetIDs, gc.DeepEquals, []string{"subnet-oof"})
-}
-
-func (s *vpcSuite) TestFindSubnetIDsForAvailabilityMultipleMatched(c *gc.C) {
-	subnetIDs, err := findSubnetIDsForAvailabilityZone("az1", fakeSubnetsToZones)
-	c.Assert(err, jc.ErrorIsNil)
-	// Result slice of IDs is always sorted.
-	c.Check(subnetIDs, gc.DeepEquals, []string{"subnet-bar", "subnet-foo"})
 }
 
 const (

@@ -11,7 +11,7 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/modelmanager"
@@ -158,11 +158,13 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	model, err := modelState.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
+	controllerTag := names.NewControllerTag(utils.MustNewUUID().String())
+
 	// Migrate the model and delete it from the state
 	mig, err := modelState.CreateMigration(state.MigrationSpec{
 		InitiatedBy: names.NewUserTag("admin"),
 		TargetInfo: migration.TargetInfo{
-			ControllerTag: names.NewControllerTag(utils.MustNewUUID().String()),
+			ControllerTag: controllerTag,
 			Addrs:         []string{"1.2.3.4:5555"},
 			CACert:        coretesting.CACert,
 			AuthTag:       names.NewUserTag("user2"),
@@ -170,16 +172,7 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 		},
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	phases := []migration.Phase{
-		migration.IMPORT,
-		migration.PROCESSRELATIONS,
-		migration.VALIDATION,
-		migration.SUCCESS,
-		migration.LOGTRANSFER,
-		migration.REAP,
-		migration.DONE,
-	}
-	for _, phase := range phases {
+	for _, phase := range migration.SuccessfulMigrationPhases() {
 		c.Assert(mig.SetPhase(phase), jc.ErrorIsNil)
 	}
 	c.Assert(model.Destroy(state.DestroyModelParams{}), jc.ErrorIsNil)
@@ -200,12 +193,13 @@ func (s *stateSuite) TestLoginToMigratedModel(c *gc.C) {
 	c.Assert(redirErr.Servers, jc.DeepEquals, []network.MachineHostPorts{nhp})
 	c.Assert(redirErr.CACert, gc.Equals, coretesting.CACert)
 	c.Assert(redirErr.FollowRedirect, gc.Equals, false)
+	c.Assert(redirErr.ControllerTag, gc.Equals, controllerTag)
 }
 
 func (s *stateSuite) TestLoginMacaroonInvalidId(c *gc.C) {
 	apistate, tag, _ := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
-	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju")
+	mac, err := macaroon.New([]byte("root-key"), []byte("id"), "juju", macaroon.LatestVersion)
 	c.Assert(err, jc.ErrorIsNil)
 	err = apistate.Login(tag, "", "", []macaroon.Slice{{mac}})
 	c.Assert(err, gc.ErrorMatches, "interaction required but not possible")

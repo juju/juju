@@ -233,13 +233,13 @@ func bootstrapCAAS(
 	bootstrapParams environs.BootstrapParams,
 ) error {
 	if args.BuildAgent {
-		return errors.NewNotSupported(nil, "--build-agent when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--build-agent when bootstrapping a k8s controller")
 	}
 	if args.BootstrapImage != "" {
-		return errors.NewNotSupported(nil, "--bootstrap-image when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--bootstrap-image when bootstrapping a k8s controller")
 	}
 	if args.BootstrapSeries != "" {
-		return errors.NewNotSupported(nil, "--bootstrap-series when bootstrapping a k8s controller")
+		return errors.NotSupportedf("--bootstrap-series when bootstrapping a k8s controller")
 	}
 
 	constraintsValidator, err := environ.ConstraintsValidator(callCtx)
@@ -277,6 +277,7 @@ func bootstrapCAAS(
 		return errors.Trace(err)
 	}
 	podConfig.JujuVersion = jujuVersion
+	podConfig.OfficialBuild = jujuversion.OfficialBuild
 	if err := finalizePodBootstrapConfig(podConfig, args, environ.Config()); err != nil {
 		return errors.Annotate(err, "finalizing bootstrap instance config")
 	}
@@ -905,9 +906,9 @@ func findCompatibleTools(possibleTools coretools.List, version version.Number) (
 }
 
 func isCompatibleVersion(v1, v2 version.Number) bool {
-	v1.Build = 0
-	v2.Build = 0
-	return v1.Compare(v2) == 0
+	x := v1.ToPatch()
+	y := v2.ToPatch()
+	return x.Compare(y) == 0
 }
 
 // setPrivateMetadataSources verifies the specified metadataDir exists,
@@ -961,19 +962,35 @@ func setPrivateMetadataSources(metadataDir string) ([]*imagemetadata.ImageMetada
 	}
 
 	baseURL := fmt.Sprintf("file://%s", filepath.ToSlash(imageMetadataDir))
-	publicKey, _ := simplestreams.UserPublicSigningKey()
-	datasource := simplestreams.NewURLSignedDataSource("bootstrap metadata", baseURL, publicKey, utils.NoVerifySSLHostnames, simplestreams.CUSTOM_CLOUD_DATA, false)
+	publicKey, err := simplestreams.UserPublicSigningKey()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// TODO: (hml) 2020-01-08
+	// Why ignore the the model-config "ssl-hostname-verification" value in
+	// the config here? Its default value is true.
+	dataSourceConfig := simplestreams.Config{
+		Description:          "bootstrap metadata",
+		BaseURL:              baseURL,
+		PublicSigningKey:     publicKey,
+		HostnameVerification: utils.NoVerifySSLHostnames,
+		Priority:             simplestreams.CUSTOM_CLOUD_DATA,
+	}
+	if err := dataSourceConfig.Validate(); err != nil {
+		return nil, errors.Annotate(err, "simplestreams config validation failed")
+	}
+	dataSource := simplestreams.NewDataSource(dataSourceConfig)
 
 	// Read the image metadata, as we'll want to upload it to the environment.
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{})
-	existingMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{datasource}, imageConstraint)
+	existingMetadata, _, err := imagemetadata.Fetch([]simplestreams.DataSource{dataSource}, imageConstraint)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Annotate(err, "cannot read image metadata")
 	}
 
 	// Add an image metadata datasource for constraint validation, etc.
 	environs.RegisterUserImageDataSourceFunc("bootstrap metadata", func(environs.Environ) (simplestreams.DataSource, error) {
-		return datasource, nil
+		return dataSource, nil
 	})
 	logger.Infof("custom image metadata added to search path")
 	return existingMetadata, nil

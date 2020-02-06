@@ -6,6 +6,8 @@ package action_test
 import (
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strconv"
 	"testing"
 	"time"
 
@@ -116,8 +118,14 @@ func (s *actionSuite) TestActions(c *gc.C) {
 		}}
 
 	r, err := s.action.Enqueue(arg)
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
+
+	// There's only one operation created.
+	operations, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Summary(), gc.Equals, "fakeaction run on unit-wordpress-0,unit-mysql-0,unit-wordpress-0,unit-mysql-0")
 
 	entities := make([]params.Entity, len(r.Results))
 	for i, result := range r.Results {
@@ -125,7 +133,7 @@ func (s *actionSuite) TestActions(c *gc.C) {
 	}
 
 	actions, err := s.action.Actions(params.Entities{Entities: entities})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(len(actions.Results), gc.Equals, len(entities))
 	for i, got := range actions.Results {
@@ -146,14 +154,14 @@ func (s *actionSuite) TestFindActionTagsByPrefix(c *gc.C) {
 	// NOTE: full testing with multiple matches has been moved to state package.
 	arg := params.Actions{Actions: []params.Action{{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}}}}
 	r, err := s.action.Enqueue(arg)
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
 
 	actionTag, err := names.ParseActionTag(r.Results[0].Action.Tag)
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	prefix := actionTag.Id()
 	tags, err := s.action.FindActionTagsByPrefix(params.FindTags{Prefixes: []string{prefix}})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	entities, ok := tags.Matches[prefix]
 	c.Assert(ok, gc.Equals, true)
@@ -178,7 +186,7 @@ func (s *actionSuite) TestFindActionsByName(c *gc.C) {
 		{Receiver: s.mysqlUnit.Tag().String(), Name: "juju-run", Parameters: map[string]interface{}{"command": "boo", "timeout": 5}},
 	}}
 	r, err := s.action.Enqueue(arg)
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
 
 	actionNames := []string{"snapshot", "juju-run"}
@@ -272,6 +280,11 @@ func (s *actionSuite) TestEnqueue(c *gc.C) {
 	actions, err = s.mysqlUnit.Actions()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions, gc.HasLen, 0)
+
+	operations, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Summary(), gc.Equals, "multiple actions run on unit-wordpress-0,application-wordpress,unit-mysql-0,wordpress/leader")
 }
 
 type testCaseAction struct {
@@ -339,10 +352,12 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
+			operationID, err := s.Model.EnqueueOperation("a test")
+			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for j, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				// make expectation
@@ -423,10 +438,12 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
+			operationID, err := s.Model.EnqueueOperation("a test")
+			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -486,10 +503,12 @@ func (s *actionSuite) TestListRunning(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
+			operationID, err := s.Model.EnqueueOperation("a test")
+			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -545,10 +564,12 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
+			operationID, err := s.Model.EnqueueOperation("a test")
+			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -808,7 +829,16 @@ func stringify(r params.ActionResult) string {
 	if a == nil {
 		a = &params.Action{}
 	}
-	return fmt.Sprintf("%s-%s-%#v-%s-%s-%#v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, r.Output)
+	// Convert action output map to ordered result.
+	var keys, orderedOut []string
+	for k := range r.Output {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		orderedOut = append(orderedOut, fmt.Sprintf("%v=%v", k, r.Output[k]))
+	}
+	return fmt.Sprintf("%s-%s-%#v-%s-%s-%v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, orderedOut)
 }
 
 func (s *actionSuite) toSupportNewActionID(c *gc.C) {
@@ -828,11 +858,13 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
 
-	added, err := unit.AddAction("fakeaction", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	added, err := unit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(
-		params.Entities{Entities: []params.Entity{{Tag: "action-1"}}},
+		params.Entities{Entities: []params.Entity{{Tag: "action-2"}}},
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(w.Results, gc.HasLen, 1)
@@ -854,7 +886,7 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	err = added.Log("hello")
 	c.Assert(err, jc.ErrorIsNil)
 
-	a, err := s.Model.Action("1")
+	a, err := s.Model.Action("2")
 	c.Assert(err, jc.ErrorIsNil)
 	logged := a.Messages()
 	c.Assert(logged, gc.HasLen, 1)
@@ -880,13 +912,21 @@ func (s *actionSuite) setupOperations(c *gc.C) {
 		}}
 
 	r, err := s.action.Enqueue(arg)
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
-	a, err := s.Model.Action("1")
+
+	// There's only one operation created.
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, 1)
+	operationID, err := strconv.Atoi(ops[0].Id())
+	c.Assert(err, jc.ErrorIsNil)
+
+	a, err := s.Model.Action(strconv.Itoa(operationID + 1))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
-	a, err = s.Model.Action("2")
+	a, err = s.Model.Action(strconv.Itoa(operationID + 2))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = a.Finish(state.ActionResults{})
 	c.Assert(err, jc.ErrorIsNil)
@@ -897,7 +937,7 @@ func (s *actionSuite) TestOperationsStatusFilter(c *gc.C) {
 	actions, err := s.action.Operations(params.OperationQueryArgs{
 		Status: []string{"running"},
 	})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions.Results, gc.HasLen, 1)
 	result := actions.Results[0]
 	c.Assert(result.Action, gc.NotNil)
@@ -910,7 +950,7 @@ func (s *actionSuite) TestOperationsStatusFilter(c *gc.C) {
 	c.Assert(result.Status, gc.Equals, "running")
 	c.Assert(result.Action.Name, gc.Equals, "fakeaction")
 	c.Assert(result.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result.Action.Tag, gc.Equals, "action-1")
+	c.Assert(result.Action.Tag, gc.Equals, "action-2")
 }
 
 func (s *actionSuite) TestOperationsNameFilter(c *gc.C) {
@@ -918,7 +958,7 @@ func (s *actionSuite) TestOperationsNameFilter(c *gc.C) {
 	actions, err := s.action.Operations(params.OperationQueryArgs{
 		FunctionNames: []string{"anotherfakeaction"},
 	})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions.Results, gc.HasLen, 1)
 	result := actions.Results[0]
 	c.Assert(result.Action, gc.NotNil)
@@ -928,7 +968,7 @@ func (s *actionSuite) TestOperationsNameFilter(c *gc.C) {
 	c.Assert(result.Status, gc.Equals, "pending")
 	c.Assert(result.Action.Name, gc.Equals, "anotherfakeaction")
 	c.Assert(result.Action.Receiver, gc.Equals, "unit-mysql-0")
-	c.Assert(result.Action.Tag, gc.Equals, "action-4")
+	c.Assert(result.Action.Tag, gc.Equals, "action-5")
 }
 
 func (s *actionSuite) TestOperationsAppFilter(c *gc.C) {
@@ -936,7 +976,7 @@ func (s *actionSuite) TestOperationsAppFilter(c *gc.C) {
 	actions, err := s.action.Operations(params.OperationQueryArgs{
 		Applications: []string{"wordpress"},
 	})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions.Results, gc.HasLen, 2)
 	result0 := actions.Results[0]
 	result1 := actions.Results[1]
@@ -948,7 +988,7 @@ func (s *actionSuite) TestOperationsAppFilter(c *gc.C) {
 	c.Assert(result0.Status, gc.Equals, "pending")
 	c.Assert(result0.Action.Name, gc.Equals, "fakeaction")
 	c.Assert(result0.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result0.Action.Tag, gc.Equals, "action-3")
+	c.Assert(result0.Action.Tag, gc.Equals, "action-4")
 
 	c.Assert(result1.Action, gc.NotNil)
 	if result1.Enqueued.IsZero() {
@@ -960,7 +1000,7 @@ func (s *actionSuite) TestOperationsAppFilter(c *gc.C) {
 	c.Assert(result1.Status, gc.Equals, "running")
 	c.Assert(result1.Action.Name, gc.Equals, "fakeaction")
 	c.Assert(result1.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result1.Action.Tag, gc.Equals, "action-1")
+	c.Assert(result1.Action.Tag, gc.Equals, "action-2")
 }
 
 func (s *actionSuite) TestOperationsUnitFilter(c *gc.C) {
@@ -969,7 +1009,7 @@ func (s *actionSuite) TestOperationsUnitFilter(c *gc.C) {
 		Units:  []string{"wordpress/0"},
 		Status: []string{"pending"},
 	})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions.Results, gc.HasLen, 1)
 	result := actions.Results[0]
 
@@ -980,7 +1020,7 @@ func (s *actionSuite) TestOperationsUnitFilter(c *gc.C) {
 	c.Assert(result.Status, gc.Equals, "pending")
 	c.Assert(result.Action.Name, gc.Equals, "fakeaction")
 	c.Assert(result.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result.Action.Tag, gc.Equals, "action-3")
+	c.Assert(result.Action.Tag, gc.Equals, "action-4")
 }
 
 func (s *actionSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
@@ -990,7 +1030,7 @@ func (s *actionSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
 		Units:        []string{"wordpress/0"},
 		Status:       []string{"pending"},
 	})
-	c.Assert(err, gc.Equals, nil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(actions.Results, gc.HasLen, 2)
 	mysqlAction := actions.Results[0]
 	wordpressAction := actions.Results[1]
@@ -1003,7 +1043,7 @@ func (s *actionSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
 	c.Assert(mysqlAction.Status, gc.Equals, "pending")
 	c.Assert(mysqlAction.Action.Name, gc.Equals, "anotherfakeaction")
 	c.Assert(mysqlAction.Action.Receiver, gc.Equals, "unit-mysql-0")
-	c.Assert(mysqlAction.Action.Tag, gc.Equals, "action-4")
+	c.Assert(mysqlAction.Action.Tag, gc.Equals, "action-5")
 
 	c.Assert(wordpressAction.Action, gc.NotNil)
 	if wordpressAction.Enqueued.IsZero() {
@@ -1012,6 +1052,6 @@ func (s *actionSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
 	c.Assert(wordpressAction.Status, gc.Equals, "pending")
 	c.Assert(wordpressAction.Action.Name, gc.Equals, "fakeaction")
 	c.Assert(wordpressAction.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(wordpressAction.Action.Tag, gc.Equals, "action-3")
+	c.Assert(wordpressAction.Action.Tag, gc.Equals, "action-4")
 
 }

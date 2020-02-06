@@ -10,7 +10,8 @@ import (
 	"gopkg.in/juju/names.v3"
 )
 
-// MigrationRemoteApplication is an implace representation of the state.RemoteApplication
+// MigrationRemoteApplication is an in-place representation of the
+// state.RemoteApplication
 type MigrationRemoteApplication interface {
 	Tag() names.Tag
 	OfferUUID() string
@@ -21,16 +22,17 @@ type MigrationRemoteApplication interface {
 	Bindings() map[string]string
 	Spaces() []MigrationRemoteSpace
 	GlobalKey() string
+	Macaroon() string
 }
 
-// MigrationRemoteEndpoint is an implace representation of the state.Endpoint
+// MigrationRemoteEndpoint is an in-place representation of the state.Endpoint
 type MigrationRemoteEndpoint struct {
 	Name      string
 	Role      charm.RelationRole
 	Interface string
 }
 
-// MigrationRemoteSpace is an implace representation of the state.RemoteSpace
+// MigrationRemoteSpace is an in-place representation of the state.RemoteSpace
 type MigrationRemoteSpace struct {
 	CloudType          string
 	Name               string
@@ -39,7 +41,7 @@ type MigrationRemoteSpace struct {
 	Subnets            []MigrationRemoteSubnet
 }
 
-// MigrationRemoteSubnet is an implace representation of the state.RemoteSubnet
+// MigrationRemoteSubnet is an in-place representation of the state.RemoteSubnet
 type MigrationRemoteSubnet struct {
 	CIDR              string
 	ProviderId        string
@@ -49,13 +51,13 @@ type MigrationRemoteSubnet struct {
 	ProviderNetworkId string
 }
 
-// AllRemoteApplicationSource defines an inplace usage for reading all the
+// AllRemoteApplicationSource defines an in-place usage for reading all the
 // remote application.
 type AllRemoteApplicationSource interface {
 	AllRemoteApplications() ([]MigrationRemoteApplication, error)
 }
 
-// StatusSource defines an inplace usage for reading in the status for a given
+// StatusSource defines an in-place usage for reading in the status for a given
 // entity.
 type StatusSource interface {
 	StatusArgs(string) (description.StatusArgs, error)
@@ -68,7 +70,7 @@ type RemoteApplicationSource interface {
 	StatusSource
 }
 
-// RemoteApplicationModel defines an inplace usage for adding a remote entity
+// RemoteApplicationModel defines an in-place usage for adding a remote entity
 // to a model.
 type RemoteApplicationModel interface {
 	AddRemoteApplication(description.RemoteApplicationArgs) description.RemoteApplication
@@ -81,7 +83,7 @@ type ExportRemoteApplications struct{}
 // Execute the migration of the remote entities using typed interfaces, to
 // ensure we don't loose any type safety.
 // This doesn't conform to an interface because go doesn't have generics, but
-// when this does arrive this would be an execellent place to use them.
+// when this does arrive this would be an excellent place to use them.
 func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst RemoteApplicationModel) error {
 	remoteApps, err := src.AllRemoteApplications()
 	if err != nil {
@@ -89,8 +91,7 @@ func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst Remot
 	}
 
 	for _, remoteApp := range remoteApps {
-		err := m.addRemoteApplication(src, dst, remoteApp)
-		if err != nil {
+		if err := m.addRemoteApplication(src, dst, remoteApp); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -98,10 +99,10 @@ func (m ExportRemoteApplications) Execute(src RemoteApplicationSource, dst Remot
 }
 
 func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSource, dst RemoteApplicationModel, app MigrationRemoteApplication) error {
+	// Note the ignore case is not an error, but a bool indicating if it's valid
+	// or not. For this scenario, we're happy to ignore that situation.
 	url, _ := app.URL()
 
-	// Note that remote applications do not include a macaroon member at all.
-	// These are not intended for export.
 	args := description.RemoteApplicationArgs{
 		Tag:             app.Tag().(names.ApplicationTag),
 		OfferUUID:       app.OfferUUID(),
@@ -109,8 +110,10 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 		SourceModel:     app.SourceModel(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
+		Macaroon:        app.Macaroon(),
 	}
 	descApp := dst.AddRemoteApplication(args)
+
 	status, err := src.StatusArgs(app.GlobalKey())
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
@@ -119,6 +122,7 @@ func (m ExportRemoteApplications) addRemoteApplication(src RemoteApplicationSour
 	if err == nil {
 		descApp.SetStatus(status)
 	}
+
 	endpoints, err := app.Endpoints()
 	if err != nil {
 		return errors.Trace(err)

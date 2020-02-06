@@ -361,7 +361,7 @@ func (w *unixConfigure) ConfigureJuju() error {
 
 	// We add the machine agent's configuration info
 	// before running bootstrap-state so that bootstrap-state
-	// has a chance to rerwrite it to change the password.
+	// has a chance to rewrite it to change the password.
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.

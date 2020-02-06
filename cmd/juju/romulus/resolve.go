@@ -8,8 +8,8 @@ import (
 	"github.com/juju/juju/api/controller"
 	"github.com/juju/juju/cmd/modelcmd"
 	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/juju/charmrepo.v4"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 
 // CharmResolver interface defines the functionality to resolve a charm URL.

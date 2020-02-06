@@ -153,6 +153,10 @@ func (e *environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) 
 	return true, nil
 }
 
+func (e *environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
+	return false, nil
+}
+
 // SupportsContainerAddresses is specified on environs.Networking.
 func (e *environ) SupportsContainerAddresses(ctx context.ProviderCallContext) (bool, error) {
 	return false, errors.NotSupportedf("container address allocation")
@@ -575,7 +579,7 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
 	} else if args.Constraints.HasSpaces() {
-		subnetIDsForZone, subnetErr = findSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+		subnetIDsForZone, subnetErr = corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
 		if subnetErr == nil && placementSubnetID != "" {
 			asSet := set.NewStrings(subnetIDsForZone...)
 			if asSet.Contains(placementSubnetID) {
@@ -2252,4 +2256,27 @@ func (e *environ) SuperSubnets(ctx context.ProviderCallContext) ([]string, error
 		return nil, err
 	}
 	return []string{cidr}, nil
+}
+
+// SetCloudSpec is specified in the environs.Environ interface.
+func (e *environ) SetCloudSpec(spec environs.CloudSpec) error {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+
+	e.cloud = spec
+	// The endpoints in public-clouds.yaml from 2.0-rc2
+	// and before were wrong, so we use whatever is defined
+	// in goamz/aws if available.
+	if isBrokenCloud(e.cloud) {
+		if region, ok := aws.Regions[e.cloud.Region]; ok {
+			e.cloud.Endpoint = region.EC2Endpoint
+		}
+	}
+
+	var err error
+	e.ec2, err = awsClient(e.cloud)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }

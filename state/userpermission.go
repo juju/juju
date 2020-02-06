@@ -11,7 +11,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/permission"
+	"github.com/juju/juju/core/permission"
 )
 
 // permission represents the permission a user has
@@ -77,7 +77,7 @@ func (p *userPermission) access() permission.Access {
 }
 
 func permissionID(objectGlobalKey, subjectGlobalKey string) string {
-	// example: e#:deadbeef#us#jim
+	// example: e#deadbeef#us#jim
 	// e: object global key
 	// deadbeef: object uuid
 	// us#jim: subject global key
@@ -114,16 +114,20 @@ func removePermissionOp(objectGlobalKey, subjectGlobalKey string) txn.Op {
 
 }
 func createPermissionOp(objectGlobalKey, subjectGlobalKey string, access permission.Access) txn.Op {
-	doc := &permissionDoc{
-		ID:               permissionID(objectGlobalKey, subjectGlobalKey),
-		SubjectGlobalKey: subjectGlobalKey,
-		ObjectGlobalKey:  objectGlobalKey,
-		Access:           accessToString(access),
-	}
+	doc := makePermissionDoc(objectGlobalKey, subjectGlobalKey, access)
 	return txn.Op{
 		C:      permissionsC,
 		Id:     permissionID(objectGlobalKey, subjectGlobalKey),
 		Assert: txn.DocMissing,
 		Insert: doc,
+	}
+}
+
+func makePermissionDoc(objectGlobalKey, subjectGlobalKey string, access permission.Access) *permissionDoc {
+	return &permissionDoc{
+		ID:               permissionID(objectGlobalKey, subjectGlobalKey),
+		SubjectGlobalKey: subjectGlobalKey,
+		ObjectGlobalKey:  objectGlobalKey,
+		Access:           accessToString(access),
 	}
 }

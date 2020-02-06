@@ -1,12 +1,14 @@
+
+# Migrating a simple one-application model from one controller to another.
 run_model_migration() {
     # Echo out to ensure nice output to the test suite.
     echo
 
-    # The following ensures that a bootstrap juju exists
+    # The following ensures that a bootstrap juju exists.
     file="${TEST_DIR}/test-model-migration.txt"
     ensure "model-migration" "${file}"
 
-    # Ensure we have another controller available
+    # Ensure we have another controller available.
     bootstrap_alt_controller "alt-model-migration"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
@@ -25,39 +27,40 @@ run_model_migration() {
 
     wait_for "ubuntu" "$(idle_condition "ubuntu")"
 
-    # Clean up!
+    # Clean up.
     destroy_controller "alt-model-migration"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
     destroy_model "model-migration"
 }
 
-run_model_migration_saas_block() {
+# Migrating a model that is the offerer of a cross-model relation
+# consumed by another model on the same controller.
+run_model_migration_saas_common() {
     # Echo out to ensure nice output to the test suite.
     echo
 
-    # The following ensures that a bootstrap juju exists
-    file="${TEST_DIR}/test-model-migration-saas.txt"
+    # The following ensures that a bootstrap juju exists.
+    file="${TEST_DIR}/test-model-migration-saas-common.txt"
     ensure "model-migration-saas" "${file}"
 
-    # Ensure we have another controller available
+    # Ensure we have another controller available.
     bootstrap_alt_controller "alt-model-migration-saas"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-    juju deploy mysql
+    juju deploy ./acceptancetests/repository/charms/dummy-source
+    juju offer dummy-source:sink
 
-    wait_for "mysql" "$(idle_condition "mysql")"
+    wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
-    juju offer mysql:db
     juju add-model blog
-
     juju switch blog
+    juju deploy ./acceptancetests/repository/charms/dummy-sink
 
-    generate_saas_bundle "${BOOTSTRAPPED_JUJU_CTRL_NAME}" "model-migration-saas"
+    wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-    juju deploy "${TEST_DIR}/saas_wordpress.yaml"
-
-    wait_for "wordpress" "$(idle_condition "wordpress")"
+    juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
+    juju relate dummy-sink dummy-source
 
     juju migrate "model-migration-saas" "alt-model-migration-saas"
     juju switch "alt-model-migration-saas"
@@ -68,9 +71,21 @@ run_model_migration_saas_block() {
     # Once the model has appeared, switch to it.
     juju switch "alt-model-migration-saas:model-migration-saas"
 
-    wait_for "mysql" "$(idle_condition "mysql")"
+    wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
-    # Clean up!
+    # Change the dummy-source config for "token" and check that the change
+    # is represented in the consuming model's dummy-sink unit.
+    juju config dummy-source token=yeah-boi
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}:blog"
+
+    wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
+
+    # The offer must be removed before model/controller destruction will work.
+    # See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+    juju switch "alt-model-migration-saas:model-migration-saas"
+    juju remove-offer "admin/model-migration-saas.dummy-source" --force -y
+
+    # Clean up.
     destroy_controller "alt-model-migration-saas"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
@@ -78,52 +93,132 @@ run_model_migration_saas_block() {
     destroy_model "blog"
 }
 
+# Migrating a model that is the offerer of a cross-model
+# relation, consumed by a model on another controller.
+run_model_migration_saas_external() {
+    # Echo out to ensure nice output to the test suite.
+    echo
+
+    # The following ensures that a bootstrap juju exists.
+    file="${TEST_DIR}/test-model-migration-saas-external.txt"
+    ensure "model-migration-saas" "${file}"
+
+    # Ensure we have controllers for the consuming model
+    # and the migration target.
+    bootstrap_alt_controller "model-migration-saas-consume"
+    bootstrap_alt_controller "model-migration-saas-target"
+
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju deploy ./acceptancetests/repository/charms/dummy-source
+    juju offer dummy-source:sink
+
+    wait_for "dummy-source" "$(idle_condition "dummy-source")"
+
+    juju switch "model-migration-saas-consume"
+    juju deploy ./acceptancetests/repository/charms/dummy-sink
+
+    wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
+
+    juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
+    juju relate dummy-sink dummy-source
+
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju migrate "model-migration-saas" "model-migration-saas-target"
+    juju switch "model-migration-saas-target"
+
+    # Wait for the new model migration to appear in the target controller.
+    wait_for_model "model-migration-saas"
+
+    # Once the model has appeared, switch to it.
+    juju switch "model-migration-saas"
+
+    wait_for "dummy-source" "$(idle_condition "dummy-source")"
+
+    # Change the dummy-source config for "token" and check that the change
+    # is represented in the consuming model's dummy-sink unit.
+    juju config dummy-source token=yeah-boi
+    juju switch "model-migration-saas-consume"
+
+    wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
+
+    # The offer must be removed before model/controller destruction will work.
+    # See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+    juju switch "model-migration-saas-target:model-migration-saas"
+    juju remove-offer "admin/model-migration-saas.dummy-source" --force -y
+
+    # Clean up.
+    destroy_controller "model-migration-saas-consume"
+    destroy_controller "model-migration-saas-target"
+
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    destroy_model "model-migration-saas"
+}
+
+# Migrating a model that is the consumer of a cross-model
+# relation, offered by a model on another controller.
 run_model_migration_saas_consumer() {
     # Echo out to ensure nice output to the test suite.
     echo
 
-    # The following ensures that a bootstrap juju exists
-    file="${TEST_DIR}/test-model-migration-consume.txt"
-    ensure "model-migration-consume" "${file}"
+    # The following ensures that a bootstrap juju exists.
+    file="${TEST_DIR}/test-model-migration-saas-consumer.txt"
+    ensure "model-migration-saas" "${file}"
 
-    # Ensure we have another controller available
-    bootstrap_alt_controller "alt-model-migration-consume"
+    # Ensure we have controllers for the consuming model
+    # and the migration target.
+    bootstrap_alt_controller "model-migration-saas-consume"
+    bootstrap_alt_controller "model-migration-saas-target"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-    juju deploy mysql
+    juju deploy ./acceptancetests/repository/charms/dummy-source
+    juju offer dummy-source:sink
 
-    wait_for "mysql" "$(idle_condition "mysql")"
+    wait_for "dummy-source" "$(idle_condition "dummy-source")"
 
-    juju offer mysql:db
-    juju add-model blog
+    juju switch "model-migration-saas-consume"
+    juju add-model "model-migration-consumer"
+    juju deploy ./acceptancetests/repository/charms/dummy-sink
 
-    juju switch blog
+    wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-    generate_saas_bundle "${BOOTSTRAPPED_JUJU_CTRL_NAME}" "model-migration-consume"
+    juju consume "${BOOTSTRAPPED_JUJU_CTRL_NAME}:admin/model-migration-saas.dummy-source"
+    juju relate dummy-sink dummy-source
 
-    juju deploy "${TEST_DIR}/saas_wordpress.yaml"
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju config dummy-source token=wait-for-it
+    juju switch "model-migration-saas-consume"
+    wait_for "wait-for-it" "$(workload_status "dummy-sink" 0).message"
 
-    wait_for "wordpress" "$(idle_condition "wordpress")"
+    juju migrate "model-migration-consumer" "model-migration-saas-target"
+    juju switch "model-migration-saas-target"
 
-    juju migrate "blog" "alt-model-migration-consume"
-    juju switch "alt-model-migration-consume"
-
-    # Wait for the new model migration to appear in the alt controller.
-    wait_for_model "blog"
+    # Wait for the new model migration to appear in the target controller.
+    wait_for_model "model-migration-consumer"
 
     # Once the model has appeared, switch to it.
-    juju switch "alt-model-migration-consume:blog"
+    juju switch "model-migration-consumer"
 
-    wait_for "wordpress" "$(idle_condition "wordpress")"
+    wait_for "dummy-sink" "$(idle_condition "dummy-sink")"
 
-    juju expose wordpress
+    # Change the dummy-source config for "token" and check that the change
+    # is represented in the consuming model's dummy-sink unit.
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju config dummy-source token=yeah-boi
+    juju switch "model-migration-saas-target"
 
-    # Clean up!
-    destroy_controller "alt-model-migration-consume"
+    wait_for "yeah-boi" "$(workload_status "dummy-sink" 0).message"
+
+    # The offer must be removed before model/controller destruction will work.
+    # See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
+    juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
+    juju remove-offer "admin/model-migration-saas.dummy-source" --force -y
+
+    # Clean up.
+    destroy_controller "model-migration-saas-consume"
+    destroy_controller "model-migration-saas-target"
 
     juju switch "${BOOTSTRAPPED_JUJU_CTRL_NAME}"
-    destroy_model "model-migration-consume"
-    destroy_model "blog"
+    destroy_model "model-migration-saas"
 }
 
 test_model_migration() {
@@ -138,7 +233,8 @@ test_model_migration() {
         cd .. || exit
 
         run "run_model_migration"
-        run "run_model_migration_saas_block"
+        run "run_model_migration_saas_common"
+        run "run_model_migration_saas_external"
         run "run_model_migration_saas_consumer"
     )
 }
@@ -149,24 +245,11 @@ bootstrap_alt_controller() {
     name=${1}
 
     START_TIME=$(date +%s)
-    echo "====> Bootstrapping destination juju"
+    echo "====> Bootstrapping ${name}"
 
     file="${TEST_DIR}/${name}.txt"
     juju_bootstrap "${BOOTSTRAP_PROVIDER}" "${name}" "misc" "${file}"
 
     END_TIME=$(date +%s)
-    echo "====> Bootstrapped destination juju ($((END_TIME-START_TIME))s)"
-}
-
-generate_saas_bundle() {
-    local ctrl_name model_name
-
-    ctrl_name=${1}
-    model_name=${2}
-
-    bundle=./tests/suites/model/bundles/saas_wordpress.yaml
-    cp "${bundle}" "${TEST_DIR}/saas_wordpress.yaml"
-
-    sed -i "s/{{BOOTSTRAPPED_JUJU_CTRL_NAME}}/${ctrl_name}/g" "${TEST_DIR}/saas_wordpress.yaml"
-    sed -i "s/{{JUJU_MODEL_NAME}}/${model_name}/g" "${TEST_DIR}/saas_wordpress.yaml"
+    echo "====> Bootstrapped ${name} ($((END_TIME-START_TIME))s)"
 }

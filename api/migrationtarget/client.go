@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/version"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
@@ -50,26 +50,26 @@ func (c *Client) Prechecks(model coremigration.ModelInfo) error {
 		AgentVersion:           model.AgentVersion,
 		ControllerAgentVersion: model.ControllerAgentVersion,
 	}
-	return c.caller.FacadeCall("Prechecks", args, nil)
+	return errors.Trace(c.caller.FacadeCall("Prechecks", args, nil))
 }
 
 // Import takes a serialized model and imports it into the target
 // controller.
 func (c *Client) Import(bytes []byte) error {
 	serialized := params.SerializedModel{Bytes: bytes}
-	return c.caller.FacadeCall("Import", serialized, nil)
+	return errors.Trace(c.caller.FacadeCall("Import", serialized, nil))
 }
 
 // Abort removes all data relating to a previously imported model.
 func (c *Client) Abort(modelUUID string) error {
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
-	return c.caller.FacadeCall("Abort", args, nil)
+	return errors.Trace(c.caller.FacadeCall("Abort", args, nil))
 }
 
 // Activate marks a migrated model as being ready to use.
 func (c *Client) Activate(modelUUID string) error {
 	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
-	return c.caller.FacadeCall("Activate", args, nil)
+	return errors.Trace(c.caller.FacadeCall("Activate", args, nil))
 }
 
 // UploadCharm sends the content to the API server using an HTTP post in order
@@ -133,9 +133,6 @@ func (c *Client) SetUnitResource(modelUUID, unit string, res resource.Resource) 
 
 func (c *Client) resourcePost(modelUUID string, args url.Values, r io.ReadSeeker) error {
 	uri := "/migrate/resources?" + args.Encode()
-	if r == nil {
-		r = strings.NewReader("")
-	}
 	contentType := "application/octet-stream"
 	err := c.httpPost(modelUUID, r, uri, contentType, nil)
 	return errors.Trace(err)
@@ -161,7 +158,7 @@ func makeResourceArgs(res resource.Resource) url.Values {
 }
 
 func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, contentType string, response interface{}) error {
-	req, err := http.NewRequest("POST", endpoint, nil)
+	req, err := http.NewRequest("POST", endpoint, content)
 	if err != nil {
 		return errors.Annotate(err, "cannot create upload request")
 	}
@@ -174,10 +171,7 @@ func (c *Client) httpPost(modelUUID string, content io.ReadSeeker, endpoint, con
 		return errors.Trace(err)
 	}
 
-	if err := httpClient.Do(req, content, response); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
+	return errors.Trace(httpClient.Do(c.caller.RawAPICaller().Context(), req, response))
 }
 
 // OpenLogTransferStream connects to the migration logtransfer
@@ -201,7 +195,7 @@ func (c *Client) OpenLogTransferStream(modelUUID string) (base.Stream, error) {
 // restartable.
 func (c *Client) LatestLogTime(modelUUID string) (time.Time, error) {
 	var result time.Time
-	args := params.ModelArgs{names.NewModelTag(modelUUID).String()}
+	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
 	err := c.caller.FacadeCall("LatestLogTime", args, &result)
 	if err != nil {
 		return time.Time{}, errors.Trace(err)
@@ -227,7 +221,7 @@ func (c *Client) CACert() (string, error) {
 	var result params.BytesResult
 	err := c.caller.FacadeCall("CACert", nil, &result)
 	if err != nil {
-		return "", err
+		return "", errors.Trace(err)
 	}
 	return string(result.Result), nil
 }
@@ -236,7 +230,7 @@ func (c *Client) CACert() (string, error) {
 // by the provider and reports any discrepancies.
 func (c *Client) CheckMachines(modelUUID string) ([]error, error) {
 	var result params.ErrorResults
-	args := params.ModelArgs{names.NewModelTag(modelUUID).String()}
+	args := params.ModelArgs{ModelTag: names.NewModelTag(modelUUID).String()}
 	err := c.caller.FacadeCall("CheckMachines", args, &result)
 	if err != nil {
 		return nil, errors.Trace(err)

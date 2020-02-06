@@ -11,7 +11,6 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/amz.v3/ec2"
 
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 )
@@ -489,22 +488,6 @@ func getVPCSubnetIDsForAvailabilityZone(
 	sortedIDs := matchingSubnetIDs.SortedValues()
 	logger.Infof("found %d subnets in VPC %q matching AZ %q and constraints: %v", len(sortedIDs), vpcID, zoneName, sortedIDs)
 	return sortedIDs, nil
-}
-
-func findSubnetIDsForAvailabilityZone(zoneName string, subnetsToZones map[network.Id][]string) ([]string, error) {
-	matchingSubnetIDs := set.NewStrings()
-	for subnetID, zones := range subnetsToZones {
-		zonesSet := set.NewStrings(zones...)
-		if zonesSet.Contains(zoneName) {
-			matchingSubnetIDs.Add(string(subnetID))
-		}
-	}
-
-	if matchingSubnetIDs.IsEmpty() {
-		return nil, errors.NotFoundf("subnets in AZ %q", zoneName)
-	}
-
-	return matchingSubnetIDs.SortedValues(), nil
 }
 
 func isVPCIDSetButInvalid(vpcID string) bool {

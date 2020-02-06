@@ -119,27 +119,46 @@ func ModelMachineInfo(st ModelManagerBackend) (machineInfo []params.ModelMachine
 		hasVote[n.Id()] = n.HasVote()
 		wantsVote[n.Id()] = n.WantsVote()
 	}
+	var primaryID string
+	primaryHA, err := st.HAPrimaryMachine()
+	if err != nil {
+		// We do not want to return any errors here as they are all
+		// non-fatal for this call since we can still
+		// get machine info even if we could not get HA Primary determined.
+		// Also on some non-HA setups, i.e. where mongo was not run with --replSet,
+		// this call will return an error.
+		logger.Warningf("could not determine if there is a primary HA machine: %v", err)
+	}
+	if len(controllerNodes) > 1 {
+		primaryID = primaryHA.Id()
+	}
+
 	for _, m := range machines {
 		if m.Life() != state.Alive {
 			continue
 		}
-		var status string
+		var aStatus string
 		// This is suboptimal as if there are many machines,
 		// we are making many calls into the DB for each machine.
 		var statusMessage string
 		statusInfo, err := m.Status()
 		if err == nil {
-			status = string(statusInfo.Status)
+			aStatus = string(statusInfo.Status)
 			statusMessage = statusInfo.Message
 		} else {
-			status = err.Error()
+			aStatus = err.Error()
 		}
 		mInfo := params.ModelMachineInfo{
 			Id:        m.Id(),
 			HasVote:   hasVote[m.Id()],
 			WantsVote: wantsVote[m.Id()],
-			Status:    status,
+			Status:    aStatus,
 			Message:   statusMessage,
+		}
+		if primaryID != "" {
+			if isPrimary := primaryID == m.Id(); isPrimary {
+				mInfo.HAPrimary = &isPrimary
+			}
 		}
 		instId, displayName, err := m.InstanceNames()
 		switch {

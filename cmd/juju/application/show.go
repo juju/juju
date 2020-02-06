@@ -86,7 +86,7 @@ func (c *showApplicationCommand) Init(args []string) error {
 // SetFlags implements Command.SetFlags.
 func (c *showApplicationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "yaml", cmd.DefaultFormatters.Formatters())
 }
 
 // ApplicationsInfoAPI defines the API methods that show-application command uses.

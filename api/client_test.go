@@ -19,12 +19,12 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/juju/errors"
-	"github.com/juju/httprequest"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/httprequest.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
@@ -40,7 +40,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/testing/factory"
 )
 
 type clientSuite struct {
@@ -460,12 +459,11 @@ func (s *clientSuite) TestOpenCharmMissing(c *gc.C) {
 }
 
 func addLocalCharm(c *gc.C, client *api.Client, name string, force bool) (*charm.URL, *charm.CharmArchive, string) {
-	repo := testcharms.TmpRepo(c)
-	charmArchive := repo.CharmArchive(repo.Path(), name)
+	charmArchive := testcharms.Repo.CharmArchive(c.MkDir(), name)
 	curl := charm.MustParseURL(fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()))
 	_, err := client.AddLocalCharm(curl, charmArchive, force)
 	c.Assert(err, jc.ErrorIsNil)
-	return curl, charmArchive, repo.Path()
+	return curl, charmArchive, charmArchive.Path
 }
 
 func fakeAPIEndpoint(c *gc.C, client *api.Client, address, method string, handle func(http.ResponseWriter, *http.Request)) net.Listener {
@@ -687,31 +685,6 @@ func (s *clientSuite) TestOpenUsesModelUUIDPaths(c *gc.C) {
 	})
 	c.Check(err, jc.Satisfies, params.IsCodeModelNotFound)
 	c.Assert(apistate, gc.IsNil)
-}
-
-func (s *clientSuite) TestSetModelAgentVersionDuringUpgrade(c *gc.C) {
-	// This is an integration test which ensure that a test with the
-	// correct error code is seen by the client from the
-	// SetModelAgentVersion call when an upgrade is in progress.
-	modelConfig, err := s.Model.ModelConfig()
-	c.Assert(err, jc.ErrorIsNil)
-	agentVersion, ok := modelConfig.AgentVersion()
-	c.Assert(ok, jc.IsTrue)
-	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
-		Jobs: []state.MachineJob{state.JobManageModel},
-	})
-	err = machine.SetAgentVersion(version.MustParseBinary(agentVersion.String() + "-quantal-amd64"))
-	c.Assert(err, jc.ErrorIsNil)
-	nextVersion := version.MustParse("9.8.7")
-	_, err = s.State.EnsureUpgradeInfo(machine.Id(), agentVersion, nextVersion)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = s.APIState.Client().SetModelAgentVersion(nextVersion, false)
-
-	// Expect an error with a error code that indicates this specific
-	// situation. The client needs to be able to reliably identify
-	// this error and handle it differently to other errors.
-	c.Assert(params.IsCodeUpgradeInProgress(err), jc.IsTrue)
 }
 
 func (s *clientSuite) TestAbortCurrentUpgrade(c *gc.C) {

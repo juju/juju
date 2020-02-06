@@ -15,10 +15,10 @@ import (
 	"github.com/juju/loggo"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v3/csclient"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 )
 
 var logger = loggo.GetLogger("juju.charmstore")
@@ -66,14 +66,20 @@ func newCachingClient(
 	return Client{client, jar}, nil
 }
 
+func NewCustomClient(base csWrapper) Client {
+	return Client{
+		csWrapper: base,
+	}
+}
+
 // TODO(natefinch): we really shouldn't let something like a bakeryclient
 // leak out of our abstraction like this. Instead, pass more salient details.
 
-// NewCustomClient returns a juju charmstore client that relies on the passed-in
+// NewCustomClientAtURL returns a juju charmstore client that relies on the passed-in
 // httpbakery.Client to store and retrieve macaroons.  If not nil, the client
 // will use server as the charmstore url, otherwise it will default to the
 // standard juju charmstore url.
-func NewCustomClient(bakeryClient *httpbakery.Client, server string) (Client, error) {
+func NewCustomClientAtURL(bakeryClient *httpbakery.Client, server string) (Client, error) {
 	return newCustomClient(bakeryClient, server, makeWrapper)
 }
 
@@ -295,7 +301,18 @@ type csclientImpl struct {
 func (c csclientImpl) Latest(channel csparams.Channel, ids []*charm.URL, metadata map[string][]string) ([]csparams.CharmRevision, error) {
 	client := c.WithChannel(channel)
 	client.SetHTTPHeader(http.Header(metadata))
-	return client.Latest(ids)
+	revs, err := client.Latest(ids)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]csparams.CharmRevision, len(revs))
+	for i, r := range revs {
+		result[i] = csparams.CharmRevision{
+			Revision: r.Revision,
+			Err:      r.Err,
+		}
+	}
+	return result, nil
 }
 
 // ListResources gets the latest resources for the charm URL on the channel.

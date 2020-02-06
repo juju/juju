@@ -169,35 +169,6 @@ func (ws *workers) singularManager() *lease.Manager {
 	return w.(*lease.Manager)
 }
 
-func (ws *workers) allManager(params WatchParams) *storeManager {
-	w, err := ws.Worker(allManagerWorker, nil)
-	if err == nil {
-		return w.(*storeManager)
-	}
-	if errors.Cause(err) != worker.ErrNotFound {
-		return newDeadStoreManager(errors.Trace(err))
-	}
-	// Note that StartWorker is idempotent if there's a race.
-	ws.StartWorker(allManagerWorker, func() (worker.Worker, error) {
-		return newStoreManager(newAllWatcherStateBacking(ws.state, params)), nil
-	})
-	return ws.allManager(params)
-}
-
-func (ws *workers) allModelManager(pool *StatePool) *storeManager {
-	w, err := ws.Worker(allModelManagerWorker, nil)
-	if err == nil {
-		return w.(*storeManager)
-	}
-	if errors.Cause(err) != worker.ErrNotFound {
-		return newDeadStoreManager(errors.Trace(err))
-	}
-	ws.StartWorker(allModelManagerWorker, func() (worker.Worker, error) {
-		return newStoreManager(NewAllModelWatcherStateBacking(ws.state, pool)), nil
-	})
-	return ws.allModelManager(pool)
-}
-
 // lazyLeaseClaimer wraps one of workers.singularManager.Claimer or
 // workers.leadershipManager.Claimer, and calls it in the method
 // calls. This enables the manager to use restarted lease managers.

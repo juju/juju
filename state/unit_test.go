@@ -67,6 +67,72 @@ func (s *UnitSuite) TestApplication(c *gc.C) {
 	c.Assert(app.Name(), gc.Equals, s.unit.ApplicationName())
 }
 
+func (s *UnitSuite) TestUnitStateMutation(c *gc.C) {
+	// Try fetching the state without a state doc present
+	ust, err := s.unit.State()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ust, gc.IsNil, gc.Commentf("expected to receive a nil map when no state doc is present"))
+
+	// Set initial state; this should create a new unitstate doc
+	initialState := map[string]string{
+		"foo":          "bar",
+		"key.with.dot": "must work",
+		"key.with.$":   "must work to",
+	}
+	err = s.unit.SetState(initialState)
+	c.Assert(err, gc.IsNil)
+
+	// Read back initial state
+	ust, err = s.unit.State()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ust, gc.DeepEquals, initialState)
+
+	// Mutate state again with an existing state doc
+	newState := map[string]string{"foo": "42"}
+	err = s.unit.SetState(newState)
+	c.Assert(err, gc.IsNil)
+
+	ust, err = s.unit.State()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ust, gc.DeepEquals, newState)
+}
+
+func (s *UnitSuite) TestUnitStateNopMutation(c *gc.C) {
+	// Set initial state; this should create a new unitstate doc
+	initialState := map[string]string{
+		"foo":          "bar",
+		"key.with.dot": "must work",
+		"key.with.$":   "must work to",
+	}
+	err := s.unit.SetState(initialState)
+	c.Assert(err, gc.IsNil)
+
+	// Read revno
+	txnDoc := struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}{}
+	coll := s.Session.DB("juju").C("unitstates")
+	err = coll.Find(nil).One(&txnDoc)
+	c.Assert(err, gc.IsNil)
+	curRevNo := txnDoc.TxnRevno
+
+	// Set state using the same KV pairs; this should be a no-op
+	err = s.unit.SetState(initialState)
+	c.Assert(err, gc.IsNil)
+
+	err = coll.Find(nil).One(&txnDoc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(txnDoc.TxnRevno, gc.Equals, curRevNo, gc.Commentf("expected state doc revno to remain the same"))
+
+	// Set state using a different set of KV pairs
+	err = s.unit.SetState(map[string]string{"something": "else"})
+	c.Assert(err, gc.IsNil)
+
+	err = coll.Find(nil).One(&txnDoc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(txnDoc.TxnRevno, jc.GreaterThan, curRevNo, gc.Commentf("expected state doc revno to be bumped"))
+}
+
 func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *gc.C) {
 	_, err := s.unit.ConfigSettings()
 	c.Assert(err, gc.ErrorMatches, "unit's charm URL must be set before retrieving config")
@@ -1638,6 +1704,34 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	})
 }
 
+func (s *UnitSuite) TestRemoveUnitDeletesUnitState(c *gc.C) {
+	// Create unit state document
+	err := s.unit.SetState(map[string]string{"speed": "ludicrous"})
+	c.Assert(err, jc.ErrorIsNil)
+
+	coll := s.Session.DB("juju").C("unitstates")
+	numDocs, err := coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numDocs, gc.Equals, 1, gc.Commentf("expected a new document for the unit state to be created"))
+
+	// Destroy unit; this should also purge the state doc for the unit
+	err = s.unit.Destroy()
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.unit.EnsureDead()
+	c.Assert(err, jc.ErrorIsNil)
+
+	numDocs, err = coll.Count()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(numDocs, gc.Equals, 0, gc.Commentf("expected unit state document to be removed when the unit is destroyed"))
+
+	// Any attempts to read/write a unit's state when not Alive should fail
+	_, err = s.unit.State()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+
+	err = s.unit.SetState(map[string]string{"foo": "bar"})
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *gc.C) {
 	preventUnitDestroyRemove(c, s.unit)
 	err := s.unit.Destroy()
@@ -2131,12 +2225,15 @@ snapshot:
 
 	for i, t := range tests {
 		c.Logf("running test %d", i)
-		action, err := unit1.AddAction(t.actionName, t.givenPayload)
+		operationID, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
+		action, err := unit1.AddAction(operationID, t.actionName, t.givenPayload)
 		if t.errString != "" {
 			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)
+			c.Assert(state.ActionOperationId(action), gc.Equals, operationID)
 		}
 	}
 }
@@ -2161,16 +2258,18 @@ action-b-b:
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
-	_, err = unit1.AddAction("action-a-a", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction("action-a-b", nil)
+	_, err = unit1.AddAction(operationID, "action-a-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction("action-a-c", nil)
+	_, err = unit1.AddAction(operationID, "action-a-b", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = unit1.AddAction(operationID, "action-a-c", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = unit2.AddAction("action-b-a", nil)
+	_, err = unit2.AddAction(operationID, "action-b-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit2.AddAction("action-b-b", nil)
+	_, err = unit2.AddAction(operationID, "action-b-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only

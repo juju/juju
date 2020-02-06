@@ -13,7 +13,6 @@ import (
 	"github.com/juju/description"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
@@ -24,11 +23,10 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/feature"
 	"github.com/juju/juju/payload"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
@@ -50,15 +48,6 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	} else if modelExists {
 		// We have an existing matching model.
 		return nil, nil, errors.AlreadyExistsf("model %s", modelUUID)
-	}
-
-	// Ensure that we only enable CMR migrations if the feature flag is enabled
-	// otherwise just error out as usual.
-	if !featureflag.Enabled(feature.CMRMigrations) && len(model.RemoteApplications()) != 0 {
-		// Cross-model relations are currently limited to models on
-		// the same controller, while migration is for getting the
-		// model to a new controller.
-		return nil, nil, errors.New("can't import models with remote applications")
 	}
 
 	// Unfortunately a version was released that exports v4 models
@@ -191,11 +180,17 @@ func (ctrl *Controller) Import(model description.Model) (_ *Model, _ *State, err
 	if err := restore.remoteApplications(); err != nil {
 		return nil, nil, errors.Annotate(err, "remoteapplications")
 	}
+	if err := restore.firewallRules(); err != nil {
+		return nil, nil, errors.Annotate(err, "firewallrules")
+	}
 	if err := restore.relations(); err != nil {
 		return nil, nil, errors.Annotate(err, "relations")
 	}
 	if err := restore.remoteEntities(); err != nil {
 		return nil, nil, errors.Annotate(err, "remoteentitites")
+	}
+	if err := restore.externalControllers(); err != nil {
+		return nil, nil, errors.Annotate(err, "externalcontrollers")
 	}
 	if err := restore.relationNetworks(); err != nil {
 		return nil, nil, errors.Annotate(err, "relationnetworks")
@@ -906,6 +901,40 @@ func (i *importer) application(a description.Application) error {
 		}
 	}
 
+	if err := i.applicationOffers(a); err != nil {
+		i.logger.Errorf("error importing application %s: %s", app.Name(), err)
+		return errors.Annotate(err, app.Name())
+	}
+
+	return nil
+}
+
+func (i *importer) applicationOffers(app ApplicationDescription) error {
+	i.logger.Debugf("importing application offer")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
+	}
+	migration.Add(func() error {
+		m := ImportApplicationOffer{}
+		// The following shims compose a model and series of methods that should
+		// be public, but are private (for unit/mock testing) and we encapsulate
+		// that as one thing.
+		return m.Execute(applicationDescriptionShim{
+			stateApplicationOfferDocumentFactoryShim{
+				stateModelNamspaceShim{
+					Model: migration.src,
+					st:    i.st,
+				},
+				i,
+			},
+			app,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
+		return errors.Trace(err)
+	}
+	i.logger.Debugf("importing application offer succeeded")
 	return nil
 }
 
@@ -1093,6 +1122,14 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	// The assertion logic in unit.SetState assumes that the DocID is
+	// present.  Since the txn for creating the unit doc has completed
+	// without an error, we can safely populate the doc's model UUID and
+	// DocID.
+	udoc.ModelUUID = model.UUID()
+	udoc.DocID = ensureModelUUID(udoc.ModelUUID, udoc.Name)
+
 	unit := newUnit(i.st, model.Type(), udoc)
 	if annotations := u.Annotations(); len(annotations) > 0 {
 		if err := i.dbModel.SetAnnotations(unit, annotations); err != nil {
@@ -1108,7 +1145,11 @@ func (i *importer) unit(s description.Application, u description.Unit) error {
 	if err := i.importStatusHistory(unit.globalWorkloadVersionKey(), u.WorkloadVersionHistory()); err != nil {
 		return errors.Trace(err)
 	}
-
+	if unitState := u.State(); len(unitState) != 0 {
+		if err := unit.SetState(unitState); err != nil {
+			return errors.Trace(err)
+		}
+	}
 	if i.dbModel.Type() == ModelTypeIAAS {
 		if err := i.importUnitPayloads(unit, u.Payloads()); err != nil {
 			return errors.Trace(err)
@@ -1249,125 +1290,33 @@ func (i *importer) remoteApplications() error {
 	return nil
 }
 
-// StateDocumentFactory creates documents that are useful with in the state
-// package. In essence this just allows us to model our dependencies correctly
-// without having to construct dependencies everywhere.
-// Note: we need public methods here because gomock doesn't mock private methods
-type StateDocumentFactory interface {
-	NewRemoteApplication(*remoteApplicationDoc) *RemoteApplication
-	MakeRemoteApplicationDoc(description.RemoteApplication) *remoteApplicationDoc
-	MakeStatusDoc(description.Status) statusDoc
-	MakeStatusOp(string, statusDoc) txn.Op
-}
-
-// RemoteApplicationsDescription defines an inplace usage for reading remote
-// applications.
-type RemoteApplicationsDescription interface {
-	DocModelNamespace
-	StateDocumentFactory
-	RemoteApplications() []description.RemoteApplication
-}
-
-// stateDocumentFactoryShim is required to allow the new vertical boundary
-// around importing a remoteApplication, from being accessed by the existing
-// state package code.
-// That way we can keep the importing code clean from the proliferation of state
-// code in the juju code base.
-type stateDocumentFactoryShim struct {
-	stateModelNamspaceShim
-	importer *importer
-}
-
-func (s stateDocumentFactoryShim) NewRemoteApplication(doc *remoteApplicationDoc) *RemoteApplication {
-	return newRemoteApplication(s.importer.st, doc)
-}
-
-func (s stateDocumentFactoryShim) MakeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
-	return s.importer.makeRemoteApplicationDoc(app)
-}
-
-func (s stateDocumentFactoryShim) MakeStatusDoc(status description.Status) statusDoc {
-	return s.importer.makeStatusDoc(status)
-}
-
-func (s stateDocumentFactoryShim) MakeStatusOp(globalKey string, doc statusDoc) txn.Op {
-	return createStatusOp(s.importer.st, globalKey, doc)
-}
-
-// ImportRemoteApplications describes a way to import remote applications from a
-// description.
-type ImportRemoteApplications struct{}
-
-// Execute the import on the remote entities description, carefully modelling
-// the dependencies we have.
-func (i ImportRemoteApplications) Execute(src RemoteApplicationsDescription,
-	runner TransactionRunner,
-) error {
-	remoteApplications := src.RemoteApplications()
-	if len(remoteApplications) == 0 {
-		return nil
+func (i *importer) firewallRules() error {
+	i.logger.Debugf("importing firewall rules")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
 	}
-	ops := make([]txn.Op, 0)
-	for _, app := range remoteApplications {
-		appDoc := src.MakeRemoteApplicationDoc(app)
-
-		// Status maybe empty for some remoteApplications. Ensure we handle
-		// that correctly by checking if we get one before mkaing a new
-		// StatusDoc
-		var appStatusDoc *statusDoc
-		if status := app.Status(); status != nil {
-			doc := src.MakeStatusDoc(status)
-			appStatusDoc = &doc
-		}
-		app := src.NewRemoteApplication(appDoc)
-
-		remoteAppOps, err := i.addRemoteApplicationOps(src, app, addRemoteApplicationOpsArgs{
-			remoteApplicationDoc: appDoc,
-			statusDoc:            appStatusDoc,
-		})
-		if err != nil {
-			return errors.Trace(err)
-		}
-		ops = append(ops, remoteAppOps...)
-	}
-	if err := runner.RunTransaction(ops); err != nil {
+	migration.Add(func() error {
+		m := ImportFirewallRules{}
+		return m.Execute(stateModelNamspaceShim{
+			Model: migration.src,
+			st:    i.st,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
 	}
+	i.logger.Debugf("importing remote applications succeeded")
 	return nil
 }
 
-type addRemoteApplicationOpsArgs struct {
-	remoteApplicationDoc *remoteApplicationDoc
-	statusDoc            *statusDoc
-}
-
-func (i ImportRemoteApplications) addRemoteApplicationOps(src RemoteApplicationsDescription,
-	app *RemoteApplication,
-	args addRemoteApplicationOpsArgs,
-) ([]txn.Op, error) {
-	globalKey := app.globalKey()
-	docID := src.DocID(app.Name())
-
-	ops := []txn.Op{
-		{
-			C:      applicationsC,
-			Id:     app.Name(),
-			Assert: txn.DocMissing,
-		},
-		{
-			C:      remoteApplicationsC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: args.remoteApplicationDoc,
-		},
+// makeStatusDoc assumes status is non-nil.
+func (i *importer) makeFirewallRuleDoc(firewallRule description.FirewallRule) *firewallRulesDoc {
+	return &firewallRulesDoc{
+		Id:               firewallRule.ID(),
+		WellKnownService: firewallRule.WellKnownService(),
+		WhitelistCIDRS:   firewallRule.WhitelistCIDRs(),
 	}
-	// The status doc can be optional with a remoteApplication. To ensure that
-	// we correctly handle this situation check for it.
-	if args.statusDoc != nil {
-		ops = append(ops, src.MakeStatusOp(globalKey, *args.statusDoc))
-	}
-
-	return ops, nil
 }
 
 func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *remoteApplicationDoc {
@@ -1378,6 +1327,7 @@ func (i *importer) makeRemoteApplicationDoc(app description.RemoteApplication) *
 		SourceModelUUID: app.SourceModelTag().Id(),
 		IsConsumerProxy: app.IsConsumerProxy(),
 		Bindings:        app.Bindings(),
+		Macaroon:        app.Macaroon(),
 	}
 	descEndpoints := app.Endpoints()
 	eps := make([]remoteEndpointDoc, len(descEndpoints))
@@ -1544,66 +1494,6 @@ func (i *importer) remoteEntities() error {
 	return nil
 }
 
-//go:generate mockgen -package state -destination migration_import_mock_test.go github.com/juju/juju/state TransactionRunner,StateDocumentFactory,DocModelNamespace,RemoteEntitiesDescription,RelationNetworksDescription,RemoteApplicationsDescription
-//go:generate mockgen -package state -destination migration_description_mock_test.go github.com/juju/description RemoteEntity,RelationNetwork,RemoteApplication,RemoteSpace,Status
-
-// TransactionRunner is an inplace usage for running transactions to a
-// persistence store.
-type TransactionRunner interface {
-	RunTransaction([]txn.Op) error
-}
-
-// DocModelNamespace takes a document model ID and ensures it has a model id
-// associated with the model.
-type DocModelNamespace interface {
-	DocID(string) string
-}
-
-type stateModelNamspaceShim struct {
-	description.Model
-	st *State
-}
-
-func (s stateModelNamspaceShim) DocID(localID string) string {
-	return s.st.docID(localID)
-}
-
-// RemoteEntitiesDescription defines an inplace usage for reading remote entities.
-type RemoteEntitiesDescription interface {
-	DocModelNamespace
-	RemoteEntities() []description.RemoteEntity
-}
-
-// ImportRemoteEntities describes a way to import remote entities from a
-// description.
-type ImportRemoteEntities struct{}
-
-// Execute the import on the remote entities description, carefully modelling
-// the dependencies we have.
-func (ImportRemoteEntities) Execute(src RemoteEntitiesDescription, runner TransactionRunner) error {
-	remoteEntities := src.RemoteEntities()
-	if len(remoteEntities) == 0 {
-		return nil
-	}
-	ops := make([]txn.Op, len(remoteEntities))
-	for i, entity := range remoteEntities {
-		docID := src.DocID(entity.ID())
-		ops[i] = txn.Op{
-			C:      remoteEntitiesC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: &remoteEntityDoc{
-				DocID: docID,
-				Token: entity.Token(),
-			},
-		}
-	}
-	if err := runner.RunTransaction(ops); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
-}
-
 func (i *importer) relationNetworks() error {
 	i.logger.Debugf("importing relation networks")
 	migration := &ImportStateMigration{
@@ -1624,40 +1514,26 @@ func (i *importer) relationNetworks() error {
 	return nil
 }
 
-// RelationNetworksDescription defines an inplace usage for reading relation networks.
-type RelationNetworksDescription interface {
-	DocModelNamespace
-	RelationNetworks() []description.RelationNetwork
-}
-
-// ImportRelationNetworks describes a way to import relation networks from a
-// description.
-type ImportRelationNetworks struct{}
-
-// Execute the import on the relation networks description, carefully modelling
-// the dependencies we have.
-func (ImportRelationNetworks) Execute(src RelationNetworksDescription, runner TransactionRunner) error {
-	relationNetworks := src.RelationNetworks()
-	if len(relationNetworks) == 0 {
-		return nil
+func (i *importer) externalControllers() error {
+	i.logger.Debugf("importing external controllers")
+	migration := &ImportStateMigration{
+		src: i.model,
+		dst: i.st.db(),
 	}
-	ops := make([]txn.Op, len(relationNetworks))
-	for i, entity := range relationNetworks {
-		docID := src.DocID(entity.ID())
-		ops[i] = txn.Op{
-			C:      relationNetworksC,
-			Id:     docID,
-			Assert: txn.DocMissing,
-			Insert: relationNetworksDoc{
-				Id:          docID,
-				RelationKey: entity.RelationKey(),
-				CIDRS:       entity.CIDRS(),
+	migration.Add(func() error {
+		m := ImportExternalControllers{}
+		return m.Execute(stateExternalControllerDocumentFactoryShim{
+			stateModelNamspaceShim{
+				Model: migration.src,
+				st:    i.st,
 			},
-		}
-	}
-	if err := runner.RunTransaction(ops); err != nil {
+			i,
+		}, migration.dst)
+	})
+	if err := migration.Run(); err != nil {
 		return errors.Trace(err)
 	}
+	i.logger.Debugf("importing external controllers succeeded")
 	return nil
 }
 

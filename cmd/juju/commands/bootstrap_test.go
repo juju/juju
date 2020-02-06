@@ -322,10 +322,8 @@ func (s *BootstrapSuite) run(c *gc.C, test bootstrapTest) testing.Restorer {
 	c.Assert(controller.APIEndpoints, gc.DeepEquals, addrConnectedTo)
 	c.Assert(utils.IsValidUUIDString(controller.ControllerUUID), jc.IsTrue)
 	// We don't care about build numbers here.
-	bootstrapVers := bootstrapVersion.Number
-	bootstrapVers.Build = 0
-	controllerVers := version.MustParse(controller.AgentVersion)
-	controllerVers.Build = 0
+	bootstrapVers := bootstrapVersion.Number.ToPatch()
+	controllerVers := version.MustParse(controller.AgentVersion).ToPatch()
 	c.Assert(controllerVers.String(), gc.Equals, bootstrapVers.String())
 
 	controllerModel, err := s.store.ModelByName(controllerName, "admin/controller")
@@ -465,6 +463,10 @@ var bootstrapTests = []bootstrapTest{{
 	info: "k8s config on iaas controller",
 	args: []string{"--config", "controller-service-type=loadbalancer"},
 	err:  `"controller-service-type", "controller-external-name" and "controller-external-ips"are only allowed for kubernetes controllers`,
+}, {
+	info: "controller name cannot be set via config",
+	args: []string{"--config", "controller-name=test"},
+	err:  `controller name cannot be set via config, please use cmd args`,
 }}
 
 func (s *BootstrapSuite) TestRunCloudNameUnknown(c *gc.C) {

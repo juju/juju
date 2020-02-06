@@ -169,6 +169,7 @@ func (u *Unit) setDetails(details UnitChange) {
 	u.details = details
 	toPublish := u.copy()
 	if machineChange || u.details.Subordinate {
+		// TODO thumper: check this, it looks like we are publishing too often.
 		u.model.hub.Publish(modelUnitAdd, toPublish)
 	}
 	// Publish change event for those that may be waiting.

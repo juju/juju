@@ -15,8 +15,9 @@ import (
 	"github.com/juju/utils/featureflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api/base"
 	"github.com/juju/juju/api/instancepoller"
@@ -38,11 +39,12 @@ import (
 func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaroon.Slice) error {
 	var result params.LoginResult
 	request := &params.LoginRequest{
-		AuthTag:     tagToString(tag),
-		Credentials: password,
-		Nonce:       nonce,
-		Macaroons:   macaroons,
-		CLIArgs:     utils.CommandString(os.Args...),
+		AuthTag:       tagToString(tag),
+		Credentials:   password,
+		Nonce:         nonce,
+		Macaroons:     macaroons,
+		BakeryVersion: bakery.LatestVersion,
+		CLIArgs:       utils.CommandString(os.Args...),
 	}
 	// If we are in developer mode, add the stack location as user data to the
 	// login request. This will allow the apiserver to connect connection ids
@@ -68,9 +70,17 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			var redirInfo params.RedirectErrorInfo
 			err := rpcErr.UnmarshalInfo(&redirInfo)
 			if err == nil && redirInfo.CACert != "" && len(redirInfo.Servers) != 0 {
+				var controllerTag names.ControllerTag
+				if redirInfo.ControllerTag != "" {
+					if controllerTag, err = names.ParseControllerTag(redirInfo.ControllerTag); err != nil {
+						return errors.Trace(err)
+					}
+				}
+
 				return &RedirectError{
 					Servers:         params.ToMachineHostsPorts(redirInfo.Servers),
 					CACert:          redirInfo.CACert,
+					ControllerTag:   controllerTag,
 					ControllerAlias: redirInfo.ControllerAlias,
 					FollowRedirect:  false, // user-action required
 				}
@@ -91,7 +101,7 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 			FollowRedirect: true, // JAAS-type redirect
 		}
 	}
-	if result.DischargeRequired != nil {
+	if result.DischargeRequired != nil || result.BakeryDischargeRequired != nil {
 		// The result contains a discharge-required
 		// macaroon. We discharge it and retry
 		// the login request with the original macaroon
@@ -99,11 +109,19 @@ func (st *state) Login(tag names.Tag, password, nonce string, macaroons []macaro
 		if result.DischargeRequiredReason == "" {
 			result.DischargeRequiredReason = "no reason given for discharge requirement"
 		}
-		if err := st.bakeryClient.HandleError(st.cookieURL, &httpbakery.Error{
+		// Prefer the newer bakery.v2 macaroon.
+		dcMac := result.BakeryDischargeRequired
+		if dcMac == nil {
+			dcMac, err = bakery.NewLegacyMacaroon(result.DischargeRequired)
+			if err != nil {
+				return errors.Trace(err)
+			}
+		}
+		if err := st.bakeryClient.HandleError(st.ctx, st.cookieURL, &httpbakery.Error{
 			Message: result.DischargeRequiredReason,
 			Code:    httpbakery.ErrDischargeRequired,
 			Info: &httpbakery.ErrorInfo{
-				Macaroon:     result.DischargeRequired,
+				Macaroon:     dcMac,
 				MacaroonPath: "/",
 			},
 		}); err != nil {

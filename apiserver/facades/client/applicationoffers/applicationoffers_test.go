@@ -12,7 +12,8 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/crossmodel"
@@ -20,8 +21,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	jujucrossmodel "github.com/juju/juju/core/crossmodel"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
 )
@@ -48,7 +49,8 @@ func (s *applicationOffersSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.bakery = &mockBakeryService{caveats: make(map[string][]checkers.Caveat)}
-	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
+	thirdPartyKey := bakery.MustGenerateKey()
+	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -358,7 +360,7 @@ func (s *applicationOffersSuite) assertShow(c *gc.C, url string, expected []para
 	s.mockState.CreateOfferAccess(
 		names.NewApplicationOfferTag("hosted-db2"),
 		names.NewUserTag("mary"), permission.ConsumeAccess)
-	filter := params.OfferURLs{[]string{url}}
+	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
@@ -469,7 +471,7 @@ func (s *applicationOffersSuite) TestShowPermission(c *gc.C) {
 
 func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 	url := "fred/prod.hosted-db2"
-	filter := params.OfferURLs{[]string{url}}
+	filter := params.OfferURLs{[]string{url}, bakery.LatestVersion}
 	msg := "fail"
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
@@ -484,7 +486,7 @@ func (s *applicationOffersSuite) TestShowError(c *gc.C) {
 
 func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 	urls := []string{"fred/prod.hosted-db2"}
-	filter := params.OfferURLs{urls}
+	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
@@ -500,7 +502,7 @@ func (s *applicationOffersSuite) TestShowNotFound(c *gc.C) {
 
 func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
 	urls := []string{"fred/prod.hosted-db2:db"}
-	filter := params.OfferURLs{urls}
+	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	s.mockState.model = &mockModel{uuid: testing.ModelTag.Id(), name: "prod", owner: "fred", modelType: state.ModelTypeIAAS}
 
 	found, err := s.api.ApplicationOffers(filter)
@@ -511,7 +513,7 @@ func (s *applicationOffersSuite) TestShowRejectsEndpoints(c *gc.C) {
 
 func (s *applicationOffersSuite) TestShowErrorMsgMultipleURLs(c *gc.C) {
 	urls := []string{"fred/prod.hosted-mysql", "fred/test.hosted-db2"}
-	filter := params.OfferURLs{urls}
+	filter := params.OfferURLs{urls, bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		return nil, nil
@@ -553,7 +555,7 @@ func (s *applicationOffersSuite) TestShowFoundMultiple(c *gc.C) {
 		Endpoints:              map[string]charm.Relation{"db2": {Name: "db2"}},
 	}
 
-	filter := params.OfferURLs{[]string{url, url2}}
+	filter := params.OfferURLs{[]string{url, url2}, bakery.LatestVersion}
 
 	s.applicationOffers.listOffers = func(filters ...jujucrossmodel.ApplicationOfferFilter) ([]jujucrossmodel.ApplicationOffer, error) {
 		c.Assert(filters, gc.HasLen, 1)
@@ -1070,7 +1072,8 @@ func (s *consumeSuite) SetUpTest(c *gc.C) {
 		return s.env, nil
 	}
 	var err error
-	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, s.bakery, s.bakery)
+	thirdPartyKey := bakery.MustGenerateKey()
+	s.authContext, err = crossmodel.NewAuthContext(&mockCommonStatePool{s.mockStatePool}, thirdPartyKey, s.bakery)
 	c.Assert(err, jc.ErrorIsNil)
 	apiV1, err := applicationoffers.CreateOffersAPI(
 		getApplicationOffers, getEnviron, getFakeControllerInfo,
@@ -1338,7 +1341,7 @@ func (s *consumeSuite) assertDestroyOffersNoForce(c *gc.C, api destroyOffers) {
 	})
 
 	urls := []string{"fred/prod.hosted-db2"}
-	filter := params.OfferURLs{urls}
+	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)
@@ -1379,7 +1382,7 @@ func (s *consumeSuite) TestDestroyOffersForce(c *gc.C) {
 	})
 
 	urls := []string{"fred/prod.hosted-db2"}
-	filter := params.OfferURLs{urls}
+	filter := params.OfferURLs{urls, bakery.LatestVersion}
 	found, err := s.api.ApplicationOffers(filter)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(found.Results, gc.HasLen, 1)

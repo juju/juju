@@ -484,7 +484,14 @@ func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, e
 		d.status = "waiting prior to opening agent port"
 		d.mu.Unlock()
 		logger.Infof("waiting for %s before allowing api connections", d.delay)
-		<-d.clock.After(d.delay)
+		select {
+		case <-d.done:
+			// while waiting, we were asked to shut down
+			logger.Debugf("shutting down API port before opening")
+			return
+		case <-d.clock.After(d.delay):
+			// We are all good.
+		}
 	}
 
 	d.mu.Lock()
@@ -492,6 +499,7 @@ func (d *dualListener) openAPIPort(topic string, conn apiserver.APIConnection, e
 	// Make sure we haven't been closed already.
 	select {
 	case <-d.done:
+		logger.Infof("shutting down API port before allowing connections", d.delay)
 		return
 	default:
 		// We are all good.

@@ -10,7 +10,7 @@ import (
 	gomock "github.com/golang/mock/gomock"
 	params "github.com/juju/juju/apiserver/params"
 	instance "github.com/juju/juju/core/instance"
-	"github.com/juju/juju/core/life"
+	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
 	status "github.com/juju/juju/core/status"
 	context "github.com/juju/juju/environs/context"
@@ -51,6 +51,19 @@ func (m *MockEnviron) Instances(arg0 context.ProviderCallContext, arg1 []instanc
 // Instances indicates an expected call of Instances
 func (mr *MockEnvironMockRecorder) Instances(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Instances", reflect.TypeOf((*MockEnviron)(nil).Instances), arg0, arg1)
+}
+
+// NetworkInterfaces mocks base method
+func (m *MockEnviron) NetworkInterfaces(arg0 context.ProviderCallContext, arg1 []instance.Id) ([][]network.InterfaceInfo, error) {
+	ret := m.ctrl.Call(m, "NetworkInterfaces", arg0, arg1)
+	ret0, _ := ret[0].([][]network.InterfaceInfo)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NetworkInterfaces indicates an expected call of NetworkInterfaces
+func (mr *MockEnvironMockRecorder) NetworkInterfaces(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkInterfaces", reflect.TypeOf((*MockEnviron)(nil).NetworkInterfaces), arg0, arg1)
 }
 
 // MockMachine is a mock of Machine interface
@@ -139,19 +152,6 @@ func (mr *MockMachineMockRecorder) Life() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockMachine)(nil).Life))
 }
 
-// ProviderAddresses mocks base method
-func (m *MockMachine) ProviderAddresses() (network.ProviderAddresses, error) {
-	ret := m.ctrl.Call(m, "ProviderAddresses")
-	ret0, _ := ret[0].(network.ProviderAddresses)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ProviderAddresses indicates an expected call of ProviderAddresses
-func (mr *MockMachineMockRecorder) ProviderAddresses() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderAddresses", reflect.TypeOf((*MockMachine)(nil).ProviderAddresses))
-}
-
 // Refresh mocks base method
 func (m *MockMachine) Refresh() error {
 	ret := m.ctrl.Call(m, "Refresh")
@@ -176,20 +176,18 @@ func (mr *MockMachineMockRecorder) SetInstanceStatus(arg0, arg1, arg2 interface{
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetInstanceStatus", reflect.TypeOf((*MockMachine)(nil).SetInstanceStatus), arg0, arg1, arg2)
 }
 
-// SetProviderAddresses mocks base method
-func (m *MockMachine) SetProviderAddresses(arg0 ...network.ProviderAddress) error {
-	varargs := []interface{}{}
-	for _, a := range arg0 {
-		varargs = append(varargs, a)
-	}
-	ret := m.ctrl.Call(m, "SetProviderAddresses", varargs...)
-	ret0, _ := ret[0].(error)
-	return ret0
+// SetProviderNetworkConfig mocks base method
+func (m *MockMachine) SetProviderNetworkConfig(arg0 []network.InterfaceInfo) (network.ProviderAddresses, bool, error) {
+	ret := m.ctrl.Call(m, "SetProviderNetworkConfig", arg0)
+	ret0, _ := ret[0].(network.ProviderAddresses)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// SetProviderAddresses indicates an expected call of SetProviderAddresses
-func (mr *MockMachineMockRecorder) SetProviderAddresses(arg0 ...interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderAddresses", reflect.TypeOf((*MockMachine)(nil).SetProviderAddresses), arg0...)
+// SetProviderNetworkConfig indicates an expected call of SetProviderNetworkConfig
+func (mr *MockMachineMockRecorder) SetProviderNetworkConfig(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetProviderNetworkConfig", reflect.TypeOf((*MockMachine)(nil).SetProviderNetworkConfig), arg0)
 }
 
 // Status mocks base method

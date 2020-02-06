@@ -26,7 +26,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/charm.v6"
-	csparams "gopkg.in/juju/charmrepo.v3/csclient/params"
+	csparams "gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -39,11 +39,11 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/raftlease"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state/cloudimagemetadata"
 	"github.com/juju/juju/state/globalclock"
 	statelease "github.com/juju/juju/state/lease"
@@ -676,14 +676,6 @@ type WatchParams struct {
 	IncludeOffers bool
 }
 
-func (st *State) Watch(params WatchParams) *Multiwatcher {
-	return NewMultiwatcher(st.workers.allManager(params))
-}
-
-func (st *State) WatchAllModels(pool *StatePool) *Multiwatcher {
-	return NewMultiwatcher(st.workers.allModelManager(pool))
-}
-
 // versionInconsistentError indicates one or more agents have a
 // different version from the current one (even empty, when not yet
 // set).
@@ -1016,6 +1008,12 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 			return nil, errors.Trace(err)
 		}
 		return model.ActionByTag(tag)
+	case names.OperationTag:
+		model, err := st.Model()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		return model.Operation(tag.Id())
 	case names.CharmTag:
 		if url, err := charm.ParseURL(id); err != nil {
 			logger.Warningf("Parsing charm URL %q failed: %v", id, err)

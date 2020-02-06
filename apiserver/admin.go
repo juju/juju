@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -21,8 +22,8 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/auditlog"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/feature"
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	statepresence "github.com/juju/juju/state/presence"
@@ -63,7 +64,7 @@ func (a *admin) Admin(id string) (*admin, error) {
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *admin) Login(req params.LoginRequest) (params.LoginResult, error) {
-	return a.login(req, 3)
+	return a.login(context.Background(), req, 3)
 }
 
 // RedirectInfo returns redirected host information for the model.
@@ -77,7 +78,7 @@ var MaintenanceNoLoginError = errors.New("login failed - maintenance in progress
 var errAlreadyLoggedIn = errors.New("already logged in")
 
 // login is the internal version of the Login API call.
-func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginResult, error) {
+func (a *admin) login(ctx context.Context, req params.LoginRequest, loginVersion int) (params.LoginResult, error) {
 	var fail params.LoginResult
 
 	a.mu.Lock()
@@ -87,10 +88,11 @@ func (a *admin) login(req params.LoginRequest, loginVersion int) (params.LoginRe
 		return fail, errAlreadyLoggedIn
 	}
 
-	authResult, err := a.authenticate(req)
+	authResult, err := a.authenticate(ctx, req)
 	if err, ok := errors.Cause(err).(*common.DischargeRequiredError); ok {
 		loginResult := params.LoginResult{
-			DischargeRequired:       err.Macaroon,
+			DischargeRequired:       err.LegacyMacaroon,
+			BakeryDischargeRequired: err.Macaroon,
 			DischargeRequiredReason: err.Error(),
 		}
 		logger.Infof("login failed with discharge-required error: %v", err)
@@ -206,16 +208,12 @@ type authResult struct {
 	userInfo               *params.AuthUserInfo
 }
 
-func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
+func (a *admin) authenticate(ctx context.Context, req params.LoginRequest) (*authResult, error) {
 	result := &authResult{
 		controllerOnlyLogin: a.root.modelUUID == "",
 		userLogin:           true,
 	}
 
-	// TODO(axw) move this to the stateauthenticator implementation?
-	// Or better yet, provide a wrapper type that adds the rate-limiting.
-	//
-	// Maybe rate limit non-user auth attempts.
 	if req.AuthTag != "" {
 		tag, err := names.ParseTag(req.AuthTag)
 		if err == nil {
@@ -228,18 +226,27 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			defer a.srv.metricsCollector.LoginAttempts.Dec()
 
 			// Users are not rate limited, all other entities are.
-			if !a.srv.limiter.Acquire() {
-				logger.Debugf("rate limiting for agent %s", req.AuthTag)
-				select {
-				case <-time.After(a.srv.loginRetryPause):
-				}
-				return nil, common.ErrTryAgain
+			if err := a.srv.getAgentToken(); err != nil {
+				logger.Tracef("rate limiting for agent %s", req.AuthTag)
+				return nil, errors.Trace(err)
 			}
-			defer a.srv.limiter.Release()
 		}
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
+	}
+
+	// If the login attempt is for a migrated model,
+	// a.root.model will be nil as the model document does not exist on this
+	// controller and a.root.modelUUID cannot be resolved.
+	// In this case use the requested model UUID to check if we need to return
+	// a redirect error.
+	modelUUID := a.root.modelUUID
+	if a.root.model != nil {
+		modelUUID = a.root.model.UUID()
+	}
+	if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
+		return nil, errors.Trace(err)
 	}
 
 	switch result.tag.(type) {
@@ -254,41 +261,21 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 		result.userLogin = false
 	}
 
+	// Anonymous logins come from other controllers (in cross-model relations).
+	// We don't need to start pingers because we don't maintain presence
+	// information for them.
+	startPinger := !result.anonymousLogin
+
 	// Only attempt to login with credentials if we are not doing an anonymous login.
-	var (
-		lastConnection *time.Time
-		// Anonymous logins are for other controllers (for cross-model
-		// relations) - we don't need to start pingers because we
-		// don't maintain presence information for them.
-		startPinger = !result.anonymousLogin
-	)
-
 	if !result.anonymousLogin {
-		// If the user attempted to login to a migrated model,
-		// a.root.model will be nil as the model document does not
-		// exist on this controller and a.root.modelUUID cannot be
-		// resolved. In this case use the requested model UUID to check
-		// if we need to redirect the user.
-		modelUUID := a.root.modelUUID
-		if a.root.model != nil {
-			modelUUID = a.root.model.UUID()
-		}
-
-		if err := a.maybeEmitRedirectError(modelUUID, result.tag); err != nil {
-			return nil, err
-		}
-
-		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(
-			a.root.serverHost,
-			modelUUID,
-			req,
-		)
+		authInfo, err := a.srv.authenticator.AuthenticateLoginRequest(ctx, a.root.serverHost, modelUUID, req)
 		if err != nil {
 			return nil, a.handleAuthError(err)
 		}
+
 		result.controllerMachineLogin = authInfo.Controller
-		// controllerConn is used to indicate a connection from the controller
-		// to a non-controller model.
+		// controllerConn is used to indicate a connection from
+		// the controller to a non-controller model.
 		controllerConn := false
 		if authInfo.Controller && !a.root.state.IsController() {
 			// We only need to run a pinger for controller machine
@@ -296,16 +283,13 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			startPinger = false
 			controllerConn = true
 		}
-		a.root.entity = authInfo.Entity
+
 		// TODO(wallyworld) - we can't yet observe anonymous logins as entity must be non-nil
-		a.apiObserver.Login(
-			authInfo.Entity.Tag(),
-			a.root.model.ModelTag(),
-			controllerConn,
-			req.UserData,
-		)
-	} else if a.root.model == nil { // anonymous login to unknown model
-		// Hide the fact that the model does not exist
+		a.root.entity = authInfo.Entity
+		a.apiObserver.Login(authInfo.Entity.Tag(), a.root.model.ModelTag(), controllerConn, req.UserData)
+	} else if a.root.model == nil {
+		// Anonymous login to unknown model.
+		// Hide the fact that the model does not exist.
 		return nil, errors.Unauthorizedf("invalid entity name or password")
 	}
 	a.loggedIn = true
@@ -323,6 +307,8 @@ func (a *admin) authenticate(req params.LoginRequest) (*authResult, error) {
 			return nil, errors.Trace(err)
 		}
 	}
+
+	var lastConnection *time.Time
 	if err := a.fillLoginDetails(result, lastConnection); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -346,15 +332,18 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 		return nil
 	}
 
-	// Check if the model was not found because it was migrated to another
-	// controller. If that is the case and the user was able to access it
-	// before the migration return back a RedirectError.
-	mig, err := st.LatestRemovedModelMigration()
+	// Check if the model was not found due to
+	// being migrated to another controller.
+	mig, err := st.CompletedMigration()
 	if err != nil && !errors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
 
-	if mig == nil || mig.ModelUserAccess(userTag) == permission.NoAccess {
+	// If a user is trying to access a migrated model to which they are not
+	// granted access, do not return a redirect error.
+	// We need to return redirects if possible for anonymous logins in order
+	// to ensure post-migration operation of CMRs.
+	if mig == nil || (userTag.Id() != api.AnonymousUsername && mig.ModelUserAccess(userTag) == permission.NoAccess) {
 		return nil
 	}
 
@@ -367,9 +356,11 @@ func (a *admin) maybeEmitRedirectError(modelUUID string, authTag names.Tag) erro
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	return &common.RedirectError{
 		Servers:         []network.ProviderHostPorts{hps},
 		CACert:          target.CACert,
+		ControllerTag:   target.ControllerTag,
 		ControllerAlias: target.ControllerAlias,
 	}
 }
@@ -384,7 +375,7 @@ func (a *admin) handleAuthError(err error) error {
 		// is complete due to incomplete or updating data. Mask
 		// transitory and potentially confusing errors from failed
 		// logins with a more helpful one.
-		return MaintenanceNoLoginError
+		return errors.Wrap(err, MaintenanceNoLoginError)
 	}
 	return err
 }

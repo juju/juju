@@ -11,7 +11,7 @@ import (
 	gc "gopkg.in/check.v1"
 	tomb "gopkg.in/tomb.v2"
 
-	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/testing"
 )
 
@@ -277,7 +277,7 @@ func NewRelationUnitsWatcherC(c *gc.C, st SyncStarter, w RelationUnitsWatcher) R
 
 type RelationUnitsWatcher interface {
 	Stop() error
-	Changes() <-chan params.RelationUnitsChange
+	Changes() watcher.RelationUnitsChannel
 }
 
 func (c RelationUnitsWatcherC) AssertNoChange() {

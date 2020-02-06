@@ -71,7 +71,7 @@ leader.
 
 // SetFlags is part of the cmd.Command interface.
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
 	f.Var(c.relationIdProxy, "r", "Specify a relation by id")
 	f.Var(c.relationIdProxy, "relation", "")
 

@@ -16,7 +16,8 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/api/firewaller"
@@ -429,11 +430,9 @@ func (fw *Firewaller) startUnit(unit *firewaller.Unit, machineTag names.MachineT
 	if err != nil {
 		return err
 	}
+
 	applicationTag := application.Tag()
 	unitTag := unit.Tag()
-	if err != nil {
-		return err
-	}
 	unitd := &unitData{
 		fw:   fw,
 		unit: unit,
@@ -1511,6 +1510,7 @@ func (rd *remoteRelationData) updateProviderModel(cidrs []string) error {
 		Networks:         change.networks.Values(),
 		IngressRequired:  change.ingressRequired,
 		Macaroons:        macaroon.Slice{mac},
+		BakeryVersion:    bakery.LatestVersion,
 	}
 	err = remoteModelAPI.PublishIngressNetworkChange(event)
 	if errors.IsNotFound(err) {

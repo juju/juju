@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -55,81 +54,6 @@ type NetworkingDecorator interface {
 	DecorateNetworking(Networking) (Networking, error)
 }
 
-// switchingNetworking is an implementation of Networking that delegates
-// to either Neutron networking (preferred), or legacy Nova networking if
-// there is no support for Neutron.
-type switchingNetworking struct {
-	env *Environ
-
-	mu         sync.Mutex
-	networking Networking
-}
-
-func (n *switchingNetworking) initNetworking() error {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	if n.networking != nil {
-		return nil
-	}
-
-	client := n.env.client()
-	if !client.IsAuthenticated() {
-		if err := authenticateClient(client); err != nil {
-			return errors.Trace(err)
-		}
-	}
-
-	base := networkingBase{env: n.env}
-	if n.env.supportsNeutron() {
-		n.networking = &NeutronNetworking{base}
-	} else {
-		n.networking = &LegacyNovaNetworking{base}
-	}
-	return nil
-}
-
-// AllocatePublicIP is part of the Networking interface.
-func (n *switchingNetworking) AllocatePublicIP(instId instance.Id) (*string, error) {
-	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return n.networking.AllocatePublicIP(instId)
-}
-
-// DefaultNetworks is part of the Networking interface.
-func (n *switchingNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
-	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return n.networking.DefaultNetworks()
-}
-
-// ResolveNetwork is part of the Networking interface.
-func (n *switchingNetworking) ResolveNetwork(name string, external bool) (string, error) {
-	if err := n.initNetworking(); err != nil {
-		return "", errors.Trace(err)
-	}
-	return n.networking.ResolveNetwork(name, external)
-}
-
-// Subnets is part of the Networking interface.
-func (n *switchingNetworking) Subnets(
-	instId instance.Id, subnetIds []corenetwork.Id,
-) ([]corenetwork.SubnetInfo, error) {
-	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return n.networking.Subnets(instId, subnetIds)
-}
-
-// NetworkInterfaces is part of the Networking interface
-func (n *switchingNetworking) NetworkInterfaces(ids []instance.Id) ([][]corenetwork.InterfaceInfo, error) {
-	if err := n.initNetworking(); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return n.networking.NetworkInterfaces(ids)
-}
-
 type networkingBase struct {
 	env *Environ
 }
@@ -148,6 +72,10 @@ func processResolveNetworkIds(name string, networkIds []string) (string, error) 
 // network APIs.
 type NeutronNetworking struct {
 	networkingBase
+}
+
+func newNetworking(e *Environ) Networking {
+	return &NeutronNetworking{networkingBase: networkingBase{env: e}}
 }
 
 // networkFilter returns a neutron.Filter to match Neutron Networks with

@@ -9,15 +9,15 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	"gopkg.in/juju/names.v3"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon.v2"
 	"gopkg.in/tomb.v2"
 
 	"github.com/juju/juju/apiserver/common/cloudspec"
 	"github.com/juju/juju/apiserver/common/firewall"
-	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/crossmodel"
 	corenetwork "github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -301,7 +301,7 @@ func (r *mockRelation) WatchRelationEgressNetworks() state.StringsWatcher {
 }
 
 func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
-	w := &mockRelationUnitsWatcher{changes: make(chan params.RelationUnitsChange, 1)}
+	w := &mockRelationUnitsWatcher{changes: make(chan watcher.RelationUnitsChange, 1)}
 	w.Tomb.Go(func() error {
 		<-w.Tomb.Dying()
 		return nil
@@ -311,10 +311,10 @@ func newMockRelationUnitsWatcher() *mockRelationUnitsWatcher {
 
 type mockRelationUnitsWatcher struct {
 	mockWatcher
-	changes chan params.RelationUnitsChange
+	changes chan watcher.RelationUnitsChange
 }
 
-func (w *mockRelationUnitsWatcher) Changes() <-chan params.RelationUnitsChange {
+func (w *mockRelationUnitsWatcher) Changes() watcher.RelationUnitsChannel {
 	return w.changes
 }
 

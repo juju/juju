@@ -12,7 +12,8 @@ import (
 	"github.com/juju/proxy"
 	"github.com/juju/utils/ssh"
 	"github.com/juju/version"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon.v2"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
@@ -506,12 +507,13 @@ type Creds struct {
 // the LoginResult will contain a macaroon that when
 // discharged, may allow access.
 type LoginRequest struct {
-	AuthTag     string           `json:"auth-tag"`
-	Credentials string           `json:"credentials"`
-	Nonce       string           `json:"nonce"`
-	Macaroons   []macaroon.Slice `json:"macaroons"`
-	CLIArgs     string           `json:"cli-args,omitempty"`
-	UserData    string           `json:"user-data"`
+	AuthTag       string           `json:"auth-tag"`
+	Credentials   string           `json:"credentials"`
+	Nonce         string           `json:"nonce"`
+	Macaroons     []macaroon.Slice `json:"macaroons"`
+	BakeryVersion bakery.Version   `json:"bakery-version,omitempty"`
+	CLIArgs       string           `json:"cli-args,omitempty"`
+	UserData      string           `json:"user-data"`
 }
 
 // LoginRequestCompat holds credentials for identifying an entity to the Login v1
@@ -771,6 +773,17 @@ type LoginResult struct {
 	// however because of the above it is suitable to use the Macaroon type
 	// here.
 	DischargeRequired *macaroon.Macaroon `json:"discharge-required,omitempty"`
+
+	// BakeryDischargeRequired implies that the login request has failed, and none of
+	// the other fields are populated. It contains a macaroon which, when
+	// discharged, will grant access on a subsequent call to Login.
+	// Note: It is OK to use the Macaroon type here as it is explicitly
+	// designed to provide stable serialisation of macaroons.  It's good
+	// practice to only use primitives in types that will be serialised,
+	// however because of the above it is suitable to use the Macaroon type
+	// here.
+	// This is the macaroon emitted by newer Juju controllers using bakery.v2.
+	BakeryDischargeRequired *bakery.Macaroon `json:"bakery-discharge-required,omitempty"`
 
 	// DischargeRequiredReason holds the reason that the above discharge was
 	// required.

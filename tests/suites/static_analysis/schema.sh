@@ -2,7 +2,8 @@ run_schema() {
     CUR_SHA=$(git show HEAD:apiserver/facades/schema.json | shasum -a 1 | awk '{ print $1 }')
     TMP=$(mktemp /tmp/schema-XXXXX)
     OUT=$(make --no-print-directory SCHEMA_PATH="${TMP}" rebuild-schema 2>&1)
-    if [ "${OUT}" != "Generating facade schema..." ]; then
+    OUT_CODE=$?
+    if [ $OUT_CODE -ne 0 ]; then
         echo ""
         echo "$(red 'Found some issues:')"
         echo "${OUT}"

@@ -317,11 +317,3 @@ func (s *uniterResolver) nextOp(
 
 	return nil, resolver.ErrNoOperation
 }
-
-// NopResolver is a resolver that does nothing.
-type NopResolver struct{}
-
-// The NopResolver's NextOp operation should always return the no operation error.
-func (NopResolver) NextOp(resolver.LocalState, remotestate.Snapshot, operation.Factory) (operation.Operation, error) {
-	return nil, resolver.ErrNoOperation
-}

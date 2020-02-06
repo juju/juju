@@ -32,7 +32,7 @@ const (
 
 var extractControllerRe = regexp.MustCompile(GroupControllerPattern)
 
-//factory for obtaining firawaller object.
+//factory for obtaining firewaller object.
 type FirewallerFactory interface {
 	GetFirewaller(env environs.Environ) Firewaller
 }
@@ -92,121 +92,7 @@ type firewallerFactory struct {
 
 // GetFirewaller implements FirewallerFactory
 func (f *firewallerFactory) GetFirewaller(env environs.Environ) Firewaller {
-	return &switchingFirewaller{env: env.(*Environ)}
-}
-
-type switchingFirewaller struct {
-	env *Environ
-
-	mu sync.Mutex
-	fw Firewaller
-}
-
-func (f *switchingFirewaller) initFirewaller(ctx context.ProviderCallContext) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.fw != nil {
-		return nil
-	}
-
-	client := f.env.client()
-	if !client.IsAuthenticated() {
-		if err := authenticateClient(client); err != nil {
-			handleCredentialError(err, ctx)
-			return errors.Trace(err)
-		}
-	}
-
-	if f.env.supportsNeutron() {
-		f.fw = &neutronFirewaller{firewallerBase{environ: f.env}}
-	} else {
-		f.fw = &legacyNovaFirewaller{firewallerBase{environ: f.env}}
-	}
-	return nil
-}
-
-func (f *switchingFirewaller) OpenPorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.OpenPorts(ctx, rules)
-}
-
-func (f *switchingFirewaller) ClosePorts(ctx context.ProviderCallContext, rules []network.IngressRule) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.ClosePorts(ctx, rules)
-}
-
-func (f *switchingFirewaller) IngressRules(ctx context.ProviderCallContext) ([]network.IngressRule, error) {
-	if err := f.initFirewaller(ctx); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return f.fw.IngressRules(ctx)
-}
-
-func (f *switchingFirewaller) DeleteAllModelGroups(ctx context.ProviderCallContext) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.DeleteAllModelGroups(ctx)
-}
-
-func (f *switchingFirewaller) DeleteAllControllerGroups(ctx context.ProviderCallContext, controllerUUID string) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.DeleteAllControllerGroups(ctx, controllerUUID)
-}
-
-func (f *switchingFirewaller) DeleteGroups(ctx context.ProviderCallContext, names ...string) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.DeleteGroups(ctx, names...)
-}
-
-func (f *switchingFirewaller) UpdateGroupController(ctx context.ProviderCallContext, controllerUUID string) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.UpdateGroupController(ctx, controllerUUID)
-}
-
-func (f *switchingFirewaller) GetSecurityGroups(ctx context.ProviderCallContext, ids ...instance.Id) ([]string, error) {
-	if err := f.initFirewaller(ctx); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return f.fw.GetSecurityGroups(ctx, ids...)
-}
-
-func (f *switchingFirewaller) SetUpGroups(ctx context.ProviderCallContext, controllerUUID, machineId string, apiPort int) ([]string, error) {
-	if err := f.initFirewaller(ctx); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return f.fw.SetUpGroups(ctx, controllerUUID, machineId, apiPort)
-}
-
-func (f *switchingFirewaller) OpenInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.OpenInstancePorts(ctx, inst, machineId, rules)
-}
-
-func (f *switchingFirewaller) CloseInstancePorts(ctx context.ProviderCallContext, inst instances.Instance, machineId string, rules []network.IngressRule) error {
-	if err := f.initFirewaller(ctx); err != nil {
-		return errors.Trace(err)
-	}
-	return f.fw.CloseInstancePorts(ctx, inst, machineId, rules)
-}
-
-func (f *switchingFirewaller) InstanceIngressRules(ctx context.ProviderCallContext, inst instances.Instance, machineId string) ([]network.IngressRule, error) {
-	if err := f.initFirewaller(ctx); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return f.fw.InstanceIngressRules(ctx, inst, machineId)
+	return &neutronFirewaller{firewallerBase{environ: env.(*Environ)}}
 }
 
 type firewallerBase struct {

@@ -25,10 +25,10 @@ type datasourceSuite struct {
 }
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {
-	ds := simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)
+	ds := testing.VerifyDefaultCloudDataSource("test", "test:")
 	rc, url, err := ds.Fetch("streams/v1/tools_metadata.json")
 	c.Assert(err, jc.ErrorIsNil)
-	defer rc.Close()
+	defer func() { _ = rc.Close() }()
 	c.Assert(url, gc.Equals, "test:/streams/v1/tools_metadata.json")
 	data, err := ioutil.ReadAll(rc)
 	c.Assert(err, jc.ErrorIsNil)
@@ -38,7 +38,7 @@ func (s *datasourceSuite) TestFetch(c *gc.C) {
 }
 
 func (s *datasourceSuite) TestURL(c *gc.C) {
-	ds := simplestreams.NewURLDataSource("test", "foo", utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)
+	ds := testing.VerifyDefaultCloudDataSource("test", "foo")
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(url, gc.Equals, "foo/bar")
@@ -51,9 +51,9 @@ type datasourceHTTPSSuite struct {
 func (s *datasourceHTTPSSuite) SetUpTest(c *gc.C) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", func(resp http.ResponseWriter, req *http.Request) {
-		req.Body.Close()
+		_ = req.Body.Close()
 		resp.WriteHeader(200)
-		resp.Write([]byte("Greetings!\n"))
+		_, _ = resp.Write([]byte("Greetings!\n"))
 	})
 	s.Server = httptest.NewTLSServer(mux)
 }
@@ -66,7 +66,7 @@ func (s *datasourceHTTPSSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
-	ds := simplestreams.NewURLDataSource("test", s.Server.URL, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)
+	ds := testing.VerifyDefaultCloudDataSource("test", s.Server.URL)
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, s.Server.URL+"/bar")
@@ -78,7 +78,12 @@ func (s *datasourceHTTPSSuite) TestNormalClientFails(c *gc.C) {
 }
 
 func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
-	ds := simplestreams.NewURLDataSource("test", s.Server.URL, utils.NoVerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, false)
+	ds := simplestreams.NewDataSource(simplestreams.Config{
+		Description:          "test",
+		BaseURL:              s.Server.URL,
+		HostnameVerification: utils.NoVerifySSLHostnames,
+		Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+	})
 	url, err := ds.URL("bar")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(url, gc.Equals, s.Server.URL+"/bar")
@@ -86,7 +91,7 @@ func (s *datasourceHTTPSSuite) TestNonVerifyingClientSucceeds(c *gc.C) {
 	// The underlying failure is a x509: certificate signed by unknown authority
 	// However, the urlDataSource abstraction hides that as a simple NotFound
 	c.Assert(err, jc.ErrorIsNil)
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	byteContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(byteContent), gc.Equals, "Greetings!\n")

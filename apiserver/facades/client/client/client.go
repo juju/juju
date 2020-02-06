@@ -5,12 +5,14 @@ package client
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/os"
 	"github.com/juju/os/series"
+	"github.com/juju/replicaset"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -23,14 +25,14 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-
-	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 	jujuversion "github.com/juju/juju/version"
@@ -44,6 +46,8 @@ type API struct {
 	auth          facade.Authorizer
 	resources     facade.Resources
 	presence      facade.Presence
+
+	multiwatcherFactory multiwatcher.Factory
 
 	client *Client
 	// statusSetter provides common methods for updating an entity's provisioning status.
@@ -71,6 +75,7 @@ type Client struct {
 	newEnviron  func() (environs.BootstrapEnviron, error)
 	check       *common.BlockChecker
 	callContext context.ProviderCallContext
+	openCSRepo  application.OpenCSRepoFunc
 }
 
 // ClientV1 serves the (v1) client-specific API methods.
@@ -145,6 +150,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	resources := ctx.Resources()
 	authorizer := ctx.Auth()
 	presence := ctx.Presence()
+	factory := ctx.MultiwatcherFactory()
 
 	model, err := st.Model()
 	if err != nil {
@@ -188,7 +194,7 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	}
 
 	return NewClient(
-		&stateShim{st, model},
+		&stateShim{st, model, nil},
 		&poolShim{ctx.StatePool()},
 		&modelconfig.ModelConfigAPIV1{modelConfigAPI},
 		resources,
@@ -201,6 +207,8 @@ func newFacade(ctx facade.Context) (*Client, error) {
 		state.CallContext(st),
 		leadershipReader,
 		modelCache,
+		factory,
+		application.OpenCSRepo,
 	)
 }
 
@@ -219,6 +227,8 @@ func NewClient(
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
 	modelCache *cache.Model,
+	factory multiwatcher.Factory,
+	openCSRepo application.OpenCSRepoFunc,
 ) (*Client, error) {
 	if !authorizer.AuthClient() {
 		return nil, common.ErrPerm
@@ -226,19 +236,21 @@ func NewClient(
 	client := &Client{
 		ModelConfigAPIV1: modelConfigAPI,
 		api: &API{
-			stateAccessor:    backend,
-			pool:             pool,
-			auth:             authorizer,
-			resources:        resources,
-			presence:         presence,
-			statusSetter:     statusSetter,
-			toolsFinder:      toolsFinder,
-			leadershipReader: leadershipReader,
-			modelCache:       modelCache,
+			stateAccessor:       backend,
+			pool:                pool,
+			auth:                authorizer,
+			resources:           resources,
+			presence:            presence,
+			statusSetter:        statusSetter,
+			toolsFinder:         toolsFinder,
+			leadershipReader:    leadershipReader,
+			modelCache:          modelCache,
+			multiwatcherFactory: factory,
 		},
 		newEnviron:  newEnviron,
 		check:       blockChecker,
 		callContext: callCtx,
+		openCSRepo:  openCSRepo,
 	}
 	return client, nil
 }
@@ -260,12 +272,40 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	if err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
-	watchParams := state.WatchParams{IncludeOffers: isAdmin}
-
-	w := c.api.stateAccessor.Watch(watchParams)
+	modelUUID := c.api.stateAccessor.ModelUUID()
+	w := c.api.multiwatcherFactory.WatchModel(modelUUID)
+	if !isAdmin {
+		w = &stripApplicationOffers{w}
+	}
 	return params.AllWatcherId{
 		AllWatcherId: c.api.resources.Register(w),
 	}, nil
+}
+
+type stripApplicationOffers struct {
+	multiwatcher.Watcher
+}
+
+func (s *stripApplicationOffers) Next() ([]multiwatcher.Delta, error) {
+	var result []multiwatcher.Delta
+	// We don't want to return a list on nothing. Next normally blocks until there
+	// is something to return.
+	for len(result) == 0 {
+		deltas, err := s.Watcher.Next()
+		if err != nil {
+			return nil, err
+		}
+		result = make([]multiwatcher.Delta, 0, len(deltas))
+		for _, d := range deltas {
+			switch d.Entity.EntityID().Kind {
+			case multiwatcher.ApplicationOfferKind:
+				// skip it
+			default:
+				result = append(result, d)
+			}
+		}
+	}
+	return result, nil
 }
 
 // Resolved implements the server side of Client.Resolved.
@@ -375,10 +415,6 @@ func (c *Client) SetModelConstraints(args params.SetConstraints) error {
 
 // AddMachines adds new machines with the supplied parameters.
 func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-
 	return c.AddMachinesV2(args)
 }
 
@@ -386,6 +422,9 @@ func (c *Client) AddMachines(args params.AddMachines) (params.AddMachinesResults
 func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResults, error) {
 	results := params.AddMachinesResults{
 		Machines: make([]params.AddMachinesResult, len(args.MachineParams)),
+	}
+	if err := c.checkCanWrite(); err != nil {
+		return params.AddMachinesResults{}, err
 	}
 	if err := c.check.ChangeAllowed(); err != nil {
 		return results, errors.Trace(err)
@@ -402,10 +441,6 @@ func (c *Client) AddMachinesV2(args params.AddMachines) (params.AddMachinesResul
 
 // InjectMachines injects a machine into state with provisioned status.
 func (c *Client) InjectMachines(args params.AddMachines) (params.AddMachinesResults, error) {
-	if err := c.checkCanWrite(); err != nil {
-		return params.AddMachinesResults{}, err
-	}
-
 	return c.AddMachines(args)
 }
 
@@ -670,6 +705,11 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	// If this is the controller model, also check to make sure that there are
 	// no running migrations.  All models should have migration mode of None.
 	if c.api.stateAccessor.IsController() {
+		// Check to ensure that the replicaset is happy.
+		if err := c.CheckMongoStatusForUpgrade(c.api.stateAccessor.MongoSession()); err != nil {
+			return errors.Trace(err)
+		}
+
 		modelUUIDs, err := c.api.stateAccessor.AllModelUUIDs()
 		if err != nil {
 			return errors.Trace(err)
@@ -689,6 +729,40 @@ func (c *Client) SetModelAgentVersion(args params.SetModelAgentVersion) error {
 	}
 
 	return c.api.stateAccessor.SetModelAgentVersion(args.Version, args.IgnoreAgentVersions)
+}
+
+// CheckMongoStatusForUpgrade returns an error if the replicaset is not in a good
+// enough state for an upgrade to continue. Exported for testing.
+func (c *Client) CheckMongoStatusForUpgrade(session MongoSession) error {
+	if skipReplicaCheck {
+		// Skipping only occurs in tests where we need to avoid actually checking
+		// the replicaset as tests don't run with this setting.
+		return nil
+	}
+	replicaStatus, err := session.CurrentStatus()
+	if err != nil {
+		return errors.Annotate(err, "checking replicaset status")
+	}
+
+	// Iterate over the replicaset, and record any nodes that aren't either
+	// primary or secondary.
+	var notes []string
+	for _, member := range replicaStatus.Members {
+		switch member.State {
+		case replicaset.PrimaryState:
+			// All good.
+		case replicaset.SecondaryState:
+			// Also good.
+		default:
+			msg := fmt.Sprintf("node %d (%s) has state %s", member.Id, member.Address, member.State)
+			notes = append(notes, msg)
+		}
+	}
+
+	if len(notes) > 0 {
+		return errors.Errorf("unable to upgrade, database %s", strings.Join(notes, ", "))
+	}
+	return nil
 }
 
 // AbortCurrentUpgrade aborts and archives the current upgrade
@@ -723,7 +797,7 @@ func (c *Client) AddCharm(args params.AddCharm) error {
 		URL:     args.URL,
 		Channel: args.Channel,
 		Force:   args.Force,
-	})
+	}, c.openCSRepo)
 }
 
 // AddCharmWithAuthorization adds the given charm URL (which must include revision) to
@@ -738,7 +812,7 @@ func (c *Client) AddCharmWithAuthorization(args params.AddCharmWithAuthorization
 	}
 
 	shim := application.NewStateShim(c.api.state())
-	return application.AddCharmWithAuthorization(shim, args)
+	return application.AddCharmWithAuthorization(shim, args, c.openCSRepo)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
@@ -749,7 +823,7 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	}
 
 	shim := application.NewStateShim(c.api.state())
-	return application.ResolveCharms(shim, args)
+	return application.ResolveCharms(shim, args, c.openCSRepo)
 }
 
 // RetryProvisioning marks a provisioning error as transient on the machines.
@@ -810,4 +884,19 @@ func (c *ClientV1) FindTools(args params.FindToolsParams) (params.FindToolsResul
 		return params.FindToolsResult{}, errors.New("requesting agent-stream not supported by model")
 	}
 	return c.api.toolsFinder.FindTools(args)
+}
+
+// NOTE: this is necessary for the other packages that do upgrade tests.
+// Really they should be using a mocked out api server, but that is outside
+// the scope of this fix.
+var skipReplicaCheck = false
+
+// SkipReplicaCheck is required for tests only as the test mongo isn't a replica.
+func SkipReplicaCheck(patcher Patcher) {
+	patcher.PatchValue(&skipReplicaCheck, true)
+}
+
+// Patcher is provided by the test suites to temporarily change values.
+type Patcher interface {
+	PatchValue(dest, value interface{})
 }
