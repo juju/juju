@@ -1,3 +1,0 @@
-#!/bin/bash
-application-version-set $(grep DISTRIB_RELEASE /etc/lsb-release | cut -d= -sf2)
-juju-log -l INFO "Hello from start."

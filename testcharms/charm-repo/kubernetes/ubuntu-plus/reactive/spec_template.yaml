@@ -1,0 +1,10 @@
+containers:
+  - name: %(name)s
+    command: ["/bin/bash", "-ec", "while :; do echo '.'; sleep 60 ; done"]
+    imageDetails:
+      imagePath: %(docker_image_path)s
+      username: %(docker_image_username)s
+      password: %(docker_image_password)s
+    ports:
+      - containerPort: %(port)s
+        protocol: TCP

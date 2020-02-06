@@ -1,6 +1,9 @@
-name: ubuntu-k8s
+name: ubuntu-plus-k8s
 summary: "ubuntu operating system"
-description: "A popular operating system"
+description: "A ubuntu charm with a dispatch hook and a few actions."
+maintainer: "juju-qa juju-qa@lists.canonical.com"
+tags:
+  - "ubuntu"
 provides:
   ubuntu:
     interface: ubuntu
