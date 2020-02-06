@@ -704,6 +704,6 @@ func statusHistory(args *statusHistoryArgs) ([]status.StatusInfo, error) {
 }
 
 func PruneStatusHistory(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
-	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", NanoSeconds)
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, statusesHistoryC, "updated", nil, NanoSeconds)
 	return errors.Trace(err)
 }

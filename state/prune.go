@@ -18,8 +18,12 @@ import (
 // only entries newer than <maxLogTime> remain and also ensures
 // that the collection is smaller than <maxLogsMB> after the
 // deletion.
-func pruneCollection(mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int, collectionName string, ageField string, timeUnit TimeUnit) error {
-	return pruneCollectionAndChildren(mb, maxHistoryTime, maxHistoryMB, collectionName, ageField, "", "", 1, timeUnit)
+func pruneCollection(
+	mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int,
+	collectionName string, ageField string, filter bson.D,
+	timeUnit TimeUnit,
+) error {
+	return pruneCollectionAndChildren(mb, maxHistoryTime, maxHistoryMB, collectionName, ageField, "", "", filter, 1, timeUnit)
 }
 
 // pruneCollection removes collection entries until
@@ -28,7 +32,7 @@ func pruneCollection(mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB
 // than <maxLogsMB> after the deletion.
 func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, maxHistoryMB int,
 	collectionName, ageField, childCollectionName, parentRefField string,
-	sizeFactor float64, timeUnit TimeUnit,
+	filter bson.D, sizeFactor float64, timeUnit TimeUnit,
 ) error {
 	// NOTE(axw) we require a raw collection to obtain the size of the
 	// collection. Take care to include model-uuid in queries where
@@ -51,6 +55,7 @@ func pruneCollectionAndChildren(mb modelBackend, maxHistoryTime time.Duration, m
 		maxAge:          maxHistoryTime,
 		maxSize:         maxHistoryMB,
 		ageField:        ageField,
+		filter:          filter,
 		timeUnit:        timeUnit,
 	}
 	if err := p.validate(); err != nil {
@@ -75,8 +80,9 @@ const (
 )
 
 type collectionPruner struct {
-	st   modelBackend
-	coll *mgo.Collection
+	st     modelBackend
+	coll   *mgo.Collection
+	filter bson.D
 
 	// If specified, these fields define subordinate
 	// entries to delete in a related collection.
@@ -126,10 +132,12 @@ func (p *collectionPruner) pruneByAge() error {
 		notSet = time.Time{}
 	}
 
-	iter := p.coll.Find(bson.D{
+	query := bson.D{
 		{"model-uuid", p.st.modelUUID()},
 		{p.ageField, bson.M{"$gt": notSet, "$lt": age}},
-	}).Select(bson.M{"_id": 1}).Iter()
+	}
+	query = append(query, p.filter...)
+	iter := p.coll.Find(query).Select(bson.M{"_id": 1}).Iter()
 	defer iter.Close()
 
 	modelName, err := p.st.modelName()
@@ -203,7 +211,7 @@ func (p *collectionPruner) pruneBySize() error {
 		return nil
 	}
 
-	iter := p.coll.Find(nil).Sort(p.ageField).Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
+	iter := p.coll.Find(p.filter).Sort(p.ageField).Limit(toDelete).Select(bson.M{"_id": 1}).Iter()
 	defer iter.Close()
 
 	template := fmt.Sprintf("%s size pruning: deleted %%d of %d (estimated)", p.coll.Name, toDelete)

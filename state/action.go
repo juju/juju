@@ -716,6 +716,15 @@ func (st *State) matchingActionsByReceiverAndStatus(tag names.Tag, statusConditi
 // only logs newer than <maxLogTime> remain and also ensures
 // that the actions collection is smaller than <maxLogsMB> after the deletion.
 func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) error {
+	// There may be older actions without parent operations so try those first.
+	hasNoOperation := bson.D{{"$or", []bson.D{
+		{{"operation", ""}},
+		{{"operation", bson.D{{"$exists", false}}}},
+	}}}
+	err := pruneCollection(st, maxHistoryTime, maxHistoryMB, actionsC, "completed", hasNoOperation, GoTime)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// First calculate the average ratio of tasks to operations. Since deletion is
 	// done at the operation level, and any associated tasks are then deleted, but
 	// the actions collection is where the disk space goes, we approximate the
@@ -735,6 +744,6 @@ func PruneOperations(st *State, maxHistoryTime time.Duration, maxHistoryMB int) 
 	}
 	sizeFactor := float64(actionsCount) / float64(operationsCount)
 
-	err = pruneCollectionAndChildren(st, maxHistoryTime, maxHistoryMB, operationsC, "completed", actionsC, "operation", sizeFactor, GoTime)
+	err = pruneCollectionAndChildren(st, maxHistoryTime, maxHistoryMB, operationsC, "completed", actionsC, "operation", nil, sizeFactor, GoTime)
 	return errors.Trace(err)
 }

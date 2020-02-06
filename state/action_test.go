@@ -1498,3 +1498,39 @@ func (s *ActionPruningSuite) TestDoNotPruneIncompleteOperations(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, tasksPerOperation*numZeroValueEntries)
 	c.Assert(len(ops), gc.Equals, numZeroValueEntries)
 }
+
+func (s *ActionPruningSuite) TestPruneLegacyActions(c *gc.C) {
+	clock := testclock.NewClock(time.Now())
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+	application := s.Factory.MakeApplication(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: application})
+
+	const numCurrentOperationEntries = 5
+	const numExpiredOperationEntries = 5
+	const tasksPerOperation = 3
+	const ageOfExpired = 10 * time.Hour
+
+	state.PrimeOperations(c, clock.Now(), unit, numCurrentOperationEntries, tasksPerOperation)
+	state.PrimeOperations(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries, tasksPerOperation)
+	state.PrimeLegacyActions(c, clock.Now().Add(-1*ageOfExpired), unit, numExpiredOperationEntries)
+
+	actions, err := unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*(numCurrentOperationEntries+numExpiredOperationEntries)+numExpiredOperationEntries)
+	ops, err := s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ops, gc.HasLen, numCurrentOperationEntries+numExpiredOperationEntries)
+
+	err = state.PruneOperations(s.State, 1*time.Hour, 0)
+	c.Assert(err, jc.ErrorIsNil)
+
+	actions, err = unit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	ops, err = s.Model.AllOperations()
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Log(actions)
+	c.Assert(actions, gc.HasLen, tasksPerOperation*numCurrentOperationEntries)
+	c.Assert(ops, gc.HasLen, numCurrentOperationEntries)
+}

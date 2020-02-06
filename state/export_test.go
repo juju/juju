@@ -728,6 +728,39 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+// PrimeLegacyActions creates actions without a parent operation.
+func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
+	actionCollection, closer := unit.st.db().GetCollection(actionsC)
+	defer closer()
+
+	actionCollectionWriter := actionCollection.Writeable()
+
+	const numBytes = 1 * 500 * 1000
+	var padding [numBytes]byte
+	var actionDocs []interface{}
+	var ids []string
+	for i := 0; i < count; i++ {
+		nextId, err := sequenceWithMin(unit.st, "task", 1)
+		c.Assert(err, jc.ErrorIsNil)
+		ids = append(ids, fmt.Sprintf("%v:%d", unit.st.ModelUUID(), nextId))
+		actionDocs = append(actionDocs, actionDoc{
+			DocId:     strconv.Itoa(nextId),
+			ModelUUID: unit.st.ModelUUID(),
+			Receiver:  unit.Name(),
+			Completed: age,
+			Status:    ActionCompleted,
+			Message:   string(padding[:numBytes]),
+		})
+	}
+
+	err := actionCollectionWriter.Insert(actionDocs...)
+	c.Assert(err, jc.ErrorIsNil)
+	for _, id := range ids {
+		err = actionCollectionWriter.UpdateId(id, bson.D{{"$unset", bson.M{"operation": 1}}})
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
 // ActionOperationId returns the parent operation of an action.
 func ActionOperationId(a Action) string {
 	return a.(*action).doc.Operation
