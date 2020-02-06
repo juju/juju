@@ -233,9 +233,9 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		},
 	} {
 		c.Logf("test %d", i)
-		operationId, err := s.model.EnqueueOperation("a test")
+		operationID, err := s.model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.model.EnqueueAction(operationId, s.unit.Tag(), test.actionName, test.payload)
+		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload)
 		c.Assert(err, jc.ErrorIsNil)
 		rnr, err := s.factory.NewActionRunner(action.Id())
 		c.Assert(err, jc.ErrorIsNil)
@@ -268,9 +268,9 @@ func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationId, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationId, s.unit.Tag(), "no-such-action", nil)
+	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "no-such-action", nil)
 	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)
@@ -280,9 +280,9 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationId, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationId, s.unit.Tag(), "snapshot", map[string]interface{}{
+	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", map[string]interface{}{
 		"outfile": 123,
 	})
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
@@ -294,9 +294,9 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 
 func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationId, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationId, s.unit.Tag(), "snapshot", nil)
+	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, jc.ErrorIsNil)
@@ -310,9 +310,9 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	s.SetCharm(c, "dummy")
 	otherUnit, err := s.application.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	operationId, err := s.model.EnqueueOperation("a test")
+	operationID, err := s.model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.model.EnqueueAction(operationId, otherUnit.Tag(), "snapshot", nil)
+	action, err := s.model.EnqueueAction(operationID, otherUnit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	rnr, err := s.factory.NewActionRunner(action.Id())
 	c.Check(rnr, gc.IsNil)

@@ -162,9 +162,9 @@ func (s *ContextFactorySuite) TestNewCommandContextLeadershipContext(c *gc.C) {
 func (s *ContextFactorySuite) TestNewActionContextLeadershipContext(c *gc.C) {
 	s.testLeadershipContextWiring(c, func() *context.HookContext {
 		s.SetCharm(c, "dummy")
-		operationId, err := s.Model(c).EnqueueOperation("a test")
+		operationID, err := s.Model(c).EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := s.Model(c).EnqueueAction(operationId, s.unit.Tag(), "snapshot", nil)
+		action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil)
 		c.Assert(err, jc.ErrorIsNil)
 
 		actionData := &context.ActionData{
@@ -386,9 +386,9 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 
 func (s *ContextFactorySuite) TestActionContext(c *gc.C) {
 	s.SetCharm(c, "dummy")
-	operationId, err := s.Model(c).EnqueueOperation("a test")
+	operationID, err := s.Model(c).EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	action, err := s.Model(c).EnqueueAction(operationId, s.unit.Tag(), "snapshot", nil)
+	action, err := s.Model(c).EnqueueAction(operationID, s.unit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	actionData := &context.ActionData{

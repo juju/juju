@@ -183,33 +183,38 @@ func newOperationDoc(mb modelBackend, summary string) (operationDoc, string, err
 	if err != nil {
 		return operationDoc{}, "", errors.Trace(err)
 	}
-	operationId := strconv.Itoa(id)
+	operationID := strconv.Itoa(id)
 	modelUUID := mb.modelUUID()
 	return operationDoc{
-		DocId:     mb.docID(operationId),
+		DocId:     mb.docID(operationID),
 		ModelUUID: modelUUID,
 		Enqueued:  mb.nowToTheSecond(),
 		Status:    ActionPending,
 		Summary:   summary,
-	}, operationId, nil
+	}, operationID, nil
 }
 
 // EnqueueOperation records the start of an operation.
 func (m *Model) EnqueueOperation(summary string) (string, error) {
-	doc, id, err := newOperationDoc(m.st, summary)
-	if err != nil {
-		return "", errors.Trace(err)
+	var operationID string
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var doc operationDoc
+		var err error
+		doc, operationID, err = newOperationDoc(m.st, summary)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		ops := []txn.Op{{
+			C:      operationsC,
+			Id:     doc.DocId,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}
+		return ops, nil
 	}
-
-	ops := []txn.Op{{
-		C:      operationsC,
-		Id:     doc.DocId,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-
-	err = m.st.db().RunTransaction(ops)
-	return id, errors.Trace(err)
+	err := m.st.db().Run(buildTxn)
+	return operationID, errors.Trace(err)
 }
 
 // Operation returns an Operation by Id.

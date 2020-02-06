@@ -26,7 +26,7 @@ func pruneCollection(
 	return pruneCollectionAndChildren(mb, maxHistoryTime, maxHistoryMB, collectionName, ageField, "", "", filter, 1, timeUnit)
 }
 
-// pruneCollection removes collection entries until
+// pruneCollectionAndChildren removes collection entries until
 // only entries newer than <maxLogTime> remain and also ensures
 // that the collection (or child collection if specified) is smaller
 // than <maxLogsMB> after the deletion.
@@ -170,8 +170,9 @@ func (*collectionPruner) toDeleteCalculator(coll *mgo.Collection, maxSize int, c
 	if err != nil {
 		return 0, errors.Annotatef(err, "counting %s records", coll.Name)
 	}
-	// We are making the assumption that item sizes can be averaged for
-	// large numbers and we will get a reasonable approach on the size.
+	// For large numbers of items we are making an assumption that the size of
+	// items can be averaged to give a reasonable number of items to drop to
+	// reach the goal size.
 	// Note: Capped collections are not used for this because they, currently
 	// at least, lack a way to be resized and the size is expected to change
 	// as real life data of the history usage is gathered.
@@ -239,7 +240,7 @@ func (p *collectionPruner) pruneBySize() error {
 func deleteInBatches(
 	coll *mgo.Collection,
 	childColl *mgo.Collection,
-	childfield string,
+	childField string,
 	iter mongo.Iterator,
 	logTemplate string,
 	logLevel loggo.Level,
@@ -264,7 +265,7 @@ func deleteInBatches(
 			if idStr, ok := parentId.(string); ok {
 				_, localParentId, ok := splitDocID(idStr)
 				if ok {
-					childChunk.RemoveAll(bson.D{{childfield, localParentId}})
+					childChunk.RemoveAll(bson.D{{childField, localParentId}})
 				}
 			}
 		}

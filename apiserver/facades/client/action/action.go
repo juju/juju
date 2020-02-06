@@ -285,7 +285,8 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			operationName = "multiple actions"
 		}
 	}
-	operationId, err := a.model.EnqueueOperation(fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ",")))
+	summary := fmt.Sprintf("%v run on %v", operationName, strings.Join(receivers, ","))
+	operationID, err := a.model.EnqueueOperation(summary)
 	if err != nil {
 		return params.ActionResults{}, errors.Annotate(err, "creating operation for actions")
 	}
@@ -309,7 +310,7 @@ func (a *ActionAPI) Enqueue(arg params.Actions) (params.ActionResults, error) {
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		enqueued, err := receiver.AddAction(operationId, action.Name, action.Parameters)
+		enqueued, err := receiver.AddAction(operationID, action.Name, action.Parameters)
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

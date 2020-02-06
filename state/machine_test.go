@@ -2535,9 +2535,9 @@ func (s *MachineSuite) TestMachineValidActions(c *gc.C) {
 
 	for i, t := range tests {
 		c.Logf("running test %d", i)
-		operationId, err := s.Model.EnqueueOperation("a test")
+		operationID, err := s.Model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := m.AddAction(operationId, t.actionName, t.givenPayload)
+		action, err := m.AddAction(operationID, t.actionName, t.givenPayload)
 		if t.errString != "" {
 			c.Assert(err.Error(), gc.Equals, t.errString)
 			continue

@@ -2225,15 +2225,15 @@ snapshot:
 
 	for i, t := range tests {
 		c.Logf("running test %d", i)
-		operationId, err := s.Model.EnqueueOperation("a test")
+		operationID, err := s.Model.EnqueueOperation("a test")
 		c.Assert(err, jc.ErrorIsNil)
-		action, err := unit1.AddAction(operationId, t.actionName, t.givenPayload)
+		action, err := unit1.AddAction(operationID, t.actionName, t.givenPayload)
 		if t.errString != "" {
 			c.Assert(err, gc.ErrorMatches, t.errString)
 		} else {
 			c.Assert(err, jc.ErrorIsNil)
 			c.Assert(action.Parameters(), jc.DeepEquals, t.expectedPayload)
-			c.Assert(state.ActionOperationId(action), gc.Equals, operationId)
+			c.Assert(state.ActionOperationId(action), gc.Equals, operationID)
 		}
 	}
 }
@@ -2258,18 +2258,18 @@ action-b-b:
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Add 3 actions to first unit, and 2 to the second unit
-	operationId, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationId, "action-a-a", nil)
+	_, err = unit1.AddAction(operationID, "action-a-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationId, "action-a-b", nil)
+	_, err = unit1.AddAction(operationID, "action-a-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit1.AddAction(operationId, "action-a-c", nil)
+	_, err = unit1.AddAction(operationID, "action-a-c", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = unit2.AddAction(operationId, "action-b-a", nil)
+	_, err = unit2.AddAction(operationID, "action-b-a", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit2.AddAction(operationId, "action-b-b", nil)
+	_, err = unit2.AddAction(operationID, "action-b-b", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Verify that calling Actions on unit1 returns only

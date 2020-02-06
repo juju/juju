@@ -447,7 +447,7 @@ func IsNewActionIDSupported(ver version.Number) bool {
 }
 
 // newActionDoc builds the actionDoc with the given name and parameters.
-func newActionDoc(mb modelBackend, operationId string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
+func newActionDoc(mb modelBackend, operationID string, receiverTag names.Tag, actionName string, parameters map[string]interface{}, modelAgentVersion version.Number) (actionDoc, actionNotificationDoc, error) {
 	prefix := ensureActionMarker(receiverTag.Id())
 	// For actions run on units, we want to use a user friendly action id.
 	// Theoretically, an action receiver could also be a machine, but for
@@ -477,7 +477,7 @@ func newActionDoc(mb modelBackend, operationId string, receiverTag names.Tag, ac
 			Name:       actionName,
 			Parameters: parameters,
 			Enqueued:   mb.nowToTheSecond(),
-			Operation:  operationId,
+			Operation:  operationID,
 			Status:     ActionPending,
 		}, actionNotificationDoc{
 			DocId:     mb.docID(prefix + actionId),
@@ -591,7 +591,7 @@ func (m *Model) FindActionsByName(name string) ([]Action, error) {
 }
 
 // EnqueueAction caches the action doc to the database.
-func (m *Model) EnqueueAction(operationId string, receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
+func (m *Model) EnqueueAction(operationID string, receiver names.Tag, actionName string, payload map[string]interface{}) (Action, error) {
 	if len(actionName) == 0 {
 		return nil, errors.New("action name required")
 	}
@@ -604,7 +604,7 @@ func (m *Model) EnqueueAction(operationId string, receiver names.Tag, actionName
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	doc, ndoc, err := newActionDoc(m.st, operationId, receiver, actionName, payload, agentVersion)
+	doc, ndoc, err := newActionDoc(m.st, operationID, receiver, actionName, payload, agentVersion)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -615,7 +615,7 @@ func (m *Model) EnqueueAction(operationId string, receiver names.Tag, actionName
 		Assert: notDeadDoc,
 	}, {
 		C:      operationsC,
-		Id:     m.st.docID(operationId),
+		Id:     m.st.docID(operationID),
 		Assert: txn.DocExists,
 	}, {
 		C:      actionsC,
@@ -635,7 +635,7 @@ func (m *Model) EnqueueAction(operationId string, receiver names.Tag, actionName
 		} else if !notDead {
 			return nil, ErrDead
 		} else if attempt != 0 {
-			_, err := m.Operation(operationId)
+			_, err := m.Operation(operationID)
 			if err != nil {
 				return nil, errors.Trace(err)
 			}

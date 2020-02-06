@@ -697,11 +697,11 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 	var operationDocs []interface{}
 	var actionDocs []interface{}
 	for i := 0; i < count; i++ {
-		nextId, err := sequenceWithMin(unit.st, "task", 1)
+		nextID, err := sequenceWithMin(unit.st, "task", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		operationId := strconv.Itoa(nextId)
+		operationID := strconv.Itoa(nextID)
 		operationDocs = append(operationDocs, operationDoc{
-			DocId:     operationId,
+			DocId:     operationID,
 			ModelUUID: unit.st.ModelUUID(),
 			Summary:   "an operation",
 			Completed: age,
@@ -715,7 +715,7 @@ func PrimeOperations(c *gc.C, age time.Time, unit *Unit, count, actionsPerOperat
 				ModelUUID: unit.st.ModelUUID(),
 				Receiver:  unit.Name(),
 				Completed: age,
-				Operation: operationId,
+				Operation: operationID,
 				Status:    ActionCompleted,
 				Message:   string(padding[:numBytes]),
 			})
@@ -740,11 +740,11 @@ func PrimeLegacyActions(c *gc.C, age time.Time, unit *Unit, count int) {
 	var actionDocs []interface{}
 	var ids []string
 	for i := 0; i < count; i++ {
-		nextId, err := sequenceWithMin(unit.st, "task", 1)
+		nextID, err := sequenceWithMin(unit.st, "task", 1)
 		c.Assert(err, jc.ErrorIsNil)
-		ids = append(ids, fmt.Sprintf("%v:%d", unit.st.ModelUUID(), nextId))
+		ids = append(ids, fmt.Sprintf("%v:%d", unit.st.ModelUUID(), nextID))
 		actionDocs = append(actionDocs, actionDoc{
-			DocId:     strconv.Itoa(nextId),
+			DocId:     strconv.Itoa(nextID),
 			ModelUUID: unit.st.ModelUUID(),
 			Receiver:  unit.Name(),
 			Completed: age,

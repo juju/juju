@@ -1508,9 +1508,9 @@ func (s *MigrationExportSuite) TestActions(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationId, err := m.EnqueueOperation("a test")
+	operationID, err := m.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	a, err := m.EnqueueAction(operationId, machine.MachineTag(), "foo", nil)
+	a, err := m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	a, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1540,9 +1540,9 @@ func (s *MigrationExportSuite) TestActionsSkipped(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	operationId, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = m.EnqueueAction(operationId, machine.MachineTag(), "foo", nil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	model, err := s.State.ExportPartial(state.ExportConfig{
 		SkipActions: true,

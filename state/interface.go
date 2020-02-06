@@ -144,7 +144,7 @@ type ActionReceiver interface {
 
 	// AddAction queues an action belonging to the specified operation,
 	// with the given name and payload for this ActionReceiver.
-	AddAction(operationId, name string, payload map[string]interface{}) (Action, error)
+	AddAction(operationID, name string, payload map[string]interface{}) (Action, error)
 
 	// CancelAction removes a pending Action from the queue for this
 	// ActionReceiver and marks it as cancelled.

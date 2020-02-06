@@ -352,12 +352,12 @@ func (s *actionSuite) TestListAll(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationId, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test")
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for j, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationId, act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				// make expectation
@@ -438,12 +438,12 @@ func (s *actionSuite) TestListPending(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationId, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test")
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationId, act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -503,12 +503,12 @@ func (s *actionSuite) TestListRunning(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationId, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test")
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationId, act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -564,12 +564,12 @@ func (s *actionSuite) TestListCompleted(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			assertReadyToTest(c, unit)
 
-			operationId, err := s.Model.EnqueueOperation("a test")
+			operationID, err := s.Model.EnqueueOperation("a test")
 			c.Assert(err, jc.ErrorIsNil)
 			// add each action from the test case.
 			for _, act := range group.Actions {
 				// add action.
-				added, err := unit.AddAction(operationId, act.Name, act.Parameters)
+				added, err := unit.AddAction(operationID, act.Name, act.Parameters)
 				c.Assert(err, jc.ErrorIsNil)
 
 				if act.Execute {
@@ -858,9 +858,9 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	assertReadyToTest(c, unit)
 
-	operationId, err := s.Model.EnqueueOperation("a test")
+	operationID, err := s.Model.EnqueueOperation("a test")
 	c.Assert(err, jc.ErrorIsNil)
-	added, err := unit.AddAction(operationId, "fakeaction", nil)
+	added, err := unit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	w, err := s.action.WatchActionsProgress(
@@ -919,14 +919,14 @@ func (s *actionSuite) setupOperations(c *gc.C) {
 	ops, err := s.Model.AllOperations()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 1)
-	operationId, err := strconv.Atoi(ops[0].Id())
+	operationID, err := strconv.Atoi(ops[0].Id())
 	c.Assert(err, jc.ErrorIsNil)
 
-	a, err := s.Model.Action(strconv.Itoa(operationId + 1))
+	a, err := s.Model.Action(strconv.Itoa(operationID + 1))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = a.Begin()
 	c.Assert(err, jc.ErrorIsNil)
-	a, err = s.Model.Action(strconv.Itoa(operationId + 2))
+	a, err = s.Model.Action(strconv.Itoa(operationID + 2))
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = a.Finish(state.ActionResults{})
 	c.Assert(err, jc.ErrorIsNil)
