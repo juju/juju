@@ -126,7 +126,7 @@ func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]i
 
 func WithActionContext(ctx *HookContext, in map[string]interface{}) {
 	ctx.actionData = &ActionData{
-		Tag:        names.NewActionTag("1"),
+		Tag:        names.NewActionTag("2"),
 		ResultsMap: in,
 	}
 }

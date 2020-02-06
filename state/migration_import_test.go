@@ -1661,7 +1661,9 @@ func (s *MigrationImportSuite) TestAction(c *gc.C) {
 	m, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = m.EnqueueAction(machine.MachineTag(), "foo", nil)
+	operationID, err := m.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = m.EnqueueAction(operationID, machine.MachineTag(), "foo", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	newModel, newState := s.importModel(c, s.State)

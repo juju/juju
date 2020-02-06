@@ -150,7 +150,9 @@ func (s *unitSuite) TestUnitStatus(c *gc.C) {
 }
 
 func (s *unitSuite) TestLogActionMessage(c *gc.C) {
-	anAction, err := s.wordpressUnit.AddAction("fakeaction", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.wordpressUnit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = anAction.Begin()
 	c.Assert(err, jc.ErrorIsNil)
@@ -646,13 +648,15 @@ func (s *unitSuite) TestWatchActionNotifications(c *gc.C) {
 	wc.AssertChange()
 
 	// Add a couple of actions and make sure the changes are detected.
-	action, err := s.wordpressUnit.AddAction("fakeaction", map[string]interface{}{
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.wordpressUnit.AddAction(operationID, "fakeaction", map[string]interface{}{
 		"outfile": "foo.txt",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertChange(action.Id())
 
-	action, err = s.wordpressUnit.AddAction("fakeaction", map[string]interface{}{
+	action, err = s.wordpressUnit.AddAction(operationID, "fakeaction", map[string]interface{}{
 		"outfile": "foo.bz2",
 		"compression": map[string]interface{}{
 			"kind":    "bzip",

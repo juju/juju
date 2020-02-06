@@ -580,7 +580,11 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				unit, err := st.Unit("dummy/0")
 				c.Assert(err, jc.ErrorIsNil)
-				_, err = unit.AddAction("snapshot", nil)
+				m, err := st.Model()
+				c.Assert(err, jc.ErrorIsNil)
+				operationID, err := m.EnqueueOperation("a test")
+				c.Assert(err, jc.ErrorIsNil)
+				_, err = unit.AddAction(operationID, "snapshot", nil)
 				c.Assert(err, jc.ErrorIsNil)
 			},
 		}, {
@@ -3218,6 +3222,9 @@ var findEntityTests = []findEntityTest{{
 	tag: names.NewActionTag("fedcba98-7654-4321-ba98-76543210beef"),
 	err: `action "fedcba98-7654-4321-ba98-76543210beef" not found`,
 }, {
+	tag: names.NewOperationTag("666"),
+	err: `operation "666" not found`,
+}, {
 	tag: names.NewUserTag("eric"),
 }, {
 	tag: names.NewUserTag("eric@local"),
@@ -3235,6 +3242,7 @@ var entityTypes = map[string]interface{}{
 	names.ControllerAgentTagKind: (*state.ControllerNodeInstance)(nil),
 	names.RelationTagKind:        (*state.Relation)(nil),
 	names.ActionTagKind:          (state.Action)(nil),
+	names.OperationTagKind:       (state.Operation)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -3246,7 +3254,9 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	app := s.AddTestingApplication(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = unit.AddAction("fakeaction", nil)
+	operationID, err := s.model.EnqueueOperation("something")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = unit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	s.Factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, jc.ErrorIsNil)
@@ -3325,7 +3335,9 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	app := s.AddTestingApplication(c, "application2", s.AddTestingCharm(c, "dummy"))
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-	f, err := u.AddAction("snapshot", nil)
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	f, err := u.AddAction(operationID, "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	action, err := s.model.Action(f.Id())
