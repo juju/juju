@@ -19,6 +19,20 @@ import (
 	"github.com/juju/juju/caas/specs"
 )
 
+func getRBACAppName(sa *core.ServiceAccount) (string, error) {
+	return "", errors.NotFoundf("no juju applications label for service account %s", sa.Name)
+}
+
+func getRBACLabels2(appName, model string, global bool) map[string]string {
+	labels := map[string]string{
+		labelApplication: appName,
+	}
+	if global {
+		labels[labelModel] = model
+	}
+	return labels
+}
+
 func (k *kubernetesClient) getRBACLabels(appName string, global bool) map[string]string {
 	labels := map[string]string{
 		labelApplication: appName,
