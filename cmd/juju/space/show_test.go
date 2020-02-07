@@ -55,7 +55,7 @@ func (s *ShowSuite) getDefaultSpace() network.ShowSpace {
 	return result
 }
 
-func (s *ShowSuite) TestRunShowSpaceSucceedsMock(c *gc.C) {
+func (s *ShowSuite) TestRunShowSpaceSucceeds(c *gc.C) {
 	ctrl, api := setUpMocks(c)
 	defer ctrl.Finish()
 	spaceName := "default"

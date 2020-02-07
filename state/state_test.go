@@ -179,8 +179,24 @@ func (s *StateSuite) TestParseIDToTag(c *gc.C) {
 	unTag := state.ParseLocalIDToTags(unit)
 	apTag := state.ParseLocalIDToTags(application)
 
-	c.Assert(moTag.String(), gc.Equals, "model-e")
-	c.Assert(maTag.String(), gc.Equals, "machine-m#0")
+	tag, err := names.ParseTag(moTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag.String(), gc.Equals, moTag.String())
+
+	tag, err = names.ParseTag(maTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag.String(), gc.Equals, maTag.String())
+
+	tag, err = names.ParseTag(unTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag.String(), gc.Equals, unTag.String())
+
+	tag, err = names.ParseTag(apTag.String())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tag.String(), gc.Equals, apTag.String())
+
+	c.Assert(moTag.String(), gc.Equals, "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e")
+	c.Assert(maTag.String(), gc.Equals, "machine-0")
 	c.Assert(unTag.String(), gc.Equals, "unit-mysql-0")
 	c.Assert(apTag.String(), gc.Equals, "application-mysql")
 }

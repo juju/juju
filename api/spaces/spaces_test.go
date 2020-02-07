@@ -48,6 +48,133 @@ func (s *spacesSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *spacesSuite) TestRemoveSpace(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{},
+	}
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewSpaceTag(name).String(),
+	}}}
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	err := s.API.RemoveSpace(name)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{
+			Constraints:        nil,
+			Bindings:           nil,
+			ControllerSettings: nil,
+			Error: &params.Error{
+				Message: "bam",
+				Code:    "500",
+			},
+		}},
+	}
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewSpaceTag(name).String(),
+	}}}
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	err := s.API.RemoveSpace(name)
+	c.Assert(err, gc.ErrorMatches, "bam")
+}
+
+func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{}}
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewSpaceTag(name).String(),
+	}}}
+	bam := errors.New("bam")
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(bam)
+
+	err := s.API.RemoveSpace(name)
+	c.Assert(err, gc.ErrorMatches, bam.Error())
+}
+
+func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{}}
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewSpaceTag(name).String(),
+	}}}
+	bam := params.Error{
+		Message: "not supported",
+		Code:    params.CodeNotSupported,
+		Info:    nil,
+	}
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(bam)
+
+	err := s.API.RemoveSpace(name)
+	c.Assert(err, gc.ErrorMatches, bam.Error())
+}
+
+func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{
+			Constraints: []params.Entity{{
+				Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e",
+			}},
+			Bindings: []params.Entity{
+				{
+					Tag: "application-mysql",
+				},
+				{
+					Tag: "application-mediawiki",
+				},
+			},
+			ControllerSettings: []string{"jujuhaspace", "juuuu-space"},
+			Error:              nil,
+		}}}
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewSpaceTag(name).String(),
+	}}}
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	err := s.API.RemoveSpace(name)
+	expectedErrMsg := "" +
+		"\n" +
+		"- Found the following existing constraints: model constraint\n" +
+		"- Found the following existing bindings: mysql, mediawiki\n" +
+		"- Found the following existing controller settings: jujuhaspace, juuuu-space"
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), jc.DeepEquals, expectedErrMsg)
+}
+func (s *spacesSuite) TestRemoveSpaceConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{
+			Constraints: []params.Entity{{
+				Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e",
+			}},
+			Error: nil,
+		}}}
+	args := params.Entities{Entities: []params.Entity{{
+		Tag: names.NewSpaceTag(name).String(),
+	}}}
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	err := s.API.RemoveSpace(name)
+	expectedErrMsg :=
+		"\n- Found the following existing constraints: model constraint"
+	c.Assert(err, gc.Not(gc.IsNil))
+	c.Assert(err.Error(), jc.DeepEquals, expectedErrMsg)
+}
+
 func (s *spacesSuite) TestRenameSpace(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	from, to := "from", "to"

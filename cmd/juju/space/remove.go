@@ -47,7 +47,7 @@ func (c *RemoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "remove-space",
 		Args:    "<name>",
-		Purpose: "Remove a network space",
+		Purpose: "Remove a network space.",
 		Doc:     strings.TrimSpace(removeCommandDoc),
 	})
 }

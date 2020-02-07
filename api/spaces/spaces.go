@@ -4,6 +4,10 @@
 package spaces
 
 import (
+	"bytes"
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -142,7 +146,7 @@ func (api *API) ListSpaces() ([]params.Space, error) {
 	return response.Results, err
 }
 
-// ReloadSpaces reloads spaces from substrate
+// ReloadSpaces reloads spaces from substrate.
 func (api *API) ReloadSpaces() error {
 	if api.facade.BestAPIVersion() < 3 {
 		return errors.NewNotSupported(nil, "Controller does not support reloading spaces")
@@ -174,4 +178,76 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// RemoveSpace removes a space.
+func (api *API) RemoveSpace(name string) error {
+	var response params.RemoveSpaceResults
+	var args params.Entities
+	args = params.Entities{
+		Entities: []params.Entity{{Tag: names.NewSpaceTag(name).String()}},
+	}
+	err := api.facade.FacadeCall("RemoveSpace", args, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return errors.NewNotSupported(nil, err.Error())
+		}
+		return errors.Trace(err)
+	}
+	if len(response.Results) == 0 {
+		return nil
+	}
+
+	return extractRemoveErrorMsg(response)
+}
+
+func extractRemoveErrorMsg(response params.RemoveSpaceResults) error {
+	var errMsg bytes.Buffer
+	foundErr := false
+
+	for _, result := range response.Results {
+		if result.Error != nil {
+			return result.Error
+		}
+		if len(result.Constraints) > 0 {
+			foundErr = true
+			if toString, err := convertEntitiesToString(result.Constraints); err != nil {
+				return err
+			} else {
+				fmt.Fprintf(&errMsg, "\n- Found the following existing constraints: %v", toString)
+			}
+		}
+		if len(result.Bindings) > 0 {
+			foundErr = true
+			if toString, err := convertEntitiesToString(result.Bindings); err != nil {
+				return err
+			} else {
+				fmt.Fprintf(&errMsg, "\n- Found the following existing bindings: %v", toString)
+			}
+		}
+		if len(result.ControllerSettings) > 0 {
+			foundErr = true
+			fmt.Fprintf(&errMsg, "\n- Found the following existing controller settings: %v", strings.Join(result.ControllerSettings, ", "))
+		}
+	}
+	if foundErr {
+		return errors.New(strings.Trim(errMsg.String(), "[]"))
+	}
+	return nil
+}
+
+func convertEntitiesToString(entities []params.Entity) (string, error) {
+	var outputString []string
+	for _, ent := range entities {
+		tag, err := names.ParseTag(ent.Tag)
+		if err != nil {
+			return "", err
+		}
+		if tag.Kind() == names.ModelTagKind {
+			outputString = append(outputString, "model constraint")
+		} else {
+			outputString = append(outputString, tag.Id())
+		}
+	}
+	return strings.Join(outputString, ", "), nil
 }

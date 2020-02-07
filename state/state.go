@@ -2601,11 +2601,11 @@ func ParseLocalIDToTags(docID string) names.Tag {
 	case strings.HasPrefix(localID, "a#"):
 		return names.NewApplicationTag(localID[2:])
 	case strings.HasPrefix(localID, "m#"):
-		return names.NewMachineTag(localID)
+		return names.NewMachineTag(localID[2:])
 	case strings.HasPrefix(localID, "u#"):
 		return names.NewUnitTag(localID[2:])
 	case strings.HasPrefix(localID, "e"):
-		return names.NewModelTag(localID)
+		return names.NewModelTag(docID)
 	default:
 		return nil
 	}

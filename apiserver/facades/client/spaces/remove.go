@@ -123,6 +123,11 @@ func (api *API) constraintsTagForSpaceName(name string) ([]names.Tag, error) {
 
 func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *params.RemoveSpaceResults) bool {
 	removable := true
+	if spacesTag.Id() == network.AlphaSpaceName {
+		newErr := errors.New("the alpha space cannot be removed")
+		results.Results[index].Error = common.ServerError(newErr)
+		return false
+	}
 	space, err := api.backing.SpaceByName(spacesTag.Id())
 	if err != nil {
 		results.Results[index].Error = common.ServerError(errors.Trace(err))
