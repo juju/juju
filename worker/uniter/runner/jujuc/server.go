@@ -46,6 +46,7 @@ func RegisterCommand(name string, f creator) {
 // baseCommands maps Command names to creators.
 var baseCommands = map[string]creator{
 	"close-port" + cmdSuffix:              NewClosePortCommand,
+	"commit" + cmdSuffix:                  NewCommitCommand,
 	"config-get" + cmdSuffix:              NewConfigGetCommand,
 	"juju-log" + cmdSuffix:                NewJujuLogCommand,
 	"open-port" + cmdSuffix:               NewOpenPortCommand,

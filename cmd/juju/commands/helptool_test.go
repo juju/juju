@@ -52,6 +52,7 @@ Currently available charm hook tools are:
     add-metric               add metrics
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
+    commit                   saves current charm data
     config-get               print application configuration
     credential-get           access cloud credentials
     goal-state               print the status of the charm's peers and related units
@@ -97,6 +98,7 @@ var expectedCommands = []string{
 	"add-metric",
 	"application-version-set",
 	"close-port",
+	"commit",
 	"config-get",
 	"credential-get",
 	"goal-state",

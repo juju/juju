@@ -115,6 +115,9 @@ type unitCacheContext interface {
 
 // ContextUnit is the part of a hook context related to the unit.
 type ContextUnit interface {
+	// Commit flushes the context.
+	Commit() error
+
 	// UnitName returns the executing unit's name.
 	UnitName() string
 

@@ -31,6 +31,11 @@ func (*RestrictedContext) GoalState() (*application.GoalState, error) {
 	return &application.GoalState{}, ErrRestrictedContext
 }
 
+// Commit implements jujuc.unitCacheContext.
+func (*RestrictedContext) Commit() error {
+	return ErrRestrictedContext
+}
+
 // GetCache implements jujuc.unitCacheContext.
 func (*RestrictedContext) GetCache() (map[string]string, error) {
 	return nil, ErrRestrictedContext

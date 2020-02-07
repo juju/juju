@@ -78,3 +78,9 @@ func (c *ContextUnit) CloudSpec() (*params.CloudSpec, error) {
 	c.info.CloudSpec = params.CloudSpec{}
 	return &c.info.CloudSpec, nil
 }
+
+// Commit implements jujuc.ContextUnit.
+func (c *ContextUnit) Commit() error {
+	c.stub.AddCall("Commit")
+	return c.stub.NextErr()
+}

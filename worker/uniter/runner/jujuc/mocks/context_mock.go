@@ -139,6 +139,18 @@ func (mr *MockContextMockRecorder) CloudSpec() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloudSpec", reflect.TypeOf((*MockContext)(nil).CloudSpec))
 }
 
+// Commit mocks base method
+func (m *MockContext) Commit() error {
+	ret := m.ctrl.Call(m, "Commit")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Commit indicates an expected call of Commit
+func (mr *MockContextMockRecorder) Commit() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockContext)(nil).Commit))
+}
+
 // Component mocks base method
 func (m *MockContext) Component(arg0 string) (jujuc.ContextComponent, error) {
 	ret := m.ctrl.Call(m, "Component", arg0)

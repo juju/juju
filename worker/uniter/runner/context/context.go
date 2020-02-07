@@ -987,7 +987,22 @@ func (ctx *HookContext) Prepare() error {
 	return nil
 }
 
+// Commit flushes the context data on use of commit hook tool.  It
+// does not finalizeActions, nor allow for reboots that are a normal
+// part of Flush.
+// Implements jujuc.HookContext.ContextUnit, part runner.Context.
+func (ctx *HookContext) Commit() error {
+	return ctx.doFlush(ctx.hookName)
+}
+
+// Flush pushes any changes from a successful hook execution to
+// state.
 // Flush implements the runner.Context interface.
+//
+// TODO (hml) 12-Mar-2020
+// Investigate whether process is truly needed here.  It looks like
+// using ctx.hookName would work, though other strings are passed in
+// from action code, but not evaluated here.
 func (ctx *HookContext) Flush(process string, ctxErr error) error {
 	// Apply the changes if no error reported while the hook was executing.
 	var flushErr error
