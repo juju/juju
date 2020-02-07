@@ -30,9 +30,10 @@ import (
 )
 
 // ProvisioningInfo returns the provisioning information for each given machine entity.
-func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
-	result := params.ProvisioningInfoResults{
-		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
+// It supports all positive space constraints.
+func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResultsV10, error) {
+	result := params.ProvisioningInfoResultsV10{
+		Results: make([]params.ProvisioningInfoResultV10, len(args.Entities)),
 	}
 	canAccess, err := api.getAuthFunc()
 	if err != nil {
@@ -40,7 +41,7 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	}
 	env, err := environs.GetEnviron(api.configGetter, environs.New)
 	if err != nil {
-		return result, errors.Annotate(err, "could not get environ")
+		return result, errors.Annotate(err, "retrieving environ")
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
@@ -57,67 +58,115 @@ func (api *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provis
 	return result, nil
 }
 
-func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfo, error) {
-	cons, err := m.Constraints()
-	if err != nil {
+func (api *ProvisionerAPI) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfoV10, error) {
+	var err error
+	var result params.ProvisioningInfoV10
+
+	if result.ProvisioningInfoBase, err = api.getProvisioningInfoBase(m, env); err != nil {
 		return nil, errors.Trace(err)
 	}
 
-	volumes, volumeAttachments, err := api.machineVolumeParams(m, env)
+	if result.ProvisioningNetworkTopology, err = api.machineSpaceTopology(m); err != nil {
+		return nil, errors.Annotate(err, "matching subnets to zones")
+	}
+
+	return &result, nil
+}
+
+// ProvisioningInfo returns the provisioning information for each given machine entity.
+// It supports the first of any specified positive space constraints.
+func (api *ProvisionerAPIV9) ProvisioningInfo(args params.Entities) (params.ProvisioningInfoResults, error) {
+	result := params.ProvisioningInfoResults{
+		Results: make([]params.ProvisioningInfoResult, len(args.Entities)),
+	}
+	canAccess, err := api.getAuthFunc()
 	if err != nil {
-		return nil, errors.Trace(err)
+		return result, errors.Trace(err)
 	}
-
-	var jobs []model.MachineJob
-	for _, job := range m.Jobs() {
-		jobs = append(jobs, job.ToParams())
+	env, err := environs.GetEnviron(api.configGetter, environs.New)
+	if err != nil {
+		return result, errors.Annotate(err, "retrieving environ")
 	}
+	for i, entity := range args.Entities {
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		machine, err := api.getMachine(canAccess, tag)
+		if err == nil {
+			result.Results[i].Result, err = api.getProvisioningInfo(machine, env)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
 
-	tags, err := api.machineTags(m, jobs)
+func (api *ProvisionerAPIV9) getProvisioningInfo(m *state.Machine, env environs.Environ) (*params.ProvisioningInfo, error) {
+	base, err := api.getProvisioningInfoBase(m, env)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 
 	subnetsToZones, err := api.machineSubnetsAndZones(m)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot match subnets to zones")
-	}
-
-	pNames, err := api.machineLXDProfileNames(m, env)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot write lxd profiles")
-	}
-
-	endpointBindings, err := api.machineEndpointBindings(m)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot determine machine endpoint bindings")
-	}
-
-	imageMetadata, err := api.availableImageMetadata(m, env)
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get available image metadata")
-	}
-
-	controllerCfg, err := api.st.ControllerConfig()
-	if err != nil {
-		return nil, errors.Annotate(err, "cannot get controller configuration")
+		return nil, errors.Annotate(err, "matching subnets to zones")
 	}
 
 	return &params.ProvisioningInfo{
-		Constraints:       cons,
+		ProvisioningInfoBase: base,
+		SubnetsToZones:       subnetsToZones,
+	}, nil
+}
+
+// getProvisioningInfoBase returns the component of provisioning
+// info that is common to all versions of the API.
+func (api *ProvisionerAPI) getProvisioningInfoBase(
+	m *state.Machine, env environs.Environ,
+) (params.ProvisioningInfoBase, error) {
+	var err error
+
+	result := params.ProvisioningInfoBase{
 		Series:            m.Series(),
 		Placement:         m.Placement(),
-		Jobs:              jobs,
-		Volumes:           volumes,
-		VolumeAttachments: volumeAttachments,
-		Tags:              tags,
-		SubnetsToZones:    subnetsToZones,
-		EndpointBindings:  endpointBindings,
-		ImageMetadata:     imageMetadata,
-		ControllerConfig:  controllerCfg,
 		CloudInitUserData: env.Config().CloudInitUserData(),
-		CharmLXDProfiles:  pNames,
-	}, nil
+	}
+
+	if result.Constraints, err = m.Constraints(); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if result.Volumes, result.VolumeAttachments, err = api.machineVolumeParams(m, env); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	if result.CharmLXDProfiles, err = api.machineLXDProfileNames(m, env); err != nil {
+		return result, errors.Annotate(err, "cannot write lxd profiles")
+	}
+
+	if result.EndpointBindings, err = api.machineEndpointBindings(m); err != nil {
+		return result, errors.Annotate(err, "cannot determine machine endpoint bindings")
+	}
+
+	if result.ImageMetadata, err = api.availableImageMetadata(m, env); err != nil {
+		return result, errors.Annotate(err, "cannot get available image metadata")
+	}
+
+	if result.ControllerConfig, err = api.st.ControllerConfig(); err != nil {
+		return result, errors.Annotate(err, "cannot get controller configuration")
+	}
+
+	jobs := m.Jobs()
+	result.Jobs = make([]model.MachineJob, len(jobs))
+	for i, job := range jobs {
+		result.Jobs[i] = job.ToParams()
+	}
+
+	if result.Tags, err = api.machineTags(m, result.Jobs); err != nil {
+		return result, errors.Trace(err)
+	}
+
+	return result, nil
 }
 
 // machineVolumeParams retrieves VolumeParams for the volumes that should be
@@ -189,13 +238,14 @@ func (api *ProvisionerAPI) machineVolumeParams(
 			// there's nothing more to do for it.
 			continue
 		}
+
+		// We are creating the machine, so no instance ID is supplied.
 		volumeAttachmentParams := params.VolumeAttachmentParams{
-			volumeTag.String(),
-			m.Tag().String(),
-			volumeInfo.VolumeId,
-			"", // we're creating the machine, so it has no instance ID.
-			volumeParams.Provider,
-			stateVolumeAttachmentParams.ReadOnly,
+			VolumeTag:  volumeTag.String(),
+			MachineTag: m.Tag().String(),
+			VolumeId:   volumeInfo.VolumeId,
+			Provider:   volumeParams.Provider,
+			ReadOnly:   stateVolumeAttachmentParams.ReadOnly,
 		}
 		if volumeProvisioned {
 			// Volume is already provisioned, so we just need to attach it.
@@ -248,25 +298,64 @@ func (api *ProvisionerAPI) machineTags(m *state.Machine, jobs []model.MachineJob
 	return machineTags, nil
 }
 
-// machineSubnetsAndZones returns a map of subnet provider-specific id
-// to list of availability zone names for that subnet. The result can
-// be empty if there are no spaces constraints specified for the
-// machine, or there's an error fetching them.
-func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
-	mcons, err := m.Constraints()
+func (api *ProvisionerAPI) machineSpaceTopology(m *state.Machine) (params.ProvisioningNetworkTopology, error) {
+	var topology params.ProvisioningNetworkTopology
+
+	cons, err := m.Constraints()
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot get machine constraints")
+		return topology, errors.Annotate(err, "retrieving machine constraints")
 	}
-	includeSpaces := mcons.IncludeSpaces()
+
+	includeSpaces := cons.IncludeSpaces()
 	if len(includeSpaces) < 1 {
-		// Nothing to do.
+		return topology, nil
+	}
+
+	topology.SubnetAZs = make(map[string][]string)
+	topology.SpaceSubnets = make(map[string][]string)
+
+	for _, spaceName := range includeSpaces {
+		subnetsAndZones, err := api.subnetsAndZonesForSpace(m.Id(), spaceName)
+		if err != nil {
+			return topology, errors.Trace(err)
+		}
+
+		// Record each subnet provider ID as being in the space,
+		// and add the zone mappings to our map
+		subnetIDs := make([]string, 0, len(subnetsAndZones))
+		for sID, zones := range subnetsAndZones {
+			// We do not expect unique provider subnets to be in more than one
+			// space, so no subnet should be processed more than once.
+			// Log a warning if this happens.
+			if _, ok := topology.SpaceSubnets[sID]; ok {
+				logger.Warningf("subnet with provider ID %q found is present in multiple spaces", sID)
+			}
+			topology.SubnetAZs[sID] = zones
+			subnetIDs = append(subnetIDs, sID)
+		}
+		topology.SpaceSubnets[spaceName] = subnetIDs
+	}
+
+	return topology, nil
+}
+
+// machineSubnetsAndZones returns a map of availability zone names
+// keyed by provider subnet ID.
+// The result can be empty if there are no spaces constraints specified
+// for the machine, or there is an error fetching them.
+func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string][]string, error) {
+	cons, err := m.Constraints()
+	if err != nil {
+		return nil, errors.Annotate(err, "retrieving machine constraints")
+	}
+
+	includeSpaces := cons.IncludeSpaces()
+	if len(includeSpaces) < 1 {
 		return nil, nil
 	}
-	// TODO(dimitern): For the network model MVP we only use the first
-	// included space and ignore the rest.
-	//
-	// LKK Card: https://canonical.leankit.com/Boards/View/101652562/117352306
-	// LP Bug: http://pad.lv/1498232
+
+	// Versions 9 and below of the API only support honouring a single positive
+	// space constraint. Take the first if there are any.
 	spaceName := includeSpaces[0]
 	if len(includeSpaces) > 1 {
 		logger.Debugf(
@@ -274,6 +363,12 @@ func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string]
 			spaceName, m.Id(), includeSpaces[1:],
 		)
 	}
+
+	subnetsAndZones, err := api.subnetsAndZonesForSpace(m.Id(), spaceName)
+	return subnetsAndZones, errors.Trace(err)
+}
+
+func (api *ProvisionerAPI) subnetsAndZonesForSpace(machineID string, spaceName string) (map[string][]string, error) {
 	space, err := api.st.SpaceByName(spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -287,9 +382,8 @@ func (api *ProvisionerAPI) machineSubnetsAndZones(m *state.Machine) (map[string]
 	}
 	subnetsToZones := make(map[string][]string, len(subnets))
 	for _, subnet := range subnets {
-		warningPrefix := fmt.Sprintf(
-			"not using subnet %q in space %q for machine %q provisioning: ",
-			subnet.CIDR(), spaceName, m.Id(),
+		warningPrefix := fmt.Sprintf("not using subnet %q in space %q for machine %q provisioning: ",
+			subnet.CIDR(), spaceName, machineID,
 		)
 		providerId := subnet.ProviderId()
 		if providerId == "" {
@@ -320,7 +414,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var names []string
+	var pNames []string
 	for _, unit := range units {
 		app, err := unit.Application()
 		if err != nil {
@@ -331,7 +425,7 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 			return nil, errors.Trace(err)
 		}
 		profile := ch.LXDProfile()
-		if profile == nil || (profile != nil && profile.Empty()) {
+		if profile == nil || profile.Empty() {
 			continue
 		}
 		pName := lxdprofile.Name(api.m.Name(), app.Name(), ch.Revision())
@@ -342,9 +436,9 @@ func (api *ProvisionerAPI) machineLXDProfileNames(m *state.Machine, env environs
 			return nil, errors.Trace(err)
 		}
 		api.mu.Unlock()
-		names = append(names, pName)
+		pNames = append(pNames, pName)
 	}
-	return names, nil
+	return pNames, nil
 }
 
 func (api *ProvisionerAPI) machineEndpointBindings(m *state.Machine) (map[string]string, error) {
@@ -432,7 +526,9 @@ func (api *ProvisionerAPI) spaceIdsToProviderIds() (map[string]string, error) {
 
 // availableImageMetadata returns all image metadata available to this machine
 // or an error fetching them.
-func (api *ProvisionerAPI) availableImageMetadata(m *state.Machine, env environs.Environ) ([]params.CloudImageMetadata, error) {
+func (api *ProvisionerAPI) availableImageMetadata(
+	m *state.Machine, env environs.Environ,
+) ([]params.CloudImageMetadata, error) {
 	imageConstraint, err := api.constructImageConstraint(m, env)
 	if err != nil {
 		return nil, errors.Annotate(err, "could not construct image constraint")
@@ -455,13 +551,13 @@ func (api *ProvisionerAPI) constructImageConstraint(m *state.Machine, env enviro
 		Stream: env.Config().ImageStream(),
 	}
 
-	mcons, err := m.Constraints()
+	cons, err := m.Constraints()
 	if err != nil {
 		return nil, errors.Annotatef(err, "cannot get machine constraints for machine %v", m.MachineTag().Id())
 	}
 
-	if mcons.Arch != nil {
-		lookup.Arches = []string{*mcons.Arch}
+	if cons.Arch != nil {
+		lookup.Arches = []string{*cons.Arch}
 	}
 
 	if hasRegion, ok := env.(simplestreams.HasRegion); ok {

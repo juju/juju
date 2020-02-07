@@ -1082,13 +1082,18 @@ func (task *provisionerTask) startMachine(
 	machine apiprovisioner.MachineProvisioner,
 	distributionGroupMachineIds []string,
 ) error {
+	if err := machine.SetInstanceStatus(status.Provisioning, "starting", nil); err != nil {
+		task.logger.Errorf("%v", err)
+	}
+
 	v, err := machine.ModelAgentVersion()
 	if err != nil {
 		return errors.Trace(err)
 	}
+
 	startInstanceParams, err := task.setupToStartMachine(machine, v)
 	if err != nil {
-		return task.setErrorStatus("%v", machine, err)
+		return errors.Trace(task.setErrorStatus("%v", machine, err))
 	}
 
 	// Figure out if the zones available to use for a new instance are
@@ -1096,11 +1101,6 @@ func (task *provisionerTask) startMachine(
 	// from being started in any other zone.
 	if err := task.populateExcludedMachines(machine.Id(), startInstanceParams); err != nil {
 		return err
-	}
-
-	// TODO (jam): 2017-01-19 Should we be setting this earlier in the cycle?
-	if err := machine.SetInstanceStatus(status.Provisioning, "starting", nil); err != nil {
-		task.logger.Errorf("%v", err)
 	}
 
 	// TODO ProvisionerParallelization 2017-10-03

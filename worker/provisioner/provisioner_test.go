@@ -1109,7 +1109,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithUnknownSpaces(c *gc.
 	cons := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=missing,ignored,^ignored-too",
 	)
-	expectedErrorStatus := `cannot match subnets to zones: space "missing" not found`
+	expectedErrorStatus := `matching subnets to zones: space "missing" not found`
 	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
 }
 
@@ -1119,7 +1119,7 @@ func (s *ProvisionerSuite) TestProvisioningMachinesFailsWithEmptySpaces(c *gc.C)
 	cons := constraints.MustParse(
 		s.defaultConstraints.String(), "spaces=empty",
 	)
-	expectedErrorStatus := `cannot match subnets to zones: ` +
+	expectedErrorStatus := `matching subnets to zones: ` +
 		`cannot use space "empty" as deployment target: no subnets`
 	s.testProvisioningFailsAndSetsErrorStatusForConstraints(c, cons, expectedErrorStatus)
 }

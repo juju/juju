@@ -743,8 +743,9 @@ type AgentVersionResult struct {
 	Version version.Number `json:"version"`
 }
 
-// ProvisioningInfo holds machine provisioning info.
-type ProvisioningInfo struct {
+// ProvisioningInfoBase holds machine provisioning info common
+// across different versions of the provisioner API facade.
+type ProvisioningInfoBase struct {
 	Constraints       constraints.Value        `json:"constraints"`
 	Series            string                   `json:"series"`
 	Placement         string                   `json:"placement"`
@@ -752,7 +753,6 @@ type ProvisioningInfo struct {
 	Volumes           []VolumeParams           `json:"volumes,omitempty"`
 	VolumeAttachments []VolumeAttachmentParams `json:"volume-attachments,omitempty"`
 	Tags              map[string]string        `json:"tags,omitempty"`
-	SubnetsToZones    map[string][]string      `json:"subnets-to-zones,omitempty"`
 	ImageMetadata     []CloudImageMetadata     `json:"image-metadata,omitempty"`
 	EndpointBindings  map[string]string        `json:"endpoint-bindings,omitempty"`
 	ControllerConfig  map[string]interface{}   `json:"controller-config,omitempty"`
@@ -760,15 +760,61 @@ type ProvisioningInfo struct {
 	CharmLXDProfiles  []string                 `json:"charm-lxd-profiles,omitempty"`
 }
 
-// ProvisioningInfoResult holds machine provisioning info or an error.
-type ProvisioningInfoResult struct {
-	Error  *Error            `json:"error,omitempty"`
-	Result *ProvisioningInfo `json:"result"`
+// ProvisioningInfo holds machine provisioning info returned by
+// versions 9 and lower of the provisioner API facade.
+type ProvisioningInfo struct {
+	ProvisioningInfoBase
+	SubnetsToZones map[string][]string `json:"subnets-to-zones,omitempty"`
 }
 
-// ProvisioningInfoResults holds multiple machine provisioning info results.
+// ProvisioningInfoResult holds machine provisioning info or an error
+// for versions 9 and lower of the provisioner API facade.
+type ProvisioningInfoResult struct {
+	Result *ProvisioningInfo `json:"result"`
+	Error  *Error            `json:"error,omitempty"`
+}
+
+// ProvisioningInfoResults holds multiple machine provisioning info results
+// for versions 9 and lower of the provisioner API facade.
 type ProvisioningInfoResults struct {
 	Results []ProvisioningInfoResult `json:"results"`
+}
+
+// ProvisioningNetworkTopology holds a network topology that is based on
+// positive machine space constraints.
+// This is used for creating NICs on instances where the provider is not space
+// aware; I.e. not MAAS.
+// We only care about positive constraints because negative constraints are
+// satisfied implicitly by only creating NICs connected to subnets in inclusive
+// spaces.
+type ProvisioningNetworkTopology struct {
+	// SubnetAZs is a map of availability zone names
+	// indexed by provider subnet ID.
+	SubnetAZs map[string][]string `json:"subnet-zones"`
+
+	// SpaceSubnets is a map of subnet provider IDs from the map above
+	// indexed by the space ID that the subnets reside in.
+	SpaceSubnets map[string][]string `json:"space-subnets"`
+}
+
+// ProvisioningInfo holds machine provisioning info returned by
+// versions 10 and above of the provisioner API facade.
+type ProvisioningInfoV10 struct {
+	ProvisioningInfoBase
+	ProvisioningNetworkTopology
+}
+
+// ProvisioningInfoResultV10 holds machine provisioning info or an error
+// for versions 10 and above of the provisioner API facade.
+type ProvisioningInfoResultV10 struct {
+	Result *ProvisioningInfoV10 `json:"result"`
+	Error  *Error               `json:"error,omitempty"`
+}
+
+// ProvisioningInfoResults holds multiple machine provisioning info results
+// for versions 10 and above of the provisioner API facade.
+type ProvisioningInfoResultsV10 struct {
+	Results []ProvisioningInfoResultV10 `json:"results"`
 }
 
 // Metric holds a single metric.
