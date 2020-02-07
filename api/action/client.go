@@ -86,33 +86,6 @@ func (c *Client) FindActionsByNames(arg params.FindActionsByNames) (params.Actio
 	return results, err
 }
 
-// ListAll takes a list of Entities representing ActionReceivers and returns
-// all of the Actions that have been queued or run by each of those
-// Entities.
-func (c *Client) ListAll(arg params.Entities) (params.ActionsByReceivers, error) {
-	results := params.ActionsByReceivers{}
-	err := c.facade.FacadeCall("ListAll", arg, &results)
-	return results, err
-}
-
-// ListPending takes a list of Entities representing ActionReceivers
-// and returns all of the Actions that are queued for each of those
-// Entities.
-func (c *Client) ListPending(arg params.Entities) (params.ActionsByReceivers, error) {
-	results := params.ActionsByReceivers{}
-	err := c.facade.FacadeCall("ListPending", arg, &results)
-	return results, err
-}
-
-// ListCompleted takes a list of Entities representing ActionReceivers
-// and returns all of the Actions that have been run on each of those
-// Entities.
-func (c *Client) ListCompleted(arg params.Entities) (params.ActionsByReceivers, error) {
-	results := params.ActionsByReceivers{}
-	err := c.facade.FacadeCall("ListCompleted", arg, &results)
-	return results, err
-}
-
 // Cancel attempts to cancel a queued up Action from running.
 func (c *Client) Cancel(arg params.Entities) (params.ActionResults, error) {
 	results := params.ActionResults{}

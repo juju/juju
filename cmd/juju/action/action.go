@@ -34,21 +34,6 @@ type APIClient interface {
 	// We return the ID of the overall operation and each individual task.
 	EnqueueOperation(params.Actions) (params.EnqueuedActions, error)
 
-	// ListAll takes a list of Tags representing ActionReceivers and returns
-	// all of the Actions that have been queued or run by each of those
-	// Entities.
-	ListAll(params.Entities) (params.ActionsByReceivers, error)
-
-	// ListPending takes a list of Tags representing ActionReceivers
-	// and returns all of the Actions that are queued for each of those
-	// Entities.
-	ListPending(params.Entities) (params.ActionsByReceivers, error)
-
-	// ListCompleted takes a list of Tags representing ActionReceivers
-	// and returns all of the Actions that have been run on each of those
-	// Entities.
-	ListCompleted(params.Entities) (params.ActionsByReceivers, error)
-
 	// Cancel attempts to cancel a queued up Action from running.
 	Cancel(params.Entities) (params.ActionResults, error)
 
