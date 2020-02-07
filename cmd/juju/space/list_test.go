@@ -205,13 +205,13 @@ spaces:
 `, "") + "\n"
 
 	expectedTabular := `
-Space  Name    Subnets      
-0      alpha                
-1      space1  2001:db8::/32
-               invalid      
-2      space2  10.1.2.0/24  
-               4.3.2.0/28   
-                            
+Name    Space ID  Subnets      
+alpha   0                      
+space1  1         2001:db8::/32
+                  invalid      
+space2  2         10.1.2.0/24  
+                  4.3.2.0/28   
+                               
 `[1:]
 
 	expectedShortTabular := `
