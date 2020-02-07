@@ -208,10 +208,10 @@ func printTabularLong(writer io.Writer, value interface{}) error {
 	table.MaxColWidth = 50
 	table.Wrap = true
 
-	table.AddRow("Space", "Name", "Subnets")
+	table.AddRow("Name", "Space ID", "Subnets")
 	for _, s := range list.Spaces {
 		if len(s.Subnets) == 0 {
-			table.AddRow(s.Id, spaceName(s.Name), "")
+			table.AddRow(spaceName(s.Name), s.Id, "")
 			continue
 		}
 
@@ -221,7 +221,7 @@ func printTabularLong(writer io.Writer, value interface{}) error {
 		}
 		sort.Strings(cidrs)
 
-		table.AddRow(s.Id, spaceName(s.Name), cidrs[0])
+		table.AddRow(spaceName(s.Name), s.Id, cidrs[0])
 		for i := 1; i < len(cidrs); i++ {
 			table.AddRow("", "", cidrs[i])
 		}
