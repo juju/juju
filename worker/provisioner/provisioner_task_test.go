@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -202,6 +203,57 @@ func (s *ProvisionerTaskSuite) TestProvisionerRetries(c *gc.C) {
 	s.machineGetter.CheckCallNames(c, "MachinesWithTransientErrors")
 	s.auth.CheckCallNames(c, "SetupAuthentication")
 	s.instanceBroker.CheckCallNames(c, "StartInstance", "StartInstance")
+}
+
+func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+	spaceConstraints := newSpaceConstraintStartInstanceParamsMatcher("alpha", "beta")
+
+	spaceConstraints.addMatch("subnets-to-zones", func(p environs.StartInstanceParams) bool {
+		return reflect.DeepEqual(p.SubnetsToZones, []map[network.Id][]string{
+			{"subnet-1": {"az-1"}},
+			{"subnet-2": {"az-2"}},
+		})
+	})
+
+	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, spaceConstraints).Return([]string{}, nil)
+
+	// Use satisfaction of this call as the synchronisation point.
+	started := make(chan struct{})
+	broker.EXPECT().StartInstance(s.callCtx, spaceConstraints).Return(&environs.StartInstanceResult{
+		Instance: &testInstance{id: "instance-1"},
+	}, nil).Do(func(_ ...interface{}) {
+		go func() { started <- struct{}{} }()
+	})
+	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "spaces=alpha,beta",
+		topology: params.ProvisioningNetworkTopology{
+			SubnetAZs: map[string][]string{
+				"subnet-1": {"az-1"},
+				"subnet-2": {"az-2"},
+			},
+			SpaceSubnets: map[string][]string{
+				"alpha": {"subnet-1"},
+				"beta":  {"subnet-2"},
+			},
+		},
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
+	s.sendMachineErrorRetryChange(c)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no matching call to StartInstance")
+	}
+
+	workertest.CleanKill(c, task)
 }
 
 func (s *ProvisionerTaskSuite) TestZoneConstraintsNoZoneAvailable(c *gc.C) {
@@ -533,20 +585,19 @@ func (i *testInstance) Id() instance.Id {
 }
 
 type testMachine struct {
+	*apiprovisioner.Machine
+
 	mu sync.Mutex
 
-	*apiprovisioner.Machine
-	id   string
-	life life.Value
-
-	instance     *testInstance
-	keepInstance bool
-
+	id             string
+	life           life.Value
+	instance       *testInstance
+	keepInstance   bool
 	markForRemoval bool
 	constraints    string
-
-	instStatusMsg string
-	modStatusMsg  string
+	instStatusMsg  string
+	modStatusMsg   string
+	topology       params.ProvisioningNetworkTopology
 }
 
 func (m *testMachine) Id() string {
@@ -632,13 +683,14 @@ func (m *testMachine) SetInstanceInfo(
 	return nil
 }
 
-func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
-	return &params.ProvisioningInfo{
+func (m *testMachine) ProvisioningInfo() (*params.ProvisioningInfoV10, error) {
+	return &params.ProvisioningInfoV10{
 		ProvisioningInfoBase: params.ProvisioningInfoBase{
 			ControllerConfig: coretesting.FakeControllerConfig(),
 			Series:           series.DefaultSupportedLTS(),
 			Constraints:      constraints.MustParse(m.constraints),
 		},
+		ProvisioningNetworkTopology: m.topology,
 	}, nil
 }
 
@@ -708,6 +760,34 @@ func newAZConstraintStartInstanceParamsMatcher(zones ...string) *startInstancePa
 	}
 	return newStartInstanceParamsMatcher(map[string]func(environs.StartInstanceParams) bool{
 		fmt.Sprint("AZ constraints:", strings.Join(zones, ", ")): match,
+	})
+}
+
+func newSpaceConstraintStartInstanceParamsMatcher(spaces ...string) *startInstanceParamsMatcher {
+	match := func(p environs.StartInstanceParams) bool {
+		if !p.Constraints.HasSpaces() {
+			return false
+		}
+		cSpaces := p.Constraints.IncludeSpaces()
+		if len(cSpaces) != len(spaces) {
+			return false
+		}
+		for _, s := range spaces {
+			found := false
+			for _, cs := range spaces {
+				if s == cs {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return false
+			}
+		}
+		return true
+	}
+	return newStartInstanceParamsMatcher(map[string]func(environs.StartInstanceParams) bool{
+		fmt.Sprint("space constraints:", strings.Join(spaces, ", ")): match,
 	})
 }
 
