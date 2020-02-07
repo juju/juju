@@ -593,7 +593,7 @@ func (c *controllerStack) createControllerStatefulset() error {
 	}
 	defer w.Kill()
 
-	if err = c.broker.createStatefulSet(spec); err != nil {
+	if _, err = c.broker.createStatefulSet(spec); err != nil {
 		return errors.Trace(err)
 	}
 
