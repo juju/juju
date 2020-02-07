@@ -189,24 +189,6 @@ func (c *fakeAPIClient) EnqueueOperation(args params.Actions) (params.EnqueuedAc
 		Actions:      actions}, c.apiErr
 }
 
-func (c *fakeAPIClient) ListAll(args params.Entities) (params.ActionsByReceivers, error) {
-	return params.ActionsByReceivers{
-		Actions: c.actionsByReceivers,
-	}, c.apiErr
-}
-
-func (c *fakeAPIClient) ListPending(args params.Entities) (params.ActionsByReceivers, error) {
-	return params.ActionsByReceivers{
-		Actions: c.actionsByReceivers,
-	}, c.apiErr
-}
-
-func (c *fakeAPIClient) ListCompleted(args params.Entities) (params.ActionsByReceivers, error) {
-	return params.ActionsByReceivers{
-		Actions: c.actionsByReceivers,
-	}, c.apiErr
-}
-
 func (c *fakeAPIClient) Cancel(args params.Entities) (params.ActionResults, error) {
 	return params.ActionResults{
 		Results: c.actionResults,
