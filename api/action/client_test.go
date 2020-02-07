@@ -262,3 +262,63 @@ func (s *actionSuite) TestOperationsNotSupported(c *gc.C) {
 	_, err := client.Operations(params.OperationQueryArgs{})
 	c.Assert(err, gc.ErrorMatches, "Operations not supported by this version \\(4\\) of Juju")
 }
+
+func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
+	args := params.Actions{
+		Actions: []params.Action{{
+			Receiver: "unit/0",
+			Name:     "test",
+			Parameters: map[string]interface{}{
+				"foo": "bar",
+			},
+		}},
+	}
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "EnqueueOperation")
+				c.Assert(a, jc.DeepEquals, args)
+				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActions{})
+				*(result.(*params.EnqueuedActions)) = params.EnqueuedActions{
+					OperationTag: "operation-1",
+					Actions: []params.StringResult{{
+						Error: &params.Error{Message: "FAIL"},
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 6,
+	}
+	client := action.NewClient(apiCaller)
+	result, err := client.EnqueueOperation(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.EnqueuedActions{
+		Actions: []params.StringResult{{
+			Error: &params.Error{Message: "FAIL"},
+		}},
+		OperationTag: "operation-1",
+	})
+}
+
+func (s *actionSuite) TestEnqueueOperationNotSupported(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 5,
+	}
+	client := action.NewClient(apiCaller)
+	_, err := client.EnqueueOperation(params.Actions{})
+	c.Assert(err, gc.ErrorMatches, "EnqueueOperation not supported by this version \\(5\\) of Juju")
+}

@@ -7,12 +7,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strconv"
 	"testing"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-	"github.com/kr/pretty"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 
@@ -33,7 +31,7 @@ func TestAll(t *testing.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type actionSuite struct {
+type baseSuite struct {
 	jujutesting.JujuConnSuite
 	commontesting.BlockHelper
 
@@ -51,9 +49,23 @@ type actionSuite struct {
 	mysqlUnit     *state.Unit
 }
 
+type actionSuite struct {
+	baseSuite
+}
+
 var _ = gc.Suite(&actionSuite{})
 
-func (s *actionSuite) SetUpTest(c *gc.C) {
+func (s *baseSuite) toSupportNewActionID(c *gc.C) {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if !state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+}
+
+func (s *baseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.BlockHelper = commontesting.NewBlockHelper(s.APIState)
 	s.AddCleanup(func(*gc.C) { s.BlockHelper.Close() })
@@ -841,16 +853,6 @@ func stringify(r params.ActionResult) string {
 	return fmt.Sprintf("%s-%s-%#v-%s-%s-%v", a.Tag, a.Name, a.Parameters, r.Status, r.Message, orderedOut)
 }
 
-func (s *actionSuite) toSupportNewActionID(c *gc.C) {
-	ver, err := s.Model.AgentVersion()
-	c.Assert(err, jc.ErrorIsNil)
-
-	if !state.IsNewActionIDSupported(ver) {
-		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
-		c.Assert(err, jc.ErrorIsNil)
-	}
-}
-
 func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 	s.toSupportNewActionID(c)
 
@@ -898,160 +900,4 @@ func (s *actionSuite) TestWatchActionProgress(c *gc.C) {
 
 	wc.AssertChange(string(expected))
 	wc.AssertNoChange()
-}
-
-func (s *actionSuite) setupOperations(c *gc.C) {
-	s.toSupportNewActionID(c)
-
-	arg := params.Actions{
-		Actions: []params.Action{
-			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
-			{Receiver: s.mysqlUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
-			{Receiver: s.wordpressUnit.Tag().String(), Name: "fakeaction", Parameters: map[string]interface{}{}},
-			{Receiver: s.mysqlUnit.Tag().String(), Name: "anotherfakeaction", Parameters: map[string]interface{}{}},
-		}}
-
-	r, err := s.action.Enqueue(arg)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(r.Results, gc.HasLen, len(arg.Actions))
-
-	// There's only one operation created.
-	ops, err := s.Model.AllOperations()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 1)
-	operationID, err := strconv.Atoi(ops[0].Id())
-	c.Assert(err, jc.ErrorIsNil)
-
-	a, err := s.Model.Action(strconv.Itoa(operationID + 1))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = a.Begin()
-	c.Assert(err, jc.ErrorIsNil)
-	a, err = s.Model.Action(strconv.Itoa(operationID + 2))
-	c.Assert(err, jc.ErrorIsNil)
-	_, err = a.Finish(state.ActionResults{})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *actionSuite) TestOperationsStatusFilter(c *gc.C) {
-	s.setupOperations(c)
-	actions, err := s.action.Operations(params.OperationQueryArgs{
-		Status: []string{"running"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions.Results, gc.HasLen, 1)
-	result := actions.Results[0]
-	c.Assert(result.Action, gc.NotNil)
-	if result.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	if result.Started.IsZero() {
-		c.Fatal("started time not set")
-	}
-	c.Assert(result.Status, gc.Equals, "running")
-	c.Assert(result.Action.Name, gc.Equals, "fakeaction")
-	c.Assert(result.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result.Action.Tag, gc.Equals, "action-2")
-}
-
-func (s *actionSuite) TestOperationsNameFilter(c *gc.C) {
-	s.setupOperations(c)
-	actions, err := s.action.Operations(params.OperationQueryArgs{
-		FunctionNames: []string{"anotherfakeaction"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions.Results, gc.HasLen, 1)
-	result := actions.Results[0]
-	c.Assert(result.Action, gc.NotNil)
-	if result.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	c.Assert(result.Status, gc.Equals, "pending")
-	c.Assert(result.Action.Name, gc.Equals, "anotherfakeaction")
-	c.Assert(result.Action.Receiver, gc.Equals, "unit-mysql-0")
-	c.Assert(result.Action.Tag, gc.Equals, "action-5")
-}
-
-func (s *actionSuite) TestOperationsAppFilter(c *gc.C) {
-	s.setupOperations(c)
-	actions, err := s.action.Operations(params.OperationQueryArgs{
-		Applications: []string{"wordpress"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions.Results, gc.HasLen, 2)
-	result0 := actions.Results[0]
-	result1 := actions.Results[1]
-
-	c.Assert(result0.Action, gc.NotNil)
-	if result0.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	c.Assert(result0.Status, gc.Equals, "pending")
-	c.Assert(result0.Action.Name, gc.Equals, "fakeaction")
-	c.Assert(result0.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result0.Action.Tag, gc.Equals, "action-4")
-
-	c.Assert(result1.Action, gc.NotNil)
-	if result1.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	if result1.Started.IsZero() {
-		c.Fatal("started time not set")
-	}
-	c.Assert(result1.Status, gc.Equals, "running")
-	c.Assert(result1.Action.Name, gc.Equals, "fakeaction")
-	c.Assert(result1.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result1.Action.Tag, gc.Equals, "action-2")
-}
-
-func (s *actionSuite) TestOperationsUnitFilter(c *gc.C) {
-	s.setupOperations(c)
-	actions, err := s.action.Operations(params.OperationQueryArgs{
-		Units:  []string{"wordpress/0"},
-		Status: []string{"pending"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions.Results, gc.HasLen, 1)
-	result := actions.Results[0]
-
-	c.Assert(result.Action, gc.NotNil)
-	if result.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	c.Assert(result.Status, gc.Equals, "pending")
-	c.Assert(result.Action.Name, gc.Equals, "fakeaction")
-	c.Assert(result.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(result.Action.Tag, gc.Equals, "action-4")
-}
-
-func (s *actionSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
-	s.setupOperations(c)
-	actions, err := s.action.Operations(params.OperationQueryArgs{
-		Applications: []string{"mysql"},
-		Units:        []string{"wordpress/0"},
-		Status:       []string{"pending"},
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(actions.Results, gc.HasLen, 2)
-	mysqlAction := actions.Results[0]
-	wordpressAction := actions.Results[1]
-	c.Log(pretty.Sprint(actions.Results))
-
-	c.Assert(mysqlAction.Action, gc.NotNil)
-	if mysqlAction.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	c.Assert(mysqlAction.Status, gc.Equals, "pending")
-	c.Assert(mysqlAction.Action.Name, gc.Equals, "anotherfakeaction")
-	c.Assert(mysqlAction.Action.Receiver, gc.Equals, "unit-mysql-0")
-	c.Assert(mysqlAction.Action.Tag, gc.Equals, "action-5")
-
-	c.Assert(wordpressAction.Action, gc.NotNil)
-	if wordpressAction.Enqueued.IsZero() {
-		c.Fatal("enqueued time not set")
-	}
-	c.Assert(wordpressAction.Status, gc.Equals, "pending")
-	c.Assert(wordpressAction.Action.Name, gc.Equals, "fakeaction")
-	c.Assert(wordpressAction.Action.Receiver, gc.Equals, "unit-wordpress-0")
-	c.Assert(wordpressAction.Action.Tag, gc.Equals, "action-4")
-
 }

@@ -26,7 +26,13 @@ type APIClient interface {
 	// the designated ActionReceiver, returning the params.Action for each
 	// queued Action, or an error if there was a problem queueing up the
 	// Action.
+	// TODO(juju3) - remove.
 	Enqueue(params.Actions) (params.ActionResults, error)
+
+	// EnqueueOperation takes a list of Actions and queues them up to be executed as
+	// an operation, each action running as a task on the the designated ActionReceiver.
+	// We return the ID of the overall operation and each individual task.
+	EnqueueOperation(params.Actions) (params.EnqueuedActions, error)
 
 	// ListAll takes a list of Tags representing ActionReceivers and returns
 	// all of the Actions that have been queued or run by each of those

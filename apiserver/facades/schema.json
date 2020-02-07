@@ -1,7 +1,7 @@
 [
     {
         "Name": "Action",
-        "Version": 5,
+        "Version": 6,
         "Schema": {
             "type": "object",
             "properties": {
@@ -46,6 +46,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ActionResults"
+                        }
+                    }
+                },
+                "EnqueueOperation": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Actions"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/EnqueuedActions"
                         }
                     }
                 },
@@ -390,6 +401,24 @@
                     },
                     "additionalProperties": false
                 },
+                "EnqueuedActions": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StringResult"
+                            }
+                        },
+                        "operation": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "operation"
+                    ]
+                },
                 "Entities": {
                     "type": "object",
                     "properties": {
@@ -554,6 +583,21 @@
                     "required": [
                         "commands",
                         "timeout"
+                    ]
+                },
+                "StringResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "result": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "result"
                     ]
                 },
                 "StringsWatchResult": {

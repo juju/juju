@@ -241,7 +241,7 @@ func (s *CallSuite) TestInit(c *gc.C) {
 	}
 }
 
-func (s *CallSuite) TestCall(c *gc.C) {
+func (s *CallSuite) TestRun(c *gc.C) {
 	tests := []struct {
 		should                 string
 		clientSetup            func(client *fakeAPIClient)
@@ -778,22 +778,8 @@ mysql/1:
 			},
 		}},
 	}, {
-		should:      "fail with not implemented Leaders method",
-		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 2 },
-		withArgs:    []string{"mysql/leader", "some-action", "--background"},
-		withActionResults: []params.ActionResult{{
-			Action: &params.Action{
-				Tag:      validActionTagString,
-				Receiver: names.NewUnitTag(validUnitId).String(),
-			},
-		}},
-		expectedErr: "unable to determine leader for application \"mysql\"" +
-			"\nleader determination is unsupported by this API" +
-			"\neither upgrade your controller, or explicitly specify a unit",
-	}, {
-		should:      "enqueue a basic action on the leader",
-		clientSetup: func(api *fakeAPIClient) { api.apiVersion = 3 },
-		withArgs:    []string{"mysql/leader", "some-action", "--background"},
+		should:   "enqueue a basic action on the leader",
+		withArgs: []string{"mysql/leader", "some-action", "--background"},
 		withActionResults: []params.ActionResult{{
 			Action: &params.Action{
 				Tag:      validActionTagString,
@@ -816,7 +802,7 @@ mysql/1:
 				fakeClient := &fakeAPIClient{
 					actionResults:    t.withActionResults,
 					actionTagMatches: t.withTags,
-					apiVersion:       5,
+					apiVersion:       6,
 					logMessageCh:     make(chan []string, len(t.expectedLogs)),
 				}
 				if len(t.expectedLogs) > 0 {
@@ -894,8 +880,9 @@ mysql/1:
 
 						// Make sure the CLI responded with the expected tag
 						c.Assert(outString, gc.Equals, fmt.Sprintf(`
-Scheduled Operation %s
-Check status with 'juju show-operation %s'`[1:],
+Scheduled operation 1 with task %s
+Check operation status with 'juju show-operation 1'
+Check task status with 'juju show-task %s'`[1:],
 							expectedTag.Id(), expectedTag.Id()))
 					} else {
 						outputResult := ctx.Stdout.(*bytes.Buffer).Bytes()
