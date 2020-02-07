@@ -49,7 +49,7 @@
                         }
                     }
                 },
-                "EnqueueV2": {
+                "EnqueueOperation": {
                     "type": "object",
                     "properties": {
                         "Params": {

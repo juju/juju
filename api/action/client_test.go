@@ -263,7 +263,7 @@ func (s *actionSuite) TestOperationsNotSupported(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "Operations not supported by this version \\(4\\) of Juju")
 }
 
-func (s *actionSuite) TestEnqueueV2(c *gc.C) {
+func (s *actionSuite) TestEnqueueOperation(c *gc.C) {
 	args := params.Actions{
 		Actions: []params.Action{{
 			Receiver: "unit/0",
@@ -280,7 +280,7 @@ func (s *actionSuite) TestEnqueueV2(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Assert(request, gc.Equals, "EnqueueV2")
+				c.Assert(request, gc.Equals, "EnqueueOperation")
 				c.Assert(a, jc.DeepEquals, args)
 				c.Assert(result, gc.FitsTypeOf, &params.EnqueuedActions{})
 				*(result.(*params.EnqueuedActions)) = params.EnqueuedActions{
@@ -295,7 +295,7 @@ func (s *actionSuite) TestEnqueueV2(c *gc.C) {
 		BestVersion: 6,
 	}
 	client := action.NewClient(apiCaller)
-	result, err := client.EnqueueV2(args)
+	result, err := client.EnqueueOperation(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.EnqueuedActions{
 		Actions: []params.StringResult{{
@@ -305,7 +305,7 @@ func (s *actionSuite) TestEnqueueV2(c *gc.C) {
 	})
 }
 
-func (s *actionSuite) TestEnqueueV2NotSupported(c *gc.C) {
+func (s *actionSuite) TestEnqueueOperationNotSupported(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -319,6 +319,6 @@ func (s *actionSuite) TestEnqueueV2NotSupported(c *gc.C) {
 		BestVersion: 5,
 	}
 	client := action.NewClient(apiCaller)
-	_, err := client.EnqueueV2(params.Actions{})
-	c.Assert(err, gc.ErrorMatches, "EnqueueV2 not supported by this version \\(5\\) of Juju")
+	_, err := client.EnqueueOperation(params.Actions{})
+	c.Assert(err, gc.ErrorMatches, "EnqueueOperation not supported by this version \\(5\\) of Juju")
 }

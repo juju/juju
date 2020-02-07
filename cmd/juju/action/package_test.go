@@ -173,7 +173,7 @@ func (c *fakeAPIClient) Enqueue(args params.Actions) (params.ActionResults, erro
 	return params.ActionResults{Results: c.actionResults}, c.apiErr
 }
 
-func (c *fakeAPIClient) EnqueueV2(args params.Actions) (params.EnqueuedActions, error) {
+func (c *fakeAPIClient) EnqueueOperation(args params.Actions) (params.EnqueuedActions, error) {
 	c.enqueuedActions = args
 	actions := make([]params.StringResult, len(c.actionResults))
 	for i, a := range c.actionResults {

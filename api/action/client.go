@@ -66,15 +66,15 @@ func (c *Client) Enqueue(arg params.Actions) (params.ActionResults, error) {
 	return results, err
 }
 
-// EnqueueV2 takes a list of Actions and queues them up to be executed by
-// the designated ActionReceiver, returning the ids of the overall operation
-// and each individual task.
-func (c *Client) EnqueueV2(arg params.Actions) (params.EnqueuedActions, error) {
+// EnqueueOperation takes a list of Actions and queues them up to be executed as
+// an operation, each action running as a task on the the designated ActionReceiver.
+// We return the ID of the overall operation and each individual task.
+func (c *Client) EnqueueOperation(arg params.Actions) (params.EnqueuedActions, error) {
 	results := params.EnqueuedActions{}
 	if v := c.BestAPIVersion(); v < 6 {
-		return results, errors.Errorf("EnqueueV2 not supported by this version (%d) of Juju", v)
+		return results, errors.Errorf("EnqueueOperation not supported by this version (%d) of Juju", v)
 	}
-	err := c.facade.FacadeCall("EnqueueV2", arg, &results)
+	err := c.facade.FacadeCall("EnqueueOperation", arg, &results)
 	return results, err
 }
 

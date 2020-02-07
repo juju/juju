@@ -250,7 +250,10 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		}
 		return nil
 	}
+	return c.waitForTasks(ctx, results, info)
+}
 
+func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info map[string]interface{}) error {
 	var wait *time.Timer
 	if c.maxWait < 0 {
 		// Indefinite wait. Discard the tick.
@@ -263,7 +266,11 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 	actionDone := make(chan struct{})
 	var logsWatcher watcher.StringsWatcher
 	haveLogs := false
-	if numTasks == 1 {
+	if len(tasks) == 1 {
+		actionTag, err := names.ParseActionTag(tasks[0].task)
+		if err != nil {
+			return err
+		}
 		logsWatcher, err = c.api.WatchActionProgress(actionTag.Id())
 		if err != nil {
 			return errors.Trace(err)
@@ -281,7 +288,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	for i, result := range results {
+	for i, result := range tasks {
 		tag, err := names.ParseActionTag(result.task)
 		if err != nil {
 			waitForWatcher()
@@ -378,7 +385,7 @@ func (c *runCommand) enqueueActions(ctx *cmd.Context) (string, []enqueuedAction,
 		actions[i].Name = c.actionName
 		actions[i].Parameters = actionParams
 	}
-	results, err := c.api.EnqueueV2(params.Actions{Actions: actions})
+	results, err := c.api.EnqueueOperation(params.Actions{Actions: actions})
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}
