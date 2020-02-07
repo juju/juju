@@ -1121,11 +1121,15 @@ func (k *kubernetesClient) EnsureService(
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	case caas.DeploymentStateless:
 		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods); err != nil {
-			return errors.Annotate(err, "creating or updating DeploymentController")
+			return errors.Annotate(err, "creating or updating Deployment")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
 	case caas.DeploymentDaemon:
-		// TODO
+		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating DaemonSet")
+		}
+		cleanups = append(cleanups, cleanUpDaemonSet)
 	default:
 		// This should never happend because we have validated both in this method and in `charm.v6`.
 		return errors.NotSupportedf("deployment type %q not supported", params.Deployment.DeploymentType)
@@ -1446,6 +1450,46 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 	return annotations.
 		Add("apparmor.security.beta.kubernetes.io/pod", "runtime/default").
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
+}
+
+func (k *kubernetesClient) configureDaemonSet(
+	appName, deploymentName string,
+	annotations k8sannotations.Annotation,
+	workloadSpec *workloadSpec,
+	containers []specs.ContainerSpec,
+) (func(), error) {
+	logger.Debugf("creating/updating daemon set for %s", appName)
+	cleanUp := func() {}
+
+	// Add the specified file to the pod spec.
+	cfgName := func(fileSetName string) string {
+		return applicationConfigMapName(deploymentName, fileSetName)
+	}
+	podSpec := workloadSpec.Pod
+	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+		return cleanUp, errors.Trace(err)
+	}
+
+	daemonSet := &apps.DaemonSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        deploymentName,
+			Labels:      k.getDaemonSetLabels(appName),
+			Annotations: annotations.ToMap()},
+		Spec: apps.DaemonSetSpec{
+			Selector: &v1.LabelSelector{
+				MatchLabels: k.getDaemonSetLabels(appName),
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: deploymentName + "-",
+					Labels:       k.getDaemonSetLabels(appName),
+					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	return k.ensureDaemonSet(daemonSet)
 }
 
 func (k *kubernetesClient) configureDeployment(
