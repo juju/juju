@@ -175,9 +175,9 @@ func (s *cmdSpaceSuite) TestSpaceListDefaultOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	expected := `
-Space  Name   Subnets
-0      alpha         
-                     
+Name   Space ID  Subnets
+alpha  0                
+                        
 `[1:]
 
 	c.Assert(stdout, gc.Equals, expected)
