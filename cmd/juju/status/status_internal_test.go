@@ -6090,7 +6090,7 @@ func (s *StatusSuite) PrepareBranchesOutput(c *gc.C) *context {
 	c.Assert(err, jc.ErrorIsNil)
 	md, err := s.ControllerStore.CurrentModel(ct)
 	c.Assert(err, jc.ErrorIsNil)
-	m, err := s.JujuConnSuite.ControllerStore.ModelByName(ct, md)
+	m, err := s.ControllerStore.ModelByName(ct, md)
 	c.Assert(err, jc.ErrorIsNil)
 	m.ActiveBranch = "bla"
 	err = s.ControllerStore.UpdateModel(ct, md, *m)
@@ -6102,6 +6102,17 @@ func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
 	ctx := s.PrepareBranchesOutput(c)
 	defer s.resetContext(c, ctx)
 
+	// This test seems to have some kind of race condition. Adding this part we can ensure which part is racing. The model/filestore and/or the runStatus.
+	ct, err := s.ControllerStore.CurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+	md, err := s.ControllerStore.CurrentModel(ct)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.ControllerStore.ModelByName(ct, md)
+	c.Assert(err, jc.ErrorIsNil)
+	if m.ActiveBranch != "bla" {
+		c.Fatalf(`Expected "bla" got %q. This test failed because the file store did not save the value in time of access`, m.ActiveBranch)
+	}
+
 	_, stdout, stderr := runStatus(c)
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "bla*"), jc.IsTrue)
@@ -6112,6 +6123,16 @@ func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
 	ctx := s.PrepareBranchesOutput(c)
 	defer s.resetContext(c, ctx)
 
+	// This test seems to have some kind of race condition. Adding this part we can ensure which part is racing. The model/filestore and/or the runStatus.
+	ct, err := s.ControllerStore.CurrentController()
+	c.Assert(err, jc.ErrorIsNil)
+	md, err := s.ControllerStore.CurrentModel(ct)
+	c.Assert(err, jc.ErrorIsNil)
+	m, err := s.ControllerStore.ModelByName(ct, md)
+	c.Assert(err, jc.ErrorIsNil)
+	if m.ActiveBranch != "bla" {
+		c.Fatalf(`Expected "bla" got %q. This test failed because the file store did not save the value in time of access`, m.ActiveBranch)
+	}
 	_, stdout, stderr := runStatus(c, "--format=yaml")
 	c.Assert(stderr, gc.IsNil)
 	c.Assert(strings.Contains(string(stdout), "active: true"), jc.IsTrue)
