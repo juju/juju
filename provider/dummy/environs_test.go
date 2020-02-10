@@ -61,7 +61,6 @@ func (s *liveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
-	s.BaseSuite.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *liveSuite) TearDownSuite(c *gc.C) {
@@ -95,6 +94,7 @@ type suite struct {
 func (s *suite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.PatchValue(&keys.JujuPublicKey, sstesting.SignedMetadataPublicKey)
 }
 
 func (s *suite) TearDownSuite(c *gc.C) {
@@ -357,7 +357,7 @@ func assertInterfaces(c *gc.C, e environs.Environ, opc chan dummy.Operation, exp
 		c.Check(netOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(netOp.Info, jc.DeepEquals, expectInfo)
 		return
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("time out wating for operation")
 	}
 }
