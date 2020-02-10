@@ -150,7 +150,7 @@
   revision = "434507794960132879955c3a0cb250f6ac5fbe47"
 
 [[constraint]]
-  revision = "2adcece4e962a51e0793b8562560cf9da874026f"
+  revision = "edf64106c1c811e291de3c2c6b42c939b412aaf0"
   name = "gopkg.in/juju/charmrepo.v3"
 
 [[constraint]]
