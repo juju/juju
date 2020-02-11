@@ -4678,6 +4678,120 @@ func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
 	}
 }
 
+func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	// Clear network settings from all relation units
+	relList, err := s.wordpressUnit.RelationsJoined()
+	c.Assert(err, gc.IsNil)
+	for _, rel := range relList {
+		relUnit, err := rel.Unit(s.wordpressUnit)
+		c.Assert(err, gc.IsNil)
+		relSettings, err := relUnit.Settings()
+		c.Assert(err, gc.IsNil)
+		relSettings.Delete("private-address")
+		relSettings.Delete("ingress-address")
+		relSettings.Delete("egress-subnets")
+		relSettings.Set("some", "settings")
+		_, err = relSettings.Write()
+		c.Assert(err, gc.IsNil)
+	}
+
+	wpUnitTag := s.wordpressUnit.Tag().String()
+
+	args := params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			{Tag: "not-a-unit-tag"},
+			{
+				Tag:               wpUnitTag,
+				UpdateNetworkInfo: true,
+				RelationUnitSettings: []params.RelationUnitSettings{
+					{
+						Relation: relList[0].Tag().String(),
+						Unit:     wpUnitTag,
+						Settings: params.Settings{
+							"just": "added",
+						},
+					},
+				},
+				OpenPorts: []params.EntityPortRange{
+					{
+						Tag:      wpUnitTag,
+						Protocol: "tcp",
+						FromPort: 80,
+						ToPort:   81,
+					},
+					// Note: same port range is closed below.
+					// This change should be a no-op.
+					{
+						Tag:      wpUnitTag,
+						Protocol: "tcp",
+						FromPort: 7337,
+						ToPort:   7337,
+					},
+				},
+				ClosePorts: []params.EntityPortRange{
+					// Note: same port range is opened above.
+					// This change should be a no-op.
+					{
+						Tag:      wpUnitTag,
+						Protocol: "tcp",
+						FromPort: 7337,
+						ToPort:   7337,
+					},
+				},
+				SetUnitState: &params.SetUnitStateArg{
+					Tag: "unit-wordpres-0",
+					State: map[string]string{
+						"charm-key": "charm-value",
+					},
+				},
+			},
+			{Tag: "unit-mysql-0"}, // not accessible by current user
+			{Tag: "unit-notfound-0"},
+		},
+	}
+
+	// Test-suite uses an older API version
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
+			{Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify expected wordpress unit state
+	relUnit, err := relList[0].Unit(s.wordpressUnit)
+	relSettings, err := relUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	expRelSettings := map[string]interface{}{
+		// Network info injected due to the "UpdateNetworkInfo" request
+		"egress-subnets":  "10.0.0.10/32",
+		"ingress-address": "10.0.0.10",
+		"private-address": "10.0.0.10",
+		// Pre-existing setting
+		"some": "settings",
+		// Setting added due to update relation settings request
+		"just": "added",
+	}
+	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
+
+	portRanges, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRanges, jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+
+	unitState, err := s.wordpressUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+}
+
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 

@@ -36,8 +36,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v15) of the Uniter API,
-// which adds the State, SetState calls and changes WatchActionNotifications to notify on action changes.
+// UniterAPI implements the latest version (v15) of the Uniter API, which adds
+// the State, SetState, CommitHookChanges calls and changes
+// WatchActionNotifications to notify on action changes.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -3332,4 +3333,95 @@ func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults,
 	}
 
 	return params.ErrorResults{Results: res}, nil
+}
+
+// CommitHookChanges isn't on the v14 API.
+func (u *UniterAPIV14) CommitHookChanges(_ struct{}) {}
+
+// CommitHookChanges batches together all required API calls for applying
+// a set of changes after a hook successfully completes and executes them in a
+// single transaction.
+func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params.ErrorResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, errors.Trace(err)
+	}
+
+	res := make([]params.ErrorResult, len(args.Args))
+	for i, arg := range args.Args {
+		unitTag, err := names.ParseUnitTag(arg.Tag)
+		if err != nil {
+			res[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(unitTag) {
+			res[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		res[i].Error = common.ServerError(u.commitHookChangesForOneUnit(unitTag, arg, canAccess))
+	}
+
+	return params.ErrorResults{Results: res}, nil
+}
+
+func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccess common.AuthFunc) error {
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var modelOps []state.ModelOperation
+
+	if changes.UpdateNetworkInfo {
+		modelOp, err := u.updateUnitNetworkInfoOperation(unitTag, unit)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	for _, rus := range changes.RelationUnitSettings {
+		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccess)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
+		var openPortRanges, closePortRanges []state.PortRange
+		for _, r := range changes.OpenPorts {
+			pr, err := state.NewPortRange(unit.Name(), r.FromPort, r.ToPort, r.Protocol)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			openPortRanges = append(openPortRanges, pr)
+		}
+		for _, r := range changes.ClosePorts {
+			pr, err := state.NewPortRange(unit.Name(), r.FromPort, r.ToPort, r.Protocol)
+			if err != nil {
+				return errors.Trace(err)
+			}
+			closePortRanges = append(closePortRanges, pr)
+		}
+
+		// TODO(achilleas): we should be using endpoints instead of subnets
+		// here. This emulates the existing behavior for the individual
+		// Open/ClosePort API calls.
+		modelOp, err := unit.OpenClosePortsOnSubnetOperation("", openPortRanges, closePortRanges)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	if changes.SetUnitState != nil {
+		modelOp := unit.SetStateOperation(changes.SetUnitState.State)
+		modelOps = append(modelOps, modelOp)
+	}
+
+	// Apply all changes in a single transaction.
+	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }
