@@ -888,3 +888,119 @@ func (u *Unit) SetState(unitState map[string]string) error {
 	}
 	return nil
 }
+
+// CommitHookChanges batches together all required API calls for applying
+// a set of changes after a hook successfully completes and executes them in a
+// single transaction.
+func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
+	var results params.ErrorResults
+	err := u.st.facade.FacadeCall("CommitHookChanges", req, &results)
+	if err != nil {
+		return err
+	}
+
+	if exp, got := len(req.Args), len(results.Results); got != exp {
+		return errors.Errorf("expected result count to be %d; got %d", exp, got)
+	}
+	return results.Combine()
+}
+
+// CommitHookParamsBuilder is a helper type that provides a fluid interface
+// for populating the set of parameters for performing a CommitHookChanges
+// API call.
+type CommitHookParamsBuilder struct {
+	arg params.CommitHookChangesArg
+}
+
+// NewCommitHookParamsBuilder returns a new builder for assembling the
+// parameters for a CommitHookChanges API call.
+func NewCommitHookParamsBuilder(unitTag names.UnitTag) *CommitHookParamsBuilder {
+	return &CommitHookParamsBuilder{
+		arg: params.CommitHookChangesArg{
+			Tag: unitTag.String(),
+		},
+	}
+}
+
+// OpenPortRange records a request to open a particular port range.
+func (b *CommitHookParamsBuilder) OpenPortRange(protocol string, fromPort, toPort int) *CommitHookParamsBuilder {
+	b.arg.OpenPorts = append(b.arg.OpenPorts, params.EntityPortRange{
+		// The Tag is optional as the call uses the Tag from the
+		// CommitHookChangesArg; it is included here for consistency.
+		Tag:      b.arg.Tag,
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	})
+	return b
+}
+
+// ClosePortRange records a request to close a particular port range.
+func (b *CommitHookParamsBuilder) ClosePortRange(protocol string, fromPort, toPort int) *CommitHookParamsBuilder {
+	b.arg.ClosePorts = append(b.arg.ClosePorts, params.EntityPortRange{
+		// The Tag is optional as the call uses the Tag from the
+		// CommitHookChangesArg; it is included here for consistency.
+		Tag:      b.arg.Tag,
+		Protocol: protocol,
+		FromPort: fromPort,
+		ToPort:   toPort,
+	})
+	return b
+}
+
+// UpdateRelationUnitSettings records a request to update the unit/application
+// settings for a relation.
+func (b *CommitHookParamsBuilder) UpdateRelationUnitSettings(relName string, unitSettings, appSettings params.Settings) *CommitHookParamsBuilder {
+	b.arg.RelationUnitSettings = append(b.arg.RelationUnitSettings, params.RelationUnitSettings{
+		Relation:            relName,
+		Unit:                b.arg.Tag,
+		Settings:            unitSettings,
+		ApplicationSettings: appSettings,
+	})
+	return b
+}
+
+// UpdateRelationUnitSettings records a request to update the network information
+// settings for each joined relation.
+func (b *CommitHookParamsBuilder) UpdateNetworkInfo() *CommitHookParamsBuilder {
+	b.arg.UpdateNetworkInfo = true
+	return b
+}
+
+// UpdateUnitState records a request to update the server-persisted charm state.
+func (b *CommitHookParamsBuilder) UpdateUnitState(state map[string]string) *CommitHookParamsBuilder {
+	b.arg.SetUnitState = &params.SetUnitStateArg{
+		// The Tag is optional as the call uses the Tag from the
+		// CommitHookChangesArg; it is included here for consistency.
+		Tag:   b.arg.Tag,
+		State: state,
+	}
+	return b
+}
+
+// Build assembles the recorded change requests into a CommitHookChangesArgs
+// instance that can be passed as an argument to the CommitHookChanges API
+// call.
+func (b *CommitHookParamsBuilder) Build() (params.CommitHookChangesArgs, int) {
+	return params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			b.arg,
+		},
+	}, b.changeCount()
+}
+
+// changeCount returns the number of changes recorded by this builder instance.
+func (b *CommitHookParamsBuilder) changeCount() int {
+	var count int
+	if b.arg.UpdateNetworkInfo {
+		count++
+	}
+	if b.arg.SetUnitState != nil {
+		count++
+	}
+
+	count += len(b.arg.RelationUnitSettings)
+	count += len(b.arg.OpenPorts)
+	count += len(b.arg.ClosePorts)
+	return count
+}

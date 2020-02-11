@@ -4697,71 +4697,32 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 
-	wpUnitTag := s.wordpressUnit.Tag().String()
+	req, _ := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag()).
+		UpdateNetworkInfo().
+		UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, nil).
+		OpenPortRange("tcp", 80, 81).
+		OpenPortRange("tcp", 7337, 7337). // same port closed below; this should be a no-op
+		ClosePortRange("tcp", 7337, 7337).
+		UpdateUnitState(map[string]string{"charm-key": "charm-value"}).
+		Build()
 
-	args := params.CommitHookChangesArgs{
-		Args: []params.CommitHookChangesArg{
-			{Tag: "not-a-unit-tag"},
-			{
-				Tag:               wpUnitTag,
-				UpdateNetworkInfo: true,
-				RelationUnitSettings: []params.RelationUnitSettings{
-					{
-						Relation: relList[0].Tag().String(),
-						Unit:     wpUnitTag,
-						Settings: params.Settings{
-							"just": "added",
-						},
-					},
-				},
-				OpenPorts: []params.EntityPortRange{
-					{
-						Tag:      wpUnitTag,
-						Protocol: "tcp",
-						FromPort: 80,
-						ToPort:   81,
-					},
-					// Note: same port range is closed below.
-					// This change should be a no-op.
-					{
-						Tag:      wpUnitTag,
-						Protocol: "tcp",
-						FromPort: 7337,
-						ToPort:   7337,
-					},
-				},
-				ClosePorts: []params.EntityPortRange{
-					// Note: same port range is opened above.
-					// This change should be a no-op.
-					{
-						Tag:      wpUnitTag,
-						Protocol: "tcp",
-						FromPort: 7337,
-						ToPort:   7337,
-					},
-				},
-				SetUnitState: &params.SetUnitStateArg{
-					Tag: "unit-wordpres-0",
-					State: map[string]string{
-						"charm-key": "charm-value",
-					},
-				},
-			},
-			{Tag: "unit-mysql-0"}, // not accessible by current user
-			{Tag: "unit-notfound-0"},
-		},
-	}
+	// Add some extra args to test error handling
+	req.Args = append(req.Args,
+		params.CommitHookChangesArg{Tag: "not-a-unit-tag"},
+		params.CommitHookChangesArg{Tag: "unit-mysql-0"}, // not accessible by current user
+		params.CommitHookChangesArg{Tag: "unit-notfound-0"},
+	)
 
 	// Test-suite uses an older API version
 	api, err := uniter.NewUniterAPI(s.facadeContext())
 	c.Assert(err, jc.ErrorIsNil)
 
-	result, err := api.CommitHookChanges(args)
+	result, err := api.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{Error: nil},
+			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
