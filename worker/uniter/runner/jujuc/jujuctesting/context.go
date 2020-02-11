@@ -83,8 +83,6 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextInstance.info = &info.Instance
 	ctx.ContextNetworking.stub = stub
 	ctx.ContextNetworking.info = &info.NetworkInterface
-	ctx.ContextLeader.stub = stub
-	ctx.ContextLeader.info = &info.Leadership
 	ctx.ContextMetrics.stub = stub
 	ctx.ContextMetrics.info = &info.Metrics
 	ctx.ContextStorage.stub = stub
@@ -99,7 +97,5 @@ func NewContext(stub *testing.Stub, info *ContextInfo) *Context {
 	ctx.ContextActionHook.info = &info.ActionHook
 	ctx.ContextVersion.stub = stub
 	ctx.ContextVersion.info = &info.Version
-	ctx.ContextUnitCache.stub = stub
-	ctx.ContextUnitCache.info = &info.UnitCache
 	return &ctx
 }
