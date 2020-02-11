@@ -1447,8 +1447,16 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 		}
 	}
 
-	// TODO (stickupkid): This is has commonalities with EC2 provider. We should
-	// work out if it's possible to extract into core/network
+	// FixedIp takes a CIDR, but we've only got a network ID, so we need to
+	// hoover all the subnets and select the ones we care about.
+	networkIDs := make([]corenetwork.Id, len(subnetIDsForZone))
+	for k, v := range subnetIDsForZone {
+		networkIDs[k] = corenetwork.Id(v)
+	}
+	subnetInfo, err := e.networking.Subnets(instance.UnknownId, networkIDs)
+	if err != nil {
+		return nil, errors.Annotate(err, "getting subnet info")
+	}
 
 	// If there are some subnet IDs from an AZ, attempt to put them on the
 	// networks.
@@ -1456,17 +1464,17 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 	// networks, in fact in reality it actually handles only one server network.
 	// DefaultNetworks currently returns an empty slice and ResolveNetwork only
 	// returns one network. bug #1733266
-	var subnetID string
-	if num := len(subnetIDsForZone); num > 1 {
-		// Randomize the subnetIDsForZone in order to gain a better distributed
+	var subnetCIDR string
+	if num := len(subnetInfo); num > 1 {
+		// Randomize the subnetInfo in order to gain a better distributed
 		// spread over the zones.
 		// Note: this won't perform an even distribution unless a new random
 		// seed has been given for every initialization.
-		subnetID = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
-		logger.Debugf("selected random subnet %q from all matching in zone %q", subnetID, availabilityZone)
+		subnetCIDR = subnetInfo[rand.Intn(len(subnetInfo))].CIDR
+		logger.Debugf("selected random subnet cidr %q from all matching in zone %q", subnetCIDR, availabilityZone)
 	} else if num == 1 {
-		subnetID = subnetIDsForZone[0]
-		logger.Debugf("selected subnet %q in zone %q", subnetID, availabilityZone)
+		subnetCIDR = subnetInfo[0].CIDR
+		logger.Debugf("selected subnet cidr %q in zone %q", subnetCIDR, availabilityZone)
 	}
 
 	// Set the subnetID on the network for all networks.
@@ -1477,7 +1485,7 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 		if network.NetworkId == "" {
 			continue
 		}
-		network.FixedIp = subnetID
+		network.FixedIp = subnetCIDR
 		subnetNetworks[k] = network
 	}
 
