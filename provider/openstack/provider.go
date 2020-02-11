@@ -1474,15 +1474,15 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 	}
 
 	// Set the subnetID on the network for all networks.
-	subnetNetworks := make([]nova.ServerNetworks, len(networks))
-	for k, network := range networks {
+	subnetNetworks := make([]nova.ServerNetworks, 0, len(networks))
+	for _, network := range networks {
 		// If no networkId is found we need to skip them as we can't do anything
 		// with them.
 		if network.NetworkId == "" {
 			continue
 		}
 		network.FixedIp = subnetCIDR
-		subnetNetworks[k] = network
+		subnetNetworks = append(subnetNetworks, network)
 	}
 
 	return subnetNetworks, nil
