@@ -10,19 +10,17 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type leaderGetSuite struct {
-	testing.BaseSuite
+	jujucSuite
 	command cmd.Command
 }
 
 var _ = gc.Suite(&leaderGetSuite{})
 
 func (s *leaderGetSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	var err error
 	s.command, err = jujuc.NewLeaderGetCommand(nil)
 	c.Assert(err, jc.ErrorIsNil)
@@ -58,13 +56,13 @@ func (s *leaderGetSuite) TestFormatError(c *gc.C) {
 }
 
 func (s *leaderGetSuite) TestSettingsError(c *gc.C) {
-	jujucContext := newLeaderGetContext(errors.New("zap"))
-	command, err := jujuc.NewLeaderGetCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectLeadershipSettingsError(errors.New("zap"))
+	command, err := jujuc.NewLeaderGetCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
 	c.Check(code, gc.Equals, 1)
-	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR cannot read leadership settings: zap\n")
 }
@@ -138,15 +136,23 @@ func (s *leaderGetSuite) testOutput(c *gc.C, args []string, expect string) {
 }
 
 func (s *leaderGetSuite) testParseOutput(c *gc.C, args []string, checker gc.Checker, expect interface{}) {
-	jujucContext := newLeaderGetContext(nil)
-	command, err := jujuc.NewLeaderGetCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectLeadershipSettings()
+	command, err := jujuc.NewLeaderGetCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, args)
 	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), checker, expect)
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
+}
+
+func (s *leaderGetSuite) expectLeadershipSettings() {
+	s.mockContext.EXPECT().LeaderSettings().Return(leaderGetSettings(), nil)
+}
+
+func (s *leaderGetSuite) expectLeadershipSettingsError(err error) {
+	s.mockContext.EXPECT().LeaderSettings().Return(nil, err)
 }
 
 func leaderGetSettings() map[string]string {
@@ -154,23 +160,4 @@ func leaderGetSettings() map[string]string {
 		"key":    "value",
 		"sample": "settings",
 	}
-}
-
-func newLeaderGetContext(err error) *leaderGetContext {
-	if err != nil {
-		return &leaderGetContext{err: err}
-	}
-	return &leaderGetContext{settings: leaderGetSettings()}
-}
-
-type leaderGetContext struct {
-	jujuc.Context
-	called   bool
-	settings map[string]string
-	err      error
-}
-
-func (c *leaderGetContext) LeaderSettings() (map[string]string, error) {
-	c.called = true
-	return c.settings, c.err
 }

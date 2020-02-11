@@ -10,12 +10,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
 type isLeaderSuite struct {
-	testing.BaseSuite
+	jujucSuite
 }
 
 var _ = gc.Suite(&isLeaderSuite{})
@@ -45,13 +44,13 @@ func (s *isLeaderSuite) TestFormatError(c *gc.C) {
 }
 
 func (s *isLeaderSuite) TestIsLeaderError(c *gc.C) {
-	jujucContext := &isLeaderContext{err: errors.New("pow")}
-	command, err := jujuc.NewIsLeaderCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectLeadershipError(errors.New("pow"))
+	command, err := jujuc.NewIsLeaderCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
 	c.Check(code, gc.Equals, 1)
-	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR leadership status unknown: pow\n")
 }
@@ -89,37 +88,33 @@ func (s *isLeaderSuite) TestFormatJsonNo(c *gc.C) {
 }
 
 func (s *isLeaderSuite) testOutput(c *gc.C, leader bool, args []string, expect string) {
-	jujucContext := &isLeaderContext{leader: leader}
-	command, err := jujuc.NewIsLeaderCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectLeadership(leader)
+	command, err := jujuc.NewIsLeaderCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, args)
 	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), gc.Equals, expect)
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
 func (s *isLeaderSuite) testParseOutput(c *gc.C, leader bool, args []string, checker gc.Checker) {
-	jujucContext := &isLeaderContext{leader: leader}
-	command, err := jujuc.NewIsLeaderCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectLeadership(leader)
+	command, err := jujuc.NewIsLeaderCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, args)
 	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.called, jc.IsTrue)
 	c.Check(bufferString(runContext.Stdout), checker, leader)
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
-type isLeaderContext struct {
-	jujuc.Context
-	called bool
-	leader bool
-	err    error
+func (s *isLeaderSuite) expectLeadership(leader bool) {
+	s.mockContext.EXPECT().IsLeader().Return(leader, nil)
 }
 
-func (ctx *isLeaderContext) IsLeader() (bool, error) {
-	ctx.called = true
-	return ctx.leader, ctx.err
+func (s *isLeaderSuite) expectLeadershipError(err error) {
+	s.mockContext.EXPECT().IsLeader().Return(false, err)
 }

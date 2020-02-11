@@ -16,7 +16,7 @@ import (
 )
 
 type OpenedPortsSuite struct {
-	ContextSuite
+	jujucSuite
 }
 
 var _ = gc.Suite(&OpenedPortsSuite{})
@@ -44,38 +44,46 @@ func (s *OpenedPortsSuite) TestRunAllFormats(c *gc.C) {
 		"yaml":  yamlOutput,
 	}
 	for format, expectedOutput := range formatToOutput {
-		hctx := s.getContextAndOpenPorts(c)
+		defer s.setupMocks(c).Finish()
+		s.expectOpenPorts()
 		stdout := ""
 		stderr := ""
 		if format == "" {
-			stdout, stderr = s.runCommand(c, hctx)
+			stdout, stderr = s.runCommand(c)
 		} else {
-			stdout, stderr = s.runCommand(c, hctx, "--format", format)
+			stdout, stderr = s.runCommand(c, "--format", format)
 		}
 		c.Check(stdout, gc.Equals, expectedOutput)
 		c.Check(stderr, gc.Equals, "")
-		hctx.info.CheckPorts(c, expectedPorts)
 	}
 }
 
 func (s *OpenedPortsSuite) TestBadArgs(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
+	com, err := jujuc.NewCommand(nil, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
 	err = cmdtesting.InitCommand(jujuc.NewJujucCommandWrappedForTest(com), []string{"foo"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["foo"\]`)
 }
 
 func (s *OpenedPortsSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	openedPorts, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
+	opCmd, err := jujuc.NewCommand(nil, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
-	flags := cmdtesting.NewFlagSet()
-	c.Assert(string(openedPorts.Info().Help(flags)), gc.Equals, `
-Usage: opened-ports
+
+	ctx := cmdtesting.Context(c)
+	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(opCmd), ctx, []string{"--help"})
+	c.Check(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `
+Usage: opened-ports [options]
 
 Summary:
 lists all ports or ranges opened by the unit
+
+Options:
+--format  (= smart)
+    Specify output format (json|smart|yaml)
+-o, --output (= "")
+    Specify an output file
 
 Details:
 Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
@@ -83,20 +91,34 @@ Each list entry has format <port>/<protocol> (e.g. "80/tcp") or
 `[1:])
 }
 
-func (s *OpenedPortsSuite) getContextAndOpenPorts(c *gc.C) *Context {
-	hctx := s.GetHookContext(c, -1, "")
-	hctx.OpenPorts("tcp", 80, 80)
-	hctx.OpenPorts("tcp", 10, 20)
-	hctx.OpenPorts("udp", 63, 63)
-	hctx.OpenPorts("udp", 53, 55)
-	return hctx
-}
-
-func (s *OpenedPortsSuite) runCommand(c *gc.C, hctx *Context, args ...string) (stdout, stderr string) {
-	com, err := jujuc.NewCommand(hctx, cmdString("opened-ports"))
+func (s *OpenedPortsSuite) runCommand(c *gc.C, args ...string) (stdout, stderr string) {
+	com, err := jujuc.NewCommand(s.mockContext, cmdString("opened-ports"))
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, args)
 	c.Assert(code, gc.Equals, 0)
 	return bufferString(ctx.Stdout), bufferString(ctx.Stderr)
+}
+
+type op struct {
+	p string
+	f int
+	t int
+}
+
+func (s *OpenedPortsSuite) expectOpenPorts() {
+	ports := make([]network.PortRange, 4)
+	for i, val := range []op{
+		{p: "tcp", f: 10, t: 20},
+		{p: "tcp", f: 80, t: 80},
+		{p: "udp", f: 53, t: 55},
+		{p: "udp", f: 63, t: 63},
+	} {
+		ports[i] = network.PortRange{
+			FromPort: val.f,
+			ToPort:   val.t,
+			Protocol: val.p,
+		}
+	}
+	s.mockContext.EXPECT().OpenedPorts().Return(ports)
 }

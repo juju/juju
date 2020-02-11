@@ -7,7 +7,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
-	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -15,7 +14,7 @@ import (
 )
 
 type leaderSetSuite struct {
-	jujutesting.IsolationSuite
+	jujucSuite
 	command cmd.Command
 }
 
@@ -44,51 +43,44 @@ func (s *leaderSetSuite) TestInitError(c *gc.C) {
 }
 
 func (s *leaderSetSuite) TestWriteEmpty(c *gc.C) {
-	jujucContext := &leaderSetContext{}
-	command, err := jujuc.NewLeaderSetCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectWrite(map[string]string{}, nil)
+	command, err := jujuc.NewLeaderSetCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, nil)
 	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{})
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
 func (s *leaderSetSuite) TestWriteValues(c *gc.C) {
-	jujucContext := &leaderSetContext{}
-	command, err := jujuc.NewLeaderSetCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectWrite(map[string]string{
+		"foo": "bar",
+		"baz": "qux",
+	}, nil)
+	command, err := jujuc.NewLeaderSetCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, []string{"foo=bar", "baz=qux"})
 	c.Check(code, gc.Equals, 0)
-	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{
-		"foo": "bar",
-		"baz": "qux",
-	})
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "")
 }
 
 func (s *leaderSetSuite) TestWriteError(c *gc.C) {
-	jujucContext := &leaderSetContext{err: errors.New("splat")}
-	command, err := jujuc.NewLeaderSetCommand(jujucContext)
+	defer s.setupMocks(c).Finish()
+	s.expectWrite(map[string]string{"foo": "bar"}, errors.New("splat"))
+	command, err := jujuc.NewLeaderSetCommand(s.mockContext)
 	c.Assert(err, jc.ErrorIsNil)
 	runContext := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(command), runContext, []string{"foo=bar"})
 	c.Check(code, gc.Equals, 1)
-	c.Check(jujucContext.gotSettings, jc.DeepEquals, map[string]string{"foo": "bar"})
 	c.Check(bufferString(runContext.Stdout), gc.Equals, "")
 	c.Check(bufferString(runContext.Stderr), gc.Equals, "ERROR cannot write leadership settings: splat\n")
 }
 
-type leaderSetContext struct {
-	jujuc.Context
-	gotSettings map[string]string
-	err         error
-}
-
-func (s *leaderSetContext) WriteLeaderSettings(settings map[string]string) error {
-	s.gotSettings = settings
-	return s.err
+func (s *leaderSetSuite) expectWrite(arg map[string]string, err error) {
+	s.mockContext.EXPECT().WriteLeaderSettings(arg).Return(err)
 }
