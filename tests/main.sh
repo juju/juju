@@ -33,6 +33,7 @@ TEST_NAMES="static_analysis \
             cli \
             controller \
             deploy \
+            hook_tools \
             machine \
             smoke \
             model"
