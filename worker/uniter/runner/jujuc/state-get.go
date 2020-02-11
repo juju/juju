@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 
 	jujucmd "github.com/juju/juju/cmd"
@@ -14,8 +15,10 @@ import (
 type StateGetCommand struct {
 	cmd.CommandBase
 	ctx Context
-	Key string // The key to show
 	out cmd.Output
+
+	key    string // The key to show
+	strict bool
 }
 
 // NewStateGetCommand returns a state-get command.
@@ -46,6 +49,7 @@ See also:
 // SetFlags implements part of the cmd.Command interface.
 func (c *StateGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters.Formatters())
+	f.BoolVar(&c.strict, "strict", false, "Return an error if the requested key does not exist")
 }
 
 // Init initializes the Command before running.
@@ -54,10 +58,10 @@ func (c *StateGetCommand) Init(args []string) error {
 	if args == nil {
 		return nil
 	}
-	c.Key = ""
+	c.key = ""
 	if len(args) > 0 {
-		if c.Key = args[0]; c.Key == "-" {
-			c.Key = ""
+		if c.key = args[0]; c.key == "-" {
+			c.key = ""
 		}
 		args = args[1:]
 	}
@@ -68,7 +72,7 @@ func (c *StateGetCommand) Init(args []string) error {
 // arguments passed to Init.
 // Run implements part of the cmd.Command interface.
 func (c *StateGetCommand) Run(ctx *cmd.Context) error {
-	if c.Key == "" {
+	if c.key == "" {
 		cache, err := c.ctx.GetCache()
 		if err != nil {
 			return err
@@ -76,10 +80,10 @@ func (c *StateGetCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, cache)
 	}
 
-	value, err := c.ctx.GetSingleCacheValue(c.Key)
-	if err != nil {
+	value, err := c.ctx.GetSingleCacheValue(c.key)
+	notFound := errors.IsNotFound(err)
+	if err != nil && (!notFound || (notFound && c.strict)) {
 		return err
 	}
-
 	return c.out.Write(ctx, value)
 }
