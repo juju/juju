@@ -3204,31 +3204,39 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 
+	modelOp, err := u.updateUnitNetworkInfoOperation(unitTag, unit)
+	if err != nil {
+		return err
+	}
+	return u.st.ApplyOperation(modelOp)
+}
+
+func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *state.Unit) (state.ModelOperation, error) {
 	joinedRelations, err := unit.RelationsJoined()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	modelOps := make([]state.ModelOperation, len(joinedRelations))
 	for idx, rel := range joinedRelations {
 		relUnit, err := rel.Unit(unit)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		relSettings, err := relUnit.Settings()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		netInfo, err := NewNetworkInfo(u.st, unitTag)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		if len(ingressAddresses) == 0 {
@@ -3249,7 +3257,7 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 		modelOps[idx] = relSettings.WriteOperation()
 	}
 
-	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
+	return state.ComposeModelOperations(modelOps...), nil
 }
 
 // State isn't on the v14 API.
