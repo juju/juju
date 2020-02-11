@@ -260,41 +260,6 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	c.Assert(statusInfo.Message, gc.Equals, "foobar")
 }
 
-func (s *uniterSuite) TestSetState(c *gc.C) {
-	expState := map[string]string{
-		"foo.bar":  "baz",
-		"payload$": "enc0d3d",
-	}
-	args := params.SetUnitStateArgs{
-		Args: []params.SetUnitStateArg{
-			{Tag: "not-a-unit-tag", State: map[string]string{"not": "important"}},
-			{Tag: "unit-wordpress-0", State: expState},
-			{Tag: "unit-mysql-0", State: map[string]string{"not": "important"}}, // not accessible by current user
-			{Tag: "unit-notfound-0", State: map[string]string{"not": "important"}},
-		},
-	}
-	result, err := s.uniter.SetState(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
-			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify that mysql unit's state was not mutated
-	unitState, err := s.mysqlUnit.State()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, gc.IsNil, gc.Commentf("unexpected state doc mutation"))
-
-	// Verify wordpress state was mutated
-	unitState, err = s.wordpressUnit.State()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, jc.DeepEquals, expState, gc.Commentf("state doc not updated"))
-}
-
 func (s *uniterSuite) TestState(c *gc.C) {
 	expState := map[string]string{
 		"foo.bar":  "baz",

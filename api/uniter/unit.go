@@ -864,31 +864,6 @@ func (u *Unit) State() (map[string]string, error) {
 	return result.State, nil
 }
 
-// SetState persists the state of the charm running in this unit.
-func (u *Unit) SetState(unitState map[string]string) error {
-	var results params.ErrorResults
-	req := params.SetUnitStateArgs{
-		Args: []params.SetUnitStateArg{
-			{
-				Tag:   u.tag.String(),
-				State: unitState,
-			},
-		},
-	}
-	err := u.st.facade.FacadeCall("SetState", req, &results)
-	if err != nil {
-		return err
-	}
-	if len(results.Results) != 1 {
-		return errors.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return result.Error
-	}
-	return nil
-}
-
 // CommitHookChanges batches together all required API calls for applying
 // a set of changes after a hook successfully completes and executes them in a
 // single transaction.

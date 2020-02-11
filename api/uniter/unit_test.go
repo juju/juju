@@ -1016,40 +1016,6 @@ func (s *unitSuite) TestUpgradeSeriesStatusSingleResult(c *gc.C) {
 	c.Check(sts, gc.Equals, model.UpgradeSeriesCompleted)
 }
 
-func (s *unitSuite) TestSetStateSingleResult(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
-		func(results interface{}) error {
-			result := results.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 1)
-			return nil
-		},
-	)
-
-	unitState := map[string]string{
-		"one":   "two",
-		"three": "four",
-	}
-	err := s.apiUnit.SetState(unitState)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *unitSuite) TestSetStateMultipleReturnsError(c *gc.C) {
-	uniter.PatchUnitResponse(s, s.apiUnit, "SetState",
-		func(results interface{}) error {
-			result := results.(*params.ErrorResults)
-			result.Results = make([]params.ErrorResult, 2)
-			return nil
-		},
-	)
-
-	unitState := map[string]string{
-		"one":   "two",
-		"three": "four",
-	}
-	err := s.apiUnit.SetState(unitState)
-	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
-}
-
 func (s *unitSuite) TestStateSingleResult(c *gc.C) {
 	expectedUnitState := map[string]string{
 		"one":   "two",

@@ -129,7 +129,6 @@ type HookUnit interface {
 	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
 	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
-	SetState(map[string]string) error
 	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
 	State() (map[string]string, error)
 	Tag() names.UnitTag

@@ -37,8 +37,8 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 // UniterAPI implements the latest version (v15) of the Uniter API, which adds
-// the State, SetState, CommitHookChanges calls and changes
-// WatchActionNotifications to notify on action changes.
+// the State, CommitHookChanges calls and changes WatchActionNotifications to
+// notify on action changes.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -3296,43 +3296,6 @@ func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error)
 	}
 
 	return params.UnitStateResults{Results: res}, nil
-}
-
-// SetState isn't on the v14 API.
-func (u *UniterAPIV14) SetState(_ struct{}) {}
-
-// SetState persists the state of the charm running in this unit.
-func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
-	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-
-	res := make([]params.ErrorResult, len(args.Args))
-	for i, arg := range args.Args {
-		unitTag, err := names.ParseUnitTag(arg.Tag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if !canAccess(unitTag) {
-			res[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
-		unit, err := u.getUnit(unitTag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if err = unit.SetState(arg.State); err != nil {
-			res[i].Error = common.ServerError(err)
-		}
-	}
-
-	return params.ErrorResults{Results: res}, nil
 }
 
 // CommitHookChanges isn't on the v14 API.
