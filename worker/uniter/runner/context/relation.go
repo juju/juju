@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
@@ -54,6 +55,10 @@ func (ctx *ContextRelation) Name() string {
 	return ctx.endpointName
 }
 
+func (ctx *ContextRelation) RelationTag() names.RelationTag {
+	return ctx.ru.Relation().Tag()
+}
+
 func (ctx *ContextRelation) FakeId() string {
 	return fmt.Sprintf("%s:%d", ctx.endpointName, ctx.relationId)
 }
@@ -94,15 +99,19 @@ func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 
 // WriteSettings persists all changes made to the relation settings (unit and application)
 func (ctx *ContextRelation) WriteSettings() error {
-	var appSettings params.Settings
+	unitSettings, appSettings := ctx.FinalSettings()
+	return errors.Trace(ctx.ru.UpdateRelationSettings(unitSettings, appSettings))
+}
+
+// FinalSettings returns the changes made to the relation settings (unit and application)
+func (ctx *ContextRelation) FinalSettings() (unitSettings, appSettings params.Settings) {
 	if ctx.applicationSettings != nil {
 		appSettings = ctx.applicationSettings.FinalResult()
 	}
-	var unitSettings params.Settings
 	if ctx.settings != nil {
 		unitSettings = ctx.settings.FinalResult()
 	}
-	return errors.Trace(ctx.ru.UpdateRelationSettings(unitSettings, appSettings))
+	return unitSettings, appSettings
 }
 
 // Suspended returns true if the relation is suspended.
