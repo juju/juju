@@ -116,8 +116,9 @@ func (p kubernetesEnvironProvider) Open(args environs.OpenParams) (caas.Broker, 
 		return nil, errors.Trace(err)
 	}
 	broker, err := newK8sBroker(
-		args.ControllerUUID, k8sRestConfig, args.Config, newK8sClient, newKubernetesNotifyWatcher, randomPrefix, jujuclock.WallClock,
-	)
+		args.ControllerUUID, k8sRestConfig, args.Config, newK8sClient,
+		newKubernetesNotifyWatcher, newKubernetesStringsWatcher, randomPrefix,
+		jujuclock.WallClock)
 	if err != nil {
 		return nil, err
 	}

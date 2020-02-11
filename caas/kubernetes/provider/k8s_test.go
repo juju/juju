@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/golang/mock/gomock"
-	"github.com/juju/clock/testclock"
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
@@ -24,13 +24,11 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
-	"k8s.io/apimachinery/pkg/watch"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -608,47 +606,37 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	ns := &core.Namespace{}
 	ns.Name = "test"
 	s.ensureJujuNamespaceAnnotations(isController, ns)
-	namespaceWatcher := s.k8sNewFakeWatcher()
+	namespaceWatcher, namespaceFirer := newKubernetesTestWatcher()
+	s.k8sWatcherFn = newK8sWatcherFunc(namespaceWatcher)
 
 	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Watch(
-			v1.ListOptions{
-				FieldSelector:        fields.OneTermEqualSelector("metadata.name", "test").String(),
-				IncludeUninitialized: true,
-			},
-		).
-			Return(namespaceWatcher, nil),
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).
 			Return(ns, nil),
+
 		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(nil),
+
 		s.mockStorageClass.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-model==test"},
 		).
 			Return(s.k8sNotFoundError()),
+
 		// still terminating.
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).
-			Return(ns, nil),
-		// terminated, not found returned.
+			DoAndReturn(func(_, _ interface{}) (*core.Namespace, error) {
+				namespaceFirer()
+				return ns, nil
+			}),
+		// terminated, not found returned
 		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
 	)
-
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		for _, f := range []func(runtime.Object){w.Add, w.Modify, w.Delete} {
-			if !w.IsStopped() {
-				clk.WaitAdvance(time.Second, testing.ShortWait, 1)
-				f(ns)
-			}
-		}
-	}(namespaceWatcher, s.clock)
 
 	c.Assert(destroyFunc(), jc.ErrorIsNil)
 	for _, watcher := range s.watchers {
 		c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
 	}
-	c.Assert(namespaceWatcher.IsStopped(), jc.IsTrue)
 }
 
 func (s *K8sBrokerSuite) TestDestroyController(c *gc.C) {
@@ -3388,31 +3376,13 @@ func (s *K8sBrokerSuite) TestWatchService(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ssWatcher := watch.NewRaceFreeFake()
-	deployWatcher := watch.NewRaceFreeFake()
-
-	gomock.InOrder(
-		s.mockStatefulSets.EXPECT().Watch(v1.ListOptions{
-			LabelSelector: "juju-app==test",
-			Watch:         true,
-		}).Return(ssWatcher, nil),
-		s.mockDeployments.EXPECT().Watch(v1.ListOptions{
-			LabelSelector: "juju-app==test",
-			Watch:         true,
-		}).Return(deployWatcher, nil),
-	)
+	s.k8sWatcherFn = provider.NewK8sWatcherFunc(func(_ cache.SharedIndexInformer, _ string, _ jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
+		w, _ := newKubernetesTestWatcher()
+		return w, nil
+	})
 
 	w, err := s.broker.WatchService("test")
 	c.Assert(err, jc.ErrorIsNil)
-
-	// Send an event to one of the watchers; multi-watcher should fire.
-	ss := &apps.StatefulSet{ObjectMeta: v1.ObjectMeta{Name: "test"}}
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		if !w.IsStopped() {
-			clk.WaitAdvance(time.Second, testing.ShortWait, 1)
-			w.Modify(ss)
-		}
-	}(ssWatcher, s.clock)
 
 	select {
 	case _, ok := <-w.Changes():
@@ -3488,7 +3458,19 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podWatcher := watch.NewRaceFreeFake()
+	podWatcher, podFirer := newKubernetesTestStringsWatcher()
+	var filter provider.K8sStringsWatcherFilterFunc
+	s.k8sStringsWatcherFn = provider.NewK8sStringsWatcherFunc(
+		func(_ cache.SharedIndexInformer,
+			_ string,
+			_ jujuclock.Clock,
+			_ []string,
+			ff provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
+			filter = ff
+			return podWatcher, nil
+		},
+	)
+
 	podList := &core.PodList{
 		Items: []core.Pod{{
 			ObjectMeta: v1.ObjectMeta{
@@ -3510,21 +3492,24 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockPods.EXPECT().Watch(v1.ListOptions{
-			LabelSelector:        "juju-app==test",
-			Watch:                true,
-			IncludeUninitialized: true,
-		}).Return(podWatcher, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{
-			LabelSelector:        "juju-app==test",
-			IncludeUninitialized: true,
-		}).Return(podList, nil),
+		s.mockPods.EXPECT().List(
+			listOptionsLabelSelectorMatcher("juju-app==test"),
+		).DoAndReturn(func(...interface{}) (*core.PodList, error) {
+			return podList, nil
+		}),
 	)
 
 	w, err := s.broker.WatchContainerStart("test", caas.InitContainerName)
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Send an event to one of the watchers; multi-watcher should fire.
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
 	pod := &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-0",
@@ -3542,20 +3527,10 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 			Phase: core.PodPending,
 		},
 	}
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		if !w.IsStopped() {
-			w.Modify(pod)
-			clk.WaitAdvance(time.Second, testing.LongWait, 1)
-		}
-	}(podWatcher, s.clock)
 
-	select {
-	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.HasLen, 0)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for event")
-	}
+	evt, ok := filter(provider.WatchEventUpdate, pod)
+	c.Assert(ok, jc.IsTrue)
+	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
@@ -3570,7 +3545,19 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podWatcher := watch.NewRaceFreeFake()
+	podWatcher, podFirer := newKubernetesTestStringsWatcher()
+	var filter provider.K8sStringsWatcherFilterFunc
+	s.k8sStringsWatcherFn = provider.NewK8sStringsWatcherFunc(
+		func(_ cache.SharedIndexInformer,
+			_ string,
+			_ jujuclock.Clock,
+			_ []string,
+			ff provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
+			filter = ff
+			return podWatcher, nil
+		},
+	)
+
 	podList := &core.PodList{
 		Items: []core.Pod{{
 			ObjectMeta: v1.ObjectMeta{
@@ -3593,15 +3580,9 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockPods.EXPECT().Watch(v1.ListOptions{
-			LabelSelector:        "juju-app==test",
-			Watch:                true,
-			IncludeUninitialized: true,
-		}).Return(podWatcher, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{
-			LabelSelector:        "juju-app==test",
-			IncludeUninitialized: true,
-		}).Return(podList, nil),
+		s.mockPods.EXPECT().List(
+			listOptionsLabelSelectorMatcher("juju-app==test"),
+		).Return(podList, nil),
 	)
 
 	w, err := s.broker.WatchContainerStart("test", "")
@@ -3626,12 +3607,6 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 			Phase: core.PodPending,
 		},
 	}
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		if !w.IsStopped() {
-			w.Modify(pod)
-			clk.WaitAdvance(time.Second, testing.LongWait, 1)
-		}
-	}(podWatcher, s.clock)
 
 	select {
 	case v, ok := <-w.Changes():
@@ -3640,6 +3615,10 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatal("timed out waiting for event")
 	}
+
+	evt, ok := filter(provider.WatchEventUpdate, pod)
+	c.Assert(ok, jc.IsTrue)
+	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():
@@ -3654,7 +3633,19 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	podWatcher := watch.NewRaceFreeFake()
+	podWatcher, podFirer := newKubernetesTestStringsWatcher()
+	var filter provider.K8sStringsWatcherFilterFunc
+	s.k8sStringsWatcherFn = provider.NewK8sStringsWatcherFunc(
+		func(_ cache.SharedIndexInformer,
+			_ string,
+			_ jujuclock.Clock,
+			_ []string,
+			ff provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
+			filter = ff
+			return podWatcher, nil
+		},
+	)
+
 	podList := &core.PodList{
 		Items: []core.Pod{{
 			ObjectMeta: v1.ObjectMeta{
@@ -3673,21 +3664,22 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 	}
 
 	gomock.InOrder(
-		s.mockPods.EXPECT().Watch(v1.ListOptions{
-			LabelSelector:        "juju-app==test",
-			Watch:                true,
-			IncludeUninitialized: true,
-		}).Return(podWatcher, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{
-			LabelSelector:        "juju-app==test",
-			IncludeUninitialized: true,
-		}).Return(podList, nil),
+		s.mockPods.EXPECT().List(
+			listOptionsLabelSelectorMatcher("juju-app==test"),
+		).Return(podList, nil),
 	)
 
 	w, err := s.broker.WatchContainerStart("test", "")
 	c.Assert(err, jc.ErrorIsNil)
 
-	// Send an event to one of the watchers; multi-watcher should fire.
+	select {
+	case v, ok := <-w.Changes():
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(v, gc.HasLen, 0)
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out waiting for event")
+	}
+
 	pod := &core.Pod{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "test-0",
@@ -3705,20 +3697,9 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 			Phase: core.PodPending,
 		},
 	}
-	go func(w *watch.RaceFreeFakeWatcher, clk *testclock.Clock) {
-		if !w.IsStopped() {
-			w.Modify(pod)
-			clk.WaitAdvance(time.Second, testing.LongWait, 1)
-		}
-	}(podWatcher, s.clock)
-
-	select {
-	case v, ok := <-w.Changes():
-		c.Assert(ok, jc.IsTrue)
-		c.Assert(v, gc.HasLen, 0)
-	case <-time.After(testing.LongWait):
-		c.Fatal("timed out waiting for event")
-	}
+	evt, ok := filter(provider.WatchEventUpdate, pod)
+	c.Assert(ok, jc.IsTrue)
+	podFirer([]string{evt})
 
 	select {
 	case v, ok := <-w.Changes():

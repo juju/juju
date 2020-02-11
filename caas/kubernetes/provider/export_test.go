@@ -22,28 +22,26 @@ import (
 )
 
 var (
-	PrepareWorkloadSpec        = prepareWorkloadSpec
-	OperatorPod                = operatorPod
-	ExtractRegistryURL         = extractRegistryURL
-	CreateDockerConfigJSON     = createDockerConfigJSON
-	NewStorageConfig           = newStorageConfig
-	NewKubernetesNotifyWatcher = newKubernetesNotifyWatcher
-	CompileK8sCloudCheckers    = compileK8sCloudCheckers
-	ControllerCorelation       = controllerCorelation
-	GetLocalMicroK8sConfig     = getLocalMicroK8sConfig
-	AttemptMicroK8sCloud       = attemptMicroK8sCloudInternal
-	EnsureMicroK8sSuitable     = ensureMicroK8sSuitable
-	NewK8sBroker               = newK8sBroker
-	ToYaml                     = toYaml
-	Indent                     = indent
-	ProcessSecretData          = processSecretData
+	PrepareWorkloadSpec     = prepareWorkloadSpec
+	OperatorPod             = operatorPod
+	ExtractRegistryURL      = extractRegistryURL
+	CreateDockerConfigJSON  = createDockerConfigJSON
+	NewStorageConfig        = newStorageConfig
+	CompileK8sCloudCheckers = compileK8sCloudCheckers
+	ControllerCorelation    = controllerCorelation
+	GetLocalMicroK8sConfig  = getLocalMicroK8sConfig
+	AttemptMicroK8sCloud    = attemptMicroK8sCloudInternal
+	EnsureMicroK8sSuitable  = ensureMicroK8sSuitable
+	NewK8sBroker            = newK8sBroker
+	ToYaml                  = toYaml
+	Indent                  = indent
+	ProcessSecretData       = processSecretData
 )
 
 type (
-	KubernetesClient        = kubernetesClient
-	KubernetesNotifyWatcher = kubernetesNotifyWatcher
-	ControllerServiceSpec   = controllerServiceSpec
-	CRDGetter               = crdGetter
+	KubernetesClient      = kubernetesClient
+	ControllerServiceSpec = controllerServiceSpec
+	CRDGetter             = crdGetter
 )
 
 type ControllerStackerForTest interface {
