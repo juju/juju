@@ -84,8 +84,6 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[s
 	assertCalls = append(assertCalls, []*gomock.Call{
 		s.mockSecrets.EXPECT().Create(ociImageSecret).
 			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
-			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(&serviceArg).
@@ -98,9 +96,13 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[s
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
-			Return(nil, s.k8sNotFoundError()),
+		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
+			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
+			Return(nil, nil),
+		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
+			Return(statefulSetArg, nil),
+		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
 	}...)
 	gomock.InOrder(assertCalls...)

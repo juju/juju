@@ -1056,7 +1056,6 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, "") })
 	}
-
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
 	if params.Deployment.DeploymentType == "" {
@@ -1066,7 +1065,6 @@ func (k *kubernetesClient) EnsureService(
 			params.Deployment.DeploymentType = caas.DeploymentStateful
 		}
 	}
-
 	if params.Deployment.DeploymentType != caas.DeploymentStateful {
 		// TODO(caas): remove this check once `params.Deployment` is changed to be required.
 		_, err := k.getStatefulSet(deploymentName)
@@ -1480,6 +1478,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Labels:      k.getDaemonSetLabels(appName),
 			Annotations: annotations.ToMap()},
 		Spec: apps.DaemonSetSpec{
+			// TODO(caas): DaemonSetUpdateStrategy support.
 			Selector: &v1.LabelSelector{
 				MatchLabels: k.getDaemonSetLabels(appName),
 			},
@@ -1520,6 +1519,7 @@ func (k *kubernetesClient) configureDeployment(
 			Labels:      map[string]string{labelApplication: appName},
 			Annotations: annotations.ToMap()},
 		Spec: apps.DeploymentSpec{
+			// TODO(caas): DeploymentStrategy support.
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
@@ -2634,9 +2634,8 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 // legacyAppName returns true if there are any artifacts for
 // appName which indicate that this deployment was for Juju 2.5.0.
 func (k *kubernetesClient) legacyAppName(appName string) bool {
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	legacyName := "juju-operator-" + appName
-	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
+	_, err := k.getStatefulSet(legacyName)
 	return err == nil
 }
 
