@@ -30,6 +30,7 @@ type InstanceMutaterAPI interface {
 // Logger represents the logging methods called.
 type Logger interface {
 	Warningf(message string, args ...interface{})
+	Infof(message string, args ...interface{})
 	Debugf(message string, args ...interface{})
 	Errorf(message string, args ...interface{})
 	Tracef(message string, args ...interface{})

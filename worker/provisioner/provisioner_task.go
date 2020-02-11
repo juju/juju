@@ -1176,11 +1176,14 @@ func (task *provisionerTask) startMachine(
 
 	// gather the charm LXD profile names, including the lxd profile names from
 	// the container brokers.
-	charmLXDProfiles := task.gatherCharmLXDProfiles(
+	charmLXDProfiles, err := task.gatherCharmLXDProfiles(
 		string(result.Instance.Id()),
 		machine.Tag().Id(),
 		startInstanceParams.CharmLXDProfiles,
 	)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	if err := machine.SetInstanceInfo(
 		result.Instance.Id(),
@@ -1219,17 +1222,25 @@ func (task *provisionerTask) startMachine(
 
 // gatherCharmLXDProfiles consumes the charms LXD Profiles from the different
 // sources. This includes getting the information from the broker.
-func (task *provisionerTask) gatherCharmLXDProfiles(instanceId, machineTag string, machineProfiles []string) []string {
-	if names.IsContainerMachine(machineTag) {
-		if manager, ok := task.broker.(container.LXDProfileNameRetriever); ok {
-			if profileNames, err := manager.LXDProfileNames(instanceId); err == nil {
-				return lxdprofile.LXDProfileNames(profileNames)
-			}
-		} else {
-			task.logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
-		}
+func (task *provisionerTask) gatherCharmLXDProfiles(
+	instanceID, machineTag string, machineProfiles []string,
+) ([]string, error) {
+	if !names.IsContainerMachine(machineTag) {
+		return machineProfiles, nil
 	}
-	return machineProfiles
+
+	manager, ok := task.broker.(container.LXDProfileNameRetriever)
+	if !ok {
+		task.logger.Tracef("failed to gather profile names, broker didn't conform to LXDProfileNameRetriever")
+		return machineProfiles, nil
+	}
+
+	profileNames, err := manager.LXDProfileNames(instanceID)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return lxdprofile.LXDProfileNames(profileNames), nil
 }
 
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
