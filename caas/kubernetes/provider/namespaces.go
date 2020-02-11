@@ -4,14 +4,15 @@
 package provider
 
 import (
+	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/watcher"
+
 	"github.com/juju/errors"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-
-	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/watcher"
+	"k8s.io/client-go/informers"
 )
 
 var requireAnnotationsForNameSpace = []string{
@@ -160,15 +161,10 @@ func (k *kubernetesClient) deleteNamespace() error {
 // WatchNamespace returns a watcher which notifies when there
 // are changes to current namespace.
 func (k *kubernetesClient) WatchNamespace() (watcher.NotifyWatcher, error) {
-	w, err := k.client().CoreV1().Namespaces().Watch(
-		v1.ListOptions{
-			FieldSelector:        fields.OneTermEqualSelector("metadata.name", k.namespace).String(),
-			IncludeUninitialized: true,
-		},
+	factory := informers.NewSharedInformerFactoryWithOptions(k.client(), 0,
+		informers.WithTweakListOptions(func(o *v1.ListOptions) {
+			o.FieldSelector = fields.OneTermEqualSelector("metadata.name", k.namespace).String()
+		}),
 	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return k.newWatcher(w, k.namespace, k.clock)
+	return k.newWatcher(factory.Core().V1().Namespaces().Informer(), k.namespace, k.clock)
 }

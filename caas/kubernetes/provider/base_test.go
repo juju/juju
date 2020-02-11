@@ -4,11 +4,13 @@
 package provider_test
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -21,6 +23,7 @@ import (
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/juju/juju/caas/kubernetes/provider"
 	"github.com/juju/juju/caas/kubernetes/provider/mocks"
@@ -33,10 +36,12 @@ import (
 type BaseSuite struct {
 	testing.BaseSuite
 
-	clock         *testclock.Clock
-	broker        *provider.KubernetesClient
-	cfg           *config.Config
-	k8sRestConfig *rest.Config
+	clock               *testclock.Clock
+	broker              *provider.KubernetesClient
+	cfg                 *config.Config
+	k8sRestConfig       *rest.Config
+	k8sWatcherFn        provider.NewK8sWatcherFunc
+	k8sStringsWatcherFn provider.NewK8sStringsWatcherFunc
 
 	namespace string
 
@@ -77,7 +82,55 @@ type BaseSuite struct {
 
 	mockDiscovery *mocks.MockDiscoveryInterface
 
-	watchers []*provider.KubernetesNotifyWatcher
+	watchers []provider.KubernetesNotifyWatcher
+}
+
+type genericMatcher struct {
+	description string
+	matcher     func(interface{}) (bool, string)
+}
+
+func genericMatcherFn(matcher func(interface{}) (bool, string)) *genericMatcher {
+	return &genericMatcher{
+		matcher: matcher,
+	}
+}
+
+func (g *genericMatcher) Matches(i interface{}) bool {
+	if g.matcher == nil {
+		return false
+	}
+	rval, des := g.matcher(i)
+	g.description = des
+	return rval
+}
+
+func (g *genericMatcher) String() string {
+	return g.description
+}
+
+func listOptionsFieldSelectorMatcher(fieldSelector string) gomock.Matcher {
+	return genericMatcherFn(
+		func(i interface{}) (bool, string) {
+			lo, ok := i.(v1.ListOptions)
+			if !ok {
+				return false, "is list options, not a valid corev1.ListOptions"
+			}
+			return lo.FieldSelector == fieldSelector,
+				fmt.Sprintf("is list options field %v == %v", lo.FieldSelector, fieldSelector)
+		})
+}
+
+func listOptionsLabelSelectorMatcher(labelSelector string) gomock.Matcher {
+	return genericMatcherFn(
+		func(i interface{}) (bool, string) {
+			lo, ok := i.(v1.ListOptions)
+			if !ok {
+				return false, "is list options, not a valid corev1.ListOptions"
+			}
+			return lo.LabelSelector == labelSelector,
+				fmt.Sprintf("is list options label %v == %v", lo.LabelSelector, labelSelector)
+		})
 }
 
 func (s *BaseSuite) SetUpTest(c *gc.C) {
@@ -130,26 +183,41 @@ func (s *BaseSuite) getNamespace() string {
 func (s *BaseSuite) setupController(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	newK8sRestClientFunc := s.setupK8sRestClient(c, ctrl, s.getNamespace())
-	newK8sWatcherForTest := func(wi watch.Interface, name string, clock jujuclock.Clock) (*provider.KubernetesNotifyWatcher, error) {
-		w, err := provider.NewKubernetesNotifyWatcher(wi, name, clock)
-		c.Assert(err, jc.ErrorIsNil)
-		s.watchers = append(s.watchers, w)
-		return w, err
-	}
 	randomPrefixFunc := func() (string, error) {
 		return "appuuid", nil
 	}
-	return s.setupBroker(c, ctrl, newK8sRestClientFunc, newK8sWatcherForTest, randomPrefixFunc)
+	return s.setupBroker(c, ctrl, newK8sRestClientFunc, randomPrefixFunc)
 }
 
 func (s *BaseSuite) setupBroker(c *gc.C, ctrl *gomock.Controller,
 	newK8sRestClientFunc provider.NewK8sClientFunc,
-	newK8sWatcherFunc provider.NewK8sWatcherFunc,
 	randomPrefixFunc provider.RandomPrefixFunc) *gomock.Controller {
 	s.clock = testclock.NewClock(time.Time{})
+
+	watcherFn := provider.NewK8sWatcherFunc(func(i cache.SharedIndexInformer, n string, c jujuclock.Clock) (provider.KubernetesNotifyWatcher, error) {
+		if s.k8sWatcherFn == nil {
+			return nil, errors.NewNotFound(nil, "undefined k8sWatcherFn for base test")
+		}
+
+		w, err := s.k8sWatcherFn(i, n, c)
+		if err == nil {
+			s.watchers = append(s.watchers, w)
+		}
+		return w, err
+	})
+
+	stringsWatcherFn := provider.NewK8sStringsWatcherFunc(
+		func(i cache.SharedIndexInformer, n string, c jujuclock.Clock, e []string,
+			f provider.K8sStringsWatcherFilterFunc) (provider.KubernetesStringsWatcher, error) {
+			if s.k8sStringsWatcherFn == nil {
+				return nil, errors.NewNotFound(nil, "undefined k8sStringsWatcherFn for base test")
+			}
+			return s.k8sStringsWatcherFn(i, n, c, e, f)
+		})
+
 	var err error
 	s.broker, err = provider.NewK8sBroker(testing.ControllerTag.Id(), s.k8sRestConfig, s.cfg, newK8sRestClientFunc,
-		newK8sWatcherFunc, randomPrefixFunc, s.clock)
+		watcherFn, stringsWatcherFn, randomPrefixFunc, s.clock)
 	c.Assert(err, jc.ErrorIsNil)
 	return ctrl
 }
