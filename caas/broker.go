@@ -77,7 +77,7 @@ type DeploymentType string
 // Validate validates if this deployment type is supported.
 func (dt DeploymentType) Validate() error {
 	if dt == "" {
-		// TODO(caas): Change DeploymentType to be required.
+		// TODO(caas): change DeploymentType to be required.
 		return nil
 	}
 	if dt == DeploymentStateless ||

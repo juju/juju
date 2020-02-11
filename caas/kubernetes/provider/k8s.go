@@ -804,6 +804,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteIngressResources(appName); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := k.deleteDaemonSets(appName); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -1065,8 +1069,8 @@ func (k *kubernetesClient) EnsureService(
 
 	if params.Deployment.DeploymentType != caas.DeploymentStateful {
 		// TODO(caas): remove this check once `params.Deployment` is changed to be required.
-		existingStatefulSet, err := k.getStatefulSet(deploymentName)
-		if err != nil && !k8serrors.IsNotFound(err) {
+		_, err := k.getStatefulSet(deploymentName)
+		if err != nil && !errors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		if err == nil {
@@ -1635,20 +1639,17 @@ func (k *kubernetesClient) configureStatefulSet(
 		return errors.Annotatef(err, "configuring storage for %s", appName)
 	}
 	statefulset.Spec.Template.Spec = podSpec
-	return k.ensureStatefulSet(statefulset, existing, existingPodSpec)
+	return k.ensureStatefulSet(statefulset, existingPodSpec)
 }
 
-func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existAlready bool, existingPodSpec core.PodSpec) error {
-	if !existAlready {
-		_, err := k.createStatefulSet(spec)
-		if errors.IsNotValid(err) {
-			return errors.NewNotValid(err, fmt.Sprintf("ensuring stateful set %q", spec.GetName()))
-		}
-		if err != nil && !errors.IsAlreadyExists(err) {
-			return errors.Trace(err)
-		}
+func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
+	_, err := k.createStatefulSet(spec)
+	if errors.IsNotValid(err) {
+		return errors.Annotatef(err, "ensuring stateful set %q", spec.GetName())
 	}
-
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return errors.Trace(err)
+	}
 	// The statefulset already exists so all we are allowed to update is replicas,
 	// template, update strategy. Juju may hand out info with a slightly different
 	// requested volume size due to trying to adapt the unit model to the k8s world.
