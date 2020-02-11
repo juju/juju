@@ -4,21 +4,11 @@
 package jujuc_test
 
 import (
-	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	gc "gopkg.in/check.v1"
-
-	"github.com/juju/juju/worker/uniter/runner/jujuc/mocks"
 )
 
 type stateSuite struct {
-	mockContext *mocks.MockContext
-}
-
-func (s *stateSuite) setupMocks(c *gc.C) *gomock.Controller {
-	ctrl := gomock.NewController(c)
-	s.mockContext = mocks.NewMockContext(ctrl)
-	return ctrl
+	jujucSuite
 }
 
 func (s *stateSuite) expectStateSetOne() {
