@@ -1237,7 +1237,7 @@ func (task *provisionerTask) gatherCharmLXDProfiles(
 
 	profileNames, err := manager.LXDProfileNames(instanceID)
 	if err != nil {
-		return machineProfiles, errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	return lxdprofile.LXDProfileNames(profileNames), nil
