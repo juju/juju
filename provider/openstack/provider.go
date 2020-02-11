@@ -1434,7 +1434,7 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 	// Attempt to locate any subnet IDs for a passed in AZ.
 	availabilityZone := args.AvailabilityZone
 
-	var subnetIDsForZone []string
+	var subnetIDsForZone []corenetwork.Id
 	if args.Constraints.HasSpaces() {
 		var err error
 		subnetIDsForZone, err = corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
@@ -1449,11 +1449,7 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 
 	// FixedIp takes a CIDR, but we've only got a network ID, so we need to
 	// hoover all the subnets and select the ones we care about.
-	networkIDs := make([]corenetwork.Id, len(subnetIDsForZone))
-	for k, v := range subnetIDsForZone {
-		networkIDs[k] = corenetwork.Id(v)
-	}
-	subnetInfo, err := e.networking.Subnets(instance.UnknownId, networkIDs)
+	subnetInfo, err := e.networking.Subnets(instance.UnknownId, subnetIDsForZone)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting subnet info")
 	}

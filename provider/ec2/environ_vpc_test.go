@@ -12,6 +12,7 @@ import (
 	"gopkg.in/amz.v3/ec2"
 	gc "gopkg.in/check.v1"
 
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/provider/common"
@@ -691,12 +692,12 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneWithSubnetsToZones(c *g
 	// Simulate we used --constraints spaces=foo, which contains subnet-1 and
 	// subnet-3 out of the 4 subnets in AZ my-zone (see the related bug
 	// http://pad.lv/1609343).
-	allowedSubnetIDs := []string{"subnet-1", "subnet-3"}
+	allowedSubnetIDs := []corenetwork.Id{"subnet-1", "subnet-3"}
 
 	anyVPC := makeEC2VPC(anyVPCID, anyState)
 	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, s.cloudCallCtx, anyVPC.Id, "my-zone", allowedSubnetIDs)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Check(subnetIDs, jc.DeepEquals, []string{"subnet-1", "subnet-3"})
+	c.Check(subnetIDs, jc.DeepEquals, []corenetwork.Id{"subnet-1", "subnet-3"})
 
 	s.stubAPI.CheckSingleSubnetsCall(c, anyVPC)
 }
@@ -708,7 +709,7 @@ func (s *vpcSuite) TestGetVPCSubnetIDsForAvailabilityZoneSuccess(c *gc.C) {
 	subnetIDs, err := getVPCSubnetIDsForAvailabilityZone(s.stubAPI, s.cloudCallCtx, anyVPC.Id, "my-zone", nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Result slice of IDs is always sorted.
-	c.Check(subnetIDs, jc.DeepEquals, []string{"subnet-0", "subnet-1"})
+	c.Check(subnetIDs, jc.DeepEquals, []corenetwork.Id{"subnet-0", "subnet-1"})
 
 	s.stubAPI.CheckSingleSubnetsCall(c, anyVPC)
 }

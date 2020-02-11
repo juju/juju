@@ -20,6 +20,7 @@ import (
 
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -838,6 +839,9 @@ func (s *providerUnitTests) TestNetworksForInstance(c *gc.C) {
 	expectDefaultNetworks(mockNetworking)
 	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
 
+	var subnetIDsForZone []corenetwork.Id
+	mockNetworking.EXPECT().Subnets(instance.UnknownId, subnetIDsForZone).Return([]corenetwork.SubnetInfo{}, nil)
+
 	environ := Environ{
 		ecfgUnlocked: &environConfig{
 			attrs: map[string]interface{}{
@@ -868,6 +872,11 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	mockNetworking := NewMockNetworking(ctrl)
 	expectDefaultNetworks(mockNetworking)
 	mockNetworking.EXPECT().ResolveNetwork("", false).Return("network-id-foo", nil)
+	mockNetworking.EXPECT().Subnets(instance.UnknownId, []corenetwork.Id{"subnet-foo"}).Return([]corenetwork.SubnetInfo{
+		{
+			CIDR: "10.0.0.1/16",
+		},
+	}, nil)
 
 	environ := Environ{
 		ecfgUnlocked: &environConfig{
@@ -894,7 +903,7 @@ func (s *providerUnitTests) TestNetworksForInstanceWithAZ(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, []nova.ServerNetworks{
 		{
 			NetworkId: "network-id-foo",
-			FixedIp:   "subnet-foo",
+			FixedIp:   "10.0.0.1/16",
 			PortId:    "",
 		},
 	})
