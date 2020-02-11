@@ -96,7 +96,7 @@ func (s *stateSetSuite) TestStateSet(c *gc.C) {
 			err:         "ERROR yaml: unmarshal errors:\n  line 1: cannot unmarshal !!str `one = two` into map[string]string\n",
 		},
 		{
-			description: "single work, not equal sign",
+			description: "single word, not equal sign",
 			args:        []string{"five"},
 			code:        2,
 			err:         "ERROR expected \"key=value\", got \"five\"\n",
