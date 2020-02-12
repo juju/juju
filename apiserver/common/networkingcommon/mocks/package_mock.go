@@ -9,6 +9,7 @@ import (
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	life "github.com/juju/juju/core/life"
 	network "github.com/juju/juju/core/network"
+	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
 
@@ -199,6 +200,20 @@ func (mr *MockBackingSubnetMockRecorder) ProviderNetworkId() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProviderNetworkId", reflect.TypeOf((*MockBackingSubnet)(nil).ProviderNetworkId))
 }
 
+// Refresh mocks base method
+func (m *MockBackingSubnet) Refresh() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Refresh")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Refresh indicates an expected call of Refresh
+func (mr *MockBackingSubnetMockRecorder) Refresh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockBackingSubnet)(nil).Refresh))
+}
+
 // SpaceID mocks base method
 func (m *MockBackingSubnet) SpaceID() string {
 	m.ctrl.T.Helper()
@@ -239,6 +254,21 @@ func (m *MockBackingSubnet) Status() string {
 func (mr *MockBackingSubnetMockRecorder) Status() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Status", reflect.TypeOf((*MockBackingSubnet)(nil).Status))
+}
+
+// UpdateOps mocks base method
+func (m *MockBackingSubnet) UpdateOps(arg0 network.SubnetInfo) ([]txn.Op, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UpdateOps", arg0)
+	ret0, _ := ret[0].([]txn.Op)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// UpdateOps indicates an expected call of UpdateOps
+func (mr *MockBackingSubnetMockRecorder) UpdateOps(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateOps", reflect.TypeOf((*MockBackingSubnet)(nil).UpdateOps), arg0)
 }
 
 // VLANTag mocks base method
