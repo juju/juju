@@ -270,5 +270,5 @@ func (s *ModelSummary) hash() (string, error) {
 		s.Cloud, s.Region, s.Credential, s.LastModified,
 		s.MachineCount, s.ContainerCount, s.ApplicationCount,
 		s.UnitCount, s.RelationCount)
-	return hash(nil, asString)
+	return hash(asString)
 }

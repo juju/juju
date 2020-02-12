@@ -241,7 +241,7 @@ func (w *CharmConfigWatcher) setConfigHash() (bool, error) {
 		}
 	}
 
-	newHash, err := hash(cfg, w.charmURL)
+	newHash, err := hashSettings(cfg, w.charmURL)
 	if err != nil {
 		return false, errors.Trace(err)
 	}

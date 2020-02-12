@@ -172,7 +172,7 @@ func (m *Machine) setDetails(details MachineChange) {
 		m.model.hub.Publish(m.topic(machineProvisioned), nil)
 	}
 
-	configHash, err := hash(details.Config)
+	configHash, err := hashSettings(details.Config)
 	if err != nil {
 		logger.Errorf("invariant error - machine config should be yaml serializable and hashable, %v", err)
 		configHash = ""
