@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -49,6 +50,7 @@ import (
 // but embedded.
 type uniterSuiteBase struct {
 	testing.JujuConnSuite
+	networktesting.FirewallHelper
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -1045,7 +1047,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 
 func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
-	s.assertOpenPorts(c, s.wordpressUnit, "udp", 4321, 5000)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 4321, 5000)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
@@ -3304,10 +3306,10 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	s.assertOpenPorts(c, s.wordpressUnit, "tcp", 100, 200)
-	s.assertOpenPorts(c, s.wordpressUnit, "udp", 10, 20)
-	s.assertOpenPorts(c, mysqlUnit1, "tcp", 201, 250)
-	s.assertOpenPorts(c, mysqlUnit1, "udp", 1, 8)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "tcp", 100, 200)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 10, 20)
+	s.AssertOpenUnitPorts(c, mysqlUnit1, "", "tcp", 201, 250)
+	s.AssertOpenUnitPorts(c, mysqlUnit1, "", "udp", 1, 8)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -4827,14 +4829,6 @@ func (s *uniterSuite) TestGetCloudSpecDeniesAccessWhenNotTrusted(c *gc.C) {
 	result, err := s.uniter.CloudSpec()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.CloudSpecResult{Error: apiservertesting.ErrUnauthorized})
-}
-
-func (s *uniterSuite) assertOpenPorts(c *gc.C, u *state.Unit, protocol string, from, to int) {
-	portRange, err := state.NewPortRange(u.Name(), from, to, protocol)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = u.OpenClosePortsOnSubnet("", []state.PortRange{portRange}, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
 
 type cloudSpecUniterSuite struct {

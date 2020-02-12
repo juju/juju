@@ -992,13 +992,13 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			continue
 		}
 
-		openPortRange, err := state.NewPortRange(unit.Name(), entity.FromPort, entity.ToPort, entity.Protocol)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+		openPortRange := corenetwork.PortRange{
+			FromPort: entity.FromPort,
+			ToPort:   entity.ToPort,
+			Protocol: entity.Protocol,
 		}
 
-		err = unit.OpenClosePortsOnSubnet("", []state.PortRange{openPortRange}, nil)
+		err = unit.OpenClosePortsOnSubnet("", []corenetwork.PortRange{openPortRange}, nil)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -1031,13 +1031,13 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			continue
 		}
 
-		closePortRange, err := state.NewPortRange(unit.Name(), entity.FromPort, entity.ToPort, entity.Protocol)
-		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
-			continue
+		closePortRange := corenetwork.PortRange{
+			FromPort: entity.FromPort,
+			ToPort:   entity.ToPort,
+			Protocol: entity.Protocol,
 		}
 
-		err = unit.OpenClosePortsOnSubnet("", nil, []state.PortRange{closePortRange})
+		err = unit.OpenClosePortsOnSubnet("", nil, []corenetwork.PortRange{closePortRange})
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -3354,20 +3354,20 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
-		var openPortRanges, closePortRanges []state.PortRange
+		var openPortRanges, closePortRanges []corenetwork.PortRange
 		for _, r := range changes.OpenPorts {
-			pr, err := state.NewPortRange(unit.Name(), r.FromPort, r.ToPort, r.Protocol)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			openPortRanges = append(openPortRanges, pr)
+			openPortRanges = append(openPortRanges, corenetwork.PortRange{
+				FromPort: r.FromPort,
+				ToPort:   r.ToPort,
+				Protocol: r.Protocol,
+			})
 		}
 		for _, r := range changes.ClosePorts {
-			pr, err := state.NewPortRange(unit.Name(), r.FromPort, r.ToPort, r.Protocol)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			closePortRanges = append(closePortRanges, pr)
+			closePortRanges = append(closePortRanges, corenetwork.PortRange{
+				FromPort: r.FromPort,
+				ToPort:   r.ToPort,
+				Protocol: r.Protocol,
+			})
 		}
 
 		// TODO(achilleas): we should be using endpoints instead of subnets

@@ -1493,7 +1493,7 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 //
 // NOTE(achilleasa): we should probably refactor this in the future to work
 // with endpoints instead of subnet IDs.
-func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePortRanges []PortRange) error {
+func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) error {
 	annotateErr := func(err error) error {
 		openIsEmpty := len(openPortRanges) == 0
 		closeIsEmpty := len(closePortRanges) == 0
@@ -1535,19 +1535,7 @@ func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePort
 //
 // NOTE(achilleasa): we should probably refactor this in the future to work
 // with endpoints instead of subnet IDs.
-func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, closePortRanges []PortRange) (ModelOperation, error) {
-	// Check that all ranges match this unit's name.
-	for _, r := range openPortRanges {
-		if r.UnitName != u.Name() {
-			return nil, errors.BadRequestf("cannot open ports %v; expected unit name %q", r, u.Name())
-		}
-	}
-	for _, r := range closePortRanges {
-		if r.UnitName != u.Name() {
-			return nil, errors.BadRequestf("cannot close ports %v; expected unit name %q", r, u.Name())
-		}
-	}
-
+func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) (ModelOperation, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
 		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
@@ -1562,7 +1550,24 @@ func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, 
 		return nil, errors.Annotate(err, "cannot get or create ports")
 	}
 
-	return machinePorts.OpenClosePortsOperation(openPortRanges, closePortRanges)
+	var openRanges, closeRanges []PortRange
+	unitName := u.Name()
+	for _, p := range openPortRanges {
+		openRanges = append(openRanges, convertPortRange(unitName, p))
+	}
+	for _, p := range closePortRanges {
+		closeRanges = append(closeRanges, convertPortRange(unitName, p))
+	}
+	return machinePorts.OpenClosePortsOperation(openRanges, closeRanges)
+}
+
+func convertPortRange(unitName string, p corenetwork.PortRange) PortRange {
+	return PortRange{
+		UnitName: unitName,
+		FromPort: p.FromPort,
+		ToPort:   p.ToPort,
+		Protocol: p.Protocol,
+	}
 }
 
 func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {

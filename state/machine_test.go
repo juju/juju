@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	corenetwork "github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongotest"
@@ -40,6 +41,7 @@ import (
 
 type MachineSuite struct {
 	ConnSuite
+	networktesting.FirewallHelper
 	machine0    *state.Machine
 	machine     *state.Machine
 	unit        *state.Unit
@@ -382,7 +384,7 @@ func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, jc.ErrorIsNil)
-	state.AssertOpenPort(c, unit, "", "tcp", 8080)
+	s.AssertOpenUnitPort(c, unit, "", "tcp", 8080)
 	ports, err := state.GetPorts(s.State, s.machine.Id(), "")
 	c.Assert(ports, gc.NotNil)
 	c.Assert(err, jc.ErrorIsNil)

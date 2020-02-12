@@ -9,12 +9,14 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/instance"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
 
 type stateSuite struct {
 	firewallerSuite
+	networktesting.FirewallHelper
 	*apitesting.ModelWatcherTests
 }
 
@@ -60,8 +62,8 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 
 func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	// Open some ports.
-	s.assertOpenPorts(c, s.units[0], "", "tcp", 1234, 1400)
-	s.assertOpenPort(c, s.units[2], "", "udp", 4321)
+	s.AssertOpenUnitPorts(c, s.units[0], "", "tcp", 1234, 1400)
+	s.AssertOpenUnitPort(c, s.units[2], "", "udp", 4321)
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -76,45 +78,21 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Close a port, make sure it's detected.
-	s.assertClosePort(c, s.units[2], "", "udp", 4321)
+	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 4321)
 
 	wc.AssertChange(expectChanges[1])
 	wc.AssertNoChange()
 
 	// Close it again, no changes.
-	s.assertClosePort(c, s.units[2], "", "udp", 4321)
+	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 4321)
 	wc.AssertNoChange()
 
 	// Close non-existing port, no changes.
-	s.assertClosePort(c, s.units[2], "", "udp", 1234)
+	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 1234)
 	wc.AssertNoChange()
 
 	// Open another port range, ensure it's detected.
-	s.assertOpenPorts(c, s.units[1], "", "tcp", 8080, 8088)
+	s.AssertOpenUnitPorts(c, s.units[1], "", "tcp", 8080, 8088)
 	wc.AssertChange("1:")
 	wc.AssertNoChange()
-}
-
-func (s *stateSuite) assertOpenPort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
-	s.assertOpenPorts(c, u, subnet, protocol, port, port)
-}
-
-func (s *stateSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
-	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *stateSuite) assertClosePort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
-	s.assertClosePorts(c, u, subnet, protocol, port, port)
-}
-
-func (s *stateSuite) assertClosePorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
-	closeRange, err := state.NewPortRange(u.Name(), from, to, protocol)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = u.OpenClosePortsOnSubnet(subnet, nil, []state.PortRange{closeRange})
-	c.Assert(err, jc.ErrorIsNil)
 }

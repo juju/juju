@@ -11,11 +11,13 @@ import (
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/state"
 )
 
 type stateSuite struct {
 	uniterSuite
+	networktesting.FirewallHelper
 	*apitesting.APIAddresserTests
 	*apitesting.ModelWatcherTests
 }
@@ -56,10 +58,10 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	s.assertOpenPorts(c, s.wordpressUnit, "", "tcp", 100, 200)
-	s.assertOpenPorts(c, s.wordpressUnit, "", "udp", 10, 20)
-	s.assertOpenPorts(c, wordpressUnit1, "", "tcp", 201, 250)
-	s.assertOpenPorts(c, wordpressUnit1, "", "udp", 1, 8)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "tcp", 100, 200)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 10, 20)
+	s.AssertOpenUnitPorts(c, wordpressUnit1, "", "tcp", 201, 250)
+	s.AssertOpenUnitPorts(c, wordpressUnit1, "", "udp", 1, 8)
 
 	portsMap, err := s.uniter.AllMachinePorts(s.wordpressMachine.Tag().(names.MachineTag))
 	c.Assert(err, jc.ErrorIsNil)
@@ -69,16 +71,4 @@ func (s *stateSuite) TestAllMachinePorts(c *gc.C) {
 		{201, 250, "tcp"}: {Unit: wordpressUnit1.Tag().String()},
 		{1, 8, "udp"}:     {Unit: wordpressUnit1.Tag().String()},
 	})
-}
-
-func (s *stateSuite) assertOpenPort(c *gc.C, u *state.Unit, subnet, protocol string, port int) {
-	s.assertOpenPorts(c, u, subnet, protocol, port, port)
-}
-
-func (s *stateSuite) assertOpenPorts(c *gc.C, u *state.Unit, subnet, protocol string, from, to int) {
-	openRange, err := state.NewPortRange(u.Name(), from, to, protocol)
-	c.Assert(err, jc.ErrorIsNil)
-
-	err = u.OpenClosePortsOnSubnet(subnet, []state.PortRange{openRange}, nil)
-	c.Assert(err, jc.ErrorIsNil)
 }
