@@ -4,12 +4,45 @@
 package instancemutater
 
 import (
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/core/cache"
+	"github.com/juju/juju/core/lxdprofile"
 	"github.com/juju/juju/state"
 )
 
 type instanceMutaterStateShim struct {
 	*state.State
+}
+
+func (s *instanceMutaterStateShim) Application(appName string) (Application, error) {
+	app, err := s.State.Application(appName)
+	if err != nil {
+		return nil, err
+	}
+	return &application{
+		Application: app,
+	}, nil
+}
+
+func (s *instanceMutaterStateShim) Charm(curl *charm.URL) (Charm, error) {
+	ch, err := s.State.Charm(curl)
+	if err != nil {
+		return nil, err
+	}
+	return &stateCharm{
+		Charm: ch,
+	}, nil
+}
+
+func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
+	m, err := s.State.Machine(machineId)
+	if err != nil {
+		return nil, err
+	}
+	return &machine{
+		Machine: m,
+	}, nil
 }
 
 // modelCacheShim is used as a shim between the
@@ -20,26 +53,6 @@ type modelCacheShim struct {
 
 func (s *modelCacheShim) WatchMachines() (cache.StringsWatcher, error) {
 	return s.Model.WatchMachines()
-}
-
-func (s modelCacheShim) Charm(charmURL string) (ModelCacheCharm, error) {
-	ch, err := s.Model.Charm(charmURL)
-	if err != nil {
-		return nil, err
-	}
-	return &modelCacheCharm{
-		Charm: &ch,
-	}, nil
-}
-
-func (s modelCacheShim) Application(appName string) (ModelCacheApplication, error) {
-	app, err := s.Model.Application(appName)
-	if err != nil {
-		return nil, err
-	}
-	return &modelCacheApplication{
-		Application: app,
-	}, nil
 }
 
 func (s modelCacheShim) Machine(machineId string) (ModelCacheMachine, error) {
@@ -64,28 +77,50 @@ func (m *modelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
 	return m.Machine.WatchContainers()
 }
 
-func (m *modelCacheMachine) Units() ([]ModelCacheUnit, error) {
+type stateCharm struct {
+	*state.Charm
+}
+
+func (s *stateCharm) LXDProfile() lxdprofile.Profile {
+	profile := s.Charm.LXDProfile()
+	return lxdprofile.Profile{
+		Config:      profile.Config,
+		Description: profile.Description,
+		Devices:     profile.Devices,
+	}
+}
+
+type unit struct {
+	*state.Unit
+}
+
+func (u *unit) Application() string {
+	return u.Unit.ApplicationName()
+}
+
+type application struct {
+	*state.Application
+}
+
+func (a *application) CharmURL() *charm.URL {
+	curl, _ := a.Application.CharmURL()
+	return curl
+}
+
+type machine struct {
+	*state.Machine
+}
+
+func (m *machine) Units() ([]Unit, error) {
 	units, err := m.Machine.Units()
 	if err != nil {
 		return nil, err
 	}
-	result := make([]ModelCacheUnit, len(units))
+	result := make([]Unit, len(units))
 	for k, v := range units {
-		result[k] = &modelCacheUnit{
+		result[k] = &unit{
 			Unit: v,
 		}
 	}
 	return result, nil
-}
-
-type modelCacheCharm struct {
-	*cache.Charm
-}
-
-type modelCacheUnit struct {
-	cache.Unit
-}
-
-type modelCacheApplication struct {
-	cache.Application
 }
