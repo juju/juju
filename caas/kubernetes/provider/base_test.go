@@ -53,6 +53,7 @@ type BaseSuite struct {
 	mockSecrets                *mocks.MockSecretInterface
 	mockDeployments            *mocks.MockDeploymentInterface
 	mockStatefulSets           *mocks.MockStatefulSetInterface
+	mockDaemonSets             *mocks.MockDaemonSetInterface
 	mockPods                   *mocks.MockPodInterface
 	mockServices               *mocks.MockServiceInterface
 	mockConfigMaps             *mocks.MockConfigMapInterface
@@ -265,11 +266,13 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockExtensions = mocks.NewMockExtensionsV1beta1Interface(ctrl)
 	s.mockStatefulSets = mocks.NewMockStatefulSetInterface(ctrl)
 	s.mockDeployments = mocks.NewMockDeploymentInterface(ctrl)
+	s.mockDaemonSets = mocks.NewMockDaemonSetInterface(ctrl)
 	s.mockIngressInterface = mocks.NewMockIngressInterface(ctrl)
 	s.k8sClient.EXPECT().ExtensionsV1beta1().AnyTimes().Return(s.mockExtensions)
 	s.k8sClient.EXPECT().AppsV1().AnyTimes().Return(s.mockApps)
 	s.mockApps.EXPECT().StatefulSets(namespace).AnyTimes().Return(s.mockStatefulSets)
 	s.mockApps.EXPECT().Deployments(namespace).AnyTimes().Return(s.mockDeployments)
+	s.mockApps.EXPECT().DaemonSets(namespace).AnyTimes().Return(s.mockDaemonSets)
 	s.mockExtensions.EXPECT().Ingresses(namespace).AnyTimes().Return(s.mockIngressInterface)
 
 	s.mockStorage = mocks.NewMockStorageV1Interface(ctrl)

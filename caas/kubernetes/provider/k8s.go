@@ -132,7 +132,7 @@ type kubernetesClient struct {
 // To regenerate the mocks for the kubernetes Client used by this broker,
 // run "go generate" from the package directory.
 //go:generate mockgen -package mocks -destination mocks/k8sclient_mock.go k8s.io/client-go/kubernetes Interface
-//go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface
+//go:generate mockgen -package mocks -destination mocks/appv1_mock.go k8s.io/client-go/kubernetes/typed/apps/v1 AppsV1Interface,DeploymentInterface,StatefulSetInterface,DaemonSetInterface
 //go:generate mockgen -package mocks -destination mocks/corev1_mock.go k8s.io/client-go/kubernetes/typed/core/v1 EventInterface,CoreV1Interface,NamespaceInterface,PodInterface,ServiceInterface,ConfigMapInterface,PersistentVolumeInterface,PersistentVolumeClaimInterface,SecretInterface,NodeInterface
 //go:generate mockgen -package mocks -destination mocks/extenstionsv1_mock.go k8s.io/client-go/kubernetes/typed/extensions/v1beta1 ExtensionsV1beta1Interface,IngressInterface
 //go:generate mockgen -package mocks -destination mocks/storagev1_mock.go k8s.io/client-go/kubernetes/typed/storage/v1 StorageV1Interface,StorageClassInterface
@@ -804,6 +804,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteIngressResources(appName); err != nil {
 		return errors.Trace(err)
 	}
+
+	if err := k.deleteDaemonSets(appName); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -928,6 +932,10 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}()
 
+	if err := params.Deployment.DeploymentType.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
 	logger.Debugf("creating/updating application %s", appName)
 	deploymentName := k.deploymentName(appName)
 
@@ -1048,39 +1056,24 @@ func (k *kubernetesClient) EnsureService(
 		}
 		cleanups = append(cleanups, func() { k.deleteSecret(imageSecretName, "") })
 	}
-
 	// Add a deployment controller or stateful set configured to create the specified number of units/pods.
 	// Defensively check to see if a stateful set is already used.
-	var useStatefulSet bool
-	if params.Deployment.DeploymentType != "" {
-		useStatefulSet = params.Deployment.DeploymentType == caas.DeploymentStateful
-	} else {
-		useStatefulSet = len(params.Filesystems) > 0
-	}
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Trace(err)
-	}
-	if !useStatefulSet {
-		useStatefulSet = err == nil
-		if useStatefulSet {
-			logger.Debugf("no updated filesystems but already using stateful set for %v", appName)
+	if params.Deployment.DeploymentType == "" {
+		// TODO(caas): we should really change `params.Deployment` to be required.
+		params.Deployment.DeploymentType = caas.DeploymentStateless
+		if len(params.Filesystems) > 0 {
+			params.Deployment.DeploymentType = caas.DeploymentStateful
 		}
 	}
-	var randPrefix string
-	if useStatefulSet {
-		// Include a random snippet in the pvc name so that if the same app
-		// is deleted and redeployed again, the pvc retains a unique name.
-		// Only generate it once, and record it on the stateful set.
-		if existingStatefulSet != nil {
-			randPrefix = existingStatefulSet.Annotations[labelApplicationUUID]
+	if params.Deployment.DeploymentType != caas.DeploymentStateful {
+		// TODO(caas): remove this check once `params.Deployment` is changed to be required.
+		_, err := k.getStatefulSet(deploymentName)
+		if err != nil && !errors.IsNotFound(err) {
+			return errors.Trace(err)
 		}
-		if randPrefix == "" {
-			randPrefix, err = k.randomPrefix()
-			if err != nil {
-				return errors.Trace(err)
-			}
+		if err == nil {
+			params.Deployment.DeploymentType = caas.DeploymentStateful
+			logger.Debugf("no updated filesystems but already using stateful set for %q", appName)
 		}
 	}
 
@@ -1118,20 +1111,30 @@ func (k *kubernetesClient) EnsureService(
 	}
 
 	numPods := int32(numUnits)
-	if useStatefulSet {
+	switch params.Deployment.DeploymentType {
+	case caas.DeploymentStateful:
 		if err := k.configureHeadlessService(appName, deploymentName, annotations.Copy()); err != nil {
 			return errors.Annotate(err, "creating or updating headless service")
 		}
 		cleanups = append(cleanups, func() { k.deleteService(headlessServiceName(deploymentName)) })
-		if err := k.configureStatefulSet(appName, deploymentName, randPrefix, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
+		if err := k.configureStatefulSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods, params.Filesystems); err != nil {
 			return errors.Annotate(err, "creating or updating StatefulSet")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
-	} else {
+	case caas.DeploymentStateless:
 		if err := k.configureDeployment(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers, &numPods); err != nil {
-			return errors.Annotate(err, "creating or updating DeploymentController")
+			return errors.Annotate(err, "creating or updating Deployment")
 		}
 		cleanups = append(cleanups, func() { k.deleteDeployment(appName) })
+	case caas.DeploymentDaemon:
+		cleanUpDaemonSet, err := k.configureDaemonSet(appName, deploymentName, annotations.Copy(), workloadSpec, params.PodSpec.Containers)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating DaemonSet")
+		}
+		cleanups = append(cleanups, cleanUpDaemonSet)
+	default:
+		// This should never happend because we have validated both in this method and in `charm.v6`.
+		return errors.NotSupportedf("deployment type %q", params.Deployment.DeploymentType)
 	}
 	return nil
 }
@@ -1451,6 +1454,47 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
+func (k *kubernetesClient) configureDaemonSet(
+	appName, deploymentName string,
+	annotations k8sannotations.Annotation,
+	workloadSpec *workloadSpec,
+	containers []specs.ContainerSpec,
+) (func(), error) {
+	logger.Debugf("creating/updating daemon set for %s", appName)
+	cleanUp := func() {}
+
+	// Add the specified file to the pod spec.
+	cfgName := func(fileSetName string) string {
+		return applicationConfigMapName(deploymentName, fileSetName)
+	}
+	podSpec := workloadSpec.Pod
+	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+		return cleanUp, errors.Trace(err)
+	}
+
+	daemonSet := &apps.DaemonSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        deploymentName,
+			Labels:      k.getDaemonSetLabels(appName),
+			Annotations: annotations.ToMap()},
+		Spec: apps.DaemonSetSpec{
+			// TODO(caas): DaemonSetUpdateStrategy support.
+			Selector: &v1.LabelSelector{
+				MatchLabels: k.getDaemonSetLabels(appName),
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: deploymentName + "-",
+					Labels:       k.getDaemonSetLabels(appName),
+					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	return k.ensureDaemonSet(daemonSet)
+}
+
 func (k *kubernetesClient) configureDeployment(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
@@ -1475,6 +1519,7 @@ func (k *kubernetesClient) configureDeployment(
 			Labels:      map[string]string{labelApplication: appName},
 			Annotations: annotations.ToMap()},
 		Spec: apps.DeploymentSpec{
+			// TODO(caas): DeploymentStrategy support.
 			Replicas: replicas,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
@@ -1527,101 +1572,6 @@ func getPodManagementPolicy(svc *specs.ServiceSpec) (out apps.PodManagementPolic
 		// no need to consider other cases because we have done validation in podspec parsing stage.
 	}
 	return out
-}
-
-func (k *kubernetesClient) configureStatefulSet(
-	appName, deploymentName, randPrefix string, annotations k8sannotations.Annotation, workloadSpec *workloadSpec,
-	containers []specs.ContainerSpec, replicas *int32, filesystems []storage.KubernetesFilesystemParams,
-) error {
-	logger.Debugf("creating/updating stateful set for %s", appName)
-
-	// Add the specified file to the pod spec.
-	cfgName := func(fileSetName string) string {
-		return applicationConfigMapName(deploymentName, fileSetName)
-	}
-
-	statefulset := &apps.StatefulSet{
-		ObjectMeta: v1.ObjectMeta{
-			Name: deploymentName,
-			Annotations: k8sannotations.New(nil).
-				Merge(annotations).
-				Add(labelApplicationUUID, randPrefix).ToMap(),
-		},
-		Spec: apps.StatefulSetSpec{
-			Replicas: replicas,
-			Selector: &v1.LabelSelector{
-				MatchLabels: map[string]string{labelApplication: appName},
-			},
-			Template: core.PodTemplateSpec{
-				ObjectMeta: v1.ObjectMeta{
-					Labels:      map[string]string{labelApplication: appName},
-					Annotations: podAnnotations(annotations.Copy()).ToMap(),
-				},
-			},
-			PodManagementPolicy: getPodManagementPolicy(workloadSpec.Service),
-			ServiceName:         headlessServiceName(deploymentName),
-		},
-	}
-	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
-		return errors.Trace(err)
-	}
-	existingPodSpec := podSpec
-
-	// Create a new stateful set with the necessary storage config.
-	legacy := isLegacyName(deploymentName)
-	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, randPrefix, legacy, filesystems); err != nil {
-		return errors.Annotatef(err, "configuring storage for %s", appName)
-	}
-	statefulset.Spec.Template.Spec = podSpec
-	return k.ensureStatefulSet(statefulset, existingPodSpec)
-}
-
-func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {
-	api := k.client().AppsV1().StatefulSets(k.namespace)
-
-	_, err := api.Update(spec)
-	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			_, err = api.Create(spec)
-		}
-		return errors.Trace(err)
-	}
-
-	// The statefulset already exists so all we are allowed to update is replicas,
-	// template, update strategy. Juju may hand out info with a slightly different
-	// requested volume size due to trying to adapt the unit model to the k8s world.
-	existing, err := api.Get(spec.GetName(), v1.GetOptions{IncludeUninitialized: true})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	// TODO(caas) - allow extra storage to be added
-	existing.Spec.Replicas = spec.Spec.Replicas
-	existing.Spec.Template.Spec.Containers = existingPodSpec.Containers
-	existing.Spec.Template.Spec.ServiceAccountName = existingPodSpec.ServiceAccountName
-	existing.Spec.Template.Spec.AutomountServiceAccountToken = existingPodSpec.AutomountServiceAccountToken
-	// NB: we can't update the Spec.ServiceName as it is immutable.
-	_, err = api.Update(existing)
-	return errors.Trace(err)
-}
-
-// createStatefulSet deletes a statefulset resource.
-func (k *kubernetesClient) createStatefulSet(spec *apps.StatefulSet) error {
-	_, err := k.client().AppsV1().StatefulSets(k.namespace).Create(spec)
-	return errors.Trace(err)
-}
-
-// deleteStatefulSet deletes a statefulset resource.
-func (k *kubernetesClient) deleteStatefulSet(name string) error {
-	deployments := k.client().AppsV1().StatefulSets(k.namespace)
-	err := deployments.Delete(name, &v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	})
-	if k8serrors.IsNotFound(err) {
-		return nil
-	}
-
-	return errors.Trace(err)
 }
 
 func (k *kubernetesClient) deleteVolumeClaims(appName string, p *core.Pod) ([]string, error) {
@@ -2535,9 +2485,8 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 // legacyAppName returns true if there are any artifacts for
 // appName which indicate that this deployment was for Juju 2.5.0.
 func (k *kubernetesClient) legacyAppName(appName string) bool {
-	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	legacyName := "juju-operator-" + appName
-	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
+	_, err := k.getStatefulSet(legacyName)
 	return err == nil
 }
 

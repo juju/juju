@@ -74,6 +74,19 @@ type StatusCallbackFunc func(appName string, settableStatus status.Status, info 
 // DeploymentType defines a deployment type.
 type DeploymentType string
 
+// Validate validates if this deployment type is supported.
+func (dt DeploymentType) Validate() error {
+	if dt == "" {
+		return nil
+	}
+	if dt == DeploymentStateless ||
+		dt == DeploymentStateful ||
+		dt == DeploymentDaemon {
+		return nil
+	}
+	return errors.NotSupportedf("deployment type %q", dt)
+}
+
 const (
 	DeploymentStateless DeploymentType = "stateless"
 	DeploymentStateful  DeploymentType = "stateful"
