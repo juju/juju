@@ -4,6 +4,7 @@
 package subnets_test
 
 import (
+	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -12,7 +13,10 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/common/networkingcommon"
+	networkcommonmocks "github.com/juju/juju/apiserver/common/networkingcommon/mocks"
+	facademocks "github.com/juju/juju/apiserver/facade/mocks"
 	"github.com/juju/juju/apiserver/facades/client/subnets"
+	"github.com/juju/juju/apiserver/facades/client/subnets/mocks"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
@@ -21,6 +25,58 @@ import (
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
+
+// This suite shows the new mocking suite. While below shows the old suite we want to migrate from.
+type SubnetTestMockSuite struct {
+	mockBacking          *mocks.MockBacking
+	mockResource         *facademocks.MockResources
+	mockCloudCallContext *context.CloudCallContext
+	mockAuthorizer       *facademocks.MockAuthorizer
+
+	api *subnets.API
+}
+
+var _ = gc.Suite(&SubnetTestMockSuite{})
+
+func (s *SubnetTestMockSuite) TearDownTest(c *gc.C) {
+	s.api = nil
+}
+
+func (s *SubnetTestMockSuite) TestAllSpaces(c *gc.C) {
+	ctrl := s.setupSubnetsAPI(c)
+	defer ctrl.Finish()
+	tag := names.NewSpaceTag("myspace")
+
+	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
+	spacesMock.EXPECT().Name().Return(tag.Id())
+
+	s.mockBacking.EXPECT().AllSpaces().Return([]networkingcommon.BackingSpace{spacesMock}, nil)
+
+	spaces, err := s.api.AllSpaces()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spaces.Results, gc.HasLen, 1)
+	c.Assert(spaces.Results[0].Tag, gc.Equals, tag.String())
+	c.Assert(spaces.Results[0].Error, gc.IsNil)
+
+}
+
+func (s *SubnetTestMockSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
+	ctrl := gomock.NewController(c)
+	s.mockResource = facademocks.NewMockResources(ctrl)
+	s.mockCloudCallContext = context.NewCloudCallContext()
+	s.mockBacking = mocks.NewMockBacking(ctrl)
+
+	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
+	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
+	s.mockAuthorizer.EXPECT().AuthClient().Return(true)
+
+	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
+
+	var err error
+	s.api, err = subnets.NewAPIWithBacking(s.mockBacking, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer)
+	c.Assert(err, jc.ErrorIsNil)
+	return ctrl
+}
 
 type SubnetsSuite struct {
 	coretesting.BaseSuite
@@ -31,6 +87,10 @@ type SubnetsSuite struct {
 	facade     *subnets.API
 
 	callContext context.ProviderCallContext
+}
+
+type stubBacking struct {
+	*apiservertesting.StubBacking
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
@@ -57,7 +117,7 @@ func (s *SubnetsSuite) SetUpTest(c *gc.C) {
 	s.callContext = context.NewCloudCallContext()
 	var err error
 	s.facade, err = subnets.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, s.authorizer,
 	)
@@ -101,7 +161,7 @@ func (s *SubnetsSuite) AssertAllSpacesResult(c *gc.C, got params.SpaceResults, e
 func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	// Clients are allowed.
 	facade, err := subnets.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, s.authorizer,
 	)
@@ -114,7 +174,7 @@ func (s *SubnetsSuite) TestNewAPIWithBacking(c *gc.C) {
 	agentAuthorizer := s.authorizer
 	agentAuthorizer.Tag = names.NewMachineTag("42")
 	facade, err = subnets.NewAPIWithBacking(
-		apiservertesting.BackingInstance,
+		&stubBacking{apiservertesting.BackingInstance},
 		s.callContext,
 		s.resources, agentAuthorizer,
 	)
