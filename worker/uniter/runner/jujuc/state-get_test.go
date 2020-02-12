@@ -38,6 +38,8 @@ Options:
     Specify output format (json|smart|yaml)
 -o, --output (= "")
     Specify an output file
+--strict  (= false)
+    Return an error if the requested key does not exist
 
 Details:
 state-get prints the value of the server side state specified by key.
@@ -80,12 +82,26 @@ func (s *stateGetSuite) TestStateGet(c *gc.C) {
 			expect:      s.expectStateGetValueOne,
 		},
 		{
-			description: "key not found",
-			args:        []string{"five"},
+			description: "key not found, give me the error",
+			args:        []string{"--strict", "five"},
 			err:         "ERROR \"five\" not found\n",
 			out:         "",
 			expect:      s.expectStateGetValueNotFound,
 			code:        1,
+		},
+		{
+			description: "key not found",
+			args:        []string{"five"},
+			err:         "",
+			out:         "",
+			expect:      s.expectStateGetValueNotFound,
+		},
+		{
+			description: "empty result",
+			args:        []string{"five"},
+			err:         "",
+			out:         "",
+			expect:      s.expectStateGetValueEmpty,
 		},
 	}
 
