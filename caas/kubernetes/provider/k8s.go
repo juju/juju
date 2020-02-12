@@ -1009,6 +1009,16 @@ func (k *kubernetesClient) EnsureService(
 		}
 		logger.Debugf("created/updated mutating webhook configurations for %q.", appName)
 	}
+	// ensure validating webhook configurations.
+	validatingWebhookConfigurations := workloadSpec.ValidatingWebhookConfigurations
+	if len(validatingWebhookConfigurations) > 0 {
+		cfgCleanUps, err := k.ensureValidatingWebhookConfigurations(appName, annotations, validatingWebhookConfigurations)
+		cleanups = append(cleanups, cfgCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating validating webhook configurations")
+		}
+		logger.Debugf("created/updated validating webhook configurations for %q.", appName)
+	}
 
 	// ensure ingress resources.
 	ings := workloadSpec.IngressResources
@@ -2378,13 +2388,14 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                       []k8sspecs.Secret
-	ConfigMaps                    map[string]specs.ConfigMap
-	ServiceAccounts               []serviceAccountSpecGetter
-	CustomResourceDefinitions     map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
-	CustomResources               map[string][]unstructured.Unstructured
-	MutatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook
-	IngressResources              []k8sspecs.K8sIngressSpec
+	Secrets                         []k8sspecs.Secret
+	ConfigMaps                      map[string]specs.ConfigMap
+	ServiceAccounts                 []serviceAccountSpecGetter
+	CustomResourceDefinitions       map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
+	CustomResources                 map[string][]unstructured.Unstructured
+	MutatingWebhookConfigurations   map[string][]admissionregistrationv1beta1.Webhook
+	ValidatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook
+	IngressResources                []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2457,6 +2468,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
 			spec.MutatingWebhookConfigurations = k8sResources.MutatingWebhookConfigurations
+			spec.ValidatingWebhookConfigurations = k8sResources.ValidatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
