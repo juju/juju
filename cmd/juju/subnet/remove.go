@@ -37,7 +37,7 @@ e.g. MAAS). In other words "remove" acts like the opposite of "create"
 If any machines are still using the subnet, it cannot be removed and
 an error is returned instead. If the subnet is not in use, it will be
 marked for removal, but it will not be removed from the Juju database
-until all related entites are cleaned up (e.g. allocated addresses).
+until all related entities are cleaned up (e.g. allocated addresses).
 `
 
 // Info is defined on the cmd.Command interface.

@@ -917,7 +917,7 @@ type CreateSpaceParamsV4 struct {
 	ProviderId string   `json:"provider-id,omitempty"`
 }
 
-// CreateSpacesParams olds the arguments of the AddSpaces API call.
+// CreateSpacesParams holds the arguments of the AddSpaces API call.
 type CreateSpacesParams struct {
 	Spaces []CreateSpaceParams `json:"spaces"`
 }
@@ -930,6 +930,18 @@ type CreateSpaceParams struct {
 	Public     bool     `json:"public"`
 	ProviderId string   `json:"provider-id,omitempty"`
 }
+
+// UpdateSpacesParams holds the arguments of the UpdateSpaces API call.
+type UpdateSpacesParams struct {
+	UpdateSpaces []UpdateSpaceParams `json:"update-spaces"`
+}
+
+// UpdateSpaceParams holds the space tag and at least one subnet required to move subnet to another space
+type UpdateSpaceParams struct {
+	CIDRs      []string `json:"cidrs"`
+	SpaceTag   string   `json:"space-tag"`
+}
+
 
 // ListSpacesResults holds the list of all available spaces.
 type ShowSpaceResult struct {

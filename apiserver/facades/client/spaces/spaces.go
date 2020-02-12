@@ -420,7 +420,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 // ReloadSpaces is not available via the V2 API.
 func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
-// RefreshSpaces refreshes spaces from substrate
+// ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces() error {
 	canWrite, err := api.auth.HasPermission(permission.WriteAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
@@ -453,7 +453,8 @@ func (api *API) checkSupportsSpaces() error {
 }
 
 // checkSupportsProviderSpaces checks if the environment implements NetworkingEnviron
-// and also if it support provider spaces.
+// and also if it support provider spaces. Returns an error if it does support provider spaces.
+// We don't want to update/change provider sources spaces.
 func (api *API) checkSupportsProviderSpaces() error {
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {
