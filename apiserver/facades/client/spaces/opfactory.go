@@ -6,6 +6,7 @@ package spaces
 import (
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/state"
 )
 
@@ -15,7 +16,8 @@ type OpFactory interface {
 	// NewRenameSpaceModelOp returns an operation for renaming a space.
 	NewRenameSpaceModelOp(fromName, toName string) (state.ModelOperation, error)
 
-	NewUpdateSpaceModelOp(space string, cidr []string) (state.ModelOperation, error)
+	// NewUpdateSpaceModelOp returns an operation for updating a space with new CIDRs.
+	NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (state.ModelOperation, error)
 }
 
 type opFactory struct {
@@ -41,6 +43,12 @@ func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (state.ModelO
 	return NewRenameSpaceModelOp(model.IsControllerModel(), controllerSettings, &renameSpaceStateShim{f.st}, space, toName), nil
 }
 
-func (f *opFactory) NewUpdateSpaceModelOp(space string, cidr []string) (state.ModelOperation, error) {
-	panic("implement me")
+// NewUpdateSpaceModelOp (OpFactory) returns an operation
+// for updating a space.
+func (f *opFactory) NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (state.ModelOperation, error) {
+	subs := make([]UpdateSubnet, len(subnets))
+	for i, subnet := range subnets {
+		subs[i] = subnet
+	}
+	return NewUpdateSpaceModelOp(spaceID, subs), nil
 }

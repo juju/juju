@@ -9,6 +9,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
@@ -36,6 +37,8 @@ type BackingSubnet interface {
 	Status() string
 	SpaceName() string
 	SpaceID() string
+	Refresh() error
+	UpdateOps(args corenetwork.SubnetInfo) ([]txn.Op, error)
 	Life() life.Value
 }
 

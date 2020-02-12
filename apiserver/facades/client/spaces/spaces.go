@@ -258,18 +258,14 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 		return errors.Trace(err)
 	}
 
-	subnetIDs := make([]string, len(args.CIDRs))
-	for i, cidr := range args.CIDRs {
-		if !network.IsValidCidr(cidr) {
-			return errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
-		}
-		subnet, err := api.backing.SubnetByCIDR(cidr)
-		if err != nil {
-			return err
-		}
+	subnets, err := api.getValidSubnets(args.CIDRs)
+	subnetIDs := make([]string, len(subnets))
+	for i, subnet := range subnets {
 		subnetIDs[i] = subnet.ID()
 	}
-
+	if err != nil {
+		return errors.Trace(err)
+	}
 	// Add the validated space.
 	err = api.backing.AddSpace(spaceTag.Id(), network.Id(args.ProviderId), subnetIDs, args.Public)
 	if err != nil {
@@ -483,4 +479,36 @@ func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) 
 		}
 	}
 	return applications.SortedValues(), nil
+}
+
+func (api *API) checkSpacesCRUDPermissions() error {
+	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !isAdmin {
+		return common.ServerError(common.ErrPerm)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	if err = api.checkSupportsProviderSpaces(); err != nil {
+		return common.ServerError(errors.Trace(err))
+	}
+	return nil
+}
+
+func (api *API) getValidSubnets(CIDRs []string) ([]networkingcommon.BackingSubnet, error) {
+	subnets := make([]networkingcommon.BackingSubnet, len(CIDRs))
+	for i, cidr := range CIDRs {
+		if !network.IsValidCidr(cidr) {
+			return nil, errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
+		}
+		subnet, err := api.backing.SubnetByCIDR(cidr)
+		if err != nil {
+			return nil, err
+		}
+		subnets[i] = subnet
+	}
+	return subnets, nil
 }
