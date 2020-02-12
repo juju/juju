@@ -561,15 +561,14 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, jc.DeepEquals, template.Constraints)
-	c.Assert(provisioningInfo.ProvisioningNetworkTopology, jc.DeepEquals, params.ProvisioningNetworkTopology{
-		SpaceSubnets: map[string][]string{
-			"space2": {"subnet-2", "subnet-3"},
-		},
-		SubnetAZs: map[string][]string{
-			"subnet-2": {"zone2"},
-			"subnet-3": {"zone3"},
-		},
+
+	c.Assert(provisioningInfo.SubnetAZs, jc.DeepEquals, map[string][]string{
+		"subnet-2": {"zone2"},
+		"subnet-3": {"zone3"},
 	})
+
+	c.Assert(provisioningInfo.SpaceSubnets, gc.HasLen, 1)
+	c.Assert(provisioningInfo.SpaceSubnets["space2"], jc.SameContents, []string{"subnet-2", "subnet-3"})
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
