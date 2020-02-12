@@ -5,7 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/txn"
 )
 
@@ -65,7 +65,7 @@ func ComposeModelOperations(modelOps ...ModelOperation) ModelOperation {
 					continue
 				}
 				childOps, err := modelOp.Build(attempt)
-				if err != nil && err != statetxn.ErrNoOperations {
+				if err != nil && err != jujutxn.ErrNoOperations {
 					return nil, errors.Trace(err)
 				}
 				ops = append(ops, childOps...)

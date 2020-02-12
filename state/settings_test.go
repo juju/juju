@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -521,7 +521,7 @@ func (s *SettingsSuite) TestWriteTwiceUsingModelOperation(c *gc.C) {
 	// Shouldn't write again. Changes were already
 	// flushed and acted upon by other parties.
 	_, err = nodeOne.WriteOperation().Build(0)
-	c.Assert(err, gc.Equals, statetxn.ErrNoOperations)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 
 	err = nodeOne.Read()
 	c.Assert(err, jc.ErrorIsNil)

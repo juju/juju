@@ -5,11 +5,12 @@ package state
 
 import (
 	"github.com/juju/errors"
-	mgoutils "github.com/juju/juju/mongo/utils"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	mgoutils "github.com/juju/juju/mongo/utils"
 )
 
 type unitSetStateOperation struct {
@@ -74,7 +75,7 @@ func (op *unitSetStateOperation) Build(attempt int) ([]txn.Op, error) {
 
 	// Check if we need to update
 	if stDoc.stateMatches(escapedState) {
-		return nil, statetxn.ErrNoOperations
+		return nil, jujutxn.ErrNoOperations
 	}
 
 	return []txn.Op{unitAliveOp, {

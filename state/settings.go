@@ -9,7 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -222,7 +222,7 @@ func (s *Settings) WriteOperation() ModelOperation {
 		buildFn: func(_ int) ([]txn.Op, error) {
 			_, ops := s.settingsUpdateOps()
 			if len(ops) == 0 {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			}
 
 			return ops, nil

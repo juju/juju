@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -362,7 +362,7 @@ func (s *PortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *gc.C) {
 	// As the doc does not exist and the end result is still an empty port range
 	// this should return ErrNoOperations
 	_, err = op.Build(0)
-	c.Assert(err, gc.Equals, statetxn.ErrNoOperations)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 }
 
 func (s *PortsDocSuite) TestAllPortRanges(c *gc.C) {

@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
@@ -279,7 +279,7 @@ func (p *Ports) Remove() error {
 		if attempt > 0 {
 			err := ports.Refresh()
 			if errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, errors.Trace(err)
 			}

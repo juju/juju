@@ -5,7 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 )
@@ -107,7 +107,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 
 	// Nothing to do
 	if !portListModified || (createPortsDoc && len(op.updatedPortList) == 0) {
-		return nil, statetxn.ErrNoOperations
+		return nil, jujutxn.ErrNoOperations
 	}
 
 	if createPortsDoc {
