@@ -17,6 +17,8 @@ type OpFactory interface {
 
 	// NewRenameSpaceModelOp returns an operation for renaming a space.
 	NewRenameSpaceModelOp(fromName, toName string) (state.ModelOperation, error)
+
+	NewUpdateSpaceModelOp(space string, cidr []string) (state.ModelOperation, error)
 }
 
 type opFactory struct {
@@ -54,4 +56,8 @@ func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (state.ModelO
 		return nil, errors.Trace(err)
 	}
 	return NewRenameSpaceModelOp(f.st.IsController(), controllerSettings, &renameSpaceStateShim{f.st}, space, toName), nil
+}
+
+func (f *opFactory) NewUpdateSpaceModelOp(space string, cidr []string) (state.ModelOperation, error) {
+	panic("implement me")
 }
