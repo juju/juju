@@ -885,6 +885,12 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
 		).Return(nil),
 
+		// delete all validating webhook configurations.
+		s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test", IncludeUninitialized: true},
+		).Return(nil),
+
 		// delete all ingress resources.
 		s.mockIngressInterface.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
