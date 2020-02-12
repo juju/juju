@@ -6,7 +6,11 @@ package cache
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"sync"
+
+	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
@@ -27,17 +31,18 @@ const (
 	modelBranchRemove = "model-branch-remove"
 )
 
-func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, res *Resident) *Model {
+func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, chub *pubsub.SimpleHub, res *Resident) *Model {
 	m := &Model{
-		Resident:     res,
-		metrics:      metrics,
-		hub:          hub,
-		applications: make(map[string]*Application),
-		charms:       make(map[string]*Charm),
-		machines:     make(map[string]*Machine),
-		units:        make(map[string]*Unit),
-		relations:    make(map[string]*Relation),
-		branches:     make(map[string]*Branch),
+		Resident:      res,
+		metrics:       metrics,
+		hub:           hub,
+		controllerHub: chub,
+		applications:  make(map[string]*Application),
+		charms:        make(map[string]*Charm),
+		machines:      make(map[string]*Machine),
+		units:         make(map[string]*Unit),
+		relations:     make(map[string]*Relation),
+		branches:      make(map[string]*Branch),
 	}
 	return m
 }
@@ -49,11 +54,15 @@ type Model struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
-	metrics *ControllerGauges
-	hub     *pubsub.SimpleHub
-	mu      sync.Mutex
+	metrics       *ControllerGauges
+	hub           *pubsub.SimpleHub
+	controllerHub *pubsub.SimpleHub
+	mu            sync.Mutex
 
-	details      ModelChange
+	details     ModelChange
+	summary     ModelSummary
+	summaryHash string
+
 	configHash   string
 	hashCache    *hashCache
 	applications map[string]*Application
@@ -62,6 +71,11 @@ type Model struct {
 	units        map[string]*Unit
 	relations    map[string]*Relation
 	branches     map[string]*Branch
+
+	// lastSummaryPublish is here for testing purposes to ensure
+	// synchronisation between the test and the handling of the
+	// published summary event.
+	lastSummaryPublish <-chan struct{}
 }
 
 // Config returns the current model config.
@@ -86,6 +100,40 @@ func (m *Model) UUID() string {
 func (m *Model) Name() string {
 	defer m.doLocked()()
 	return m.details.Name
+}
+
+// Summary returns a copy of the current summary, and its hash.
+func (m *Model) Summary() (ModelSummary, string) {
+	defer m.doLocked()()
+	return m.summaryCopy(), m.summaryHash
+}
+
+func (m *Model) summaryCopy() ModelSummary {
+	result := m.summary
+	// Make a copy of the admins slice.
+	admins := make([]string, len(result.Admins))
+	copy(admins, result.Admins)
+	result.Admins = admins
+	// Make a copy of the messages slice.
+	messages := make([]ModelSummaryMessage, len(result.Messages))
+	copy(messages, result.Messages)
+	result.Messages = messages
+	return result
+}
+
+func (m *Model) visibleTo(user string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if user == "" {
+		return true
+	}
+
+	// Any permission is sufficient for the user to see the model.
+	// Read, Write, or Admin are all good for us. If the user doesn't
+	// have any access, they can't see the model.
+	_, found := m.details.UserPermissions[user]
+	return found
 }
 
 // WatchConfig creates a watcher for the model config.
@@ -202,12 +250,12 @@ func (m *Model) Machines() map[string]Machine {
 
 // Machine returns the machine with the input id.
 // If the machine is not found, a NotFoundError is returned.
-func (m *Model) Machine(machineId string) (Machine, error) {
+func (m *Model) Machine(machineID string) (Machine, error) {
 	defer m.doLocked()()
 
-	machine, found := m.machines[machineId]
+	machine, found := m.machines[machineID]
 	if !found {
-		return Machine{}, errors.NotFoundf("machine %q", machineId)
+		return Machine{}, errors.NotFoundf("machine %q", machineID)
 	}
 	return machine.copy(), nil
 }
@@ -269,7 +317,7 @@ func (m *Model) updateApplication(ch ApplicationChange, rm *residentManager) {
 		m.applications[ch.Name] = app
 	}
 	app.setDetails(ch)
-
+	m.updateSummary()
 	m.mu.Unlock()
 }
 
@@ -284,6 +332,7 @@ func (m *Model) removeApplication(ch RemoveApplication) error {
 		}
 		delete(m.applications, ch.Name)
 	}
+	m.updateSummary()
 	return nil
 }
 
@@ -326,6 +375,7 @@ func (m *Model) updateUnit(ch UnitChange, rm *residentManager) {
 	}
 	unit.setDetails(ch)
 
+	m.updateSummary()
 	m.mu.Unlock()
 }
 
@@ -341,6 +391,7 @@ func (m *Model) removeUnit(ch RemoveUnit) error {
 		}
 		delete(m.units, ch.Name)
 	}
+	m.updateSummary()
 	return nil
 }
 
@@ -409,6 +460,7 @@ func (m *Model) updateMachine(ch MachineChange, rm *residentManager) {
 	}
 	machine.setDetails(ch)
 
+	m.updateSummary()
 	m.mu.Unlock()
 }
 
@@ -424,6 +476,7 @@ func (m *Model) removeMachine(ch RemoveMachine) error {
 		}
 		delete(m.machines, ch.Id)
 	}
+	m.updateSummary()
 	return nil
 }
 
@@ -480,6 +533,7 @@ func (m *Model) setDetails(details ModelChange) {
 		m.hub.Publish(modelConfigChange, hashCache)
 	}
 
+	m.updateSummary()
 	m.mu.Unlock()
 }
 
@@ -576,4 +630,96 @@ func (w *waitUnitChange) close() {
 	default:
 		close(w.done)
 	}
+}
+
+func (m *Model) updateSummary() {
+	// This method is only called from within a mutex lock.
+	overallStatus := StatusGreen
+	var messages []ModelSummaryMessage
+	var machines, containers int
+
+	for id, machine := range m.machines {
+		if names.IsContainerMachine(id) {
+			containers++
+		} else {
+			machines++
+		}
+
+		// What machine statuses do we care about?
+		if st := machine.details.AgentStatus; st.Status == status.Error {
+			overallStatus = StatusRed
+			messages = append(messages, ModelSummaryMessage{
+				Agent:   id,
+				Message: st.Message,
+			})
+		}
+	}
+
+	for id, unit := range m.units {
+		if st := unit.details.AgentStatus; st.Status == status.Error {
+			overallStatus = StatusRed
+			messages = append(messages, ModelSummaryMessage{
+				Agent:   id,
+				Message: st.Message,
+			})
+		} else if st := unit.details.WorkloadStatus; st.Status == status.Blocked {
+			if overallStatus == StatusGreen {
+				overallStatus = StatusYellow
+			}
+			messages = append(messages, ModelSummaryMessage{
+				Agent:   id,
+				Message: st.Message,
+			})
+		}
+	}
+	sort.Slice(messages, func(i, j int) bool { return messages[i].Agent < messages[j].Agent })
+
+	var admins []string
+	for user, access := range m.details.UserPermissions {
+		if access == permission.AdminAccess {
+			admins = append(admins, user)
+		}
+	}
+	sort.Strings(admins)
+
+	summary := ModelSummary{
+		UUID:      m.details.ModelUUID,
+		Namespace: m.details.Owner,
+		Name:      m.details.Name,
+		Admins:    admins,
+		Status:    overallStatus,
+		Messages:  messages,
+
+		Cloud:      m.details.Cloud,
+		Region:     m.details.CloudRegion,
+		Credential: m.details.CloudCredential,
+
+		MachineCount:     machines,
+		ContainerCount:   containers,
+		ApplicationCount: len(m.applications),
+		UnitCount:        len(m.units),
+		RelationCount:    len(m.relations),
+	}
+	m.summary = summary
+
+	// TODO: manage the timer around status going from red -> yellow after
+	// a certain limit. This will probably mean passing in some clock to the controller
+	// to pass down to models.
+
+	hash, err := summary.hash()
+	if err != nil {
+		logger.Errorf("unable to generate hash for summary: %s", err)
+	}
+	logger.Tracef("summary hash, was %q, now %q", m.summaryHash, hash)
+	// In order to accurately deal with permission changes, and send an appropriate
+	// summary in the situation where a new user can see a model, we need to always
+	// publish summary updated topics with the hash, and let the watchers themselves
+	// track the lash hash they sent.
+	payload := modelSummaryPayload{
+		summary:   m.summaryCopy(),
+		visibleTo: m.visibleTo,
+		hash:      hash,
+	}
+	m.lastSummaryPublish = m.controllerHub.Publish(modelSummaryUpdatedTopic, payload)
+	m.summaryHash = hash
 }

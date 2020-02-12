@@ -20,7 +20,11 @@ import (
 // Controller pubsub topics
 const (
 	// A model has been updated in the controller.
-	modelUpdatedTopic = "updated-model"
+	modelUpdatedTopic = "model-updated"
+	// A model has been removed from the controller.
+	modelRemovedTopic = "model-removed"
+	// A model summary has changed
+	modelSummaryUpdatedTopic = "model-summary-changed"
 
 	// modelAppearingTimeout is how long the controller will wait for a model to
 	// exist before it either times out or returns a not found.
@@ -275,6 +279,7 @@ func (c *Controller) removeModel(ch RemoveModel) error {
 			return errors.Trace(err)
 		}
 		delete(c.models, ch.ModelUUID)
+		c.hub.Publish(modelRemovedTopic, ch.ModelUUID)
 	}
 	return nil
 }
@@ -364,7 +369,7 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 
 	model, found := c.models[modelUUID]
 	if !found {
-		model = newModel(c.metrics, newPubSubHub(), c.manager.new())
+		model = newModel(c.metrics, newPubSubHub(), c.hub, c.manager.new())
 		c.models[modelUUID] = model
 	} else {
 		model.setStale(false)
@@ -379,4 +384,17 @@ func newPubSubHub() *pubsub.SimpleHub {
 		// TODO: (thumper) add a get child method to loggers.
 		Logger: loggo.GetLogger("juju.core.cache.hub"),
 	})
+}
+
+// WatchModelsAsUser returns a watcher that will signal whenever there are
+// changes in the summary for that model. Only models the user can see are
+// included in the results.
+func (c *Controller) WatchModelsAsUser(username string) ModelSummaryWatcher {
+	return newModelSummaryWatcher(c, username)
+}
+
+// WatchAllModels returns a watcher that will signal whenever there are
+// changes in the summary for that model.
+func (c *Controller) WatchAllModels() ModelSummaryWatcher {
+	return newModelSummaryWatcher(c, "")
 }

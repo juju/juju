@@ -45,8 +45,8 @@ func (s *ControllerSuite) TestController(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestAddModel(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, modelChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, modelChange, events)
 
 	c.Check(controller.ModelUUIDs(), jc.SameContents, []string{modelChange.ModelUUID})
 	c.Check(controller.Report(), gc.DeepEquals, map[string]interface{}{
@@ -68,14 +68,14 @@ func (s *ControllerSuite) TestAddModel(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, modelChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, modelChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
 
 	remove := cache.RemoveModel{ModelUUID: modelChange.ModelUUID}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Check(controller.ModelUUIDs(), gc.HasLen, 0)
 	c.Check(controller.Report(), gc.HasLen, 0)
@@ -83,12 +83,12 @@ func (s *ControllerSuite) TestRemoveModel(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestWaitForModelExists(c *gc.C) {
-	controller, events := s.new(c)
+	controller, events := s.New(c)
 	clock := testclock.NewClock(time.Now())
 	done := make(chan struct{})
 	// Process the change event before waiting on the model. This
 	// way we know the model exists in the cache before we ask.
-	s.processChange(c, modelChange, events)
+	s.ProcessChange(c, modelChange, events)
 
 	go func() {
 		defer close(done)
@@ -106,7 +106,7 @@ func (s *ControllerSuite) TestWaitForModelExists(c *gc.C) {
 
 func (s *ControllerSuite) TestWaitForModelArrives(c *gc.C) {
 	//loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
-	controller, events := s.new(c)
+	controller, events := s.New(c)
 	clock := testclock.NewClock(time.Now())
 	done := make(chan struct{})
 	go func() {
@@ -119,7 +119,7 @@ func (s *ControllerSuite) TestWaitForModelArrives(c *gc.C) {
 	// Don't process the change until we know the model is selecting
 	// on the clock.
 	c.Assert(clock.WaitAdvance(time.Second, testing.LongWait, 1), jc.ErrorIsNil)
-	s.processChange(c, modelChange, events)
+	s.ProcessChange(c, modelChange, events)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
@@ -128,7 +128,7 @@ func (s *ControllerSuite) TestWaitForModelArrives(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestWaitForModelTimeout(c *gc.C) {
-	controller, events := s.new(c)
+	controller, events := s.New(c)
 	clock := testclock.NewClock(time.Now())
 	done := make(chan struct{})
 	go func() {
@@ -140,7 +140,7 @@ func (s *ControllerSuite) TestWaitForModelTimeout(c *gc.C) {
 
 	c.Assert(clock.WaitAdvance(10*time.Second, testing.LongWait, 1), jc.ErrorIsNil)
 
-	s.processChange(c, modelChange, events)
+	s.ProcessChange(c, modelChange, events)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
@@ -149,8 +149,8 @@ func (s *ControllerSuite) TestWaitForModelTimeout(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestAddApplication(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, appChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, appChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -164,8 +164,8 @@ func (s *ControllerSuite) TestAddApplication(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, appChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, appChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -176,7 +176,7 @@ func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Name:      appChange.Name,
 	}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(mod.Report()["application-count"], gc.Equals, 0)
@@ -184,8 +184,8 @@ func (s *ControllerSuite) TestRemoveApplication(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestAddCharm(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, charmChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, charmChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -198,8 +198,8 @@ func (s *ControllerSuite) TestAddCharm(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveCharm(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, charmChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, charmChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -210,15 +210,15 @@ func (s *ControllerSuite) TestRemoveCharm(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		CharmURL:  charmChange.CharmURL,
 	}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Check(mod.Report()["charm-count"], gc.Equals, 0)
 	s.AssertResident(c, ch.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddMachine(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, machineChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, machineChange, events)
 
 	mod, err := controller.Model(machineChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -231,8 +231,8 @@ func (s *ControllerSuite) TestAddMachine(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveMachine(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, machineChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, machineChange, events)
 
 	mod, err := controller.Model(machineChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -243,15 +243,15 @@ func (s *ControllerSuite) TestRemoveMachine(c *gc.C) {
 		ModelUUID: machineChange.ModelUUID,
 		Id:        machineChange.Id,
 	}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Check(mod.Report()["machine-count"], gc.Equals, 0)
 	s.AssertResident(c, machine.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddUnit(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, unitChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, unitChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -263,8 +263,8 @@ func (s *ControllerSuite) TestAddUnit(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, unitChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, unitChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -275,15 +275,15 @@ func (s *ControllerSuite) TestRemoveUnit(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Name:      unitChange.Name,
 	}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
 	s.AssertResident(c, unit.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddRelation(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, relationChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, relationChange, events)
 
 	mod, err := controller.Model(relationChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -295,8 +295,8 @@ func (s *ControllerSuite) TestAddRelation(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveRelation(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, relationChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, relationChange, events)
 
 	mod, err := controller.Model(relationChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -307,15 +307,15 @@ func (s *ControllerSuite) TestRemoveRelation(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Key:       relationChange.Key,
 	}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Check(mod.Report()["relation-count"], gc.Equals, 0)
 	s.AssertResident(c, relation.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestAddBranch(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, branchChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, branchChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -327,8 +327,8 @@ func (s *ControllerSuite) TestAddBranch(c *gc.C) {
 }
 
 func (s *ControllerSuite) TestRemoveBranch(c *gc.C) {
-	controller, events := s.new(c)
-	s.processChange(c, branchChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, branchChange, events)
 
 	mod, err := controller.Model(modelChange.ModelUUID)
 	c.Assert(err, jc.ErrorIsNil)
@@ -339,21 +339,21 @@ func (s *ControllerSuite) TestRemoveBranch(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        branchChange.Id,
 	}
-	s.processChange(c, remove, events)
+	s.ProcessChange(c, remove, events)
 
 	c.Check(mod.Report()["unit-count"], gc.Equals, 0)
 	s.AssertResident(c, branch.CacheId(), false)
 }
 
 func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
-	controller, events := s.new(c)
+	controller, events := s.New(c)
 
 	// Note that the model change is processed last.
-	s.processChange(c, charmChange, events)
-	s.processChange(c, appChange, events)
-	s.processChange(c, machineChange, events)
-	s.processChange(c, unitChange, events)
-	s.processChange(c, modelChange, events)
+	s.ProcessChange(c, charmChange, events)
+	s.ProcessChange(c, appChange, events)
+	s.ProcessChange(c, machineChange, events)
+	s.ProcessChange(c, unitChange, events)
+	s.ProcessChange(c, modelChange, events)
 
 	controller.Mark()
 
@@ -362,11 +362,11 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 		// Removals are congruent with LIFO.
 		// Model is last because models are added if they do not exist,
 		// when we first get a delta for one of their entities.
-		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveUnit{})
-		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveMachine{})
-		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveApplication{})
-		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveCharm{})
-		c.Check(s.nextChange(c, events), gc.FitsTypeOf, cache.RemoveModel{})
+		c.Check(s.NextChange(c, events), gc.FitsTypeOf, cache.RemoveUnit{})
+		c.Check(s.NextChange(c, events), gc.FitsTypeOf, cache.RemoveMachine{})
+		c.Check(s.NextChange(c, events), gc.FitsTypeOf, cache.RemoveApplication{})
+		c.Check(s.NextChange(c, events), gc.FitsTypeOf, cache.RemoveCharm{})
+		c.Check(s.NextChange(c, events), gc.FitsTypeOf, cache.RemoveModel{})
 		close(done)
 	}()
 
@@ -378,86 +378,6 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 	}
 
 	s.AssertNoResidents(c)
-}
-
-func (s *ControllerSuite) new(c *gc.C) (*cache.Controller, <-chan interface{}) {
-	events := s.captureEvents(c)
-	controller, err := s.NewController()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
-	return controller, events
-}
-
-func (s *ControllerSuite) captureEvents(c *gc.C) <-chan interface{} {
-	events := make(chan interface{})
-	s.Config.Notify = func(change interface{}) {
-		send := false
-		switch change.(type) {
-		case cache.ModelChange:
-			send = true
-		case cache.RemoveModel:
-			send = true
-		case cache.ApplicationChange:
-			send = true
-		case cache.RemoveApplication:
-			send = true
-		case cache.CharmChange:
-			send = true
-		case cache.RemoveCharm:
-			send = true
-		case cache.MachineChange:
-			send = true
-		case cache.RemoveMachine:
-			send = true
-		case cache.UnitChange:
-			send = true
-		case cache.RemoveUnit:
-			send = true
-		case cache.RelationChange:
-			send = true
-		case cache.RemoveRelation:
-			send = true
-		case cache.BranchChange:
-			send = true
-		case cache.RemoveBranch:
-			send = true
-		default:
-			// no-op
-		}
-		if send {
-			c.Logf("sending %#v", change)
-			select {
-			case events <- change:
-			case <-time.After(testing.LongWait):
-				c.Fatalf("change not processed by test")
-			}
-		}
-	}
-	return events
-}
-
-func (s *ControllerSuite) processChange(c *gc.C, change interface{}, notify <-chan interface{}) {
-	select {
-	case s.Changes <- change:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("controller did not read change")
-	}
-	select {
-	case obtained := <-notify:
-		c.Check(obtained, jc.DeepEquals, change)
-	case <-time.After(testing.LongWait):
-		c.Fatalf("controller did not handle change")
-	}
-}
-
-func (s *ControllerSuite) nextChange(c *gc.C, changes <-chan interface{}) interface{} {
-	var obtained interface{}
-	select {
-	case obtained = <-changes:
-	case <-time.After(testing.LongWait):
-		c.Fatalf("no change")
-	}
-	return obtained
 }
 
 func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
@@ -480,7 +400,6 @@ func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {
 
 func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
 	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
@@ -489,13 +408,12 @@ func (s *ControllerSuite) TestWatchMachineAddMachine(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "2",
 	}
-	s.processChange(c, change, events)
+	s.ProcessChange(c, change, events)
 	wc.AssertOneChange([]string{change.Id})
 }
 
 func (s *ControllerSuite) TestWatchMachineAddContainerNoChange(c *gc.C) {
 	w, events := s.setupWithWatchMachine(c)
-	defer workertest.CleanKill(c, w)
 	wc := cache.NewStringsWatcherC(c, w)
 	// Sends initial event.
 	wc.AssertOneChange([]string{machineChange.Id})
@@ -504,10 +422,10 @@ func (s *ControllerSuite) TestWatchMachineAddContainerNoChange(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "2/lxd/0",
 	}
-	s.processChange(c, change, events)
+	s.ProcessChange(c, change, events)
 	change2 := change
 	change2.Id = "3"
-	s.processChange(c, change2, events)
+	s.ProcessChange(c, change2, events)
 	wc.AssertOneChange([]string{change2.Id})
 }
 
@@ -522,7 +440,7 @@ func (s *ControllerSuite) TestWatchMachineRemoveMachine(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        machineChange.Id,
 	}
-	s.processChange(c, change, events)
+	s.ProcessChange(c, change, events)
 	wc.AssertOneChange([]string{change.Id})
 }
 
@@ -537,7 +455,7 @@ func (s *ControllerSuite) TestWatchMachineChangeMachine(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "0",
 	}
-	s.processChange(c, change, events)
+	s.ProcessChange(c, change, events)
 	wc.AssertNoChange()
 }
 
@@ -552,20 +470,17 @@ func (s *ControllerSuite) TestWatchMachineGatherMachines(c *gc.C) {
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "2",
 	}
-	s.processChange(c, change, events)
+	s.ProcessChange(c, change, events)
 	change2 := change
 	change2.Id = "3"
-	s.processChange(c, change2, events)
+	s.ProcessChange(c, change2, events)
 	wc.AssertMaybeCombinedChanges([]string{change.Id, change2.Id})
 }
 
 func (s *ControllerSuite) newWithMachine(c *gc.C) (*cache.Controller, <-chan interface{}) {
-	events := s.captureEvents(c)
-	controller, err := s.NewController()
-	c.Assert(err, jc.ErrorIsNil)
-	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
-	s.processChange(c, modelChange, events)
-	s.processChange(c, machineChange, events)
+	controller, events := s.New(c)
+	s.ProcessChange(c, modelChange, events)
+	s.ProcessChange(c, machineChange, events)
 	return controller, events
 }
 
@@ -578,7 +493,7 @@ func (s *ControllerSuite) setupWithWatchMachine(c *gc.C) (*cache.PredicateString
 		ModelUUID: modelChange.ModelUUID,
 		Id:        "2/lxd/0",
 	}
-	s.processChange(c, containerChange, events)
+	s.ProcessChange(c, containerChange, events)
 
 	w, err := m.WatchMachines()
 	c.Assert(err, jc.ErrorIsNil)
