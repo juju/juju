@@ -36,8 +36,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-// This package contains the move from stub to mocking. Therefore the package is not "*._test"
-// We contain the old spaces_test while slowly migrating to the new mocking model.
+// This suite shows the new mocking suite. While below shows the old suite we want to migrate from.
 type SpaceTestMockSuite struct {
 	mockBacking          *mocks.MockBacking
 	mockResource         *facademocks.MockResources
