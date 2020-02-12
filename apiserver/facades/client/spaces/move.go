@@ -4,11 +4,15 @@
 package spaces
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/common"
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
 )
@@ -91,10 +95,9 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			continue
 		}
 
-		for _, subnet := range subnets {
-			if subnet.SpaceID() == space.Id() {
-				//	 TODO; test next cidr or stop and return err?
-			}
+		if errString := checkSubnetCIDRAlreadyInSpace(subnets, space); len(errString) > 0 {
+			results.Results[i].Error = common.ServerError(errors.Trace(errors.New(strings.Join(errString, "\n"))))
+			continue
 		}
 
 		operation, err := api.opFactory.NewUpdateSpaceModelOp(space.Id(), subnets)
@@ -108,4 +111,15 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 		}
 	}
 	return results, nil
+}
+
+func checkSubnetCIDRAlreadyInSpace(subnets []networkingcommon.BackingSubnet, space networkingcommon.BackingSpace) []string {
+	var errorStrings []string
+	for _, subnet := range subnets {
+		if subnet.SpaceID() == space.Id() {
+			msg := fmt.Sprintf("supplied CIDR %q is already in space %q", subnet.CIDR(), space.Id())
+			errorStrings = append(errorStrings, msg)
+		}
+	}
+	return errorStrings
 }
