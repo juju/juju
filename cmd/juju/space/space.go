@@ -157,6 +157,10 @@ func (m *APIShim) ShowSpace(name string) (network.ShowSpace, error) {
 	return m.facade.ShowSpace(name)
 }
 
+func (m *APIShim) UpdateSpace(name string, subnetIds []string) error {
+	return m.facade.UpdateSpace(name, subnetIds)
+}
+
 // NewAPI returns a SpaceAPI for the root api endpoint that the
 // environment command returns.
 func (c *SpaceCommandBase) NewAPI() (SpaceAPI, error) {
