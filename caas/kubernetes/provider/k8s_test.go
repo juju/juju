@@ -932,7 +932,8 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *appsv1.StatefulSet {
 	return &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "app-name",
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":      "appuuid",
 				"juju.io/controller": testing.ControllerTag.Id(),
@@ -1697,7 +1698,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "app-name",
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":      "appuuid",
 				"juju.io/controller": testing.ControllerTag.Id(),
@@ -1781,7 +1783,8 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "app-name",
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":      "appuuid",
 				"juju.io/controller": testing.ControllerTag.Id(),
@@ -3289,7 +3292,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDeploymentWithDevices(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesCreate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3307,6 +3310,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesCreate(c *gc.C)
 				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
 			},
 		}
+	}
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}, {
+						Key:      "bar",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"d", "e", "f"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"g", "h"},
+					}},
+				}},
+			},
+		},
 	}
 
 	daemonSetArg := &appsv1.DaemonSet{
@@ -3367,6 +3391,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesCreate(c *gc.C)
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
+		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",
@@ -3376,7 +3401,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesCreate(c *gc.C)
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesUpdate(c *gc.C) {
+func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsUpdate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -3394,6 +3419,27 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesUpdate(c *gc.C)
 				"nvidia.com/gpu": *resource.NewQuantity(3, resource.DecimalSI),
 			},
 		}
+	}
+	podSpec.Affinity = &core.Affinity{
+		NodeAffinity: &core.NodeAffinity{
+			RequiredDuringSchedulingIgnoredDuringExecution: &core.NodeSelector{
+				NodeSelectorTerms: []core.NodeSelectorTerm{{
+					MatchExpressions: []core.NodeSelectorRequirement{{
+						Key:      "foo",
+						Operator: core.NodeSelectorOpIn,
+						Values:   []string{"a", "b", "c"},
+					}, {
+						Key:      "bar",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"d", "e", "f"},
+					}, {
+						Key:      "foo",
+						Operator: core.NodeSelectorOpNotIn,
+						Values:   []string{"g", "h"},
+					}},
+				}},
+			},
+		},
 	}
 
 	daemonSetArg := &appsv1.DaemonSet{
@@ -3460,6 +3506,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesUpdate(c *gc.C)
 		ResourceTags: map[string]string{
 			"juju-controller-uuid": testing.ControllerTag.Id(),
 		},
+		Constraints: constraints.MustParse(`tags=foo=a|b|c,^bar=d|e|f,^foo=g|h`),
 	}
 	err = s.broker.EnsureService("app-name", nil, params, 2, application.ConfigAttributes{
 		"kubernetes-service-type":            "nodeIP",

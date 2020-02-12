@@ -36,7 +36,8 @@ func (s *K8sBrokerSuite) assertIngressResources(c *gc.C, IngressResources []k8ss
 	numUnits := int32(2)
 	statefulSetArg := &appsv1.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
-			Name: "app-name",
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
 				"juju-app-uuid":      "appuuid",
 				"juju.io/controller": testing.ControllerTag.Id(),
