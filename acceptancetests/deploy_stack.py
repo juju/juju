@@ -1255,11 +1255,7 @@ def _deploy_job(args, charm_series, series):
         args.temp_env_name, client, client, args.bootstrap_host, args.machine,
         series, args.agent_url, args.agent_stream, args.region, args.logs,
         args.keep_env, controller_strategy=controller_strategy)
-<<<<<<< HEAD
-    with bs_manager.booted_context(args.upload_tools, force=args.force):
-=======
     with bs_manager.booted_context(args.upload_tools, force=args.force, config_options=args.config):
->>>>>>> juju/2.7
         # Create a no-op context manager, to avoid duplicate calls of
         # deploy_dummy_stack(), as was the case prior to this revision.
         manager = nested()
