@@ -557,11 +557,11 @@
   revision = "a0ef8b74ebcffeeff9fc374854deb4af388f037e"
 
 [[projects]]
-  digest = "1:bb616b3cb33db532e55c2209ea9b6fe4364953f3ac28010e274e7a37762c7e99"
+  digest = "1:c87397413d99514620284ec0eced142321b3e64e38895aeecb07606c6fe82546"
   name = "github.com/juju/jsonschema-gen"
   packages = ["."]
   pruneopts = ""
-  revision = "8a53421608bbf30e65082e0210d89c2dc34d52c2"
+  revision = "11507d258058ffaeee6efa39e97655e934778c99"
 
 [[projects]]
   digest = "1:e460f07bec03866640127c47aae303167e9c79ee426c5fab03c180001eb4a39f"
