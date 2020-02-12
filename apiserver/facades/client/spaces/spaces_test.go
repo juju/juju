@@ -258,13 +258,13 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	aCIDR := "10.0.0.0/24"
 
 	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
-	spacesMock.EXPECT().Id().Return("1")
-
+	spacesMock.EXPECT().Id().Return("1").Times(2)
 	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
 
-	var validSubnet networkingcommon.BackingSubnet
-	s.mockBacking.EXPECT().SubnetByCIDR(aCIDR).Return(validSubnet, nil)
-	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{validSubnet}).Return(s.mockModelOperation, nil)
+	subnetMock := networkcommonmocks.NewMockBackingSubnet(ctrl)
+	subnetMock.EXPECT().SpaceID().Return("0")
+	s.mockBacking.EXPECT().SubnetByCIDR(aCIDR).Return(subnetMock, nil)
+	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{subnetMock}).Return(s.mockModelOperation, nil)
 	s.mockBacking.EXPECT().ApplyOperation(s.mockModelOperation).Return(nil)
 
 	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
@@ -296,7 +296,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) 
 	res, err := s.api.MoveToSpace(args)
 
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
-	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
+	c.Assert(res, gc.DeepEquals, params.MoveToSpaceResults{Results: []params.MoveToSpaceResult(nil)})
 }
 
 func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
