@@ -3432,7 +3432,7 @@
                             "type": "string"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         },
                         "provider-id": {
                             "type": "string"
@@ -9374,7 +9374,7 @@
                             "type": "integer"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         },
                         "meter-statuses": {
                             "type": "object",
@@ -9670,7 +9670,7 @@
                             "type": "string"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         },
                         "since": {
                             "type": "string",
@@ -10267,7 +10267,7 @@
                             "type": "boolean"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         },
                         "machines": {
                             "type": "array",
@@ -10761,7 +10761,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         },
                         "offer-name": {
                             "type": "string"
@@ -26971,7 +26971,7 @@
                             "$ref": "#/definitions/Error"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         }
                     },
                     "additionalProperties": false,
@@ -27536,7 +27536,7 @@
                             "type": "string"
                         },
                         "life": {
-                            "$ref": "#/definitions/Value"
+                            "type": "string"
                         },
                         "since": {
                             "type": "string",
