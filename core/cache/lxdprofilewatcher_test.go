@@ -141,6 +141,27 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
 }
 
+func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfileUpdateUnit(c *gc.C) {
+	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+	// Add a new subordinate unit with a profile of a new application.
+	s.newUnitForMachineLXDProfileWatcherSubProfile(c, s.machine0.Id(), unitChange.Name)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
+
+	unitChange := cache.UnitChange{
+		ModelUUID:   "model-uuid",
+		Name:        "name-me/0",
+		Application: "name-me",
+		Series:      "bionic",
+		MachineId:   s.machine0.Id(),
+		Principal:   unitChange.Name,
+		Subordinate: true,
+	}
+
+	// New subordinate unit.
+	s.model.UpdateUnit(unitChange, s.Manager)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 1, 2)
+}
+
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateNoProfile(c *gc.C) {
 	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
 	// Add a new subordinate unit with no profile of a new application.
