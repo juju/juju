@@ -59,42 +59,45 @@ func (o *spaceUpdateModelOp) Build(attempt int) ([]txn.Op, error) {
 	return totalOps, nil
 }
 
-// UpdateSpace updates a space by it's given cidr
-func (api *API) UpdateSpace(args params.UpdateSpacesParams) (params.ErrorResults, error) {
-	var errorResults params.ErrorResults
+// MoveToSpace updates a space by it's given cidr
+func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceResults, error) {
+	var results params.MoveToSpaceResults
 
 	err := api.checkSpacesCRUDPermissions()
 	if err != nil {
-		return errorResults, err
+		return results, err
 	}
 
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.UpdateSpaces)),
+	results = params.MoveToSpaceResults{
+		Results: make([]params.MoveToSpaceResult, len(args.MoveToSpace)),
 	}
 
-	for i, updateSpace := range args.UpdateSpaces {
+	for i, updateSpace := range args.MoveToSpace {
 		spaceTag, err := names.ParseSpaceTag(updateSpace.SpaceTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
-		// space exist
-		// TODO: may check space.subnets() == cidrs and handle that
-		_, err = api.backing.SpaceByName(spaceTag.String())
+		space, err := api.backing.SpaceByName(spaceTag.Id())
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
-		// spaceID exist and cidr are fine
 		subnets, err := api.getValidSubnets(updateSpace.CIDRs)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
-		operation, err := api.opFactory.NewUpdateSpaceModelOp(spaceTag.Id(), subnets)
+		for _, subnet := range subnets {
+			if subnet.SpaceID() == space.Id() {
+				//	 TODO; test next cidr or stop and return err?
+			}
+		}
+
+		operation, err := api.opFactory.NewUpdateSpaceModelOp(space.Id(), subnets)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue

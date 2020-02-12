@@ -43,8 +43,8 @@ type SpaceTestMockSuite struct {
 	mockCloudCallContext *context.CloudCallContext
 	mockAuthorizer       *facademocks.MockAuthorizer
 
-	mockOpFactory *mocks.MockOpFactory
-	mockRenameOp  *statemocks.MockModelOperation
+	mockOpFactory      *mocks.MockOpFactory
+	mockModelOperation *statemocks.MockModelOperation
 
 	api *spaces.API
 }
@@ -227,9 +227,9 @@ func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {
 	defer unreg()
 	from, to := "bla", "blub"
 
-	s.mockOpFactory.EXPECT().NewRenameSpaceModelOp(from, to).Return(s.mockRenameOp, nil)
+	s.mockOpFactory.EXPECT().NewRenameSpaceModelOp(from, to).Return(s.mockModelOperation, nil)
 	s.expectDefaultSpace(ctrl, to, errors.NotFoundf("abc"), nil)
-	s.mockBacking.EXPECT().ApplyOperation(s.mockRenameOp).Return(nil)
+	s.mockBacking.EXPECT().ApplyOperation(s.mockModelOperation).Return(nil)
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.api.RenameSpace(args)
@@ -246,6 +246,55 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) 
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.api.RenameSpace(args)
+	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
+	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceTag := names.NewSpaceTag("myspace")
+	aCIDR := "10.0.0.0/24"
+
+	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
+	spacesMock.EXPECT().Id().Return("1")
+
+	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
+
+	var validSubnet networkingcommon.BackingSubnet
+	s.mockBacking.EXPECT().SubnetByCIDR(aCIDR).Return(validSubnet, nil)
+	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{validSubnet}).Return(s.mockModelOperation, nil)
+	s.mockBacking.EXPECT().ApplyOperation(s.mockModelOperation).Return(nil)
+
+	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+		{
+			CIDRs:    []string{aCIDR},
+			SpaceTag: spaceTag.String(),
+		},
+	}}
+
+	res, err := s.api.MoveToSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+
+	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+		{
+			CIDRs:    []string{"192.168.1.0/16"},
+			SpaceTag: names.NewSpaceTag(spaceName).String(),
+		},
+	}}
+
+	res, err := s.api.MoveToSpace(args)
+
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
 }
@@ -521,8 +570,8 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 	s.mockBlockChecker.EXPECT().ChangeAllowed().Return(nil).AnyTimes()
 	s.mockBacking = mocks.NewMockBacking(ctrl)
 	s.mockOpFactory = mocks.NewMockOpFactory(ctrl)
-	s.mockRenameOp = statemocks.NewMockModelOperation(ctrl)
 	s.mockConstraints = mocks.NewMockConstraints(ctrl)
+	s.mockModelOperation = statemocks.NewMockModelOperation(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
