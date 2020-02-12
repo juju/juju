@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	core "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -470,26 +470,26 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		webhookRule1 := admissionregistrationv1beta1.Rule{
+		webhookRule1 := admissionregistrationv1.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"pods"},
 		}
-		webhookRuleWithOperations1 := admissionregistrationv1beta1.RuleWithOperations{
-			Operations: []admissionregistrationv1beta1.OperationType{
-				admissionregistrationv1beta1.Create,
-				admissionregistrationv1beta1.Update,
+		webhookRuleWithOperations1 := admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
+				admissionregistrationv1.Update,
 			},
 		}
 		webhookRuleWithOperations1.Rule = webhookRule1
 		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 		c.Assert(err, jc.ErrorIsNil)
-		webhookFailurePolicy1 := admissionregistrationv1beta1.Ignore
-		webhook1 := admissionregistrationv1beta1.Webhook{
+		webhookFailurePolicy1 := admissionregistrationv1.Ignore
+		webhook1 := admissionregistrationv1.Webhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
 			FailurePolicy: &webhookFailurePolicy1,
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				Service: &admissionregistrationv1.ServiceReference{
 					Name:      "apple-service",
 					Namespace: "apples",
 					Path:      strPtr("/apple"),
@@ -501,25 +501,25 @@ echo "do some stuff here for gitlab-init container"
 					{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
 				},
 			},
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations1},
+			Rules: []admissionregistrationv1.RuleWithOperations{webhookRuleWithOperations1},
 		}
 
-		webhookRule2 := admissionregistrationv1beta1.Rule{
+		webhookRule2 := admissionregistrationv1.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"pods"},
 		}
-		webhookRuleWithOperations2 := admissionregistrationv1beta1.RuleWithOperations{
-			Operations: []admissionregistrationv1beta1.OperationType{
-				admissionregistrationv1beta1.Create,
+		webhookRuleWithOperations2 := admissionregistrationv1.RuleWithOperations{
+			Operations: []admissionregistrationv1.OperationType{
+				admissionregistrationv1.Create,
 			},
 		}
 		webhookRuleWithOperations2.Rule = webhookRule2
-		webhook2 := admissionregistrationv1beta1.Webhook{
+		webhook2 := admissionregistrationv1.Webhook{
 			Name:  "pod-policy.example.com",
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations2},
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
+			Rules: []admissionregistrationv1.RuleWithOperations{webhookRuleWithOperations2},
+			ClientConfig: admissionregistrationv1.WebhookClientConfig{
+				Service: &admissionregistrationv1.ServiceReference{
 					Name:      "example-service",
 					Namespace: "example-namespace",
 				},
@@ -665,10 +665,10 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
+				MutatingWebhookConfigurations: map[string][]admissionregistrationv1.Webhook{
 					"example-mutatingwebhookconfiguration": {webhook1},
 				},
-				ValidatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
+				ValidatingWebhookConfigurations: map[string][]admissionregistrationv1.Webhook{
 					"pod-policy.example.com": {webhook2},
 				},
 			},

@@ -97,7 +97,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types
 }
 
 func (k *kubernetesClient) getCustomResourceDefinition(name string, includeUninitialized bool) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
-	crd, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{IncludeUninitialized: includeUninitialized})
+	crd, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("custom resource definition %q", name)
 	}
@@ -108,8 +108,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(appName string) error
 	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getCRDLabels(appName)),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(k.getCRDLabels(appName)),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -118,7 +117,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(appName string) error
 }
 
 func (k *kubernetesClient) deleteCustomResources(appName string) error {
-	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{IncludeUninitialized: true})
+	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -131,8 +130,7 @@ func (k *kubernetesClient) deleteCustomResources(appName string) error {
 			err = crdClient.DeleteCollection(&v1.DeleteOptions{
 				PropagationPolicy: &defaultPropagationPolicy,
 			}, v1.ListOptions{
-				LabelSelector:        labelsToSelector(k.getCRLabels(appName)),
-				IncludeUninitialized: true,
+				LabelSelector: labelsToSelector(k.getCRLabels(appName)),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Trace(err)
@@ -191,7 +189,7 @@ func (k *kubernetesClient) ensureCustomResources(
 
 func ensureCustomResource(api dynamic.ResourceInterface, cr *unstructured.Unstructured) (out *unstructured.Unstructured, cleanUps []func(), err error) {
 	logger.Debugf("creating custom resource %q", cr.GetName())
-	if out, err = api.Create(cr); err == nil {
+	if out, err = api.Create(cr, v1.CreateOptions{}); err == nil {
 		cleanUps = append(cleanUps, func() {
 			deleteCustomResourceDefinition(api, out.GetName(), out.GetUID())
 		})
@@ -207,7 +205,7 @@ func ensureCustomResource(api dynamic.ResourceInterface, cr *unstructured.Unstru
 	}
 	cr.SetResourceVersion(existingCR.GetResourceVersion())
 	logger.Debugf("updating custom resource %q", cr.GetName())
-	out, err = api.Update(cr)
+	out, err = api.Update(cr, v1.UpdateOptions{})
 	return out, cleanUps, errors.Trace(err)
 }
 
@@ -245,7 +243,7 @@ func (cg *crdGetter) Get(
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting custom resource definition client %q", name)
 	}
-	if _, err := crClient.List(v1.ListOptions{IncludeUninitialized: false}); err != nil {
+	if _, err := crClient.List(v1.ListOptions{}); err != nil {
 		if k8serrors.IsNotFound(err) {
 			// CRD already exists, but the resource type does not exist yet.
 			return nil, errors.NewNotFound(err, fmt.Sprintf("custom resource definition %q resource type", crd.GetName()))

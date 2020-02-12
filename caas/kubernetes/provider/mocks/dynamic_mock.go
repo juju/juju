@@ -74,9 +74,9 @@ func (m *MockResourceInterface) EXPECT() *MockResourceInterfaceMockRecorder {
 }
 
 // Create mocks base method
-func (m *MockResourceInterface) Create(arg0 *unstructured.Unstructured, arg1 ...string) (*unstructured.Unstructured, error) {
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+func (m *MockResourceInterface) Create(arg0 *unstructured.Unstructured, arg1 v1.CreateOptions, arg2 ...string) (*unstructured.Unstructured, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Create", varargs...)
@@ -86,8 +86,8 @@ func (m *MockResourceInterface) Create(arg0 *unstructured.Unstructured, arg1 ...
 }
 
 // Create indicates an expected call of Create
-func (mr *MockResourceInterfaceMockRecorder) Create(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0}, arg1...)
+func (mr *MockResourceInterfaceMockRecorder) Create(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockResourceInterface)(nil).Create), varargs...)
 }
 
@@ -152,9 +152,9 @@ func (mr *MockResourceInterfaceMockRecorder) List(arg0 interface{}) *gomock.Call
 }
 
 // Patch mocks base method
-func (m *MockResourceInterface) Patch(arg0 string, arg1 types.PatchType, arg2 []byte, arg3 ...string) (*unstructured.Unstructured, error) {
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
+func (m *MockResourceInterface) Patch(arg0 string, arg1 types.PatchType, arg2 []byte, arg3 v1.PatchOptions, arg4 ...string) (*unstructured.Unstructured, error) {
+	varargs := []interface{}{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Patch", varargs...)
@@ -164,15 +164,15 @@ func (m *MockResourceInterface) Patch(arg0 string, arg1 types.PatchType, arg2 []
 }
 
 // Patch indicates an expected call of Patch
-func (mr *MockResourceInterfaceMockRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+func (mr *MockResourceInterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockResourceInterface)(nil).Patch), varargs...)
 }
 
 // Update mocks base method
-func (m *MockResourceInterface) Update(arg0 *unstructured.Unstructured, arg1 ...string) (*unstructured.Unstructured, error) {
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+func (m *MockResourceInterface) Update(arg0 *unstructured.Unstructured, arg1 v1.UpdateOptions, arg2 ...string) (*unstructured.Unstructured, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Update", varargs...)
@@ -182,22 +182,22 @@ func (m *MockResourceInterface) Update(arg0 *unstructured.Unstructured, arg1 ...
 }
 
 // Update indicates an expected call of Update
-func (mr *MockResourceInterfaceMockRecorder) Update(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0}, arg1...)
+func (mr *MockResourceInterfaceMockRecorder) Update(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockResourceInterface)(nil).Update), varargs...)
 }
 
 // UpdateStatus mocks base method
-func (m *MockResourceInterface) UpdateStatus(arg0 *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	ret := m.ctrl.Call(m, "UpdateStatus", arg0)
+func (m *MockResourceInterface) UpdateStatus(arg0 *unstructured.Unstructured, arg1 v1.UpdateOptions) (*unstructured.Unstructured, error) {
+	ret := m.ctrl.Call(m, "UpdateStatus", arg0, arg1)
 	ret0, _ := ret[0].(*unstructured.Unstructured)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateStatus indicates an expected call of UpdateStatus
-func (mr *MockResourceInterfaceMockRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockResourceInterface)(nil).UpdateStatus), arg0)
+func (mr *MockResourceInterfaceMockRecorder) UpdateStatus(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockResourceInterface)(nil).UpdateStatus), arg0, arg1)
 }
 
 // Watch mocks base method
@@ -237,9 +237,9 @@ func (m *MockNamespaceableResourceInterface) EXPECT() *MockNamespaceableResource
 }
 
 // Create mocks base method
-func (m *MockNamespaceableResourceInterface) Create(arg0 *unstructured.Unstructured, arg1 ...string) (*unstructured.Unstructured, error) {
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+func (m *MockNamespaceableResourceInterface) Create(arg0 *unstructured.Unstructured, arg1 v1.CreateOptions, arg2 ...string) (*unstructured.Unstructured, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Create", varargs...)
@@ -249,8 +249,8 @@ func (m *MockNamespaceableResourceInterface) Create(arg0 *unstructured.Unstructu
 }
 
 // Create indicates an expected call of Create
-func (mr *MockNamespaceableResourceInterfaceMockRecorder) Create(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0}, arg1...)
+func (mr *MockNamespaceableResourceInterfaceMockRecorder) Create(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockNamespaceableResourceInterface)(nil).Create), varargs...)
 }
 
@@ -327,9 +327,9 @@ func (mr *MockNamespaceableResourceInterfaceMockRecorder) Namespace(arg0 interfa
 }
 
 // Patch mocks base method
-func (m *MockNamespaceableResourceInterface) Patch(arg0 string, arg1 types.PatchType, arg2 []byte, arg3 ...string) (*unstructured.Unstructured, error) {
-	varargs := []interface{}{arg0, arg1, arg2}
-	for _, a := range arg3 {
+func (m *MockNamespaceableResourceInterface) Patch(arg0 string, arg1 types.PatchType, arg2 []byte, arg3 v1.PatchOptions, arg4 ...string) (*unstructured.Unstructured, error) {
+	varargs := []interface{}{arg0, arg1, arg2, arg3}
+	for _, a := range arg4 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Patch", varargs...)
@@ -339,15 +339,15 @@ func (m *MockNamespaceableResourceInterface) Patch(arg0 string, arg1 types.Patch
 }
 
 // Patch indicates an expected call of Patch
-func (mr *MockNamespaceableResourceInterfaceMockRecorder) Patch(arg0, arg1, arg2 interface{}, arg3 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0, arg1, arg2}, arg3...)
+func (mr *MockNamespaceableResourceInterfaceMockRecorder) Patch(arg0, arg1, arg2, arg3 interface{}, arg4 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1, arg2, arg3}, arg4...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Patch", reflect.TypeOf((*MockNamespaceableResourceInterface)(nil).Patch), varargs...)
 }
 
 // Update mocks base method
-func (m *MockNamespaceableResourceInterface) Update(arg0 *unstructured.Unstructured, arg1 ...string) (*unstructured.Unstructured, error) {
-	varargs := []interface{}{arg0}
-	for _, a := range arg1 {
+func (m *MockNamespaceableResourceInterface) Update(arg0 *unstructured.Unstructured, arg1 v1.UpdateOptions, arg2 ...string) (*unstructured.Unstructured, error) {
+	varargs := []interface{}{arg0, arg1}
+	for _, a := range arg2 {
 		varargs = append(varargs, a)
 	}
 	ret := m.ctrl.Call(m, "Update", varargs...)
@@ -357,22 +357,22 @@ func (m *MockNamespaceableResourceInterface) Update(arg0 *unstructured.Unstructu
 }
 
 // Update indicates an expected call of Update
-func (mr *MockNamespaceableResourceInterfaceMockRecorder) Update(arg0 interface{}, arg1 ...interface{}) *gomock.Call {
-	varargs := append([]interface{}{arg0}, arg1...)
+func (mr *MockNamespaceableResourceInterfaceMockRecorder) Update(arg0, arg1 interface{}, arg2 ...interface{}) *gomock.Call {
+	varargs := append([]interface{}{arg0, arg1}, arg2...)
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Update", reflect.TypeOf((*MockNamespaceableResourceInterface)(nil).Update), varargs...)
 }
 
 // UpdateStatus mocks base method
-func (m *MockNamespaceableResourceInterface) UpdateStatus(arg0 *unstructured.Unstructured) (*unstructured.Unstructured, error) {
-	ret := m.ctrl.Call(m, "UpdateStatus", arg0)
+func (m *MockNamespaceableResourceInterface) UpdateStatus(arg0 *unstructured.Unstructured, arg1 v1.UpdateOptions) (*unstructured.Unstructured, error) {
+	ret := m.ctrl.Call(m, "UpdateStatus", arg0, arg1)
 	ret0, _ := ret[0].(*unstructured.Unstructured)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // UpdateStatus indicates an expected call of UpdateStatus
-func (mr *MockNamespaceableResourceInterfaceMockRecorder) UpdateStatus(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockNamespaceableResourceInterface)(nil).UpdateStatus), arg0)
+func (mr *MockNamespaceableResourceInterfaceMockRecorder) UpdateStatus(arg0, arg1 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateStatus", reflect.TypeOf((*MockNamespaceableResourceInterface)(nil).UpdateStatus), arg0, arg1)
 }
 
 // Watch mocks base method

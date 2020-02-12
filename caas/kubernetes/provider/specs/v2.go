@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -115,8 +115,8 @@ type KubernetesResources struct {
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
-	MutatingWebhookConfigurations   map[string][]admissionregistrationv1beta1.Webhook `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
-	ValidatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
+	MutatingWebhookConfigurations   map[string][]admissionregistrationv1.MutatingWebhook   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+	ValidatingWebhookConfigurations map[string][]admissionregistrationv1.ValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	ServiceAccounts  []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 	IngressResources []K8sIngressSpec        `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`

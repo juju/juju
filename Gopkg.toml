@@ -170,11 +170,11 @@
   revision = "87155f248cf6ea9e38ae7613f9ea1e5bb397ac83"
 
 [[constraint]]
-  revision = "183f3326a9353bd6d41430fc80f96259331d029c"
+  revision = "d9adff57e763360b17e25cfe5a6c85f545c6daa2"
   name = "k8s.io/api"
 
 [[constraint]]
-  revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
+  revision = "731dcecc205498f52a21b12e311af095efb4b188"
   name = "k8s.io/apimachinery"
 
 [[constraint]]
@@ -428,7 +428,7 @@
 
 [[constraint]]
   name = "k8s.io/client-go"
-  revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
+  revision = "19522ff2880261a5116cf35985e08de6c6dfb681"
 
 [[override]]
   name = "github.com/mattn/go-colorable"
@@ -530,7 +530,7 @@
 
 [[constraint]]
   name = "k8s.io/apiextensions-apiserver"
-  revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
+  revision = "6910daba737d70c6f908dceffef83f5907543afb"
 
 [[constraint]]
   revision = "8a53421608bbf30e65082e0210d89c2dc34d52c2"
