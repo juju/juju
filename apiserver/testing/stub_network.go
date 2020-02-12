@@ -5,6 +5,7 @@ package testing
 
 import (
 	"fmt"
+	"gopkg.in/mgo.v2/txn"
 	"strconv"
 	"strings"
 
@@ -318,6 +319,14 @@ type FakeSubnet struct {
 }
 
 var _ networkingcommon.BackingSubnet = (*FakeSubnet)(nil)
+
+func (f *FakeSubnet) UpdateOps(args network.SubnetInfo) ([]txn.Op, error) {
+	panic("should not be called")
+}
+
+func (f *FakeSubnet) Refresh() error {
+	panic("should not be called")
+}
 
 // GoString implements fmt.GoStringer.
 func (f *FakeSubnet) GoString() string {
