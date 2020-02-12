@@ -432,10 +432,10 @@ func (api *API) checkSupportsSpaces() error {
 	return nil
 }
 
-// checkSupportsProviderSpaces checks if the environment implements NetworkingEnviron
+// checkSupportForProviderSpaces checks if the environment implements NetworkingEnviron
 // and also if it support provider spaces. Returns an error if it does support provider spaces.
 // We don't want to update/change provider sources spaces.
-func (api *API) checkSupportsProviderSpaces() error {
+func (api *API) checkSupportForProviderSpaces() error {
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {
 		return errors.Annotate(err, "getting environ")
@@ -492,7 +492,7 @@ func (api *API) checkSpacesCRUDPermissions() error {
 	if err := api.check.ChangeAllowed(); err != nil {
 		return errors.Trace(err)
 	}
-	if err = api.checkSupportsProviderSpaces(); err != nil {
+	if err = api.checkSupportForProviderSpaces(); err != nil {
 		return common.ServerError(errors.Trace(err))
 	}
 	return nil
