@@ -28,7 +28,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
-	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/core/watcher/watchertest"
@@ -213,10 +212,31 @@ func (s *ProvisionerTaskSuite) TestMultipleSpaceConstraints(c *gc.C) {
 	spaceConstraints := newSpaceConstraintStartInstanceParamsMatcher("alpha", "beta")
 
 	spaceConstraints.addMatch("subnets-to-zones", func(p environs.StartInstanceParams) bool {
-		return reflect.DeepEqual(p.SubnetsToZones, []map[network.Id][]string{
-			{"subnet-1": {"az-1"}},
-			{"subnet-2": {"az-2"}},
-		})
+		if len(p.SubnetsToZones) != 2 {
+			return false
+		}
+
+		// Order independence.
+		for _, subZones := range p.SubnetsToZones {
+			for sub, zones := range subZones {
+				var zone string
+
+				switch sub {
+				case "subnet-1":
+					zone = "az-1"
+				case "subnet-2":
+					zone = "az-2"
+				default:
+					return false
+				}
+
+				if len(zones) != 1 || zones[0] != zone {
+					return false
+				}
+			}
+		}
+
+		return true
 	})
 
 	broker.EXPECT().DeriveAvailabilityZones(s.callCtx, spaceConstraints).Return([]string{}, nil)
