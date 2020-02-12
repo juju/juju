@@ -115,7 +115,8 @@ type KubernetesResources struct {
 	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
 	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
-	MutatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+	MutatingWebhookConfigurations   map[string][]admissionregistrationv1beta1.Webhook `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
+	ValidatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
 	ServiceAccounts  []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 	IngressResources []K8sIngressSpec        `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
@@ -145,6 +146,11 @@ func (krs *KubernetesResources) Validate() error {
 		}
 	}
 	for k, webhooks := range krs.MutatingWebhookConfigurations {
+		if len(webhooks) == 0 {
+			return errors.NotValidf("empty webhooks %q", k)
+		}
+	}
+	for k, webhooks := range krs.ValidatingWebhookConfigurations {
 		if len(webhooks) == 0 {
 			return errors.NotValidf("empty webhooks %q", k)
 		}

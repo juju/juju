@@ -271,6 +271,23 @@ kubernetesResources:
           - UPDATE
           resources:
           - pods
+  validatingWebhookConfigurations:
+    pod-policy.example.com:
+      - name: "pod-policy.example.com"
+        rules:
+        - apiGroups:   [""]
+          apiVersions: ["v1"]
+          operations:  ["CREATE"]
+          resources:   ["pods"]
+          # scope:       "Namespaced"
+        clientConfig:
+          service:
+            namespace: "example-namespace"
+            name: "example-service"
+          caBundle: "YXBwbGVz"
+        # admissionReviewVersions: ["v1", "v1beta1"]
+        # sideEffects: None
+        # timeoutSeconds: 5
 `[1:]
 
 	expectedFileContent := `
@@ -453,7 +470,7 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		webhook1Rule1 := admissionregistrationv1beta1.Rule{
+		webhookRule1 := admissionregistrationv1beta1.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"pods"},
@@ -464,20 +481,20 @@ echo "do some stuff here for gitlab-init container"
 				admissionregistrationv1beta1.Update,
 			},
 		}
-		webhookRuleWithOperations1.Rule = webhook1Rule1
-		CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
+		webhookRuleWithOperations1.Rule = webhookRule1
+		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 		c.Assert(err, jc.ErrorIsNil)
-		webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
+		webhookFailurePolicy1 := admissionregistrationv1beta1.Ignore
 		webhook1 := admissionregistrationv1beta1.Webhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
-			FailurePolicy: &webhook1FailurePolicy,
+			FailurePolicy: &webhookFailurePolicy1,
 			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
 				Service: &admissionregistrationv1beta1.ServiceReference{
 					Name:      "apple-service",
 					Namespace: "apples",
 					Path:      strPtr("/apple"),
 				},
-				CABundle: CABundle,
+				CABundle: CABundle1,
 			},
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
@@ -485,6 +502,29 @@ echo "do some stuff here for gitlab-init container"
 				},
 			},
 			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations1},
+		}
+
+		webhookRule2 := admissionregistrationv1beta1.Rule{
+			APIGroups:   []string{""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+		}
+		webhookRuleWithOperations2 := admissionregistrationv1beta1.RuleWithOperations{
+			Operations: []admissionregistrationv1beta1.OperationType{
+				admissionregistrationv1beta1.Create,
+			},
+		}
+		webhookRuleWithOperations2.Rule = webhookRule2
+		webhook2 := admissionregistrationv1beta1.Webhook{
+			Name:  "pod-policy.example.com",
+			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations2},
+			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
+				Service: &admissionregistrationv1beta1.ServiceReference{
+					Name:      "example-service",
+					Namespace: "example-namespace",
+				},
+				CABundle: CABundle1,
+			},
 		}
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -627,6 +667,9 @@ password: shhhh`[1:],
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
 				MutatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
 					"example-mutatingwebhookconfiguration": {webhook1},
+				},
+				ValidatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
+					"pod-policy.example.com": {webhook2},
 				},
 			},
 		}
@@ -781,6 +824,23 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+}
+
+func (s *v2SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  validatingWebhookConfigurations:
+    example-validatingwebhookconfiguration:
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
 }
 
 func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
