@@ -20,7 +20,7 @@ var _ = gc.Suite(&UpdateSuite{})
 func (s *UpdateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
-	s.newCommand = space.NewUpdateCommand
+	s.newCommand = space.NewMoveCommand
 }
 
 func (s *UpdateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
@@ -30,9 +30,9 @@ func (s *UpdateSuite) TestRunWithSubnetsSucceeds(c *gc.C) {
 		"myspace", "10.1.2.0/24", "4.3.2.0/28",
 	)
 
-	s.api.CheckCallNames(c, "UpdateSpace", "Close")
+	s.api.CheckCallNames(c, "MoveToSpace", "Close")
 	s.api.CheckCall(c,
-		0, "UpdateSpace",
+		0, "MoveToSpace",
 		"myspace", s.Strings("10.1.2.0/24", "4.3.2.0/28"),
 	)
 }
@@ -45,6 +45,6 @@ func (s *UpdateSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 		"foo", "10.1.2.0/24",
 	)
 
-	s.api.CheckCallNames(c, "UpdateSpace", "Close")
-	s.api.CheckCall(c, 0, "UpdateSpace", "foo", s.Strings("10.1.2.0/24"))
+	s.api.CheckCallNames(c, "MoveToSpace", "Close")
+	s.api.CheckCall(c, 0, "MoveToSpace", "foo", s.Strings("10.1.2.0/24"))
 }

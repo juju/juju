@@ -30849,6 +30849,17 @@
                         }
                     }
                 },
+                "MoveToSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/MoveToSpacesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/MoveToSpaceResults"
+                        }
+                    }
+                },
                 "ReloadSpaces": {
                     "type": "object"
                 },
@@ -31006,6 +31017,90 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "MoveToSpaceParams": {
+                    "type": "object",
+                    "properties": {
+                        "cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidrs",
+                        "space-tag",
+                        "force"
+                    ]
+                },
+                "MoveToSpaceResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "moved-space-cidr": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MovedSpaceCIDR"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "MoveToSpaceResults": {
+                    "type": "object",
+                    "properties": {
+                        "update-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveToSpaceResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "update-spaces"
+                    ]
+                },
+                "MoveToSpacesParams": {
+                    "type": "object",
+                    "properties": {
+                        "update-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveToSpaceParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "update-spaces"
+                    ]
+                },
+                "MovedSpaceCIDR": {
+                    "type": "object",
+                    "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "space-tag"
                     ]
                 },
                 "RenameSpaceParams": {

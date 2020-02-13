@@ -4,6 +4,7 @@
 package spaces
 
 import (
+	"fmt"
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -176,6 +177,22 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 	return nil
 }
 
-func (api *API) UpdateSpace(name string, ids []string) error {
+func (api *API) MoveToSpace(name string, ids []string) error {
+	var response params.MoveToSpaceResults
+	spaceRenameParams := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+		{
+			CIDRs:    ids,
+			SpaceTag: names.NewSpaceTag(name).String(),
+			Force:    false,
+		},
+	}}
+	err := api.facade.FacadeCall("MoveToSpace", spaceRenameParams, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return errors.NewNotSupported(nil, err.Error())
+		}
+		return errors.Trace(err)
+	}
+	fmt.Printf("result: %+v \n", response)
 	return nil
 }
