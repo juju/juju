@@ -4,6 +4,7 @@
 package instancemutater
 
 import (
+	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/juju/core/cache"
@@ -11,6 +12,8 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// instanceMutaterStateShim is used as a shim for state.State to enable better
+// mock testing.
 type instanceMutaterStateShim struct {
 	*state.State
 }
@@ -18,9 +21,9 @@ type instanceMutaterStateShim struct {
 func (s *instanceMutaterStateShim) Application(appName string) (Application, error) {
 	app, err := s.State.Application(appName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return &application{
+	return &applicationShim{
 		Application: app,
 	}, nil
 }
@@ -28,9 +31,9 @@ func (s *instanceMutaterStateShim) Application(appName string) (Application, err
 func (s *instanceMutaterStateShim) Charm(curl *charm.URL) (Charm, error) {
 	ch, err := s.State.Charm(curl)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return &stateCharm{
+	return &charmShim{
 		Charm: ch,
 	}, nil
 }
@@ -38,15 +41,15 @@ func (s *instanceMutaterStateShim) Charm(curl *charm.URL) (Charm, error) {
 func (s instanceMutaterStateShim) Machine(machineId string) (Machine, error) {
 	m, err := s.State.Machine(machineId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return &machine{
+	return &machineShim{
 		Machine: m,
 	}, nil
 }
 
-// modelCacheShim is used as a shim between the
-// cache.PredicateStringsWatcher and cache.StringsWatcher to enable better mock testing.
+// modelCacheShim is used as a shim the model cache to enable better
+// mock testing.
 type modelCacheShim struct {
 	*cache.Model
 }
@@ -58,30 +61,34 @@ func (s *modelCacheShim) WatchMachines() (cache.StringsWatcher, error) {
 func (s modelCacheShim) Machine(machineId string) (ModelCacheMachine, error) {
 	machine, err := s.Model.Machine(machineId)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
-	return &modelCacheMachine{
+	return &modelCacheMachineShim{
 		Machine: machine,
 	}, nil
 }
 
-type modelCacheMachine struct {
+// modelCacheMachineShim is used as a shim for model cache machines to
+// enable better mock testing.
+type modelCacheMachineShim struct {
 	cache.Machine
 }
 
-func (m *modelCacheMachine) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
+func (m *modelCacheMachineShim) WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error) {
 	return m.Machine.WatchLXDProfileVerificationNeeded()
 }
 
-func (m *modelCacheMachine) WatchContainers() (cache.StringsWatcher, error) {
+func (m *modelCacheMachineShim) WatchContainers() (cache.StringsWatcher, error) {
 	return m.Machine.WatchContainers()
 }
 
-type stateCharm struct {
+// charmShim is used as a shim for a state Charm to enable better
+// mock testing.
+type charmShim struct {
 	*state.Charm
 }
 
-func (s *stateCharm) LXDProfile() lxdprofile.Profile {
+func (s *charmShim) LXDProfile() lxdprofile.Profile {
 	profile := s.Charm.LXDProfile()
 	return lxdprofile.Profile{
 		Config:      profile.Config,
@@ -90,35 +97,41 @@ func (s *stateCharm) LXDProfile() lxdprofile.Profile {
 	}
 }
 
-type unit struct {
+// unitShim is used as a shim for a state Unit to enable better
+// mock testing.
+type unitShim struct {
 	*state.Unit
 }
 
-func (u *unit) Application() string {
+func (u *unitShim) Application() string {
 	return u.Unit.ApplicationName()
 }
 
-type application struct {
+// applicationShim is used as a shim for a state Application to enable better
+// mock testing.
+type applicationShim struct {
 	*state.Application
 }
 
-func (a *application) CharmURL() *charm.URL {
+func (a *applicationShim) CharmURL() *charm.URL {
 	curl, _ := a.Application.CharmURL()
 	return curl
 }
 
-type machine struct {
+// machineShim is used as a shim for a state Machine to enable better
+// mock testing.
+type machineShim struct {
 	*state.Machine
 }
 
-func (m *machine) Units() ([]Unit, error) {
+func (m *machineShim) Units() ([]Unit, error) {
 	units, err := m.Machine.Units()
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	result := make([]Unit, len(units))
 	for k, v := range units {
-		result[k] = &unit{
+		result[k] = &unitShim{
 			Unit: v,
 		}
 	}
