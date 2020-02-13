@@ -4,12 +4,11 @@
 package state_test
 
 import (
-	"regexp"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
+	"regexp"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
@@ -330,14 +329,15 @@ func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ops, gc.HasLen, 2)
 
-	var opsSpacesCombined []string
+	var obtainedConstraintSpaces []string
 	for _, op := range ops {
 		found := op.Update.(bson.D).Map()["$set"].(state.ConstraintsDoc).Spaces
-		opsSpacesCombined = append(opsSpacesCombined, *found...)
+		obtainedConstraintSpaces = append(obtainedConstraintSpaces, *found...)
 
 	}
 	expectedSpace := []string{to, "alpha"}
 	negExpectedSpace := []string{negatedTo, "alpha"}
-	combinedExpected := append(expectedSpace, negExpectedSpace...)
-	c.Assert(combinedExpected, gc.DeepEquals, opsSpacesCombined)
+	expectedConstraintSpaces := append(expectedSpace, negExpectedSpace...)
+
+	c.Assert(obtainedConstraintSpaces, jc.SameContents, expectedConstraintSpaces)
 }

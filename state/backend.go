@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-
 	"github.com/juju/juju/state/watcher"
 )
 
