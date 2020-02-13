@@ -33,7 +33,7 @@ class InstallTests(TestCase):
         self.path_exists.assert_called_once_with(
             hooks.default_haproxy_service_config_dir)
         mkdir.assert_called_once_with(
-            hooks.default_haproxy_service_config_dir, 0600)
+            hooks.default_haproxy_service_config_dir, 0o600)
 
     @patch('os.mkdir')
     def test_config_dir_already_exists(self, mkdir):

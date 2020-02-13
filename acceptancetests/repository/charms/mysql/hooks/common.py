@@ -47,7 +47,7 @@ elif os.path.exists(database_name_file):
     with open(database_name_file, 'r') as dbname:
         database_name = dbname.readline().strip()
 else:
-    print 'No established database and no REMOTE_UNIT.'
+    print('No established database and no REMOTE_UNIT.')
 # A user per service unit so we can deny access quickly
 user, service_password = get_service_user(database_name)
 connection = None
@@ -90,7 +90,7 @@ def grant_exists(db_name, db_user, remote_ip):
                                                           remote_ip))
         grants = [i[0] for i in cursor.fetchall()]
     except MySQLdb.OperationalError:
-        print "No grants found"
+        print("No grants found")
         return False
     finally:
         cursor.close()

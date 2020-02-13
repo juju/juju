@@ -20,7 +20,7 @@ def run_json(cmd):
 
 
 def juju_log(msg):
-    print msg
+    print(msg)
     #subprocess.check_call(["juju-log", msg])
 
 

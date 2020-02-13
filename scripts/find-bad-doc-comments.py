@@ -60,9 +60,9 @@ def cmdline():
     return parser.parse_args()
 
 def emit(filename, comment):
-    print
-    print '%s: ' % filename
-    print comment
+    print()
+    print('%s: ' % filename)
+    print(comment)
 
 def fix(filename, func_name, comment):
     emit(filename, comment)
@@ -94,8 +94,8 @@ def main():
                 emit(filename, bad_comment)
             count += 1
 
-    print
-    print "Problems found:", count
+    print()
+    print("Problems found:", count)
 
 if __name__ == '__main__':
     main()
