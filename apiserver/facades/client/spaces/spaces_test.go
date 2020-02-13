@@ -603,10 +603,6 @@ func (sb *stubBacking) IsController() bool {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) ParseLocalIDToTags(docID string) names.Tag {
-	panic("should not be called")
-}
-
 func (sb *stubBacking) ConstraintsBySpaceName(name string) ([]spaces.Constraints, error) {
 	panic("should not be called")
 }
