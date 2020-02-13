@@ -3346,6 +3346,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	for _, rus := range changes.RelationUnitSettings {
+		// Ensure the unit in the unit settings matches the root unit name
+		if rus.Unit != changes.Tag {
+			return common.ErrPerm
+		}
 		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccess)
 		if err != nil {
 			return errors.Trace(err)
@@ -3356,6 +3360,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
 		var openPortRanges, closePortRanges []corenetwork.PortRange
 		for _, r := range changes.OpenPorts {
+			// Ensure the tag in the port open request matches the root unit name
+			if r.Tag != changes.Tag {
+				return common.ErrPerm
+			}
 			openPortRanges = append(openPortRanges, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
@@ -3363,6 +3371,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			})
 		}
 		for _, r := range changes.ClosePorts {
+			// Ensure the tag in the port close request matches the root unit name
+			if r.Tag != changes.Tag {
+				return common.ErrPerm
+			}
 			closePortRanges = append(closePortRanges, corenetwork.PortRange{
 				FromPort: r.FromPort,
 				ToPort:   r.ToPort,
@@ -3381,6 +3393,10 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 	}
 
 	if changes.SetUnitState != nil {
+		// Ensure the tag in the set state request matches the root unit name
+		if changes.SetUnitState.Tag != changes.Tag {
+			return common.ErrPerm
+		}
 		modelOp := unit.SetStateOperation(changes.SetUnitState.State)
 		modelOps = append(modelOps, modelOp)
 	}
