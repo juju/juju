@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -63,21 +62,14 @@ func (sp *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
 // RemoveSpace removes a space.
 // Returns SpaceResults if entities/settings are found which makes the deletion not possible.
 func (api *API) RemoveSpace(entities params.Entities) (params.RemoveSpaceResults, error) {
-	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return params.RemoveSpaceResults{}, errors.Trace(err)
-	}
-	if !isAdmin {
-		return params.RemoveSpaceResults{}, common.ServerError(common.ErrPerm)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return params.RemoveSpaceResults{}, errors.Trace(err)
-	}
-	if err = api.checkSupportsProviderSpaces(); err != nil {
-		return params.RemoveSpaceResults{}, common.ServerError(errors.Trace(err))
+	var results params.RemoveSpaceResults
+
+	err := api.checkSpacesCRUDPermissions()
+	if err != nil {
+		return results, err
 	}
 
-	results := params.RemoveSpaceResults{
+	results = params.RemoveSpaceResults{
 		Results: make([]params.RemoveSpaceResult, len(entities.Entities)),
 	}
 	for i, entity := range entities.Entities {
