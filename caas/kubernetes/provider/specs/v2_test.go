@@ -485,7 +485,7 @@ echo "do some stuff here for gitlab-init container"
 		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 		c.Assert(err, jc.ErrorIsNil)
 		webhookFailurePolicy1 := admissionregistrationv1.Ignore
-		webhook1 := admissionregistrationv1.Webhook{
+		webhook1 := admissionregistrationv1.MutatingWebhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
 			FailurePolicy: &webhookFailurePolicy1,
 			ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -515,7 +515,7 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 		webhookRuleWithOperations2.Rule = webhookRule2
-		webhook2 := admissionregistrationv1.Webhook{
+		webhook2 := admissionregistrationv1.ValidatingWebhook{
 			Name:  "pod-policy.example.com",
 			Rules: []admissionregistrationv1.RuleWithOperations{webhookRuleWithOperations2},
 			ClientConfig: admissionregistrationv1.WebhookClientConfig{
@@ -665,10 +665,10 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: map[string][]admissionregistrationv1.Webhook{
+				MutatingWebhookConfigurations: map[string][]admissionregistrationv1.MutatingWebhook{
 					"example-mutatingwebhookconfiguration": {webhook1},
 				},
-				ValidatingWebhookConfigurations: map[string][]admissionregistrationv1.Webhook{
+				ValidatingWebhookConfigurations: map[string][]admissionregistrationv1.ValidatingWebhook{
 					"pod-policy.example.com": {webhook2},
 				},
 			},

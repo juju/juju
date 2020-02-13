@@ -27,7 +27,7 @@ func strPtr(b string) *string {
 	return &b
 }
 
-func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[string][]v1.Webhook, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[string][]v1.MutatingWebhook, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -74,7 +74,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[s
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", metav1.GetOptions{IncludeUninitialized: true}).
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -84,15 +84,15 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[s
 	assertCalls = append(assertCalls, []*gomock.Call{
 		s.mockSecrets.EXPECT().Create(ociImageSecret).
 			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
+		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(&serviceArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(&serviceArg).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", metav1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name-endpoints", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
 			Return(nil, s.k8sNotFoundError()),
@@ -142,7 +142,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 	c.Assert(err, jc.ErrorIsNil)
 	webhook1FailurePolicy := v1.Ignore
-	webhook1 := v1.Webhook{
+	webhook1 := v1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
 		FailurePolicy: &webhook1FailurePolicy,
 		ClientConfig: v1.WebhookClientConfig{
@@ -161,7 +161,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 		Rules: []v1.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]v1.Webhook{
+	cfgs := map[string][]v1.MutatingWebhook{
 		"example-mutatingwebhookconfiguration": {webhook1},
 	}
 
@@ -172,7 +172,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsCreate(c *gc.C) 
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
-		Webhooks: []v1.Webhook{webhook1},
+		Webhooks: []v1.MutatingWebhook{webhook1},
 	}
 
 	s.assertMutatingWebhookConfigurations(
@@ -200,7 +200,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 	c.Assert(err, jc.ErrorIsNil)
 	webhook1FailurePolicy := v1.Ignore
-	webhook1 := v1.Webhook{
+	webhook1 := v1.MutatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
 		FailurePolicy: &webhook1FailurePolicy,
 		ClientConfig: v1.WebhookClientConfig{
@@ -219,7 +219,7 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 		Rules: []v1.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]v1.Webhook{
+	cfgs := map[string][]v1.MutatingWebhook{
 		"example-mutatingwebhookconfiguration": {webhook1},
 	}
 
@@ -230,23 +230,23 @@ func (s *K8sBrokerSuite) TestEnsureMutatingWebhookConfigurationsUpdate(c *gc.C) 
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
-		Webhooks: []v1.Webhook{webhook1},
+		Webhooks: []v1.MutatingWebhook{webhook1},
 	}
 
 	s.assertMutatingWebhookConfigurations(
 		c, cfgs,
 		s.mockMutatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockMutatingWebhookConfiguration.EXPECT().
-			List(metav1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+			List(metav1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
 			Return(&v1.MutatingWebhookConfigurationList{Items: []v1.MutatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockMutatingWebhookConfiguration.EXPECT().
-			Get("test-example-mutatingwebhookconfiguration", metav1.GetOptions{IncludeUninitialized: true}).
+			Get("test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
 			Return(cfg1, nil),
 		s.mockMutatingWebhookConfiguration.EXPECT().Update(cfg1).Return(cfg1, nil),
 	)
 }
 
-func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map[string][]v1.Webhook, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map[string][]v1.ValidatingWebhook, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -293,7 +293,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", metav1.GetOptions{IncludeUninitialized: true}).
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", metav1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -303,15 +303,15 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map
 	assertCalls = append(assertCalls, []*gomock.Call{
 		s.mockSecrets.EXPECT().Create(ociImageSecret).
 			Return(ociImageSecret, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
+		s.mockStatefulSets.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
-		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(&serviceArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(&serviceArg).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", metav1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name-endpoints", metav1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
 			Return(nil, s.k8sNotFoundError()),
@@ -361,7 +361,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 	c.Assert(err, jc.ErrorIsNil)
 	webhook1FailurePolicy := v1.Ignore
-	webhook1 := v1.Webhook{
+	webhook1 := v1.ValidatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
 		FailurePolicy: &webhook1FailurePolicy,
 		ClientConfig: v1.WebhookClientConfig{
@@ -380,7 +380,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 		Rules: []v1.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]v1.Webhook{
+	cfgs := map[string][]v1.ValidatingWebhook{
 		"example-mutatingwebhookconfiguration": {webhook1},
 	}
 
@@ -391,7 +391,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsCreate(c *gc.C
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
-		Webhooks: []v1.Webhook{webhook1},
+		Webhooks: []v1.ValidatingWebhook{webhook1},
 	}
 
 	s.assertValidatingWebhookConfigurations(
@@ -419,7 +419,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 	CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 	c.Assert(err, jc.ErrorIsNil)
 	webhook1FailurePolicy := v1.Ignore
-	webhook1 := v1.Webhook{
+	webhook1 := v1.ValidatingWebhook{
 		Name:          "example.mutatingwebhookconfiguration.com",
 		FailurePolicy: &webhook1FailurePolicy,
 		ClientConfig: v1.WebhookClientConfig{
@@ -438,7 +438,7 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 		Rules: []v1.RuleWithOperations{webhookRuleWithOperations1},
 	}
 
-	cfgs := map[string][]v1.Webhook{
+	cfgs := map[string][]v1.ValidatingWebhook{
 		"example-mutatingwebhookconfiguration": {webhook1},
 	}
 
@@ -449,17 +449,17 @@ func (s *K8sBrokerSuite) TestEnsureValidatingWebhookConfigurationsUpdate(c *gc.C
 			Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()},
 		},
-		Webhooks: []v1.Webhook{webhook1},
+		Webhooks: []v1.ValidatingWebhook{webhook1},
 	}
 
 	s.assertValidatingWebhookConfigurations(
 		c, cfgs,
 		s.mockValidatingWebhookConfiguration.EXPECT().Create(cfg1).Return(cfg1, s.k8sAlreadyExistsError()),
 		s.mockValidatingWebhookConfiguration.EXPECT().
-			List(metav1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test", IncludeUninitialized: true}).
+			List(metav1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
 			Return(&v1.ValidatingWebhookConfigurationList{Items: []v1.ValidatingWebhookConfiguration{*cfg1}}, nil),
 		s.mockValidatingWebhookConfiguration.EXPECT().
-			Get("test-example-mutatingwebhookconfiguration", metav1.GetOptions{IncludeUninitialized: true}).
+			Get("test-example-mutatingwebhookconfiguration", metav1.GetOptions{}).
 			Return(cfg1, nil),
 		s.mockValidatingWebhookConfiguration.EXPECT().Update(cfg1).Return(cfg1, nil),
 	)
