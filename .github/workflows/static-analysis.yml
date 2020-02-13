@@ -52,6 +52,11 @@ jobs:
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
 
+    - name: "Static Analysis: Python Check"
+      run: |
+        STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
+      shell: bash
+
   schema:
     name: Schema
     runs-on: ubuntu-latest
