@@ -5,6 +5,8 @@ package spaces
 
 import (
 	"fmt"
+	"github.com/juju/collections/set"
+	"github.com/juju/juju/state"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,30 +23,58 @@ import (
 type UpdateSubnet interface {
 	UpdateOps(args network.SubnetInfo) ([]txn.Op, error)
 	Refresh() error
+	CIDR() string
+	SpaceName() string
 }
 
-type spaceUpdateModelOp struct {
-	subnets []UpdateSubnet
-	spaceID string
+// MovedCDIR holds the movement from a CIDR from space `a` to space `b`
+type MovedCDIR struct {
+	FromSpace string
+	CIDR      string
 }
 
-func (o *spaceUpdateModelOp) Done(err error) error {
+// MoveToSpaceModelOp describes a model operation for moving cidrs to a space
+type MoveToSpaceModelOp interface {
+	state.ModelOperation
+
+	// GetMovedCIDRs returns the moved cidrs resulting from
+	// successfully moving cidrs.
+	GetMovedCIDRs() []MovedCDIR
+}
+
+type moveToSpaceModelOp struct {
+	subnets    []UpdateSubnet
+	spaceID    string
+	movedCDIRs []MovedCDIR
+}
+
+func (o *moveToSpaceModelOp) GetMovedCIDRs() []MovedCDIR {
+	return o.movedCDIRs
+}
+
+func (o *moveToSpaceModelOp) Done(err error) error {
 	return err
 }
 
-func NewUpdateSpaceModelOp(spaceID string, subnets []UpdateSubnet) *spaceUpdateModelOp {
-	return &spaceUpdateModelOp{
+func NewUpdateSpaceModelOp(spaceID string, subnets []UpdateSubnet) *moveToSpaceModelOp {
+	return &moveToSpaceModelOp{
 		subnets: subnets,
 		spaceID: spaceID,
 	}
 }
 
-func (o *spaceUpdateModelOp) Build(attempt int) ([]txn.Op, error) {
+func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
+	var movedCIDRS []MovedCDIR
 	if attempt > 0 {
 		for _, subnet := range o.subnets {
 			if err := subnet.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
+			mc := MovedCDIR{
+				FromSpace: subnet.SpaceName(),
+				CIDR:      subnet.CIDR(),
+			}
+			movedCIDRS = append(movedCIDRS, mc)
 		}
 	}
 
@@ -59,11 +89,13 @@ func (o *spaceUpdateModelOp) Build(attempt int) ([]txn.Op, error) {
 		}
 		totalOps = append(totalOps, ops...)
 	}
-
-	return totalOps, nil
+	// TODO: update
+	logger.Errorf("following ops were found %+v", totalOps)
+	o.movedCDIRs = movedCIDRS
+	return nil, nil
 }
 
-// MoveToSpace updates a space by it's given cidr
+// MoveToSpace updates a space by it's given CIDR
 func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceResults, error) {
 	var results params.MoveToSpaceResults
 
@@ -76,8 +108,8 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 		Results: make([]params.MoveToSpaceResult, len(args.MoveToSpace)),
 	}
 
-	for i, updateSpace := range args.MoveToSpace {
-		spaceTag, err := names.ParseSpaceTag(updateSpace.SpaceTag)
+	for i, toSpaceParams := range args.MoveToSpace {
+		spaceTag, err := names.ParseSpaceTag(toSpaceParams.SpaceTag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
@@ -89,14 +121,14 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			continue
 		}
 
-		subnets, err := api.getValidSubnets(updateSpace.CIDRs)
+		subnets, err := api.getValidSubnetsByCIDR(toSpaceParams.CIDRs)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
-		if errString := checkSubnetCIDRAlreadyInSpace(subnets, space); len(errString) > 0 {
-			results.Results[i].Error = common.ServerError(errors.Trace(errors.New(strings.Join(errString, "\n"))))
+		if err := api.checkSubnetAllowedToBeMoved(subnets, toSpaceParams.Force, space); err != nil {
+			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
@@ -105,15 +137,65 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
+
 		if err = api.backing.ApplyOperation(operation); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
+		} else {
+			createMovedCidrs(operation.GetMovedCIDRs(), &results.Results[i])
 		}
+
 	}
 	return results, nil
 }
 
-func checkSubnetCIDRAlreadyInSpace(subnets []networkingcommon.BackingSubnet, space networkingcommon.BackingSpace) []string {
+func createMovedCidrs(movedCDIRSpace []MovedCDIR, result *params.MoveToSpaceResult) {
+	result.Moved = make([]params.MovedSpaceCIDR, len(movedCDIRSpace))
+	for i, v := range movedCDIRSpace {
+		result.Moved[i].CIDR = v.CIDR
+		result.Moved[i].SpaceTag = names.NewSpaceTag(v.FromSpace).String()
+	}
+}
+
+func (api *API) checkSubnetAllowedToBeMoved(subnets []networkingcommon.BackingSubnet, force bool, space networkingcommon.BackingSpace) error {
+
+	if errString := checkSubnetAlreadyInSpace(subnets, space); len(errString) > 0 {
+		return errors.Trace(errors.New(strings.Join(errString, "\n")))
+	}
+
+	machines, err := api.backing.AllMachines()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	return checkSubnetInUse(subnets, machines, force)
+}
+
+func checkSubnetInUse(subnets []networkingcommon.BackingSubnet, machines []Machine, force bool) error {
+	subnetCIDRs := set.NewStrings()
+	for _, subnet := range subnets {
+		subnetCIDRs.Add(subnet.CIDR())
+	}
+
+	var errorStrings []string
+	for _, machine := range machines {
+		addresses, err := machine.AllAddresses()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		for _, address := range addresses {
+			if subnetCIDRs.Contains(address.SubnetCIDR()) {
+				errorStrings = append(errorStrings, fmt.Sprintf("CIDR %q is already on machine %q", address.SubnetCIDR(), machine.Id()))
+			}
+		}
+	}
+	if len(errorStrings) != 0 && !force {
+		return errors.Errorf(strings.Join(errorStrings, "\n"))
+	}
+	return nil
+}
+
+func checkSubnetAlreadyInSpace(subnets []networkingcommon.BackingSubnet, space networkingcommon.BackingSpace) []string {
 	var errorStrings []string
 	for _, subnet := range subnets {
 		if subnet.SpaceID() == space.Id() {

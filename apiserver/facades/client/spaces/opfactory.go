@@ -17,7 +17,7 @@ type OpFactory interface {
 	NewRenameSpaceModelOp(fromName, toName string) (state.ModelOperation, error)
 
 	// NewUpdateSpaceModelOp returns an operation for updating a space with new CIDRs.
-	NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (state.ModelOperation, error)
+	NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (MoveToSpaceModelOp, error)
 }
 
 type opFactory struct {
@@ -45,7 +45,7 @@ func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (state.ModelO
 
 // NewUpdateSpaceModelOp (OpFactory) returns an operation
 // for updating a space.
-func (f *opFactory) NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (state.ModelOperation, error) {
+func (f *opFactory) NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (MoveToSpaceModelOp, error) {
 	subs := make([]UpdateSubnet, len(subnets))
 	for i, subnet := range subnets {
 		subs[i] = subnet

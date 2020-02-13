@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
@@ -64,7 +63,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceDefault(c *gc.C) {
 
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), nil)
-	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
+	s.expectMachinesSpaces(ctrl, s.getDefaultSpaces(), nil, nil)
 
 	expectedApplications := []string{"mysql", "mediawiki"}
 	sort.Strings(expectedApplications)
@@ -151,7 +150,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), nil)
-	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
+	s.expectMachinesSpaces(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
 	args := s.getShowSpaceArg("default")
 	res, err := s.api.ShowSpace(args)
@@ -263,12 +262,19 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	spacesMock.EXPECT().Id().Return("1").Times(2)
 	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
 
+	moveModelMock := mocks.NewMockMoveToSpaceModelOp(ctrl)
+	moveModelMock.EXPECT().GetMovedCIDRs().Return([]spaces.MovedCDIR{{
+		FromSpace: "from",
+		CIDR:      "10.10.10.10/16",
+	}})
+
 	subnetMock := networkcommonmocks.NewMockBackingSubnet(ctrl)
 	subnetMock.EXPECT().SpaceID().Return("0")
+	subnetMock.EXPECT().CIDR().Return("123")
 	s.mockBacking.EXPECT().SubnetByCIDR(aCIDR).Return(subnetMock, nil)
-	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{subnetMock}).Return(s.mockModelOperation, nil)
-	s.mockBacking.EXPECT().ApplyOperation(s.mockModelOperation).Return(nil)
-
+	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{subnetMock}).Return(moveModelMock, nil)
+	s.mockBacking.EXPECT().ApplyOperation(moveModelMock).Return(nil)
+	s.expectMachinesAddresses(ctrl, "10.11.12.12/14", nil, nil)
 	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
 		{
 			CIDRs:    []string{aCIDR},
@@ -280,6 +286,8 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.IsNil)
+	c.Assert(res.Results[0].Moved[0].CIDR, gc.Equals,"10.10.10.10/16")
+	c.Assert(res.Results[0].Moved[0].SpaceTag, gc.Equals,"space-from")
 }
 
 func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) {
@@ -396,7 +404,7 @@ func (s *SpaceTestMockSuite) expectDefaultSpace(ctrl *gomock.Controller, name st
 	}
 }
 
-func (s *SpaceTestMockSuite) expectMachines(ctrl *gomock.Controller, addresses set.Strings, machErr, addressesErr error) {
+func (s *SpaceTestMockSuite) expectMachinesSpaces(ctrl *gomock.Controller, addresses set.Strings, machErr, addressesErr error) {
 	mockMachine := mocks.NewMockMachine(ctrl)
 	// With this we can ensure that the function correctly adds up multiple machines.
 	anotherMockMachine := mocks.NewMockMachine(ctrl)
@@ -409,6 +417,14 @@ func (s *SpaceTestMockSuite) expectMachines(ctrl *gomock.Controller, addresses s
 	}
 	mockMachines := []spaces.Machine{mockMachine, anotherMockMachine}
 	s.mockBacking.EXPECT().AllMachines().Return(mockMachines, machErr)
+}
+
+func (s *SpaceTestMockSuite) expectMachinesAddresses(ctrl *gomock.Controller, subnetCIDR string, machErr, addressesErr error) {
+	mockMachine := mocks.NewMockMachine(ctrl)
+	mockAddress := mocks.NewMockAddress(ctrl)
+	mockAddress.EXPECT().SubnetCIDR().Return(subnetCIDR)
+	mockMachine.EXPECT().AllAddresses().Return([]spaces.Address{mockAddress}, addressesErr)
+	s.mockBacking.EXPECT().AllMachines().Return([]spaces.Machine{mockMachine}, machErr)
 }
 
 func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesParams {
@@ -428,14 +444,6 @@ type stubBacking struct {
 }
 
 func (sb *stubBacking) ApplyOperation(state.ModelOperation) error {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
 	panic("should not be called")
 }
 

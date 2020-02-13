@@ -75,7 +75,7 @@ func (s *stateShim) AllMachines() ([]Machine, error) {
 	}
 	all := make([]Machine, len(allStateMachines))
 	for i, m := range allStateMachines {
-		all[i] = m
+		all[i] = NewMachine(m)
 	}
 	return all, nil
 }
@@ -98,4 +98,28 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 		return nil, errors.Trace(err)
 	}
 	return networkingcommon.NewSubnetShim(result), nil
+}
+
+// machineShim implements Machine.
+type machineShim struct {
+	*state.Machine
+}
+
+// AllAddresses implements Machine by wrapping each state.Address reference
+// in returned collection with the local Address implementation.
+func (m *machineShim) AllAddresses() ([]Address, error) {
+	addresses, err := m.Machine.AllAddresses()
+	if err != nil {
+		return nil, err
+	}
+	shimAddr := make([]Address, len(addresses))
+	for i, address := range addresses {
+		shimAddr[i] = address
+	}
+	return shimAddr, nil
+}
+
+// NewMachine wraps the given state.machine in a machineShim.
+func NewMachine(m *state.Machine) *machineShim {
+	return &machineShim{Machine: m}
 }
