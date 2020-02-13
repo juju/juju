@@ -77,7 +77,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1be
 		return nil, cleanUps, errors.Trace(err)
 	}
 	// K8s complains about metadata.resourceVersion is required for an update, so get it before updating.
-	existingCRD, err := k.getCustomResourceDefinition(crd.GetName(), false)
+	existingCRD, err := k.getCustomResourceDefinition(crd.GetName())
 	logger.Debugf("updating custom resource definition %q", crd.GetName())
 	if err != nil {
 		return nil, cleanUps, errors.Trace(err)
@@ -96,7 +96,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) getCustomResourceDefinition(name string, includeUninitialized bool) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
+func (k *kubernetesClient) getCustomResourceDefinition(name string) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
 	crd, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("custom resource definition %q", name)
@@ -228,7 +228,7 @@ type crdGetter struct {
 func (cg *crdGetter) Get(
 	name string,
 ) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
-	crd, err := cg.Broker.getCustomResourceDefinition(name, false)
+	crd, err := cg.Broker.getCustomResourceDefinition(name)
 	if err != nil {
 		return nil, errors.Annotatef(err, "getting custom resource definition %q", name)
 	}
