@@ -262,5 +262,5 @@ func hasModelConstraint(entities []params.Entity) (bool, error) {
 }
 
 func (api *API) UpdateSpace(name string, ids []string) error {
-
+	return nil
 }
