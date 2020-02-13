@@ -5,9 +5,8 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
+	reflect "reflect"
 )
 
 // MockWorker is a mock of Worker interface
@@ -35,16 +34,19 @@ func (m *MockWorker) EXPECT() *MockWorkerMockRecorder {
 
 // Kill mocks base method
 func (m *MockWorker) Kill() {
+	m.ctrl.T.Helper()
 	m.ctrl.Call(m, "Kill")
 }
 
 // Kill indicates an expected call of Kill
 func (mr *MockWorkerMockRecorder) Kill() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kill", reflect.TypeOf((*MockWorker)(nil).Kill))
 }
 
 // Wait mocks base method
 func (m *MockWorker) Wait() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Wait")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -52,5 +54,6 @@ func (m *MockWorker) Wait() error {
 
 // Wait indicates an expected call of Wait
 func (mr *MockWorkerMockRecorder) Wait() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Wait", reflect.TypeOf((*MockWorker)(nil).Wait))
 }

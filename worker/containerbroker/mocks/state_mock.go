@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	provisioner "github.com/juju/juju/api/provisioner"
 	params "github.com/juju/juju/apiserver/params"
 	network "github.com/juju/juju/core/network"
 	network0 "github.com/juju/juju/network"
 	names_v3 "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockState is a mock of State interface
@@ -40,6 +39,7 @@ func (m *MockState) EXPECT() *MockStateMockRecorder {
 
 // ContainerConfig mocks base method
 func (m *MockState) ContainerConfig() (params.ContainerConfig, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerConfig")
 	ret0, _ := ret[0].(params.ContainerConfig)
 	ret1, _ := ret[1].(error)
@@ -48,11 +48,13 @@ func (m *MockState) ContainerConfig() (params.ContainerConfig, error) {
 
 // ContainerConfig indicates an expected call of ContainerConfig
 func (mr *MockStateMockRecorder) ContainerConfig() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerConfig", reflect.TypeOf((*MockState)(nil).ContainerConfig))
 }
 
 // ContainerManagerConfig mocks base method
 func (m *MockState) ContainerManagerConfig(arg0 params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerManagerConfig", arg0)
 	ret0, _ := ret[0].(params.ContainerManagerConfig)
 	ret1, _ := ret[1].(error)
@@ -61,11 +63,13 @@ func (m *MockState) ContainerManagerConfig(arg0 params.ContainerManagerConfigPar
 
 // ContainerManagerConfig indicates an expected call of ContainerManagerConfig
 func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerManagerConfig", reflect.TypeOf((*MockState)(nil).ContainerManagerConfig), arg0)
 }
 
 // GetContainerInterfaceInfo mocks base method
 func (m *MockState) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerInterfaceInfo", arg0)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
@@ -74,11 +78,13 @@ func (m *MockState) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]netwo
 
 // GetContainerInterfaceInfo indicates an expected call of GetContainerInterfaceInfo
 func (mr *MockStateMockRecorder) GetContainerInterfaceInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerInterfaceInfo", reflect.TypeOf((*MockState)(nil).GetContainerInterfaceInfo), arg0)
 }
 
 // GetContainerProfileInfo mocks base method
 func (m *MockState) GetContainerProfileInfo(arg0 names_v3.MachineTag) ([]*provisioner.LXDProfileResult, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0)
 	ret0, _ := ret[0].([]*provisioner.LXDProfileResult)
 	ret1, _ := ret[1].(error)
@@ -87,11 +93,13 @@ func (m *MockState) GetContainerProfileInfo(arg0 names_v3.MachineTag) ([]*provis
 
 // GetContainerProfileInfo indicates an expected call of GetContainerProfileInfo
 func (mr *MockStateMockRecorder) GetContainerProfileInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetContainerProfileInfo", reflect.TypeOf((*MockState)(nil).GetContainerProfileInfo), arg0)
 }
 
 // HostChangesForContainer mocks base method
 func (m *MockState) HostChangesForContainer(arg0 names_v3.MachineTag) ([]network0.DeviceToBridge, int, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
 	ret1, _ := ret[1].(int)
@@ -101,11 +109,13 @@ func (m *MockState) HostChangesForContainer(arg0 names_v3.MachineTag) ([]network
 
 // HostChangesForContainer indicates an expected call of HostChangesForContainer
 func (mr *MockStateMockRecorder) HostChangesForContainer(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HostChangesForContainer", reflect.TypeOf((*MockState)(nil).HostChangesForContainer), arg0)
 }
 
 // Machines mocks base method
 func (m *MockState) Machines(arg0 ...names_v3.MachineTag) ([]provisioner.MachineResult, error) {
+	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
 		varargs = append(varargs, a)
@@ -118,11 +128,13 @@ func (m *MockState) Machines(arg0 ...names_v3.MachineTag) ([]provisioner.Machine
 
 // Machines indicates an expected call of Machines
 func (mr *MockStateMockRecorder) Machines(arg0 ...interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machines", reflect.TypeOf((*MockState)(nil).Machines), arg0...)
 }
 
 // PrepareContainerInterfaceInfo mocks base method
 func (m *MockState) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
 	ret1, _ := ret[1].(error)
@@ -131,11 +143,13 @@ func (m *MockState) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]n
 
 // PrepareContainerInterfaceInfo indicates an expected call of PrepareContainerInterfaceInfo
 func (mr *MockStateMockRecorder) PrepareContainerInterfaceInfo(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContainerInterfaceInfo", reflect.TypeOf((*MockState)(nil).PrepareContainerInterfaceInfo), arg0)
 }
 
 // ReleaseContainerAddresses mocks base method
 func (m *MockState) ReleaseContainerAddresses(arg0 names_v3.MachineTag) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -143,11 +157,13 @@ func (m *MockState) ReleaseContainerAddresses(arg0 names_v3.MachineTag) error {
 
 // ReleaseContainerAddresses indicates an expected call of ReleaseContainerAddresses
 func (mr *MockStateMockRecorder) ReleaseContainerAddresses(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseContainerAddresses", reflect.TypeOf((*MockState)(nil).ReleaseContainerAddresses), arg0)
 }
 
 // SetHostMachineNetworkConfig mocks base method
 func (m *MockState) SetHostMachineNetworkConfig(arg0 names_v3.MachineTag, arg1 []params.NetworkConfig) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -155,5 +171,6 @@ func (m *MockState) SetHostMachineNetworkConfig(arg0 names_v3.MachineTag, arg1 [
 
 // SetHostMachineNetworkConfig indicates an expected call of SetHostMachineNetworkConfig
 func (mr *MockStateMockRecorder) SetHostMachineNetworkConfig(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetHostMachineNetworkConfig", reflect.TypeOf((*MockState)(nil).SetHostMachineNetworkConfig), arg0, arg1)
 }

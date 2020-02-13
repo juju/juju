@@ -868,11 +868,11 @@ func (t *localServerSuite) testStartInstanceSubnet(c *gc.C, subnet string) (inst
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Placement:      fmt.Sprintf("subnet=%s", subnet),
-		SubnetsToZones: map[corenetwork.Id][]string{
+		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"test-available"},
 			subIDs[2]: {"test-unavailable"},
-		},
+		}},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
 	zones, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
@@ -897,11 +897,11 @@ func (t *localServerSuite) TestDeriveAvailabilityZoneSubnetWrongVPC(c *gc.C) {
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "subnet=0.1.2.0/24",
-		SubnetsToZones: map[corenetwork.Id][]string{
+		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"test-available"},
 			subIDs[2]: {"test-unavailable"},
-		},
+		}},
 	}
 	zonedEnviron := env.(common.ZonedEnviron)
 	_, err := zonedEnviron.DeriveAvailabilityZones(t.callCtx, params)
@@ -1201,11 +1201,11 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceNotInPlacementZone(c *gc.C) 
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "zone=test-available",
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: map[corenetwork.Id][]string{
+		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {"zone2"},
 			subIDs[1]: {"zone3"},
 			subIDs[2]: {"zone4"},
-		},
+		}},
 		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
@@ -1222,10 +1222,10 @@ func (t *localServerSuite) TestSpaceConstraintsSpaceInPlacementZone(c *gc.C) {
 		ControllerUUID: t.ControllerUUID,
 		Placement:      "zone=test-available",
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: map[corenetwork.Id][]string{
+		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"zone3"},
-		},
+		}},
 		StatusCallback: fakeCallback,
 	}
 	_, err := testing.StartInstanceWithParams(env, t.callCtx, "1", params)
@@ -1239,10 +1239,10 @@ func (t *localServerSuite) TestSpaceConstraintsNoPlacement(c *gc.C) {
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: map[corenetwork.Id][]string{
+		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {"test-available"},
 			subIDs[1]: {"zone3"},
-		},
+		}},
 		StatusCallback: fakeCallback,
 	}
 	t.assertStartInstanceWithParamsFindAZ(c, env, "1", params)
@@ -1290,9 +1290,9 @@ func (t *localServerSuite) TestSpaceConstraintsNoAvailableSubnets(c *gc.C) {
 	params := environs.StartInstanceParams{
 		ControllerUUID: t.ControllerUUID,
 		Constraints:    constraints.MustParse("spaces=aaaaaaaaaa"),
-		SubnetsToZones: map[corenetwork.Id][]string{
+		SubnetsToZones: []map[corenetwork.Id][]string{{
 			subIDs[0]: {""},
-		},
+		}},
 		StatusCallback: fakeCallback,
 	}
 	//_, err := testing.StartInstanceWithParams(env, "1", params)
