@@ -292,12 +292,12 @@ func (s *BaseSuite) setupK8sRestClient(c *gc.C, ctrl *gomock.Controller, namespa
 	s.mockServiceAccounts = mocks.NewMockServiceAccountInterface(ctrl)
 	mockCoreV1.EXPECT().ServiceAccounts(namespace).AnyTimes().Return(s.mockServiceAccounts)
 
-	mockAdmissionregistrationV1 := mocks.NewMockAdmissionregistrationV1Interface(ctrl)
+	mockAdmissionregistration := mocks.NewMockAdmissionregistrationV1beta1Interface(ctrl)
 	s.mockMutatingWebhookConfiguration = mocks.NewMockMutatingWebhookConfigurationInterface(ctrl)
-	mockAdmissionregistrationV1.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfiguration)
+	mockAdmissionregistration.EXPECT().MutatingWebhookConfigurations().AnyTimes().Return(s.mockMutatingWebhookConfiguration)
 	s.mockValidatingWebhookConfiguration = mocks.NewMockValidatingWebhookConfigurationInterface(ctrl)
-	mockAdmissionregistrationV1.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfiguration)
-	s.k8sClient.EXPECT().AdmissionregistrationV1().AnyTimes().Return(mockAdmissionregistrationV1)
+	mockAdmissionregistration.EXPECT().ValidatingWebhookConfigurations().AnyTimes().Return(s.mockValidatingWebhookConfiguration)
+	s.k8sClient.EXPECT().AdmissionregistrationV1beta1().AnyTimes().Return(mockAdmissionregistration)
 
 	mockRbacV1 := mocks.NewMockRbacV1Interface(ctrl)
 	s.k8sClient.EXPECT().RbacV1().AnyTimes().Return(mockRbacV1)

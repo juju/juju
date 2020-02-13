@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -186,6 +186,8 @@ kubernetesResources:
       - name: v1beta2
         served: true
         storage: false
+      conversion:
+        strategy: None
       validation:
         openAPIV3Schema:
           properties:
@@ -279,15 +281,15 @@ kubernetesResources:
           apiVersions: ["v1"]
           operations:  ["CREATE"]
           resources:   ["pods"]
-          # scope:       "Namespaced"
+          scope:       "Namespaced"
         clientConfig:
           service:
             namespace: "example-namespace"
             name: "example-service"
           caBundle: "YXBwbGVz"
-        # admissionReviewVersions: ["v1", "v1beta1"]
-        # sideEffects: None
-        # timeoutSeconds: 5
+        admissionReviewVersions: ["v1", "v1beta1"]
+        sideEffects: None
+        timeoutSeconds: 5
 `[1:]
 
 	expectedFileContent := `
@@ -470,26 +472,26 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		webhookRule1 := admissionregistrationv1.Rule{
+		webhookRule1 := admissionregistration.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"pods"},
 		}
-		webhookRuleWithOperations1 := admissionregistrationv1.RuleWithOperations{
-			Operations: []admissionregistrationv1.OperationType{
-				admissionregistrationv1.Create,
-				admissionregistrationv1.Update,
+		webhookRuleWithOperations1 := admissionregistration.RuleWithOperations{
+			Operations: []admissionregistration.OperationType{
+				admissionregistration.Create,
+				admissionregistration.Update,
 			},
 		}
 		webhookRuleWithOperations1.Rule = webhookRule1
 		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 		c.Assert(err, jc.ErrorIsNil)
-		webhookFailurePolicy1 := admissionregistrationv1.Ignore
-		webhook1 := admissionregistrationv1.MutatingWebhook{
+		webhookFailurePolicy1 := admissionregistration.Ignore
+		webhook1 := admissionregistration.MutatingWebhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
 			FailurePolicy: &webhookFailurePolicy1,
-			ClientConfig: admissionregistrationv1.WebhookClientConfig{
-				Service: &admissionregistrationv1.ServiceReference{
+			ClientConfig: admissionregistration.WebhookClientConfig{
+				Service: &admissionregistration.ServiceReference{
 					Name:      "apple-service",
 					Namespace: "apples",
 					Path:      strPtr("/apple"),
@@ -501,30 +503,36 @@ echo "do some stuff here for gitlab-init container"
 					{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
 				},
 			},
-			Rules: []admissionregistrationv1.RuleWithOperations{webhookRuleWithOperations1},
+			Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
 		}
 
-		webhookRule2 := admissionregistrationv1.Rule{
+		scope := admissionregistration.NamespacedScope
+		webhookRule2 := admissionregistration.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"pods"},
+			Scope:       &scope,
 		}
-		webhookRuleWithOperations2 := admissionregistrationv1.RuleWithOperations{
-			Operations: []admissionregistrationv1.OperationType{
-				admissionregistrationv1.Create,
+		webhookRuleWithOperations2 := admissionregistration.RuleWithOperations{
+			Operations: []admissionregistration.OperationType{
+				admissionregistration.Create,
 			},
 		}
 		webhookRuleWithOperations2.Rule = webhookRule2
-		webhook2 := admissionregistrationv1.ValidatingWebhook{
+		sideEffects := admissionregistration.SideEffectClassNone
+		webhook2 := admissionregistration.ValidatingWebhook{
 			Name:  "pod-policy.example.com",
-			Rules: []admissionregistrationv1.RuleWithOperations{webhookRuleWithOperations2},
-			ClientConfig: admissionregistrationv1.WebhookClientConfig{
-				Service: &admissionregistrationv1.ServiceReference{
+			Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations2},
+			ClientConfig: admissionregistration.WebhookClientConfig{
+				Service: &admissionregistration.ServiceReference{
 					Name:      "example-service",
 					Namespace: "example-namespace",
 				},
 				CABundle: CABundle1,
 			},
+			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			SideEffects:             &sideEffects,
+			TimeoutSeconds:          int32Ptr(5),
 		}
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -578,6 +586,9 @@ password: shhhh`[1:],
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
 							Singular: "tfjob",
+						},
+						Conversion: &apiextensionsv1beta1.CustomResourceConversion{
+							Strategy: apiextensionsv1beta1.NoneConverter,
 						},
 						Validation: &apiextensionsv1beta1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
@@ -665,10 +676,10 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: map[string][]admissionregistrationv1.MutatingWebhook{
+				MutatingWebhookConfigurations: map[string][]admissionregistration.MutatingWebhook{
 					"example-mutatingwebhookconfiguration": {webhook1},
 				},
-				ValidatingWebhookConfigurations: map[string][]admissionregistrationv1.ValidatingWebhook{
+				ValidatingWebhookConfigurations: map[string][]admissionregistration.ValidatingWebhook{
 					"pod-policy.example.com": {webhook2},
 				},
 			},

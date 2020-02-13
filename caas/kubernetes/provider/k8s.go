@@ -21,7 +21,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
-	admissionregistrationv1 "k8s.io/api/admissionregistration/v1"
+	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -141,7 +141,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 //go:generate mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
-//go:generate mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1  AdmissionregistrationV1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
+//go:generate mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -2389,8 +2389,8 @@ type workloadSpec struct {
 	ServiceAccounts                 []serviceAccountSpecGetter
 	CustomResourceDefinitions       map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 	CustomResources                 map[string][]unstructured.Unstructured
-	MutatingWebhookConfigurations   map[string][]admissionregistrationv1.MutatingWebhook
-	ValidatingWebhookConfigurations map[string][]admissionregistrationv1.ValidatingWebhook
+	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook
+	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook
 	IngressResources                []k8sspecs.K8sIngressSpec
 }
 
