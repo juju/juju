@@ -5,6 +5,7 @@ package state_test
 
 import (
 	"regexp"
+	"sort"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -339,5 +340,7 @@ func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc
 	expectedSpace := []string{to, "alpha"}
 	negExpectedSpace := []string{negatedTo, "alpha"}
 	combinedExpected := append(expectedSpace, negExpectedSpace...)
+	sort.Strings(combinedExpected)
+	sort.Strings(opsSpacesCombined)
 	c.Assert(combinedExpected, gc.DeepEquals, opsSpacesCombined)
 }
