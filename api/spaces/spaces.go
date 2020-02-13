@@ -177,5 +177,5 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 }
 
 func (api *API) UpdateSpace(name string, ids []string) error {
-
+	return nil
 }

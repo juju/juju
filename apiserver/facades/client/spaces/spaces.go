@@ -33,9 +33,16 @@ type BlockChecker interface {
 	RemoveAllowed() error
 }
 
+// Address is an indirection for state.Address.
+type Address interface {
+	SubnetCIDR() string
+}
+
 // Machine defines the methods supported by a machine used in the space context.
 type Machine interface {
 	AllSpaces() (set.Strings, error)
+	AllAddresses() ([]Address, error)
+	Id() string
 }
 
 // Constraints defines the methods supported by constraints used in the space context.
@@ -274,7 +281,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 		return errors.Trace(err)
 	}
 
-	subnets, err := api.getValidSubnets(args.CIDRs)
+	subnets, err := api.getValidSubnetsByCIDR(args.CIDRs)
 	subnetIDs := make([]string, len(subnets))
 	for i, subnet := range subnets {
 		subnetIDs[i] = subnet.ID()
@@ -293,7 +300,7 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
 	cidrs := make([]string, len(subnetTags))
 	// in lieu of keeping names.v2 around, split the expected
-	// string for the older api calls.  Format: subnet-<cidr>
+	// string for the older api calls.  Format: subnet-<CIDR>
 	for i, tag := range subnetTags {
 		split := strings.Split(tag, "-")
 		if len(split) != 2 || split[0] != "subnet" {
@@ -514,7 +521,7 @@ func (api *API) checkSpacesCRUDPermissions() error {
 	return nil
 }
 
-func (api *API) getValidSubnets(CIDRs []string) ([]networkingcommon.BackingSubnet, error) {
+func (api *API) getValidSubnetsByCIDR(CIDRs []string) ([]networkingcommon.BackingSubnet, error) {
 	subnets := make([]networkingcommon.BackingSubnet, len(CIDRs))
 	for i, cidr := range CIDRs {
 		if !network.IsValidCidr(cidr) {
