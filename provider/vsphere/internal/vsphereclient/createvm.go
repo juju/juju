@@ -58,6 +58,9 @@ type CreateVirtualMachineParams struct {
 	// in which to create the VM.
 	Folder string
 
+	// RootVMFolder is the customized root vm folder.
+	RootVMFolder string
+
 	// VMDKDirectory is the datastore path in which VMDKs are stored for
 	// this controller. Within this directory there will be subdirectories
 	// for each series, and within those the VMDKs will be stored.
@@ -167,7 +170,7 @@ func (c *Client) ensureTemplateVM(
 	args CreateVirtualMachineParams,
 ) (vm *object.VirtualMachine, err error) {
 
-	templateFolder, err := c.FindFolder(ctx, vmTemplatePath(args))
+	templateFolder, err := c.FindFolder(ctx, path.Join(args.RootVMFolder, vmTemplatePath(args)))
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
@@ -192,7 +195,7 @@ func (c *Client) ensureTemplateVM(
 		return nil, errors.Annotate(err, "creating import spec")
 	}
 
-	vmFolder, err := c.EnsureVMFolder(ctx, "", vmTemplatePath(args))
+	vmFolder, err := c.EnsureVMFolder(ctx, args.RootVMFolder, vmTemplatePath(args))
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
