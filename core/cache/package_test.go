@@ -80,33 +80,13 @@ func (s *BaseSuite) CaptureEvents(c *gc.C) <-chan interface{} {
 	s.Config.Notify = func(change interface{}) {
 		send := false
 		switch change.(type) {
-		case ModelChange:
-			send = true
-		case RemoveModel:
-			send = true
-		case ApplicationChange:
-			send = true
-		case RemoveApplication:
-			send = true
-		case CharmChange:
-			send = true
-		case RemoveCharm:
-			send = true
-		case MachineChange:
-			send = true
-		case RemoveMachine:
-			send = true
-		case UnitChange:
-			send = true
-		case RemoveUnit:
-			send = true
-		case RelationChange:
-			send = true
-		case RemoveRelation:
-			send = true
-		case BranchChange:
-			send = true
-		case RemoveBranch:
+		case ModelChange, RemoveModel,
+			ApplicationChange, RemoveApplication,
+			CharmChange, RemoveCharm,
+			MachineChange, RemoveMachine,
+			UnitChange, RemoveUnit,
+			RelationChange, RemoveRelation,
+			BranchChange, RemoveBranch:
 			send = true
 		default:
 			// no-op

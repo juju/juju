@@ -74,7 +74,10 @@ type Model struct {
 
 	// lastSummaryPublish is here for testing purposes to ensure
 	// synchronisation between the test and the handling of the
-	// published summary event.
+	// published summary event. This channel is returned by the pubsub
+	// hub from the publish call. The channel is closed when all the
+	// subscribers have handled the call. We only record the last one
+	// as the tests want to know that a set of changes have been applied.
 	lastSummaryPublish <-chan struct{}
 }
 
@@ -702,10 +705,6 @@ func (m *Model) updateSummary() {
 	}
 	m.summary = summary
 
-	// TODO: manage the timer around status going from red -> yellow after
-	// a certain limit. This will probably mean passing in some clock to the controller
-	// to pass down to models.
-
 	hash, err := summary.hash()
 	if err != nil {
 		logger.Errorf("unable to generate hash for summary: %s", err)
@@ -714,7 +713,7 @@ func (m *Model) updateSummary() {
 	// In order to accurately deal with permission changes, and send an appropriate
 	// summary in the situation where a new user can see a model, we need to always
 	// publish summary updated topics with the hash, and let the watchers themselves
-	// track the lash hash they sent.
+	// track the last hash they sent.
 	payload := modelSummaryPayload{
 		summary:   m.summaryCopy(),
 		visibleTo: m.visibleTo,

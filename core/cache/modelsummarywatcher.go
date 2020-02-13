@@ -20,8 +20,8 @@ const (
 	StatusGreen  = "green"
 )
 
-// ModelSummary represents a high level view of a model. Primary use case is to drive
-// the JAAS dashboard.
+// ModelSummary represents a high level view of a model. Primary use case is to
+// drive a dashboard with model level overview.
 type ModelSummary struct {
 	UUID string
 	// Removed indicates that the user can no longer see this model, because it has
