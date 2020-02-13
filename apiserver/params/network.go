@@ -938,8 +938,9 @@ type MoveToSpacesParams struct {
 
 // MoveToSpaceParams holds the space tag and at least one subnet required to move subnet to another space
 type MoveToSpaceParams struct {
-	CIDRs    []string `json:"cidrs"`
-	SpaceTag string   `json:"space-tag"`
+	CIDRs      []string `json:"cidrs"`
+	SpaceTagTo string   `json:"space-tag-to"`
+	Force      bool     `json:"force"`
 }
 
 // MoveToSpaceResults holds the results of the MoveToSpace API call.
@@ -950,9 +951,14 @@ type MoveToSpaceResults struct {
 // Results holds the result of a moveToSpace API call.
 // It returns that CIDR `a` moved to spaceTag `b`.
 type MoveToSpaceResult struct {
-	CIDR     string `json:"cidr"`
-	SpaceTag string `json:"space-tag"`
-	Error    *Error `json:"error,omitempty"`
+	Moved []MovedSpaceCIDR `json:"moved-space-cidr,omitempty"`
+	Error *Error           `json:"error,omitempty"`
+}
+
+type MovedSpaceCIDR struct {
+	CIDR         string `json:"cidr"`
+	SpaceTagFrom string `json:"space-tag-from"`
+	SpaceTagTo   string `json:"space-tag-to"`
 }
 
 // ListSpacesResults holds the list of all available spaces.
