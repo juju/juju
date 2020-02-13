@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// InstanceMutaterState represents point of use methods from the state object.
 type InstanceMutaterState interface {
 	state.EntityFinder
 
@@ -23,7 +24,7 @@ type InstanceMutaterState interface {
 	ControllerTimestamp() (*time.Time, error)
 }
 
-// Machine represents point of use methods from the state machine object.
+// Machine represents point of use methods from the state Machine object.
 type Machine interface {
 	InstanceId() (instance.Id, error)
 	CharmProfiles() ([]string, error)
@@ -32,17 +33,17 @@ type Machine interface {
 	Units() ([]Unit, error)
 }
 
-// Unit represents a point of use methods from the state unit object.
+// Unit represents a point of use methods from the state Unit object.
 type Unit interface {
 	Application() string
 }
 
-// Charm represents point of use methods from the state charm object.
+// Charm represents point of use methods from the state Charm object.
 type Charm interface {
 	LXDProfile() lxdprofile.Profile
 }
 
-// Application represents point of use methods from the state application object.
+// Application represents point of use methods from the state Application object.
 type Application interface {
 	CharmURL() *charm.URL
 }

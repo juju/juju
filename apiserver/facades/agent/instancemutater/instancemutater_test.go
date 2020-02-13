@@ -5,6 +5,8 @@ package instancemutater_test
 
 import (
 	"fmt"
+	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v6"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -38,6 +40,8 @@ type instanceMutaterAPISuite struct {
 	machineTag  names.Tag
 	notifyDone  chan struct{}
 	stringsDone chan []string
+
+	machineFunc instancemutater.EntityMachineFunc
 }
 
 func (s *instanceMutaterAPISuite) SetUpTest(c *gc.C) {
@@ -66,7 +70,7 @@ func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C, behaviours ...fu
 		b()
 	}
 
-	facade, err := instancemutater.NewInstanceMutaterAPI(s.state, s.model, s.resources, s.authorizer)
+	facade, err := instancemutater.NewInstanceMutaterAPIForTest(s.state, s.model, s.resources, s.authorizer, s.machineFunc)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -83,8 +87,21 @@ func (s *instanceMutaterAPISuite) expectLife(machineTag names.Tag) func() {
 }
 
 func (s *instanceMutaterAPISuite) expectFindEntity(machineTag names.Tag, entity state.Entity) func() {
+	s.machineFunc = func(state.Entity) (instancemutater.Machine, error) {
+		shim, ok := entity.(machineEntityShim)
+		if !ok {
+			return nil, errors.NotValidf("machine entity")
+		}
+		return shim.Machine, nil
+	}
 	return func() {
 		s.state.EXPECT().FindEntity(machineTag).Return(entity, nil)
+	}
+}
+
+func (s *instanceMutaterAPISuite) expectFindEntityError(machineTag names.Tag, err error) func() {
+	return func() {
+		s.state.EXPECT().FindEntity(machineTag).Return(nil, err)
 	}
 }
 
@@ -235,11 +252,11 @@ type entityShim struct {
 type InstanceMutaterAPICharmProfilingInfoSuite struct {
 	instanceMutaterAPISuite
 
-	machine     *mocks.MockModelCacheMachine
-	unit        *mocks.MockModelCacheUnit
-	application *mocks.MockModelCacheApplication
-	charm       *mocks.MockModelCacheCharm
-	lxdProfile  *mocks.MockLXDProfile
+	cacheMachine *mocks.MockModelCacheMachine
+	machine      *mocks.MockMachine
+	unit         *mocks.MockUnit
+	application  *mocks.MockApplication
+	charm        *mocks.MockCharm
 }
 
 var _ = gc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
@@ -247,11 +264,11 @@ var _ = gc.Suite(&InstanceMutaterAPICharmProfilingInfoSuite{})
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Controller {
 	ctrl := s.instanceMutaterAPISuite.setup(c)
 
-	s.machine = mocks.NewMockModelCacheMachine(ctrl)
-	s.unit = mocks.NewMockModelCacheUnit(ctrl)
-	s.application = mocks.NewMockModelCacheApplication(ctrl)
-	s.charm = mocks.NewMockModelCacheCharm(ctrl)
-	s.lxdProfile = mocks.NewMockLXDProfile(ctrl)
+	s.cacheMachine = mocks.NewMockModelCacheMachine(ctrl)
+	s.machine = mocks.NewMockMachine(ctrl)
+	s.unit = mocks.NewMockUnit(ctrl)
+	s.application = mocks.NewMockApplication(ctrl)
+	s.charm = mocks.NewMockCharm(ctrl)
 
 	return ctrl
 }
@@ -262,11 +279,15 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectMachine(instance.Id("0")),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
 		s.expectInstanceId(instance.Id("0")),
 		s.expectUnits(1),
 		s.expectCharmProfiles,
-		s.expectProfileExtraction,
+		s.expectProfileExtraction(c),
 		s.expectName,
 	)
 
@@ -305,12 +326,16 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectMachine(instance.Id("0")),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
 		s.expectInstanceId(instance.Id("0")),
 		s.expectUnits(2),
 		s.expectCharmProfiles,
-		s.expectProfileExtraction,
-		s.expectProfileExtractionWithEmpty,
+		s.expectProfileExtraction(c),
+		s.expectProfileExtractionWithEmpty(c),
 		s.expectName,
 	)
 
@@ -353,7 +378,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithIn
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectFindEntityWithNotFoundError,
+		s.expectFindEntityError(s.machineTag, errors.New("not found")),
 	)
 
 	results, err := facade.CharmProfilingInfo(params.Entity{Tag: "machine-0"})
@@ -367,7 +392,11 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 	facade := s.facadeAPIForScenario(c,
 		s.expectAuthMachineAgent,
 		s.expectLife(s.machineTag),
-		s.expectMachine(instance.Id("0")),
+		s.expectFindEntity(s.machineTag, machineEntityShim{
+			Machine: s.machine,
+			Entity:  s.entity,
+			Lifer:   s.lifer,
+		}),
 		s.expectInstanceIdNotProvisioned,
 	)
 
@@ -382,7 +411,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithMa
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectMachine(id instance.Id) func() {
 	return func() {
-		s.model.EXPECT().Machine(string(id)).Return(s.machine, nil)
+		s.model.EXPECT().Machine(string(id)).Return(s.cacheMachine, nil)
 	}
 }
 
@@ -392,10 +421,6 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceId(id instance
 	}
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectFindEntityWithNotFoundError() {
-	s.model.EXPECT().Machine(s.machineTag.Id()).Return(s.machine, errors.New("not found"))
-}
-
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceIdNotProvisioned() {
 	s.machine.EXPECT().InstanceId().Return(instance.Id("0"), params.Error{Code: params.CodeNotProvisioned})
 }
@@ -403,7 +428,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectInstanceIdNotProvision
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUnits(times int) func() {
 	return func() {
 		machineExp := s.machine.EXPECT()
-		units := make([]instancemutater.ModelCacheUnit, times)
+		units := make([]instancemutater.Unit, times)
 		for i := 0; i < times; i++ {
 			units[i] = s.unit
 		}
@@ -413,43 +438,51 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectUnits(times int) func(
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectCharmProfiles() {
 	machineExp := s.machine.EXPECT()
-	machineExp.CharmProfiles().Return([]string{"charm-app-0"})
+	machineExp.CharmProfiles().Return([]string{"charm-app-0"}, nil)
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction() {
-	appExp := s.application.EXPECT()
-	charmExp := s.charm.EXPECT()
-	modelExp := s.model.EXPECT()
-	unitExp := s.unit.EXPECT()
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtraction(c *gc.C) func() {
+	return func() {
+		appExp := s.application.EXPECT()
+		charmExp := s.charm.EXPECT()
+		stateExp := s.state.EXPECT()
+		unitExp := s.unit.EXPECT()
 
-	unitExp.Application().Return("foo")
-	modelExp.Application("foo").Return(s.application, nil)
-	appExp.CharmURL().Return("cs:app-0")
-	modelExp.Charm("cs:app-0").Return(s.charm, nil)
-	charmExp.LXDProfile().Return(lxdprofile.Profile{
-		Config: map[string]string{
-			"security.nesting": "true",
-		},
-		Description: "dummy profile description",
-		Devices: map[string]map[string]string{
-			"tun": {
-				"path": "/dev/net/tun",
+		unitExp.Application().Return("foo")
+		stateExp.Application("foo").Return(s.application, nil)
+		chURL, err := charm.ParseURL("cs:app-0")
+		c.Assert(err, jc.ErrorIsNil)
+		appExp.CharmURL().Return(chURL)
+		stateExp.Charm(chURL).Return(s.charm, nil)
+		charmExp.LXDProfile().Return(lxdprofile.Profile{
+			Config: map[string]string{
+				"security.nesting": "true",
 			},
-		},
-	})
+			Description: "dummy profile description",
+			Devices: map[string]map[string]string{
+				"tun": {
+					"path": "/dev/net/tun",
+				},
+			},
+		})
+	}
 }
 
-func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty() {
-	appExp := s.application.EXPECT()
-	charmExp := s.charm.EXPECT()
-	modelExp := s.model.EXPECT()
-	unitExp := s.unit.EXPECT()
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectProfileExtractionWithEmpty(c *gc.C) func() {
+	return func() {
+		appExp := s.application.EXPECT()
+		charmExp := s.charm.EXPECT()
+		stateExp := s.state.EXPECT()
+		unitExp := s.unit.EXPECT()
 
-	unitExp.Application().Return("foo")
-	modelExp.Application("foo").Return(s.application, nil)
-	appExp.CharmURL().Return("cs:app-0")
-	modelExp.Charm("cs:app-0").Return(s.charm, nil)
-	charmExp.LXDProfile().Return(lxdprofile.Profile{})
+		unitExp.Application().Return("foo")
+		stateExp.Application("foo").Return(s.application, nil)
+		chURL, err := charm.ParseURL("cs:app-0")
+		c.Assert(err, jc.ErrorIsNil)
+		appExp.CharmURL().Return(chURL)
+		stateExp.Charm(chURL).Return(s.charm, nil)
+		charmExp.LXDProfile().Return(lxdprofile.Profile{})
+	}
 }
 
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) expectName() {

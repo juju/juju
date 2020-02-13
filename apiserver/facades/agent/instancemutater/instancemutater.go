@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,LXDProfile
-//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine,ModelCacheApplication,ModelCacheUnit,ModelCacheCharm
+//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,Unit,Application,Charm
+//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
 
@@ -54,7 +54,10 @@ type InstanceMutaterAPI struct {
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
+	machineFunc EntityMachineFunc
 }
+
+type EntityMachineFunc func(state.Entity) (Machine, error)
 
 type InstanceMutaterAPIV1 struct {
 	*InstanceMutaterAPI
@@ -107,6 +110,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
+		machineFunc: machineFromEntity,
 	}, nil
 }
 
@@ -321,12 +325,18 @@ func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.M
 	}
 	// The authorization function guarantees that the tag represents a
 	// machine.
+	// call a function, default to below... or pass in a func for the mocks to work.
+	// separate constructor in export
+	return api.machineFunc(entity)
+}
+
+func machineFromEntity(entity state.Entity) (Machine, error) {
 	var m *state.Machine
 	var ok bool
 	if m, ok = entity.(*state.Machine); !ok {
 		return nil, errors.NotValidf("machine entity")
 	}
-	return &machine{m}, nil
+	return &machineShim{m}, nil
 }
 
 // lxdProfileInfo holds the profile information for the machineLXDProfileInfo
