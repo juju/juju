@@ -75,8 +75,8 @@ func (s *uploadSuite) TestOkay(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.command, s.filename)
 	c.Check(err, jc.ErrorIsNil)
 
-	out := MetaResultString
-	s.checkStd(c, ctx, out, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "Uploaded backup file, creating backup ID spam\n")
 }
 
 func (s *uploadSuite) TestFileMissing(c *gc.C) {

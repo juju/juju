@@ -59,11 +59,6 @@ func (c *uploadCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	if c.Log != nil {
-		if err := c.Log.Start(ctx); err != nil {
-			return err
-		}
-	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -76,11 +71,8 @@ func (c *uploadCommand) Run(ctx *cmd.Context) error {
 	}
 	defer archive.Close()
 
-	if c.Log != nil && c.Log.Verbose {
-		fmt.Fprintln(ctx.Stdout, "Uploaded metadata:")
-		c.dumpMetadata(ctx, meta)
-		fmt.Fprintln(ctx.Stdout)
-	}
+	ctx.Verbosef("Uploading metadata:")
+	c.dumpMetadata(ctx, meta)
 
 	// Upload the archive.
 	id, err := client.Upload(archive, *meta)
@@ -88,10 +80,7 @@ func (c *uploadCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if c.Log != nil && c.Log.Quiet {
-		fmt.Fprintln(ctx.Stdout, id)
-		return nil
-	}
+	fmt.Fprintln(ctx.Stdout, fmt.Sprintf("Uploaded backup file, creating backup ID %v", id))
 
 	// Pull the stored metadata.
 	stored, err := c.getStoredMetadata(id)
@@ -99,6 +88,7 @@ func (c *uploadCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
+	ctx.Verbosef("Uploaded metadata:")
 	c.dumpMetadata(ctx, stored)
 	return nil
 }

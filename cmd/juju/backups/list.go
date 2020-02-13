@@ -57,11 +57,6 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	if c.Log != nil {
-		if err := c.Log.Start(ctx); err != nil {
-			return err
-		}
-	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -78,19 +73,12 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 		return nil
 	}
 
-	verbose := c.Log != nil && c.Log.Verbose
-	if verbose {
-		c.dumpMetadata(ctx, &result.List[0])
-	} else {
-		fmt.Fprintln(ctx.Stdout, result.List[0].ID)
-	}
-	for _, resultItem := range result.List[1:] {
-		if verbose {
-			fmt.Fprintln(ctx.Stdout)
-			c.dumpMetadata(ctx, &resultItem)
-		} else {
+	for _, resultItem := range result.List {
+		if !c.isVerbose() {
 			fmt.Fprintln(ctx.Stdout, resultItem.ID)
+			continue
 		}
+		c.dumpMetadata(ctx, &resultItem)
 	}
 	return nil
 }

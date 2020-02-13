@@ -4,13 +4,16 @@
 package backups
 
 import (
-	"fmt"
+	"bytes"
 	"io"
 	"os"
+	"text/template"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/version"
 
 	"github.com/juju/juju/api/backups"
 	apiserverbackups "github.com/juju/juju/apiserver/facades/client/backups"
@@ -48,9 +51,11 @@ type APIClient interface {
 
 // CommandBase is the base type for backups sub-commands.
 type CommandBase struct {
-	// TODO(wallyworld) - remove Log when backup command is flattened.
-	Log *cmd.Log
 	modelcmd.ModelCommandBase
+
+	fs      *gnuflag.FlagSet
+	verbose bool
+	quiet   bool
 }
 
 // NewAPIClient returns a client for the backups api endpoint.
@@ -66,9 +71,7 @@ func (c *CommandBase) NewGetAPI() (APIClient, int, error) {
 // SetFlags implements Command.SetFlags.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	if c.Log != nil {
-		c.Log.AddFlags(f)
-	}
+	c.fs = f
 }
 
 func (c *CommandBase) validateIaasController(cmdName string) error {
@@ -100,23 +103,95 @@ var getAPI = func(c *CommandBase) (APIClient, int, error) {
 
 // dumpMetadata writes the formatted backup metadata to stdout.
 func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
-	// TODO: (hml) 2018-04-26
-	// fix how --quiet and --verbose are handled with backup/restore commands
-	// should be ctx.Verbosef() here
-	fmt.Fprintf(ctx.Stdout, "backup ID:       %q\n", result.ID)
-	fmt.Fprintf(ctx.Stdout, "checksum:        %q\n", result.Checksum)
-	fmt.Fprintf(ctx.Stdout, "checksum format: %q\n", result.ChecksumFormat)
-	fmt.Fprintf(ctx.Stdout, "size (B):        %d\n", result.Size)
-	fmt.Fprintf(ctx.Stdout, "stored:          %v\n", result.Stored)
+	ctx.Verbosef(c.metadata(result))
+}
 
-	fmt.Fprintf(ctx.Stdout, "started:         %v\n", result.Started)
-	fmt.Fprintf(ctx.Stdout, "finished:        %v\n", result.Finished)
-	fmt.Fprintf(ctx.Stdout, "notes:           %q\n", result.Notes)
+func (c *CommandBase) isVerbose() bool {
+	if !c.verbose {
+		c.fs.Visit(func(flag *gnuflag.Flag) {
+			if flag.Name == "verbose" {
+				c.verbose = true
+			}
+		})
+	}
+	return c.verbose
+}
 
-	fmt.Fprintf(ctx.Stdout, "model ID:        %q\n", result.Model)
-	fmt.Fprintf(ctx.Stdout, "machine ID:      %q\n", result.Machine)
-	fmt.Fprintf(ctx.Stdout, "created on host: %q\n", result.Hostname)
-	fmt.Fprintf(ctx.Stdout, "juju version:    %v\n", result.Version)
+func (c *CommandBase) isQuiet() bool {
+	if !c.quiet {
+		c.fs.Visit(func(flag *gnuflag.Flag) {
+			if flag.Name == "quiet" {
+				c.quiet = true
+			}
+		})
+	}
+	return c.quiet
+}
+
+const backupMatadataTemplate = `
+backup ID:             {{.BackupID}} 
+backup format version: {{.FormatVersion}} 
+juju version:          {{.JujuVersion}} 
+series:                {{.Series}} 
+
+controller UUID:       {{.ControllerUUID}}{{if (gt .HANodes 1)}} 
+controllers in HA:     {{.HANodes}}{{end}}
+model UUID:            {{.ModelUUID}} 
+machine ID:            {{.MachineID}} 
+created on host:       {{.Hostname}} 
+
+checksum:              {{.Checksum}} 
+checksum format:       {{.ChecksumFormat}} 
+size (B):              {{.Size}} 
+stored:                {{.Stored}} 
+started:               {{.Started}} 
+finished:              {{.Finished}} 
+
+notes:                 {{.Notes}} 
+`
+
+type MetadataParams struct {
+	BackupID       string
+	FormatVersion  int64
+	Checksum       string
+	ChecksumFormat string
+	Size           int64
+	Stored         time.Time
+	Started        time.Time
+	Finished       time.Time
+	Notes          string
+	ControllerUUID string
+	HANodes        int64
+	ModelUUID      string
+	MachineID      string
+	Hostname       string
+	JujuVersion    version.Number
+	Series         string
+}
+
+func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
+	m := MetadataParams{
+		result.ID,
+		result.FormatVersion,
+		result.Checksum,
+		result.ChecksumFormat,
+		result.Size,
+		result.Stored,
+		result.Started,
+		result.Finished,
+		result.Notes,
+		result.ControllerUUID,
+		result.HANodes,
+		result.Model,
+		result.Machine,
+		result.Hostname,
+		result.Version,
+		result.Series,
+	}
+	t := template.Must(template.New("plugin").Parse(backupMatadataTemplate))
+	content := bytes.Buffer{}
+	t.Execute(&content, m)
+	return content.String()
 }
 
 // ArchiveReader can read a backup archive.

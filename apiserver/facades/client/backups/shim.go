@@ -8,6 +8,8 @@ import (
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/facade"
+	"github.com/juju/juju/core/instance"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 )
 
@@ -62,6 +64,48 @@ func (s *stateShim) ModelTag() names.ModelTag {
 	return s.Model.ModelTag()
 }
 
+// ModelType returns type of the model from the shim.
 func (s *stateShim) ModelType() state.ModelType {
 	return s.Model.Type()
+}
+
+// ControllerNodes returns controller nodes in HA.
+func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
+	nodes, err := s.State.ControllerNodes()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	result := make([]state.ControllerNode, len(nodes))
+	for i, n := range nodes {
+		result[i] = n
+	}
+	return result, nil
+}
+
+// Machine returns desired Machine.
+func (s stateShim) Machine(id string) (Machine, error) {
+	m, err := s.State.Machine(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m, nil
+}
+
+// Machine represent machine used in backups.
+type Machine interface {
+
+	// InstanceId has machine's cloud instance id.
+	InstanceId() (instance.Id, error)
+
+	// PrivateAddress has machine's private address.
+	PrivateAddress() (corenetwork.SpaceAddress, error)
+
+	// PublicAddress has machine's public address.
+	PublicAddress() (corenetwork.SpaceAddress, error)
+
+	// Tag has machine's tag.
+	Tag() names.Tag
+
+	// Series has machine's series.
+	Series() string
 }

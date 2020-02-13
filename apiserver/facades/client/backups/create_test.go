@@ -54,3 +54,19 @@ func (s *backupsSuite) TestCreateError(c *gc.C) {
 	c.Logf("%v", err)
 	c.Check(err, gc.ErrorMatches, "failed!")
 }
+
+func (s *backupsSuite) TestCreateController(c *gc.C) {
+	s.PatchValue(backups.WaitUntilReady,
+		func(*mgo.Session, int) error { return nil },
+	)
+	s.meta.Controller.UUID = "controller-uuid"
+	s.meta.Controller.MachineID = "11"
+	s.meta.Controller.MachineInstanceID = "instance-12"
+	s.meta.Controller.HANodes = int64(3)
+	s.setBackups(c, s.meta, "")
+
+	result, err := s.api.Create(params.BackupsCreateArgs{})
+	c.Assert(err, jc.ErrorIsNil)
+	expected := backups.CreateResult(s.meta, "test-filename")
+	c.Check(result, gc.DeepEquals, expected)
+}

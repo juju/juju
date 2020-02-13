@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -67,7 +68,6 @@ type createCommand struct {
 	Notes string
 	// KeepCopy means the backup archive should be stored in the controller db.
 	KeepCopy bool
-	fs       *gnuflag.FlagSet
 }
 
 // Info implements Command.Info.
@@ -127,12 +127,6 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	if c.Log != nil {
-		if err := c.Log.Start(ctx); err != nil {
-			return err
-		}
-	}
-
 	client, apiVersion, err := c.NewGetAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -157,10 +151,8 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO: (hml) 2018-04-25
-	// fix to dump the metadata when --verbose used
-	if c.Log != nil && !c.Log.Quiet {
-		c.dumpMetadata(ctx, metadataResult)
+	if !c.isQuiet() {
+		fmt.Fprintln(ctx.Stdout, c.metadata(metadataResult))
 	}
 
 	if c.KeepCopy {

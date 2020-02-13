@@ -4,7 +4,6 @@
 package backups_test
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 
@@ -13,68 +12,22 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/state/backups"
-	bt "github.com/juju/juju/state/backups/testing"
 )
 
-type workspaceSuite struct {
+type workspaceSuiteV0 struct {
 	testing.IsolationSuite
-	archiveFile *bytes.Buffer
-	meta        *backups.Metadata
+	baseArchiveDataSuite
 }
 
-var _ = gc.Suite(&workspaceSuite{})
+var _ = gc.Suite(&workspaceSuiteV0{})
+var _ = gc.Suite(&workspaceSuiteV1{})
 
-func (s *workspaceSuite) SetUpTest(c *gc.C) {
+func (s *workspaceSuiteV0) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	meta, err := backups.NewMetadataJSONReader(bytes.NewBufferString(`{` +
-		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
-		`"Checksum":"123af2cef",` +
-		`"ChecksumFormat":"SHA-1, base64 encoded",` +
-		`"Size":10,` +
-		`"Stored":"0001-01-01T00:00:00Z",` +
-		`"Started":"2014-09-09T11:59:34Z",` +
-		`"Finished":"2014-09-09T12:00:34Z",` +
-		`"Notes":"",` +
-		`"Environment":"9f484882-2f18-4fd2-967d-db9663db7bea",` +
-		`"Machine":"0",` +
-		`"Hostname":"myhost",` +
-		`"Version":"1.21-alpha3"` +
-		`}` + "\n"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	files := []bt.File{
-		{
-			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
-			Content: "<some binary data goes here>",
-		},
-		{
-			Name:    "var/lib/juju/system-identity",
-			Content: "<an ssh key goes here>",
-		},
-	}
-	dump := []bt.File{
-		{
-			Name:  "juju",
-			IsDir: true,
-		},
-		{
-			Name:    "juju/machines.bson",
-			Content: "<BSON data goes here>",
-		},
-		{
-			Name:    "oplog.bson",
-			Content: "<BSON data goes here>",
-		},
-	}
-	archiveFile, err := bt.NewArchive(meta, files, dump)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.archiveFile = archiveFile
-	s.meta = meta
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV0)
 }
 
-func (s *workspaceSuite) TestNewArchiveWorkspaceReader(c *gc.C) {
+func (s *workspaceSuiteV0) TestNewArchiveWorkspaceReader(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
@@ -82,7 +35,7 @@ func (s *workspaceSuite) TestNewArchiveWorkspaceReader(c *gc.C) {
 	c.Check(ws.RootDir, gc.Not(gc.Equals), "")
 }
 
-func (s *workspaceSuite) TestClose(c *gc.C) {
+func (s *workspaceSuiteV0) TestClose(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -93,7 +46,7 @@ func (s *workspaceSuite) TestClose(c *gc.C) {
 	c.Check(err, jc.Satisfies, os.IsNotExist)
 }
 
-func (s *workspaceSuite) TestUnpackFilesBundle(c *gc.C) {
+func (s *workspaceSuiteV0) TestUnpackFilesBundle(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
@@ -108,7 +61,7 @@ func (s *workspaceSuite) TestUnpackFilesBundle(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *workspaceSuite) TestOpenBundledFile(c *gc.C) {
+func (s *workspaceSuiteV0) TestOpenBundledFile(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
@@ -121,7 +74,7 @@ func (s *workspaceSuite) TestOpenBundledFile(c *gc.C) {
 	c.Check(string(data), gc.Equals, "<an ssh key goes here>")
 }
 
-func (s *workspaceSuite) TestMetadata(c *gc.C) {
+func (s *workspaceSuiteV0) TestMetadata(c *gc.C) {
 	ws, err := backups.NewArchiveWorkspaceReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	defer ws.Close()
@@ -130,4 +83,14 @@ func (s *workspaceSuite) TestMetadata(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(meta, jc.DeepEquals, s.meta)
+}
+
+type workspaceSuiteV1 struct {
+	testing.IsolationSuite
+	baseArchiveDataSuite
+}
+
+func (s *workspaceSuiteV1) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV1)
 }

@@ -161,11 +161,6 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	if c.Log != nil {
-		if err := c.Log.Start(ctx); err != nil {
-			return err
-		}
-	}
 
 	// Don't allow restore in an HA environment
 	controllerModelUUID, modelStatus, err := c.modelStatus()

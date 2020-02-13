@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups"
 	backupstesting "github.com/juju/juju/state/backups/testing"
 )
@@ -56,7 +57,13 @@ func (s *backupsSuite) SetUpTest(c *gc.C) {
 
 	tag := names.NewLocalUserTag("admin")
 	s.authorizer = &apiservertesting.FakeAuthorizer{Tag: tag}
-	s.api, err = backupsAPI.NewAPIv2(&stateShim{State: s.State, Model: s.Model}, s.resources, s.authorizer)
+	shim := &stateShim{
+		State:            s.State,
+		Model:            s.Model,
+		controllerNodesF: func() ([]state.ControllerNode, error) { return nil, nil },
+		machineF:         func(id string) (backupsAPI.Machine, error) { return &testMachine{}, nil },
+	}
+	s.api, err = backupsAPI.NewAPIv2(shim, s.resources, s.authorizer)
 	c.Assert(err, jc.ErrorIsNil)
 	s.meta = backupstesting.NewMetadataStarted()
 }

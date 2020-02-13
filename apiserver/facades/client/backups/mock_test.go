@@ -6,6 +6,8 @@ package backups_test
 import (
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/apiserver/facades/client/backups"
+	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -15,7 +17,9 @@ type stateShim struct {
 	*state.State
 	*state.Model
 
-	isController *bool
+	isController     *bool
+	controllerNodesF func() ([]state.ControllerNode, error)
+	machineF         func(id string) (backups.Machine, error)
 }
 
 func (s *stateShim) IsController() bool {
@@ -35,4 +39,20 @@ func (s *stateShim) ControllerTag() names.ControllerTag {
 
 func (s *stateShim) ModelType() state.ModelType {
 	return s.Model.Type()
+}
+
+func (s stateShim) ControllerNodes() ([]state.ControllerNode, error) {
+	return s.controllerNodesF()
+}
+
+func (s stateShim) Machine(id string) (backups.Machine, error) {
+	return s.machineF(id)
+}
+
+type testMachine struct {
+	*state.Machine
+}
+
+func (m *testMachine) InstanceId() (instance.Id, error) {
+	return instance.Id("inst-0"), nil
 }

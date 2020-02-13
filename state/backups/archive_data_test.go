@@ -17,48 +17,20 @@ import (
 	bt "github.com/juju/juju/state/backups/testing"
 )
 
-type archiveDataSuite struct {
+type archiveDataSuiteV0 struct {
 	testing.IsolationSuite
-	archiveFile *bytes.Buffer
-	data        []byte
-	meta        *backups.Metadata
+	baseArchiveDataSuite
 }
 
+var _ = gc.Suite(&archiveDataSuiteV0{})
 var _ = gc.Suite(&archiveDataSuite{})
 
-func (s *archiveDataSuite) SetUpTest(c *gc.C) {
+func (s *archiveDataSuiteV0) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-
-	meta, err := backups.NewMetadataJSONReader(bytes.NewBufferString(`{` +
-		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
-		`"Checksum":"123af2cef",` +
-		`"ChecksumFormat":"SHA-1, base64 encoded",` +
-		`"Size":10,` +
-		`"Stored":"0001-01-01T00:00:00Z",` +
-		`"Started":"2014-09-09T11:59:34Z",` +
-		`"Finished":"2014-09-09T12:00:34Z",` +
-		`"Notes":"",` +
-		`"Environment":"asdf-zxcv-qwe",` +
-		`"Machine":"0",` +
-		`"Hostname":"myhost",` +
-		`"Version":"1.21-alpha3"` +
-		`}` + "\n"))
-	c.Assert(err, jc.ErrorIsNil)
-
-	archiveFile := s.newArchiveFile(c, meta)
-	compressed, err := ioutil.ReadAll(archiveFile)
-	c.Assert(err, jc.ErrorIsNil)
-	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
-	c.Assert(err, jc.ErrorIsNil)
-	data, err := ioutil.ReadAll(gzr)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.archiveFile = bytes.NewBuffer(compressed)
-	s.data = data
-	s.meta = meta
+	s.baseArchiveDataSuite.setupMetadata(c, testMetadataV0)
 }
 
-func (s *archiveDataSuite) newArchiveFile(c *gc.C, meta *backups.Metadata) io.Reader {
+func newArchiveFile(c *gc.C, meta *backups.Metadata) io.Reader {
 	files := []bt.File{
 		{
 			Name:    "var/lib/juju/tools/1.21-alpha2.1-trusty-amd64/jujud",
@@ -83,12 +55,18 @@ func (s *archiveDataSuite) newArchiveFile(c *gc.C, meta *backups.Metadata) io.Re
 			Content: "<BSON data goes here>",
 		},
 	}
-	archiveFile, err := bt.NewArchive(meta, files, dump)
+	var archiveFile io.Reader
+	var err error
+	if meta != nil && meta.FormatVersion == 0 {
+		archiveFile, err = bt.NewArchiveV0(meta, files, dump)
+	} else {
+		archiveFile, err = bt.NewArchive(meta, files, dump)
+	}
 	c.Assert(err, jc.ErrorIsNil)
 	return archiveFile
 }
 
-func (s *archiveDataSuite) TestNewArchiveData(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewArchiveData(c *gc.C) {
 	ad := backups.NewArchiveData([]byte("<uncompressed>"))
 	data := ad.NewBuffer().String()
 
@@ -96,7 +74,7 @@ func (s *archiveDataSuite) TestNewArchiveData(c *gc.C) {
 	c.Check(data, gc.Equals, "<uncompressed>")
 }
 
-func (s *archiveDataSuite) TestNewArchiveDataReader(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewArchiveDataReader(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	data := ad.NewBuffer().Bytes()
@@ -105,7 +83,7 @@ func (s *archiveDataSuite) TestNewArchiveDataReader(c *gc.C) {
 	c.Check(data, jc.DeepEquals, s.data)
 }
 
-func (s *archiveDataSuite) TestNewBuffer(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewBuffer(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 	buf := ad.NewBuffer()
@@ -113,7 +91,7 @@ func (s *archiveDataSuite) TestNewBuffer(c *gc.C) {
 	c.Check(buf.Bytes(), jc.DeepEquals, s.data)
 }
 
-func (s *archiveDataSuite) TestNewBufferMultiple(c *gc.C) {
+func (s *archiveDataSuiteV0) TestNewBufferMultiple(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -124,17 +102,16 @@ func (s *archiveDataSuite) TestNewBufferMultiple(c *gc.C) {
 	c.Check(buf2.Bytes(), jc.DeepEquals, buf1.Bytes())
 }
 
-func (s *archiveDataSuite) TestMetadata(c *gc.C) {
+func (s *archiveDataSuiteV0) TestMetadata(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
 	meta, err := ad.Metadata()
 	c.Assert(err, jc.ErrorIsNil)
-
 	c.Check(meta, jc.DeepEquals, s.meta)
 }
 
-func (s *archiveDataSuite) TestVersionFound(c *gc.C) {
+func (s *archiveDataSuiteV0) TestVersionFound(c *gc.C) {
 	ad, err := backups.NewArchiveDataReader(s.archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -144,8 +121,8 @@ func (s *archiveDataSuite) TestVersionFound(c *gc.C) {
 	c.Check(version, jc.DeepEquals, &s.meta.Origin.Version)
 }
 
-func (s *archiveDataSuite) TestVersionNotFound(c *gc.C) {
-	archiveFile := s.newArchiveFile(c, nil)
+func (s *archiveDataSuiteV0) TestVersionNotFound(c *gc.C) {
+	archiveFile := newArchiveFile(c, nil)
 	ad, err := backups.NewArchiveDataReader(archiveFile)
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -153,4 +130,73 @@ func (s *archiveDataSuite) TestVersionNotFound(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(version.String(), jc.DeepEquals, "1.20.0")
+}
+
+type baseArchiveDataSuite struct {
+	archiveFile *bytes.Buffer
+	data        []byte
+	meta        *backups.Metadata
+}
+
+const (
+	testMetadataV0 = `{` +
+		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
+		`"Checksum":"123af2cef",` +
+		`"ChecksumFormat":"SHA-1, base64 encoded",` +
+		`"Size":10,` +
+		`"Stored":"0001-01-01T00:00:00Z",` +
+		`"Started":"2014-09-09T11:59:34Z",` +
+		`"Finished":"2014-09-09T12:00:34Z",` +
+		`"Notes":"",` +
+		`"Environment":"asdf-zxcv-qwe",` +
+		`"Machine":"0",` +
+		`"Hostname":"myhost",` +
+		`"Version":"1.21-alpha3"` +
+		`}` + "\n"
+
+	testMetadataV1 = `{` +
+		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
+		`"FormatVersion":1,` +
+		`"Checksum":"123af2cef",` +
+		`"ChecksumFormat":"SHA-1, base64 encoded",` +
+		`"Size":10,` +
+		`"Stored":"0001-01-01T00:00:00Z",` +
+		`"Started":"2014-09-09T11:59:34Z",` +
+		`"Finished":"2014-09-09T12:00:34Z",` +
+		`"Notes":"",` +
+		`"ModelUUID":"asdf-zxcv-qwe",` +
+		`"Machine":"0",` +
+		`"Hostname":"myhost",` +
+		`"Version":"1.21-alpha3",` +
+		`"ControllerUUID":"controller-uuid",` +
+		`"HANodes":3,` +
+		`"ControllerMachineID":"10",` +
+		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`}` + "\n"
+)
+
+func (s *baseArchiveDataSuite) setupMetadata(c *gc.C, metadata string) {
+	meta, err := backups.NewMetadataJSONReader(bytes.NewBufferString(metadata))
+	c.Assert(err, jc.ErrorIsNil)
+
+	archiveFile := newArchiveFile(c, meta)
+	compressed, err := ioutil.ReadAll(archiveFile)
+	c.Assert(err, jc.ErrorIsNil)
+	gzr, err := gzip.NewReader(bytes.NewBuffer(compressed))
+	c.Assert(err, jc.ErrorIsNil)
+	data, err := ioutil.ReadAll(gzr)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.archiveFile = bytes.NewBuffer(compressed)
+	s.data = data
+	s.meta = meta
+}
+
+type archiveDataSuite struct {
+	archiveDataSuiteV0
+}
+
+func (s *archiveDataSuite) SetUpTest(c *gc.C) {
+	s.archiveDataSuiteV0.SetUpTest(c)
+	s.setupMetadata(c, testMetadataV1)
 }

@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 
@@ -55,11 +56,6 @@ func (c *showCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	if c.Log != nil {
-		if err := c.Log.Start(ctx); err != nil {
-			return err
-		}
-	}
 	client, err := c.NewAPIClient()
 	if err != nil {
 		return errors.Trace(err)
@@ -71,6 +67,6 @@ func (c *showCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	c.dumpMetadata(ctx, result)
+	fmt.Fprintln(ctx.Stdout, c.metadata(result))
 	return nil
 }
