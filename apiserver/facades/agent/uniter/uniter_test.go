@@ -4768,6 +4768,63 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
+	// We need to set up a unit that has storage metadata defined.
+	ch := s.AddTestingCharm(c, "storage-block2") // supports multiple storage instances
+	application := s.AddTestingApplication(c, "storage-block2", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	oldVolumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+
+	stCount := uint64(1)
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.OpenPortRange("tcp", 80, 81)
+	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
+	b.ClosePortRange("tcp", 7337, 7337)
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.AddStorage(map[string][]params.StorageConstraints{
+		"multi1to10": []params.StorageConstraints{{Count: &stCount}},
+	})
+	req, _ := b.Build()
+
+	// Test-suite uses an older API version. Create a new one and override
+	// authorizer to allow access to the unit we just created.
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: unit.Tag(),
+	}
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Verify state
+	portRanges, err := unit.OpenedPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRanges, jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+
+	unitState, err := unit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	newVolumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newVolumeAttachments, gc.HasLen, len(oldVolumeAttachments)+1, gc.Commentf("expected an additional instance of block storage to be added"))
+}
+
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 

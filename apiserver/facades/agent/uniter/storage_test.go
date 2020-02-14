@@ -380,7 +380,7 @@ func (s *storageSuite) TestAddUnitStorageConstraintsErrors(c *gc.C) {
 
 func (s *storageSuite) TestAddUnitStorage(c *gc.C) {
 	setMockAdd := func(st *mockStorageState, f func(tag names.UnitTag, name string, cons state.StorageConstraints) error) {
-		st.addUnitStorage = f
+		st.addUnitStorageOperation = f
 	}
 
 	unitTag0 := names.NewUnitTag("mysql/0")
@@ -491,7 +491,7 @@ type mockStorageState struct {
 	watchFilesystemAttachment     func(names.Tag, names.FilesystemTag) state.NotifyWatcher
 	watchVolumeAttachment         func(names.Tag, names.VolumeTag) state.NotifyWatcher
 	watchBlockDevices             func(names.MachineTag) state.NotifyWatcher
-	addUnitStorage                func(u names.UnitTag, name string, cons state.StorageConstraints) error
+	addUnitStorageOperation       func(u names.UnitTag, name string, cons state.StorageConstraints) error
 }
 
 func (m *mockStorageState) VolumeAccess() uniter.StorageVolumeInterface {
@@ -548,8 +548,12 @@ func (m *mockStorageState) WatchBlockDevices(mtag names.MachineTag) state.Notify
 	return m.watchBlockDevices(mtag)
 }
 
-func (m *mockStorageState) AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error) {
-	return nil, m.addUnitStorage(tag, name, cons)
+func (m *mockStorageState) AddStorageForUnitOperation(tag names.UnitTag, name string, cons state.StorageConstraints) (state.ModelOperation, error) {
+	return nil, m.addUnitStorageOperation(tag, name, cons)
+}
+
+func (m *mockStorageState) ApplyOperation(state.ModelOperation) error {
+	return nil
 }
 
 type mockStringsWatcher struct {

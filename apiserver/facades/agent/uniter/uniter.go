@@ -3417,6 +3417,24 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		modelOps = append(modelOps, modelOp)
 	}
 
+	for _, addParams := range changes.AddStorage {
+		// Ensure the tag in the request matches the root unit name
+		if addParams.UnitTag != changes.Tag {
+			return common.ErrPerm
+		}
+
+		curCons, err := unitStorageConstraints(u.backend, unitTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		modelOp, err := u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
 	// Apply all changes in a single transaction.
 	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }

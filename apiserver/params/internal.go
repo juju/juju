@@ -290,6 +290,7 @@ type CommitHookChangesArg struct {
 	OpenPorts            []EntityPortRange      `json:"open-ports,omitempty"`
 	ClosePorts           []EntityPortRange      `json:"close-ports,omitempty"`
 	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
+	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
 }
 
 // ModelConfig holds a model configuration.

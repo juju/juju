@@ -363,39 +363,53 @@ func (s *StorageAPI) AddUnitStorage(
 	}
 
 	serverErr := func(err error) params.ErrorResult {
-		return params.ErrorResult{common.ServerError(err)}
-	}
-
-	storageErr := func(err error, s, u string) params.ErrorResult {
-		return serverErr(errors.Annotatef(err, "adding storage %v for %v", s, u))
+		return params.ErrorResult{Error: common.ServerError(err)}
 	}
 
 	result := make([]params.ErrorResult, len(args.Storages))
 	for i, one := range args.Storages {
-		u, err := accessUnitTag(one.UnitTag, canAccess)
+		unitTag, err := accessUnitTag(one.UnitTag, canAccess)
 		if err != nil {
 			result[i] = serverErr(err)
 			continue
 		}
 
-		cons, err := unitStorageConstraints(s.backend, u)
+		curCons, err := unitStorageConstraints(s.backend, unitTag)
 		if err != nil {
 			result[i] = serverErr(err)
 			continue
 		}
 
-		oneCons, err := validConstraints(one, cons)
-		if err != nil {
-			result[i] = storageErr(err, one.StorageName, one.UnitTag)
-			continue
-		}
-
-		_, err = s.storage.AddStorageForUnit(u, one.StorageName, oneCons)
-		if err != nil {
-			result[i] = storageErr(err, one.StorageName, one.UnitTag)
+		if err = s.addStorageToOneUnit(unitTag, one, curCons); err != nil {
+			result[i] = serverErr(err)
 		}
 	}
 	return params.ErrorResults{Results: result}, nil
+}
+
+func (s *StorageAPI) addStorageToOneUnit(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageConstraints) error {
+	modelOp, err := s.addStorageToOneUnitOperation(unitTag, addParams, curCons)
+	if err != nil {
+		return err
+	}
+
+	return s.backend.ApplyOperation(modelOp)
+}
+
+// addStorageToOneUnitOperation returns a ModelOperation for adding storage to
+// the specified unit.
+func (s *StorageAPI) addStorageToOneUnitOperation(unitTag names.UnitTag, addParams params.StorageAddParams, curCons map[string]state.StorageConstraints) (state.ModelOperation, error) {
+	validCons, err := validConstraints(addParams, curCons)
+	if err != nil {
+		return nil, errors.Annotatef(err, "adding storage %v for %v", addParams.StorageName, addParams.UnitTag)
+	}
+
+	modelOp, err := s.storage.AddStorageForUnitOperation(unitTag, addParams.StorageName, validCons)
+	if err != nil {
+		return nil, errors.Annotatef(err, "adding storage %v for %v", addParams.StorageName, addParams.UnitTag)
+	}
+
+	return modelOp, nil
 }
 
 func validConstraints(

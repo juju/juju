@@ -947,6 +947,22 @@ func (b *CommitHookParamsBuilder) UpdateUnitState(state map[string]string) {
 	}
 }
 
+// AddStorage records a request for adding storage.
+func (b *CommitHookParamsBuilder) AddStorage(constraints map[string][]params.StorageConstraints) {
+	storageReqs := make([]params.StorageAddParams, 0, len(constraints))
+	for storage, cons := range constraints {
+		for _, one := range cons {
+			storageReqs = append(storageReqs, params.StorageAddParams{
+				UnitTag:     b.arg.Tag,
+				StorageName: storage,
+				Constraints: one,
+			})
+		}
+	}
+
+	b.arg.AddStorage = storageReqs
+}
+
 // Build assembles the recorded change requests into a CommitHookChangesArgs
 // instance that can be passed as an argument to the CommitHookChanges API
 // call.
@@ -971,5 +987,6 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	count += len(b.arg.RelationUnitSettings)
 	count += len(b.arg.OpenPorts)
 	count += len(b.arg.ClosePorts)
+	count += len(b.arg.AddStorage)
 	return count
 }
