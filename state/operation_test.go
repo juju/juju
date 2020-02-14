@@ -102,3 +102,126 @@ func (s *OperationSuite) TestRefresh(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(operation.Status(), gc.Equals, state.ActionRunning)
 }
+
+func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
+	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
+	err := s.State.SetClockForTesting(clock)
+	c.Assert(err, jc.ErrorIsNil)
+
+	charm := s.AddTestingCharm(c, "dummy")
+	application := s.AddTestingApplication(c, "dummy", charm)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	operationID, err := s.Model.EnqueueOperation("an operation")
+	c.Assert(err, jc.ErrorIsNil)
+	operationID2, err := s.Model.EnqueueOperation("another operation")
+	c.Assert(err, jc.ErrorIsNil)
+
+	clock.Advance(5 * time.Second)
+	anAction, err := s.Model.EnqueueAction(operationID, unit.Tag(), "backup", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	anAction2, err := s.Model.EnqueueAction(operationID2, unit.Tag(), "restore", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction2.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction2.Finish(state.ActionResults{Status: state.ActionCompleted})
+	c.Assert(err, jc.ErrorIsNil)
+
+	unit2, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	operationID3, err := s.Model.EnqueueOperation("yet another operation")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction3, err := s.Model.EnqueueAction(operationID3, unit2.Tag(), "backup", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction3.Begin()
+
+	return unit.Tag()
+}
+
+func (s *OperationSuite) assertActions(c *gc.C, operations []state.OperationSummary) {
+	for _, operation := range operations {
+		for _, a := range operation.Actions {
+			c.Assert(operation.Operation.Id(), gc.Equals, state.ActionOperationId(a))
+			if a.Name() == "restore" {
+				c.Assert(a.Status(), gc.Equals, state.ActionCompleted)
+			} else {
+				c.Assert(a.Status(), gc.Equals, state.ActionRunning)
+			}
+		}
+	}
+}
+
+func (s *OperationSuite) TestListOperationsNoFilter(c *gc.C) {
+	s.setupOperations(c)
+	operations, truncated, err := s.Model.ListOperations(nil, nil, nil, 0, 0)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(truncated, jc.IsFalse)
+	c.Assert(operations, gc.HasLen, 3)
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "an operation")
+	c.Assert(operations[0].Actions, gc.HasLen, 1)
+	c.Assert(operations[1].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[1].Actions, gc.HasLen, 1)
+	c.Assert(operations[2].Operation.Summary(), gc.Equals, "yet another operation")
+	c.Assert(operations[2].Actions, gc.HasLen, 1)
+	s.assertActions(c, operations)
+}
+
+func (s *OperationSuite) TestListOperations(c *gc.C) {
+	unitTag := s.setupOperations(c)
+	operations, truncated, err := s.Model.ListOperations([]string{"backup"}, []names.Tag{unitTag}, []state.ActionStatus{state.ActionRunning}, 0, 0)
+	c.Assert(truncated, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "an operation")
+	c.Assert(operations[0].Actions, gc.HasLen, 1)
+	s.assertActions(c, operations)
+}
+
+func (s *OperationSuite) TestListOperationsByStatus(c *gc.C) {
+	s.setupOperations(c)
+	operations, truncated, err := s.Model.ListOperations(nil, nil, []state.ActionStatus{state.ActionCompleted}, 0, 0)
+	c.Assert(truncated, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[0].Actions, gc.HasLen, 1)
+	s.assertActions(c, operations)
+}
+
+func (s *OperationSuite) TestListOperationsByName(c *gc.C) {
+	s.setupOperations(c)
+	operations, truncated, err := s.Model.ListOperations([]string{"restore"}, nil, nil, 0, 0)
+	c.Assert(truncated, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[0].Actions, gc.HasLen, 1)
+	s.assertActions(c, operations)
+}
+
+func (s *OperationSuite) TestListOperationsByReceiver(c *gc.C) {
+	unitTag := s.setupOperations(c)
+	operations, truncated, err := s.Model.ListOperations(nil, []names.Tag{unitTag}, nil, 0, 0)
+	c.Assert(truncated, jc.IsFalse)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 2)
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "an operation")
+	c.Assert(operations[0].Actions, gc.HasLen, 1)
+	c.Assert(operations[1].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[1].Actions, gc.HasLen, 1)
+	s.assertActions(c, operations)
+}
+
+func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
+	s.setupOperations(c)
+	operations, truncated, err := s.Model.ListOperations(nil, nil, nil, 1, 1)
+	c.Assert(truncated, jc.IsTrue)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations, gc.HasLen, 1)
+	c.Assert(operations[0].Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operations[0].Actions, gc.HasLen, 1)
+	s.assertActions(c, operations)
+}

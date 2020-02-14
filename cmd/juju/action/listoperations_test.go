@@ -10,10 +10,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/juju/apiserver/params"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
 )
 
@@ -46,7 +46,7 @@ func (s *ListOperationsSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "fail with invalid status value",
 		args:        []string{"--status", "pending," + "error"},
-		expectedErr: `"error" is not a valid function status, want one of \[pending running completed\]`,
+		expectedErr: `"error" is not a valid function status, want one of \[pending running completed failed\]`,
 	}, {
 		should:      "fail with multiple errors",
 		args:        []string{"--units", "valid/0," + invalidUnitId, "--apps", "valid," + invalidApplicationId},
@@ -82,7 +82,7 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 	args := []string{
 		"--apps", "mysql,mediawiki",
 		"--units", "mysql/1,mediawiki/0",
-		"--functions", "backup",
+		"--actions", "backup",
 		"--status", "completed,pending",
 	}
 	for _, modelFlag := range s.modelFlags {
@@ -92,47 +92,63 @@ func (s *ListOperationsSuite) TestRunQueryArgs(c *gc.C) {
 		_, err := cmdtesting.RunCommand(c, s.wrappedCommand, args...)
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(fakeClient.operationQueryArgs, jc.DeepEquals, params.OperationQueryArgs{
-			Applications:  []string{"mysql", "mediawiki"},
-			Units:         []string{"mysql/1", "mediawiki/0"},
-			FunctionNames: []string{"backup"},
-			Status:        []string{"completed", "pending"},
+			Applications: []string{"mysql", "mediawiki"},
+			Units:        []string{"mysql/1", "mediawiki/0"},
+			ActionNames:  []string{"backup"},
+			Status:       []string{"completed", "pending"},
 		})
 	}
 }
 
-var listOperationResults = []params.ActionResult{
+var listOperationResults = []params.OperationResult{
 	{
-		Action: &params.Action{
-			Tag:      "action-1",
-			Receiver: "unit-mysql-0",
-			Name:     "backup",
-		},
-		Enqueued:  time.Time{},
-		Started:   time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Completed: time.Time{},
-		Status:    "completed",
+		Actions: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      "action-2",
+				Receiver: "unit-mysql-0",
+				Name:     "backup",
+			},
+		}},
+		Summary:      "operation 1",
+		OperationTag: "operation-1",
+		Enqueued:     time.Time{},
+		Started:      time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Completed:    time.Time{},
+		Status:       "completed",
 	}, {
-		Action: &params.Action{
-			Tag:      "action-2",
-			Receiver: "unit-mysql-1",
-			Name:     "restore",
-		},
-		Enqueued:  time.Time{},
-		Started:   time.Time{},
-		Completed: time.Date(2014, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Status:    "running",
+		Actions: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      "action-4",
+				Receiver: "unit-mysql-1",
+				Name:     "restore",
+			},
+		}},
+		Summary:      "operation 3",
+		OperationTag: "operation-3",
+		Enqueued:     time.Time{},
+		Started:      time.Time{},
+		Completed:    time.Date(2014, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Status:       "running",
 	}, {
-		Action: &params.Action{
-			Tag:      "action-3",
-			Receiver: "unit-mysql-1",
-			Name:     "vacuum",
-		},
-		Enqueued:  time.Date(2013, time.February, 14, 6, 6, 6, 0, time.UTC),
-		Started:   time.Time{},
-		Completed: time.Time{},
-		Status:    "pending",
+		Actions: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      "action-6",
+				Receiver: "unit-mysql-1",
+				Name:     "vacuum",
+			},
+		}},
+		Summary:      "operation 5",
+		OperationTag: "operation-5",
+		Enqueued:     time.Date(2013, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Started:      time.Time{},
+		Completed:    time.Time{},
+		Status:       "pending",
 	}, {
-		Error: &params.Error{Message: "boom"},
+		Actions: []params.ActionResult{{
+			Error: &params.Error{Message: "boom"},
+		}},
+		Summary:      "operation 7",
+		OperationTag: "operation-7",
 	},
 }
 
@@ -153,7 +169,7 @@ func (s *ListOperationsSuite) TestRunNoResults(c *gc.C) {
 
 func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
 	fakeClient := &fakeAPIClient{
-		actionResults: listOperationResults,
+		operationResults: listOperationResults,
 	}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -164,10 +180,75 @@ func (s *ListOperationsSuite) TestRunPlain(c *gc.C) {
 		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
-Id  Operation  Status     Unit     Time
- 3  vacuum     pending    mysql/1  2013-02-14T06:06:06
- 2  restore    running    mysql/1  2014-02-14T06:06:06
- 1  backup     completed  mysql/0  2015-02-14T06:06:06
+Id  Status     Started              Finished             Task IDs  Summary
+ 1  completed  2015-02-14T06:06:06                       2         operation 1
+ 3  running                         2014-02-14T06:06:06  4         operation 3
+ 5  pending                                              6         operation 5
+ 7  error                                                          operation 7
+
+`[1:]
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
+	}
+}
+
+var listOperationManyTasksResults = []params.OperationResult{
+	{
+		Actions: []params.ActionResult{{
+			Action: &params.Action{
+				Tag:      "action-2",
+				Receiver: "unit-mysql-0",
+				Name:     "backup",
+			}}, {
+			Action: &params.Action{
+				Tag:      "action-3",
+				Receiver: "unit-mysql-1",
+				Name:     "backup",
+			}}, {
+			Action: &params.Action{
+				Tag:      "action-4",
+				Receiver: "unit-mysql-2",
+				Name:     "backup",
+			}}, {
+			Action: &params.Action{
+				Tag:      "action-5",
+				Receiver: "unit-mysql-3",
+				Name:     "backup",
+			}}, {
+			Action: &params.Action{
+				Tag:      "action-6",
+				Receiver: "unit-mysql-4",
+				Name:     "backup",
+			}}, {
+			Action: &params.Action{
+				Tag:      "action-7",
+				Receiver: "unit-mysql-5",
+				Name:     "backup",
+			},
+		}},
+		Summary:      "operation 1",
+		OperationTag: "operation-1",
+		Enqueued:     time.Time{},
+		Started:      time.Date(2015, time.February, 14, 6, 6, 6, 0, time.UTC),
+		Completed:    time.Time{},
+		Status:       "completed",
+	},
+}
+
+func (s *ListOperationsSuite) TestRunPlainManyTasks(c *gc.C) {
+	fakeClient := &fakeAPIClient{
+		operationResults: listOperationManyTasksResults,
+	}
+	restore := s.patchAPIClient(fakeClient)
+	defer restore()
+
+	s.wrappedCommand, _ = action.NewListOperationsCommandForTest(s.store)
+	for _, modelFlag := range s.modelFlags {
+		s.wrappedCommand, s.command = action.NewListOperationsCommandForTest(s.store)
+		ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, modelFlag, "admin", "--utc")
+		c.Assert(err, jc.ErrorIsNil)
+		expected := `
+Id  Status     Started              Finished  Task IDs      Summary
+ 1  completed  2015-02-14T06:06:06            2,3,4,5,6...  operation 1
 
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
@@ -176,7 +257,7 @@ Id  Operation  Status     Unit     Time
 
 func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
 	fakeClient := &fakeAPIClient{
-		actionResults: listOperationResults,
+		operationResults: listOperationResults,
 	}
 	restore := s.patchAPIClient(fakeClient)
 	defer restore()
@@ -188,20 +269,44 @@ func (s *ListOperationsSuite) TestRunYaml(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		expected := `
 "1":
+  summary: operation 1
   status: completed
+  action:
+    name: backup
+    parameters: {}
   timing:
     started: 2015-02-14 06:06:06 +0000 UTC
-  unit: mysql/0
-"2":
+  tasks:
+    "2":
+      host: mysql/0
+      status: ""
+"3":
+  summary: operation 3
   status: running
+  action:
+    name: restore
+    parameters: {}
   timing:
     completed: 2014-02-14 06:06:06 +0000 UTC
-  unit: mysql/1
-"3":
+  tasks:
+    "4":
+      host: mysql/1
+      status: ""
+"5":
+  summary: operation 5
   status: pending
+  action:
+    name: vacuum
+    parameters: {}
   timing:
     enqueued: 2013-02-14 06:06:06 +0000 UTC
-  unit: mysql/1
+  tasks:
+    "6":
+      host: mysql/1
+      status: ""
+"7":
+  summary: operation 7
+  status: error
 `[1:]
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, expected)
 	}

@@ -416,7 +416,11 @@ func allCollections() CollectionSchema {
 			}},
 		},
 		actionNotificationsC: {},
-		operationsC:          {},
+		operationsC: {
+			indexes: []mgo.Index{{
+				Key: []string{"model-uuid", "_id"},
+			}},
+		},
 
 		// -----
 
