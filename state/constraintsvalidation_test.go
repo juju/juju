@@ -4,12 +4,11 @@
 package state_test
 
 import (
-	"regexp"
-
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
+	"regexp"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
