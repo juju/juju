@@ -183,7 +183,7 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 		result.Version,
 		result.Series,
 	}
-	t := template.Must(template.New("plugin").Parse(backupMetadataTemplate))
+	t := template.Must(template.New("template").Parse(backupMetadataTemplate))
 	content := bytes.Buffer{}
 	t.Execute(&content, m)
 	return content.String()
