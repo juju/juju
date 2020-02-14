@@ -5,15 +5,13 @@ package state_test
 
 import (
 	"regexp"
-	"sort"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/constraints"
+	"github.com/juju/juju/state"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/bson"
-
-	"github.com/juju/juju/core/constraints"
-	"github.com/juju/juju/state"
 )
 
 type applicationConstraintsSuite struct {
@@ -340,7 +338,5 @@ func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc
 	expectedSpace := []string{to, "alpha"}
 	negExpectedSpace := []string{negatedTo, "alpha"}
 	combinedExpected := append(expectedSpace, negExpectedSpace...)
-	sort.Strings(combinedExpected)
-	sort.Strings(opsSpacesCombined)
-	c.Assert(combinedExpected, gc.DeepEquals, opsSpacesCombined)
+	c.Assert(combinedExpected, jc.SameContents, opsSpacesCombined)
 }
