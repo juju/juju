@@ -1045,6 +1045,23 @@ func (ctx *HookContext) doFlush(process string) error {
 		b.AddStorage(ctx.storageAddConstraints)
 	}
 
+	// If we're running the upgrade-charm hook and no podspec update was done,
+	// we'll still trigger a change to a counter on the podspec so that we can
+	// ensure any other charm changes (eg storage) are acted on.
+	if ctx.modelType == model.CAAS && (ctx.podSpecYaml != nil || process == string(hooks.UpgradeCharm)) {
+		isLeader, err := ctx.IsLeader()
+		if err != nil {
+			return errors.Annotatef(err, "cannot determine leadership")
+		}
+		if !isLeader {
+			logger.Errorf("%v is not the leader but is setting application pod spec", ctx.unitName)
+			return ErrIsNotLeader
+		}
+
+		appTag := names.NewApplicationTag(ctx.unit.ApplicationName())
+		b.SetPodSpec(appTag, ctx.podSpecYaml)
+	}
+
 	// Generate change request but skip its execution if no changes are pending.
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
@@ -1057,40 +1074,6 @@ func (ctx *HookContext) doFlush(process string) error {
 
 	// Call completed successfully; update local state
 	ctx.cacheDirty = false
-
-	if ctx.modelType == model.CAAS {
-		// If we're running the upgrade-charm hook and no podspec update was done,
-		// we'll still trigger a change to a counter on the podspec so that we can
-		// ensure any other charm changes (eg storage) are acted on.
-		if ctx.podSpecYaml != nil || process == string(hooks.UpgradeCharm) {
-			return ctx.commitPodSpec()
-		}
-	}
-
-	return nil
-}
-
-// commitPodSpec dispatches pending SetPodSpec call.
-func (ctx *HookContext) commitPodSpec() error {
-	entityName := ctx.unitName
-	isLeader, err := ctx.IsLeader()
-	if err != nil {
-		return errors.Annotatef(err, "cannot determine leadership")
-	}
-	if !isLeader {
-		logger.Errorf("%v is not the leader but is setting application pod spec", entityName)
-		return ErrIsNotLeader
-	}
-	entityName = ctx.unit.ApplicationName()
-	err = ctx.state.SetPodSpec(entityName, ctx.podSpecYaml)
-	if err != nil {
-		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
-			Status: status.Blocked.String(),
-			Info:   fmt.Sprintf("setting pod spec: %v", err),
-		}); err2 != nil {
-			logger.Errorf("updating agent status: %v", err2)
-		}
-	}
 	return nil
 }
 
