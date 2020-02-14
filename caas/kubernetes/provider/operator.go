@@ -169,7 +169,7 @@ func (k *kubernetesClient) EnsureOperator(appName, agentPath string, config *caa
 	}
 	cleanups = append(cleanups, func() { k.deleteService(operatorName) })
 	services := k.client().CoreV1().Services(k.namespace)
-	svc, err := services.Get(operatorName, v1.GetOptions{IncludeUninitialized: false})
+	svc, err := services.Get(operatorName, v1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -298,7 +298,7 @@ func (k *kubernetesClient) OperatorExists(appName string) (caas.OperatorState, e
 	var result caas.OperatorState
 	operatorName := k.operatorName(appName)
 	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulSets.Get(operatorName, v1.GetOptions{IncludeUninitialized: true})
+	operator, err := statefulSets.Get(operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return result, nil
 	}
@@ -408,7 +408,7 @@ func (k *kubernetesClient) WatchOperator(appName string) (watcher.NotifyWatcher,
 func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 	operatorName := k.operatorName(appName)
 	statefulSets := k.client().AppsV1().StatefulSets(k.namespace)
-	operator, err := statefulSets.Get(operatorName, v1.GetOptions{IncludeUninitialized: true})
+	operator, err := statefulSets.Get(operatorName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("operator %s", appName)
 	}
@@ -449,7 +449,7 @@ func (k *kubernetesClient) Operator(appName string) (*caas.Operator, error) {
 		}
 	}
 	configMaps := k.client().CoreV1().ConfigMaps(k.namespace)
-	configMap, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{IncludeUninitialized: true})
+	configMap, err := configMaps.Get(operatorConfigMapName(operatorName), v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}

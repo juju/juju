@@ -97,7 +97,7 @@ func (k *kubernetesClient) GetClusterMetadata(storageClass string) (*caas.Cluste
 	}
 
 	if storageClass != "" {
-		sc, err := k.client().StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{IncludeUninitialized: true})
+		sc, err := k.client().StorageV1().StorageClasses().Get(storageClass, v1.GetOptions{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return nil, errors.Trace(err)
 		}

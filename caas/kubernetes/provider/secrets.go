@@ -125,7 +125,7 @@ func (k *kubernetesClient) updateSecret(sec *core.Secret) error {
 
 // getSecret return a secret resource.
 func (k *kubernetesClient) getSecret(secretName string) (*core.Secret, error) {
-	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{IncludeUninitialized: true})
+	secret, err := k.client().CoreV1().Secrets(k.namespace).Get(secretName, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("secret %q", secretName)
@@ -156,8 +156,7 @@ func (k *kubernetesClient) deleteSecret(secretName string, uid types.UID) error 
 
 func (k *kubernetesClient) listSecrets(labels map[string]string) ([]core.Secret, error) {
 	listOps := v1.ListOptions{
-		LabelSelector:        labelsToSelector(labels),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(labels),
 	}
 	secList, err := k.client().CoreV1().Secrets(k.namespace).List(listOps)
 	if err != nil {
@@ -173,8 +172,7 @@ func (k *kubernetesClient) deleteSecrets(appName string) error {
 	err := k.client().CoreV1().Secrets(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getSecretLabels(appName)),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(k.getSecretLabels(appName)),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

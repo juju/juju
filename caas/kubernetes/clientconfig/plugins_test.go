@@ -470,15 +470,15 @@ func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
 	gomock.InOrder(
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(metav1.DeletePropagationForeground),
-			metav1.ListOptions{LabelSelector: labelSelector, IncludeUninitialized: true},
+			metav1.ListOptions{LabelSelector: labelSelector},
 		).Times(1).Return(nil),
 		s.mockClusterRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(metav1.DeletePropagationForeground),
-			metav1.ListOptions{LabelSelector: labelSelector, IncludeUninitialized: true},
+			metav1.ListOptions{LabelSelector: labelSelector},
 		).Times(1).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
 			s.deleteOptions(metav1.DeletePropagationForeground),
-			metav1.ListOptions{LabelSelector: labelSelector, IncludeUninitialized: true},
+			metav1.ListOptions{LabelSelector: labelSelector},
 		).Times(1).Return(nil),
 	)
 

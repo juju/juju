@@ -21,7 +21,7 @@ import (
 	"github.com/juju/utils/arch"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
@@ -141,7 +141,7 @@ type kubernetesClient struct {
 //go:generate mockgen -package mocks -destination mocks/apiextensionsclientset_mock.go -mock_names=Interface=MockApiExtensionsClientInterface k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset Interface
 //go:generate mockgen -package mocks -destination mocks/discovery_mock.go k8s.io/client-go/discovery DiscoveryInterface
 //go:generate mockgen -package mocks -destination mocks/dynamic_mock.go -mock_names=Interface=MockDynamicInterface k8s.io/client-go/dynamic Interface,ResourceInterface,NamespaceableResourceInterface
-//go:generate mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface
+//go:generate mockgen -package mocks -destination mocks/admissionregistration_mock.go k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1  AdmissionregistrationV1beta1Interface,MutatingWebhookConfigurationInterface,ValidatingWebhookConfigurationInterface
 
 // NewK8sClientFunc defines a function which returns a k8s client based on the supplied config.
 type NewK8sClientFunc func(c *rest.Config) (kubernetes.Interface, apiextensionsclientset.Interface, dynamic.Interface, error)
@@ -701,8 +701,7 @@ func getSvcAddresses(svc *core.Service, includeClusterIP bool) []network.Provide
 func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*caas.Service, error) {
 	services := k.client().CoreV1().Services(k.namespace)
 	servicesList, err := services.List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
-		IncludeUninitialized: true,
+		LabelSelector: applicationSelector(appName),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -798,6 +797,9 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	}
 
 	if err := k.deleteMutatingWebhookConfigurations(appName); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteValidatingWebhookConfigurations(appName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1009,6 +1011,16 @@ func (k *kubernetesClient) EnsureService(
 		}
 		logger.Debugf("created/updated mutating webhook configurations for %q.", appName)
 	}
+	// ensure validating webhook configurations.
+	validatingWebhookConfigurations := workloadSpec.ValidatingWebhookConfigurations
+	if len(validatingWebhookConfigurations) > 0 {
+		cfgCleanUps, err := k.ensureValidatingWebhookConfigurations(appName, annotations, validatingWebhookConfigurations)
+		cleanups = append(cleanups, cfgCleanUps...)
+		if err != nil {
+			return errors.Annotate(err, "creating or updating validating webhook configurations")
+		}
+		logger.Debugf("created/updated validating webhook configurations for %q.", appName)
+	}
 
 	// ensure ingress resources.
 	ings := workloadSpec.IngressResources
@@ -1058,7 +1070,7 @@ func (k *kubernetesClient) EnsureService(
 		useStatefulSet = len(params.Filesystems) > 0
 	}
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
+	existingStatefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -1157,7 +1169,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 	logger.Debugf("Upgrading %q", resourceName)
 
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	existingStatefulSet, err := statefulsets.Get(resourceName, v1.GetOptions{IncludeUninitialized: true})
+	existingStatefulSet, err := statefulsets.Get(resourceName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -1192,7 +1204,7 @@ func (k *kubernetesClient) Upgrade(appName string, vers version.Number) error {
 func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	zero := int32(0)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
-	statefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
+	statefulSet, err := statefulsets.Get(deploymentName, v1.GetOptions{})
 	if err != nil && !k8serrors.IsNotFound(err) {
 		return errors.Trace(err)
 	}
@@ -1203,7 +1215,7 @@ func (k *kubernetesClient) deleteAllPods(appName, deploymentName string) error {
 	}
 
 	deployments := k.client().AppsV1().Deployments(k.namespace)
-	deployment, err := deployments.Get(deploymentName, v1.GetOptions{IncludeUninitialized: true})
+	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -1591,7 +1603,7 @@ func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPod
 	// The statefulset already exists so all we are allowed to update is replicas,
 	// template, update strategy. Juju may hand out info with a slightly different
 	// requested volume size due to trying to adapt the unit model to the k8s world.
-	existing, err := api.Get(spec.GetName(), v1.GetOptions{IncludeUninitialized: true})
+	existing, err := api.Get(spec.GetName(), v1.GetOptions{})
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1754,7 +1766,7 @@ func (k *kubernetesClient) configureHeadlessService(
 func (k *kubernetesClient) ensureK8sService(spec *core.Service) error {
 	services := k.client().CoreV1().Services(k.namespace)
 	// Set any immutable fields if the service already exists.
-	existing, err := services.Get(spec.Name, v1.GetOptions{IncludeUninitialized: true})
+	existing, err := services.Get(spec.Name, v1.GetOptions{})
 	if err == nil {
 		spec.Spec.ClusterIP = existing.Spec.ClusterIP
 		spec.ObjectMeta.ResourceVersion = existing.ObjectMeta.ResourceVersion
@@ -1856,16 +1868,13 @@ func applicationSelector(appName string) string {
 func (k *kubernetesClient) AnnotateUnit(appName, podName string, unit names.UnitTag) error {
 	pods := k.client().CoreV1().Pods(k.namespace)
 
-	pod, err := pods.Get(podName, v1.GetOptions{
-		IncludeUninitialized: true,
-	})
+	pod, err := pods.Get(podName, v1.GetOptions{})
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
 			return errors.Trace(err)
 		}
 		pods, err := pods.List(v1.ListOptions{
-			LabelSelector:        applicationSelector(appName),
-			IncludeUninitialized: true,
+			LabelSelector: applicationSelector(appName),
 		})
 		// TODO(caas): remove getting pod by Id (a bit expensive) once we started to store podName in cloudContainer doc.
 		if err != nil {
@@ -1929,8 +1938,7 @@ func (k *kubernetesClient) WatchContainerStart(appName string, containerName str
 	)
 
 	podsList, err := pods.List(v1.ListOptions{
-		LabelSelector:        applicationSelector(appName),
-		IncludeUninitialized: true,
+		LabelSelector: applicationSelector(appName),
 	})
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -2111,9 +2119,7 @@ func (k *kubernetesClient) Units(appName string) ([]caas.Unit, error) {
 
 func (k *kubernetesClient) getPod(podName string) (*core.Pod, error) {
 	pods := k.client().CoreV1().Pods(k.namespace)
-	pod, err := pods.Get(podName, v1.GetOptions{
-		IncludeUninitialized: true,
-	})
+	pod, err := pods.Get(podName, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("pod %q", podName)
 	} else if err != nil {
@@ -2378,13 +2384,14 @@ type workloadSpec struct {
 	Pod     core.PodSpec `json:"pod"`
 	Service *specs.ServiceSpec
 
-	Secrets                       []k8sspecs.Secret
-	ConfigMaps                    map[string]specs.ConfigMap
-	ServiceAccounts               []serviceAccountSpecGetter
-	CustomResourceDefinitions     map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
-	CustomResources               map[string][]unstructured.Unstructured
-	MutatingWebhookConfigurations map[string][]admissionregistrationv1beta1.Webhook
-	IngressResources              []k8sspecs.K8sIngressSpec
+	Secrets                         []k8sspecs.Secret
+	ConfigMaps                      map[string]specs.ConfigMap
+	ServiceAccounts                 []serviceAccountSpecGetter
+	CustomResourceDefinitions       map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
+	CustomResources                 map[string][]unstructured.Unstructured
+	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook
+	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook
+	IngressResources                []k8sspecs.K8sIngressSpec
 }
 
 func processContainers(deploymentName string, podSpec *specs.PodSpec, spec *core.PodSpec) error {
@@ -2457,6 +2464,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.CustomResourceDefinitions = k8sResources.CustomResourceDefinitions
 			spec.CustomResources = k8sResources.CustomResources
 			spec.MutatingWebhookConfigurations = k8sResources.MutatingWebhookConfigurations
+			spec.ValidatingWebhookConfigurations = k8sResources.ValidatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
@@ -2533,7 +2541,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 func (k *kubernetesClient) legacyAppName(appName string) bool {
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	legacyName := "juju-operator-" + appName
-	_, err := statefulsets.Get(legacyName, v1.GetOptions{IncludeUninitialized: true})
+	_, err := statefulsets.Get(legacyName, v1.GetOptions{})
 	return err == nil
 }
 
