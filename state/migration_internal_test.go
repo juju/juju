@@ -571,6 +571,7 @@ func (s *MigrationSuite) TestConstraintsDocFields(c *gc.C) {
 		// ModelUUID shouldn't be exported, and is inherited
 		// from the model definition.
 		"ModelUUID",
+		"DocID",
 		"Arch",
 		"CpuCores",
 		"CpuPower",

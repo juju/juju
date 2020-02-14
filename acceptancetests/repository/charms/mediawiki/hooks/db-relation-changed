@@ -219,17 +219,17 @@ def setup_mediawiki():
     ofile.close()
     try:
         os.unlink("/var/www/index.php")
-        print "index.php removed"
+        print("index.php removed")
     except OSError:
-        print "index.php not present"
+        print("index.php not present")
     os.rename(ofile.name, "/var/www/index.php")
 
     # This seems to take precedence
     try:
         os.unlink("/var/www/index.html")
-        print "index.html removed"
+        print("index.html removed")
     except OSError:
-        print "index.html not present"
+        print("index.html not present")
 
     # Write the adminsettings
     connection = MySQLdb.connect(user=user, host=private_address, passwd=password, db=database)
@@ -241,7 +241,7 @@ def setup_mediawiki():
       do_install = True
     except Exception as e:
       # If we can't create that table, it has likely already been initialized
-      print 'Could not create mediawiki_juju_setup: ' + str(e)
+      print('Could not create mediawiki_juju_setup: ' + str(e))
       do_install = False
     if do_install:
       # First time setup, we have to POST to the db and capture the LocalSettings.php

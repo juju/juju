@@ -113,6 +113,18 @@ func (s *Space) NetworkSpace() (network.SpaceInfo, error) {
 	}, nil
 }
 
+// RemoveSpaceOps returns txn.Ops to remove the space
+func (s *Space) RemoveSpaceOps() []txn.Op {
+	return []txn.Op{
+		{
+			C:      spacesC,
+			Id:     s.doc.DocId,
+			Assert: txn.DocExists,
+			Remove: true,
+		},
+	}
+}
+
 // RenameSpaceOps returns the database transaction operations required to
 // rename the input space `fromName` to input `toName`.
 func (s *Space) RenameSpaceOps(toName string) []txn.Op {

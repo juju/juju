@@ -193,37 +193,42 @@ func (s *withoutControllerSuite) TestProvisioningInfoWithMultiplePositiveSpaceCo
 
 	result, err := s.provisioner.ProvisioningInfo(args)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result.Results, gc.HasLen, 1)
+	c.Assert(result.Results[0].Error, gc.IsNil)
 
-	controllerCfg := s.ControllerConfig
-	expected := params.ProvisioningInfoResultsV10{
-		Results: []params.ProvisioningInfoResultV10{{
-			Result: &params.ProvisioningInfoV10{
-				ProvisioningInfoBase: params.ProvisioningInfoBase{
-					ControllerConfig: controllerCfg,
-					Series:           "quantal",
-					Constraints:      template.Constraints,
-					Placement:        template.Placement,
-					Jobs:             []model.MachineJob{model.JobHostUnits},
-					Tags: map[string]string{
-						tags.JujuController: coretesting.ControllerTag.Id(),
-						tags.JujuModel:      coretesting.ModelTag.Id(),
-						tags.JujuMachine:    "controller-machine-5",
-					},
-				},
-				ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
-					SubnetAZs: map[string][]string{
-						"subnet-0": {"zone0"},
-						"subnet-1": {"zone1"},
-						"subnet-2": {"zone2"},
-					},
-					SpaceSubnets: map[string][]string{
-						"space1": {"subnet-0"},
-						"space2": {"subnet-1", "subnet-2"},
-					},
-				},
+	expected := params.ProvisioningInfoV10{
+		ProvisioningInfoBase: params.ProvisioningInfoBase{
+			ControllerConfig: s.ControllerConfig,
+			Series:           "quantal",
+			Constraints:      template.Constraints,
+			Placement:        template.Placement,
+			Jobs:             []model.MachineJob{model.JobHostUnits},
+			Tags: map[string]string{
+				tags.JujuController: coretesting.ControllerTag.Id(),
+				tags.JujuModel:      coretesting.ModelTag.Id(),
+				tags.JujuMachine:    "controller-machine-5",
 			},
-		}}}
-	c.Assert(result, jc.DeepEquals, expected)
+		},
+		ProvisioningNetworkTopology: params.ProvisioningNetworkTopology{
+			SubnetAZs: map[string][]string{
+				"subnet-0": {"zone0"},
+				"subnet-1": {"zone1"},
+				"subnet-2": {"zone2"},
+			},
+			SpaceSubnets: map[string][]string{
+				"space1": {"subnet-0"},
+				"space2": {"subnet-1", "subnet-2"},
+			},
+		},
+	}
+
+	res := result.Results[0].Result
+	c.Assert(res.ProvisioningInfoBase, jc.DeepEquals, expected.ProvisioningInfoBase)
+	c.Assert(res.SubnetAZs, jc.DeepEquals, expected.SubnetAZs)
+	c.Assert(res.SpaceSubnets, gc.HasLen, 2)
+	c.Assert(res.SpaceSubnets["space1"], jc.SameContents, expected.SpaceSubnets["space1"])
+	c.Assert(res.SpaceSubnets["space2"], jc.SameContents, expected.SpaceSubnets["space2"])
+
 }
 
 func (s *withoutControllerSuite) addSpacesAndSubnets(c *gc.C) {

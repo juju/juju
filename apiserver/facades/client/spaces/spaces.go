@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	jujucontroller "github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -35,6 +36,11 @@ type BlockChecker interface {
 // Machine defines the methods supported by a machine used in the space context.
 type Machine interface {
 	AllSpaces() (set.Strings, error)
+}
+
+// Constraints defines the methods supported by constraints used in the space context.
+type Constraints interface {
+	ID() string
 }
 
 // ApplicationEndpointBindingsShim is a shim interface for stateless access to ApplicationEndpointBindings
@@ -73,6 +79,16 @@ type Backing interface {
 
 	// ApplyOperation applies a given ModelOperation to the model.
 	ApplyOperation(state.ModelOperation) error
+
+	// ControllerConfig Returns the controller config.
+	ControllerConfig() (jujucontroller.Config, error)
+
+	// ConstraintsBySpaceName  Returns constraints found by spaceName.
+	ConstraintsBySpaceName(name string) ([]Constraints, error)
+
+	// IsController returns true if this state instance has the bootstrap
+	// model UUID.
+	IsController() bool
 }
 
 // APIv2 provides the spaces API facade for versions < 3.

@@ -785,7 +785,7 @@ def write_service_config(services_dict):
                 f.write(content)
 
         if not os.path.exists(default_haproxy_service_config_dir):
-            os.mkdir(default_haproxy_service_config_dir, 0600)
+            os.mkdir(default_haproxy_service_config_dir, 0o600)
         with open(os.path.join(default_haproxy_service_config_dir,
                                "%s.service" % service_name), 'w') as config:
             config.write(create_listen_stanza(
@@ -841,7 +841,7 @@ def remove_services(service_name=None):
         if os.path.exists(path):
             try:
                 os.remove(path)
-            except Exception, e:
+            except Exception as e:
                 log(str(e))
                 return False
         return True
@@ -850,7 +850,7 @@ def remove_services(service_name=None):
                                  default_haproxy_service_config_dir):
             try:
                 os.remove(service)
-            except Exception, e:
+            except Exception as e:
                 log(str(e))
                 pass
         return True
@@ -901,7 +901,7 @@ def service_haproxy(action=None, haproxy_config=default_haproxy_config):
 def install_hook():
     # Run both during initial install and during upgrade-charm.
     if not os.path.exists(default_haproxy_service_config_dir):
-        os.mkdir(default_haproxy_service_config_dir, 0600)
+        os.mkdir(default_haproxy_service_config_dir, 0o600)
 
     config_data = config_get()
     source = config_data.get('source')
@@ -1259,7 +1259,7 @@ def gen_selfsigned_cert(cert_file, key_file):
     os.environ['OPENSSL_PRIVATE'] = unit_get("private-address")
     # Set the umask so the child process will inherit it and
     # the generated files will be readable only by root..
-    old_mask = os.umask(077)
+    old_mask = os.umask(0o77)
     subprocess.call(
         ['openssl', 'req', '-new', '-x509', '-nodes', '-config',
          os.path.join(os.environ['CHARM_DIR'], 'data', 'openssl.cnf'),
@@ -1275,7 +1275,7 @@ def write_ssl_pem(path, content):
     # Set the umask so the child process will inherit it and we
     # can make certificate files readable only by the 'haproxy'
     # user (see below).
-    old_mask = os.umask(077)
+    old_mask = os.umask(0o77)
     with open(path, 'w') as f:
         f.write(content)
     os.umask(old_mask)
@@ -1349,7 +1349,7 @@ def main(hook_name):
                        "statistics-relation-changed"):
         statistics_interface()
     else:
-        print "Unknown hook"
+        print("Unknown hook")
         sys.exit(1)
 
 if __name__ == "__main__":
