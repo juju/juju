@@ -479,6 +479,19 @@ func (s *clientSuite) TestCreateVirtualMachineRootDiskSize(c *gc.C) {
 	})
 }
 
+func (s *clientSuite) TestCreateVirtualMachineWithCustomizedVMFolder(c *gc.C) {
+	args := baseCreateVirtualMachineParams(c)
+	rootDisk := uint64(1024 * 20) // 20 GiB
+	args.Constraints.RootDisk = &rootDisk
+
+	args.RootVMFolder = "k8s"
+
+	client := s.newFakeClient(&s.roundTripper, "dc0")
+	_, err := client.CreateVirtualMachine(context.Background(), args)
+	c.Assert(err, jc.ErrorIsNil)
+	s.roundTripper.CheckCall(c, 17, "RetrieveProperties", "FakeK8sVMFolder")
+}
+
 func (s *clientSuite) TestVerifyMAC(c *gc.C) {
 	var testData = []struct {
 		Mac    string
