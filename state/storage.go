@@ -2034,28 +2034,40 @@ func defaultStoragePool(modelType ModelType, cfg *config.Config, kind storage.St
 // anticipated additional storage instances is validated against the
 // store as specified in the charm.
 func (sb *storageBackend) AddStorageForUnit(
-	tag names.UnitTag, name string, cons StorageConstraints,
+	tag names.UnitTag, storageName string, cons StorageConstraints,
 ) ([]names.StorageTag, error) {
+	modelOp, err := sb.AddStorageForUnitOperation(tag, storageName, cons)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	rawModelOp := modelOp.(*addStorageForUnitOperation)
+	if err = sb.mb.db().Run(rawModelOp.Build); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return rawModelOp.tags, nil
+}
+
+// AddStorageForUnitOperation returns a ModelOperation for adding storage
+// instances to the given unit as specified.
+//
+// Missing storage constraints are populated based on model defaults.
+// Storage store name is used to retrieve existing storage instances
+// for this store. Combination of existing storage instances and
+// anticipated additional storage instances is validated against the
+// store as specified in the charm.
+func (sb *storageBackend) AddStorageForUnitOperation(tag names.UnitTag, storageName string, cons StorageConstraints) (ModelOperation, error) {
 	u, err := sb.unit(tag.Id())
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	var tags []names.StorageTag
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := u.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-		var ops []txn.Op
-		var err error
-		tags, ops, err = sb.addStorageForUnitOps(u, name, cons)
-		return ops, err
-	}
-	if err := sb.mb.db().Run(buildTxn); err != nil {
-		return nil, errors.Annotatef(err, "adding %q storage to %s", name, u)
-	}
-	return tags, nil
+
+	return &addStorageForUnitOperation{
+		sb:                 sb,
+		u:                  u,
+		storageName:        storageName,
+		storageConstraints: cons,
+	}, nil
 }
 
 // addStorage adds storage instances to given unit as specified.
