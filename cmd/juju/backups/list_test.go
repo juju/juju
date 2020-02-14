@@ -27,11 +27,12 @@ func (s *listSuite) SetUpTest(c *gc.C) {
 
 func (s *listSuite) TestOkay(c *gc.C) {
 	s.setSuccess()
-	ctx, err := cmdtesting.RunCommand(c, s.subcommand, []string{"--verbose"}...)
+	s.subcommand = s.createCommandForGlobalOptionTesting(s.subcommand)
+	ctx, err := cmdtesting.RunCommand(c, s.subcommand, "backups", "--verbose")
 	c.Assert(err, jc.ErrorIsNil)
 
-	out := MetaResultString
-	s.checkStd(c, ctx, out, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, MetaResultString[:len(MetaResultString)-1])
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, "")
 }
 
 func (s *listSuite) TestBrief(c *gc.C) {
@@ -39,7 +40,8 @@ func (s *listSuite) TestBrief(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.subcommand)
 	c.Assert(err, jc.ErrorIsNil)
 	out := s.metaresult.ID + "\n"
-	s.checkStd(c, ctx, out, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, out)
 }
 
 func (s *listSuite) TestError(c *gc.C) {

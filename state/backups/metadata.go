@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"io"
+	"io/ioutil"
+	"math"
 	"os"
 	"time"
 
@@ -42,6 +44,9 @@ const UnknownString = "<unknown>"
 // UnknownVersion is a marker value for version fields with unknown values.
 var UnknownVersion = version.MustParse("9999.9999.9999")
 
+// UnknownInt64 is a marker value for int64 fields with unknown values.
+var UnknownInt64 = int64(math.MaxInt64)
+
 // UnknownOrigin returns a new backups origin with unknown values.
 func UnknownOrigin() Origin {
 	return Origin{
@@ -49,6 +54,16 @@ func UnknownOrigin() Origin {
 		Machine:  UnknownString,
 		Hostname: UnknownString,
 		Version:  UnknownVersion,
+	}
+}
+
+// UnknownController returns a new backups origin with unknown values.
+func UnknownController() ControllerMetadata {
+	return ControllerMetadata{
+		UUID:              UnknownString,
+		MachineID:         UnknownString,
+		MachineInstanceID: UnknownString,
+		HANodes:           UnknownInt64,
 	}
 }
 
@@ -68,6 +83,12 @@ type Metadata struct {
 	// Notes is an optional user-supplied annotation.
 	Notes string
 
+	// FormatVersion stores format version of these metadata.
+	FormatVersion int64
+
+	// Controller contains metadata about the controller where the backup was taken.
+	Controller ControllerMetadata
+
 	// TODO(wallyworld) - remove these ASAP
 	// These are only used by the restore CLI when re-bootstrapping.
 	// We will use a better solution but the way restore currently
@@ -82,8 +103,27 @@ type Metadata struct {
 	CAPrivateKey string
 }
 
-// NewMetadata returns a new Metadata for a state backup archive.  Only
-// the start time and the version are set.
+// ControllerMetadata contains controller specific metadata.
+type ControllerMetadata struct {
+	// UUID contains the controller UUID.
+	UUID string
+
+	// MachineID contains controller machine id from which this backup is taken.
+	MachineID string
+
+	// MachineInstanceID contains controller machine's instance id from which this backup is taken.
+	MachineInstanceID string
+
+	// HANodes contains the number of nodes in this controller's HA configuration.
+	HANodes int64
+}
+
+// All un-versioned metadata is considered to be version 0,
+// so the versions start with 1.
+const currentFormatVersion = 1
+
+// NewMetadata returns a new Metadata for a state backup archive,
+//in the most current format.
 func NewMetadata() *Metadata {
 	return &Metadata{
 		FileMetadata: filestorage.NewMetadata(),
@@ -92,18 +132,16 @@ func NewMetadata() *Metadata {
 		Origin: Origin{
 			Version: jujuversion.Current,
 		},
+		FormatVersion: currentFormatVersion,
+		Controller:    ControllerMetadata{},
 	}
 }
 
-// NewMetadataState composes a new backup metadata with its origin
-// values set.  The model UUID comes from state.  The hostname is
-// retrieved from the OS.
+// NewMetadataState composes a new backup metadata based on the current Juju state.
 func NewMetadataState(db DB, machine, series string) (*Metadata, error) {
-	// hostname could be derived from the model...
 	hostname, err := os.Hostname()
 	if err != nil {
 		// If os.Hostname() is not working, something is woefully wrong.
-		// Run for the hills.
 		return nil, errors.Annotate(err, "could not get hostname (system unstable?)")
 	}
 
@@ -117,12 +155,14 @@ func NewMetadataState(db DB, machine, series string) (*Metadata, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get server secrets")
 	}
+	meta.CAPrivateKey = si.CAPrivateKey
+
 	controllerCfg, err := db.ControllerConfig()
 	if err != nil {
 		return nil, errors.Annotate(err, "could not get controller config")
 	}
 	meta.CACert, _ = controllerCfg.CACert()
-	meta.CAPrivateKey = si.CAPrivateKey
+	meta.Controller.UUID = controllerCfg.ControllerUUID()
 	return meta, nil
 }
 
@@ -147,7 +187,8 @@ func (m *Metadata) MarkComplete(size int64, checksum string) error {
 	return nil
 }
 
-type flatMetadata struct {
+// flatMetadataV0 contains old, un-versioned format of backup, aka v0.
+type flatMetadataV0 struct {
 	ID string
 
 	// file storage
@@ -172,54 +213,10 @@ type flatMetadata struct {
 	CAPrivateKey string
 }
 
-// TODO(ericsnow) Move AsJSONBuffer to filestorage.Metadata.
-
-// AsJSONBuffer returns a bytes.Buffer containing the JSON-ified metadata.
-func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
-	flat := flatMetadata{
-		ID: m.ID(),
-
-		Checksum:       m.Checksum(),
-		ChecksumFormat: m.ChecksumFormat(),
-		Size:           m.Size(),
-
-		Started:      m.Started,
-		Notes:        m.Notes,
-		Environment:  m.Origin.Model,
-		Machine:      m.Origin.Machine,
-		Hostname:     m.Origin.Hostname,
-		Version:      m.Origin.Version,
-		Series:       m.Origin.Series,
-		CACert:       m.CACert,
-		CAPrivateKey: m.CAPrivateKey,
-	}
-
-	stored := m.Stored()
-	if stored != nil {
-		flat.Stored = *stored
-	}
-
-	if m.Finished != nil {
-		flat.Finished = *m.Finished
-	}
-
-	var outfile bytes.Buffer
-	if err := json.NewEncoder(&outfile).Encode(flat); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return &outfile, nil
-}
-
-// NewMetadataJSONReader extracts a new metadata from the JSON file.
-func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
-	var flat flatMetadata
-	if err := json.NewDecoder(in).Decode(&flat); err != nil {
-		return nil, errors.Trace(err)
-	}
-
+func (flat *flatMetadataV0) inflate() (*Metadata, error) {
 	meta := NewMetadata()
 	meta.SetID(flat.ID)
-
+	meta.FormatVersion = 0
 	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -247,6 +244,151 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	meta.CAPrivateKey = flat.CAPrivateKey
 
 	return meta, nil
+}
+
+// flatMetadata contains the latest format of the backup.
+// NOTE If any changes need to be made here, rename this struct to
+// reflect version 1, for example flatMetadataV1 and construct
+// new flatMetadata with desired modifications.
+type flatMetadata struct {
+	ID            string
+	FormatVersion int64
+
+	// file storage
+
+	Checksum       string
+	ChecksumFormat string
+	Size           int64
+	Stored         time.Time
+
+	// backup
+
+	Started                     time.Time
+	Finished                    time.Time
+	Notes                       string
+	ModelUUID                   string
+	Machine                     string
+	Hostname                    string
+	Version                     version.Number
+	Series                      string
+	ControllerUUID              string
+	HANodes                     int64
+	ControllerMachineID         string
+	ControllerMachineInstanceID string
+	CACert                      string
+	CAPrivateKey                string
+}
+
+func (m *Metadata) flat() flatMetadata {
+	flat := flatMetadata{
+		ID:                          m.ID(),
+		Checksum:                    m.Checksum(),
+		ChecksumFormat:              m.ChecksumFormat(),
+		Size:                        m.Size(),
+		Started:                     m.Started,
+		Notes:                       m.Notes,
+		ModelUUID:                   m.Origin.Model,
+		Machine:                     m.Origin.Machine,
+		Hostname:                    m.Origin.Hostname,
+		Version:                     m.Origin.Version,
+		Series:                      m.Origin.Series,
+		CACert:                      m.CACert,
+		CAPrivateKey:                m.CAPrivateKey,
+		FormatVersion:               m.FormatVersion,
+		ControllerUUID:              m.Controller.UUID,
+		ControllerMachineID:         m.Controller.MachineID,
+		ControllerMachineInstanceID: m.Controller.MachineInstanceID,
+		HANodes:                     m.Controller.HANodes,
+	}
+	stored := m.Stored()
+	if stored != nil {
+		flat.Stored = *stored
+	}
+
+	if m.Finished != nil {
+		flat.Finished = *m.Finished
+	}
+	return flat
+}
+
+func (flat *flatMetadata) inflate() (*Metadata, error) {
+	meta := NewMetadata()
+	meta.SetID(flat.ID)
+	meta.FormatVersion = flat.FormatVersion
+
+	err := meta.SetFileInfo(flat.Size, flat.Checksum, flat.ChecksumFormat)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !flat.Stored.IsZero() {
+		meta.SetStored(&flat.Stored)
+	}
+
+	meta.Started = flat.Started
+	if !flat.Finished.IsZero() {
+		meta.Finished = &flat.Finished
+	}
+	meta.Notes = flat.Notes
+	meta.Origin = Origin{
+		Model:    flat.ModelUUID,
+		Machine:  flat.Machine,
+		Hostname: flat.Hostname,
+		Version:  flat.Version,
+		Series:   flat.Series,
+	}
+
+	meta.Controller = ControllerMetadata{
+		UUID:              flat.ControllerUUID,
+		MachineID:         flat.ControllerMachineID,
+		MachineInstanceID: flat.ControllerMachineInstanceID,
+		HANodes:           flat.HANodes,
+	}
+
+	// TODO(wallyworld) - put these in a separate file.
+	meta.CACert = flat.CACert
+	meta.CAPrivateKey = flat.CAPrivateKey
+
+	return meta, nil
+}
+
+// AsJSONBuffer returns a bytes.Buffer containing the JSON-ified metadata.
+// This will always produce latest known format.
+func (m *Metadata) AsJSONBuffer() (io.Reader, error) {
+	var outfile bytes.Buffer
+	if err := json.NewEncoder(&outfile).Encode(m.flat()); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &outfile, nil
+}
+
+// NewMetadataJSONReader extracts a new metadata from the JSON file.
+func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
+	data, err := ioutil.ReadAll(in)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	// We always want to decode into the most recent format version.
+	var flat flatMetadata
+	if err := json.Unmarshal(data, &flat); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	// Cater for old backup files, taken as version 0 or with no version.
+	switch flat.FormatVersion {
+	case 0:
+		{
+			var v0 flatMetadataV0
+			if err := json.Unmarshal(data, &v0); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return v0.inflate()
+		}
+	case 1:
+		return flat.inflate()
+	default:
+		return nil, errors.NotSupportedf("backup format %d", flat.FormatVersion)
+	}
 }
 
 func fileTimestamp(fi os.FileInfo) time.Time {
@@ -284,6 +426,8 @@ func BuildMetadata(file *os.File) (*Metadata, error) {
 	meta := NewMetadata()
 	meta.Started = time.Time{}
 	meta.Origin = UnknownOrigin()
+	meta.FormatVersion = UnknownInt64
+	meta.Controller = UnknownController()
 	err = meta.MarkComplete(size, checksum)
 	if err != nil {
 		return nil, errors.Trace(err)

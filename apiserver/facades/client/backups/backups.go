@@ -26,7 +26,7 @@ var logger = loggo.GetLogger("juju.apiserver.backups")
 // Backend exposes state.State functionality needed by the backups Facade.
 type Backend interface {
 	IsController() bool
-	Machine(id string) (*state.Machine, error)
+	Machine(id string) (Machine, error)
 	MachineSeries(id string) (string, error)
 	MongoSession() *mgo.Session
 	MongoVersion() (string, error)
@@ -37,6 +37,7 @@ type Backend interface {
 	ControllerConfig() (controller.Config, error)
 	StateServingInfo() (state.StateServingInfo, error)
 	RestoreInfo() *state.RestoreInfo
+	ControllerNodes() ([]state.ControllerNode, error)
 }
 
 // API provides backup-specific API methods.
@@ -91,11 +92,11 @@ func NewAPI(backend Backend, resources facade.Resources, authorizer facade.Autho
 		return nil, errors.Trace(err)
 	}
 
-	config, err := backend.ModelConfig()
+	modelConfig, err := backend.ModelConfig()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	backupDir := config.BackupDir()
+	backupDir := modelConfig.BackupDir()
 
 	paths := backups.Paths{
 		BackupDir: backupDir,
@@ -160,6 +161,11 @@ func CreateResult(meta *backups.Metadata, filename string) params.BackupsMetadat
 	result.Version = meta.Origin.Version
 	result.Series = meta.Origin.Series
 
+	result.ControllerUUID = meta.Controller.UUID
+	result.FormatVersion = meta.FormatVersion
+	result.HANodes = meta.Controller.HANodes
+	result.ControllerMachineID = meta.Controller.MachineID
+	result.ControllerMachineInstanceID = meta.Controller.MachineInstanceID
 	// TODO(wallyworld) - remove these ASAP
 	// These are only used by the restore CLI when re-bootstrapping.
 	// We will use a better solution but the way restore currently
@@ -188,6 +194,13 @@ func MetadataFromResult(result params.BackupsMetadataResult) *backups.Metadata {
 	meta.Origin.Version = result.Version
 	meta.Origin.Series = result.Series
 	meta.Notes = result.Notes
+	meta.FormatVersion = result.FormatVersion
+	meta.Controller = backups.ControllerMetadata{
+		UUID:              result.ControllerUUID,
+		MachineID:         result.ControllerMachineID,
+		MachineInstanceID: result.ControllerMachineInstanceID,
+		HANodes:           result.HANodes,
+	}
 	meta.SetFileInfo(result.Size, result.Checksum, result.ChecksumFormat)
 	return meta
 }

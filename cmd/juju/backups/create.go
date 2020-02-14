@@ -4,6 +4,7 @@
 package backups
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"time"
@@ -67,7 +68,6 @@ type createCommand struct {
 	Notes string
 	// KeepCopy means the backup archive should be stored in the controller db.
 	KeepCopy bool
-	fs       *gnuflag.FlagSet
 }
 
 // Info implements Command.Info.
@@ -91,6 +91,9 @@ func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.Init.
 func (c *createCommand) Init(args []string) error {
+	if err := c.CommandBase.Init(args); err != nil {
+		return err
+	}
 	// If user specifies that a download is not desired (i.e. no-download == true),
 	// and they have EXPLICITLY not wanted to store a remote backup file copy
 	// (i.e keep-copy == false), then there is no point for us to proceed as
@@ -127,12 +130,6 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 	if err := c.validateIaasController(c.Info().Name); err != nil {
 		return errors.Trace(err)
 	}
-	if c.Log != nil {
-		if err := c.Log.Start(ctx); err != nil {
-			return err
-		}
-	}
-
 	client, apiVersion, err := c.NewGetAPI()
 	if err != nil {
 		return errors.Trace(err)
@@ -157,10 +154,8 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	// TODO: (hml) 2018-04-25
-	// fix to dump the metadata when --verbose used
-	if c.Log != nil && !c.Log.Quiet {
-		c.dumpMetadata(ctx, metadataResult)
+	if !c.quiet {
+		fmt.Fprintln(ctx.Stdout, c.metadata(metadataResult))
 	}
 
 	if c.KeepCopy {

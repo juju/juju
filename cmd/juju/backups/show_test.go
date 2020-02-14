@@ -30,8 +30,8 @@ func (s *showSuite) TestOkay(c *gc.C) {
 	ctx, err := cmdtesting.RunCommand(c, s.subcommand, s.metaresult.ID)
 	c.Check(err, jc.ErrorIsNil)
 
-	out := MetaResultString
-	s.checkStd(c, ctx, out, "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, MetaResultString)
 }
 
 func (s *showSuite) TestError(c *gc.C) {

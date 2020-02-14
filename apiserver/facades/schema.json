@@ -4732,12 +4732,27 @@
                         "checksum-format": {
                             "type": "string"
                         },
+                        "controller-machine-id": {
+                            "type": "string"
+                        },
+                        "controller-machine-inst-id": {
+                            "type": "string"
+                        },
+                        "controller-uuid": {
+                            "type": "string"
+                        },
                         "filename": {
                             "type": "string"
                         },
                         "finished": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "format-version": {
+                            "type": "integer"
+                        },
+                        "ha-nodes": {
+                            "type": "integer"
                         },
                         "hostname": {
                             "type": "string"
@@ -4789,7 +4804,12 @@
                         "series",
                         "ca-cert",
                         "ca-private-key",
-                        "filename"
+                        "filename",
+                        "format-version",
+                        "controller-uuid",
+                        "controller-machine-id",
+                        "controller-machine-inst-id",
+                        "ha-nodes"
                     ]
                 },
                 "BackupsRemoveArgs": {

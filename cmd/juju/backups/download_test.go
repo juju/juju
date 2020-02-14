@@ -52,7 +52,8 @@ func (s *downloadSuite) TestOkay(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	s.filename = "juju-backup-" + s.metaresult.ID + ".tar.gz"
-	s.checkStd(c, ctx, s.filename+"\n", "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.filename+"\n")
 	s.checkArchive(c)
 }
 
@@ -62,7 +63,8 @@ func (s *downloadSuite) TestFilename(c *gc.C) {
 	c.Check(err, jc.ErrorIsNil)
 
 	s.filename = "backup.tar.gz"
-	s.checkStd(c, ctx, s.filename+"\n", "")
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.filename+"\n")
 	s.checkArchive(c)
 }
 

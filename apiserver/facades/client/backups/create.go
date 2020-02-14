@@ -70,6 +70,22 @@ func (a *APIv2) Create(args params.BackupsCreateArgs) (params.BackupsMetadataRes
 		return result, errors.Trace(err)
 	}
 	meta.Notes = args.Notes
+	meta.Controller.MachineID = a.machineID
+	m, err := a.backend.Machine(a.machineID)
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	instanceID, err := m.InstanceId()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	meta.Controller.MachineInstanceID = string(instanceID)
+
+	nodes, err := a.backend.ControllerNodes()
+	if err != nil {
+		return result, errors.Trace(err)
+	}
+	meta.Controller.HANodes = int64(len(nodes))
 
 	fileName, err := backupsMethods.Create(meta, a.paths, dbInfo, args.KeepCopy, args.NoDownload)
 	if err != nil {

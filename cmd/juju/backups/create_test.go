@@ -24,6 +24,9 @@ type createSuite struct {
 	wrappedCommand  cmd.Command
 	command         *backups.CreateCommand
 	defaultFilename string
+
+	expectedOut string
+	expectedErr string
 }
 
 var _ = gc.Suite(&createSuite{})
@@ -32,6 +35,12 @@ func (s *createSuite) SetUpTest(c *gc.C) {
 	s.BaseBackupsSuite.SetUpTest(c)
 	s.wrappedCommand, s.command = backups.NewCreateCommandForTest(s.store)
 	s.defaultFilename = "juju-backup-<date>-<time>.tar.gz"
+
+	s.expectedOut = MetaResultString
+	s.expectedErr = `
+Remote backup was not created.
+Downloaded to juju-backup-00010101-000000.tar.gz.
+`[1:]
 }
 
 func (s *createSuite) TearDownTest(c *gc.C) {
@@ -63,7 +72,8 @@ func (s *createSuite) setDownload() *fakeAPIClient {
 }
 
 func (s *createSuite) checkDownloadStd(c *gc.C, ctx *cmd.Context) {
-	c.Check(cmdtesting.Stdout(ctx), gc.Equals, MetaResultString)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, s.expectedErr)
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.expectedOut)
 
 	out := cmdtesting.Stderr(ctx)
 	parts := strings.Split(out, "\n")
@@ -187,13 +197,17 @@ func (s *createSuite) TestDefaultV1(c *gc.C) {
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "true", "false", "spam")
 	c.Assert(s.command.KeepCopy, jc.IsTrue)
+	s.expectedErr = `
+Remote backup stored on the controller as spam.
+Downloaded to juju-backup-00010101-000000.tar.gz.
+`[1:]
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
 }
 
 func (s *createSuite) TestDefaultQuiet(c *gc.C) {
 	client := s.setDownload()
-	ctx, err := cmdtesting.RunCommand(c, s.wrappedCommand, "--quiet")
+	ctx, err := cmdtesting.RunCommand(c, s.createCommandForGlobalOptionTesting(s.wrappedCommand), "create-backup", "--quiet")
 	c.Assert(err, jc.ErrorIsNil)
 
 	client.CheckCalls(c, "Create", "Download")
@@ -220,6 +234,10 @@ func (s *createSuite) TestFilename(c *gc.C) {
 
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "false", "false", "filename")
+	s.expectedErr = `
+Remote backup was not created.
+Downloaded to backup.tgz.
+`[1:]
 	s.checkDownload(c, ctx)
 	c.Check(s.command.Filename, gc.Equals, "backup.tgz")
 }
@@ -231,9 +249,8 @@ func (s *createSuite) TestNoDownload(c *gc.C) {
 
 	client.CheckCalls(c, "Create")
 	client.CheckArgs(c, "", "true", "true")
-	out := MetaResultString
-	expectedMsg := fmt.Sprintf("WARNING %v\nRemote backup stored on the controller as %v.\n", backups.DownloadWarning, s.metaresult.ID)
-	s.checkStd(c, ctx, out, expectedMsg)
+	c.Check(cmdtesting.Stderr(ctx), gc.Equals, "Remote backup stored on the controller as spam.\n")
+	c.Check(cmdtesting.Stdout(ctx), gc.Equals, s.expectedOut)
 	c.Check(s.command.Filename, gc.Equals, backups.NotSet)
 }
 
@@ -245,6 +262,10 @@ func (s *createSuite) TestKeepCopy(c *gc.C) {
 	client.CheckCalls(c, "Create", "Download")
 	client.CheckArgs(c, "", "true", "false", "filename")
 
+	s.expectedErr = `
+Remote backup stored on the controller as spam.
+Downloaded to juju-backup-00010101-000000.tar.gz.
+`[1:]
 	s.checkDownload(c, ctx)
 }
 

@@ -6,6 +6,8 @@ package backups_test
 import (
 	"bytes"
 	"fmt"
+	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/juju/osenv"
 	"io"
 	"io/ioutil"
 	"os"
@@ -29,18 +31,26 @@ import (
 // MetaResultString is the expected output of running dumpMetadata() on
 // s.metaresult.
 var MetaResultString = `
-backup ID:       "spam"
-checksum:        ""
-checksum format: ""
-size (B):        0
-stored:          0001-01-01 00:00:00 +0000 UTC
-started:         0001-01-01 00:00:00 +0000 UTC
-finished:        0001-01-01 00:00:00 +0000 UTC
-notes:           ""
-model ID:        ""
-machine ID:      ""
-created on host: ""
-juju version:    0.0.0
+
+backup ID:             spam 
+backup format version: 0 
+juju version:          0.0.0 
+series:                 
+
+controller UUID:       
+model UUID:             
+machine ID:             
+created on host:        
+
+checksum:               
+checksum format:        
+size (B):              0 
+stored:                0001-01-01 00:00:00 +0000 UTC 
+started:               0001-01-01 00:00:00 +0000 UTC 
+finished:              0001-01-01 00:00:00 +0000 UTC 
+
+notes:                  
+
 `[1:]
 
 func TestPackage(t *testing.T) {
@@ -125,6 +135,16 @@ func (s *BaseBackupsSuite) setDownload() *fakeAPIClient {
 	return client
 }
 
+func (s *BaseBackupsSuite) createCommandForGlobalOptionTesting(subcommand cmd.Command) cmd.Command {
+	command := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:                "juju",
+		UserAliasesFilename: osenv.JujuXDGDataHomePath("aliases"),
+		FlagKnownAs:         "option",
+	})
+	command.Register(subcommand)
+	return command
+}
+
 func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	c.Assert(s.filename, gc.Not(gc.Equals), "")
 	archive, err := os.Open(s.filename)
@@ -142,12 +162,6 @@ func (s *BaseBackupsSuite) checkArchive(c *gc.C) {
 	data, err := ioutil.ReadAll(archive)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Check(string(data), gc.Equals, s.data)
-}
-
-func (s *BaseBackupsSuite) checkStd(c *gc.C, ctx *cmd.Context, out, err string) {
-	c.Check(ctx.Stdin.(*bytes.Buffer).Len(), gc.Equals, 0)
-	jujutesting.CheckString(c, ctx.Stdout.(*bytes.Buffer).String(), out)
-	jujutesting.CheckString(c, ctx.Stderr.(*bytes.Buffer).String(), err)
 }
 
 // TODO (hml) 2018-05-01

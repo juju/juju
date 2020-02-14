@@ -73,6 +73,23 @@ type BackupsMetadataResult struct {
 	CACert       string `json:"ca-cert"`
 	CAPrivateKey string `json:"ca-private-key"`
 	Filename     string `json:"filename"`
+
+	// FormatVersion stores the version of the backup format.
+	// All unversioned backup files are considered 0,
+	// so the versioned formats start at 1.
+	FormatVersion int64 `json:"format-version"`
+
+	// ControllerUUID is the controller UUID that is backed up.
+	ControllerUUID string `json:"controller-uuid"`
+
+	// ControllerMachineID is the controller machine ID that the backup was created on.
+	ControllerMachineID string `json:"controller-machine-id"`
+
+	// ControllerMachineInstanceID is the controller machine cloud instance ID that the backup was created on.
+	ControllerMachineInstanceID string `json:"controller-machine-inst-id"`
+
+	// HANodes reflects HA configuration: number of controller nodes in HA.
+	HANodes int64 `json:"ha-nodes"`
 }
 
 // RestoreArgs Holds the backup file or id

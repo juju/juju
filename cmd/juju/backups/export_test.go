@@ -11,8 +11,7 @@ import (
 )
 
 const (
-	NotSet          = notset
-	DownloadWarning = downloadWarning
+	NotSet = notset
 )
 
 var (
@@ -36,41 +35,35 @@ type RestoreCommand struct {
 func NewCreateCommandForTest(store jujuclient.ClientStore) (cmd.Command, *CreateCommand) {
 	c := &createCommand{}
 	c.SetClientStore(store)
-	c.Log = &cmd.Log{}
 	return modelcmd.Wrap(c), &CreateCommand{c}
 }
 
 func NewDownloadCommandForTest(store jujuclient.ClientStore) (cmd.Command, *DownloadCommand) {
 	c := &downloadCommand{}
-	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &DownloadCommand{c}
 }
 
 func NewListCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &listCommand{}
-	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
 func NewShowCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &showCommand{}
-	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
 func NewUploadCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &uploadCommand{}
-	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
 
 func NewRemoveCommandForTest(store jujuclient.ClientStore) cmd.Command {
 	c := &removeCommand{}
-	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c)
 }
@@ -79,7 +72,6 @@ func NewRestoreCommandForTest(
 	store jujuclient.ClientStore,
 ) (cmd.Command, *RestoreCommand) {
 	c := &restoreCommand{}
-	c.Log = &cmd.Log{}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c), &RestoreCommand{c}
 }

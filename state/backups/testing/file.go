@@ -7,14 +7,16 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
+	"github.com/juju/juju/state/backups"
 	"io"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/version"
 )
 
 // File represents a file during testing.
@@ -55,6 +57,27 @@ func (f *File) AddToArchive(archive *tar.Writer) error {
 
 // NewArchive returns a new archive file containing the files.
 func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, error) {
+	topFiles, err := internalTopFiles(files, dump)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if meta != nil {
+		metaFile, err := meta.AsJSONBuffer()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		topFiles = append(topFiles,
+			File{
+				Name:    "juju-backup/metadata.json",
+				Content: metaFile.(*bytes.Buffer).String(),
+			},
+		)
+	}
+	return internalCompress(topFiles)
+}
+
+func internalTopFiles(files, dump []File) ([]File, error) {
 	dirs := set.NewStrings()
 	var sysFiles []File
 	for _, file := range files {
@@ -88,51 +111,121 @@ func NewArchive(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, erro
 		return nil, errors.Trace(err)
 	}
 
-	topfiles := []File{{
+	topFiles := []File{{
 		Name:  "juju-backup",
 		IsDir: true,
 	}}
 
-	topfiles = append(topfiles, File{
+	topFiles = append(topFiles, File{
 		Name:  "juju-backup/dump",
 		IsDir: true,
 	})
 	for _, dumpFile := range dump {
-		topfiles = append(topfiles, File{
+		topFiles = append(topFiles, File{
 			Name:    "juju-backup/dump/" + dumpFile.Name,
 			Content: dumpFile.Content,
 			IsDir:   dumpFile.IsDir,
 		})
 	}
 
-	topfiles = append(topfiles,
+	topFiles = append(topFiles,
 		File{
 			Name:    "juju-backup/root.tar",
 			Content: rootFile.String(),
 		},
 	)
+	return topFiles, nil
+}
 
+// NewArchiveV0 returns a new archive file containing the files, in v0 format.
+func NewArchiveV0(meta *backups.Metadata, files, dump []File) (*bytes.Buffer, error) {
+	topFiles, err := internalTopFiles(files, dump)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	if meta != nil {
-		metaFile, err := meta.AsJSONBuffer()
+		metaFile, err := asJSONBufferV0(meta)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		topfiles = append(topfiles,
+		topFiles = append(topFiles,
 			File{
 				Name:    "juju-backup/metadata.json",
 				Content: metaFile.(*bytes.Buffer).String(),
 			},
 		)
 	}
+	return internalCompress(topFiles)
+}
 
+func internalCompress(topFiles []File) (*bytes.Buffer, error) {
 	var arFile bytes.Buffer
 	compressed := gzip.NewWriter(&arFile)
 	defer compressed.Close()
-	if err := writeToTar(compressed, topfiles); err != nil {
+	if err := writeToTar(compressed, topFiles); err != nil {
 		return nil, errors.Trace(err)
 	}
-
 	return &arFile, nil
+}
+
+func asJSONBufferV0(m *backups.Metadata) (io.Reader, error) {
+	var outfile bytes.Buffer
+	if err := json.NewEncoder(&outfile).Encode(flatV0(m)); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &outfile, nil
+}
+
+type flatMetadataV0 struct {
+	ID string
+
+	// file storage
+
+	Checksum       string
+	ChecksumFormat string
+	Size           int64
+	Stored         time.Time
+
+	// backup
+
+	Started     time.Time
+	Finished    time.Time
+	Notes       string
+	Environment string
+	Machine     string
+	Hostname    string
+	Version     version.Number
+	Series      string
+
+	CACert       string
+	CAPrivateKey string
+}
+
+func flatV0(m *backups.Metadata) flatMetadataV0 {
+	flat := flatMetadataV0{
+		ID:             m.ID(),
+		Checksum:       m.Checksum(),
+		ChecksumFormat: m.ChecksumFormat(),
+		Size:           m.Size(),
+		Started:        m.Started,
+		Notes:          m.Notes,
+		Environment:    m.Origin.Model,
+		Machine:        m.Origin.Machine,
+		Hostname:       m.Origin.Hostname,
+		Version:        m.Origin.Version,
+		Series:         m.Origin.Series,
+		CACert:         m.CACert,
+		CAPrivateKey:   m.CAPrivateKey,
+	}
+	stored := m.Stored()
+	if stored != nil {
+		flat.Stored = *stored
+	}
+
+	if m.Finished != nil {
+		flat.Finished = *m.Finished
+	}
+	return flat
 }
 
 // NewArchiveBasic returns a new archive file with a few files provided.
