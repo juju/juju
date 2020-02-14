@@ -188,6 +188,12 @@ kubernetesResources:
         storage: false
       conversion:
         strategy: None
+      preserveUnknownFields: false
+      additionalPrinterColumns:
+      - name: Worker
+        type: integer
+        description: Worker attribute.
+        jsonPath: .spec.tfReplicaSpecs.Worker
       validation:
         openAPIV3Schema:
           properties:
@@ -581,7 +587,8 @@ password: shhhh`[1:],
 							{Name: "v1", Served: true, Storage: true},
 							{Name: "v1beta2", Served: true, Storage: false},
 						},
-						Scope: "Cluster",
+						Scope:                 "Cluster",
+						PreserveUnknownFields: boolPtr(false),
 						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
@@ -589,6 +596,14 @@ password: shhhh`[1:],
 						},
 						Conversion: &apiextensionsv1beta1.CustomResourceConversion{
 							Strategy: apiextensionsv1beta1.NoneConverter,
+						},
+						AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+							{
+								Name:        "Worker",
+								Type:        "integer",
+								Description: "Worker attribute.",
+								JSONPath:    ".spec.tfReplicaSpecs.Worker",
+							},
 						},
 						Validation: &apiextensionsv1beta1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
