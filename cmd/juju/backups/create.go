@@ -91,6 +91,9 @@ func (c *createCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.Init.
 func (c *createCommand) Init(args []string) error {
+	if err := c.CommandBase.Init(args); err != nil {
+		return err
+	}
 	// If user specifies that a download is not desired (i.e. no-download == true),
 	// and they have EXPLICITLY not wanted to store a remote backup file copy
 	// (i.e keep-copy == false), then there is no point for us to proceed as
@@ -151,7 +154,7 @@ func (c *createCommand) Run(ctx *cmd.Context) error {
 		return errors.Trace(err)
 	}
 
-	if !c.isQuiet() {
+	if !c.quiet {
 		fmt.Fprintln(ctx.Stdout, c.metadata(metadataResult))
 	}
 

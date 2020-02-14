@@ -74,6 +74,23 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {
 	c.fs = f
 }
 
+// Init implements Command.SetFlags.
+func (c *CommandBase) Init(args []string) error {
+	c.ModelCommandBase.Init(args)
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "verbose" {
+			c.verbose = true
+		}
+	})
+
+	c.fs.Visit(func(flag *gnuflag.Flag) {
+		if flag.Name == "quiet" {
+			c.quiet = true
+		}
+	})
+	return nil
+}
+
 func (c *CommandBase) validateIaasController(cmdName string) error {
 	controllerName, err := c.ControllerName()
 	if err != nil {
@@ -104,28 +121,6 @@ var getAPI = func(c *CommandBase) (APIClient, int, error) {
 // dumpMetadata writes the formatted backup metadata to stdout.
 func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetadataResult) {
 	ctx.Verbosef(c.metadata(result))
-}
-
-func (c *CommandBase) isVerbose() bool {
-	if !c.verbose {
-		c.fs.Visit(func(flag *gnuflag.Flag) {
-			if flag.Name == "verbose" {
-				c.verbose = true
-			}
-		})
-	}
-	return c.verbose
-}
-
-func (c *CommandBase) isQuiet() bool {
-	if !c.quiet {
-		c.fs.Visit(func(flag *gnuflag.Flag) {
-			if flag.Name == "quiet" {
-				c.quiet = true
-			}
-		})
-	}
-	return c.quiet
 }
 
 const backupMatadataTemplate = `

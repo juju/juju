@@ -46,6 +46,9 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements Command.Init.
 func (c *listCommand) Init(args []string) error {
+	if err := c.CommandBase.Init(args); err != nil {
+		return err
+	}
 	if err := cmd.CheckEmpty(args); err != nil {
 		return errors.Trace(err)
 	}
@@ -74,7 +77,7 @@ func (c *listCommand) Run(ctx *cmd.Context) error {
 	}
 
 	for _, resultItem := range result.List {
-		if !c.isVerbose() {
+		if !c.verbose {
 			fmt.Fprintln(ctx.Stdout, resultItem.ID)
 			continue
 		}
