@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -85,4 +86,9 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 // Commit is part of the Operation interface.
 func (rc *runCommands) Commit(state State) (*State, error) {
 	return nil, nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (rc *runCommands) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

@@ -25,6 +25,14 @@ const (
 	// ActionRunning is the status of an Action that has been started but
 	// not completed yet.
 	ActionRunning string = "running"
+
+	// ActionAborting is the status of an Action that is running but is to be
+	// terminated. Identical to ActionRunning.
+	ActionAborting string = "aborting"
+
+	// ActionAborted is the status of an Action that was aborted.
+	// Identical to ActionFailed and can have an error.
+	ActionAborted string = "aborted"
 )
 
 // Actions is a slice of Action for bulk requests.

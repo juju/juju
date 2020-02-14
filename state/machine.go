@@ -2041,6 +2041,11 @@ func (m *Machine) CancelAction(action Action) (Action, error) {
 
 // WatchActionNotifications is part of the ActionReceiver interface.
 func (m *Machine) WatchActionNotifications() StringsWatcher {
+	return m.st.watchActionNotificationsFilteredBy(m)
+}
+
+// WatchPendingActionNotifications is part of the ActionReceiver interface.
+func (m *Machine) WatchPendingActionNotifications() StringsWatcher {
 	return m.st.watchEnqueuedActionsFilteredBy(m)
 }
 

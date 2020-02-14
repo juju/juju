@@ -3218,14 +3218,160 @@ func ensureSuffixFn(marker string) func(string) string {
 	}
 }
 
+// watchActionNotificationsFilteredBy starts and returns a StringsWatcher
+// that notifies on new Actions being enqueued on the ActionRecevers
+// being watched as well as changes to non-completed Actions.
+func (st *State) watchActionNotificationsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
+	return newActionNotificationWatcher(st, false, receivers...)
+}
+
 // watchEnqueuedActionsFilteredBy starts and returns a StringsWatcher
 // that notifies on new Actions being enqueued on the ActionRecevers
 // being watched.
 func (st *State) watchEnqueuedActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
-	return newCollectionWatcher(st, colWCfg{
-		col:    actionNotificationsC,
-		filter: makeIdFilter(st, actionMarker, receivers...),
-		idconv: actionNotificationIdToActionId,
+	return newActionNotificationWatcher(st, true, receivers...)
+}
+
+// actionNotificationWatcher is a StringsWatcher that watches for changes on the
+// action notification collection, but only triggers events once per action.
+type actionNotificationWatcher struct {
+	commonWatcher
+	source chan watcher.Change
+	sink   chan []string
+	filter func(interface{}) bool
+	// notifyPending when true will notify all pending and running actions as
+	// initial events, but therafter only notify on pending actions.
+	notifyPending bool
+}
+
+// newActionNotificationWatcher starts and returns a new StringsWatcher configured
+// with the given collection and filter function. notifyPending when true will notify all pending and running actions as
+// initial events, but therafter only notify on pending actions.
+func newActionNotificationWatcher(backend modelBackend, notifyPending bool, receivers ...ActionReceiver) StringsWatcher {
+	w := &actionNotificationWatcher{
+		commonWatcher: newCommonWatcher(backend),
+		source:        make(chan watcher.Change),
+		sink:          make(chan []string),
+		filter:        makeIdFilter(backend, actionMarker, receivers...),
+		notifyPending: notifyPending,
+	}
+
+	w.tomb.Go(func() error {
+		defer close(w.sink)
+		defer close(w.source)
+		return w.loop()
+	})
+
+	return w
+}
+
+// Changes returns the event channel for this watcher
+func (w *actionNotificationWatcher) Changes() <-chan []string {
+	return w.sink
+}
+
+func (w *actionNotificationWatcher) loop() error {
+	var (
+		changes []string
+		in      = (<-chan watcher.Change)(w.source)
+		out     = (chan<- []string)(w.sink)
+	)
+
+	w.watcher.WatchCollectionWithFilter(actionNotificationsC, w.source, w.filter)
+	defer w.watcher.UnwatchCollection(actionNotificationsC, w.source)
+
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.watcher.Dead():
+			return stateWatcherDeadError(w.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if w.notifyPending {
+				if err := w.filterPendingAndMergeIds(&changes, updates); err != nil {
+					return err
+				}
+			} else {
+				if err := w.mergeIds(&changes, updates); err != nil {
+					return err
+				}
+			}
+			if len(changes) > 0 {
+				out = w.sink
+			}
+		case out <- changes:
+			changes = []string{}
+			out = nil
+		}
+	}
+}
+
+func (w *actionNotificationWatcher) initial() ([]string, error) {
+	var ids []string
+	var doc actionNotificationDoc
+	coll, closer := w.db.GetCollection(actionNotificationsC)
+	defer closer()
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		if w.filter(doc.DocId) {
+			ids = append(ids, actionNotificationIdToActionId(doc.DocId))
+		}
+	}
+	return ids, iter.Close()
+}
+
+// filterPendingAndMergeIds reduces the keys published to the first action notification (pending actions).
+func (w *actionNotificationWatcher) filterPendingAndMergeIds(changes *[]string, updates map[interface{}]bool) error {
+	var newIDs []string
+	for val, idExists := range updates {
+		docID, ok := val.(string)
+		if !ok {
+			return errors.Errorf("id is not of type string, got %T", val)
+		}
+
+		id := actionNotificationIdToActionId(docID)
+		chIx, idAlreadyInChangeset := indexOf(id, *changes)
+		if idExists {
+			if !idAlreadyInChangeset {
+				// add id to fetch from mongo
+				newIDs = append(newIDs, w.backend.localID(docID))
+			}
+		} else {
+			if idAlreadyInChangeset {
+				// remove id from changes
+				*changes = append((*changes)[:chIx], (*changes)[chIx+1:]...)
+			}
+		}
+	}
+
+	coll, closer := w.db.GetCollection(actionNotificationsC)
+	defer closer()
+
+	// query for all documents that match the ids who
+	// don't have a changed field. These are new pending actions.
+	query := bson.D{{"_id", bson.D{{"$in", newIDs}}}}
+	var doc actionNotificationDoc
+	iter := coll.Find(query).Iter()
+	for iter.Next(&doc) {
+		if doc.Changed.IsZero() {
+			*changes = append(*changes, actionNotificationIdToActionId(doc.DocId))
+		}
+	}
+	return iter.Close()
+}
+
+func (w *actionNotificationWatcher) mergeIds(changes *[]string, updates map[interface{}]bool) error {
+	return mergeIds(w.backend, changes, updates, func(id string) (string, error) {
+		return actionNotificationIdToActionId(id), nil
 	})
 }
 

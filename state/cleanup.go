@@ -1036,7 +1036,7 @@ func (st *State) cleanupRemovedUnit(unitId string, cleanupArgs []bson.Raw) error
 	}
 	for _, action := range actions {
 		switch action.Status() {
-		case ActionCompleted, ActionCancelled, ActionFailed:
+		case ActionCompleted, ActionCancelled, ActionFailed, ActionAborted:
 			// nothing to do here
 		default:
 			if _, err = action.Finish(cancelled); err != nil {

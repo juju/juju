@@ -60,16 +60,44 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 		return errors.Trace(err)
 	}
 
+	fire := make(chan struct{}, 1)
 	for {
 		rf.RemoteState = cfg.Watcher.Snapshot()
 		rf.LocalState.State = cfg.Executor.State()
 
 		op, err := cfg.Resolver.NextOp(*rf.LocalState, rf.RemoteState, rf)
 		for err == nil {
+			// Send remote state changes to running operations.
+			remoteStateChanged := make(chan remotestate.Snapshot)
+			done := make(chan struct{})
+			go func() {
+				var rs chan remotestate.Snapshot
+				for {
+					select {
+					case <-cfg.Watcher.RemoteStateChanged():
+						// We consumed a remote state change event
+						// so we need a way to trigger the select below
+						// in case it was a new operation.
+						select {
+						case fire <- struct{}{}:
+						default:
+						}
+						rs = remoteStateChanged
+					case rs <- cfg.Watcher.Snapshot():
+						rs = nil
+					case <-done:
+						return
+					}
+				}
+			}()
+
 			logger.Tracef("running op: %v", op)
-			if err := cfg.Executor.Run(op); err != nil {
+			if err := cfg.Executor.Run(op, remoteStateChanged); err != nil {
+				close(done)
 				return errors.Trace(err)
 			}
+			close(done)
+
 			// Refresh snapshot, in case remote state
 			// changed between operations.
 			rf.RemoteState = cfg.Watcher.Snapshot()
@@ -102,6 +130,7 @@ func Loop(cfg LoopConfig, localState *LocalState) error {
 		case <-cfg.Abort:
 			return ErrLoopAborted
 		case <-cfg.Watcher.RemoteStateChanged():
+		case <-fire:
 		}
 	}
 }

@@ -74,9 +74,13 @@ type Snapshot struct {
 	// update-status hook is supposed to run.
 	UpdateStatusVersion int
 
-	// Actions is the list of pending actions to
+	// ActionsPending is the list of pending actions to
 	// be performed by this unit.
-	Actions []string
+	ActionsPending []string
+
+	// ActionChanged contains a monotonically incrementing
+	// integer to signify changes in the Action's remote state.
+	ActionChanged map[string]int
 
 	// ActionsBlocked is true on CAAS when actions cannot be run due to
 	// pod initialization.

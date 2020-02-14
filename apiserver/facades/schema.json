@@ -34905,6 +34905,17 @@
                         }
                     }
                 },
+                "ActionStatus": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
+                        }
+                    }
+                },
                 "Actions": {
                     "type": "object",
                     "properties": {

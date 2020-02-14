@@ -46,7 +46,7 @@ func (s *ListOperationsSuite) TestInit(c *gc.C) {
 	}, {
 		should:      "fail with invalid status value",
 		args:        []string{"--status", "pending," + "error"},
-		expectedErr: `"error" is not a valid function status, want one of \[pending running completed failed\]`,
+		expectedErr: `"error" is not a valid task status, want one of \[pending running completed failed cancelled aborting aborted\]`,
 	}, {
 		should:      "fail with multiple errors",
 		args:        []string{"--units", "valid/0," + invalidUnitId, "--apps", "valid," + invalidApplicationId},

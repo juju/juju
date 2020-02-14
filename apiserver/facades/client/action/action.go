@@ -307,7 +307,7 @@ func (a *ActionAPI) cancel(arg params.Entities, compat bool) (params.ActionResul
 			currentResult.Error = common.ServerError(err)
 			continue
 		}
-		result, err := action.Finish(state.ActionResults{Status: state.ActionCancelled, Message: "action cancelled via the API"})
+		result, err := action.Cancel()
 		if err != nil {
 			currentResult.Error = common.ServerError(err)
 			continue

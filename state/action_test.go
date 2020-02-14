@@ -782,10 +782,14 @@ func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
 	for {
 		a, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "action-1", nil)
 		c.Assert(err, jc.ErrorIsNil)
-		if unicode.IsDigit(rune(a.Id()[0])) && a.Id()[0] != '0' {
-			actionToUse = a
-			uuid = a.Id()
-			break
+		if unicode.IsDigit(rune(a.Id()[0])) {
+			idNum, _ := strconv.Atoi(a.Id()[0:1])
+			if idNum >= 2 {
+				// The operation consumes id 1 and id 0 is not valid.
+				actionToUse = a
+				uuid = a.Id()
+				break
+			}
 		}
 	}
 	c.Logf(uuid)
@@ -871,7 +875,7 @@ func (s *ActionSuite) TestActionsWatcherEmitsInitialChanges(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// start watcher but don't consume Changes() yet
-	w := u.WatchActionNotifications()
+	w := u.WatchPendingActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 
@@ -907,7 +911,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
 
 	// set up watcher on first unit
-	w := unit1.WatchActionNotifications()
+	w := unit1.WatchPendingActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
@@ -916,7 +920,7 @@ func (s *ActionSuite) TestUnitWatchActionNotifications(c *gc.C) {
 	wc.AssertNoChange()
 
 	// add watcher on unit2
-	w2 := unit2.WatchActionNotifications()
+	w2 := unit2.WatchPendingActionNotifications()
 	defer statetesting.AssertStop(c, w2)
 	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
 	wc2.AssertChange()
@@ -1064,7 +1068,7 @@ func (s *ActionSuite) TestWatchActionNotifications(c *gc.C) {
 	u, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
-	w := u.WatchActionNotifications()
+	w := u.WatchPendingActionNotifications()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
@@ -1326,13 +1330,14 @@ var _ state.ActionReceiver = (*mockAR)(nil)
 func (r mockAR) AddAction(operationID, name string, payload map[string]interface{}) (state.Action, error) {
 	return nil, nil
 }
-func (r mockAR) CancelAction(state.Action) (state.Action, error) { return nil, nil }
-func (r mockAR) WatchActionNotifications() state.StringsWatcher  { return nil }
-func (r mockAR) Actions() ([]state.Action, error)                { return nil, nil }
-func (r mockAR) CompletedActions() ([]state.Action, error)       { return nil, nil }
-func (r mockAR) PendingActions() ([]state.Action, error)         { return nil, nil }
-func (r mockAR) RunningActions() ([]state.Action, error)         { return nil, nil }
-func (r mockAR) Tag() names.Tag                                  { return names.NewUnitTag(r.id) }
+func (r mockAR) CancelAction(state.Action) (state.Action, error)       { return nil, nil }
+func (r mockAR) WatchActionNotifications() state.StringsWatcher        { return nil }
+func (r mockAR) WatchPendingActionNotifications() state.StringsWatcher { return nil }
+func (r mockAR) Actions() ([]state.Action, error)                      { return nil, nil }
+func (r mockAR) CompletedActions() ([]state.Action, error)             { return nil, nil }
+func (r mockAR) PendingActions() ([]state.Action, error)               { return nil, nil }
+func (r mockAR) RunningActions() ([]state.Action, error)               { return nil, nil }
+func (r mockAR) Tag() names.Tag                                        { return names.NewUnitTag(r.id) }
 
 type ActionPruningSuite struct {
 	statetesting.StateWithWallClockSuite

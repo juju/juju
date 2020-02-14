@@ -213,7 +213,7 @@ func (s *ResolverOpFactorySuite) TestCommitError(c *gc.C) {
 
 func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	f.RemoteState.Actions = []string{"action 1", "action 2", "action 3"}
+	f.RemoteState.ActionsPending = []string{"action 1", "action 2", "action 3"}
 	f.LocalState.CompletedActions = map[string]struct{}{}
 	op, err := f.NewAction("action 1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -226,7 +226,7 @@ func (s *ResolverOpFactorySuite) TestActionsCommit(c *gc.C) {
 
 func (s *ResolverOpFactorySuite) TestActionsTrimming(c *gc.C) {
 	f := resolver.NewResolverOpFactory(s.opFactory)
-	f.RemoteState.Actions = []string{"c", "d"}
+	f.RemoteState.ActionsPending = []string{"c", "d"}
 	f.LocalState.CompletedActions = map[string]struct{}{
 		"a": {},
 		"b": {},

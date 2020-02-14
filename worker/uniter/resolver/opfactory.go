@@ -103,7 +103,7 @@ func (s *resolverOpFactory) NewAction(id string) (operation.Operation, error) {
 			s.LocalState.CompletedActions = make(map[string]struct{})
 		}
 		s.LocalState.CompletedActions[id] = struct{}{}
-		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.Actions, s.LocalState.CompletedActions)
+		s.LocalState.CompletedActions = trimCompletedActions(s.RemoteState.ActionsPending, s.LocalState.CompletedActions)
 	}
 	op = onCommitWrapper{op, f}
 	return op, nil

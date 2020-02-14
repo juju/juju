@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 // deploy implements charm install and charm upgrade operations.
@@ -97,6 +98,11 @@ func (d *deploy) Commit(state State) (*State, error) {
 		change.Step = Queued
 	}
 	return change.apply(state), nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (d *deploy) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }
 
 func (d *deploy) checkAlreadyDone(state State) error {

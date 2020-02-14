@@ -5,6 +5,8 @@ package operation
 
 import (
 	"fmt"
+
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type failAction struct {
@@ -51,4 +53,9 @@ func (fa *failAction) Commit(state State) (*State, error) {
 		Step: Pending,
 		Hook: state.Hook,
 	}.apply(state), nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (fa *failAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

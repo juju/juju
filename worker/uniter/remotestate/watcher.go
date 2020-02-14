@@ -113,6 +113,7 @@ func NewWatcher(config WatcherConfig) (*RemoteStateWatcher, error) {
 			Relations:      make(map[int]RelationSnapshot),
 			Storage:        make(map[names.StorageTag]StorageSnapshot),
 			ActionsBlocked: config.RunningStatusFunc != nil,
+			ActionChanged:  make(map[string]int),
 		},
 	}
 	err := catacomb.Invoke(catacomb.Plan{
@@ -165,10 +166,14 @@ func (w *RemoteStateWatcher) Snapshot() Snapshot {
 	for tag, storageSnapshot := range w.current.Storage {
 		snapshot.Storage[tag] = storageSnapshot
 	}
-	snapshot.Actions = make([]string, len(w.current.Actions))
-	copy(snapshot.Actions, w.current.Actions)
+	snapshot.ActionsPending = make([]string, len(w.current.ActionsPending))
+	copy(snapshot.ActionsPending, w.current.ActionsPending)
 	snapshot.Commands = make([]string, len(w.current.Commands))
 	copy(snapshot.Commands, w.current.Commands)
+	snapshot.ActionChanged = make(map[string]int)
+	for k, v := range w.current.ActionChanged {
+		snapshot.ActionChanged[k] = v
+	}
 	return snapshot
 }
 
@@ -854,7 +859,15 @@ func (w *RemoteStateWatcher) storageAttachmentChanged(change storageAttachmentCh
 func (w *RemoteStateWatcher) actionsChanged(actions []string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.current.Actions = append(w.current.Actions, actions...)
+	for _, action := range actions {
+		// If we already have the action, signal a change.
+		if r, ok := w.current.ActionChanged[action]; ok {
+			w.current.ActionChanged[action] = r + 1
+		} else {
+			w.current.ActionsPending = append(w.current.ActionsPending, action)
+			w.current.ActionChanged[action] = 0
+		}
+	}
 }
 
 func (w *RemoteStateWatcher) actionsBlocked(blocked bool) {

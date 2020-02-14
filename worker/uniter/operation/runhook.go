@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -287,4 +288,9 @@ func (rh *runHook) Commit(state State) (*State, error) {
 	}
 
 	return newState, nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (rh *runHook) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

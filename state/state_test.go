@@ -591,7 +591,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 
 				unit, err := application.AddUnit(state.AddUnitParams{})
 				c.Assert(err, jc.ErrorIsNil)
-				return unit.WatchActionNotifications()
+				return unit.WatchPendingActionNotifications()
 			},
 			triggerEvent: func(st *state.State) {
 				unit, err := st.Unit("dummy/0")

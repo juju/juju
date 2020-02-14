@@ -37,7 +37,7 @@ import (
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
 // UniterAPI implements the latest version (v15) of the Uniter API,
-// which adds the State and SetState calls.
+// which adds the State, SetState calls and changes WatchActionNotifications to notify on action changes.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -1088,6 +1088,18 @@ func (u *UniterAPI) WatchActionNotifications(args params.Entities) (params.Strin
 	return common.WatchActionNotifications(args, canAccess, watchOne), nil
 }
 
+// WatchActionNotifications preserves previous functionality of the ActionNotifications watcher
+// to only trigger once on creation of a pending Action.
+func (u *UniterAPIV14) WatchActionNotifications(args params.Entities) (params.StringsWatchResults, error) {
+	tagToActionReceiver := common.TagToActionReceiverFn(u.st.FindEntity)
+	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, u.resources.Register)
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	return common.WatchActionNotifications(args, canAccess, watchOne), nil
+}
+
 // ConfigSettings returns the complete set of application charm config
 // settings available to each given unit.
 func (u *UniterAPI) ConfigSettings(args params.Entities) (params.ConfigSettingsResults, error) {
@@ -1164,6 +1176,35 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// ActionStatus returns the status of Actions by Tags passed in.
+func (u *UniterAPI) ActionStatus(args params.Entities) (params.StringResults, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringResults{}, err
+	}
+
+	m, err := u.st.Model()
+	if err != nil {
+		return params.StringResults{}, errors.Trace(err)
+	}
+
+	results := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+
+	actionFn := common.AuthAndActionFromTagFn(canAccess, m.ActionByTag)
+	for k, entity := range args.Entities {
+		action, err := actionFn(entity.Tag)
+		if err != nil {
+			results.Results[k].Error = common.ServerError(err)
+			continue
+		}
+		results.Results[k].Result = string(action.Status())
+	}
+
+	return results, nil
 }
 
 // Actions returns the Actions by Tags passed and ensures that the Unit asking

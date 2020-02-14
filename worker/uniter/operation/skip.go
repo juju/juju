@@ -5,6 +5,8 @@ package operation
 
 import (
 	"fmt"
+
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type skipOperation struct {
@@ -29,4 +31,9 @@ func (op *skipOperation) Prepare(state State) (*State, error) {
 // Execute is part of the Operation interface.
 func (op *skipOperation) Execute(state State) (*State, error) {
 	return nil, ErrSkipExecute
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (op *skipOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

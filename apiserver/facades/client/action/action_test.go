@@ -412,6 +412,61 @@ func (s *actionSuite) TestCancel(c *gc.C) {
 	c.Assert(myActions[1].Status, gc.Equals, params.ActionCancelled)
 }
 
+func (s *actionSuite) TestAbort(c *gc.C) {
+	// Make sure no Actions already exist on wordpress Unit.
+	actions, err := s.wordpressUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 0)
+
+	// Add Actions.
+	tests := params.Actions{
+		Actions: []params.Action{{
+			Receiver: s.wordpressUnit.Tag().String(),
+			Name:     "fakeaction",
+		}},
+	}
+
+	results, err := s.action.Enqueue(tests)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+
+	actions, err = s.wordpressUnit.Actions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(actions, gc.HasLen, 1)
+
+	_, err = actions[0].Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	// blocking changes should have no effect
+	s.BlockAllChanges(c, "Cancel")
+
+	// Cancel Some.
+	arg := params.Entities{
+		Entities: []params.Entity{
+			// "wp-one"
+			{Tag: results.Results[0].Action.Tag},
+		}}
+	results, err = s.action.Cancel(arg)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(results.Results[0].Status, gc.Equals, params.ActionAborting)
+
+	// Assert the Actions are all in the expected state.
+	tags := params.Entities{Entities: []params.Entity{
+		{Tag: s.wordpressUnit.Tag().String()},
+	}}
+	obtained, err := s.action.ListAll(tags)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtained.Actions, gc.HasLen, 1)
+
+	wpActions := obtained.Actions[0].Actions
+	c.Assert(wpActions, gc.HasLen, 1)
+	c.Assert(wpActions[0].Action.Name, gc.Equals, "fakeaction")
+	c.Assert(wpActions[0].Status, gc.Equals, params.ActionAborting)
+}
+
 func (s *actionSuite) TestApplicationsCharmsActions(c *gc.C) {
 	actionSchemas := map[string]map[string]interface{}{
 		"snapshot": {
