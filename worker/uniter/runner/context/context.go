@@ -119,7 +119,6 @@ type HookProcess interface {
 // HookUnit represents the functions needed by a unit in a hook context to
 // call into state.
 type HookUnit interface {
-	AddStorage(constraints map[string][]params.StorageConstraints) error
 	Application() (*uniter.Application, error)
 	ApplicationName() string
 	ClosePorts(protocol string, fromPort, toPort int) error
@@ -1042,6 +1041,10 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	}
 
+	if len(ctx.storageAddConstraints) > 0 {
+		b.AddStorage(ctx.storageAddConstraints)
+	}
+
 	// Generate change request but skip its execution if no changes are pending.
 	commitReq, numChanges := b.Build()
 	if numChanges > 0 {
@@ -1054,15 +1057,6 @@ func (ctx *HookContext) doFlush(process string) error {
 
 	// Call completed successfully; update local state
 	ctx.cacheDirty = false
-
-	// add storage to unit dynamically
-	if len(ctx.storageAddConstraints) > 0 {
-		if err := ctx.unit.AddStorage(ctx.storageAddConstraints); err != nil {
-			err = errors.Annotatef(err, "cannot add storage")
-			logger.Errorf("%v", err)
-			return err
-		}
-	}
 
 	if ctx.modelType == model.CAAS {
 		// If we're running the upgrade-charm hook and no podspec update was done,
