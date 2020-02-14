@@ -62,7 +62,7 @@ func (sp *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
 
 // RemoveSpace removes a space.
 // Returns SpaceResults if entities/settings are found which makes the deletion not possible.
-func (api *API) RemoveSpace(entities params.Entities) (params.RemoveSpaceResults, error) {
+func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.RemoveSpaceResults, error) {
 	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
 		return params.RemoveSpaceResults{}, errors.Trace(err)
@@ -78,17 +78,16 @@ func (api *API) RemoveSpace(entities params.Entities) (params.RemoveSpaceResults
 	}
 
 	results := params.RemoveSpaceResults{
-		Results: make([]params.RemoveSpaceResult, len(entities.Entities)),
+		Results: make([]params.RemoveSpaceResult, len(spaceParams.SpaceParams)),
 	}
-	for i, entity := range entities.Entities {
-		spacesTag, err := names.ParseSpaceTag(entity.Tag)
+	for i, spaceParam := range spaceParams.SpaceParams {
+		spacesTag, err := names.ParseSpaceTag(spaceParam.Space.Tag)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
-		removable := api.checkSpaceIsRemovable(i, spacesTag, &results)
-		if !removable {
+		if removable := api.checkSpaceIsRemovable(i, spacesTag, &results, spaceParam.Force); !removable {
 			continue
 		}
 
@@ -97,6 +96,11 @@ func (api *API) RemoveSpace(entities params.Entities) (params.RemoveSpaceResults
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
+
+		if spaceParam.DryRun {
+			continue
+		}
+
 		if err = api.backing.ApplyOperation(operation); err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
@@ -121,7 +125,7 @@ func (api *API) constraintsTagForSpaceName(name string) ([]names.Tag, error) {
 	return tags, nil
 }
 
-func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *params.RemoveSpaceResults) bool {
+func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *params.RemoveSpaceResults, force bool) bool {
 	removable := true
 	if spacesTag.Id() == network.AlphaSpaceName {
 		newErr := errors.New("the alpha space cannot be removed")
@@ -147,6 +151,10 @@ func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *p
 	if err != nil {
 		results.Results[index].Error = common.ServerError(errors.Trace(err))
 		return false
+	}
+
+	if force {
+		return true
 	}
 
 	if len(settingMatches) != 0 {

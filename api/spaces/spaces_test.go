@@ -54,13 +54,13 @@ func (s *spacesSuite) TestRemoveSpace(c *gc.C) {
 	resultSource := params.RemoveSpaceResults{
 		Results: []params.RemoveSpaceResult{},
 	}
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewSpaceTag(name).String(),
-	}}}
+	args := getRemoveSpaceArgs(name, false, false)
+
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
-	err := s.API.RemoveSpace(name)
+	bounds, err := s.API.RemoveSpace(name, "", false, false)
 	c.Assert(err, gc.IsNil)
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *gc.C) {
@@ -77,13 +77,13 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *gc.C) {
 			},
 		}},
 	}
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewSpaceTag(name).String(),
-	}}}
+	args := getRemoveSpaceArgs(name, false, false)
+
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
-	err := s.API.RemoveSpace(name)
+	bounds, err := s.API.RemoveSpace(name, "", false, false)
 	c.Assert(err, gc.ErrorMatches, "bam")
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *gc.C) {
@@ -91,14 +91,14 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *gc.C) {
 	name := "myspace"
 	resultSource := params.RemoveSpaceResults{
 		Results: []params.RemoveSpaceResult{}}
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewSpaceTag(name).String(),
-	}}}
+	args := getRemoveSpaceArgs(name, false, false)
+
 	bam := errors.New("bam")
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(bam)
 
-	err := s.API.RemoveSpace(name)
+	bounds, err := s.API.RemoveSpace(name, "", false, false)
 	c.Assert(err, gc.ErrorMatches, bam.Error())
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C) {
@@ -106,9 +106,8 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C)
 	name := "myspace"
 	resultSource := params.RemoveSpaceResults{
 		Results: []params.RemoveSpaceResult{}}
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewSpaceTag(name).String(),
-	}}}
+	args := getRemoveSpaceArgs(name, false, false)
+
 	bam := params.Error{
 		Message: "not supported",
 		Code:    params.CodeNotSupported,
@@ -116,8 +115,9 @@ func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C)
 	}
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(bam)
 
-	err := s.API.RemoveSpace(name)
+	bounds, err := s.API.RemoveSpace(name, "", false, false)
 	c.Assert(err, gc.ErrorMatches, bam.Error())
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
 }
 
 func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
@@ -139,19 +139,20 @@ func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
 			ControllerSettings: []string{"jujuhaspace", "juuuu-space"},
 			Error:              nil,
 		}}}
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewSpaceTag(name).String(),
-	}}}
+	args := getRemoveSpaceArgs(name, false, false)
+
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
-	err := s.API.RemoveSpace(name)
-	expectedErrMsg := "" +
-		"\n" +
-		"- Found the following existing constraints: model constraint\n" +
-		"- Found the following existing bindings: mysql, mediawiki\n" +
-		"- Found the following existing controller settings: jujuhaspace, juuuu-space"
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), jc.DeepEquals, expectedErrMsg)
+	bounds, err := s.API.RemoveSpace(name, "fred/test", false, false)
+
+	expectedBounds := network.RemoveSpace{
+		Space:            name,
+		Constraints:      []string{"fred/test"},
+		Bindings:         []string{"mysql", "mediawiki"},
+		ControllerConfig: []string{"jujuhaspace", "juuuu-space"},
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bounds, jc.DeepEquals, expectedBounds)
 }
 func (s *spacesSuite) TestRemoveSpaceConstraints(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
@@ -163,16 +164,40 @@ func (s *spacesSuite) TestRemoveSpaceConstraints(c *gc.C) {
 			}},
 			Error: nil,
 		}}}
-	args := params.Entities{Entities: []params.Entity{{
-		Tag: names.NewSpaceTag(name).String(),
-	}}}
+	args := getRemoveSpaceArgs(name, false, false)
 	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
 
-	err := s.API.RemoveSpace(name)
-	expectedErrMsg :=
-		"\n- Found the following existing constraints: model constraint"
-	c.Assert(err, gc.Not(gc.IsNil))
-	c.Assert(err.Error(), jc.DeepEquals, expectedErrMsg)
+	bounds, err := s.API.RemoveSpace(name, "fred/test", false, false)
+	expectedBounds := network.RemoveSpace{
+		Space:       name,
+		Constraints: []string{"fred/test"},
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bounds, jc.DeepEquals, expectedBounds)
+}
+
+func (s *spacesSuite) TestRemoveSpaceForce(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{}}}
+	args := getRemoveSpaceArgs(name, true, false)
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	bounds, err := s.API.RemoveSpace(name, "fred/test", true, false)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{Space: name})
+}
+
+func getRemoveSpaceArgs(spaceName string, force, dryRun bool) params.RemoveSpaceParams {
+	return params.RemoveSpaceParams{SpaceParams: []params.RemoveSpaceParam{
+		{
+			Space:  params.Entity{Tag: names.NewSpaceTag(spaceName).String()},
+			Force:  force,
+			DryRun: dryRun,
+		},
+	}}
 }
 
 func (s *spacesSuite) TestRenameSpace(c *gc.C) {

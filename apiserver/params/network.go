@@ -812,6 +812,21 @@ type SpaceResults struct {
 	Results []SpaceResult `json:"results"`
 }
 
+// RemoveSpaceParam holds a single space tag and whether it should be forced.
+type RemoveSpaceParam struct {
+	Space Entity `json:"space"`
+	// Force specifies whether the space removal will be forced, even if existing bindings, constraints or configurations are found.
+	Force bool `json:"force,omitempty"`
+	// DryRun specifies whether this command should only be run to return which constraints, bindings and configs are using given space.
+	// Without applying the remove operations.
+	DryRun bool `json:"dry-run,omitempty"`
+}
+
+// RemoveSpaceParam holds a single space tag and whether it should be forced.
+type RemoveSpaceParams struct {
+	SpaceParams []RemoveSpaceParam `json:"space-param"`
+}
+
 // RemoveSpaceResults contains multiple RemoveSpace results.
 type RemoveSpaceResults struct {
 	Results []RemoveSpaceResult `json:"results"`

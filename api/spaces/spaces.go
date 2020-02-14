@@ -4,10 +4,6 @@
 package spaces
 
 import (
-	"bytes"
-	"fmt"
-	"strings"
-
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
@@ -181,73 +177,67 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 }
 
 // RemoveSpace removes a space.
-func (api *API) RemoveSpace(name string) error {
+func (api *API) RemoveSpace(name string, model string, force bool, dryRun bool) (network.RemoveSpace, error) {
 	var response params.RemoveSpaceResults
-	var args params.Entities
-	args = params.Entities{
-		Entities: []params.Entity{{Tag: names.NewSpaceTag(name).String()}},
+	args := params.RemoveSpaceParams{
+		SpaceParams: []params.RemoveSpaceParam{{
+			Space:  params.Entity{Tag: names.NewSpaceTag(name).String()},
+			Force:  force,
+			DryRun: dryRun,
+		}},
 	}
 	err := api.facade.FacadeCall("RemoveSpace", args, &response)
 	if err != nil {
 		if params.IsCodeNotSupported(err) {
-			return errors.NewNotSupported(nil, err.Error())
+			return network.RemoveSpace{}, errors.NewNotSupported(nil, err.Error())
 		}
-		return errors.Trace(err)
+		return network.RemoveSpace{}, errors.Trace(err)
 	}
 	if len(response.Results) == 0 {
-		return nil
+		return network.RemoveSpace{}, nil
 	}
-
-	return extractRemoveErrorMsg(response)
-}
-
-func extractRemoveErrorMsg(response params.RemoveSpaceResults) error {
-	var errMsg bytes.Buffer
-	foundErr := false
+	if len(response.Results) > 1 {
+		return network.RemoveSpace{}, errors.Errorf("%d results, expected 0 or 1", len(response.Results))
+	}
 
 	for _, result := range response.Results {
 		if result.Error != nil {
-			return result.Error
-		}
-		if len(result.Constraints) > 0 {
-			foundErr = true
-			if toString, err := convertEntitiesToString(result.Constraints); err != nil {
-				return err
-			} else {
-				fmt.Fprintf(&errMsg, "\n- Found the following existing constraints: %v", toString)
-			}
-		}
-		if len(result.Bindings) > 0 {
-			foundErr = true
-			if toString, err := convertEntitiesToString(result.Bindings); err != nil {
-				return err
-			} else {
-				fmt.Fprintf(&errMsg, "\n- Found the following existing bindings: %v", toString)
-			}
-		}
-		if len(result.ControllerSettings) > 0 {
-			foundErr = true
-			fmt.Fprintf(&errMsg, "\n- Found the following existing controller settings: %v", strings.Join(result.ControllerSettings, ", "))
+			return network.RemoveSpace{}, result.Error
 		}
 	}
-	if foundErr {
-		return errors.New(strings.Trim(errMsg.String(), "[]"))
+
+	result := response.Results[0]
+
+	constraints, err := convertEntitiesToString(result.Constraints, model)
+	if err != nil {
+		return network.RemoveSpace{}, err
 	}
-	return nil
+	bindings, err := convertEntitiesToString(result.Bindings, model)
+	if err != nil {
+		return network.RemoveSpace{}, err
+	}
+
+	return network.RemoveSpace{
+		Space:            name,
+		Constraints:      constraints,
+		Bindings:         bindings,
+		ControllerConfig: result.ControllerSettings,
+	}, nil
+
 }
 
-func convertEntitiesToString(entities []params.Entity) (string, error) {
+func convertEntitiesToString(entities []params.Entity, currentModel string) ([]string, error) {
 	var outputString []string
 	for _, ent := range entities {
 		tag, err := names.ParseTag(ent.Tag)
 		if err != nil {
-			return "", err
+			return nil, err
 		}
 		if tag.Kind() == names.ModelTagKind {
-			outputString = append(outputString, "model constraint")
+			outputString = append(outputString, currentModel)
 		} else {
 			outputString = append(outputString, tag.Id())
 		}
 	}
-	return strings.Join(outputString, ", "), nil
+	return outputString, nil
 }

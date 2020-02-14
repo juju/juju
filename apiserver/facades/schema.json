@@ -30983,7 +30983,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/RemoveSpaceParams"
                         },
                         "Result": {
                             "$ref": "#/definitions/RemoveSpaceResults"
@@ -31144,6 +31144,39 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "RemoveSpaceParam": {
+                    "type": "object",
+                    "properties": {
+                        "dry-run": {
+                            "type": "boolean"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "space": {
+                            "$ref": "#/definitions/Entity"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "space"
+                    ]
+                },
+                "RemoveSpaceParams": {
+                    "type": "object",
+                    "properties": {
+                        "space-param": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoveSpaceParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "space-param"
                     ]
                 },
                 "RemoveSpaceResult": {

@@ -40,7 +40,7 @@ type SpaceAPI interface {
 
 	// RemoveSpace removes an existing Juju network space, transferring
 	// any associated subnets to the default space.
-	RemoveSpace(name string) error
+	RemoveSpace(name string, currentModel string, force bool, dryRun bool) (network.RemoveSpace, error)
 
 	// UpdateSpace changes the associated subnets for an existing space with
 	// the given name. The list of subnets must contain at least one entry.
@@ -149,8 +149,8 @@ func (m *APIShim) ReloadSpaces() error {
 	return m.facade.ReloadSpaces()
 }
 
-func (m *APIShim) RemoveSpace(name string) error {
-	return m.facade.RemoveSpace(name)
+func (m *APIShim) RemoveSpace(name string, currentModel string, force bool, dryRun bool) (network.RemoveSpace, error) {
+	return m.facade.RemoveSpace(name, currentModel, force, dryRun)
 }
 
 func (m *APIShim) RenameSpace(oldName, newName string) error {

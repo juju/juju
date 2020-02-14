@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/golang/mock/gomock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/errors"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/cmd/juju/space/mocks"
 	"github.com/juju/juju/core/network"
 )
 
@@ -29,13 +27,6 @@ var _ = gc.Suite(&ShowSuite{})
 func (s *ShowSuite) SetUpTest(c *gc.C) {
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewShowSpaceCommand
-}
-
-func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockSpaceAPI) {
-	ctrl := gomock.NewController(c)
-	api := mocks.NewMockSpaceAPI(ctrl)
-	api.EXPECT().Close()
-	return ctrl, api
 }
 
 func (s *ShowSuite) getDefaultSpace() network.ShowSpace {

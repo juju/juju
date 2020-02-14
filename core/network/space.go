@@ -33,6 +33,19 @@ type ShowSpace struct {
 	MachineCount int `json:"machine-count" yaml:"machine-count"`
 }
 
+// RemoveSpace represents space information why a space could not be removed.
+type RemoveSpace struct {
+	// The space which cannot be removed. Only with --force
+	Space string
+	// Constraints are the constraints which blocks the remove. Blocking Constraints are: Application, Model.
+	Constraints []string `json:"constraints,omitempty"`
+	// Bindings are the application bindings which blocks the remove.
+	Bindings []string `json:"bindings,omitempty"`
+	// ControllerConfig are the config settings of the controller model which are using the space.
+	// This is only valid if the current model is a controller model.
+	ControllerConfig []string `json:"controller-settings,omitempty"`
+}
+
 // SpaceLookup describes methods for acquiring SpaceInfos
 // to translate space IDs to space names and vice versa.
 type SpaceLookup interface {
