@@ -2467,12 +2467,13 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 			spec.ValidatingWebhookConfigurations = k8sResources.ValidatingWebhookConfigurations
 			spec.IngressResources = k8sResources.IngressResources
 			if k8sResources.Pod != nil {
+				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ActiveDeadlineSeconds = k8sResources.Pod.ActiveDeadlineSeconds
 				spec.Pod.TerminationGracePeriodSeconds = k8sResources.Pod.TerminationGracePeriodSeconds
-				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
 				spec.Pod.SecurityContext = k8sResources.Pod.SecurityContext
-				spec.Pod.RestartPolicy = k8sResources.Pod.RestartPolicy
 				spec.Pod.ReadinessGates = k8sResources.Pod.ReadinessGates
+				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
+				spec.Pod.HostNetwork = k8sResources.Pod.HostNetwork
 			}
 			for _, ksa := range k8sResources.ServiceAccounts {
 				spec.ServiceAccounts = append(spec.ServiceAccounts, &ksa)

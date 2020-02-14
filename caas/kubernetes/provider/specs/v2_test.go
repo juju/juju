@@ -157,6 +157,7 @@ kubernetesResources:
     readinessGates:
       - conditionType: PodScheduled
     dnsPolicy: ClusterFirstWithHostNet
+    hostNetwork: true
   secrets:
     - name: build-robot-secret
       type: Opaque
@@ -557,7 +558,8 @@ echo "do some stuff here for gitlab-init container"
 					ReadinessGates: []core.PodReadinessGate{
 						{ConditionType: core.PodScheduled},
 					},
-					DNSPolicy: "ClusterFirstWithHostNet",
+					DNSPolicy:   "ClusterFirstWithHostNet",
+					HostNetwork: true,
 				},
 				Secrets: []k8sspecs.Secret{
 					{
