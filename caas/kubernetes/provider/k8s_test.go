@@ -89,7 +89,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 				ReadinessGates: []core.PodReadinessGate{
 					{ConditionType: core.PodInitialized},
 				},
-				DNSPolicy: core.DNSClusterFirst,
+				DNSPolicy:   core.DNSClusterFirst,
+				HostNetwork: true,
 			},
 		},
 	}
@@ -134,6 +135,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 			{ConditionType: core.PodInitialized},
 		},
 		DNSPolicy:                    core.DNSClusterFirst,
+		HostNetwork:                  true,
 		ServiceAccountName:           "app-name",
 		AutomountServiceAccountToken: boolPtr(true),
 		InitContainers:               initContainers(),
