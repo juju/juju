@@ -86,7 +86,7 @@ type Metadata struct {
 	// FormatVersion stores format version of these metadata.
 	FormatVersion int64
 
-	// Controller contains metadata about the controller of the backup.
+	// Controller contains metadata about the controller where the backup was taken.
 	Controller ControllerMetadata
 
 	// TODO(wallyworld) - remove these ASAP
@@ -105,7 +105,7 @@ type Metadata struct {
 
 // ControllerMetadata contains controller specific metadata.
 type ControllerMetadata struct {
-	// Tag contains the controller tag.
+	// UUID contains the controller UUID.
 	UUID string
 
 	// MachineID contains controller machine id from which this backup is taken.
@@ -375,15 +375,20 @@ func NewMetadataJSONReader(in io.Reader) (*Metadata, error) {
 	}
 
 	// Cater for old backup files, taken as version 0 or with no version.
-	if flat.FormatVersion == 0 {
-		var v0 flatMetadataV0
-		if err := json.Unmarshal(data, &v0); err != nil {
-			return nil, errors.Trace(err)
+	switch flat.FormatVersion {
+	case 0:
+		{
+			var v0 flatMetadataV0
+			if err := json.Unmarshal(data, &v0); err != nil {
+				return nil, errors.Trace(err)
+			}
+			return v0.inflate()
 		}
-		return v0.inflate()
+	case 1:
+		return flat.inflate()
+	default:
+		return nil, errors.NotSupportedf("backup format %d", flat.FormatVersion)
 	}
-
-	return flat.inflate()
 }
 
 func fileTimestamp(fi os.FileInfo) time.Time {

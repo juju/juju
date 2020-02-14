@@ -123,7 +123,7 @@ func (c *CommandBase) dumpMetadata(ctx *cmd.Context, result *params.BackupsMetad
 	ctx.Verbosef(c.metadata(result))
 }
 
-const backupMatadataTemplate = `
+const backupMetadataTemplate = `
 backup ID:             {{.BackupID}} 
 backup format version: {{.FormatVersion}} 
 juju version:          {{.JujuVersion}} 
@@ -183,7 +183,7 @@ func (c *CommandBase) metadata(result *params.BackupsMetadataResult) string {
 		result.Version,
 		result.Series,
 	}
-	t := template.Must(template.New("plugin").Parse(backupMatadataTemplate))
+	t := template.Must(template.New("plugin").Parse(backupMetadataTemplate))
 	content := bytes.Buffer{}
 	t.Execute(&content, m)
 	return content.String()

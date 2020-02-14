@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"bytes"
+	"github.com/juju/errors"
 	"os"
 	"path/filepath"
 	"time" // Only used for time types and funcs, not Now().
@@ -223,6 +224,31 @@ func (s *metadataSuite) TestNewMetadataJSONReaderV1(c *gc.C) {
 	c.Check(meta.Controller.HANodes, gc.Equals, int64(3))
 	c.Check(meta.Controller.MachineInstanceID, gc.Equals, "inst-10101010")
 	c.Check(meta.Controller.MachineID, gc.Equals, "10")
+}
+
+func (s *metadataSuite) TestNewMetadataJSONReaderUnsupported(c *gc.C) {
+	file := bytes.NewBufferString(`{` +
+		`"ID":"20140909-115934.asdf-zxcv-qwe",` +
+		`"FormatVersion":2,` +
+		`"Checksum":"123af2cef",` +
+		`"ChecksumFormat":"SHA-1, base64 encoded",` +
+		`"Size":10,` +
+		`"Stored":"0001-01-01T00:00:00Z",` +
+		`"Started":"2014-09-09T11:59:34Z",` +
+		`"Finished":"2014-09-09T12:00:34Z",` +
+		`"Notes":"",` +
+		`"ModelUUID":"asdf-zxcv-qwe",` +
+		`"Machine":"0",` +
+		`"Hostname":"myhost",` +
+		`"Version":"1.21-alpha3",` +
+		`"ControllerUUID":"controller-uuid",` +
+		`"HANodes":3,` +
+		`"ControllerMachineID":"10",` +
+		`"ControllerMachineInstanceID":"inst-10101010"` +
+		`}` + "\n")
+	meta, err := backups.NewMetadataJSONReader(file)
+	c.Assert(meta, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
 func (s *metadataSuite) TestBuildMetadata(c *gc.C) {
