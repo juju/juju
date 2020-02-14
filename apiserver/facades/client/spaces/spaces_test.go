@@ -24,16 +24,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/controller"
-	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	environmocks "github.com/juju/juju/environs/mocks"
 	"github.com/juju/juju/state"
 	statemocks "github.com/juju/juju/state/mocks"
-	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 // This suite shows the new mocking suite. While below shows the old suite we want to migrate from.
@@ -41,6 +39,7 @@ type SpaceTestMockSuite struct {
 	mockBacking          *mocks.MockBacking
 	mockResource         *facademocks.MockResources
 	mockBlockChecker     *mocks.MockBlockChecker
+	mockConstraints      *mocks.MockConstraints
 	mockCloudCallContext *context.CloudCallContext
 	mockAuthorizer       *facademocks.MockAuthorizer
 
@@ -62,7 +61,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceDefault(c *gc.C) {
 	defer unreg()
 
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
 	s.expectMachines(ctrl, s.getDefaultSpaces(), nil, nil)
 
 	expectedApplications := []string{"mysql", "mediawiki"}
@@ -132,7 +131,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingApplications(c *gc.C) {
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), bamErr)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), bamErr)
 
 	args := s.getShowSpaceArg("default")
 
@@ -149,7 +148,7 @@ func (s *SpaceTestMockSuite) TestShowSpaceErrorGettingMachines(c *gc.C) {
 
 	bamErr := errors.New("bam")
 	s.expectDefaultSpace(ctrl, "default", nil, nil)
-	s.expectEndpointBindings(s.getDefaultApplicationEndpoints(), nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
 	s.expectMachines(ctrl, s.getDefaultSpaces(), bamErr, nil)
 
 	args := s.getShowSpaceArg("default")
@@ -251,6 +250,218 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) 
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
 }
 
+func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, tag := s.getRemoveArgs(space)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.mockBacking.EXPECT().IsController().Return(false)
+	s.mockOpFactory.EXPECT().NewRemoveSpaceModelOp(tag.Id()).Return(nil, nil)
+	s.mockBacking.EXPECT().ApplyOperation(nil).Return(nil)
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.DeepEquals, params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}})
+}
+
+func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, tag := s.getRemoveArgs(space)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
+	s.mockBacking.EXPECT().ControllerConfig().Return(nil, nil)
+	s.mockOpFactory.EXPECT().NewRemoveSpaceModelOp(tag.Id()).Return(nil, nil)
+	s.mockBacking.EXPECT().ApplyOperation(nil).Return(nil)
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.DeepEquals, params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}})
+}
+
+func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, _ := s.getRemoveArgs(space)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.mockBacking.EXPECT().IsController().Return(false)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
+		Bindings: []params.Entity{
+			{
+				Tag: names.NewApplicationTag("mediawiki").String(),
+			},
+			{
+				Tag: names.NewApplicationTag("mysql").String(),
+			},
+		},
+		Constraints:        nil,
+		ControllerSettings: nil,
+		Error:              nil,
+	}}}
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.DeepEquals, expected)
+}
+
+func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, _ := s.getRemoveArgs(space)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
+
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
+	s.mockBacking.EXPECT().ControllerConfig().Return(currentConfig, nil)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(space).Return(nil, nil)
+	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
+		Bindings:           nil,
+		Constraints:        nil,
+		ControllerSettings: []string{controller.JujuManagementSpace},
+		Error:              nil,
+	}}}
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.DeepEquals, expected)
+}
+
+func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, _ := s.getRemoveArgs(space)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
+	s.mockBacking.EXPECT().IsController().Return(false)
+
+	cApp, cModel := s.expectAllTags(space)
+
+	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
+		Bindings: nil,
+		Constraints: []params.Entity{
+			{
+				Tag: cApp.String(),
+			},
+			{
+				Tag: cModel.String(),
+			},
+		},
+		ControllerSettings: nil,
+		Error:              nil,
+	}}}
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
+	c.Assert(res.Results[0].Bindings, gc.IsNil)
+	c.Assert(res.Results[0].ControllerSettings, gc.IsNil)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+}
+
+func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, _ := s.getRemoveArgs(space)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
+
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
+	s.mockBacking.EXPECT().ControllerConfig().Return(currentConfig, nil)
+
+	cApp, cModel := s.expectAllTags(space)
+
+	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{
+		Bindings: []params.Entity{
+			{
+				Tag: names.NewApplicationTag("mediawiki").String(),
+			},
+			{
+				Tag: names.NewApplicationTag("mysql").String(),
+			},
+		},
+		Constraints: []params.Entity{
+			{
+				Tag: cApp.String(),
+			},
+			{
+				Tag: cModel.String(),
+			},
+		},
+		ControllerSettings: []string{controller.JujuManagementSpace},
+		Error:              nil,
+	}}}
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results[0].Constraints, jc.SameContents, expected.Results[0].Constraints)
+	c.Assert(res.Results[0].Bindings, jc.SameContents, expected.Results[0].Bindings)
+	c.Assert(res.Results[0].ControllerSettings, jc.SameContents, expected.Results[0].ControllerSettings)
+	c.Assert(res.Results[0].Error, gc.IsNil)
+}
+
+func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+
+	args, _ := s.getRemoveArgs(space)
+
+	_, err := s.api.RemoveSpace(args)
+	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
+}
+
+func (s *SpaceTestMockSuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
+	model := "42c4f770-86ed-4fcc-8e39-697063d082bc:e"
+	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
+	application := "c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql"
+	unit := "c9741ea1-0c2a-444d-82f5-787583a48557:u#mysql/0"
+	s.mockConstraints.EXPECT().ID().Return(model)
+	s.mockConstraints.EXPECT().ID().Return(machine)
+	s.mockConstraints.EXPECT().ID().Return(application)
+	s.mockConstraints.EXPECT().ID().Return(unit)
+	s.mockBacking.EXPECT().ConstraintsBySpaceName(spaceName).Return([]spaces.Constraints{s.mockConstraints, s.mockConstraints, s.mockConstraints, s.mockConstraints}, nil)
+	return names.NewApplicationTag("mysql"), names.NewModelTag("e")
+}
+
+func (s *SpaceTestMockSuite) getDefaultControllerConfig(c *gc.C, attr map[string]interface{}) controller.Config {
+	cfg, err := controller.NewConfig(testing.ControllerTag.Id(), testing.CACert, attr)
+	c.Assert(err, jc.ErrorIsNil)
+	return cfg
+}
+
 func (s *SpaceTestMockSuite) getShowSpaceArg(name string) params.Entities {
 	spaceTag := names.NewSpaceTag(name)
 	args := params.Entities{
@@ -259,13 +470,13 @@ func (s *SpaceTestMockSuite) getShowSpaceArg(name string) params.Entities {
 	return args
 }
 
-func (s *SpaceTestMockSuite) getDefaultApplicationEndpoints() []spaces.ApplicationEndpointBindingsShim {
+func (s *SpaceTestMockSuite) getDefaultApplicationEndpoints(spaceID string) []spaces.ApplicationEndpointBindingsShim {
 	endpoints := []spaces.ApplicationEndpointBindingsShim{{
 		AppName:  "mysql",
-		Bindings: map[string]string{"db": "1", "slave": "alpha"},
+		Bindings: map[string]string{"db": spaceID, "slave": "alpha"},
 	}, {
 		AppName:  "mediawiki",
-		Bindings: map[string]string{"db": "1", "back": "alpha"},
+		Bindings: map[string]string{"db": spaceID, "back": "alpha"},
 	},
 	}
 	return endpoints
@@ -285,6 +496,7 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 	s.mockBacking = mocks.NewMockBacking(ctrl)
 	s.mockOpFactory = mocks.NewMockOpFactory(ctrl)
 	s.mockRenameOp = statemocks.NewMockModelOperation(ctrl)
+	s.mockConstraints = mocks.NewMockConstraints(ctrl)
 
 	s.mockAuthorizer = facademocks.NewMockAuthorizer(ctrl)
 	s.mockAuthorizer.EXPECT().HasPermission(gomock.Any(), gomock.Any()).Return(true, nil).AnyTimes()
@@ -373,27 +585,33 @@ func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesP
 	return args
 }
 
+func (s *SpaceTestMockSuite) getRemoveArgs(name string) (params.Entities, names.SpaceTag) {
+	spaceTag := names.NewSpaceTag(name)
+	args := params.Entities{Entities: []params.Entity{
+		{
+			Tag: spaceTag.String(),
+		},
+	}}
+	return args, spaceTag
+}
+
 type stubBacking struct {
 	*apiservertesting.StubBacking
+}
+
+func (sb *stubBacking) IsController() bool {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) ConstraintsBySpaceName(name string) ([]spaces.Constraints, error) {
+	panic("should not be called")
 }
 
 func (sb *stubBacking) ApplyOperation(state.ModelOperation) error {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) RenameSpace(settingsChanges settings.ItemChanges, constraints map[string]constraints.Value, fromSpaceName, toName string) error {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) ConstraintsBySpace(spaceName string) (map[string]constraints.Value, error) {
-	panic("should not be called")
-}
-
 func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) Constraints() (constraints.Value, error) {
 	panic("should not be called")
 }
 
@@ -411,7 +629,7 @@ func (sb *stubBacking) AllMachines() ([]spaces.Machine, error) {
 
 // This is the old testing suite
 type SpacesSuite struct {
-	coretesting.BaseSuite
+	testing.BaseSuite
 	apiservertesting.StubNetwork
 
 	resources  *common.Resources

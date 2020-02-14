@@ -25652,7 +25652,7 @@
     },
     {
         "Name": "Provisioner",
-        "Version": 9,
+        "Version": 10,
         "Schema": {
             "type": "object",
             "properties": {
@@ -25914,7 +25914,7 @@
                             "$ref": "#/definitions/Entities"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ProvisioningInfoResults"
+                            "$ref": "#/definitions/ProvisioningInfoResultsV10"
                         }
                     }
                 },
@@ -27356,106 +27356,6 @@
                         "Build"
                     ]
                 },
-                "ProvisioningInfo": {
-                    "type": "object",
-                    "properties": {
-                        "ProvisioningInfoBase": {
-                            "$ref": "#/definitions/ProvisioningInfoBase"
-                        },
-                        "charm-lxd-profiles": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "cloudinit-userdata": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "constraints": {
-                            "$ref": "#/definitions/Value"
-                        },
-                        "controller-config": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "object",
-                                    "additionalProperties": true
-                                }
-                            }
-                        },
-                        "endpoint-bindings": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "image-metadata": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/CloudImageMetadata"
-                            }
-                        },
-                        "jobs": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
-                        },
-                        "placement": {
-                            "type": "string"
-                        },
-                        "series": {
-                            "type": "string"
-                        },
-                        "subnets-to-zones": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "string"
-                                    }
-                                }
-                            }
-                        },
-                        "tags": {
-                            "type": "object",
-                            "patternProperties": {
-                                ".*": {
-                                    "type": "string"
-                                }
-                            }
-                        },
-                        "volume-attachments": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/VolumeAttachmentParams"
-                            }
-                        },
-                        "volumes": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/VolumeParams"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "constraints",
-                        "series",
-                        "placement",
-                        "jobs",
-                        "ProvisioningInfoBase"
-                    ]
-                },
                 "ProvisioningInfoBase": {
                     "type": "object",
                     "properties": {
@@ -27541,14 +27441,14 @@
                         "jobs"
                     ]
                 },
-                "ProvisioningInfoResult": {
+                "ProvisioningInfoResultV10": {
                     "type": "object",
                     "properties": {
                         "error": {
                             "$ref": "#/definitions/Error"
                         },
                         "result": {
-                            "$ref": "#/definitions/ProvisioningInfo"
+                            "$ref": "#/definitions/ProvisioningInfoV10"
                         }
                     },
                     "additionalProperties": false,
@@ -27556,19 +27456,168 @@
                         "result"
                     ]
                 },
-                "ProvisioningInfoResults": {
+                "ProvisioningInfoResultsV10": {
                     "type": "object",
                     "properties": {
                         "results": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/ProvisioningInfoResult"
+                                "$ref": "#/definitions/ProvisioningInfoResultV10"
                             }
                         }
                     },
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "ProvisioningInfoV10": {
+                    "type": "object",
+                    "properties": {
+                        "ProvisioningInfoBase": {
+                            "$ref": "#/definitions/ProvisioningInfoBase"
+                        },
+                        "ProvisioningNetworkTopology": {
+                            "$ref": "#/definitions/ProvisioningNetworkTopology"
+                        },
+                        "charm-lxd-profiles": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "cloudinit-userdata": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "constraints": {
+                            "$ref": "#/definitions/Value"
+                        },
+                        "controller-config": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "object",
+                                    "additionalProperties": true
+                                }
+                            }
+                        },
+                        "endpoint-bindings": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "image-metadata": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CloudImageMetadata"
+                            }
+                        },
+                        "jobs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "placement": {
+                            "type": "string"
+                        },
+                        "series": {
+                            "type": "string"
+                        },
+                        "space-subnets": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "subnet-zones": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "tags": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
+                        "volume-attachments": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VolumeAttachmentParams"
+                            }
+                        },
+                        "volumes": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/VolumeParams"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "constraints",
+                        "series",
+                        "placement",
+                        "jobs",
+                        "ProvisioningInfoBase",
+                        "subnet-zones",
+                        "space-subnets",
+                        "ProvisioningNetworkTopology"
+                    ]
+                },
+                "ProvisioningNetworkTopology": {
+                    "type": "object",
+                    "properties": {
+                        "space-subnets": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        },
+                        "subnet-zones": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string"
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "subnet-zones",
+                        "space-subnets"
                     ]
                 },
                 "SetMachineNetworkConfig": {
@@ -30872,6 +30921,17 @@
                 "ReloadSpaces": {
                     "type": "object"
                 },
+                "RemoveSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/RemoveSpaceResults"
+                        }
+                    }
+                },
                 "RenameSpace": {
                     "type": "object",
                     "properties": {
@@ -31020,6 +31080,48 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/Space"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "RemoveSpaceResult": {
+                    "type": "object",
+                    "properties": {
+                        "bindings": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        },
+                        "constraints": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/Entity"
+                            }
+                        },
+                        "controller-settings": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "RemoveSpaceResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoveSpaceResult"
                             }
                         }
                     },

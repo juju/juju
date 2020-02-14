@@ -739,7 +739,7 @@ func maybeUpdateSettings(settings map[string]interface{}, key string, value inte
 	return false
 }
 
-// applyToAllModelSettings iterates the model settings documents and applys the
+// applyToAllModelSettings iterates the model settings documents and applies the
 // passed in function to them.  If the function returns 'true' it indicates the
 // settings have been modified, and they should be written back to the
 // database.

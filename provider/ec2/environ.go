@@ -579,7 +579,16 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		}
 		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
 	} else if args.Constraints.HasSpaces() {
-		subnetIDsForZone, subnetErr = corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
+
+		// TODO (manadart 2020-02-07): We only take the first subnet/zones
+		// mapping to create a NIC for the instance.
+		// This effectively uses a single positive space constraint if many are
+		// specified; behaviour that dates from the original spaces MVP.
+		// It will not take too much effort to enable multi-NIC support for EC2
+		// if we use them all when constructing the instance creation request.
+		subnetIDsForZone, subnetErr =
+			corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones[0])
+
 		if subnetErr == nil && placementSubnetID != "" {
 			asSet := set.NewStrings(subnetIDsForZone...)
 			if asSet.Contains(placementSubnetID) {
