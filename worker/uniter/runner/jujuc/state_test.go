@@ -53,3 +53,7 @@ func (s *stateSuite) expectStateGetValueOne() {
 func (s *stateSuite) expectStateGetValueNotFound() {
 	s.mockContext.EXPECT().GetSingleCacheValue("five").Return("", errors.NotFoundf("%q", "five"))
 }
+
+func (s *stateSuite) expectStateGetValueEmpty() {
+	s.mockContext.EXPECT().GetSingleCacheValue("five").Return("", nil)
+}

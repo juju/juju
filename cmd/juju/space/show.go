@@ -34,7 +34,20 @@ type ShowSpaceCommand struct {
 const ShowSpaceCommandDoc = `
 Displays extended information about a given space. 
 Output includes the space subnets, applications with bindings to the space,
-and a count of machines connected to the space.`
+and a count of machines connected to the space.
+
+Examples:
+
+Show a space by name:
+	juju show-space alpha
+
+See also:
+	add-space
+	list-spaces
+	reload-spaces
+	rename-space
+	remove-space
+`
 
 // SetFlags implements part of the cmd.Command interface.
 func (c *ShowSpaceCommand) SetFlags(f *gnuflag.FlagSet) {

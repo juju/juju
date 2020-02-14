@@ -30,6 +30,18 @@ type RenameCommand struct {
 const renameCommandDoc = `
 Renames an existing space from "old-name" to "new-name". Does not change the
 associated subnets and "new-name" must not match another existing space.
+
+Examples:
+
+rename a space from db to fe:
+	juju rename-space db fe
+
+See also:
+	add-space
+	list-spaces
+	reload-spaces
+	remove-space
+	show-space
 `
 
 func (c *RenameCommand) SetFlags(f *gnuflag.FlagSet) {

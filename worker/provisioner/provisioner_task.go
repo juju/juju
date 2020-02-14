@@ -568,7 +568,7 @@ func (task *provisionerTask) stopInstances(instances []instances.Instance) error
 func (task *provisionerTask) constructInstanceConfig(
 	machine apiprovisioner.MachineProvisioner,
 	auth authentication.AuthenticationProvider,
-	pInfo *params.ProvisioningInfo,
+	pInfo *params.ProvisioningInfoV10,
 ) (*instancecfg.InstanceConfig, error) {
 
 	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
@@ -626,7 +626,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 	controllerUUID string,
 	machine apiprovisioner.MachineProvisioner,
 	instanceConfig *instancecfg.InstanceConfig,
-	provisioningInfo *params.ProvisioningInfo,
+	provisioningInfo *params.ProvisioningInfoV10,
 	possibleTools coretools.List,
 ) (environs.StartInstanceParams, error) {
 
@@ -694,15 +694,6 @@ func (task *provisionerTask) constructStartInstanceParams(
 		}
 	}
 
-	var subnetsToZones map[network.Id][]string
-	if provisioningInfo.SubnetsToZones != nil {
-		// Convert subnet provider ids from string to network.Id.
-		subnetsToZones = make(map[network.Id][]string, len(provisioningInfo.SubnetsToZones))
-		for providerId, zones := range provisioningInfo.SubnetsToZones {
-			subnetsToZones[network.Id(providerId)] = zones
-		}
-	}
-
 	var endpointBindings map[string]network.Id
 	if len(provisioningInfo.EndpointBindings) != 0 {
 		endpointBindings = make(map[string]network.Id)
@@ -710,6 +701,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 			endpointBindings[endpoint] = network.Id(space)
 		}
 	}
+
 	possibleImageMetadata := make([]*imagemetadata.ImageMetadata, len(provisioningInfo.ImageMetadata))
 	for i, metadata := range provisioningInfo.ImageMetadata {
 		possibleImageMetadata[i] = &imagemetadata.ImageMetadata{
@@ -732,7 +724,7 @@ func (task *provisionerTask) constructStartInstanceParams(
 		Placement:         provisioningInfo.Placement,
 		Volumes:           volumes,
 		VolumeAttachments: volumeAttachments,
-		SubnetsToZones:    subnetsToZones,
+		SubnetsToZones:    subnetZonesFromNetworkTopology(provisioningInfo.ProvisioningNetworkTopology),
 		EndpointBindings:  endpointBindings,
 		ImageMetadata:     possibleImageMetadata,
 		StatusCallback:    machine.SetInstanceStatus,
@@ -1026,8 +1018,6 @@ func (task *provisionerTask) setupToStartMachine(machine apiprovisioner.MachineP
 		return environs.StartInstanceParams{}, errors.Annotatef(err, "creating instance config for machine %q", machine)
 	}
 
-	assocProvInfoAndMachCfg(pInfo, instanceCfg)
-
 	var arch string
 	if pInfo.Constraints.Arch != nil {
 		arch = *pInfo.Constraints.Arch
@@ -1313,25 +1303,22 @@ func (task *provisionerTask) removeMachineFromAZMap(machine apiprovisioner.Machi
 	}
 }
 
-type provisioningInfo struct {
-	Constraints    constraints.Value
-	Series         string
-	Placement      string
-	InstanceConfig *instancecfg.InstanceConfig
-	SubnetsToZones map[string][]string
-}
-
-func assocProvInfoAndMachCfg(
-	provInfo *params.ProvisioningInfo,
-	instanceConfig *instancecfg.InstanceConfig,
-) *provisioningInfo {
-	return &provisioningInfo{
-		Constraints:    provInfo.Constraints,
-		Series:         provInfo.Series,
-		Placement:      provInfo.Placement,
-		InstanceConfig: instanceConfig,
-		SubnetsToZones: provInfo.SubnetsToZones,
+// subnetZonesFromNetworkTopology denormalises the topology passed from the API
+// server into a slice of subnet to AZ list maps, one for each listed space.
+func subnetZonesFromNetworkTopology(topology params.ProvisioningNetworkTopology) []map[network.Id][]string {
+	if len(topology.SpaceSubnets) == 0 {
+		return nil
 	}
+
+	subnetsToZones := make([]map[network.Id][]string, 0, len(topology.SpaceSubnets))
+	for _, subnets := range topology.SpaceSubnets {
+		subnetAZs := make(map[network.Id][]string)
+		for _, subnet := range subnets {
+			subnetAZs[network.Id(subnet)] = topology.SubnetAZs[subnet]
+		}
+		subnetsToZones = append(subnetsToZones, subnetAZs)
+	}
+	return subnetsToZones
 }
 
 func volumesToAPIServer(volumes []storage.Volume) []params.Volume {

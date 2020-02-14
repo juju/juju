@@ -101,6 +101,16 @@ func (s *Subnet) EnsureDead() (err error) {
 	return onAbort(txnErr, subnetNotAliveErr)
 }
 
+func (s *Subnet) MoveSubnetOps(toSpaceID string) []txn.Op {
+	ops := []txn.Op{{
+		C:      subnetsC,
+		Id:     s.doc.DocID,
+		Update: bson.D{{"$set", bson.D{{"space-id", toSpaceID}}}},
+		Assert: isAliveDoc,
+	}}
+	return ops
+}
+
 // Remove removes a Dead subnet. If the subnet is not Dead or it is already
 // removed, an error is returned. On success, all IP addresses added to the
 // subnet are also removed.

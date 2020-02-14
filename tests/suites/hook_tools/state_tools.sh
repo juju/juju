@@ -16,6 +16,8 @@ run_state_delete_get_set() {
     juju run --unit ubuntu-lite/0 'state-get three | grep -q "four"'
     juju run --unit ubuntu-lite/0 'state-delete one'
     juju run --unit ubuntu-lite/0 'state-get | grep -q "three: four"'
+    juju run --unit ubuntu-lite/0 'state-get one --strict | grep -q "ERROR \"one\" not found" || true'
+    juju run --unit ubuntu-lite/0 'state-get one'
 
     destroy_model "${model_name}"
 }

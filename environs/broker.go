@@ -69,11 +69,12 @@ type StartInstanceParams struct {
 	// necessary to configure on the instance.
 	NetworkInfo []corenetwork.InterfaceInfo
 
-	// SubnetsToZones is an optional map of provider-specific subnet
-	// id to a list of availability zone names the subnet is available
-	// in. It is only populated when valid positive spaces constraints
-	// are present.
-	SubnetsToZones map[corenetwork.Id][]string
+	// SubnetsToZones is an optional collection of maps of provider-specific
+	// subnet IDs to a list of availability zone names each subnet is available
+	// in.
+	// It is only populated when valid positive spaces constraints
+	// are present; one for each such constraint.
+	SubnetsToZones []map[corenetwork.Id][]string
 
 	// EndpointBindings holds the mapping between application endpoint names to
 	// provider-specific space IDs. It is populated when provisioning a machine

@@ -37,7 +37,7 @@ func (c *MoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "move-to-space",
 		Args:    "<name> <CIDR1> [ <CIDR2> ...]",
-		Purpose: "Update a network space's CIDRs",
+		Purpose: "Update a network space's CIDRs.",
 		Doc:     strings.TrimSpace(updateCommandDoc),
 	})
 }

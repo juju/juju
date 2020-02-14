@@ -6099,6 +6099,7 @@ func (s *StatusSuite) PrepareBranchesOutput(c *gc.C) *context {
 }
 
 func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
+	c.Skip("bug: #1862376 - can't always read our own writes. Model-cache may be too slow")
 	ctx := s.PrepareBranchesOutput(c)
 	defer s.resetContext(c, ctx)
 
@@ -6120,6 +6121,7 @@ func (s *StatusSuite) TestBranchesOutputTabular(c *gc.C) {
 }
 
 func (s *StatusSuite) TestBranchesOutputNonTabular(c *gc.C) {
+	c.Skip("bug: #1862376 - can't always read our own writes. Model-cache may be too slow")
 	ctx := s.PrepareBranchesOutput(c)
 	defer s.resetContext(c, ctx)
 
