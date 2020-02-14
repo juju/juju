@@ -565,6 +565,17 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	runArgs := commonRunArgs
 	runArgs.AvailZone = availabilityZone
 
+	// TODO (manadart 2020-02-07): We only take the first subnet/zones
+	// mapping to create a NIC for the instance.
+	// This effectively uses a single positive space constraint if many are
+	// specified; behaviour that dates from the original spaces MVP.
+	// It will not take too much effort to enable multi-NIC support for EC2
+	// if we use them all when constructing the instance creation request.
+	var subnetZones map[corenetwork.Id][]string
+	if len(args.SubnetsToZones) > 0 {
+		subnetZones = args.SubnetsToZones[0]
+	}
+
 	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
 	var subnetIDsForZone []string
 	var subnetErr error
@@ -573,21 +584,15 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		if placementSubnetID != "" {
 			allowedSubnetIDs = []string{placementSubnetID}
 		} else {
-			for subnetID := range args.SubnetsToZones {
+			for subnetID := range subnetZones {
 				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
 			}
 		}
-		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
+		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(
+			e.ec2, ctx, e.ecfg().vpcID(), availabilityZone, allowedSubnetIDs)
 	} else if args.Constraints.HasSpaces() {
-
-		// TODO (manadart 2020-02-07): We only take the first subnet/zones
-		// mapping to create a NIC for the instance.
-		// This effectively uses a single positive space constraint if many are
-		// specified; behaviour that dates from the original spaces MVP.
-		// It will not take too much effort to enable multi-NIC support for EC2
-		// if we use them all when constructing the instance creation request.
 		subnetIDsForZone, subnetErr =
-			corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones[0])
+			corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
 
 		if subnetErr == nil && placementSubnetID != "" {
 			asSet := set.NewStrings(subnetIDsForZone...)
