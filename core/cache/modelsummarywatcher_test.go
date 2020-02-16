@@ -493,6 +493,48 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	})
 }
 
+func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
+	watcher := s.controller.WatchAllModels()
+	defer workertest.CleanKill(c, watcher)
+
+	changes := watcher.Changes()
+	// discard the intial event
+	_ = s.next(c, changes)
+
+	// Simulate a watcher reset.
+	s.controller.Mark()
+
+	// Resend initial state.
+	s.baseScenario(c)
+	// And another change.
+	s.ProcessChange(c, cache.ModelChange{
+		ModelUUID: "new-model-uuid",
+		Name:      "new-model",
+		Life:      life.Alive,
+		Owner:     "mary",
+		UserPermissions: map[string]permission.Access{
+			"bob":  permission.ReadAccess,
+			"mary": permission.AdminAccess,
+		},
+	}, s.events)
+
+	s.noUpdates(c, changes)
+	// Sweep triggers model summary updates for all models.
+
+	s.controller.Sweep()
+
+	update := s.next(c, changes)
+	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+		{
+			UUID:      "new-model-uuid",
+			Namespace: "mary",
+			Name:      "new-model",
+			Admins:    []string{"mary"},
+			Status:    cache.StatusGreen,
+		},
+	})
+}
+
 func (s *modelSummaryWatcherSuite) next(c *gc.C, changes <-chan []cache.ModelSummary, uuids ...string) []cache.ModelSummary {
 	// If we are passed the optional uuid in, there should only be one.
 	if len(uuids) > 0 {
@@ -515,6 +557,15 @@ func (s *modelSummaryWatcherSuite) next(c *gc.C, changes <-chan []cache.ModelSum
 	}
 	// Unreachable due to fatal.
 	return nil
+}
+
+func (s *modelSummaryWatcherSuite) noUpdates(c *gc.C, changes <-chan []cache.ModelSummary) {
+	select {
+	case <-time.After(testing.ShortWait):
+	// Good, didn't expect any.
+	case summaries := <-changes:
+		c.Fatalf("received %d changes", len(summaries))
+	}
 }
 
 func (s *modelSummaryWatcherSuite) baseScenario(c *gc.C) {

@@ -31,12 +31,25 @@ const (
 	modelBranchRemove = "model-branch-remove"
 )
 
-func newModel(metrics *ControllerGauges, hub *pubsub.SimpleHub, chub *pubsub.SimpleHub, res *Resident) *Model {
+type initializer interface {
+	initializing() bool
+}
+
+type modelConfig struct {
+	initializer initializer
+	metrics     *ControllerGauges
+	hub         *pubsub.SimpleHub
+	chub        *pubsub.SimpleHub
+	res         *Resident
+}
+
+func newModel(config modelConfig) *Model {
 	m := &Model{
-		Resident:      res,
-		metrics:       metrics,
-		hub:           hub,
-		controllerHub: chub,
+		initializer:   config.initializer,
+		Resident:      config.res,
+		metrics:       config.metrics,
+		hub:           config.hub,
+		controllerHub: config.chub,
 		applications:  make(map[string]*Application),
 		charms:        make(map[string]*Charm),
 		machines:      make(map[string]*Machine),
@@ -54,6 +67,7 @@ type Model struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
+	initializer   initializer
 	metrics       *ControllerGauges
 	hub           *pubsub.SimpleHub
 	controllerHub *pubsub.SimpleHub
@@ -636,6 +650,10 @@ func (w *waitUnitChange) close() {
 }
 
 func (m *Model) updateSummary() {
+	if m.initializer.initializing() {
+		logger.Tracef("skipping update as initializing")
+		return
+	}
 	// This method is only called from within a mutex lock.
 	overallStatus := StatusGreen
 	var messages []ModelSummaryMessage

@@ -144,7 +144,13 @@ func (s *EntitySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EntitySuite) NewModel(details ModelChange) *Model {
-	m := newModel(s.Gauges, s.Hub, s.NewHub(), s.Manager.new())
+	m := newModel(modelConfig{
+		initializer: noopInitializer{},
+		metrics:     s.Gauges,
+		hub:         s.Hub,
+		chub:        s.NewHub(),
+		res:         s.Manager.new(),
+	})
 	m.setDetails(details)
 	return m
 }
@@ -345,4 +351,10 @@ func (c StringsWatcherC) AssertStops() {
 	default:
 		c.Fatalf("channel not closed")
 	}
+}
+
+type noopInitializer struct{}
+
+func (noopInitializer) initializing() bool {
+	return false
 }

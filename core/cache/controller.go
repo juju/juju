@@ -81,6 +81,15 @@ type Controller struct {
 	tomb    tomb.Tomb
 	mu      sync.Mutex
 	metrics *ControllerGauges
+
+	// While a controller is initializing it does not update
+	// any model summaries. The initializing component is handled
+	// with the Mark and Sweep methods. Calling Mark sets the controller
+	// as initializing, and Sweep completes the initialization.
+	// This is a shared variable with the Models. Models only access
+	// the initializer through the interface that allows them to only
+	// read the value.
+	initializing bool
 }
 
 // NewController creates a new cached controller instance.
@@ -177,6 +186,7 @@ func (c *Controller) loop() error {
 // Mark updates all cached entities to indicate they are stale.
 func (c *Controller) Mark() {
 	c.manager.mark()
+	c.initializing = true
 }
 
 // Sweep evicts any stale entities from the cache,
@@ -186,6 +196,12 @@ func (c *Controller) Sweep() {
 	case <-c.manager.sweep():
 	case <-c.tomb.Dying():
 	}
+	c.initializing = false
+	c.mu.Lock()
+	for _, model := range c.models {
+		model.updateSummary()
+	}
+	c.mu.Unlock()
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -369,7 +385,14 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 
 	model, found := c.models[modelUUID]
 	if !found {
-		model = newModel(c.metrics, newPubSubHub(), c.hub, c.manager.new())
+		initializer := &initializeState{&c.initializing}
+		model = newModel(modelConfig{
+			initializer: initializer,
+			metrics:     c.metrics,
+			hub:         newPubSubHub(),
+			chub:        c.hub,
+			res:         c.manager.new(),
+		})
 		c.models[modelUUID] = model
 	} else {
 		model.setStale(false)
@@ -397,4 +420,12 @@ func (c *Controller) WatchModelsAsUser(username string) ModelSummaryWatcher {
 // changes in the summary for that model.
 func (c *Controller) WatchAllModels() ModelSummaryWatcher {
 	return newModelSummaryWatcher(c, "")
+}
+
+type initializeState struct {
+	init *bool
+}
+
+func (s *initializeState) initializing() bool {
+	return *s.init
 }
