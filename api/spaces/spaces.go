@@ -176,6 +176,44 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 	return nil
 }
 
-func (api *API) UpdateSpace(name string, ids []string) error {
-	return nil
+func (api *API) MoveToSpace(name string, CIDRs []string, force bool) ([]network.MovedSpace, error) {
+	var response params.MoveToSpaceResults
+	args := params.MoveToSpaceParams{MoveToSpace: []params.MoveToSpaceParam{
+		{
+			CIDRs:    CIDRs,
+			SpaceTag: names.NewSpaceTag(name).String(),
+			Force:    force,
+		},
+	}}
+	err := api.facade.FacadeCall("MoveToSpace", args, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return nil, errors.NewNotSupported(nil, err.Error())
+		}
+		return nil, errors.Trace(err)
+	}
+	for _, result := range response.Results {
+		if result.Error != nil {
+			return nil, result.Error
+		}
+	}
+
+	if len(response.Results) != 1 {
+		return nil, errors.Errorf("expected one result, got %d", len(response.Results))
+	}
+
+	return extractMovementChangeLog(response)
+}
+
+func extractMovementChangeLog(response params.MoveToSpaceResults) ([]network.MovedSpace, error) {
+	moved := make([]network.MovedSpace, len(response.Results[0].Moved))
+	for i, result := range response.Results[0].Moved {
+		tag, err := names.ParseSpaceTag(result.SpaceTag)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		moved[i].Space = tag.Id()
+		moved[i].CIDR = result.CIDR
+	}
+	return moved, nil
 }

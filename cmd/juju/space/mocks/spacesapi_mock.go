@@ -135,11 +135,11 @@ func (mr *MockSpaceAPIMockRecorder) ShowSpace(arg0 interface{}) *gomock.Call {
 }
 
 // MoveToSpace mocks base method
-func (m *MockSpaceAPI) MoveToSpace(arg0 string, arg1 []string) error {
+func (m *MockSpaceAPI) MoveToSpace(name string, subnetIds []string) ([]network.MovedSpace, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MoveToSpace", arg0, arg1)
 	ret0, _ := ret[0].(error)
-	return ret0
+	return nil, ret0
 }
 
 // MoveToSpace indicates an expected call of MoveToSpace

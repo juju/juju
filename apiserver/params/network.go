@@ -931,13 +931,13 @@ type CreateSpaceParams struct {
 	ProviderId string   `json:"provider-id,omitempty"`
 }
 
-// MoveToSpacesParams holds the arguments of the MoveToSpace API call.
-type MoveToSpacesParams struct {
-	MoveToSpace []MoveToSpaceParams `json:"update-spaces"`
+// MoveToSpaceParams holds the arguments of the MoveToSpace API call.
+type MoveToSpaceParams struct {
+	MoveToSpace []MoveToSpaceParam `json:"update-spaces"`
 }
 
-// MoveToSpaceParams holds the space tag and at least one subnet required to move subnet to another space
-type MoveToSpaceParams struct {
+// MoveToSpaceParam holds the space tag and at least one subnet required to move subnet to another space
+type MoveToSpaceParam struct {
 	CIDRs    []string `json:"cidrs"`
 	SpaceTag string   `json:"space-tag"`
 	Force    bool     `json:"force"`

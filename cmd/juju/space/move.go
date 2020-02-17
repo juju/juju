@@ -4,6 +4,8 @@
 package space
 
 import (
+	"fmt"
+	"github.com/juju/juju/core/network"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -30,8 +32,22 @@ const updateCommandDoc = `
 Replaces the list of associated subnets of the space. Since subnets
 can only be part of a single space, all specified subnets (using their
 CIDRs) "leave" their current space and "enter" the one we're updating.
-`
 
+Examples:
+
+To move a list of CIDRs from their space to a new space:
+
+  juju move-to-space db-space 172.31.1.0/28 172.31.16.0/20
+
+See also:
+	add-space
+	list-spaces
+	reload-spaces
+	rename-space
+	show-space
+	remove-space
+`
+// TODO: update DOC.
 // Info is defined on the cmd.Command interface.
 func (c *MoveCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
@@ -54,12 +70,23 @@ func (c *MoveCommand) Init(args []string) error {
 func (c *MoveCommand) Run(ctx *cmd.Context) error {
 	return c.RunWithAPI(ctx, func(api SpaceAPI, ctx *cmd.Context) error {
 		// Update the space.
-		err := api.MoveToSpace(c.Name, c.CIDRs.SortedValues())
+		// TODO: update movements
+		moved, err := api.MoveToSpace(c.Name, c.CIDRs.SortedValues())
 		if err != nil {
 			return errors.Annotatef(err, "cannot update space %q", c.Name)
 		}
-
-		//ctx.Infof("updated space %q: changed subnets to %s", c.Name, strings.Join(c.CIDRs.SortedValues(), ", "))
+		for _, change := range createMovementsChangelog(c.Name, moved) {
+			ctx.Infof(change)
+		}
 		return nil
 	})
+}
+
+func createMovementsChangelog(spaceNameTo string, moved []network.MovedSpace) []string {
+	var changelog []string
+	for _, movedSubnet := range moved {
+		changelog = append(changelog, fmt.Sprintf("Subnet %q moved from %q to %q", movedSubnet.CIDR, movedSubnet.Space, spaceNameTo))
+	}
+	return changelog
+
 }

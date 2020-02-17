@@ -274,7 +274,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{subnetMock}).Return(moveModelMock, nil)
 	s.mockBacking.EXPECT().ApplyOperation(moveModelMock).Return(nil)
 	s.expectMachinesAddresses(ctrl, "10.11.12.12/14", nil, nil)
-	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+	args := params.MoveToSpaceParams{MoveToSpace: []params.MoveToSpaceParam{
 		{
 			CIDRs:    []string{aCIDR},
 			SpaceTag: spaceTag.String(),
@@ -295,7 +295,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) 
 	defer unreg()
 	spaceName := "myspace"
 
-	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+	args := params.MoveToSpaceParams{MoveToSpace: []params.MoveToSpaceParam{
 		{
 			CIDRs:    []string{"192.168.1.0/16"},
 			SpaceTag: names.NewSpaceTag(spaceName).String(),

@@ -44,7 +44,7 @@ type SpaceAPI interface {
 
 	// MoveToSpace changes the associated subnets for an existing space with
 	// the given name. The list of subnets must contain at least one entry.
-	MoveToSpace(name string, subnetIds []string) error
+	MoveToSpace(name string, subnetIds []string) ([]network.MovedSpace, error)
 
 	// RenameSpace changes the name of the space.
 	RenameSpace(name, newName string) error
@@ -157,8 +157,8 @@ func (m *APIShim) ShowSpace(name string) (network.ShowSpace, error) {
 	return m.facade.ShowSpace(name)
 }
 
-func (m *APIShim) MoveToSpace(name string, subnetIds []string) error {
-	return m.facade.MoveToSpace(name, subnetIds)
+func (m *APIShim) MoveToSpace(name string, subnetIds []string) ([]network.MovedSpace, error) {
+	return m.facade.MoveToSpace(name, subnetIds, false)
 }
 
 // NewAPI returns a SpaceAPI for the root api endpoint that the

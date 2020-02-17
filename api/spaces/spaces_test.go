@@ -81,6 +81,77 @@ func (s *spacesSuite) TestRenameSpaceError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "bam")
 }
 
+func (s *spacesSuite) TestMoveToSuccess(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	space := "myspace"
+	force := false
+	CIDRs := []string{"10.10.10.10/14", "15.15.15.15/17"}
+	tag := names.NewSpaceTag(space)
+
+	resultSource := params.MoveToSpaceResults{Results: []params.MoveToSpaceResult{
+		{
+			Moved: []params.MovedSpaceCIDR{
+				{
+					CIDR:     "10.10.10.10/14",
+					SpaceTag: "space-anotherspace",
+				},
+				{
+					CIDR:     "15.15.15.15/17",
+					SpaceTag: "space-anotherspaceagain",
+				},
+			},
+			Error: nil,
+		},
+	}}
+
+	expectedMovements := []network.MovedSpace{{
+		Space: "anotherspace",
+		CIDR:  "10.10.10.10/14",
+	}, {
+		Space: "anotherspaceagain",
+		CIDR:  "15.15.15.15/17",
+	}}
+
+	args := getMoveToSpaceArgs(CIDRs, tag, force)
+	s.fCaller.EXPECT().FacadeCall("MoveToSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	obtainedMovements, err := s.API.MoveToSpace(space, CIDRs, force)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedMovements, jc.SameContents, expectedMovements)
+}
+
+func (s *spacesSuite) TestMoveToSpaceError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	space := "myspace"
+	force := false
+	CIDRs := []string{"10.10.10.10/14", "15.15.15.15/17"}
+	tag := names.NewSpaceTag(space)
+
+	resultSource := params.MoveToSpaceResults{Results: []params.MoveToSpaceResult{
+		{
+			Moved: nil,
+			Error: &params.Error{
+				Message: "bam",
+				Code:    "500",
+			},
+		},
+	}}
+	args := getMoveToSpaceArgs(CIDRs, tag, force)
+	s.fCaller.EXPECT().FacadeCall("MoveToSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	_, err := s.API.MoveToSpace(space, CIDRs, force)
+	c.Assert(err, gc.ErrorMatches, "bam")
+}
+
+func getMoveToSpaceArgs(CIDRs []string, tag names.SpaceTag, force bool) params.MoveToSpaceParams {
+	args := params.MoveToSpaceParams{MoveToSpace: []params.MoveToSpaceParam{{
+		CIDRs:    CIDRs,
+		SpaceTag: tag.String(),
+		Force:    force,
+	}}}
+	return args
+}
+
 type SpacesSuite struct {
 	coretesting.BaseSuite
 

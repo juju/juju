@@ -8,7 +8,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
-	"github.com/juju/juju/feature"
 )
 
 type UpdateSuite struct {
@@ -18,7 +17,6 @@ type UpdateSuite struct {
 var _ = gc.Suite(&UpdateSuite{})
 
 func (s *UpdateSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetFeatureFlags(feature.PostNetCLIMVP)
 	s.BaseSpaceSuite.SetUpTest(c)
 	s.newCommand = space.NewMoveCommand
 }
