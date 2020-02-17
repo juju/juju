@@ -33,15 +33,17 @@ func (s *SpaceUpdateSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *SpaceUpdateSuite) TestSuccess(c *gc.C) {
-	spaceID := "1"
+	spaceName := "1"
 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	expectedNetworkInfo := network.SubnetInfo{SpaceID: spaceID}
+	expectedNetworkInfo := network.SubnetInfo{SpaceName: spaceName}
 	s.subnet.EXPECT().UpdateOps(expectedNetworkInfo).Return([]txn.Op{}, nil)
+	s.subnet.EXPECT().SpaceName().Return("spaceA")
+	s.subnet.EXPECT().CIDR().Return("10.10.10.10/14")
 
-	modelOp := spaces.NewUpdateSpaceModelOp(spaceID, []spaces.UpdateSubnet{s.subnet})
+	modelOp := spaces.NewUpdateSpaceModelOp(spaceName, []spaces.UpdateSubnet{s.subnet})
 	ops, err := modelOp.Build(0)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -49,16 +51,17 @@ func (s *SpaceUpdateSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *SpaceUpdateSuite) TestError(c *gc.C) {
-	spaceID := "1"
+	spaceName := "1"
 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	expectedNetworkInfo := network.SubnetInfo{SpaceID: spaceID}
+	expectedNetworkInfo := network.SubnetInfo{SpaceName: spaceName}
 	bam := errors.New("bam")
 	s.subnet.EXPECT().UpdateOps(expectedNetworkInfo).Return(nil, bam)
-
-	modelOp := spaces.NewUpdateSpaceModelOp(spaceID, []spaces.UpdateSubnet{s.subnet})
+	s.subnet.EXPECT().SpaceName().Return("spaceA")
+	s.subnet.EXPECT().CIDR().Return("10.10.10.10/14")
+	modelOp := spaces.NewUpdateSpaceModelOp(spaceName, []spaces.UpdateSubnet{s.subnet})
 	ops, err := modelOp.Build(0)
 
 	c.Assert(err, gc.ErrorMatches, bam.Error())

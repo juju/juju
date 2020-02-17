@@ -254,11 +254,12 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	ctrl, unreg := s.setupSpacesAPI(c, true, false)
 	defer ctrl.Finish()
 	defer unreg()
-	spaceTag := names.NewSpaceTag("myspace")
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
 	aCIDR := "10.0.0.0/24"
 
 	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
-	spacesMock.EXPECT().Id().Return("1").Times(2)
+	spacesMock.EXPECT().Id().Return("1").Times(1)
 	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
 
 	moveModelMock := mocks.NewMockMoveToSpaceModelOp(ctrl)
@@ -271,10 +272,10 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	subnetMock.EXPECT().SpaceID().Return("0")
 	subnetMock.EXPECT().CIDR().Return("123")
 	s.mockBacking.EXPECT().SubnetByCIDR(aCIDR).Return(subnetMock, nil)
-	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp("1", []networkingcommon.BackingSubnet{subnetMock}).Return(moveModelMock, nil)
+	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp(spaceName, []networkingcommon.BackingSubnet{subnetMock}).Return(moveModelMock, nil)
 	s.mockBacking.EXPECT().ApplyOperation(moveModelMock).Return(nil)
 	s.expectMachinesAddresses(ctrl, "10.11.12.12/14", nil, nil)
-	args := params.MoveToSpaceParams{MoveToSpace: []params.MoveToSpaceParam{
+	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
 		{
 			CIDRs:    []string{aCIDR},
 			SpaceTag: spaceTag.String(),
@@ -295,7 +296,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) 
 	defer unreg()
 	spaceName := "myspace"
 
-	args := params.MoveToSpaceParams{MoveToSpace: []params.MoveToSpaceParam{
+	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
 		{
 			CIDRs:    []string{"192.168.1.0/16"},
 			SpaceTag: names.NewSpaceTag(spaceName).String(),
