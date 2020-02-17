@@ -64,21 +64,18 @@ func NewUpdateSpaceModelOp(spaceID string, subnets []UpdateSubnet) *moveToSpaceM
 }
 
 func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
-	movedCIDRS := make([]MovedCDIR, len(o.subnets))
+	var movedCIDRS []MovedCDIR
 	if attempt > 0 {
 		for _, subnet := range o.subnets {
 			if err := subnet.Refresh(); err != nil {
 				return nil, errors.Trace(err)
 			}
+			mc := MovedCDIR{
+				FromSpace: subnet.SpaceName(),
+				CIDR:      subnet.CIDR(),
+			}
+			movedCIDRS = append(movedCIDRS, mc)
 		}
-	}
-
-	for i, subnet := range o.subnets {
-		mc := MovedCDIR{
-			FromSpace: subnet.SpaceName(),
-			CIDR:      subnet.CIDR(),
-		}
-		movedCIDRS[i] = mc
 	}
 
 	var totalOps []txn.Op
@@ -86,9 +83,7 @@ func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
 		SpaceID: o.spaceID,
 	}
 	for _, subnet := range o.subnets {
-		logger.Errorf("getting ops: %+v", argToUpdate)
 		ops, err := subnet.UpdateOps(argToUpdate)
-		logger.Errorf("ops: %+v", ops)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -96,9 +91,8 @@ func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
 	}
 	// TODO: update
 	logger.Errorf("following ops were found %+v", totalOps)
-	logger.Errorf("to move: %+v", movedCIDRS)
 	o.movedCDIRs = movedCIDRS
-	return totalOps, nil
+	return nil, nil
 }
 
 // MoveToSpace updates a space by it's given CIDR
@@ -137,7 +131,7 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
-		logger.Errorf("following new update %+v", space)
+
 		operation, err := api.opFactory.NewUpdateSpaceModelOp(space.Id(), subnets)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
