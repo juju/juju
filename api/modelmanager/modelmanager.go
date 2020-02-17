@@ -498,7 +498,7 @@ func (c *Client) ModelDefaults(cloud string) (config.ModelDefaultAttributes, err
 		return nil, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return nil, errors.Errorf("expected one result, got %d", len(results.Results))
+		return nil, errors.Errorf("7expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

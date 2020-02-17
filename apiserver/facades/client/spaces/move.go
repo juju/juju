@@ -92,11 +92,11 @@ func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
 	// TODO: update
 	logger.Errorf("following ops were found %+v", totalOps)
 	o.movedCDIRs = movedCIDRS
-	return nil, nil
+	return totalOps, nil
 }
 
 // MoveToSpace updates a space by it's given CIDR
-func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceResults, error) {
+func (api *API) MoveToSpace(args params.MoveToSpaceParams) (params.MoveToSpaceResults, error) {
 	var results params.MoveToSpaceResults
 
 	err := api.checkSpacesCRUDPermissions()

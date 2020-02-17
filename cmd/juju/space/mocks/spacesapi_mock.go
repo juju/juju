@@ -77,6 +77,21 @@ func (mr *MockSpaceAPIMockRecorder) ListSpaces() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListSpaces", reflect.TypeOf((*MockSpaceAPI)(nil).ListSpaces))
 }
 
+// MoveToSpace mocks base method
+func (m *MockSpaceAPI) MoveToSpace(arg0 string, arg1 []string, arg2 bool) ([]network.MovedSpace, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MoveToSpace", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]network.MovedSpace)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MoveToSpace indicates an expected call of MoveToSpace
+func (mr *MockSpaceAPIMockRecorder) MoveToSpace(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveToSpace", reflect.TypeOf((*MockSpaceAPI)(nil).MoveToSpace), arg0, arg1, arg2)
+}
+
 // ReloadSpaces mocks base method
 func (m *MockSpaceAPI) ReloadSpaces() error {
 	m.ctrl.T.Helper()
@@ -132,18 +147,4 @@ func (m *MockSpaceAPI) ShowSpace(arg0 string) (network.ShowSpace, error) {
 func (mr *MockSpaceAPIMockRecorder) ShowSpace(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ShowSpace", reflect.TypeOf((*MockSpaceAPI)(nil).ShowSpace), arg0)
-}
-
-// MoveToSpace mocks base method
-func (m *MockSpaceAPI) MoveToSpace(arg0 string, arg1 []string) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MoveToSpace", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// MoveToSpace indicates an expected call of MoveToSpace
-func (mr *MockSpaceAPIMockRecorder) UpdateSpace(arg0, arg1 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveToSpace", reflect.TypeOf((*MockSpaceAPI)(nil).MoveToSpace), arg0, arg1)
 }

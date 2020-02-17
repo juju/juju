@@ -33,6 +33,15 @@ type ShowSpace struct {
 	MachineCount int `json:"machine-count" yaml:"machine-count"`
 }
 
+// MovedSpace represents a CIDR movement from space `a` to space `b`
+type MovedSpace struct {
+	// Name of the space which the CIDR left.
+	Space string `json:"space" yaml:"space"`
+
+	// CIDR of the space which left.
+	CIDR string `json:"cidr" yaml:"cidr"`
+}
+
 // SpaceLookup describes methods for acquiring SpaceInfos
 // to translate space IDs to space names and vice versa.
 type SpaceLookup interface {

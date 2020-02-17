@@ -30902,7 +30902,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/MoveToSpacesParams"
+                            "$ref": "#/definitions/MoveToSpaceParams"
                         },
                         "Result": {
                             "$ref": "#/definitions/MoveToSpaceResults"
@@ -31079,7 +31079,7 @@
                         "results"
                     ]
                 },
-                "MoveToSpaceParams": {
+                "MoveToSpaceParam": {
                     "type": "object",
                     "properties": {
                         "cidrs": {
@@ -31100,6 +31100,21 @@
                         "cidrs",
                         "space-tag",
                         "force"
+                    ]
+                },
+                "MoveToSpaceParams": {
+                    "type": "object",
+                    "properties": {
+                        "update-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveToSpaceParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "update-spaces"
                     ]
                 },
                 "MoveToSpaceResult": {
@@ -31124,21 +31139,6 @@
                             "type": "array",
                             "items": {
                                 "$ref": "#/definitions/MoveToSpaceResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "update-spaces"
-                    ]
-                },
-                "MoveToSpacesParams": {
-                    "type": "object",
-                    "properties": {
-                        "update-spaces": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/MoveToSpaceParams"
                             }
                         }
                     },
