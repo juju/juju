@@ -35,10 +35,10 @@ func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
 	return results, err
 }
 
-// Operations fetches the called functions (actions) for specified apps/units.
-func (c *Client) Operations(arg params.OperationQueryArgs) (params.ActionResults, error) {
-	results := params.ActionResults{}
-	if v := c.BestAPIVersion(); v < 5 {
+// Operations fetches the called operations for specified apps/units.
+func (c *Client) Operations(arg params.OperationQueryArgs) (params.OperationResults, error) {
+	results := params.OperationResults{}
+	if v := c.BestAPIVersion(); v < 6 {
 		return results, errors.Errorf("Operations not supported by this version (%d) of Juju", v)
 	}
 	err := c.facade.FacadeCall("Operations", arg, &results)

@@ -116,10 +116,32 @@ type FindActionsByNames struct {
 
 // OperationQueryArgs holds args for listing operations.
 type OperationQueryArgs struct {
-	Applications  []string `json:"applications,omitempty"`
-	Units         []string `json:"units,omitempty"`
-	FunctionNames []string `json:"functions,omitempty"`
-	Status        []string `json:"status,omitempty"`
+	Applications []string `json:"applications,omitempty"`
+	Units        []string `json:"units,omitempty"`
+	ActionNames  []string `json:"actions,omitempty"`
+	Status       []string `json:"status,omitempty"`
+
+	// These attributes are used to support client side
+	// batching of results.
+	Offset *int `json:"offset,omitempty"`
+	Limit  *int `json:"limit,omitempty"`
+}
+
+// OperationResults is a slice of OperationResult for bulk requests.
+type OperationResults struct {
+	Results   []OperationResult `json:"results,omitempty"`
+	Truncated bool              `json:"truncated,omitempty"`
+}
+
+// OperationResult describes an Operation that will be or has been completed.
+type OperationResult struct {
+	OperationTag string         `json:"operation"`
+	Summary      string         `json:"summary"`
+	Enqueued     time.Time      `json:"enqueued,omitempty"`
+	Started      time.Time      `json:"started,omitempty"`
+	Completed    time.Time      `json:"completed,omitempty"`
+	Status       string         `json:"status,omitempty"`
+	Actions      []ActionResult `json:"actions,omitempty"`
 }
 
 // ActionExecutionResults holds a slice of ActionExecutionResult for a

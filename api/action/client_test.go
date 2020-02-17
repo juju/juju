@@ -224,23 +224,23 @@ func (s *actionSuite) TestOperations(c *gc.C) {
 			) error {
 				c.Assert(request, gc.Equals, "Operations")
 				c.Assert(a, jc.DeepEquals, args)
-				c.Assert(result, gc.FitsTypeOf, &params.ActionResults{})
-				*(result.(*params.ActionResults)) = params.ActionResults{
-					Results: []params.ActionResult{{
-						Error: &params.Error{Message: "FAIL"},
+				c.Assert(result, gc.FitsTypeOf, &params.OperationResults{})
+				*(result.(*params.OperationResults)) = params.OperationResults{
+					Results: []params.OperationResult{{
+						Summary: "hello",
 					}},
 				}
 				return nil
 			},
 		),
-		BestVersion: 5,
+		BestVersion: 6,
 	}
 	client := action.NewClient(apiCaller)
 	result, err := client.Operations(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, jc.DeepEquals, params.ActionResults{
-		Results: []params.ActionResult{{
-			Error: &params.Error{Message: "FAIL"},
+	c.Assert(result, jc.DeepEquals, params.OperationResults{
+		Results: []params.OperationResult{{
+			Summary: "hello",
 		}},
 	})
 }
