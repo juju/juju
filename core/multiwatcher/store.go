@@ -6,6 +6,7 @@ package multiwatcher
 import (
 	"container/list"
 	"reflect"
+	"sync"
 
 	"github.com/kr/pretty"
 )
@@ -64,6 +65,7 @@ type entityEntry struct {
 
 // store holds a list of all known entities.
 type store struct {
+	mu          sync.Mutex
 	latestRevno int64
 	entities    map[interface{}]*list.Element
 	list        *list.List
@@ -95,12 +97,18 @@ func newStore(logger Logger) *store {
 
 // Size returns the length of the internal list.
 func (a *store) Size() int {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	return a.list.Len()
 }
 
 // All returns all the entities stored in the Store,
 // oldest first.
 func (a *store) All() []EntityInfo {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	entities := make([]EntityInfo, 0, a.list.Len())
 	for e := a.list.Front(); e != nil; e = e.Next() {
 		entry := e.Value.(*entityEntry)
@@ -165,6 +173,9 @@ func (a *store) delete(id EntityID) {
 // been removed from the backing. If nothing has seen the
 // entity, then we delete it immediately.
 func (a *store) Remove(id EntityID) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	if elem := a.entities[id]; elem != nil {
 		entry := elem.Value.(*entityEntry)
 		if entry.removed {
@@ -183,6 +194,9 @@ func (a *store) Remove(id EntityID) {
 
 // Update updates the information for the given entity.
 func (a *store) Update(info EntityInfo) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	id := info.EntityID()
 	elem, ok := a.entities[id]
 	if !ok {
@@ -207,6 +221,9 @@ func (a *store) Update(info EntityInfo) {
 // Get returns the stored entity with the given id, or nil if none was found.
 // The contents of the returned entity MUST not be changed.
 func (a *store) Get(id EntityID) EntityInfo {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	e, ok := a.entities[id]
 	if !ok {
 		return nil
@@ -217,6 +234,9 @@ func (a *store) Get(id EntityID) EntityInfo {
 // ChangesSince returns any changes that have occurred since
 // the given revno, oldest first.
 func (a *store) ChangesSince(revno int64) ([]Delta, int64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	e := a.list.Front()
 	n := 0
 	for ; e != nil; e = e.Next() {
@@ -255,6 +275,9 @@ func (a *store) ChangesSince(revno int64) ([]Delta, int64) {
 // all entities newer than the given revno.  We assume it has already seen all
 // the older entities.
 func (a *store) AddReference(revno int64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	for e := a.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
@@ -281,6 +304,9 @@ func (a *store) AddReference(revno int64) {
 // DecReference is called when a watcher leaves.  It decrements the reference
 // counts of any entities that have been seen by the watcher.
 func (a *store) DecReference(revno int64) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	for e := a.list.Front(); e != nil; {
 		next := e.Next()
 		entry := e.Value.(*entityEntry)
