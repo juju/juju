@@ -57,12 +57,8 @@ func modelFolderName(modelUUID, modelName string) string {
 
 // templateDirectoryName returns the name of the datastore directory in which
 // the VM templates are stored for the controller.
-func templateDirectoryName(parentfolder string, controllerFolderName string) string {
-	dName := path.Join(controllerFolderName, "templates")
-	if parentfolder != "" {
-		dName = path.Join(parentfolder, dName)
-	}
-	return dName
+func templateDirectoryName(controllerFolderName string) string {
+	return path.Join(controllerFolderName, "templates")
 }
 
 // MaintainInstance is specified in the InstanceBroker interface.
@@ -224,10 +220,11 @@ func (env *sessionEnviron) newRawInstance(
 	createVMArgs := vsphereclient.CreateVirtualMachineParams{
 		Name:                   vmName,
 		Folder:                 path.Join(env.getVMFolder(), controllerFolderName(args.ControllerUUID), env.modelFolderName()),
+		RootVMFolder:           env.getVMFolder(),
 		Series:                 series,
 		ReadOVA:                readOVA,
 		OVASHA256:              img.Sha256,
-		VMDKDirectory:          templateDirectoryName(env.getVMFolder(), controllerFolderName(args.ControllerUUID)),
+		VMDKDirectory:          templateDirectoryName(controllerFolderName(args.ControllerUUID)),
 		UserData:               string(userData),
 		Metadata:               args.InstanceConfig.Tags,
 		Constraints:            cons,

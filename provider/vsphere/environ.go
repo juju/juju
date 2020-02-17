@@ -239,7 +239,7 @@ func (env *sessionEnviron) DestroyController(ctx callcontext.ProviderCallContext
 		return errors.Annotate(err, "listing datastores")
 	}
 	for _, ds := range datastores {
-		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, templateDirectoryName(env.getVMFolder(), controllerUUID))
+		datastorePath := fmt.Sprintf("[%s] %s", ds.Name, path.Join(env.getVMFolder(), templateDirectoryName(controllerUUID)))
 		logger.Debugf("deleting: %s", datastorePath)
 		if err := env.client.DeleteDatastoreFile(env.ctx, datastorePath); err != nil {
 			HandleCredentialError(err, env, ctx)
