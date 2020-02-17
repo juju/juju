@@ -169,3 +169,84 @@ func (s *typesSuite) TestValidatePodSpecBase(c *gc.C) {
 	minSpecs.Version = specs.Version2
 	c.Assert(minSpecs.Validate(specs.Version2), jc.ErrorIsNil)
 }
+
+func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
+	k8sSpec := specs.CaasContainers{}
+	k8sSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				{
+					Name:      "file1",
+					MountPath: "/foo/file1",
+				},
+				{
+					Name:      "file2",
+					MountPath: "/foo/file2",
+				},
+			},
+		},
+	}
+	c.Assert(k8sSpec.Validate(), jc.ErrorIsNil)
+
+	k8sSpec = specs.CaasContainers{}
+	k8sSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				{
+					Name:      "file1",
+					MountPath: "/foo/file1",
+				},
+				{
+					Name:      "file1",
+					MountPath: "/foo/file1",
+				},
+			},
+		},
+	}
+	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file1" not valid`)
+
+	k8sSpec = specs.CaasContainers{}
+	k8sSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				{
+					Name:      "file1",
+					MountPath: "/foo/file1",
+				},
+				{
+					Name:      "file2",
+					MountPath: "/foo/file2",
+				},
+			},
+		},
+		{
+			Name:  "mariadb-helper",
+			Image: "mariadb-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				{
+					Name:      "file2",
+					MountPath: "/foo/file2",
+				},
+			},
+		},
+	}
+	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file2" not valid`)
+}

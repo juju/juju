@@ -6,6 +6,7 @@ package specs
 import (
 	"fmt"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/yaml.v2"
 )
@@ -168,9 +169,17 @@ func (cs *caasContainers) Validate() error {
 	if len(cs.Containers) == 0 {
 		return errors.New("require at least one container spec")
 	}
+	fileNames := set.NewStrings()
 	for _, c := range cs.Containers {
 		if err := c.Validate(); err != nil {
 			return errors.Trace(err)
+		}
+		for _, file := range c.Files {
+			fName := file.Name
+			if fileNames.Contains(fName) {
+				return errors.NotValidf("duplicated file %q", fName)
+			}
+			fileNames.Add(fName)
 		}
 	}
 	return nil
