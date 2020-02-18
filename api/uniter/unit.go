@@ -963,6 +963,14 @@ func (b *CommitHookParamsBuilder) AddStorage(constraints map[string][]params.Sto
 	b.arg.AddStorage = storageReqs
 }
 
+// SetPodSpec records a request to update the PodSpec for an application.
+func (b *CommitHookParamsBuilder) SetPodSpec(appTag names.ApplicationTag, spec *string) {
+	b.arg.SetPodSpec = &params.PodSpec{
+		Tag:  appTag.String(),
+		Spec: spec,
+	}
+}
+
 // Build assembles the recorded change requests into a CommitHookChangesArgs
 // instance that can be passed as an argument to the CommitHookChanges API
 // call.
@@ -981,6 +989,9 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 		count++
 	}
 	if b.arg.SetUnitState != nil {
+		count++
+	}
+	if b.arg.SetPodSpec != nil {
 		count++
 	}
 

@@ -4825,6 +4825,44 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	c.Assert(newVolumeAttachments, gc.HasLen, len(oldVolumeAttachments)+1, gc.Commentf("expected an additional instance of block storage to be added"))
 }
 
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	// Add some extra args to test error handling
+	req.Args = append(req.Args,
+		params.CommitHookChangesArg{Tag: "not-a-unit-tag"},
+		params.CommitHookChangesArg{Tag: "unit-mysql-0"}, // not accessible by current user
+		params.CommitHookChangesArg{Tag: "unit-notfound-0"},
+	)
+
+	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify expected unit state
+	spec, err := cm.PodSpec(gitlab.ApplicationTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, podSpec)
+
+	unitState, err := gitlabUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+}
+
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
