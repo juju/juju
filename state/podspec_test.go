@@ -62,7 +62,7 @@ func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("foo"))
-	c.Assert(err, gc.ErrorMatches, "application gitlab not alive")
+	c.Assert(err, gc.ErrorMatches, ".*application gitlab not alive")
 	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 
