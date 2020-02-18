@@ -1405,11 +1405,6 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 // networksForInstance returns networks that will be attached
 // to a new Openstack instance.
 func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova.ServerNetworks, error) {
-	networks, err := e.networking.DefaultNetworks()
-	if err != nil {
-		return nil, errors.Annotate(err, "getting initial networks")
-	}
-
 	usingNetwork := e.ecfg().network()
 	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
@@ -1421,71 +1416,97 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 			if strings.HasPrefix(err.Error(), "multiple networks") {
 				return nil, errors.New(noNetConfigMsg(err))
 			}
-		} else {
-			return nil, errors.Trace(err)
 		}
-	} else {
-		logger.Debugf("using network id %q", networkID)
-		networks = append(networks, nova.ServerNetworks{
-			NetworkId: networkID,
-		})
+		return nil, errors.Trace(err)
+	}
+
+	logger.Debugf("using network id %q", networkID)
+	network := nova.ServerNetworks{
+		NetworkId: networkID,
 	}
 
 	// Attempt to locate any subnet IDs for a passed in AZ.
 	availabilityZone := args.AvailabilityZone
 
-	var subnetIDsForZone []corenetwork.Id
+	// List of Provider subnet IDs
+	var subnetIDsForZone [][]corenetwork.Id
 	if args.Constraints.HasSpaces() {
-		var err error
-		subnetIDsForZone, err = corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, args.SubnetsToZones)
-
-		switch {
-		case errors.IsNotFound(err):
-			return nil, errors.Trace(err)
-		case err != nil:
-			return nil, errors.Annotatef(err, "getting subnets for zone %q", availabilityZone)
+		for k, nic := range args.SubnetsToZones {
+			subnetIDs, err := corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, nic)
+			if err != nil {
+				return nil, errors.Annotatef(err, "getting subnets for zone %q", availabilityZone)
+			}
+			subnetIDsForZone[k] = subnetIDs
 		}
 	}
 
-	// FixedIp takes a CIDR, but we've only got a network ID, so we need to
-	// hoover all the subnets and select the ones we care about.
-	subnetInfo, err := e.networking.Subnets(instance.UnknownId, subnetIDsForZone)
-	if err != nil {
-		return nil, errors.Annotate(err, "getting subnet info")
+	// If we find no spaces, then use the only available network.
+	if len(subnetIDsForZone) == 0 {
+		return []nova.ServerNetworks{
+			network,
+		}, nil
 	}
 
-	// If there are some subnet IDs from an AZ, attempt to put them on the
-	// networks.
-	// TODO (stickupkid): Currently this logic attempts to handle multiple
-	// networks, in fact in reality it actually handles only one server network.
-	// DefaultNetworks currently returns an empty slice and ResolveNetwork only
-	// returns one network. bug #1733266
-	var subnetCIDR string
-	if num := len(subnetInfo); num > 1 {
-		// Randomize the subnetInfo in order to gain a better distributed
-		// spread over the zones.
-		// Note: this won't perform an even distribution unless a new random
-		// seed has been given for every initialization.
-		subnetCIDR = subnetInfo[rand.Intn(len(subnetInfo))].CIDR
-		logger.Debugf("selected random subnet cidr %q from all matching in zone %q", subnetCIDR, availabilityZone)
-	} else if num == 1 {
-		subnetCIDR = subnetInfo[0].CIDR
-		logger.Debugf("selected subnet cidr %q in zone %q", subnetCIDR, availabilityZone)
+	// For each of the subnetIDsForZone select random id if there is more than one
+	// [][]corenetwork.Id -> []corenetwork.Id
+	subnetIDForZone := make([]corenetwork.Id, len(subnetIDsForZone))
+	for k, subnetIDs := range subnetIDsForZone {
+		if len(subnetIDs) == 1 {
+			subnetIDForZone[k] = subnetIDs[0]
+			continue
+		}
+
+		subnetIDForZone[k] = subnetIDs[rand.Intn(len(subnetIDs))]
 	}
 
 	// Set the subnetID on the network for all networks.
-	subnetNetworks := make([]nova.ServerNetworks, 0, len(networks))
-	for _, network := range networks {
-		// If no networkId is found we need to skip them as we can't do anything
-		// with them.
-		if network.NetworkId == "" {
-			continue
+	// For each of the subnetIDs selected, create a port for each one.
+	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
+	for _, subnetID := range subnetIDForZone {
+		var portID string
+		portID, err = e.networking.CreatePort(e.uuid, network.NetworkId, subnetID)
+		if err != nil {
+			break
 		}
-		network.FixedIp = subnetCIDR
-		subnetNetworks = append(subnetNetworks, network)
+
+		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
+			NetworkId: network.NetworkId,
+			PortId:    portID,
+		})
+	}
+
+	if err != nil {
+		err1 := e.DeletePorts(subnetNetworks)
+		if err1 != nil {
+			logger.Errorf("Unable to delete ports from the provider %+v", subnetNetworks)
+		}
+		return nil, errors.Annotatef(err, "unable to resolve ports")
 	}
 
 	return subnetNetworks, nil
+}
+
+// DeletePorts goes through and attempts to delete any ports that have been
+// created during the creation of the networks for the given instance.
+func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
+	var errs []error
+	for _, network := range networks {
+		if network.NetworkId != "" && network.PortId != "" {
+			err := e.networking.DeletePortByID(network.PortId)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) > 0 {
+		// It would be nice to generalize this so we have the same expected
+		// behaviour from all our slices of errors.
+		for _, err := range errs {
+			logger.Errorf("Unable to delete port with error: %v", err)
+		}
+		return errs[0]
+	}
+	return nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
