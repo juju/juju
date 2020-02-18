@@ -11,7 +11,6 @@ import (
 	instancemutater "github.com/juju/juju/apiserver/facades/agent/instancemutater"
 	cache "github.com/juju/juju/core/cache"
 	instance "github.com/juju/juju/core/instance"
-	reflect "reflect"
 )
 
 // MockModelCache is a mock of ModelCache interface

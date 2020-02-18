@@ -505,7 +505,7 @@
   source = "github.com/juju/yaml"
 
 [[constraint]]
-  revision = "8a53421608bbf30e65082e0210d89c2dc34d52c2"
+  revision = "11507d258058ffaeee6efa39e97655e934778c99"
   name = "github.com/juju/jsonschema-gen"
 
 [[constraint]]
