@@ -583,8 +583,10 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		if placementSubnetID != "" {
 			allowedSubnetIDs = []corenetwork.Id{placementSubnetID}
 		} else {
-			for subnetID := range args.SubnetsToZones {
-				allowedSubnetIDs = append(allowedSubnetIDs, subnetID)
+			for _, spaces := range args.SubnetsToZones {
+				for subnetID := range spaces {
+					allowedSubnetIDs = append(allowedSubnetIDs, subnetID)
+				}
 			}
 		}
 		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(
