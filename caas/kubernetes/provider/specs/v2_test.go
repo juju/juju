@@ -8,7 +8,7 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
+	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -162,6 +162,7 @@ kubernetesResources:
     readinessGates:
       - conditionType: PodScheduled
     dnsPolicy: ClusterFirstWithHostNet
+    hostNetwork: true
   secrets:
     - name: build-robot-secret
       type: Opaque
@@ -191,6 +192,14 @@ kubernetesResources:
       - name: v1beta2
         served: true
         storage: false
+      conversion:
+        strategy: None
+      preserveUnknownFields: false
+      additionalPrinterColumns:
+      - name: Worker
+        type: integer
+        description: Worker attribute.
+        jsonPath: .spec.tfReplicaSpecs.Worker
       validation:
         openAPIV3Schema:
           properties:
@@ -276,6 +285,23 @@ kubernetesResources:
           - UPDATE
           resources:
           - pods
+  validatingWebhookConfigurations:
+    pod-policy.example.com:
+      - name: "pod-policy.example.com"
+        rules:
+        - apiGroups:   [""]
+          apiVersions: ["v1"]
+          operations:  ["CREATE"]
+          resources:   ["pods"]
+          scope:       "Namespaced"
+        clientConfig:
+          service:
+            namespace: "example-namespace"
+            name: "example-service"
+          caBundle: "YXBwbGVz"
+        admissionReviewVersions: ["v1", "v1beta1"]
+        sideEffects: None
+        timeoutSeconds: 5
 `[1:]
 
 	expectedFileContent := `
@@ -466,38 +492,67 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		webhook1Rule1 := admissionregistrationv1beta1.Rule{
+		webhookRule1 := admissionregistration.Rule{
 			APIGroups:   []string{""},
 			APIVersions: []string{"v1"},
 			Resources:   []string{"pods"},
 		}
-		webhookRuleWithOperations1 := admissionregistrationv1beta1.RuleWithOperations{
-			Operations: []admissionregistrationv1beta1.OperationType{
-				admissionregistrationv1beta1.Create,
-				admissionregistrationv1beta1.Update,
+		webhookRuleWithOperations1 := admissionregistration.RuleWithOperations{
+			Operations: []admissionregistration.OperationType{
+				admissionregistration.Create,
+				admissionregistration.Update,
 			},
 		}
-		webhookRuleWithOperations1.Rule = webhook1Rule1
-		CABundle, err := base64.StdEncoding.DecodeString("YXBwbGVz")
+		webhookRuleWithOperations1.Rule = webhookRule1
+		CABundle1, err := base64.StdEncoding.DecodeString("YXBwbGVz")
 		c.Assert(err, jc.ErrorIsNil)
-		webhook1FailurePolicy := admissionregistrationv1beta1.Ignore
-		webhook1 := admissionregistrationv1beta1.Webhook{
+		webhookFailurePolicy1 := admissionregistration.Ignore
+		webhook1 := admissionregistration.MutatingWebhook{
 			Name:          "example.mutatingwebhookconfiguration.com",
-			FailurePolicy: &webhook1FailurePolicy,
-			ClientConfig: admissionregistrationv1beta1.WebhookClientConfig{
-				Service: &admissionregistrationv1beta1.ServiceReference{
+			FailurePolicy: &webhookFailurePolicy1,
+			ClientConfig: admissionregistration.WebhookClientConfig{
+				Service: &admissionregistration.ServiceReference{
 					Name:      "apple-service",
 					Namespace: "apples",
 					Path:      strPtr("/apple"),
 				},
-				CABundle: CABundle,
+				CABundle: CABundle1,
 			},
 			NamespaceSelector: &metav1.LabelSelector{
 				MatchExpressions: []metav1.LabelSelectorRequirement{
 					{Key: "production", Operator: metav1.LabelSelectorOpDoesNotExist},
 				},
 			},
-			Rules: []admissionregistrationv1beta1.RuleWithOperations{webhookRuleWithOperations1},
+			Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations1},
+		}
+
+		scope := admissionregistration.NamespacedScope
+		webhookRule2 := admissionregistration.Rule{
+			APIGroups:   []string{""},
+			APIVersions: []string{"v1"},
+			Resources:   []string{"pods"},
+			Scope:       &scope,
+		}
+		webhookRuleWithOperations2 := admissionregistration.RuleWithOperations{
+			Operations: []admissionregistration.OperationType{
+				admissionregistration.Create,
+			},
+		}
+		webhookRuleWithOperations2.Rule = webhookRule2
+		sideEffects := admissionregistration.SideEffectClassNone
+		webhook2 := admissionregistration.ValidatingWebhook{
+			Name:  "pod-policy.example.com",
+			Rules: []admissionregistration.RuleWithOperations{webhookRuleWithOperations2},
+			ClientConfig: admissionregistration.WebhookClientConfig{
+				Service: &admissionregistration.ServiceReference{
+					Name:      "example-service",
+					Namespace: "example-namespace",
+				},
+				CABundle: CABundle1,
+			},
+			AdmissionReviewVersions: []string{"v1", "v1beta1"},
+			SideEffects:             &sideEffects,
+			TimeoutSeconds:          int32Ptr(5),
 		}
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -516,7 +571,8 @@ echo "do some stuff here for gitlab-init container"
 					ReadinessGates: []core.PodReadinessGate{
 						{ConditionType: core.PodScheduled},
 					},
-					DNSPolicy: "ClusterFirstWithHostNet",
+					DNSPolicy:   "ClusterFirstWithHostNet",
+					HostNetwork: true,
 				},
 				Secrets: []k8sspecs.Secret{
 					{
@@ -546,11 +602,23 @@ password: shhhh`[1:],
 							{Name: "v1", Served: true, Storage: true},
 							{Name: "v1beta2", Served: true, Storage: false},
 						},
-						Scope: "Cluster",
+						Scope:                 "Cluster",
+						PreserveUnknownFields: boolPtr(false),
 						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
 							Kind:     "TFJob",
 							Plural:   "tfjobs",
 							Singular: "tfjob",
+						},
+						Conversion: &apiextensionsv1beta1.CustomResourceConversion{
+							Strategy: apiextensionsv1beta1.NoneConverter,
+						},
+						AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+							{
+								Name:        "Worker",
+								Type:        "integer",
+								Description: "Worker attribute.",
+								JSONPath:    ".spec.tfReplicaSpecs.Worker",
+							},
 						},
 						Validation: &apiextensionsv1beta1.CustomResourceValidation{
 							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
@@ -638,8 +706,11 @@ password: shhhh`[1:],
 					},
 				},
 				IngressResources: []k8sspecs.K8sIngressSpec{ingress1},
-				MutatingWebhookConfigurations: map[string][]admissionregistrationv1beta1.Webhook{
+				MutatingWebhookConfigurations: map[string][]admissionregistration.MutatingWebhook{
 					"example-mutatingwebhookconfiguration": {webhook1},
+				},
+				ValidatingWebhookConfigurations: map[string][]admissionregistration.ValidatingWebhook{
+					"pod-policy.example.com": {webhook2},
 				},
 			},
 		}
@@ -794,6 +865,23 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
+}
+
+func (s *v2SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
+	specStr := versionHeader + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  validatingWebhookConfigurations:
+    example-validatingwebhookconfiguration:
+`[1:]
+
+	_, err := k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
 }
 
 func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {

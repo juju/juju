@@ -95,7 +95,7 @@ func (k *kubernetesClient) updateConfigMap(cm *core.ConfigMap) error {
 
 // getConfigMap returns a ConfigMap resource.
 func (k *kubernetesClient) getConfigMap(name string) (*core.ConfigMap, error) {
-	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(name, v1.GetOptions{IncludeUninitialized: true})
+	cm, err := k.client().CoreV1().ConfigMaps(k.namespace).Get(name, v1.GetOptions{})
 	if err != nil {
 		if k8serrors.IsNotFound(err) {
 			return nil, errors.NotFoundf("configmap %q", name)
@@ -126,8 +126,7 @@ func (k *kubernetesClient) deleteConfigMap(name string, uid types.UID) error {
 
 func (k *kubernetesClient) listConfigMaps(labels map[string]string) ([]core.ConfigMap, error) {
 	listOps := v1.ListOptions{
-		LabelSelector:        labelsToSelector(labels),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(labels),
 	}
 	cmList, err := k.client().CoreV1().ConfigMaps(k.namespace).List(listOps)
 	if err != nil {
@@ -143,8 +142,7 @@ func (k *kubernetesClient) deleteConfigMaps(appName string) error {
 	err := k.client().CoreV1().ConfigMaps(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getConfigMapLabels(appName)),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(k.getConfigMapLabels(appName)),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

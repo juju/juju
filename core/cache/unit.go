@@ -170,6 +170,16 @@ func (u *Unit) setDetails(details UnitChange) {
 	toPublish := u.copy()
 	if machineChange || u.details.Subordinate {
 		// TODO thumper: check this, it looks like we are publishing too often.
+		//
+		// We do publish too often with subordinates.  However the
+		// watcher in this case, MachineLXDProfileWatcher, can do
+		// a more detailed check so it doesn't notify too often.
+		//
+		// Without checking for a subordinate here, we will
+		// not apply an lxd profile to existing containers if
+		// needed. We need a clean way to Publish when a
+		// subordinate unit is created.  For pricipal units,
+		// ensure the machineID is set.
 		u.model.hub.Publish(modelUnitAdd, toPublish)
 	}
 	// Publish change event for those that may be waiting.

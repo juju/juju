@@ -149,16 +149,11 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 	}
 	pod.SetName("gitlab-k8s-0")
 
-	checkRemotePathRequest := rest.NewRequest(
-		nil,
-		"POST",
+	checkRemotePathRequest := rest.NewRequestWithClient(
 		&url.URL{Path: "/path/"},
 		"",
-		rest.ContentConfig{GroupVersion: &core.SchemeGroupVersion},
-		rest.Serializers{},
+		rest.ClientContentConfig{GroupVersion: core.SchemeGroupVersion},
 		nil,
-		nil,
-		0,
 	).Resource("pods").Name("gitlab-k8s-0").Namespace("test").
 		SubResource("exec").Param("container", "gitlab-container").VersionedParams(
 		&core.PodExecOptions{
@@ -170,16 +165,11 @@ func (s *execSuite) TestCopyToPod(c *gc.C) {
 			TTY:       false,
 		}, scheme.ParameterCodec)
 
-	copyRequest := rest.NewRequest(
-		nil,
-		"POST",
+	copyRequest := rest.NewRequestWithClient(
 		&url.URL{Path: "/path/"},
 		"",
-		rest.ContentConfig{GroupVersion: &core.SchemeGroupVersion},
-		rest.Serializers{},
+		rest.ClientContentConfig{GroupVersion: core.SchemeGroupVersion},
 		nil,
-		nil,
-		0,
 	).Resource("pods").Name("gitlab-k8s-0").Namespace("test").
 		SubResource("exec").Param("container", "gitlab-container").VersionedParams(
 		&core.PodExecOptions{

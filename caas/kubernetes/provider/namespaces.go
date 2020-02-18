@@ -35,7 +35,7 @@ func checkNamespaceOwnedByJuju(ns *core.Namespace, annotationMap map[string]stri
 // Namespaces returns names of the namespaces on the cluster.
 func (k *kubernetesClient) Namespaces() ([]string, error) {
 	namespaces := k.client().CoreV1().Namespaces()
-	ns, err := namespaces.List(v1.ListOptions{IncludeUninitialized: true})
+	ns, err := namespaces.List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Annotate(err, "listing namespaces")
 	}
@@ -64,7 +64,7 @@ func (k *kubernetesClient) GetNamespace(name string) (*core.Namespace, error) {
 // getNamespaceByName is used internally for bootstrap.
 // Note: it should be never used by something else. "GetNamespace" is what you should use.
 func (k *kubernetesClient) getNamespaceByName(name string) (*core.Namespace, error) {
-	ns, err := k.client().CoreV1().Namespaces().Get(name, v1.GetOptions{IncludeUninitialized: true})
+	ns, err := k.client().CoreV1().Namespaces().Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("namespace %q", name)
 	}
@@ -82,7 +82,7 @@ func (k *kubernetesClient) SetNamespace(name string) {
 
 // listNamespacesByAnnotations filters namespaces by annotations.
 func (k *kubernetesClient) listNamespacesByAnnotations(annotations k8sannotations.Annotation) ([]core.Namespace, error) {
-	namespaces, err := k.client().CoreV1().Namespaces().List(v1.ListOptions{IncludeUninitialized: true})
+	namespaces, err := k.client().CoreV1().Namespaces().List(v1.ListOptions{})
 	if err != nil {
 		return nil, errors.Trace(err)
 	}

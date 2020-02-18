@@ -79,7 +79,7 @@ func (k *kubernetesClient) createIngress(ingress *v1beta1.Ingress) (*v1beta1.Ing
 }
 
 func (k *kubernetesClient) getIngress(name string) (*v1beta1.Ingress, error) {
-	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Get(name, v1.GetOptions{IncludeUninitialized: true})
+	out, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("ingress resource %q", name)
 	}
@@ -104,8 +104,7 @@ func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 
 func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1beta1.Ingress, error) {
 	listOps := v1.ListOptions{
-		LabelSelector:        labelsToSelector(labels),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(labels),
 	}
 	ingList, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).List(listOps)
 	if err != nil {
@@ -121,8 +120,7 @@ func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector:        labelsToSelector(k.getIngressLabels(appName)),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(k.getIngressLabels(appName)),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

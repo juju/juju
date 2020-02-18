@@ -233,7 +233,7 @@ func (w *MachineLXDProfileWatcher) addUnit(_ string, value interface{}) {
 			return
 		}
 		if w.machineId != principal.MachineId() {
-			logger.Tracef("watching unit changes on machine-%s not machine-%s", w.machineId, unitMachineId)
+			logger.Tracef("watching subordinate unit changes on machine-%s not machine-%s", w.machineId, principal.MachineId())
 			return
 		}
 	case w.machineId != unitMachineId:
@@ -278,6 +278,9 @@ func (w *MachineLXDProfileWatcher) add(unit Unit) bool {
 		}
 		w.applications[appName] = info
 	} else {
+		if w.applications[appName].units.Contains(unitName) {
+			return false
+		}
 		w.applications[appName].units.Add(unitName)
 	}
 	if !w.applications[appName].charmProfile.Empty() {

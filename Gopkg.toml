@@ -166,12 +166,20 @@
   revision = "87155f248cf6ea9e38ae7613f9ea1e5bb397ac83"
 
 [[constraint]]
-  revision = "183f3326a9353bd6d41430fc80f96259331d029c"
-  name = "k8s.io/api"
+  name = "k8s.io/api"  # release-1.17
+  revision = "d9adff57e763360b17e25cfe5a6c85f545c6daa2"
 
 [[constraint]]
-  revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
-  name = "k8s.io/apimachinery"
+  name = "k8s.io/apimachinery"  # release-1.17
+  revision = "731dcecc205498f52a21b12e311af095efb4b188"
+
+[[constraint]]
+  name = "k8s.io/apiextensions-apiserver"  # release-1.17
+  revision = "6910daba737d70c6f908dceffef83f5907543afb"
+
+[[constraint]]
+  name = "k8s.io/client-go"  # release-14.0
+  revision = "19522ff2880261a5116cf35985e08de6c6dfb681"
 
 [[override]]
   name = "github.com/masterzen/xmlpath"
@@ -410,10 +418,6 @@
   name = "github.com/prometheus/procfs"
   revision = "aa55a523dc0a8297edf51bb75e8eec13eb3be45d"
 
-[[constraint]]
-  name = "k8s.io/client-go"
-  revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
-
 [[override]]
   name = "github.com/mattn/go-colorable"
   revision = "ed8eb9e318d7a84ce5915b495b7d35e0cfe7b5a8"
@@ -501,11 +505,7 @@
   source = "github.com/juju/yaml"
 
 [[constraint]]
-  name = "k8s.io/apiextensions-apiserver"
-  revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
-
-[[constraint]]
-  revision = "11507d258058ffaeee6efa39e97655e934778c99"
+  revision = "8a53421608bbf30e65082e0210d89c2dc34d52c2"
   name = "github.com/juju/jsonschema-gen"
 
 [[constraint]]

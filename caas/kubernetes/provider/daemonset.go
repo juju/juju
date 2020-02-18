@@ -51,7 +51,7 @@ func (k *kubernetesClient) createDaemonSet(spec *apps.DaemonSet) (*apps.DaemonSe
 }
 
 func (k *kubernetesClient) getDaemonSet(name string) (*apps.DaemonSet, error) {
-	out, err := k.client().AppsV1().DaemonSets(k.namespace).Get(name, v1.GetOptions{IncludeUninitialized: true})
+	out, err := k.client().AppsV1().DaemonSets(k.namespace).Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("daemon set %q", name)
 	}
@@ -77,7 +77,6 @@ func (k *kubernetesClient) deleteDaemonSet(name string, uid types.UID) error {
 func (k *kubernetesClient) listDaemonSets(labels map[string]string) ([]apps.DaemonSet, error) {
 	listOps := v1.ListOptions{
 		LabelSelector:        labelsToSelector(labels),
-		IncludeUninitialized: true,
 	}
 	out, err := k.client().AppsV1().DaemonSets(k.namespace).List(listOps)
 	if err != nil {
@@ -94,7 +93,6 @@ func (k *kubernetesClient) deleteDaemonSets(appName string) error {
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
 		LabelSelector:        labelsToSelector(k.getSecretLabels(appName)),
-		IncludeUninitialized: true,
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

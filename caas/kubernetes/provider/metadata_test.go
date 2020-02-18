@@ -299,7 +299,7 @@ func (s *K8sMetadataSuite) TestUserSpecifiedStorageClasses(c *gc.C) {
 			Return(&core.NodeList{Items: []core.Node{{ObjectMeta: v1.ObjectMeta{
 				Labels: map[string]string{"manufacturer": "amazon_ec2"},
 			}}}}, nil),
-		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockStorageClass.EXPECT().Get("foo", v1.GetOptions{}).
 			Return(&storagev1.StorageClass{
 				ObjectMeta:  v1.ObjectMeta{Annotations: map[string]string{"storageclass.kubernetes.io/is-default-class": "true"}},
 				Provisioner: "a-provisioner",

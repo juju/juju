@@ -231,11 +231,11 @@ func (m MutaterMachine) processMachineProfileChanges(info *instancemutater.UnitP
 		return report(errors.Annotatef(err, "%s", m.id))
 	}
 	if verified {
-		m.logger.Tracef("no changes necessary to machine-%s lxd profiles", m.id)
+		m.logger.Infof("no changes necessary to machine-%s lxd profiles (%v)", m.id, expectedProfiles)
 		return report(nil)
 	}
 
-	m.logger.Tracef("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
+	m.logger.Infof("machine-%s (%s) assign lxd profiles %q, %#v", m.id, string(info.InstanceId), expectedProfiles, post)
 	broker := m.context.getBroker()
 	currentProfiles, err := broker.AssignLXDProfiles(string(info.InstanceId), expectedProfiles, post)
 	if err != nil {

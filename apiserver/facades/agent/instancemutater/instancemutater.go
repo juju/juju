@@ -5,8 +5,8 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/juju/state"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
-//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,LXDProfile
-//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine,ModelCacheApplication,ModelCacheUnit,ModelCacheCharm
+//go:generate mockgen -package mocks -destination mocks/instancemutater_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater InstanceMutaterState,Machine,Unit,Application,Charm
+//go:generate mockgen -package mocks -destination mocks/modelcache_mock.go github.com/juju/juju/apiserver/facades/agent/instancemutater ModelCache,ModelCacheMachine
 //go:generate mockgen -package mocks -destination mocks/state_mock.go github.com/juju/juju/state EntityFinder,Entity,Lifer
 //go:generate mockgen -package mocks -destination mocks/watcher_mock.go github.com/juju/juju/core/cache NotifyWatcher,StringsWatcher
 
@@ -54,7 +54,10 @@ type InstanceMutaterAPI struct {
 	resources   facade.Resources
 	authorizer  facade.Authorizer
 	getAuthFunc common.GetAuthFunc
+	machineFunc EntityMachineFunc
 }
+
+type EntityMachineFunc func(state.Entity) (Machine, error)
 
 type InstanceMutaterAPIV1 struct {
 	*InstanceMutaterAPI
@@ -107,6 +110,7 @@ func NewInstanceMutaterAPI(st InstanceMutaterState,
 		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
+		machineFunc: machineFromEntity,
 	}, nil
 }
 
@@ -126,7 +130,7 @@ func (api *InstanceMutaterAPI) CharmProfilingInfo(arg params.Entity) (params.Cha
 		result.Error = common.ServerError(common.ErrPerm)
 		return result, nil
 	}
-	m, err := api.getCacheMachine(canAccess, tag)
+	m, err := api.getMachine(canAccess, tag)
 	if err != nil {
 		result.Error = common.ServerError(err)
 		return result, nil
@@ -321,12 +325,18 @@ func (api *InstanceMutaterAPI) getMachine(canAccess common.AuthFunc, tag names.M
 	}
 	// The authorization function guarantees that the tag represents a
 	// machine.
-	var machine Machine
+	// call a function, default to below... or pass in a func for the mocks to work.
+	// separate constructor in export
+	return api.machineFunc(entity)
+}
+
+func machineFromEntity(entity state.Entity) (Machine, error) {
+	var m *state.Machine
 	var ok bool
-	if machine, ok = entity.(Machine); !ok {
+	if m, ok = entity.(*state.Machine); !ok {
 		return nil, errors.NotValidf("machine entity")
 	}
-	return machine, nil
+	return &machineShim{m}, nil
 }
 
 // lxdProfileInfo holds the profile information for the machineLXDProfileInfo
@@ -338,7 +348,7 @@ type lxdProfileInfo struct {
 	ProfileUnits    []params.ProfileInfoResult
 }
 
-func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdProfileInfo, error) {
+func (api *InstanceMutaterAPI) machineLXDProfileInfo(m Machine) (lxdProfileInfo, error) {
 	var empty lxdProfileInfo
 
 	instId, err := m.InstanceId()
@@ -350,23 +360,17 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 	if err != nil {
 		return empty, errors.Trace(err)
 	}
-	machineProfiles := m.CharmProfiles()
+	machineProfiles, err := m.CharmProfiles()
 	changeResults := make([]params.ProfileInfoResult, len(units))
 	for i, unit := range units {
 		appName := unit.Application()
-		app, err := api.model.Application(appName)
+		app, err := api.st.Application(appName)
 		if err != nil {
 			changeResults[i].Error = common.ServerError(err)
 			continue
 		}
 		chURL := app.CharmURL()
-		ch, err := api.model.Charm(chURL)
-		if err != nil {
-			changeResults[i].Error = common.ServerError(err)
-			continue
-		}
-
-		charmURL, err := charm.ParseURL(chURL)
+		ch, err := api.st.Charm(chURL)
 		if err != nil {
 			changeResults[i].Error = common.ServerError(err)
 			continue
@@ -382,7 +386,7 @@ func (api *InstanceMutaterAPI) machineLXDProfileInfo(m ModelCacheMachine) (lxdPr
 		}
 		changeResults[i] = params.ProfileInfoResult{
 			ApplicationName: appName,
-			Revision:        charmURL.Revision,
+			Revision:        chURL.Revision,
 			Profile:         normalised,
 		}
 	}

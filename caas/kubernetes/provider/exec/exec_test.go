@@ -315,16 +315,11 @@ func (s *execSuite) TestExec(c *gc.C) {
 	pod.SetUID("gitlab-k8s-uid")
 	pod.SetName("gitlab-k8s-0")
 
-	request := rest.NewRequest(
-		nil,
-		"POST",
+	request := rest.NewRequestWithClient(
 		&url.URL{Path: "/path/"},
 		"",
-		rest.ContentConfig{GroupVersion: &core.SchemeGroupVersion},
-		rest.Serializers{},
+		rest.ClientContentConfig{GroupVersion: core.SchemeGroupVersion},
 		nil,
-		nil,
-		0,
 	).Resource("pods").Name("gitlab-k8s-0").Namespace("test").
 		SubResource("exec").Param("container", "gitlab-container").VersionedParams(
 		&core.PodExecOptions{

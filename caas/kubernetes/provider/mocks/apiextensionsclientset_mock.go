@@ -8,6 +8,7 @@ import (
 	reflect "reflect"
 
 	gomock "github.com/golang/mock/gomock"
+	v1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	v1beta1 "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	discovery "k8s.io/client-go/discovery"
 )
@@ -35,16 +36,16 @@ func (m *MockApiExtensionsClientInterface) EXPECT() *MockApiExtensionsClientInte
 	return m.recorder
 }
 
-// Apiextensions mocks base method
-func (m *MockApiExtensionsClientInterface) Apiextensions() v1beta1.ApiextensionsV1beta1Interface {
-	ret := m.ctrl.Call(m, "Apiextensions")
-	ret0, _ := ret[0].(v1beta1.ApiextensionsV1beta1Interface)
+// ApiextensionsV1 mocks base method
+func (m *MockApiExtensionsClientInterface) ApiextensionsV1() v1.ApiextensionsV1Interface {
+	ret := m.ctrl.Call(m, "ApiextensionsV1")
+	ret0, _ := ret[0].(v1.ApiextensionsV1Interface)
 	return ret0
 }
 
-// Apiextensions indicates an expected call of Apiextensions
-func (mr *MockApiExtensionsClientInterfaceMockRecorder) Apiextensions() *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Apiextensions", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).Apiextensions))
+// ApiextensionsV1 indicates an expected call of ApiextensionsV1
+func (mr *MockApiExtensionsClientInterfaceMockRecorder) ApiextensionsV1() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApiextensionsV1", reflect.TypeOf((*MockApiExtensionsClientInterface)(nil).ApiextensionsV1))
 }
 
 // ApiextensionsV1beta1 mocks base method
