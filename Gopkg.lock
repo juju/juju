@@ -760,7 +760,7 @@
   revision = "68a59c96c178fbbad65926e7f93db50a2cd14f33"
 
 [[projects]]
-  digest = "1:ed85b6356e8e1612c96e368bbe082173ebe3993f61adbd9f9fe1456279a18db5"
+  digest = "1:85558d1ebc168aa90832e1d4b6f3068c4b1c7d985d355bea827ce9d2b36be07a"
   name = "github.com/juju/utils"
   packages = [
     ".",
@@ -791,7 +791,7 @@
     "zip",
   ]
   pruneopts = ""
-  revision = "bf9cc5bdd62dabc40b7f634b39a5e2dc44d44c45"
+  revision = "d40c2fe1064788d512a6ed0f3c4fcaf0e42515c6"
 
 [[projects]]
   digest = "1:eab278f98004677adf1d70d6cdaba1c01a446ab10dddb1cf7d83cfd1475c22cc"
@@ -1542,11 +1542,11 @@
   revision = "e057c73bd1beb18e9634151a2410c422bd2057f2"
 
 [[projects]]
-  digest = "1:64cc4822f856fd25eff368bdfc8f532c889fed9724ce184d80020efe20dae158"
+  digest = "1:941d40c0b44b5e362c762047a191ba90c439b4df492ea8a106d964155e1f3f86"
   name = "gopkg.in/juju/names.v3"
   packages = ["."]
   pruneopts = ""
-  revision = "39289f3737654a399166e9cd65c043b5b3bfed01"
+  revision = "139ecaca454cb9101eed8ea76374ddc0be8cc8e8"
 
 [[projects]]
   digest = "1:2041c73bbc755e07a90e03f149933b8ecfce5233a5afbe6b04230386a75f8fda"
