@@ -472,7 +472,7 @@
 
 [[constraint]]
   name = "gopkg.in/goose.v2"
-  revision = "f18d0f2f8f9bc5b5234a338670210c4bf4328ab4"
+  revision = "871ee3cbcbdb40c7a23ae20d01cbde1ae82b3e8d"
 
 [[override]]
   name = "gopkg.in/httprequest.v1"
