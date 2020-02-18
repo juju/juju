@@ -205,7 +205,10 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			f.model.SetPodSpec(tag, &arg.Value),
+			// NOTE(achilleasa) the CAAS operator is a singleton so
+			// we can safely bypass the leadership checks when
+			// updating pod specs.
+			f.model.SetPodSpec(nil, tag, &arg.Value),
 		)
 	}
 	return results, nil

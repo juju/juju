@@ -673,7 +673,7 @@ func (s *MigrationImportSuite) TestCAASApplications(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	caasModel, err := model.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
-	err = caasModel.SetPodSpec(application.ApplicationTag(), strPtr("pod spec"))
+	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
 	addr.SpaceID = "0"
@@ -747,7 +747,7 @@ func (s *MigrationImportSuite) TestCAASApplicationStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	caasModel, err := testModel.CAASModel()
 	c.Assert(err, jc.ErrorIsNil)
-	err = caasModel.SetPodSpec(application.ApplicationTag(), strPtr("pod spec"))
+	err = caasModel.SetPodSpec(nil, application.ApplicationTag(), strPtr("pod spec"))
 	c.Assert(err, jc.ErrorIsNil)
 	addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
 	err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})

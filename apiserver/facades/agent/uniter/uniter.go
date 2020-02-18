@@ -2736,7 +2736,13 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResu
 
 	for i, arg := range args.Specs {
 		results.Results[i].Error = common.ServerError(
-			u.setPodSpec(arg.Tag, arg.Spec, canAccessApp),
+			// NOTE(achilleasa) The operator authenticates as the
+			// application so we cannot extract the unit id for
+			// leadership check purposes. To this end we pass
+			// nil as the unit tag to bypass the leadership check.
+			// Newer controllers will use the CommitHookChanges
+			// call which does perform the leadership check.
+			u.setPodSpec(arg.Tag, arg.Spec, nil, canAccessApp),
 		)
 	}
 	return results, nil
@@ -2757,15 +2763,15 @@ func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
 	}
 }
 
-func (u *UniterAPI) setPodSpec(appTag string, spec *string, canAccessApp common.AuthFunc) error {
-	modelOp, err := u.setPodSpecOperation(appTag, spec, canAccessApp)
+func (u *UniterAPI) setPodSpec(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) error {
+	modelOp, err := u.setPodSpecOperation(appTag, spec, unitTag, canAccessApp)
 	if err != nil {
 		return err
 	}
 	return u.st.ApplyOperation(modelOp)
 }
 
-func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
+func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
 	parsedAppTag, err := names.ParseApplicationTag(appTag)
 	if err != nil {
 		return nil, err
@@ -2784,7 +2790,16 @@ func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, canAccessAp
 		return nil, err
 	}
 
-	return cm.SetPodSpecOperation(parsedAppTag, spec), nil
+	// If this call is invoked by the CommitHookChanges call, the unit tag
+	// is known and can be used for a leadership check. For calls to the
+	// SetPodSpec API endpoint (older k8s deployments) the unit tag is
+	// unknown since the uniter authenticates as an application. In the
+	// latter case, the leadership check is skipped.
+	var token leadership.Token
+	if unitTag != nil {
+		token = u.leadershipChecker.LeadershipCheck(parsedAppTag.Id(), unitTag.Id())
+	}
+	return cm.SetPodSpecOperation(token, parsedAppTag, spec), nil
 }
 
 // Mask the GetPodSpec method from the v13 API. The API reflection code
@@ -3463,7 +3478,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if changes.SetPodSpec.Tag != appTag {
 			return errors.BadRequestf("application tag %q in SetPodSpec payload does not match the application for unit %q", changes.SetPodSpec.Tag, changes.Tag)
 		}
-		modelOp, err := u.setPodSpecOperation(changes.SetPodSpec.Tag, changes.SetPodSpec.Spec, canAccessApp)
+		modelOp, err := u.setPodSpecOperation(changes.SetPodSpec.Tag, changes.SetPodSpec.Spec, unitTag, canAccessApp)
 		if err != nil {
 			return errors.Trace(err)
 		}

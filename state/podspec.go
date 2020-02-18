@@ -8,6 +8,8 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/leadership"
 )
 
 type containerSpecDoc struct {
@@ -21,20 +23,23 @@ type containerSpecDoc struct {
 	UpgradeCounter int `bson:"upgrade-counter"`
 }
 
-// SetPodSpec sets the pod spec for the given application tag.
-// An error will be returned if the specified application is not alive.
-func (m *CAASModel) SetPodSpec(appTag names.ApplicationTag, spec *string) error {
-	modelOp := m.SetPodSpecOperation(appTag, spec)
+// SetPodSpec sets the pod spec for the given application tag while making sure
+// that the caller is the leader by validating the provided token. For cases
+// where leadership checks are not important (e.g. migrations), a nil Token can
+// be provided to bypass the leadership checks.
+//
+// An error will be returned if the specified application is not alive or the
+// leadership check fails.
+func (m *CAASModel) SetPodSpec(token leadership.Token, appTag names.ApplicationTag, spec *string) error {
+	modelOp := m.SetPodSpecOperation(token, appTag, spec)
 	return m.st.ApplyOperation(modelOp)
 }
 
-// SetPodSpecOperation returns a ModelOperation for updating a PodSpec.
-func (m *CAASModel) SetPodSpecOperation(appTag names.ApplicationTag, spec *string) ModelOperation {
-	return &setPodSpecOperation{
-		m:      m,
-		appTag: appTag,
-		spec:   spec,
-	}
+// SetPodSpecOperation returns a ModelOperation for updating a PodSpec. For
+// cases where leadership checks are not important (e.g. migrations), a nil
+// Token can be provided to bypass the leadership checks.
+func (m *CAASModel) SetPodSpecOperation(token leadership.Token, appTag names.ApplicationTag, spec *string) ModelOperation {
+	return newSetPodSpecOperation(m, token, appTag, spec)
 }
 
 // PodSpec returns the pod spec for the given application tag.

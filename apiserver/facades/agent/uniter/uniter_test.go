@@ -3634,6 +3634,7 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 
 	err := u.SetPodSpec(app.Name(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
+
 	spec, err := cm.PodSpec(app.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, gc.Equals, podSpec)
@@ -3642,9 +3643,9 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
 
-	err := cm.SetPodSpec(app.ApplicationTag(), &podSpec)
+	err := cm.SetPodSpec(nil, app.ApplicationTag(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cm.SetPodSpec(app.ApplicationTag(), nil)
+	err = cm.SetPodSpec(nil, app.ApplicationTag(), nil)
 	c.Assert(err, jc.ErrorIsNil)
 	// Spec doesn't change when setting with nil.
 	spec, err := u.GetPodSpec(app.Name())
@@ -3655,7 +3656,7 @@ func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
 func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
 
-	err := cm.SetPodSpec(app.ApplicationTag(), &podSpec)
+	err := cm.SetPodSpec(nil, app.ApplicationTag(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	spec, err := u.GetPodSpec(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4791,7 +4792,7 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 	b.ClosePortRange("tcp", 7337, 7337)
 	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
 	b.AddStorage(map[string][]params.StorageConstraints{
-		"multi1to10": []params.StorageConstraints{{Count: &stCount}},
+		"multi1to10": {{Count: &stCount}},
 	})
 	req, _ := b.Build()
 
@@ -4828,28 +4829,25 @@ func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
 func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
 
+	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), gitlabUnit.UnitTag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
 	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
 	b.UpdateNetworkInfo()
 	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
 	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
 	req, _ := b.Build()
 
-	// Add some extra args to test error handling
-	req.Args = append(req.Args,
-		params.CommitHookChangesArg{Tag: "not-a-unit-tag"},
-		params.CommitHookChangesArg{Tag: "unit-mysql-0"}, // not accessible by current user
-		params.CommitHookChangesArg{Tag: "unit-notfound-0"},
-	)
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
 
-	uniterAPI := s.newUniterAPI(c, cm.State(), s.authorizer)
 	result, err := uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: nil},
-			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -4861,6 +4859,38 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
 	unitState, err := gitlabUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+
+	f := factory.NewFactory(cm.State(), s.StatePool)
+	otherGitlabUnit := f.MakeUnit(c, &factory.UnitParams{
+		Application: gitlab,
+		SetCharmURL: true,
+	})
+
+	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), otherGitlabUnit.Tag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `prerequisites failed: "` + gitlabUnit.Tag().Id() + `" is not leader of "` + gitlab.Name() + `"`}},
+		},
+	})
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {

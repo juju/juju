@@ -8,16 +8,43 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/leadership"
 )
 
 type setPodSpecOperation struct {
 	m      *CAASModel
 	appTag names.ApplicationTag
 	spec   *string
+
+	tokenAwareTxnBuilder func(int) ([]txn.Op, error)
+}
+
+// newSetPodSpecOperation returns a ModelOperation for updating the PodSpec
+// for a particular application. A nil token can be specified to bypass the
+// leadership check.
+func newSetPodSpecOperation(model *CAASModel, token leadership.Token, appTag names.ApplicationTag, spec *string) *setPodSpecOperation {
+	op := &setPodSpecOperation{
+		m:      model,
+		appTag: appTag,
+		spec:   spec,
+	}
+
+	if token != nil {
+		op.tokenAwareTxnBuilder = buildTxnWithLeadership(op.buildTxn, token)
+	}
+	return op
 }
 
 // Build implements ModelOperation.
 func (op *setPodSpecOperation) Build(attempt int) ([]txn.Op, error) {
+	if op.tokenAwareTxnBuilder != nil {
+		return op.tokenAwareTxnBuilder(attempt)
+	}
+	return op.buildTxn(attempt)
+}
+
+func (op *setPodSpecOperation) buildTxn(_ int) ([]txn.Op, error) {
 	var prereqOps []txn.Op
 	appTagID := op.appTag.Id()
 	app, err := op.m.State().Application(appTagID)
