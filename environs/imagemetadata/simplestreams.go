@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/errors"
 	"github.com/juju/os/series"
 	"github.com/juju/utils"
 	"github.com/juju/utils/arch"
@@ -132,9 +133,18 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		if publicKey == "" {
 			publicKey = keys.JujuPublicKey
 		}
-		result = append(
-			result,
-			simplestreams.NewURLSignedDataSource("default cloud images", defaultJujuURL, publicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
+		config := simplestreams.Config{
+			Description:          "default cloud images",
+			BaseURL:              defaultJujuURL,
+			PublicSigningKey:     publicKey,
+			HostnameVerification: utils.VerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+			RequireSigned:        true,
+		}
+		if err := config.Validate(); err != nil {
+			return nil, errors.Annotate(err, "simplestreams config validation failed")
+		}
+		result = append(result, simplestreams.NewDataSource(config))
 	}
 
 	// Fallback to image metadata for existing Ubuntu images.
@@ -143,9 +153,18 @@ func OfficialDataSources(stream string) ([]simplestreams.DataSource, error) {
 		return nil, err
 	}
 	if defaultUbuntuURL != "" {
-		result = append(
-			result,
-			simplestreams.NewURLSignedDataSource("default ubuntu cloud images", defaultUbuntuURL, SimplestreamsImagesPublicKey, utils.VerifySSLHostnames, simplestreams.DEFAULT_CLOUD_DATA, true))
+		config := simplestreams.Config{
+			Description:          "default ubuntu cloud images",
+			BaseURL:              defaultUbuntuURL,
+			PublicSigningKey:     SimplestreamsImagesPublicKey,
+			HostnameVerification: utils.VerifySSLHostnames,
+			Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+			RequireSigned:        true,
+		}
+		if err := config.Validate(); err != nil {
+			return nil, errors.Annotate(err, "simplestreams config validation failed")
+		}
+		result = append(result, simplestreams.NewDataSource(config))
 	}
 
 	return result, nil

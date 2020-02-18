@@ -42,13 +42,16 @@ func NewDataSource(baseURL string) simplestreams.DataSource {
 // NewDataSource returns a datasourceFunc from the baseURL provided.
 func newDataSourceFunc(baseURL string) func() simplestreams.DataSource {
 	return func() simplestreams.DataSource {
-		return simplestreams.NewURLSignedDataSource(
-			"ubuntu cloud images",
-			baseURL,
-			imagemetadata.SimplestreamsImagesPublicKey,
-			utils.VerifySSLHostnames,
-			simplestreams.DEFAULT_CLOUD_DATA,
-			true)
+		return simplestreams.NewDataSource(
+			simplestreams.Config{
+				Description:          "ubuntu cloud images",
+				BaseURL:              baseURL,
+				PublicSigningKey:     imagemetadata.SimplestreamsImagesPublicKey,
+				HostnameVerification: utils.VerifySSLHostnames,
+				Priority:             simplestreams.DEFAULT_CLOUD_DATA,
+				RequireSigned:        true,
+			},
+		)
 	}
 }
 
