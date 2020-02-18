@@ -68,6 +68,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 
 	expected := []string{
 		"JUJU_CONTEXT_ID=some-context-id",
+		"JUJU_HOOK_NAME=some-hook-name",
 		"JUJU_MODEL_UUID=model-uuid-deadbeef",
 		"JUJU_PRINCIPAL_UNIT=this-unit/123",
 		"JUJU_MODEL_NAME=some-model-name",
@@ -111,6 +112,7 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 	// what the environment values are.
 	return context.NewModelHookContext(
 		"some-context-id",
+		"some-hook-name",
 		"model-uuid-deadbeef",
 		"some-model-name",
 		"this-unit/123",

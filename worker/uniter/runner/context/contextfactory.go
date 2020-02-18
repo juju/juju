@@ -240,6 +240,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		hookName = fmt.Sprintf("%s-%s", storageName, hookName)
 	}
 	ctx.id = f.newId(hookName)
+	ctx.hookName = hookName
 	return ctx, nil
 }
 
