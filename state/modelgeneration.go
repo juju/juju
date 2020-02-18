@@ -509,7 +509,7 @@ func (g *Generation) Abort(userName string) error {
 		assigned := g.AssignedUnits()
 		for _, units := range assigned {
 			if len(units) > 0 {
-				return nil, errors.New("branch is in progress. Either reset values on tracking units or remove them to abort.")
+				return nil, errors.New("branch is in progress. Either reset values on tracking units and commit the branch or remove them to abort.")
 			}
 		}
 
