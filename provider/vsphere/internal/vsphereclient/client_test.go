@@ -228,15 +228,26 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "summary.accessible", Val: true},
 			},
 		}},
-		"FakeVmFolder": {{
-			Obj: types.ManagedObjectReference{
-				Type:  "Folder",
-				Value: "FakeControllerVmFolder",
+		"FakeVmFolder": {
+			{
+				Obj: types.ManagedObjectReference{
+					Type:  "Folder",
+					Value: "FakeControllerVmFolder",
+				},
+				PropSet: []types.DynamicProperty{
+					{Name: "name", Val: "foo"},
+				},
 			},
-			PropSet: []types.DynamicProperty{
-				{Name: "name", Val: "foo"},
+			{
+				Obj: types.ManagedObjectReference{
+					Type:  "Folder",
+					Value: "FakeK8sVMFolder",
+				},
+				PropSet: []types.DynamicProperty{
+					{Name: "name", Val: "k8s"},
+				},
 			},
-		}},
+		},
 		"FakeControllerVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "Folder",
@@ -246,6 +257,7 @@ func (s *clientSuite) SetUpTest(c *gc.C) {
 				{Name: "name", Val: "bar"},
 			},
 		}},
+		"FakeK8sVMFolder": {},
 		"FakeModelVmFolder": {{
 			Obj: types.ManagedObjectReference{
 				Type:  "VirtualMachine",

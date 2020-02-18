@@ -50,8 +50,7 @@ func (k *kubernetesClient) getEvents(objName string, objKind string) ([]core.Eve
 	).String()
 	logger.Debugf("getting the latest event for %q", selector)
 	eventList, err := k.client().CoreV1().Events(k.namespace).List(v1.ListOptions{
-		IncludeUninitialized: true,
-		FieldSelector:        selector,
+		FieldSelector: selector,
 	})
 	if err != nil {
 		return nil, errors.Trace(err)

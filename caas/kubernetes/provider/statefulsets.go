@@ -138,7 +138,7 @@ func (k *kubernetesClient) updateStatefulSet(spec *apps.StatefulSet) (*apps.Stat
 }
 
 func (k *kubernetesClient) getStatefulSet(name string) (*apps.StatefulSet, error) {
-	out, err := k.client().AppsV1().StatefulSets(k.namespace).Get(name, v1.GetOptions{IncludeUninitialized: true})
+	out, err := k.client().AppsV1().StatefulSets(k.namespace).Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("stateful set %q", name)
 	}

@@ -166,8 +166,7 @@ func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
 	err := api.DeleteCollection(&metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}, metav1.ListOptions{
-		LabelSelector:        labelsToSelector(labels),
-		IncludeUninitialized: true,
+		LabelSelector: labelsToSelector(labels),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

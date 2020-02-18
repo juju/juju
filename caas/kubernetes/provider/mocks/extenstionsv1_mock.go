@@ -75,6 +75,18 @@ func (mr *MockExtensionsV1beta1InterfaceMockRecorder) Ingresses(arg0 interface{}
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Ingresses", reflect.TypeOf((*MockExtensionsV1beta1Interface)(nil).Ingresses), arg0)
 }
 
+// NetworkPolicies mocks base method
+func (m *MockExtensionsV1beta1Interface) NetworkPolicies(arg0 string) v1beta10.NetworkPolicyInterface {
+	ret := m.ctrl.Call(m, "NetworkPolicies", arg0)
+	ret0, _ := ret[0].(v1beta10.NetworkPolicyInterface)
+	return ret0
+}
+
+// NetworkPolicies indicates an expected call of NetworkPolicies
+func (mr *MockExtensionsV1beta1InterfaceMockRecorder) NetworkPolicies(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NetworkPolicies", reflect.TypeOf((*MockExtensionsV1beta1Interface)(nil).NetworkPolicies), arg0)
+}
+
 // PodSecurityPolicies mocks base method
 func (m *MockExtensionsV1beta1Interface) PodSecurityPolicies() v1beta10.PodSecurityPolicyInterface {
 	ret := m.ctrl.Call(m, "PodSecurityPolicies")
@@ -109,18 +121,6 @@ func (m *MockExtensionsV1beta1Interface) ReplicaSets(arg0 string) v1beta10.Repli
 // ReplicaSets indicates an expected call of ReplicaSets
 func (mr *MockExtensionsV1beta1InterfaceMockRecorder) ReplicaSets(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplicaSets", reflect.TypeOf((*MockExtensionsV1beta1Interface)(nil).ReplicaSets), arg0)
-}
-
-// Scales mocks base method
-func (m *MockExtensionsV1beta1Interface) Scales(arg0 string) v1beta10.ScaleInterface {
-	ret := m.ctrl.Call(m, "Scales", arg0)
-	ret0, _ := ret[0].(v1beta10.ScaleInterface)
-	return ret0
-}
-
-// Scales indicates an expected call of Scales
-func (mr *MockExtensionsV1beta1InterfaceMockRecorder) Scales(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Scales", reflect.TypeOf((*MockExtensionsV1beta1Interface)(nil).Scales), arg0)
 }
 
 // MockIngressInterface is a mock of IngressInterface interface

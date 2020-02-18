@@ -39,6 +39,18 @@ func (m *MockStorageV1Interface) EXPECT() *MockStorageV1InterfaceMockRecorder {
 	return m.recorder
 }
 
+// CSINodes mocks base method
+func (m *MockStorageV1Interface) CSINodes() v11.CSINodeInterface {
+	ret := m.ctrl.Call(m, "CSINodes")
+	ret0, _ := ret[0].(v11.CSINodeInterface)
+	return ret0
+}
+
+// CSINodes indicates an expected call of CSINodes
+func (mr *MockStorageV1InterfaceMockRecorder) CSINodes() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CSINodes", reflect.TypeOf((*MockStorageV1Interface)(nil).CSINodes))
+}
+
 // RESTClient mocks base method
 func (m *MockStorageV1Interface) RESTClient() rest.Interface {
 	ret := m.ctrl.Call(m, "RESTClient")
@@ -61,6 +73,18 @@ func (m *MockStorageV1Interface) StorageClasses() v11.StorageClassInterface {
 // StorageClasses indicates an expected call of StorageClasses
 func (mr *MockStorageV1InterfaceMockRecorder) StorageClasses() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StorageClasses", reflect.TypeOf((*MockStorageV1Interface)(nil).StorageClasses))
+}
+
+// VolumeAttachments mocks base method
+func (m *MockStorageV1Interface) VolumeAttachments() v11.VolumeAttachmentInterface {
+	ret := m.ctrl.Call(m, "VolumeAttachments")
+	ret0, _ := ret[0].(v11.VolumeAttachmentInterface)
+	return ret0
+}
+
+// VolumeAttachments indicates an expected call of VolumeAttachments
+func (mr *MockStorageV1InterfaceMockRecorder) VolumeAttachments() *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VolumeAttachments", reflect.TypeOf((*MockStorageV1Interface)(nil).VolumeAttachments))
 }
 
 // MockStorageClassInterface is a mock of StorageClassInterface interface

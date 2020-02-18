@@ -241,7 +241,7 @@ func (v *volumeSource) DestroyVolumes(ctx context.ProviderCallContext, volIds []
 	logger.Debugf("destroy k8s volumes: %v", volIds)
 	pVolumes := v.client.client().CoreV1().PersistentVolumes()
 	return foreachVolume(volIds, func(volumeId string) error {
-		vol, err := pVolumes.Get(volumeId, v1.GetOptions{IncludeUninitialized: true})
+		vol, err := pVolumes.Get(volumeId, v1.GetOptions{})
 		if err != nil && !k8serrors.IsNotFound(err) {
 			return errors.Annotatef(err, "getting volume %v to delete", volumeId)
 		}
