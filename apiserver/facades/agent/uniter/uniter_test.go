@@ -4648,6 +4648,9 @@ func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
 func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	s.addRelationAndAssertInScope(c)
 
+	err := s.State.LeadershipClaimer().ClaimLeadership(s.wordpress.ApplicationTag().Id(), s.wordpressUnit.UnitTag().Id(), time.Minute)
+	c.Assert(err, gc.IsNil)
+
 	// Clear network settings from all relation units
 	relList, err := s.wordpressUnit.RelationsJoined()
 	c.Assert(err, gc.IsNil)
@@ -4666,7 +4669,7 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 
 	req, _ := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag()).
 		UpdateNetworkInfo().
-		UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, nil).
+		UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"}).
 		OpenPortRange("tcp", 80, 81).
 		OpenPortRange("tcp", 7337, 7337). // same port closed below; this should be a no-op
 		ClosePortRange("tcp", 7337, 7337).
@@ -4718,6 +4721,38 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 	unitState, err := s.wordpressUnit.State()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	appCfg, err := relList[0].ApplicationSettings(s.wordpress.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appCfg, gc.DeepEquals, map[string]interface{}{"app_data": "updated"}, gc.Commentf("application data not updated by leader unit"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	// Make wordpress/0 the leader; we are working with wordpress/1
+	c.Assert(s.wordpressUnit.UnitTag().Id(), gc.Not(gc.Equals), "wordpress/0")
+	err := s.State.LeadershipClaimer().ClaimLeadership(s.wordpress.ApplicationTag().Id(), "wordpress/0", time.Minute)
+	c.Assert(err, gc.IsNil)
+
+	relList, err := s.wordpressUnit.RelationsJoined()
+	c.Assert(err, gc.IsNil)
+
+	req, _ := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag()).
+		UpdateRelationUnitSettings(relList[0].Tag().String(), nil, params.Settings{"can't": "touch this!"}).
+		Build()
+
+	// Test-suite uses an older API version
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `prerequisites failed: "wordpress/1" is not leader of "wordpress"`}},
+		},
+	})
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {
