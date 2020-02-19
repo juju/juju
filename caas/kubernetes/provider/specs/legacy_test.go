@@ -157,7 +157,13 @@ customResourceDefinitions:
 [config]
 foo: bar
 `[1:]
-
+	fileSet1 := specs.FileSet{
+		Name:      "configuration",
+		MountPath: "/var/lib/foo",
+	}
+	fileSet1.Files = map[string]string{
+		"file1": expectedFileContent,
+	}
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{}
 		// always parse to latest version.
@@ -188,13 +194,7 @@ echo "do some stuff here for gitlab container"
 					"special":    "p@ssword's",
 				},
 				Files: []specs.FileSet{
-					{
-						Name:      "configuration",
-						MountPath: "/var/lib/foo",
-						Files: map[string]string{
-							"file1": expectedFileContent,
-						},
-					},
+					fileSet1,
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
 					SecurityContext: &core.SecurityContext{

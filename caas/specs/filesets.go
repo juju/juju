@@ -37,8 +37,8 @@ type VolumeSource struct {
 	Files     map[string]string `json:"files" yaml:"files"`
 	HostPath  *HostPathVol      `json:"hostPath" yaml:"hostPath"`
 	EmptyDir  *EmptyDirVol      `json:"emptyDir" yaml:"emptyDir"`
-	Secret    *ResourceRefVol   `json:"secret" yaml:"secret"`
 	ConfigMap *ResourceRefVol   `json:"configMap" yaml:"configMap"`
+	Secret    *ResourceRefVol   `json:"secret" yaml:"secret"`
 }
 
 type validator interface {

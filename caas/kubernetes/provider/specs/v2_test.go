@@ -85,6 +85,35 @@ containers:
           file1: |
             [config]
             foo: bar
+      - name: myhostpath
+        mountPath: /host/etc/cni/net.d
+        hostPath:
+          path: /etc/cni/net.d
+          type: Directory
+      - name: cache-volume
+        mountPath: /empty-dir
+        emptyDir:
+          medium: Memory
+      - name: log_level
+        mountPath: /log-config/log_level
+        configMap:
+          name: log-config
+          defaultMode: 511
+          optional: true
+          items:
+            - key: log_level
+              path: log_level
+              mode: 511
+      - name: mysecret2
+        mountPath: /secrets
+        secret:
+          name: mysecret2
+          defaultMode: 511
+          optional: true
+          items:
+            - key: password
+              path: my-group/my-password
+              mode: 511
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
@@ -319,6 +348,60 @@ foo: bar
 			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
+	fileSet1 := specs.FileSet{
+		Name:      "configuration",
+		MountPath: "/var/lib/foo",
+	}
+	fileSet1.Files = map[string]string{
+		"file1": expectedFileContent,
+	}
+	fileSet2 := specs.FileSet{
+		Name:      "myhostpath",
+		MountPath: "/host/etc/cni/net.d",
+	}
+	fileSet2.HostPath = &specs.HostPathVol{
+		Path: "/etc/cni/net.d",
+		Type: "Directory",
+	}
+	fileSet3 := specs.FileSet{
+		Name:      "cache-volume",
+		MountPath: "/empty-dir",
+	}
+	fileSet3.EmptyDir = &specs.EmptyDirVol{
+		Medium: "Memory",
+	}
+	fileSet4 := specs.FileSet{
+		Name:      "log_level",
+		MountPath: "/log-config/log_level",
+	}
+	fileSet4.ConfigMap = &specs.ResourceRefVol{
+		Name:        "log-config",
+		DefaultMode: int32Ptr(511),
+		Optional:    boolPtr(true),
+		Items: []specs.KeyToPath{
+			{
+				Key:  "log_level",
+				Path: "log_level",
+				Mode: int32Ptr(511),
+			},
+		},
+	}
+	fileSet5 := specs.FileSet{
+		Name:      "mysecret2",
+		MountPath: "/secrets",
+	}
+	fileSet5.Secret = &specs.ResourceRefVol{
+		Name:        "mysecret2",
+		DefaultMode: int32Ptr(511),
+		Optional:    boolPtr(true),
+		Items: []specs.KeyToPath{
+			{
+				Key:  "password",
+				Path: "my-group/my-password",
+				Mode: int32Ptr(511),
+			},
+		},
+	}
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
@@ -365,13 +448,7 @@ echo "do some stuff here for gitlab container"
 					},
 				},
 				Files: []specs.FileSet{
-					{
-						Name:      "configuration",
-						MountPath: "/var/lib/foo",
-						Files: map[string]string{
-							"file1": expectedFileContent,
-						},
-					},
+					fileSet1, fileSet2, fileSet3, fileSet4, fileSet5,
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
 					SecurityContext: &core.SecurityContext{

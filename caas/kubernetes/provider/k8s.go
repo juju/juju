@@ -1372,24 +1372,75 @@ func (k *kubernetesClient) configurePodFiles(
 ) error {
 	for i, container := range containers {
 		for _, fileSet := range container.Files {
-			cfgName := cfgMapName(fileSet.Name)
-			vol := core.Volume{Name: cfgName}
-			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
-				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
-			}
-			vol.ConfigMap = &core.ConfigMapVolumeSource{
-				LocalObjectReference: core.LocalObjectReference{
-					Name: cfgName,
-				},
+			vol, err := k.fileSetToVolume(appName, annotations, fileSet, cfgMapName)
+			if err != nil {
+				return errors.Trace(err)
 			}
 			podSpec.Volumes = append(podSpec.Volumes, vol)
 			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, core.VolumeMount{
-				Name:      cfgName,
+				Name:      vol.Name,
 				MountPath: fileSet.MountPath,
 			})
 		}
 	}
 	return nil
+}
+
+func (k *kubernetesClient) fileSetToVolume(appName string, annotations map[string]string, fileSet specs.FileSet, cfgMapName configMapNameFunc) (core.Volume, error) {
+	fileSetItemsToVolItems := func(items []specs.KeyToPath) (out []core.KeyToPath) {
+		for _, item := range items {
+			out = append(out, core.KeyToPath{
+				Key:  item.Key,
+				Path: item.Path,
+				Mode: item.Mode,
+			})
+		}
+		return out
+	}
+
+	vol := core.Volume{Name: fileSet.Name}
+	if fileSet.Files != nil {
+		vol.Name = cfgMapName(fileSet.Name)
+		if _, err := k.ensureConfigMapLegacy(filesetConfigMap(vol.Name, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
+			return vol, errors.Annotatef(err, "creating or updating ConfigMap for file set %v", vol.Name)
+		}
+		vol.ConfigMap = &core.ConfigMapVolumeSource{
+			LocalObjectReference: core.LocalObjectReference{
+				Name: vol.Name,
+			},
+		}
+	} else if fileSet.HostPath != nil {
+		t := core.HostPathType(fileSet.HostPath.Type)
+		vol.HostPath = &core.HostPathVolumeSource{
+			Path: fileSet.HostPath.Path,
+			Type: &t,
+		}
+	} else if fileSet.EmptyDir != nil {
+		vol.EmptyDir = &core.EmptyDirVolumeSource{
+			Medium:    core.StorageMedium(fileSet.EmptyDir.Medium),
+			SizeLimit: fileSet.EmptyDir.SizeLimit,
+		}
+	} else if fileSet.ConfigMap != nil {
+		vol.ConfigMap = &core.ConfigMapVolumeSource{
+			LocalObjectReference: core.LocalObjectReference{
+				Name: fileSet.ConfigMap.Name,
+			},
+			DefaultMode: fileSet.ConfigMap.DefaultMode,
+			Optional:    fileSet.ConfigMap.Optional,
+			Items:       fileSetItemsToVolItems(fileSet.ConfigMap.Items),
+		}
+	} else if fileSet.Secret != nil {
+		vol.Secret = &core.SecretVolumeSource{
+			SecretName:  fileSet.Secret.Name,
+			DefaultMode: fileSet.Secret.DefaultMode,
+			Optional:    fileSet.Secret.Optional,
+			Items:       fileSetItemsToVolItems(fileSet.Secret.Items),
+		}
+	} else {
+		// This should never happen because FileSet validation has been in k8s spec level.
+		return vol, errors.NotValidf("fileset %q is empty", fileSet.Name)
+	}
+	return vol, nil
 }
 
 func configureInitContainer(podSpec *core.PodSpec, operatorImagePath string) error {
