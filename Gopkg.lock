@@ -188,14 +188,6 @@
   version = "v3.0"
 
 [[projects]]
-  digest = "1:b13707423743d41665fd23f0c36b2f37bb49c30e94adb813319c44188a51ba22"
-  name = "github.com/ghodss/yaml"
-  packages = ["."]
-  pruneopts = ""
-  revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
-  version = "v1.0.0"
-
-[[projects]]
   digest = "1:9ab1b1c637d7c8f49e39d8538a650d7eb2137b076790cff69d160823b505964c"
   name = "github.com/gobwas/glob"
   packages = [
@@ -230,13 +222,6 @@
   version = "v1.1.1"
 
 [[projects]]
-  digest = "1:ed314700d20eeaaa904b47e6fd3d4866f7bd14887a4904a9f69ec1e47385416f"
-  name = "github.com/golang/glog"
-  packages = ["."]
-  pruneopts = ""
-  revision = "44145f04b68cf362d9c4df2182967c2275eaefed"
-
-[[projects]]
   digest = "1:48448440bcf4465b2aedc1fc92c61beaeffcc056932b4afdcb9a75a059b5211d"
   name = "github.com/golang/mock"
   packages = ["gomock"]
@@ -259,12 +244,18 @@
   version = "v1.1.0"
 
 [[projects]]
-  branch = "master"
-  digest = "1:be28c0531a755f2178acf1e327e6f5a8a3968feb5f2567cdc968064253141751"
-  name = "github.com/google/btree"
-  packages = ["."]
+  digest = "1:c35d25413dce110e4ff2ca871c648bf5365ab8c954021394cabd39f5e0566fd8"
+  name = "github.com/google/go-cmp"
+  packages = [
+    "cmp",
+    "cmp/internal/diff",
+    "cmp/internal/flags",
+    "cmp/internal/function",
+    "cmp/internal/value",
+  ]
   pruneopts = ""
-  revision = "e89373fe6b4a7413d7acd6da1725b83ef713e6e4"
+  revision = "5a6f75716e1203a923a78c9efb94089d857df0f6"
+  version = "v0.4.0"
 
 [[projects]]
   digest = "1:cf553fabae6a6b91d6e75be73371e8b94d724803e115fb804f86fda175b9bf83"
@@ -323,17 +314,6 @@
   ]
   pruneopts = ""
   revision = "36ee7e946282a3fb1cfecd476ddc9b35d8847e42"
-
-[[projects]]
-  branch = "master"
-  digest = "1:009a1928b8c096338b68b5822d838a72b4d8520715c1463614476359f3282ec8"
-  name = "github.com/gregjones/httpcache"
-  packages = [
-    ".",
-    "diskcache",
-  ]
-  pruneopts = ""
-  revision = "9cad4c3443a7200dd6400aef47183728de563a38"
 
 [[projects]]
   digest = "1:c5466dfad4c14bf8e52a34b0eb98f1301acc1e304e0f0ff2c51c356ca1b86747"
@@ -1006,22 +986,6 @@
   revision = "72941f7f9bfa6550f640b797fde43b19b1574911"
 
 [[projects]]
-  branch = "master"
-  digest = "1:c24598ffeadd2762552269271b3b1510df2d83ee6696c1e543a0ff653af494bc"
-  name = "github.com/petar/GoLLRB"
-  packages = ["llrb"]
-  pruneopts = ""
-  revision = "53be0d36a84c2a886ca057d34b6aa4468df9ccb4"
-
-[[projects]]
-  digest = "1:b46305723171710475f2dd37547edd57b67b9de9f2a6267cafdd98331fd6897f"
-  name = "github.com/peterbourgon/diskv"
-  packages = ["."]
-  pruneopts = ""
-  revision = "5f041e8faa004a95c88a202771f4cc3e991971e6"
-  version = "v2.0.1"
-
-[[projects]]
   digest = "1:6abb56326511272860687b2928d70d97866cefb8a98cc81903325bd4c8348e26"
   name = "github.com/pkg/errors"
   packages = ["."]
@@ -1588,33 +1552,43 @@
   source = "github.com/juju/yaml"
 
 [[projects]]
-  digest = "1:09ea5dbe52206b2d102fe418b840ca297f63883101c596039d68391596fe9bf1"
+  digest = "1:b89da004785adaae71e99583bb8f68f70b6a34840673990d9bcebfd24b7a49ea"
   name = "k8s.io/api"
   packages = [
-    "admissionregistration/v1alpha1",
+    "admissionregistration/v1",
     "admissionregistration/v1beta1",
     "apps/v1",
     "apps/v1beta1",
     "apps/v1beta2",
+    "auditregistration/v1alpha1",
     "authentication/v1",
     "authentication/v1beta1",
     "authorization/v1",
     "authorization/v1beta1",
     "autoscaling/v1",
     "autoscaling/v2beta1",
+    "autoscaling/v2beta2",
     "batch/v1",
     "batch/v1beta1",
     "batch/v2alpha1",
     "certificates/v1beta1",
+    "coordination/v1",
     "coordination/v1beta1",
     "core/v1",
+    "discovery/v1alpha1",
+    "discovery/v1beta1",
     "events/v1beta1",
     "extensions/v1beta1",
+    "flowcontrol/v1alpha1",
     "networking/v1",
+    "networking/v1beta1",
+    "node/v1alpha1",
+    "node/v1beta1",
     "policy/v1beta1",
     "rbac/v1",
     "rbac/v1alpha1",
     "rbac/v1beta1",
+    "scheduling/v1",
     "scheduling/v1alpha1",
     "scheduling/v1beta1",
     "settings/v1alpha1",
@@ -1623,25 +1597,28 @@
     "storage/v1beta1",
   ]
   pruneopts = ""
-  revision = "183f3326a9353bd6d41430fc80f96259331d029c"
+  revision = "d9adff57e763360b17e25cfe5a6c85f545c6daa2"
 
 [[projects]]
-  digest = "1:d232fe6e80c619535099d2c79f953b362f7ae8a176eb2226c609fda385a2a2da"
+  digest = "1:c4fddbf6ec868ee95094b305dc8098dc5b082d89ab25f6524c84304877250a0d"
   name = "k8s.io/apiextensions-apiserver"
   packages = [
     "pkg/apis/apiextensions",
+    "pkg/apis/apiextensions/v1",
     "pkg/apis/apiextensions/v1beta1",
     "pkg/client/clientset/clientset",
     "pkg/client/clientset/clientset/scheme",
+    "pkg/client/clientset/clientset/typed/apiextensions/v1",
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = ""
-  revision = "4d05e43ad98c1edcf2f52291685bd9bbc12fd2cd"
+  revision = "6910daba737d70c6f908dceffef83f5907543afb"
 
 [[projects]]
-  digest = "1:c4a1a585962341863994f38e614b990c55602f81ff6807eb042eae0ddf158b44"
+  digest = "1:5887ad69e5a19392a2157ec99d1e1e9fc8a5b29726b14d8c78610a2fd59f4fad"
   name = "k8s.io/apimachinery"
   packages = [
+    "pkg/api/equality",
     "pkg/api/errors",
     "pkg/api/meta",
     "pkg/api/resource",
@@ -1687,25 +1664,28 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = ""
-  revision = "cbafd24d5796966031ae904aa88e2436a619ae8a"
+  revision = "731dcecc205498f52a21b12e311af095efb4b188"
 
 [[projects]]
-  digest = "1:8a0f3963014e013986f3c979575861e2c37d6fba040fcb21242f79636677831e"
+  digest = "1:4fefb3f9f2d7e57550bc5aee009624259ec4fb44d246681c7c845257d1cd5a64"
   name = "k8s.io/client-go"
   packages = [
     "discovery",
     "dynamic",
     "informers",
     "informers/admissionregistration",
-    "informers/admissionregistration/v1alpha1",
+    "informers/admissionregistration/v1",
     "informers/admissionregistration/v1beta1",
     "informers/apps",
     "informers/apps/v1",
     "informers/apps/v1beta1",
     "informers/apps/v1beta2",
+    "informers/auditregistration",
+    "informers/auditregistration/v1alpha1",
     "informers/autoscaling",
     "informers/autoscaling/v1",
     "informers/autoscaling/v2beta1",
+    "informers/autoscaling/v2beta2",
     "informers/batch",
     "informers/batch/v1",
     "informers/batch/v1beta1",
@@ -1713,16 +1693,26 @@
     "informers/certificates",
     "informers/certificates/v1beta1",
     "informers/coordination",
+    "informers/coordination/v1",
     "informers/coordination/v1beta1",
     "informers/core",
     "informers/core/v1",
+    "informers/discovery",
+    "informers/discovery/v1alpha1",
+    "informers/discovery/v1beta1",
     "informers/events",
     "informers/events/v1beta1",
     "informers/extensions",
     "informers/extensions/v1beta1",
+    "informers/flowcontrol",
+    "informers/flowcontrol/v1alpha1",
     "informers/internalinterfaces",
     "informers/networking",
     "informers/networking/v1",
+    "informers/networking/v1beta1",
+    "informers/node",
+    "informers/node/v1alpha1",
+    "informers/node/v1beta1",
     "informers/policy",
     "informers/policy/v1beta1",
     "informers/rbac",
@@ -1730,6 +1720,7 @@
     "informers/rbac/v1alpha1",
     "informers/rbac/v1beta1",
     "informers/scheduling",
+    "informers/scheduling/v1",
     "informers/scheduling/v1alpha1",
     "informers/scheduling/v1beta1",
     "informers/settings",
@@ -1740,56 +1731,76 @@
     "informers/storage/v1beta1",
     "kubernetes",
     "kubernetes/scheme",
-    "kubernetes/typed/admissionregistration/v1alpha1",
+    "kubernetes/typed/admissionregistration/v1",
     "kubernetes/typed/admissionregistration/v1beta1",
     "kubernetes/typed/apps/v1",
     "kubernetes/typed/apps/v1beta1",
     "kubernetes/typed/apps/v1beta2",
+    "kubernetes/typed/auditregistration/v1alpha1",
     "kubernetes/typed/authentication/v1",
     "kubernetes/typed/authentication/v1beta1",
     "kubernetes/typed/authorization/v1",
     "kubernetes/typed/authorization/v1beta1",
     "kubernetes/typed/autoscaling/v1",
     "kubernetes/typed/autoscaling/v2beta1",
+    "kubernetes/typed/autoscaling/v2beta2",
     "kubernetes/typed/batch/v1",
     "kubernetes/typed/batch/v1beta1",
     "kubernetes/typed/batch/v2alpha1",
     "kubernetes/typed/certificates/v1beta1",
+    "kubernetes/typed/coordination/v1",
     "kubernetes/typed/coordination/v1beta1",
     "kubernetes/typed/core/v1",
+    "kubernetes/typed/discovery/v1alpha1",
+    "kubernetes/typed/discovery/v1beta1",
     "kubernetes/typed/events/v1beta1",
     "kubernetes/typed/extensions/v1beta1",
+    "kubernetes/typed/flowcontrol/v1alpha1",
     "kubernetes/typed/networking/v1",
+    "kubernetes/typed/networking/v1beta1",
+    "kubernetes/typed/node/v1alpha1",
+    "kubernetes/typed/node/v1beta1",
     "kubernetes/typed/policy/v1beta1",
     "kubernetes/typed/rbac/v1",
     "kubernetes/typed/rbac/v1alpha1",
     "kubernetes/typed/rbac/v1beta1",
+    "kubernetes/typed/scheduling/v1",
     "kubernetes/typed/scheduling/v1alpha1",
     "kubernetes/typed/scheduling/v1beta1",
     "kubernetes/typed/settings/v1alpha1",
     "kubernetes/typed/storage/v1",
     "kubernetes/typed/storage/v1alpha1",
     "kubernetes/typed/storage/v1beta1",
-    "listers/admissionregistration/v1alpha1",
+    "listers/admissionregistration/v1",
     "listers/admissionregistration/v1beta1",
     "listers/apps/v1",
     "listers/apps/v1beta1",
     "listers/apps/v1beta2",
+    "listers/auditregistration/v1alpha1",
     "listers/autoscaling/v1",
     "listers/autoscaling/v2beta1",
+    "listers/autoscaling/v2beta2",
     "listers/batch/v1",
     "listers/batch/v1beta1",
     "listers/batch/v2alpha1",
     "listers/certificates/v1beta1",
+    "listers/coordination/v1",
     "listers/coordination/v1beta1",
     "listers/core/v1",
+    "listers/discovery/v1alpha1",
+    "listers/discovery/v1beta1",
     "listers/events/v1beta1",
     "listers/extensions/v1beta1",
+    "listers/flowcontrol/v1alpha1",
     "listers/networking/v1",
+    "listers/networking/v1beta1",
+    "listers/node/v1alpha1",
+    "listers/node/v1beta1",
     "listers/policy/v1beta1",
     "listers/rbac/v1",
     "listers/rbac/v1alpha1",
     "listers/rbac/v1beta1",
+    "listers/scheduling/v1",
     "listers/scheduling/v1alpha1",
     "listers/scheduling/v1beta1",
     "listers/settings/v1alpha1",
@@ -1817,18 +1828,46 @@
     "tools/remotecommand",
     "transport",
     "transport/spdy",
-    "util/buffer",
     "util/cert",
     "util/connrotation",
     "util/exec",
     "util/flowcontrol",
     "util/homedir",
-    "util/integer",
     "util/jsonpath",
+    "util/keyutil",
     "util/retry",
   ]
   pruneopts = ""
-  revision = "3db81bdd128696db1c2fcba8a426ed0a3993824d"
+  revision = "19522ff2880261a5116cf35985e08de6c6dfb681"
+
+[[projects]]
+  digest = "1:7ce71844fcaaabcbe09a392902edb5790ddca3a7070ae8d20830dc6dbe2751af"
+  name = "k8s.io/klog"
+  packages = ["."]
+  pruneopts = ""
+  revision = "2ca9ad30301bf30a8a6e0fa2110db6b8df699a91"
+  version = "v1.0.0"
+
+[[projects]]
+  branch = "master"
+  digest = "1:cb75c82b15f7a4f5cd836855a4461e95804c5f71fc32b89cb12fdf9ec5b26efb"
+  name = "k8s.io/utils"
+  packages = [
+    "buffer",
+    "integer",
+    "pointer",
+    "trace",
+  ]
+  pruneopts = ""
+  revision = "861946025e3491219eaccb1bf693e23df70c2fa8"
+
+[[projects]]
+  digest = "1:fa42dad320d4fb0962edb171bd3a2edd36077ca009f80b294ac4141c49446f15"
+  name = "sigs.k8s.io/yaml"
+  packages = ["."]
+  pruneopts = ""
+  revision = "9fc95527decd95bb9d28cc2eab08179b2d0f6971"
+  version = "v1.2.0"
 
 [solve-meta]
   analyzer-name = "dep"
@@ -2055,6 +2094,7 @@
     "k8s.io/api/admissionregistration/v1beta1",
     "k8s.io/api/apps/v1",
     "k8s.io/api/authentication/v1",
+    "k8s.io/api/autoscaling/v1",
     "k8s.io/api/core/v1",
     "k8s.io/api/extensions/v1beta1",
     "k8s.io/api/policy/v1beta1",
@@ -2062,6 +2102,7 @@
     "k8s.io/api/storage/v1",
     "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset",
+    "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1",
     "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/api/meta",
@@ -2083,30 +2124,40 @@
     "k8s.io/client-go/informers",
     "k8s.io/client-go/kubernetes",
     "k8s.io/client-go/kubernetes/scheme",
-    "k8s.io/client-go/kubernetes/typed/admissionregistration/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/admissionregistration/v1",
     "k8s.io/client-go/kubernetes/typed/admissionregistration/v1beta1",
     "k8s.io/client-go/kubernetes/typed/apps/v1",
     "k8s.io/client-go/kubernetes/typed/apps/v1beta1",
     "k8s.io/client-go/kubernetes/typed/apps/v1beta2",
+    "k8s.io/client-go/kubernetes/typed/auditregistration/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/authentication/v1",
     "k8s.io/client-go/kubernetes/typed/authentication/v1beta1",
     "k8s.io/client-go/kubernetes/typed/authorization/v1",
     "k8s.io/client-go/kubernetes/typed/authorization/v1beta1",
     "k8s.io/client-go/kubernetes/typed/autoscaling/v1",
     "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta1",
+    "k8s.io/client-go/kubernetes/typed/autoscaling/v2beta2",
     "k8s.io/client-go/kubernetes/typed/batch/v1",
     "k8s.io/client-go/kubernetes/typed/batch/v1beta1",
     "k8s.io/client-go/kubernetes/typed/batch/v2alpha1",
     "k8s.io/client-go/kubernetes/typed/certificates/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/coordination/v1",
     "k8s.io/client-go/kubernetes/typed/coordination/v1beta1",
     "k8s.io/client-go/kubernetes/typed/core/v1",
+    "k8s.io/client-go/kubernetes/typed/discovery/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/discovery/v1beta1",
     "k8s.io/client-go/kubernetes/typed/events/v1beta1",
     "k8s.io/client-go/kubernetes/typed/extensions/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/flowcontrol/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/networking/v1",
+    "k8s.io/client-go/kubernetes/typed/networking/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/node/v1alpha1",
+    "k8s.io/client-go/kubernetes/typed/node/v1beta1",
     "k8s.io/client-go/kubernetes/typed/policy/v1beta1",
     "k8s.io/client-go/kubernetes/typed/rbac/v1",
     "k8s.io/client-go/kubernetes/typed/rbac/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/rbac/v1beta1",
+    "k8s.io/client-go/kubernetes/typed/scheduling/v1",
     "k8s.io/client-go/kubernetes/typed/scheduling/v1alpha1",
     "k8s.io/client-go/kubernetes/typed/scheduling/v1beta1",
     "k8s.io/client-go/kubernetes/typed/settings/v1alpha1",

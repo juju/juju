@@ -41,6 +41,7 @@ func (m *MockMutaterMachine) EXPECT() *MockMutaterMachineMockRecorder {
 
 // CharmProfilingInfo mocks base method
 func (m *MockMutaterMachine) CharmProfilingInfo() (*instancemutater.UnitProfileInfo, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CharmProfilingInfo")
 	ret0, _ := ret[0].(*instancemutater.UnitProfileInfo)
 	ret1, _ := ret[1].(error)
@@ -49,11 +50,13 @@ func (m *MockMutaterMachine) CharmProfilingInfo() (*instancemutater.UnitProfileI
 
 // CharmProfilingInfo indicates an expected call of CharmProfilingInfo
 func (mr *MockMutaterMachineMockRecorder) CharmProfilingInfo() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CharmProfilingInfo", reflect.TypeOf((*MockMutaterMachine)(nil).CharmProfilingInfo))
 }
 
 // ContainerType mocks base method
 func (m *MockMutaterMachine) ContainerType() (instance.ContainerType, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContainerType")
 	ret0, _ := ret[0].(instance.ContainerType)
 	ret1, _ := ret[1].(error)
@@ -62,11 +65,13 @@ func (m *MockMutaterMachine) ContainerType() (instance.ContainerType, error) {
 
 // ContainerType indicates an expected call of ContainerType
 func (mr *MockMutaterMachineMockRecorder) ContainerType() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContainerType", reflect.TypeOf((*MockMutaterMachine)(nil).ContainerType))
 }
 
 // InstanceId mocks base method
 func (m *MockMutaterMachine) InstanceId() (string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InstanceId")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
@@ -75,6 +80,7 @@ func (m *MockMutaterMachine) InstanceId() (string, error) {
 
 // InstanceId indicates an expected call of InstanceId
 func (mr *MockMutaterMachineMockRecorder) InstanceId() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InstanceId", reflect.TypeOf((*MockMutaterMachine)(nil).InstanceId))
 }
 
@@ -87,11 +93,13 @@ func (m *MockMutaterMachine) Life() life.Value {
 
 // Life indicates an expected call of Life
 func (mr *MockMutaterMachineMockRecorder) Life() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Life", reflect.TypeOf((*MockMutaterMachine)(nil).Life))
 }
 
 // Refresh mocks base method
 func (m *MockMutaterMachine) Refresh() error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Refresh")
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -99,11 +107,13 @@ func (m *MockMutaterMachine) Refresh() error {
 
 // Refresh indicates an expected call of Refresh
 func (mr *MockMutaterMachineMockRecorder) Refresh() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Refresh", reflect.TypeOf((*MockMutaterMachine)(nil).Refresh))
 }
 
 // SetCharmProfiles mocks base method
 func (m *MockMutaterMachine) SetCharmProfiles(arg0 []string) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetCharmProfiles", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -111,11 +121,13 @@ func (m *MockMutaterMachine) SetCharmProfiles(arg0 []string) error {
 
 // SetCharmProfiles indicates an expected call of SetCharmProfiles
 func (mr *MockMutaterMachineMockRecorder) SetCharmProfiles(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCharmProfiles", reflect.TypeOf((*MockMutaterMachine)(nil).SetCharmProfiles), arg0)
 }
 
 // SetModificationStatus mocks base method
 func (m *MockMutaterMachine) SetModificationStatus(arg0 status.Status, arg1 string, arg2 map[string]interface{}) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetModificationStatus", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -123,11 +135,13 @@ func (m *MockMutaterMachine) SetModificationStatus(arg0 status.Status, arg1 stri
 
 // SetModificationStatus indicates an expected call of SetModificationStatus
 func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetModificationStatus", reflect.TypeOf((*MockMutaterMachine)(nil).SetModificationStatus), arg0, arg1, arg2)
 }
 
 // Tag mocks base method
 func (m *MockMutaterMachine) Tag() names_v3.MachineTag {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
 	ret0, _ := ret[0].(names_v3.MachineTag)
 	return ret0
@@ -135,11 +149,13 @@ func (m *MockMutaterMachine) Tag() names_v3.MachineTag {
 
 // Tag indicates an expected call of Tag
 func (mr *MockMutaterMachineMockRecorder) Tag() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockMutaterMachine)(nil).Tag))
 }
 
 // WatchContainers mocks base method
 func (m *MockMutaterMachine) WatchContainers() (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchContainers")
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -148,11 +164,13 @@ func (m *MockMutaterMachine) WatchContainers() (watcher.StringsWatcher, error) {
 
 // WatchContainers indicates an expected call of WatchContainers
 func (mr *MockMutaterMachineMockRecorder) WatchContainers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchContainers", reflect.TypeOf((*MockMutaterMachine)(nil).WatchContainers))
 }
 
 // WatchLXDProfileVerificationNeeded mocks base method
 func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded() (watcher.NotifyWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchLXDProfileVerificationNeeded")
 	ret0, _ := ret[0].(watcher.NotifyWatcher)
 	ret1, _ := ret[1].(error)
@@ -161,11 +179,13 @@ func (m *MockMutaterMachine) WatchLXDProfileVerificationNeeded() (watcher.Notify
 
 // WatchLXDProfileVerificationNeeded indicates an expected call of WatchLXDProfileVerificationNeeded
 func (mr *MockMutaterMachineMockRecorder) WatchLXDProfileVerificationNeeded() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchLXDProfileVerificationNeeded", reflect.TypeOf((*MockMutaterMachine)(nil).WatchLXDProfileVerificationNeeded))
 }
 
 // WatchUnits mocks base method
 func (m *MockMutaterMachine) WatchUnits() (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchUnits")
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -174,5 +194,6 @@ func (m *MockMutaterMachine) WatchUnits() (watcher.StringsWatcher, error) {
 
 // WatchUnits indicates an expected call of WatchUnits
 func (mr *MockMutaterMachineMockRecorder) WatchUnits() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchUnits", reflect.TypeOf((*MockMutaterMachine)(nil).WatchUnits))
 }

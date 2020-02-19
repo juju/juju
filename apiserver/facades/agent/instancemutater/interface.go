@@ -6,6 +6,8 @@ package instancemutater
 import (
 	"time"
 
+	"gopkg.in/juju/charm.v6"
+
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lxdprofile"
@@ -13,58 +15,50 @@ import (
 	"github.com/juju/juju/state"
 )
 
+// InstanceMutaterState represents point of use methods from the state object.
 type InstanceMutaterState interface {
 	state.EntityFinder
 
+	Application(appName string) (Application, error)
+	Charm(curl *charm.URL) (Charm, error)
 	ControllerTimestamp() (*time.Time, error)
 }
 
-// Machine represents point of use methods from the state machine object
+// Machine represents point of use methods from the state Machine object.
 type Machine interface {
+	InstanceId() (instance.Id, error)
+	CharmProfiles() ([]string, error)
 	SetCharmProfiles([]string) error
 	SetModificationStatus(status.StatusInfo) error
+	Units() ([]Unit, error)
 }
 
-type LXDProfile interface {
-	Config() map[string]string
-	Description() string
-	Devices() map[string]map[string]string
-	Empty() bool
-	ValidateConfigDevices() error
+// Unit represents a point of use methods from the state Unit object.
+type Unit interface {
+	Application() string
+}
+
+// Charm represents point of use methods from the state Charm object.
+type Charm interface {
+	LXDProfile() lxdprofile.Profile
+}
+
+// Application represents point of use methods from the state Application object.
+type Application interface {
+	CharmURL() *charm.URL
 }
 
 // ModelCache represents point of use methods from the cache
 // model
 type ModelCache interface {
 	Name() string
-	Application(appName string) (ModelCacheApplication, error)
-	Charm(charmURL string) (ModelCacheCharm, error)
 	Machine(machineId string) (ModelCacheMachine, error)
 	WatchMachines() (cache.StringsWatcher, error)
 }
 
-// ModelCacheApplication represents a point of use Application from the cache
-// package.
-type ModelCacheApplication interface {
-	CharmURL() string
-}
-
 // ModelCacheMachine represents a point of use Machine from the cache package.
 type ModelCacheMachine interface {
-	InstanceId() (instance.Id, error)
-	CharmProfiles() []string
 	ContainerType() instance.ContainerType
 	WatchLXDProfileVerificationNeeded() (cache.NotifyWatcher, error)
 	WatchContainers() (cache.StringsWatcher, error)
-	Units() ([]ModelCacheUnit, error)
-}
-
-// ModelCacheUnit represents a point of use Unit from the cache package.
-type ModelCacheUnit interface {
-	Application() string
-}
-
-// ModelCacheCharm represents point of use methods from the cache charm object
-type ModelCacheCharm interface {
-	LXDProfile() lxdprofile.Profile
 }

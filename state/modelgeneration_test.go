@@ -322,7 +322,7 @@ func (s *generationSuite) TestAbortFailsAssignedUnits(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = gen.Abort(branchCommitter)
-	c.Assert(err, gc.ErrorMatches, "branch is in progress. Either reset values on tracking units or remove them to abort.")
+	c.Assert(err, gc.ErrorMatches, "branch is in progress. Either reset values on tracking units and commit the branch or remove them to abort.")
 }
 
 func (s *generationSuite) TestAbortCommittedBranch(c *gc.C) {

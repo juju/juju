@@ -133,7 +133,7 @@
                             "$ref": "#/definitions/OperationQueryArgs"
                         },
                         "Result": {
-                            "$ref": "#/definitions/ActionResults"
+                            "$ref": "#/definitions/OperationResults"
                         }
                     }
                 },
@@ -521,17 +521,23 @@
                 "OperationQueryArgs": {
                     "type": "object",
                     "properties": {
+                        "actions": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
                         "applications": {
                             "type": "array",
                             "items": {
                                 "type": "string"
                             }
                         },
-                        "functions": {
-                            "type": "array",
-                            "items": {
-                                "type": "string"
-                            }
+                        "limit": {
+                            "type": "integer"
+                        },
+                        "offset": {
+                            "type": "integer"
                         },
                         "status": {
                             "type": "array",
@@ -544,6 +550,58 @@
                             "items": {
                                 "type": "string"
                             }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "OperationResult": {
+                    "type": "object",
+                    "properties": {
+                        "actions": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ActionResult"
+                            }
+                        },
+                        "completed": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "enqueued": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "operation": {
+                            "type": "string"
+                        },
+                        "started": {
+                            "type": "string",
+                            "format": "date-time"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "summary": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "operation",
+                        "summary"
+                    ]
+                },
+                "OperationResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/OperationResult"
+                            }
+                        },
+                        "truncated": {
+                            "type": "boolean"
                         }
                     },
                     "additionalProperties": false

@@ -98,7 +98,7 @@ func (s *storageSuite) TestDestroyVolumes(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{}).
 			Return(&core.PersistentVolume{
 				Spec: core.PersistentVolumeSpec{
 					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},
@@ -123,7 +123,7 @@ func (s *storageSuite) TestDestroyVolumesNotFoundIgnored(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockPersistentVolumes.EXPECT().Get("vol-1", v1.GetOptions{}).
 			Return(&core.PersistentVolume{
 				Spec: core.PersistentVolumeSpec{
 					ClaimRef: &core.ObjectReference{Namespace: "test", Name: "vol-1-pvc"},

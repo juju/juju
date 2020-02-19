@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/state"
 )
 
 // EnqueueOperation isn't on the V5 API.
@@ -110,20 +111,20 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 }
 
 // Operations fetches the called functions (actions) for specified apps/units.
-func (a *ActionAPI) Operations(arg params.OperationQueryArgs) (params.ActionResults, error) {
+func (a *ActionAPI) Operations(arg params.OperationQueryArgs) (params.OperationResults, error) {
 	if err := a.checkCanRead(); err != nil {
-		return params.ActionResults{}, errors.Trace(err)
+		return params.OperationResults{}, errors.Trace(err)
 	}
 
-	unitTags := set.NewStrings()
+	var unitTags []names.Tag
 	for _, name := range arg.Units {
-		unitTags.Add(names.NewUnitTag(name).String())
+		unitTags = append(unitTags, names.NewUnitTag(name))
 	}
 	appNames := arg.Applications
-	if len(appNames) == 0 && unitTags.Size() == 0 {
+	if len(appNames) == 0 && len(unitTags) == 0 {
 		apps, err := a.state.AllApplications()
 		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
+			return params.OperationResults{}, errors.Trace(err)
 		}
 		for _, a := range apps {
 			appNames = append(appNames, a.Name())
@@ -132,64 +133,53 @@ func (a *ActionAPI) Operations(arg params.OperationQueryArgs) (params.ActionResu
 	for _, aName := range appNames {
 		app, err := a.state.Application(aName)
 		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
+			return params.OperationResults{}, errors.Trace(err)
 		}
 		units, err := app.AllUnits()
 		if err != nil {
-			return params.ActionResults{}, errors.Trace(err)
+			return params.OperationResults{}, errors.Trace(err)
 		}
 		for _, u := range units {
-			unitTags.Add(u.Tag().String())
+			unitTags = append(unitTags, u.Tag())
 		}
 	}
 
-	var entities params.Entities
-	for _, unitTag := range unitTags.SortedValues() {
-		entities.Entities = append(entities.Entities, params.Entity{Tag: unitTag})
-	}
+	status := set.NewStrings(arg.Status...)
+	actionStatus := make([]state.ActionStatus, len(status))
+	for i, s := range status.Values() {
+		actionStatus[i] = state.ActionStatus(s)
 
-	statusSet := set.NewStrings(arg.Status...)
-	if statusSet.Size() == 0 {
-		statusSet = set.NewStrings(params.ActionPending, params.ActionRunning, params.ActionCompleted)
 	}
-	var extractorFuncs []extractorFn
-	for _, status := range statusSet.SortedValues() {
-		switch status {
-		case params.ActionPending:
-			extractorFuncs = append(extractorFuncs, pendingActions)
-		case params.ActionRunning:
-			extractorFuncs = append(extractorFuncs, runningActions)
-		case params.ActionCompleted:
-			extractorFuncs = append(extractorFuncs, completedActions)
-		}
+	limit := 0
+	if arg.Limit != nil {
+		limit = *arg.Limit
 	}
-
-	byReceivers, err := a.internalList(entities, combine(extractorFuncs...), false)
+	offset := 0
+	if arg.Offset != nil {
+		offset = *arg.Offset
+	}
+	summaryResults, truncated, err := a.model.ListOperations(arg.ActionNames, unitTags, actionStatus, offset, limit)
 	if err != nil {
-		return params.ActionResults{}, errors.Trace(err)
+		return params.OperationResults{}, errors.Trace(err)
 	}
 
-	nameMatches := func(name string, filter []string) bool {
-		if len(filter) == 0 {
-			return true
-		}
-		for _, f := range filter {
-			if f == name {
-				return true
-			}
-		}
-		return false
+	result := params.OperationResults{
+		Truncated: truncated,
+		Results:   make([]params.OperationResult, len(summaryResults)),
 	}
-
-	var result params.ActionResults
-	for _, actions := range byReceivers.Actions {
-		if actions.Error != nil {
-			return params.ActionResults{}, errors.Trace(actions.Error)
+	for i, r := range summaryResults {
+		result.Results[i] = params.OperationResult{
+			OperationTag: r.Operation.Tag().String(),
+			Summary:      r.Operation.Summary(),
+			Enqueued:     r.Operation.Enqueued(),
+			Started:      r.Operation.Started(),
+			Completed:    r.Operation.Completed(),
+			Status:       string(r.Operation.Status()),
+			Actions:      make([]params.ActionResult, len(r.Actions)),
 		}
-		for _, ar := range actions.Actions {
-			if nameMatches(ar.Action.Name, arg.FunctionNames) {
-				result.Results = append(result.Results, ar)
-			}
+		for j, a := range r.Actions {
+			receiver := names.NewUnitTag(a.Receiver())
+			result.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
 		}
 	}
 	return result, nil

@@ -269,3 +269,107 @@ func (m *Model) AllOperations() ([]Operation, error) {
 	}
 	return results, nil
 }
+
+// defaultMaxOperationsLimit is the default maximum number of operations to
+// return when performing an operations query.
+const defaultMaxOperationsLimit = 500
+
+// OperationSummary encapsulates an operation and summary
+// information about some of its actions.
+type OperationSummary struct {
+	Operation Operation
+	Actions   []Action
+}
+
+// ListOperations returns operations that match the specified criteria.
+func (m *Model) ListOperations(
+	actionNames []string, actionReceivers []names.Tag, operationStatus []ActionStatus,
+	offset, limit int,
+) ([]OperationSummary, bool, error) {
+	// First gather the matching actions and record the parent operation ids we need.
+	actionsCollection, closer := m.st.db().GetCollection(actionsC)
+	defer closer()
+
+	var receiverIDs []string
+	for _, tag := range actionReceivers {
+		receiverIDs = append(receiverIDs, tag.Id())
+	}
+	var receiverTerm, namesTerm bson.D
+	if len(receiverIDs) > 0 {
+		receiverTerm = bson.D{{"receiver", bson.D{{"$in", receiverIDs}}}}
+	}
+	if len(actionNames) > 0 {
+		namesTerm = bson.D{{"name", bson.D{{"$in", actionNames}}}}
+	}
+	actionsQuery := append(receiverTerm, namesTerm...)
+	var actions []actionDoc
+	err := actionsCollection.Find(actionsQuery).
+		// For now we'll limit what we return to the caller as action results
+		// can be large and show-task ca be used to get more detail as needed.
+		Select(bson.D{
+			{"model-uuid", 0},
+			{"messages", 0},
+			{"results", 0}}).
+		Sort("_id").All(&actions)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	if len(actions) == 0 {
+		return nil, false, nil
+	}
+
+	// We have the operation ids which are parent to any actions matching the criteria.
+	// Combine these with additional operation filtering criteria to do the final query.
+	operationIds := make([]string, len(actions))
+	operationActions := make(map[string][]actionDoc)
+	for i, action := range actions {
+		operationIds[i] = m.st.docID(action.Operation)
+		actions := operationActions[action.Operation]
+		actions = append(actions, action)
+		operationActions[action.Operation] = actions
+	}
+
+	idsTerm := bson.D{{"_id", bson.D{{"$in", operationIds}}}}
+	var statusTerm bson.D
+	if len(operationStatus) > 0 {
+		statusTerm = bson.D{{"status", bson.D{{"$in", operationStatus}}}}
+	}
+	operationsQuery := append(idsTerm, statusTerm...)
+
+	operationCollection, closer := m.st.db().GetCollection(operationsC)
+	defer closer()
+
+	var docs []operationDoc
+	query := operationCollection.Find(operationsQuery)
+	nominalCount, err := query.Count()
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	if offset != 0 {
+		query = query.Skip(offset)
+	}
+	// Don't let the user shoot themselves in the foot.
+	if limit <= 0 {
+		limit = defaultMaxOperationsLimit
+	}
+	query = query.Limit(limit)
+	err = query.Sort("_id").All(&docs)
+	if err != nil {
+		return nil, false, errors.Trace(err)
+	}
+	truncated := nominalCount > len(docs)
+
+	result := make([]OperationSummary, len(docs))
+	for i, doc := range docs {
+		actions := operationActions[m.st.localID(doc.DocId)]
+		taskStatus := make([]ActionStatus, len(actions))
+		result[i].Actions = make([]Action, len(actions))
+		for j, action := range actions {
+			result[i].Actions[j] = newAction(m.st, action)
+			taskStatus[j] = action.Status
+		}
+		operation := newOperation(m.st, doc, taskStatus)
+		result[i].Operation = operation
+	}
+	return result, truncated, nil
+}

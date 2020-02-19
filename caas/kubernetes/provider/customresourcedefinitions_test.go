@@ -75,7 +75,7 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -85,23 +85,23 @@ func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[str
 	assertCalls = append(assertCalls, []*gomock.Call{
 		s.mockSecrets.EXPECT().Create(ociImageSecret).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(&serviceArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(&serviceArg).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
@@ -396,7 +396,7 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 
 	assertCalls = append(
 		[]*gomock.Call{
-			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{IncludeUninitialized: true}).
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 				Return(nil, s.k8sNotFoundError()),
 		},
 		assertCalls...,
@@ -406,23 +406,23 @@ func (s *K8sBrokerSuite) assertCustomerResources(c *gc.C, crs map[string][]unstr
 	assertCalls = append(assertCalls, []*gomock.Call{
 		s.mockSecrets.EXPECT().Create(ociImageSecret).
 			Return(ociImageSecret, nil),
-		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(&serviceArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(&serviceArg).
 			Return(nil, nil),
-		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockServices.EXPECT().Get("app-name-endpoints", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Update(basicHeadlessServiceArg).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServices.EXPECT().Create(basicHeadlessServiceArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Create(statefulSetArg).
 			Return(nil, nil),
-		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{IncludeUninitialized: true}).
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
 			Return(statefulSetArg, nil),
 		s.mockStatefulSets.EXPECT().Update(statefulSetArg).
 			Return(nil, nil),
@@ -654,7 +654,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr1).Return(&cr1, nil),
+		s.mockResourceClient.EXPECT().Create(&cr1, v1.CreateOptions{}).Return(&cr1, nil),
 
 		// ensuring cr2.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -664,7 +664,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesCreate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr2).Return(&cr2, nil),
+		s.mockResourceClient.EXPECT().Create(&cr2, v1.CreateOptions{}).Return(&cr2, nil),
 	)
 }
 
@@ -800,9 +800,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr1).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockResourceClient.EXPECT().Create(&cr1, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockResourceClient.EXPECT().Get("dist-mnist-for-e2e-test-1", v1.GetOptions{}).Return(&crUpdatedResourceVersion1, nil),
-		s.mockResourceClient.EXPECT().Update(&crUpdatedResourceVersion1).Return(&crUpdatedResourceVersion1, nil),
+		s.mockResourceClient.EXPECT().Update(&crUpdatedResourceVersion1, v1.UpdateOptions{}).Return(&crUpdatedResourceVersion1, nil),
 
 		// ensuring cr2.
 		s.mockDynamicClient.EXPECT().Resource(
@@ -812,9 +812,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourcesUpdate(c *gc.C) {
 				Resource: crd.Spec.Names.Plural,
 			},
 		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().Create(&cr2).Return(nil, s.k8sAlreadyExistsError()),
+		s.mockResourceClient.EXPECT().Create(&cr2, v1.CreateOptions{}).Return(nil, s.k8sAlreadyExistsError()),
 		s.mockResourceClient.EXPECT().Get("dist-mnist-for-e2e-test-2", v1.GetOptions{}).Return(&crUpdatedResourceVersion2, nil),
-		s.mockResourceClient.EXPECT().Update(&crUpdatedResourceVersion2).Return(&crUpdatedResourceVersion2, nil),
+		s.mockResourceClient.EXPECT().Update(&crUpdatedResourceVersion2, v1.UpdateOptions{}).Return(&crUpdatedResourceVersion2, nil),
 	)
 }
 

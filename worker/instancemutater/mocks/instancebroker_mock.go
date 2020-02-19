@@ -38,6 +38,7 @@ func (m *MockInstanceMutaterAPI) EXPECT() *MockInstanceMutaterAPIMockRecorder {
 
 // Machine mocks base method
 func (m *MockInstanceMutaterAPI) Machine(arg0 names_v3.MachineTag) (instancemutater.MutaterMachine, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
 	ret0, _ := ret[0].(instancemutater.MutaterMachine)
 	ret1, _ := ret[1].(error)
@@ -46,11 +47,13 @@ func (m *MockInstanceMutaterAPI) Machine(arg0 names_v3.MachineTag) (instancemuta
 
 // Machine indicates an expected call of Machine
 func (mr *MockInstanceMutaterAPIMockRecorder) Machine(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Machine", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).Machine), arg0)
 }
 
 // WatchMachines mocks base method
 func (m *MockInstanceMutaterAPI) WatchMachines() (watcher.StringsWatcher, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "WatchMachines")
 	ret0, _ := ret[0].(watcher.StringsWatcher)
 	ret1, _ := ret[1].(error)
@@ -59,5 +62,6 @@ func (m *MockInstanceMutaterAPI) WatchMachines() (watcher.StringsWatcher, error)
 
 // WatchMachines indicates an expected call of WatchMachines
 func (mr *MockInstanceMutaterAPIMockRecorder) WatchMachines() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "WatchMachines", reflect.TypeOf((*MockInstanceMutaterAPI)(nil).WatchMachines))
 }

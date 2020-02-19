@@ -35,6 +35,7 @@ func (m *MockTag) EXPECT() *MockTagMockRecorder {
 
 // Id mocks base method
 func (m *MockTag) Id() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Id")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockTag) Id() string {
 
 // Id indicates an expected call of Id
 func (mr *MockTagMockRecorder) Id() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Id", reflect.TypeOf((*MockTag)(nil).Id))
 }
 
 // Kind mocks base method
 func (m *MockTag) Kind() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Kind")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -54,11 +57,13 @@ func (m *MockTag) Kind() string {
 
 // Kind indicates an expected call of Kind
 func (mr *MockTagMockRecorder) Kind() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Kind", reflect.TypeOf((*MockTag)(nil).Kind))
 }
 
 // String mocks base method
 func (m *MockTag) String() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "String")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -66,5 +71,6 @@ func (m *MockTag) String() string {
 
 // String indicates an expected call of String
 func (mr *MockTagMockRecorder) String() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockTag)(nil).String))
 }
