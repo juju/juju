@@ -24,6 +24,10 @@ func (c *Constraints) ID() string {
 	return c.doc.DocID
 }
 
+func (c *Constraints) Spaces() *[]string {
+	return c.doc.Spaces
+}
+
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
 	DocID          string `bson:"_id,omitempty"`
@@ -136,6 +140,24 @@ func (st *State) ConstraintsBySpaceName(name string) ([]*Constraints, error) {
 		{{"spaces", negatedSpace}},
 	}}}
 	err := constraintsCollection.Find(query).All(&docs)
+
+	cons := make([]*Constraints, len(docs))
+	for i, doc := range docs {
+		cons[i] = &Constraints{doc: doc}
+	}
+	return cons, err
+}
+
+// AllConstraints returns all constraints in the collection
+func (st *State) AllConstraints() ([]*Constraints, error) {
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsDoc
+	err := constraintsCollection.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot get all constraints")
+	}
 
 	cons := make([]*Constraints, len(docs))
 	for i, doc := range docs {

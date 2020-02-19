@@ -35,8 +35,11 @@ type ShowSpace struct {
 
 // MovedSpace represents a CIDR movement from space `a` to space `b`
 type MovedSpace struct {
-	// Name of the space which the CIDR left.
-	Space string `json:"space" yaml:"space"`
+	// SpaceFrom is the name of the space which the CIDR left.
+	SpaceFrom string `json:"space" yaml:"space"`
+
+	// SpaceTo is the name of the space which the CIDR goes to.
+	SpaceTo string `json:"space" yaml:"space"`
 
 	// CIDR of the space which left.
 	CIDR string `json:"cidr" yaml:"cidr"`

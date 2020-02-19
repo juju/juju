@@ -277,8 +277,8 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	s.expectMachinesAddresses(ctrl, "10.11.12.12/14", nil, nil)
 	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
 		{
-			CIDRs:    []string{aCIDR},
-			SpaceTag: spaceTag.String(),
+			CIDRs:      []string{aCIDR},
+			SpaceTagTo: spaceTag.String(),
 		},
 	}}
 
@@ -287,7 +287,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[0].Moved[0].CIDR, gc.Equals, "10.10.10.10/16")
-	c.Assert(res.Results[0].Moved[0].SpaceTag, gc.Equals, "space-from")
+	c.Assert(res.Results[0].Moved[0].SpaceTagFrom, gc.Equals, "space-from")
 }
 
 func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) {
@@ -298,8 +298,8 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) 
 
 	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
 		{
-			CIDRs:    []string{"192.168.1.0/16"},
-			SpaceTag: names.NewSpaceTag(spaceName).String(),
+			CIDRs:      []string{"192.168.1.0/16"},
+			SpaceTagTo: names.NewSpaceTag(spaceName).String(),
 		},
 	}}
 

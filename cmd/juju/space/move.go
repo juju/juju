@@ -81,17 +81,17 @@ func (c *MoveCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Annotatef(err, "cannot update space %q", c.Name)
 		}
-		for _, change := range createMovementsChangelog(c.Name, moved) {
+		for _, change := range createMovementsChangelog(moved) {
 			ctx.Infof(change)
 		}
 		return nil
 	})
 }
 
-func createMovementsChangelog(spaceNameTo string, moved []network.MovedSpace) []string {
+func createMovementsChangelog(moved []network.MovedSpace) []string {
 	var changelog []string
 	for _, movedSubnet := range moved {
-		changelog = append(changelog, fmt.Sprintf("Subnet %q moved from %q to %q", movedSubnet.CIDR, movedSubnet.Space, spaceNameTo))
+		changelog = append(changelog, fmt.Sprintf("Subnet %q moved from %q to %q", movedSubnet.CIDR, movedSubnet.SpaceFrom, movedSubnet.SpaceTo))
 	}
 	return changelog
 

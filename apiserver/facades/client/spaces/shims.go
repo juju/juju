@@ -134,3 +134,15 @@ func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, err
 	}
 	return cons, nil
 }
+
+func (s *stateShim) AllConstraints() ([]Constraints, error) {
+	found, err := s.State.AllConstraints()
+	if err != nil {
+		return nil, err
+	}
+	cons := make([]Constraints, len(found))
+	for i, v := range found {
+		cons[i] = v
+	}
+	return cons, nil
+}

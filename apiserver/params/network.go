@@ -931,16 +931,16 @@ type CreateSpaceParams struct {
 	ProviderId string   `json:"provider-id,omitempty"`
 }
 
-// MoveToSpaceParams holds the arguments of the MoveToSpace API call.
-type MoveToSpaceParams struct {
-	MoveToSpace []MoveToSpaceParam `json:"update-spaces"`
+// MoveToSpacesParams holds the arguments of the MoveToSpace API call.
+type MoveToSpacesParams struct {
+	MoveToSpace []MoveToSpaceParams `json:"update-spaces"`
 }
 
-// MoveToSpaceParam holds the space tag and at least one subnet required to move subnet to another space
-type MoveToSpaceParam struct {
-	CIDRs    []string `json:"cidrs"`
-	SpaceTag string   `json:"space-tag"`
-	Force    bool     `json:"force"`
+// MoveToSpaceParams holds the space tag and at least one subnet required to move subnet to another space
+type MoveToSpaceParams struct {
+	CIDRs      []string `json:"cidrs"`
+	SpaceTagTo string   `json:"space-tag-to"`
+	Force      bool     `json:"force"`
 }
 
 // MoveToSpaceResults holds the results of the MoveToSpace API call.
@@ -956,8 +956,9 @@ type MoveToSpaceResult struct {
 }
 
 type MovedSpaceCIDR struct {
-	CIDR     string `json:"cidr"`
-	SpaceTag string `json:"space-tag"`
+	CIDR         string `json:"cidr"`
+	SpaceTagFrom string `json:"space-tag-from"`
+	SpaceTagTo   string `json:"space-tag-to"`
 }
 
 // ListSpacesResults holds the list of all available spaces.

@@ -43,11 +43,13 @@ type Machine interface {
 	AllSpaces() (set.Strings, error)
 	AllAddresses() ([]Address, error)
 	Id() string
+	ApplicationNames() ([]string, error)
 }
 
 // Constraints defines the methods supported by constraints used in the space context.
 type Constraints interface {
 	ID() string
+	Spaces() *[]string
 }
 
 // ApplicationEndpointBindingsShim is a shim interface for stateless access to ApplicationEndpointBindings
@@ -92,6 +94,9 @@ type Backing interface {
 
 	// ConstraintsBySpaceName  Returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
+
+	// ConstraintsBySpaceName  Returns constraints found by spaceName.
+	AllConstraints() ([]Constraints, error)
 
 	// IsController returns true if this state instance has the bootstrap
 	// model UUID.
