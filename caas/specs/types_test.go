@@ -17,6 +17,15 @@ type typesSuite struct {
 
 var _ = gc.Suite(&typesSuite{})
 
+type validator interface {
+	Validate() error
+}
+
+type validateTc struct {
+	spec   validator
+	errStr string
+}
+
 func (s *typesSuite) TestGetVersion(c *gc.C) {
 	type testcase struct {
 		strSpec string
@@ -52,35 +61,6 @@ version: 3
 		v, err := specs.GetVersion(tc.strSpec)
 		c.Check(err, jc.ErrorIsNil)
 		c.Check(v, gc.DeepEquals, tc.version)
-	}
-}
-
-type validator interface {
-	Validate() error
-}
-
-type validateTc struct {
-	spec   validator
-	errStr string
-}
-
-func (s *typesSuite) TestValidateFileSet(c *gc.C) {
-	for i, tc := range []validateTc{
-		{
-			spec: &specs.FileSet{
-				Name: "file1",
-			},
-			errStr: `mount path is missing for file set "file1"`,
-		},
-		{
-			spec: &specs.FileSet{
-				MountPath: "/foo/bar",
-			},
-			errStr: `file set name is missing`,
-		},
-	} {
-		c.Logf("#%d: testing FileSet.Validate", i)
-		c.Check(tc.spec.Validate(), gc.ErrorMatches, tc.errStr)
 	}
 }
 
@@ -172,6 +152,20 @@ func (s *typesSuite) TestValidatePodSpecBase(c *gc.C) {
 
 func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 	k8sSpec := specs.CaasContainers{}
+	fileSet1 := specs.FileSet{
+		Name:      "file1",
+		MountPath: "/foo/file1",
+	}
+	fileSet1.Files = map[string]string{
+		"foo": "bar",
+	}
+	fileSet2 := specs.FileSet{
+		Name:      "file2",
+		MountPath: "/foo/file2",
+	}
+	fileSet2.Files = map[string]string{
+		"foo": "bar",
+	}
 	k8sSpec.Containers = []specs.ContainerSpec{
 		{
 			Name:  "gitlab-helper",
@@ -180,14 +174,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				{
-					Name:      "file1",
-					MountPath: "/foo/file1",
-				},
-				{
-					Name:      "file2",
-					MountPath: "/foo/file2",
-				},
+				fileSet1, fileSet2,
 			},
 		},
 	}
@@ -202,14 +189,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				{
-					Name:      "file1",
-					MountPath: "/foo/file1",
-				},
-				{
-					Name:      "file1",
-					MountPath: "/foo/file1",
-				},
+				fileSet1, fileSet1,
 			},
 		},
 	}
@@ -224,14 +204,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				{
-					Name:      "file1",
-					MountPath: "/foo/file1",
-				},
-				{
-					Name:      "file2",
-					MountPath: "/foo/file2",
-				},
+				fileSet1, fileSet2,
 			},
 		},
 		{
@@ -241,10 +214,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				{
-					Name:      "file2",
-					MountPath: "/foo/file2",
-				},
+				fileSet2,
 			},
 		},
 	}
