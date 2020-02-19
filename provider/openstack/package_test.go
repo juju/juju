@@ -11,6 +11,8 @@ import (
 	"gopkg.in/goose.v2/identity"
 )
 
+//go:generate mockgen -package openstack -destination network_mock_test.go github.com/juju/juju/provider/openstack Networking
+
 var live = flag.Bool("live", false, "Include live OpenStack tests")
 
 func Test(t *testing.T) {

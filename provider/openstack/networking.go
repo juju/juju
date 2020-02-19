@@ -39,6 +39,12 @@ type Networking interface {
 	// Needed for Environ.Networking
 	Subnets(instance.Id, []corenetwork.Id) ([]corenetwork.SubnetInfo, error)
 
+	// CreatePort creates a port for a given network id with a subnet ID.
+	CreatePort(string, string, corenetwork.Id) (string, error)
+
+	// DeletePortByID attempts to remove a port using the given port ID.
+	DeletePortByID(string) error
+
 	// NetworkInterfaces requests information about the network
 	// interfaces on the given list of instances.
 	// Needed for Environ.Networking
@@ -204,9 +210,45 @@ func (n *NeutronNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 	return []nova.ServerNetworks{}, nil
 }
 
+// CreatePort creates a port for a given network id with a subnet ID.
+func (n *NeutronNetworking) CreatePort(name, networkID string, subnetID corenetwork.Id) (string, error) {
+	client := n.env.neutron()
+
+	// To prevent name clashes to existing ports, generate a unique one from a
+	// given name.
+	portName := generateUniquePortName(name)
+
+	port, err := client.CreatePortV2(neutron.PortV2{
+		Name:        portName,
+		Description: "Port created by juju for space aware networking",
+		NetworkId:   networkID,
+		FixedIPs: []neutron.PortFixedIPsV2{
+			{
+				SubnetID: subnetID.String(),
+			},
+		},
+	})
+	if err != nil {
+		return "", errors.Annotate(err, "unable to create port")
+	}
+	return port.Id, nil
+}
+
+// DeletePortByID attempts to remove a port using the given port ID.
+func (n *NeutronNetworking) DeletePortByID(portID string) error {
+	client := n.env.neutron()
+
+	return client.DeletePortV2(portID)
+}
+
 // ResolveNetwork is part of the Networking interface.
 func (n *NeutronNetworking) ResolveNetwork(name string, external bool) (string, error) {
 	return resolveNeutronNetwork(n.env.neutron(), name, external)
+}
+
+func generateUniquePortName(name string) string {
+	unique := utils.RandomString(8, append(utils.LowerAlpha, utils.Digits...))
+	return fmt.Sprintf("juju-%s-%s", name, unique)
 }
 
 // networkFilter returns a neutron.Filter to match Neutron Networks with
