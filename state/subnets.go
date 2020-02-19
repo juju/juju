@@ -245,8 +245,7 @@ func (s *Subnet) UpdateSpaceOps(spaceName string) ([]txn.Op, error) {
 	return []txn.Op{{
 		C:      subnetsC,
 		Id:     s.doc.DocID,
-		Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
-		Update: bson.D{{"$set", elem}},
+		Update: bson.D{{"$set", bson.D{elem}}},
 	}}, nil
 }
 
