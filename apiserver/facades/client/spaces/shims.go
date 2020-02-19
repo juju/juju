@@ -99,6 +99,14 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
+func (s *stateShim) MoveSubnetByCIDR(cidr string) (MoveSubnet, error) {
+	result, err := s.State.SubnetByCIDR(cidr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newMoveSubnetShim(result), nil
+}
+
 // machineShim implements Machine.
 type machineShim struct {
 	*state.Machine

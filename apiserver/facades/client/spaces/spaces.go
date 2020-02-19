@@ -49,7 +49,7 @@ type Machine interface {
 // Constraints defines the methods supported by constraints used in the space context.
 type Constraints interface {
 	ID() string
-	Spaces() []string
+	Spaces() *[]string
 }
 
 // ApplicationEndpointBindingsShim is a shim interface for stateless access to ApplicationEndpointBindings
@@ -67,6 +67,9 @@ type Backing interface {
 
 	// SubnetByCIDR returns a subnet based on the input CIDR.
 	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
+
+	// SubnetByCIDR returns a subnet based on the input CIDR.
+	MoveSubnetByCIDR(cidr string) (MoveSubnet, error)
 
 	// AddSpace creates a space.
 	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error

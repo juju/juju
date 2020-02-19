@@ -24,8 +24,8 @@ func (c *Constraints) ID() string {
 	return c.doc.DocID
 }
 
-func (c *Constraints) Spaces() []string {
-	return *c.doc.Spaces
+func (c *Constraints) Spaces() *[]string {
+	return c.doc.Spaces
 }
 
 // constraintsDoc is the mongodb representation of a constraints.Value.

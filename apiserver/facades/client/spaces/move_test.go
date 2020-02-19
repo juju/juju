@@ -6,7 +6,6 @@ package spaces_test
 import (
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
-	"github.com/juju/juju/core/network"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/mgo.v2/txn"
@@ -16,7 +15,7 @@ import (
 )
 
 type SpaceUpdateSuite struct {
-	subnet *mocks.MockUpdateSubnet
+	moveSubnet *mocks.MockMoveSubnet
 }
 
 var _ = gc.Suite(&SpaceUpdateSuite{})
@@ -27,23 +26,22 @@ func (s *SpaceUpdateSuite) TearDownTest(c *gc.C) {
 func (s *SpaceUpdateSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
-	s.subnet = mocks.NewMockUpdateSubnet(ctrl)
+	s.moveSubnet = mocks.NewMockMoveSubnet(ctrl)
 
 	return ctrl
 }
 
 func (s *SpaceUpdateSuite) TestSuccess(c *gc.C) {
-	spaceName := "1"
+	spaceName := "spaceA"
 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	expectedNetworkInfo := network.SubnetInfo{SpaceName: spaceName}
-	s.subnet.EXPECT().UpdateOps(expectedNetworkInfo).Return([]txn.Op{}, nil)
-	s.subnet.EXPECT().SpaceName().Return("spaceA")
-	s.subnet.EXPECT().CIDR().Return("10.10.10.10/14")
+	s.moveSubnet.EXPECT().SpaceName().Return(spaceName)
+	s.moveSubnet.EXPECT().UpdateSpaceOps(spaceName).Return([]txn.Op{}, nil)
+	s.moveSubnet.EXPECT().CIDR().Return("10.10.10.10/14")
 
-	modelOp := spaces.NewUpdateSpaceModelOp(spaceName, []spaces.UpdateSubnet{s.subnet})
+	modelOp := spaces.NewUpdateSpaceModelOp(spaceName, []spaces.MoveSubnet{s.moveSubnet})
 	ops, err := modelOp.Build(0)
 
 	c.Assert(err, jc.ErrorIsNil)
@@ -51,17 +49,17 @@ func (s *SpaceUpdateSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *SpaceUpdateSuite) TestError(c *gc.C) {
-	spaceName := "1"
+	spaceName := "spaceA"
 
 	ctrl := s.setupMocks(c)
 	defer ctrl.Finish()
 
-	expectedNetworkInfo := network.SubnetInfo{SpaceName: spaceName}
 	bam := errors.New("bam")
-	s.subnet.EXPECT().UpdateOps(expectedNetworkInfo).Return(nil, bam)
-	s.subnet.EXPECT().SpaceName().Return("spaceA")
-	s.subnet.EXPECT().CIDR().Return("10.10.10.10/14")
-	modelOp := spaces.NewUpdateSpaceModelOp(spaceName, []spaces.UpdateSubnet{s.subnet})
+	s.moveSubnet.EXPECT().SpaceName().Return(spaceName)
+	s.moveSubnet.EXPECT().UpdateSpaceOps(spaceName).Return(nil, bam)
+	s.moveSubnet.EXPECT().CIDR().Return("10.10.10.10/14")
+	subnets := []spaces.MoveSubnet{s.moveSubnet}
+	modelOp := spaces.NewUpdateSpaceModelOp(spaceName, subnets)
 	ops, err := modelOp.Build(0)
 
 	c.Assert(err, gc.ErrorMatches, bam.Error())
