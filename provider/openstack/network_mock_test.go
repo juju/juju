@@ -50,6 +50,21 @@ func (mr *MockNetworkingMockRecorder) AllocatePublicIP(arg0 interface{}) *gomock
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllocatePublicIP", reflect.TypeOf((*MockNetworking)(nil).AllocatePublicIP), arg0)
 }
 
+// CreatePort mocks base method
+func (m *MockNetworking) CreatePort(arg0, arg1 string, arg2 network.Id) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CreatePort", arg0, arg1, arg2)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CreatePort indicates an expected call of CreatePort
+func (mr *MockNetworkingMockRecorder) CreatePort(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreatePort", reflect.TypeOf((*MockNetworking)(nil).CreatePort), arg0, arg1, arg2)
+}
+
 // DefaultNetworks mocks base method
 func (m *MockNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 	m.ctrl.T.Helper()
@@ -63,6 +78,20 @@ func (m *MockNetworking) DefaultNetworks() ([]nova.ServerNetworks, error) {
 func (mr *MockNetworkingMockRecorder) DefaultNetworks() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DefaultNetworks", reflect.TypeOf((*MockNetworking)(nil).DefaultNetworks))
+}
+
+// DeletePortByID mocks base method
+func (m *MockNetworking) DeletePortByID(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeletePortByID", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeletePortByID indicates an expected call of DeletePortByID
+func (mr *MockNetworkingMockRecorder) DeletePortByID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeletePortByID", reflect.TypeOf((*MockNetworking)(nil).DeletePortByID), arg0)
 }
 
 // NetworkInterfaces mocks base method

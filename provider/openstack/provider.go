@@ -1405,58 +1405,53 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 // networksForInstance returns networks that will be attached
 // to a new Openstack instance.
 func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova.ServerNetworks, error) {
-	usingNetwork := e.ecfg().network()
-	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
+	networks, err := e.networksForModel()
 	if err != nil {
-		if usingNetwork == "" {
-			// If there is no network configured, we only throw out when the
-			// error reports multiple Openstack networks.
-			// If there are no Openstack networks at all (such as Canonistack),
-			// having no network config is not an error condition.
-			if strings.HasPrefix(err.Error(), "multiple networks") {
-				return nil, errors.New(noNetConfigMsg(err))
-			}
-		}
 		return nil, errors.Trace(err)
 	}
 
-	logger.Debugf("using network id %q", networkID)
-	network := nova.ServerNetworks{
-		NetworkId: networkID,
+	if !args.Constraints.HasSpaces() {
+		return networks, nil
+	}
+	if len(networks) == 0 {
+		return nil, errors.New("space constraints were supplied, but no Openstack network is configured")
 	}
 
-	// Attempt to locate any subnet IDs for a passed in AZ.
-	availabilityZone := args.AvailabilityZone
+	// We know that we are operating in the single configured network.
+	networkID := networks[0].NetworkId
 
-	// List of Provider subnet IDs
-	var subnetIDsForZone [][]corenetwork.Id
-	if args.Constraints.HasSpaces() {
-		for k, nic := range args.SubnetsToZones {
-			subnetIDs, err := corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, nic)
-			if err != nil {
-				return nil, errors.Annotatef(err, "getting subnets for zone %q", availabilityZone)
+	// Attempt to filter the subnet IDs for the configured availability zone.
+	// If there is no configured zone, consider all subnet IDs.
+	az := args.AvailabilityZone
+	subnetIDsForZone := make([][]corenetwork.Id, len(args.SubnetsToZones))
+	for i, nic := range args.SubnetsToZones {
+		var subnetIDs []corenetwork.Id
+		if az != "" {
+			var err error
+			if subnetIDs, err = corenetwork.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
+				return nil, errors.Annotatef(err, "getting subnets in zone %q", az)
 			}
-			subnetIDsForZone[k] = subnetIDs
+			if len(subnetIDs) == 0 {
+				return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", az)
+			}
+		} else {
+			for subnetID := range nic {
+				subnetIDs = append(subnetIDs, subnetID)
+			}
 		}
+		subnetIDsForZone[i] = subnetIDs
 	}
 
-	// If we find no spaces, then use the only available network.
-	if len(subnetIDsForZone) == 0 {
-		return []nova.ServerNetworks{
-			network,
-		}, nil
-	}
-
-	// For each of the subnetIDsForZone select random id if there is more than one
-	// [][]corenetwork.Id -> []corenetwork.Id
+	/// For each list of subnet IDs that satisfy space and zone constraints,
+	// choose a single one at random.
 	subnetIDForZone := make([]corenetwork.Id, len(subnetIDsForZone))
-	for k, subnetIDs := range subnetIDsForZone {
+	for i, subnetIDs := range subnetIDsForZone {
 		if len(subnetIDs) == 1 {
-			subnetIDForZone[k] = subnetIDs[0]
+			subnetIDForZone[i] = subnetIDs[0]
 			continue
 		}
 
-		subnetIDForZone[k] = subnetIDs[rand.Intn(len(subnetIDs))]
+		subnetIDForZone[i] = subnetIDs[rand.Intn(len(subnetIDs))]
 	}
 
 	// Set the subnetID on the network for all networks.
@@ -1464,13 +1459,14 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
 	for _, subnetID := range subnetIDForZone {
 		var portID string
-		portID, err = e.networking.CreatePort(e.uuid, network.NetworkId, subnetID)
+		portID, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
 		if err != nil {
 			break
 		}
 
+		logger.Infof("created new port %q connected to Openstack subnet %q", portID, subnetID)
 		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
-			NetworkId: network.NetworkId,
+			NetworkId: networkID,
 			PortId:    portID,
 		})
 	}
@@ -1480,7 +1476,7 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 		if err1 != nil {
 			logger.Errorf("Unable to delete ports from the provider %+v", subnetNetworks)
 		}
-		return nil, errors.Annotatef(err, "unable to resolve ports")
+		return nil, errors.Annotatef(err, "creating ports for instance")
 	}
 
 	return subnetNetworks, nil
@@ -1507,6 +1503,36 @@ func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
 		return errs[0]
 	}
 	return nil
+}
+
+// networksForModel returns the Openstack network list based on current model
+// configuration.
+// Note that the current implementation of DefaultNetworks means that this will
+// always return a single network, or none.
+func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
+	networks, err := e.networking.DefaultNetworks()
+	if err != nil {
+		return nil, errors.Annotate(err, "getting initial networks")
+	}
+
+	usingNetwork := e.ecfg().network()
+	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
+	if err != nil {
+		if usingNetwork == "" {
+			// If there is no network configured, we only throw out when the
+			// error reports multiple Openstack networks.
+			// If there are no Openstack networks at all (such as Canonistack),
+			// having no network config is not an error condition.
+			if strings.HasPrefix(err.Error(), "multiple networks") {
+				return nil, errors.New(noNetConfigMsg(err))
+			}
+			return nil, nil
+		}
+		return nil, errors.Trace(err)
+	}
+
+	logger.Debugf("using network id %q", networkID)
+	return append(networks, nova.ServerNetworks{NetworkId: networkID}), nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
@@ -2184,10 +2210,10 @@ func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 // SupportsSpaces is specified on environs.Networking.
 func (e *Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
-// SupportsSpaces is specified on environs.Networking.
+// SupportsProviderSpaces is specified on environs.Networking.
 func (e *Environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }
