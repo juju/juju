@@ -5,7 +5,6 @@ package spaces
 
 import (
 	"fmt"
-	"github.com/juju/juju/state"
 	"strings"
 
 	"github.com/juju/errors"
@@ -16,14 +15,25 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/state"
 )
 
-// UpdateSubnet describes a subnet that can be updated.
-type UpdateSubnet interface {
-	UpdateOps(args network.SubnetInfo) ([]txn.Op, error)
+// MoveSubnet describes a subnet that can be moved.
+type MoveSubnet interface {
+	UpdateSpaceOps(spaceName string) ([]txn.Op, error)
 	Refresh() error
 	CIDR() string
 	SpaceName() string
+	SpaceID() string
+}
+
+// newMoveSubnetShim creates new MoveSubnet shim to be used by subnets movesubnet.
+func newMoveSubnetShim(sub *state.Subnet) *moveSubnetShim {
+	return &moveSubnetShim{Subnet: sub}
+}
+
+type moveSubnetShim struct {
+	*state.Subnet
 }
 
 // MovedCDIR holds the movement from a CIDR from space `a` to space `b`
@@ -34,7 +44,7 @@ type MovedCDIR struct {
 
 // SubnetApplication holds a subnet which belongs to a machine, which can hold n number of applications
 type SubnetApplications struct {
-	Subnet       networkingcommon.BackingSubnet
+	Subnet       MoveSubnet
 	Applications []string
 }
 
@@ -48,7 +58,7 @@ type MoveToSpaceModelOp interface {
 }
 
 type moveToSpaceModelOp struct {
-	subnets    []UpdateSubnet
+	subnets    []MoveSubnet
 	spaceName  string
 	movedCDIRs []MovedCDIR
 }
@@ -61,7 +71,7 @@ func (o *moveToSpaceModelOp) Done(err error) error {
 	return err
 }
 
-func NewUpdateSpaceModelOp(spaceName string, subnets []UpdateSubnet) *moveToSpaceModelOp {
+func NewUpdateSpaceModelOp(spaceName string, subnets []MoveSubnet) *moveToSpaceModelOp {
 	return &moveToSpaceModelOp{
 		subnets:   subnets,
 		spaceName: spaceName,
@@ -87,11 +97,8 @@ func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
 	}
 
 	var totalOps []txn.Op
-	argToUpdate := network.SubnetInfo{
-		SpaceName: o.spaceName,
-	}
 	for _, subnet := range o.subnets {
-		ops, err := subnet.UpdateOps(argToUpdate)
+		ops, err := subnet.UpdateSpaceOps(o.spaceName)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -101,7 +108,7 @@ func (o *moveToSpaceModelOp) Build(attempt int) ([]txn.Op, error) {
 	return totalOps, nil
 }
 
-// MoveToSpace updates a space by it's given CIDR
+// MoveToSpace ensures that the input subnets are in the input space.
 func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceResults, error) {
 	var results params.MoveToSpaceResults
 
@@ -121,7 +128,7 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			continue
 		}
 
-		subnets, err := api.getValidSubnetsByCIDR(toSpaceParams.CIDRs)
+		subnets, err := api.getValidMoveSubnetsByCIDR(toSpaceParams.CIDRs)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
@@ -132,7 +139,7 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			continue
 		}
 
-		operation, err := api.opFactory.NewUpdateSpaceModelOp(spaceTagTo.Id(), subnets)
+		operation, err := api.opFactory.NewMoveToSpaceModelOp(spaceTagTo.Id(), subnets)
 		if err != nil {
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
@@ -164,7 +171,7 @@ func createMovedCidrs(movedCDIRSpace []MovedCDIR, result *params.MoveToSpaceResu
 	}
 }
 
-func (api *API) checkSubnetAllowedToBeMoved(subnets []networkingcommon.BackingSubnet, force bool, spaceTag names.SpaceTag) error {
+func (api *API) checkSubnetAllowedToBeMoved(subnets []MoveSubnet, force bool, spaceTag names.SpaceTag) error {
 
 	space, err := api.backing.SpaceByName(spaceTag.Id())
 	if err != nil {
@@ -202,7 +209,10 @@ func (api *API) checkApplicationConstraints(subnetApplications []SubnetApplicati
 			logger.Debugf("Could not parse tag from constraints ID: %q", constraint.ID())
 			continue
 		}
-		constraintsApplicationMap[tag.Id()] = constraint.Spaces()
+		spaces := constraint.Spaces()
+		if spaces != nil {
+			constraintsApplicationMap[tag.Id()] = *spaces
+		}
 	}
 
 	negativeSpaceTo := fmt.Sprintf("^%v", spaceTo)
@@ -213,10 +223,10 @@ func (api *API) checkApplicationConstraints(subnetApplications []SubnetApplicati
 				for _, s := range spaces {
 					if s == negativeSpaceTo {
 						return errors.Errorf("cannot move CIDR %q"+
-							"from space %q to space: %q, as this would"+
-							" violate the current application constraint: %q",
+							" from space %q to space: %q, as this would"+
+							" violate the current application constraint: %q on application %q",
 							subApplication.Subnet.CIDR(),
-							subApplication.Subnet.SpaceName(), negativeSpaceTo)
+							subApplication.Subnet.SpaceName(), spaceTo, negativeSpaceTo, application)
 					}
 				}
 			}
@@ -227,8 +237,8 @@ func (api *API) checkApplicationConstraints(subnetApplications []SubnetApplicati
 }
 
 // getSubnetsAndApplicationsInUse returns the subnets and corresponding applications which are in use
-func getSubnetsAndApplicationsInUse(subnets []networkingcommon.BackingSubnet, machines []Machine) ([]SubnetApplications, error) {
-	subnetCIDRs := map[string]networkingcommon.BackingSubnet{}
+func getSubnetsAndApplicationsInUse(subnets []MoveSubnet, machines []Machine) ([]SubnetApplications, error) {
+	subnetCIDRs := map[string]MoveSubnet{}
 	for _, subnet := range subnets {
 		subnetCIDRs[subnet.CIDR()] = subnet
 	}
@@ -256,7 +266,7 @@ func getSubnetsAndApplicationsInUse(subnets []networkingcommon.BackingSubnet, ma
 	return subnetApplications, nil
 }
 
-func checkSubnetAlreadyInSpace(subnets []networkingcommon.BackingSubnet, space networkingcommon.BackingSpace) []string {
+func checkSubnetAlreadyInSpace(subnets []MoveSubnet, space networkingcommon.BackingSpace) []string {
 	var errorStrings []string
 	for _, subnet := range subnets {
 		if subnet.SpaceID() == space.Id() {
@@ -265,4 +275,19 @@ func checkSubnetAlreadyInSpace(subnets []networkingcommon.BackingSubnet, space n
 		}
 	}
 	return errorStrings
+}
+
+func (api *API) getValidMoveSubnetsByCIDR(CIDRs []string) ([]MoveSubnet, error) {
+	subnets := make([]MoveSubnet, len(CIDRs))
+	for i, cidr := range CIDRs {
+		if !network.IsValidCidr(cidr) {
+			return nil, errors.New(fmt.Sprintf("%q is not a valid CIDR", cidr))
+		}
+		subnet, err := api.backing.MoveSubnetByCIDR(cidr)
+		if err != nil {
+			return nil, err
+		}
+		subnets[i] = subnet
+	}
+	return subnets, nil
 }

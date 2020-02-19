@@ -9,7 +9,7 @@ import (
 	gc "gopkg.in/check.v1"
 )
 
-//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,UpdateSubnet,MoveToSpaceModelOp,Address,RemoveSpace,Subnet,Constraints
+//go:generate mockgen -package mocks -destination mocks/package_mock.go github.com/juju/juju/apiserver/facades/client/spaces Backing,BlockChecker,Machine,RenameSpace,RenameSpaceState,Settings,OpFactory,MoveSubnet,MoveToSpaceModelOp,Address,RemoveSpace,RemoveSubnet,Constraints
 
 func TestPackage(t *stdtesting.T) {
 	gc.TestingT(t)
