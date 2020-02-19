@@ -6,7 +6,6 @@ package spaces
 import (
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/state"
 )
 
@@ -19,8 +18,8 @@ type OpFactory interface {
 	// NewRenameSpaceModelOp returns an operation for renaming a space.
 	NewRenameSpaceModelOp(fromName, toName string) (state.ModelOperation, error)
 
-	// NewUpdateSpaceModelOp returns an operation for updating a space with new CIDRs.
-	NewUpdateSpaceModelOp(spaceID string, subnets []networkingcommon.BackingSubnet) (MoveToSpaceModelOp, error)
+	// NewMoveToSpaceModelOp returns an operation for updating a space with new CIDRs.
+	NewMoveToSpaceModelOp(spaceID string, subnets []MoveSubnet) (MoveToSpaceModelOp, error)
 }
 
 type opFactory struct {
@@ -42,7 +41,7 @@ func (f *opFactory) NewRemoveSpaceModelOp(fromName string) (state.ModelOperation
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	n := make([]Subnet, len(subnets))
+	n := make([]RemoveSubnet, len(subnets))
 	for i, subnet := range subnets {
 		n[i] = subnet
 	}
@@ -60,12 +59,8 @@ func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (state.ModelO
 	return NewRenameSpaceModelOp(f.st.IsController(), controllerSettings, &renameSpaceStateShim{f.st}, space, toName), nil
 }
 
-// NewUpdateSpaceModelOp (OpFactory) returns an operation
+// NewMoveToSpaceModelOp (OpFactory) returns an operation
 // for updating a space.
-func (f *opFactory) NewUpdateSpaceModelOp(spaceName string, subnets []networkingcommon.BackingSubnet) (MoveToSpaceModelOp, error) {
-	subs := make([]UpdateSubnet, len(subnets))
-	for i, subnet := range subnets {
-		subs[i] = subnet
-	}
-	return NewUpdateSpaceModelOp(spaceName, subs), nil
+func (f *opFactory) NewMoveToSpaceModelOp(spaceName string, subnets []MoveSubnet) (MoveToSpaceModelOp, error) {
+	return NewUpdateSpaceModelOp(spaceName, subnets), nil
 }

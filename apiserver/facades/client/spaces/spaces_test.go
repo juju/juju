@@ -268,11 +268,12 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 		CIDR:      "10.10.10.10/16",
 	}})
 
-	subnetMock := networkcommonmocks.NewMockBackingSubnet(ctrl)
+	subnetMock := mocks.NewMockMoveSubnet(ctrl)
 	subnetMock.EXPECT().SpaceID().Return("0")
 	subnetMock.EXPECT().CIDR().Return("123")
-	s.mockBacking.EXPECT().SubnetByCIDR(aCIDR).Return(subnetMock, nil)
-	s.mockOpFactory.EXPECT().NewUpdateSpaceModelOp(spaceName, []networkingcommon.BackingSubnet{subnetMock}).Return(moveModelMock, nil)
+	s.mockBacking.EXPECT().AllConstraints().Return(nil, nil)
+	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(subnetMock, nil)
+	s.mockOpFactory.EXPECT().NewMoveToSpaceModelOp(spaceName, []spaces.MoveSubnet{subnetMock}).Return(moveModelMock, nil)
 	s.mockBacking.EXPECT().ApplyOperation(moveModelMock).Return(nil)
 	s.expectMachinesAddresses(ctrl, "10.11.12.12/14", nil, nil)
 	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
@@ -288,6 +289,46 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.IsNil)
 	c.Assert(res.Results[0].Moved[0].CIDR, gc.Equals, "10.10.10.10/16")
 	c.Assert(res.Results[0].Moved[0].SpaceTagFrom, gc.Equals, "space-from")
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorViolateConstraint(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
+	aCIDR := "10.0.0.0/24"
+
+	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
+	spacesMock.EXPECT().Id().Return("1").Times(1)
+	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
+
+	subnetMock := mocks.NewMockMoveSubnet(ctrl)
+	subnetMock.EXPECT().SpaceID().Return("0")
+	subnetMock.EXPECT().CIDR().Return(aCIDR)
+	subnetMock.EXPECT().CIDR().Return(aCIDR)
+	subnetMock.EXPECT().SpaceName().Return("alpha")
+	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(subnetMock, nil)
+
+	constraintsMock := mocks.NewMockConstraints(ctrl)
+	constraintsMock.EXPECT().Spaces().Return(&[]string{fmt.Sprintf("^%v", spaceName)})
+	constraintsMock.EXPECT().ID().Return("c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql")
+
+	s.mockBacking.EXPECT().AllConstraints().Return([]spaces.Constraints{constraintsMock}, nil)
+	mockMachine := s.expectMachinesAddresses(ctrl, aCIDR, nil, nil)
+	mockMachine.EXPECT().ApplicationNames().Return([]string{"mediawiki", "mysql"}, nil)
+	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+		{
+			CIDRs:      []string{aCIDR},
+			SpaceTagTo: spaceTag.String(),
+		},
+	}}
+
+	obtainedResponse, err := s.api.MoveToSpace(args)
+	expectedErrMsg := "cannot move CIDR \"10.0.0.0/24\" from space \"alpha\" to space: \"myspace\", as this would violate the current application constraint: \"^myspace\" on application \"mysql\""
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResponse.Results[0].Error.Message, gc.Equals, expectedErrMsg)
 }
 
 func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) {
@@ -632,12 +673,13 @@ func (s *SpaceTestMockSuite) expectMachinesSpaces(ctrl *gomock.Controller, addre
 	s.mockBacking.EXPECT().AllMachines().Return(mockMachines, machErr)
 }
 
-func (s *SpaceTestMockSuite) expectMachinesAddresses(ctrl *gomock.Controller, subnetCIDR string, machErr, addressesErr error) {
+func (s *SpaceTestMockSuite) expectMachinesAddresses(ctrl *gomock.Controller, subnetCIDR string, machErr, addressesErr error) *mocks.MockMachine {
 	mockMachine := mocks.NewMockMachine(ctrl)
 	mockAddress := mocks.NewMockAddress(ctrl)
 	mockAddress.EXPECT().SubnetCIDR().Return(subnetCIDR)
 	mockMachine.EXPECT().AllAddresses().Return([]spaces.Address{mockAddress}, addressesErr)
 	s.mockBacking.EXPECT().AllMachines().Return([]spaces.Machine{mockMachine}, machErr)
+	return mockMachine
 }
 
 func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesParams {
@@ -664,6 +706,14 @@ func (s *SpaceTestMockSuite) getRemoveArgs(name string) (params.Entities, names.
 
 type stubBacking struct {
 	*apiservertesting.StubBacking
+}
+
+func (sb *stubBacking) MoveSubnetByCIDR(cidr string) (spaces.MoveSubnet, error) {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) AllConstraints() ([]spaces.Constraints, error) {
+	panic("should not be called")
 }
 
 func (sb *stubBacking) IsController() bool {

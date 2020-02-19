@@ -23,10 +23,11 @@ type RemoveSpace interface {
 
 type spaceRemoveModelOp struct {
 	space   RemoveSpace
-	subnets []Subnet
+	subnets []RemoveSubnet
 }
 
-type Subnet interface {
+// RemoveSubnet describes a subnet which can be moved
+type RemoveSubnet interface {
 	MoveSubnetOps(spaceID string) []txn.Op
 }
 
@@ -34,7 +35,7 @@ func (o *spaceRemoveModelOp) Done(err error) error {
 	return err
 }
 
-func NewRemoveSpaceModelOp(space RemoveSpace, subnets []Subnet) *spaceRemoveModelOp {
+func NewRemoveSpaceModelOp(space RemoveSpace, subnets []RemoveSubnet) *spaceRemoveModelOp {
 	return &spaceRemoveModelOp{
 		space:   space,
 		subnets: subnets,

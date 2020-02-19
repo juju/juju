@@ -237,6 +237,31 @@ func (s *Subnet) setSpace(subnets mongo.Collection) error {
 	return nil
 }
 
+func (s *Subnet) UpdateSpaceOps(spaceName string) ([]txn.Op, error) {
+	elem, err := s.updateSpaceElem(spaceName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return []txn.Op{{
+		C:      subnetsC,
+		Id:     s.doc.DocID,
+		Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
+		Update: bson.D{{"$set", elem}},
+	}}, nil
+}
+
+func (s *Subnet) updateSpaceElem(spaceName string) (bson.DocElem, error) {
+	if spaceName == "" {
+		return bson.DocElem{}, errors.Errorf("space name cannot be empty")
+	}
+	sp, err := s.st.SpaceByName(spaceName)
+	if err != nil {
+		return bson.DocElem{}, errors.Trace(err)
+	}
+	elem := bson.DocElem{Name: "space-id", Value: sp.Id()}
+	return elem, nil
+}
+
 // Update adds new info to the subnet based on input info.
 // Currently no data is changed unless it is the "undefined" space from MAAS.
 // There are restrictions on the additions allowed:
@@ -252,54 +277,46 @@ func (s *Subnet) Update(args network.SubnetInfo) error {
 				return nil, errors.Trace(err)
 			}
 		}
-		return s.UpdateOps(args)
+		makeSpaceNameUpdate, err := s.updateSpaceNameProvider(args.SpaceName)
+		if err != nil {
+			return nil, err
+		}
+		var bsonSet bson.D
+		if makeSpaceNameUpdate {
+			// TODO (hml) 2019-07-25
+			// Update for SpaceID once SubnetInfo Updated
+			elem, err := s.updateSpaceElem(args.SpaceName)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			bsonSet = append(bsonSet, elem)
+		}
+		if len(args.AvailabilityZones) > 0 {
+			currentAZ := set.NewStrings(args.AvailabilityZones...)
+			newAZ := currentAZ.Difference(set.NewStrings(s.doc.AvailabilityZones...))
+			if !newAZ.IsEmpty() {
+				bsonSet = append(bsonSet,
+					bson.DocElem{Name: "availability-zones", Value: append(s.doc.AvailabilityZones, newAZ.Values()...)})
+			}
+		}
+		if s.doc.VLANTag == 0 && args.VLANTag > 0 {
+			bsonSet = append(bsonSet, bson.DocElem{Name: "vlantag", Value: args.VLANTag})
+		}
+		if len(bsonSet) == 0 {
+			return nil, jujutxn.ErrNoOperations
+		}
+		return []txn.Op{{
+			C:      subnetsC,
+			Id:     s.doc.DocID,
+			Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
+			Update: bson.D{{"$set", bsonSet}},
+		}}, nil
 	}
 	return errors.Trace(s.st.db().Run(buildTxn))
 }
 
-// UpdateOps returns the OPs to add new info to the subnet based on input info.
-// Currently no data is changed unless it is the "undefined" space from MAAS.
-// There are restrictions on the additions allowed:
-//   - No change to CIDR; more work is required to determine how to handle.
-//   - No change to ProviderId nor ProviderNetworkID; these are immutable.
-func (s *Subnet) UpdateOps(args network.SubnetInfo) ([]txn.Op, error) {
-	makeSpaceNameUpdate, err := s.updateSpaceName(args.SpaceName)
-	if err != nil {
-		return nil, err
-	}
-	var bsonSet bson.D
-	if makeSpaceNameUpdate {
-		// TODO (hml) 2019-07-25
-		// Update for SpaceID once SubnetInfo Updated
-		sp, err := s.st.SpaceByName(args.SpaceName)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		bsonSet = append(bsonSet, bson.DocElem{Name: "space-id", Value: sp.Id()})
-	}
-	if len(args.AvailabilityZones) > 0 {
-		currentAZ := set.NewStrings(args.AvailabilityZones...)
-		newAZ := currentAZ.Difference(set.NewStrings(s.doc.AvailabilityZones...))
-		if !newAZ.IsEmpty() {
-			bsonSet = append(bsonSet,
-				bson.DocElem{Name: "availability-zones", Value: append(s.doc.AvailabilityZones, newAZ.Values()...)})
-		}
-	}
-	if s.doc.VLANTag == 0 && args.VLANTag > 0 {
-		bsonSet = append(bsonSet, bson.DocElem{Name: "vlantag", Value: args.VLANTag})
-	}
-	if len(bsonSet) == 0 {
-		return nil, jujutxn.ErrNoOperations
-	}
-	return []txn.Op{{
-		C:      subnetsC,
-		Id:     s.doc.DocID,
-		Assert: bson.D{{"txn-revno", s.doc.TxnRevno}},
-		Update: bson.D{{"$set", bsonSet}},
-	}}, nil
-}
-
-func (s *Subnet) updateSpaceName(spaceName string) (bool, error) {
+// updateSpaceNameProvider checks whether a space name change for the provider is feasible.
+func (s *Subnet) updateSpaceNameProvider(spaceName string) (bool, error) {
 	var spaceNameChange bool
 	sp, err := s.st.Space(s.doc.SpaceID)
 	switch {
