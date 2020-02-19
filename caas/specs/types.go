@@ -17,25 +17,6 @@ const CurrentVersion Version = Version2
 // PodSpec is the current version of pod spec.
 type PodSpec = PodSpecV2
 
-// FileSet defines a set of files to mount
-// into the container.
-type FileSet struct {
-	Name      string            `json:"name" yaml:"name"`
-	MountPath string            `json:"mountPath" yaml:"mountPath"`
-	Files     map[string]string `json:"files" yaml:"files"`
-}
-
-// Validate validates FileSet.
-func (fs *FileSet) Validate() error {
-	if fs.Name == "" {
-		return errors.New("file set name is missing")
-	}
-	if fs.MountPath == "" {
-		return errors.Errorf("mount path is missing for file set %q", fs.Name)
-	}
-	return nil
-}
-
 // ContainerPort defines a port on a container.
 type ContainerPort struct {
 	Name          string `json:"name,omitempty" yaml:"name,omitempty"`
