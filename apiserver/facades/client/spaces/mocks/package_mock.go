@@ -352,6 +352,21 @@ func (mr *MockMachineMockRecorder) AllSpaces() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces))
 }
 
+// ApplicationNames mocks base method
+func (m *MockMachine) ApplicationNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationNames indicates an expected call of ApplicationNames
+func (mr *MockMachineMockRecorder) ApplicationNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationNames", reflect.TypeOf((*MockMachine)(nil).ApplicationNames))
+}
+
 // Id mocks base method
 func (m *MockMachine) Id() string {
 	m.ctrl.T.Helper()

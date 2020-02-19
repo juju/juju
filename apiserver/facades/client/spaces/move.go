@@ -5,7 +5,6 @@ package spaces
 
 import (
 	"fmt"
-	"github.com/juju/collections/set"
 	"github.com/juju/juju/state"
 	"strings"
 
@@ -31,6 +30,12 @@ type UpdateSubnet interface {
 type MovedCDIR struct {
 	FromSpace string
 	CIDR      string
+}
+
+// SubnetApplication holds a subnet which belongs to a machine, which can hold n number of applications
+type SubnetApplications struct {
+	Subnet       networkingcommon.BackingSubnet
+	Applications []string
 }
 
 // MoveToSpaceModelOp describes a model operation for moving cidrs to a space
@@ -138,6 +143,12 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			continue
 		} else {
 			createMovedCidrs(operation.GetMovedCIDRs(), &results.Results[i], spaceTagTo)
+			// TODO (nammn): this patch does not include the code about moving subnets and the corresponding endpoints.
+			// e.g. mediawiki has slave:db-space with address in CIDR 10.10.10.10/18,
+			// moving this CIDR to space fe-space means a reply to the user saying that we may want to move the endpoint binding
+			// from db-space to fe-space as well. If we don't do this, this would lead to a case of having a endpoints bound
+			// to 2 spaces. Db-space and fe-space.
+			// the patch will be added later.
 		}
 
 	}
@@ -169,31 +180,80 @@ func (api *API) checkSubnetAllowedToBeMoved(subnets []networkingcommon.BackingSu
 		return errors.Trace(err)
 	}
 
-	return checkSubnetInUse(subnets, machines, force)
-}
-
-func checkSubnetInUse(subnets []networkingcommon.BackingSubnet, machines []Machine, force bool) error {
-	subnetCIDRs := set.NewStrings()
-	for _, subnet := range subnets {
-		subnetCIDRs.Add(subnet.CIDR())
+	subnetsAndApplicationsInUse, err := getSubnetsAndApplicationsInUse(subnets, machines)
+	if err != nil {
+		return errors.Trace(err)
 	}
 
-	var errorStrings []string
-	for _, machine := range machines {
-		addresses, err := machine.AllAddresses()
-		if err != nil {
-			return errors.Trace(err)
+	return api.checkApplicationConstraints(subnetsAndApplicationsInUse, spaceTag.Id())
+}
+
+func (api *API) checkApplicationConstraints(subnetApplications []SubnetApplications, spaceTo string) error {
+	constraintsApplicationMap := map[string][]string{}
+
+	constraints, err := api.backing.AllConstraints()
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	for _, constraint := range constraints {
+		tag := state.ParseLocalIDToTags(constraint.ID())
+		if tag == nil {
+			logger.Debugf("Could not parse tag from constraints ID: %q", constraint.ID())
+			continue
 		}
-		for _, address := range addresses {
-			if subnetCIDRs.Contains(address.SubnetCIDR()) {
-				errorStrings = append(errorStrings, fmt.Sprintf("machine %q already has a address on subnet %q", machine.Id(), address.SubnetCIDR()))
+		constraintsApplicationMap[tag.Id()] = constraint.Spaces()
+	}
+
+	negativeSpaceTo := fmt.Sprintf("^%v", spaceTo)
+
+	for _, subApplication := range subnetApplications {
+		for _, application := range subApplication.Applications {
+			if spaces, ok := constraintsApplicationMap[application]; ok {
+				for _, s := range spaces {
+					if s == negativeSpaceTo {
+						return errors.Errorf("cannot move CIDR %q"+
+							"from space %q to space: %q, as this would"+
+							" violate the current application constraint: %q",
+							subApplication.Subnet.CIDR(),
+							subApplication.Subnet.SpaceName(), negativeSpaceTo)
+					}
+				}
 			}
 		}
 	}
-	if len(errorStrings) != 0 && !force {
-		return errors.Errorf(strings.Join(errorStrings, "\n"))
-	}
+
 	return nil
+}
+
+// getSubnetsAndApplicationsInUse returns the subnets and corresponding applications which are in use
+func getSubnetsAndApplicationsInUse(subnets []networkingcommon.BackingSubnet, machines []Machine) ([]SubnetApplications, error) {
+	subnetCIDRs := map[string]networkingcommon.BackingSubnet{}
+	for _, subnet := range subnets {
+		subnetCIDRs[subnet.CIDR()] = subnet
+	}
+
+	var subnetApplications []SubnetApplications
+
+	for _, machine := range machines {
+		addresses, err := machine.AllAddresses()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		for _, address := range addresses {
+			if subnet, ok := subnetCIDRs[address.SubnetCIDR()]; ok {
+				applicationNames, err := machine.ApplicationNames()
+				if err != nil {
+					return nil, err
+				}
+				subnetApplications = append(subnetApplications, SubnetApplications{
+					Subnet:       subnet,
+					Applications: applicationNames,
+				})
+			}
+		}
+	}
+	return subnetApplications, nil
 }
 
 func checkSubnetAlreadyInSpace(subnets []networkingcommon.BackingSubnet, space networkingcommon.BackingSpace) []string {
