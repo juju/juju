@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
-	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
@@ -84,7 +83,7 @@ func (s *RemoveSuite) TestInit(c *gc.C) {
 	}} {
 		c.Logf("test #%d: %s", i, test.about)
 		if test.expectErr == "" {
-			api.EXPECT().RemoveSpace(test.expectName, "bar/currentfoo", false, false).Return(network.RemoveSpace{}, nil)
+			api.EXPECT().RemoveSpace(test.expectName, false, false).Return(network.RemoveSpace{}, nil)
 		}
 		_, cmd, err := s.runCommand(c, api, test.args...)
 		if test.expectErr != "" {
@@ -102,7 +101,7 @@ func (s *RemoveSuite) TestRunWithValidSpaceSucceeds(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "default"
-	api.EXPECT().RemoveSpace(spaceName, "bar/currentfoo", false, false).Return(network.RemoveSpace{}, nil)
+	api.EXPECT().RemoveSpace(spaceName, false, false).Return(network.RemoveSpace{}, nil)
 	ctx, _, err := s.runCommand(c, api, spaceName)
 
 	c.Assert(err, gc.IsNil)
@@ -115,7 +114,7 @@ func (s *RemoveSuite) TestRunWithForceNoConfirmation(c *gc.C) {
 
 	spaceName := "default"
 
-	api.EXPECT().RemoveSpace(spaceName, "bar/currentfoo", true, false).Return(network.RemoveSpace{}, nil)
+	api.EXPECT().RemoveSpace(spaceName, true, false).Return(network.RemoveSpace{}, nil)
 
 	_, _, err := s.runCommand(c, api, spaceName, "--force", "-y")
 
@@ -127,28 +126,27 @@ func (s *RemoveSuite) TestRunWithForceWithConfirmation(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "myspace"
-	err := errors.New("- \"myspace\" is used as a constraint on: fred/test\n" +
-		"- \"myspace\" is used as a binding on: mysql, mediawiki\n" +
-		"- \"myspace\" is used for controller config(s): jujuhaspace, juuuu-space\n")
 
 	spaceRemove := network.RemoveSpace{
-		Space:            spaceName,
-		Constraints:      []string{"fred/test"},
-		Bindings:         []string{"mysql", "mediawiki"},
-		ControllerConfig: []string{"jujuhaspace", "juuuu-space"},
+		HasModelConstraint: true,
+		Space:              spaceName,
+		Constraints:        []string{"mysql"},
+		Bindings:           []string{"mysql", "mediawiki"},
+		ControllerConfig:   []string{"jujuhaspace", "juuuu-space"},
 	}
-	api.EXPECT().RemoveSpace(spaceName, "bar/currentfoo", false, true).Return(spaceRemove, nil)
-
+	api.EXPECT().RemoveSpace(spaceName, false, true).Return(spaceRemove, nil)
 	expectedErrMsg := `
 WARNING! This command will remove the space with the following existing boundaries:
 
 
-- "myspace" is used as a constraint on: fred/test
+- "myspace" is used as a constraint on: mysql
+- "myspace" is used as a model constraint: bar/currentfoo
 - "myspace" is used as a binding on: mysql, mediawiki
 - "myspace" is used for controller config(s): jujuhaspace, juuuu-space
 
 
 Continue [y/N]?`[1:]
+
 	ctx, _, err := s.runCommand(c, api, spaceName, "--force")
 
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, expectedErrMsg)
@@ -160,7 +158,7 @@ func (s *RemoveSuite) TestRunWithForceWithNoError(c *gc.C) {
 	defer ctrl.Finish()
 
 	spaceName := "default"
-	api.EXPECT().RemoveSpace(spaceName, "bar/currentfoo", false, true).Return(network.RemoveSpace{}, nil)
+	api.EXPECT().RemoveSpace(spaceName, false, true).Return(network.RemoveSpace{}, nil)
 	expectedErrMsg := `
 WARNING! This command will remove the space. 
 Safe removal possible. No constraints, bindings or controller config found with dependency on the given space.
@@ -179,7 +177,7 @@ func (s *RemoveSuite) TestRunWhenSpacesAPIFails(c *gc.C) {
 
 	spaceName := "default"
 	apiErr := &params.Error{Code: params.CodeOperationBlocked, Message: "nope"}
-	api.EXPECT().RemoveSpace(spaceName, "bar/currentfoo", false, false).Return(network.RemoveSpace{}, apiErr)
+	api.EXPECT().RemoveSpace(spaceName, false, false).Return(network.RemoveSpace{}, apiErr)
 	ctx, _, err := s.runCommand(c, api, spaceName)
 
 	c.Assert(err, gc.ErrorMatches, "cannot remove space \"default\": nope")

@@ -6,7 +6,6 @@ package space
 import (
 	"bytes"
 	"fmt"
-	"github.com/juju/juju/core/network"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -16,6 +15,7 @@ import (
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
+	"github.com/juju/juju/core/network"
 )
 
 // NewRemoveCommand returns a command used to remove a space.
@@ -114,7 +114,7 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 				return errors.Annotatef(err, "cannot remove space %q", c.name)
 			}
 		}
-		if bounds, err := api.RemoveSpace(c.name, currentModel, c.force, false); err != nil || buildRemoveErrorMsg(bounds) != nil {
+		if bounds, err := api.RemoveSpace(c.name, c.force, false); err != nil || buildRemoveErrorMsg(bounds, currentModel) != nil {
 			return errors.Annotatef(err, "cannot remove space %q", c.name)
 		}
 		ctx.Infof("removed space %q", c.name)
@@ -123,18 +123,18 @@ func (c *RemoveCommand) Run(ctx *cmd.Context) error {
 }
 
 func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx *cmd.Context) error {
-	bounds, err := api.RemoveSpace(c.name, currentModel, false, true)
+	bounds, err := api.RemoveSpace(c.name, false, true)
 	if err != nil {
 		return err
 	}
-	if buildRemoveErrorMsg(bounds) == nil {
+	if buildRemoveErrorMsg(bounds, currentModel) == nil {
 		fmt.Fprintf(ctx.Stdout, removeSpaceMsgNoBounds)
 	} else {
 		removeSpaceMsg := fmt.Sprintf(""+
 			"WARNING! This command will remove the space"+
 			" with the following existing boundaries:"+
 			"\n\n%v\n\n\n"+
-			"Continue [y/N]?", buildRemoveErrorMsg(bounds))
+			"Continue [y/N]?", buildRemoveErrorMsg(bounds, currentModel))
 		fmt.Fprintf(ctx.Stdout, removeSpaceMsg)
 	}
 	if err := jujucmd.UserConfirmYes(ctx); err != nil {
@@ -143,7 +143,7 @@ func (c *RemoveCommand) handleForceOption(api SpaceAPI, currentModel string, ctx
 	return nil
 }
 
-func buildRemoveErrorMsg(removeSpace network.RemoveSpace) error {
+func buildRemoveErrorMsg(removeSpace network.RemoveSpace, currentModel string) error {
 	var errMsg bytes.Buffer
 	constraints := removeSpace.Constraints
 	bindings := removeSpace.Bindings
@@ -154,6 +154,10 @@ func buildRemoveErrorMsg(removeSpace network.RemoveSpace) error {
 		fmt.Fprintf(&errMsg, "\n- %q is used as a "+
 			"constraint on: %v", spaceName, strings.Join(constraints, ", "))
 
+		if removeSpace.HasModelConstraint {
+			fmt.Fprintf(&errMsg, "\n- %q is used as a "+
+				"model constraint: %v", spaceName, currentModel)
+		}
 	}
 	if len(removeSpace.Bindings) > 0 {
 		fmt.Fprintf(&errMsg, "\n- %q is used as a "+

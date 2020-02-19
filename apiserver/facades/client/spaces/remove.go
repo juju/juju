@@ -87,7 +87,7 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 			continue
 		}
 
-		if removable := api.checkSpaceIsRemovable(i, spacesTag, &results, spaceParam.Force); !removable {
+		if !api.checkSpaceIsRemovable(i, spacesTag, &results, spaceParam.Force) {
 			continue
 		}
 

@@ -177,7 +177,7 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 }
 
 // RemoveSpace removes a space.
-func (api *API) RemoveSpace(name string, model string, force bool, dryRun bool) (network.RemoveSpace, error) {
+func (api *API) RemoveSpace(name string, force bool, dryRun bool) (network.RemoveSpace, error) {
 	var response params.RemoveSpaceResults
 	args := params.RemoveSpaceParams{
 		SpaceParams: []params.RemoveSpaceParam{{
@@ -208,25 +208,31 @@ func (api *API) RemoveSpace(name string, model string, force bool, dryRun bool) 
 
 	result := response.Results[0]
 
-	constraints, err := convertEntitiesToString(result.Constraints, model)
+	constraints, err := convertEntitiesToStringAndSkipModel(result.Constraints)
 	if err != nil {
 		return network.RemoveSpace{}, err
 	}
-	bindings, err := convertEntitiesToString(result.Bindings, model)
+	hasModel, err := hasModelConstraint(result.Constraints)
+	if err != nil {
+		return network.RemoveSpace{}, err
+	}
+	bindings, err := convertEntitiesToStringAndSkipModel(result.Bindings)
 	if err != nil {
 		return network.RemoveSpace{}, err
 	}
 
 	return network.RemoveSpace{
-		Space:            name,
-		Constraints:      constraints,
-		Bindings:         bindings,
-		ControllerConfig: result.ControllerSettings,
+		HasModelConstraint: hasModel,
+		Space:              name,
+		Constraints:        constraints,
+		Bindings:           bindings,
+		ControllerConfig:   result.ControllerSettings,
 	}, nil
 
 }
 
-func convertEntitiesToString(entities []params.Entity, currentModel string) ([]string, error) {
+// convertEntitiesToStringAndSkipModel skips the modelTag as this will be used on another place.
+func convertEntitiesToStringAndSkipModel(entities []params.Entity) ([]string, error) {
 	var outputString []string
 	for _, ent := range entities {
 		tag, err := names.ParseTag(ent.Tag)
@@ -234,10 +240,23 @@ func convertEntitiesToString(entities []params.Entity, currentModel string) ([]s
 			return nil, err
 		}
 		if tag.Kind() == names.ModelTagKind {
-			outputString = append(outputString, currentModel)
+			continue
 		} else {
 			outputString = append(outputString, tag.Id())
 		}
 	}
 	return outputString, nil
+}
+
+func hasModelConstraint(entities []params.Entity) (bool, error) {
+	for _, entity := range entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return false, err
+		}
+		if tag.Kind() == names.ModelTagKind {
+			return true, nil
+		}
+	}
+	return false, nil
 }

@@ -35,9 +35,11 @@ type ShowSpace struct {
 
 // RemoveSpace represents space information why a space could not be removed.
 type RemoveSpace struct {
-	// The space which cannot be removed. Only with --force
+	// The space which cannot be removed. Only with --force.
 	Space string
-	// Constraints are the constraints which blocks the remove. Blocking Constraints are: Application, Model.
+	// HasModelConstraint is the model constraint.
+	HasModelConstraint bool
+	// Constraints are the constraints which blocks the remove. Blocking Constraints are: Application.
 	Constraints []string `json:"constraints,omitempty"`
 	// Bindings are the application bindings which blocks the remove.
 	Bindings []string `json:"bindings,omitempty"`
