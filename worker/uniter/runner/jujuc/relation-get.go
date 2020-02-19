@@ -179,7 +179,23 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	} else {
 		var err error
 		if c.Application {
-			settings, err = r.ReadApplicationSettings(c.UnitOrAppName)
+			// Check if the unit tries to access the remote app's
+			// databag or it tries to access the databag for its
+			// own application.
+			localAppName, pErr := names.UnitApplication(c.ctx.UnitName())
+			if pErr != nil {
+				return pErr
+			}
+
+			if c.UnitOrAppName == localAppName {
+				appSettings, readErr := r.ApplicationSettings()
+				if readErr != nil {
+					return readErr
+				}
+				settings = appSettings.Map()
+			} else {
+				settings, err = r.ReadApplicationSettings(c.UnitOrAppName)
+			}
 		} else {
 			settings, err = r.ReadSettings(c.UnitOrAppName)
 		}
