@@ -24,14 +24,17 @@ type Relation struct {
 	Units map[string]Settings
 	// UnitName is data for jujuc.ContextRelation.
 	UnitName string
-	// ApplicationSettings is data for jujuc.ContextRelation
-	ApplicationSettings Settings
+	// RemoteApplicationSettings is data for jujuc.ContextRelation
+	RemoteApplicationSettings Settings
+	// LocalApplicationSettings is data for jujuc.ContextRelation
+	LocalApplicationSettings Settings
 }
 
 // Reset clears the Relation's settings.
 func (r *Relation) Reset() {
 	r.Units = nil
-	r.ApplicationSettings = nil
+	r.RemoteApplicationSettings = nil
+	r.LocalApplicationSettings = nil
 }
 
 // SetRelated adds the relation settings for the unit.
@@ -42,8 +45,14 @@ func (r *Relation) SetRelated(name string, settings Settings) {
 	r.Units[name] = settings
 }
 
-func (r *Relation) SetRelatedApplicationSettings(settings Settings) {
-	r.ApplicationSettings = settings
+// SetRemoteApplicationSettings sets the settings for the remote application.
+func (r *Relation) SetRemoteApplicationSettings(settings Settings) {
+	r.RemoteApplicationSettings = settings
+}
+
+// SetLocalApplicationSettings sets the settings for the local application.
+func (r *Relation) SetLocalApplicationSettings(settings Settings) {
+	r.LocalApplicationSettings = settings
 }
 
 // ContextRelation is a test double for jujuc.ContextRelation.
@@ -97,7 +106,7 @@ func (r *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 		return nil, errors.Trace(err)
 	}
 
-	return r.info.ApplicationSettings, nil
+	return r.info.LocalApplicationSettings, nil
 }
 
 // UnitNames implements jujuc.ContextRelation.
@@ -134,7 +143,7 @@ func (r *ContextRelation) ReadApplicationSettings(name string) (params.Settings,
 		return nil, errors.Trace(err)
 	}
 
-	return r.info.ApplicationSettings.Map(), nil
+	return r.info.RemoteApplicationSettings.Map(), nil
 }
 
 // Suspended implements jujuc.ContextRelation.
