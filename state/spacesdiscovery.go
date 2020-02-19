@@ -110,7 +110,7 @@ func (st *State) SaveSubnetsFromProvider(subnets []corenetwork.SubnetInfo, space
 				return errors.Trace(err)
 			}
 			subnetWithDashes := strings.Replace(strings.Replace(subnetNet.String(), ".", "-", -1), "/", "-", -1)
-			id := fmt.Sprintf("%s-INFAN-%s", subnet.ProviderId, subnetWithDashes)
+			id := fmt.Sprintf("%s-%s-%s", subnet.ProviderId, corenetwork.InFan, subnetWithDashes)
 			if modelSubnetIds.Contains(id) {
 				continue
 			}

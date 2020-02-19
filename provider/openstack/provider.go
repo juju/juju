@@ -1439,7 +1439,9 @@ func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova
 				subnetIDs = append(subnetIDs, subnetID)
 			}
 		}
-		subnetIDsForZone[i] = subnetIDs
+
+		// Filter out any fan networks.
+		subnetIDsForZone[i] = corenetwork.FilterInFanNetwork(subnetIDs)
 	}
 
 	/// For each list of subnet IDs that satisfy space and zone constraints,

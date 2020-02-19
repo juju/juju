@@ -6,6 +6,7 @@ package network
 import (
 	"net"
 	"sort"
+	"strings"
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -218,4 +219,32 @@ func (s SubnetSet) SortedValues() []Id {
 		return values[i] < values[j]
 	})
 	return values
+}
+
+// FanType describes a network fan type.
+type FanType string
+
+const (
+	// InFan defines a FanType for a in fan type.
+	InFan FanType = "INFAN"
+)
+
+func (f FanType) String() string {
+	return string(f)
+}
+
+// FilterNetwork filters out any fan networks.
+func FilterNetwork(networks []Id, fanType FanType) []Id {
+	var result []Id
+	for _, network := range networks {
+		if !strings.Contains(network.String(), fanType.String()) {
+			result = append(result, network)
+		}
+	}
+	return result
+}
+
+// FilterInFanNetwork filters out any in fan networks.
+func FilterInFanNetwork(networks []Id) []Id {
+	return FilterNetwork(networks, InFan)
 }

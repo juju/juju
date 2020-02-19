@@ -144,3 +144,47 @@ func assertValues(c *gc.C, s network.SubnetSet, expected ...network.Id) {
 	sorted := s.SortedValues()
 	c.Assert(sorted, gc.DeepEquals, expected)
 }
+
+func (*subnetSuite) TestFilterInFanNetwork(c *gc.C) {
+	testCases := []struct {
+		name     string
+		subnets  []network.Id
+		expected []network.Id
+	}{
+		{
+			name:     "empty",
+			subnets:  make([]network.Id, 0),
+			expected: []network.Id(nil),
+		},
+		{
+			name: "no match",
+			subnets: []network.Id{
+				"aaa-bbb-ccc",
+				"xxx-yyy-zzz",
+			},
+			expected: []network.Id{
+				"aaa-bbb-ccc",
+				"xxx-yyy-zzz",
+			},
+		},
+		{
+			name: "match",
+			subnets: []network.Id{
+				"aaa-bbb-ccc",
+				"foo-INFAN-bar",
+				"xxx-yyy-zzz",
+			},
+			expected: []network.Id{
+				"aaa-bbb-ccc",
+				"xxx-yyy-zzz",
+			},
+		},
+	}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.name)
+
+		res := network.FilterInFanNetwork(t.subnets)
+		c.Check(res, gc.DeepEquals, t.expected)
+	}
+}
