@@ -76,7 +76,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		},
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 	existingPodSpec := podSpec

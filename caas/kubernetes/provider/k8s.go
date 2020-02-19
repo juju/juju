@@ -1366,13 +1366,14 @@ type configMapNameFunc func(fileSetName string) string
 func (k *kubernetesClient) configurePodFiles(
 	appName string,
 	annotations map[string]string,
+	workloadSpec *workloadSpec,
 	podSpec *core.PodSpec,
 	containers []specs.ContainerSpec,
 	cfgMapName configMapNameFunc,
 ) error {
 	for i, container := range containers {
 		for _, fileSet := range container.Files {
-			vol, err := k.fileSetToVolume(appName, annotations, fileSet, cfgMapName)
+			vol, err := k.fileSetToVolume(appName, annotations, workloadSpec, fileSet, cfgMapName)
 			if err != nil {
 				return errors.Trace(err)
 			}
@@ -1386,7 +1387,12 @@ func (k *kubernetesClient) configurePodFiles(
 	return nil
 }
 
-func (k *kubernetesClient) fileSetToVolume(appName string, annotations map[string]string, fileSet specs.FileSet, cfgMapName configMapNameFunc) (core.Volume, error) {
+func (k *kubernetesClient) fileSetToVolume(appName string,
+	annotations map[string]string,
+	workloadSpec *workloadSpec,
+	fileSet specs.FileSet,
+	cfgMapName configMapNameFunc,
+) (core.Volume, error) {
 	fileSetItemsToVolItems := func(items []specs.KeyToPath) (out []core.KeyToPath) {
 		for _, item := range items {
 			out = append(out, core.KeyToPath{
@@ -1421,17 +1427,39 @@ func (k *kubernetesClient) fileSetToVolume(appName string, annotations map[strin
 			SizeLimit: fileSet.EmptyDir.SizeLimit,
 		}
 	} else if fileSet.ConfigMap != nil {
+		found := false
+		refName := fileSet.ConfigMap.Name
+		for cfgN := range workloadSpec.ConfigMaps {
+			if cfgN == refName {
+				found = true
+			}
+		}
+		if !found {
+			return vol, errors.NotValidf("non existing config map %q", refName)
+		}
+
 		vol.ConfigMap = &core.ConfigMapVolumeSource{
 			LocalObjectReference: core.LocalObjectReference{
-				Name: fileSet.ConfigMap.Name,
+				Name: refName,
 			},
 			DefaultMode: fileSet.ConfigMap.DefaultMode,
 			Optional:    fileSet.ConfigMap.Optional,
 			Items:       fileSetItemsToVolItems(fileSet.ConfigMap.Items),
 		}
 	} else if fileSet.Secret != nil {
+		found := false
+		refName := fileSet.Secret.Name
+		for _, secret := range workloadSpec.Secrets {
+			if secret.Name == refName {
+				found = true
+			}
+		}
+		if !found {
+			return vol, errors.NotValidf("non existing config map %q", refName)
+		}
+
 		vol.Secret = &core.SecretVolumeSource{
-			SecretName:  fileSet.Secret.Name,
+			SecretName:  refName,
 			DefaultMode: fileSet.Secret.DefaultMode,
 			Optional:    fileSet.Secret.Optional,
 			Items:       fileSetItemsToVolItems(fileSet.Secret.Items),
@@ -1531,7 +1559,7 @@ func (k *kubernetesClient) configureDaemonSet(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, &podSpec, containers, cfgName); err != nil {
 		return cleanUp, errors.Trace(err)
 	}
 
@@ -1572,7 +1600,7 @@ func (k *kubernetesClient) configureDeployment(
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
 	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, &podSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
