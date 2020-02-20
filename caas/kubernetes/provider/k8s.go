@@ -1380,7 +1380,7 @@ func (k *kubernetesClient) configurePodFiles(
 			}
 			pushUniqVolume(podSpec, vol)
 			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, core.VolumeMount{
-				// TODO: more config field support, SubPath, ReadOnly etc!!!!!
+				// TODO(caas): add more config fields support(SubPath, ReadOnly, etc).
 				Name:      vol.Name,
 				MountPath: fileSet.MountPath,
 			})
@@ -1399,7 +1399,8 @@ func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) {
 	podSpec.Volumes = append(podSpec.Volumes, vol)
 }
 
-func (k *kubernetesClient) fileSetToVolume(appName string,
+func (k *kubernetesClient) fileSetToVolume(
+	appName string,
 	annotations map[string]string,
 	workloadSpec *workloadSpec,
 	fileSet specs.FileSet,
@@ -1444,6 +1445,7 @@ func (k *kubernetesClient) fileSetToVolume(appName string,
 		for cfgN := range workloadSpec.ConfigMaps {
 			if cfgN == refName {
 				found = true
+				break
 			}
 		}
 		if !found {
@@ -1464,6 +1466,7 @@ func (k *kubernetesClient) fileSetToVolume(appName string,
 		for _, secret := range workloadSpec.Secrets {
 			if secret.Name == refName {
 				found = true
+				break
 			}
 		}
 		if !found {

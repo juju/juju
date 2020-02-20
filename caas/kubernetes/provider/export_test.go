@@ -13,6 +13,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/juju/juju/caas"
+	"github.com/juju/juju/caas/specs"
 	"github.com/juju/juju/cloud"
 	jujucloud "github.com/juju/juju/cloud"
 	"github.com/juju/juju/cloudconfig/podcfg"
@@ -36,6 +37,7 @@ var (
 	ToYaml                  = toYaml
 	Indent                  = indent
 	ProcessSecretData       = processSecretData
+	PushUniqVolume          = pushUniqVolume
 )
 
 type (
@@ -110,6 +112,27 @@ func NewProviderCredentials(getter func(CommandRunner) (cloud.Cloud, jujucloud.C
 
 func (k *kubernetesClient) GetCRDsForCRs(crs map[string][]unstructured.Unstructured, getter CRDGetterInterface) (out map[string]*apiextensionsv1beta1.CustomResourceDefinition, err error) {
 	return k.getCRDsForCRs(crs, getter)
+}
+
+func (k *kubernetesClient) FileSetToVolume(
+	appName string,
+	annotations map[string]string,
+	workloadSpec *workloadSpec,
+	fileSet specs.FileSet,
+	cfgMapName configMapNameFunc,
+) (core.Volume, error) {
+	return k.fileSetToVolume(appName, annotations, workloadSpec, fileSet, cfgMapName)
+}
+
+func (k *kubernetesClient) ConfigurePodFiles(
+	appName string,
+	annotations map[string]string,
+	workloadSpec *workloadSpec,
+	podSpec *core.PodSpec,
+	containers []specs.ContainerSpec,
+	cfgMapName configMapNameFunc,
+) error {
+	return k.configurePodFiles(appName, annotations, workloadSpec, podSpec, containers, cfgMapName)
 }
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {

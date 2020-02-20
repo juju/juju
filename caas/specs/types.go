@@ -179,13 +179,13 @@ func (cs *caasContainers) Validate() error {
 				uniqVols[f.Name] = f
 			}
 
-			// No deplicated FileSet in same container, but it's ok in different container in same pod.
+			// No deplicated FileSet in same container, but it's ok in different containers in same pod.
 			if isDuplicateInContainer(f) {
 				return errors.NotValidf("duplicated file %q in container %q", f.Name, c.Name)
 			}
 			uniqFileSets = append(uniqFileSets, f)
 
-			// Same mount path can't be mounted more than once.
+			// Same mount path can't be mounted more than once in same container.
 			if mountPaths.Contains(f.MountPath) {
 				return errors.NotValidf("duplicated mount path %q in container %q", f.MountPath, c.Name)
 			}

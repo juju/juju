@@ -67,6 +67,37 @@ func boolPtr(b bool) *bool {
 	return &b
 }
 
+func (s *K8sSuite) TestPushUniqVolume(c *gc.C) {
+	podSpec := &core.PodSpec{}
+
+	vol1 := core.Volume{
+		Name: "vol1",
+		VolumeSource: core.VolumeSource{
+			EmptyDir: &core.EmptyDirVolumeSource{},
+		},
+	}
+	vol2 := core.Volume{
+		Name: "vol2",
+		VolumeSource: core.VolumeSource{
+			HostPath: &core.HostPathVolumeSource{
+				Path: "/var/log/gitlab",
+			},
+		},
+	}
+	provider.PushUniqVolume(podSpec, vol1)
+	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+		vol1,
+	})
+	provider.PushUniqVolume(podSpec, vol1)
+	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+		vol1,
+	})
+	provider.PushUniqVolume(podSpec, vol2)
+	c.Assert(podSpec.Volumes, jc.DeepEquals, []core.Volume{
+		vol1, vol2,
+	})
+}
+
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
 	sa := &specs.ServiceAccountSpec{}
@@ -624,6 +655,462 @@ type K8sBrokerSuite struct {
 }
 
 var _ = gc.Suite(&K8sBrokerSuite{})
+
+type fileSetToVolumeResultChecker func(core.Volume, error)
+
+func (s *K8sBrokerSuite) assertFileSetToVolume(c *gc.C, fs specs.FileSet, resultChecker fileSetToVolumeResultChecker, assertCalls ...*gomock.Call) {
+
+	cfgMapName := func(n string) string { return n }
+
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", getBasicPodspec(), "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	workloadSpec.ConfigMaps = map[string]specs.ConfigMap{
+		"log-config": map[string]string{
+			"log_level": "INFO",
+		},
+	}
+	workloadSpec.Secrets = []k8sspecs.Secret{
+		{Name: "mysecret2"},
+	}
+
+	annotations := map[string]string{
+		"fred":               "mary",
+		"juju.io/controller": testing.ControllerTag.Id(),
+	}
+
+	gomock.InOrder(
+		assertCalls...,
+	)
+	vol, err := s.broker.FileSetToVolume(
+		"app-name", annotations,
+		workloadSpec, fs, cfgMapName,
+	)
+	resultChecker(vol, err)
+}
+
+func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	fs := specs.FileSet{
+		Name:      "configuration",
+		MountPath: "/var/lib/foo",
+		VolumeSource: specs.VolumeSource{
+			Files: map[string]string{
+				"file1": `foo=bar`,
+			},
+		},
+	}
+	cm := &core.ConfigMap{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "configuration",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"fred":               "mary",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
+		},
+		Data: map[string]string{
+			"file1": `foo=bar`,
+		},
+	}
+	s.assertFileSetToVolume(
+		c, fs,
+		func(vol core.Volume, err error) {
+			c.Assert(err, jc.ErrorIsNil)
+			c.Assert(vol, gc.DeepEquals, core.Volume{
+				Name: "configuration",
+				VolumeSource: core.VolumeSource{
+					ConfigMap: &core.ConfigMapVolumeSource{
+						LocalObjectReference: core.LocalObjectReference{
+							Name: "configuration",
+						},
+					},
+				},
+			})
+		},
+		s.mockConfigMaps.EXPECT().Update(cm).Return(cm, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	type tc struct {
+		fs            specs.FileSet
+		resultChecker fileSetToVolumeResultChecker
+	}
+
+	hostPathType := core.HostPathDirectory
+
+	for i, t := range []tc{
+		{
+			fs: specs.FileSet{
+				Name:      "myhostpath",
+				MountPath: "/host/etc/cni/net.d",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/etc/cni/net.d",
+						Type: "Directory",
+					},
+				},
+			},
+			resultChecker: func(vol core.Volume, err error) {
+				c.Check(err, jc.ErrorIsNil)
+				c.Check(vol, gc.DeepEquals, core.Volume{
+					Name: "myhostpath",
+					VolumeSource: core.VolumeSource{
+						HostPath: &core.HostPathVolumeSource{
+							Path: "/etc/cni/net.d",
+							Type: &hostPathType,
+						},
+					},
+				})
+			},
+		},
+		{
+			fs: specs.FileSet{
+				Name:      "cache-volume",
+				MountPath: "/empty-dir",
+				VolumeSource: specs.VolumeSource{
+					EmptyDir: &specs.EmptyDirVol{
+						Medium: "Memory",
+					},
+				},
+			},
+			resultChecker: func(vol core.Volume, err error) {
+				c.Check(err, jc.ErrorIsNil)
+				c.Check(vol, gc.DeepEquals, core.Volume{
+					Name: "cache-volume",
+					VolumeSource: core.VolumeSource{
+						EmptyDir: &core.EmptyDirVolumeSource{
+							Medium: core.StorageMediumMemory,
+						},
+					},
+				})
+			},
+		},
+		{
+			fs: specs.FileSet{
+				Name:      "log_level",
+				MountPath: "/log-config/log_level",
+				VolumeSource: specs.VolumeSource{
+					ConfigMap: &specs.ResourceRefVol{
+						Name:        "log-config",
+						DefaultMode: int32Ptr(511),
+						Optional:    boolPtr(true),
+						Items: []specs.KeyToPath{
+							{
+								Key:  "log_level",
+								Path: "log_level",
+								Mode: int32Ptr(511),
+							},
+						},
+					},
+				},
+			},
+			resultChecker: func(vol core.Volume, err error) {
+				c.Check(err, jc.ErrorIsNil)
+				c.Check(vol, gc.DeepEquals, core.Volume{
+					Name: "log_level",
+					VolumeSource: core.VolumeSource{
+						ConfigMap: &core.ConfigMapVolumeSource{
+							LocalObjectReference: core.LocalObjectReference{
+								Name: "log-config",
+							},
+							DefaultMode: int32Ptr(511),
+							Optional:    boolPtr(true),
+							Items: []core.KeyToPath{
+								{
+									Key:  "log_level",
+									Path: "log_level",
+									Mode: int32Ptr(511),
+								},
+							},
+						},
+					},
+				})
+			},
+		},
+		{
+			fs: specs.FileSet{
+				Name:      "log_level",
+				MountPath: "/log-config/log_level",
+				VolumeSource: specs.VolumeSource{
+					ConfigMap: &specs.ResourceRefVol{
+						Name:        "non-existing-config-map",
+						DefaultMode: int32Ptr(511),
+						Optional:    boolPtr(true),
+						Items: []specs.KeyToPath{
+							{
+								Key:  "log_level",
+								Path: "log_level",
+								Mode: int32Ptr(511),
+							},
+						},
+					},
+				},
+			},
+			resultChecker: func(_ core.Volume, err error) {
+				c.Check(err, gc.ErrorMatches, `non existing config map "non-existing-config-map" not valid`)
+			},
+		},
+		{
+			fs: specs.FileSet{
+				Name:      "mysecret2",
+				MountPath: "/secrets",
+				VolumeSource: specs.VolumeSource{
+					Secret: &specs.ResourceRefVol{
+						Name:        "mysecret2",
+						DefaultMode: int32Ptr(511),
+						Optional:    boolPtr(true),
+						Items: []specs.KeyToPath{
+							{
+								Key:  "password",
+								Path: "my-group/my-password",
+								Mode: int32Ptr(511),
+							},
+						},
+					},
+				},
+			},
+			resultChecker: func(vol core.Volume, err error) {
+				c.Check(err, jc.ErrorIsNil)
+				c.Check(vol, gc.DeepEquals, core.Volume{
+					Name: "mysecret2",
+					VolumeSource: core.VolumeSource{
+						Secret: &core.SecretVolumeSource{
+							SecretName:  "mysecret2",
+							DefaultMode: int32Ptr(511),
+							Optional:    boolPtr(true),
+							Items: []core.KeyToPath{
+								{
+									Key:  "password",
+									Path: "my-group/my-password",
+									Mode: int32Ptr(511),
+								},
+							},
+						},
+					},
+				})
+			},
+		},
+		{
+			fs: specs.FileSet{
+				Name:      "mysecret2",
+				MountPath: "/secrets",
+				VolumeSource: specs.VolumeSource{
+					Secret: &specs.ResourceRefVol{
+						Name:        "non-existing-secret",
+						DefaultMode: int32Ptr(511),
+						Optional:    boolPtr(true),
+						Items: []specs.KeyToPath{
+							{
+								Key:  "password",
+								Path: "my-group/my-password",
+								Mode: int32Ptr(511),
+							},
+						},
+					},
+				},
+			},
+			resultChecker: func(_ core.Volume, err error) {
+				c.Check(err, gc.ErrorMatches, `non existing secret "non-existing-secret" not valid`)
+			},
+		},
+	} {
+		c.Logf("#%d: testing FileSetToVolume", i)
+		s.assertFileSetToVolume(
+			c, t.fs, t.resultChecker,
+		)
+	}
+}
+
+func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	cfgMapName := func(n string) string { return n }
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.Containers = []specs.ContainerSpec{{
+		Name:         "test",
+		Ports:        []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
+		ImageDetails: specs.ImageDetails{ImagePath: "juju/image", Username: "fred", Password: "secret"},
+		Command:      []string{"sh", "-c"},
+		Args:         []string{"doIt", "--debug"},
+		WorkingDir:   "/path/to/here",
+		Config: map[string]interface{}{
+			"foo":        "bar",
+			"restricted": "yes",
+			"bar":        true,
+			"switch":     true,
+			"brackets":   `["hello", "world"]`,
+		},
+		Files: []specs.FileSet{
+			{
+				Name:      "myhostpath",
+				MountPath: "/host/etc/cni/net.d",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/etc/cni/net.d",
+						Type: "Directory",
+					},
+				},
+			},
+			{
+				Name:      "cache-volume",
+				MountPath: "/empty-dir",
+				VolumeSource: specs.VolumeSource{
+					EmptyDir: &specs.EmptyDirVol{
+						Medium: "Memory",
+					},
+				},
+			},
+			{
+				// same volume can be mounted to `different` paths in same container.
+				Name:      "cache-volume",
+				MountPath: "/another-empty-dir",
+				VolumeSource: specs.VolumeSource{
+					EmptyDir: &specs.EmptyDirVol{
+						Medium: "Memory",
+					},
+				},
+			},
+		},
+	}, {
+		Name:  "test2",
+		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
+		Image: "juju/image2",
+		Files: []specs.FileSet{
+			{
+				// exact same volume can be mounted to same path in different container.
+				Name:      "myhostpath",
+				MountPath: "/host/etc/cni/net.d",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/etc/cni/net.d",
+						Type: "Directory",
+					},
+				},
+			},
+		},
+	}}
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	workloadSpec.ConfigMaps = map[string]specs.ConfigMap{
+		"log-config": map[string]string{
+			"log_level": "INFO",
+		},
+	}
+	workloadSpec.Secrets = []k8sspecs.Secret{
+		{Name: "mysecret2"},
+	}
+
+	// before populate volumes to pod and volume mounts to containers.
+	c.Assert(workloadSpec.Pod.Volumes, gc.DeepEquals, dataVolumes())
+	workloadSpec.Pod.Containers = []core.Container{
+		{
+			Name:            "test",
+			Image:           "juju/image",
+			Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+			ImagePullPolicy: core.PullAlways,
+			SecurityContext: &core.SecurityContext{
+				RunAsNonRoot: boolPtr(true),
+				Privileged:   boolPtr(true),
+			},
+			ReadinessProbe: &core.Probe{
+				InitialDelaySeconds: 10,
+				Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+			},
+			LivenessProbe: &core.Probe{
+				SuccessThreshold: 20,
+				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+			},
+			VolumeMounts: dataVolumeMounts(),
+		}, {
+			Name:  "test2",
+			Image: "juju/image2",
+			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+			// Defaults since not specified.
+			SecurityContext: &core.SecurityContext{
+				RunAsNonRoot:             boolPtr(false),
+				ReadOnlyRootFilesystem:   boolPtr(false),
+				AllowPrivilegeEscalation: boolPtr(true),
+			},
+			VolumeMounts: dataVolumeMounts(),
+		},
+	}
+
+	annotations := map[string]string{
+		"fred":               "mary",
+		"juju.io/controller": testing.ControllerTag.Id(),
+	}
+
+	err = s.broker.ConfigurePodFiles(
+		"app-name", annotations, workloadSpec, &workloadSpec.Pod, basicPodSpec.Containers, cfgMapName,
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	hostPathType := core.HostPathDirectory
+	c.Assert(workloadSpec.Pod.Volumes, gc.DeepEquals, append(dataVolumes(), []core.Volume{
+		{
+			Name: "myhostpath",
+			VolumeSource: core.VolumeSource{
+				HostPath: &core.HostPathVolumeSource{
+					Path: "/etc/cni/net.d",
+					Type: &hostPathType,
+				},
+			},
+		},
+		{
+			Name: "cache-volume",
+			VolumeSource: core.VolumeSource{
+				EmptyDir: &core.EmptyDirVolumeSource{
+					Medium: core.StorageMediumMemory,
+				},
+			},
+		},
+	}...))
+	c.Assert(workloadSpec.Pod.Containers, gc.DeepEquals, []core.Container{
+		{
+			Name:            "test",
+			Image:           "juju/image",
+			Ports:           []core.ContainerPort{{ContainerPort: int32(80), Protocol: core.ProtocolTCP}},
+			ImagePullPolicy: core.PullAlways,
+			SecurityContext: &core.SecurityContext{
+				RunAsNonRoot: boolPtr(true),
+				Privileged:   boolPtr(true),
+			},
+			ReadinessProbe: &core.Probe{
+				InitialDelaySeconds: 10,
+				Handler:             core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/ready"}},
+			},
+			LivenessProbe: &core.Probe{
+				SuccessThreshold: 20,
+				Handler:          core.Handler{HTTPGet: &core.HTTPGetAction{Path: "/liveready"}},
+			},
+			VolumeMounts: append(dataVolumeMounts(), []core.VolumeMount{
+				{Name: "myhostpath", MountPath: "/host/etc/cni/net.d"},
+				{Name: "cache-volume", MountPath: "/empty-dir"},
+				{Name: "cache-volume", MountPath: "/another-empty-dir"},
+			}...),
+		}, {
+			Name:  "test2",
+			Image: "juju/image2",
+			Ports: []core.ContainerPort{{ContainerPort: int32(8080), Protocol: core.ProtocolTCP}},
+			// Defaults since not specified.
+			SecurityContext: &core.SecurityContext{
+				RunAsNonRoot:             boolPtr(false),
+				ReadOnlyRootFilesystem:   boolPtr(false),
+				AllowPrivilegeEscalation: boolPtr(true),
+			},
+			VolumeMounts: append(dataVolumeMounts(), []core.VolumeMount{
+				{Name: "myhostpath", MountPath: "/host/etc/cni/net.d"},
+			}...),
+		},
+	})
+}
 
 func (s *K8sBrokerSuite) TestAPIVersion(c *gc.C) {
 	ctrl := s.setupController(c)

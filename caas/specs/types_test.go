@@ -209,7 +209,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				specs.FileSet{
+				{
 					Name:      "file1",
 					MountPath: "/same-mount-path",
 					VolumeSource: specs.VolumeSource{
@@ -218,7 +218,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "file2",
 					MountPath: "/same-mount-path",
 					VolumeSource: specs.VolumeSource{
@@ -241,7 +241,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				specs.FileSet{
+				{
 					Name:      "file1",
 					MountPath: "/etc/config",
 					VolumeSource: specs.VolumeSource{
@@ -259,7 +259,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 80, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				specs.FileSet{
+				{
 					Name:      "file1",
 					MountPath: "/etc/config",
 					VolumeSource: specs.VolumeSource{
@@ -282,7 +282,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				specs.FileSet{
+				{
 					Name:      "file1",
 					MountPath: "/foo/file1",
 					VolumeSource: specs.VolumeSource{
@@ -291,7 +291,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "file1", // same file in same container mount to different path.
 					MountPath: "/foo/another-file1",
 					VolumeSource: specs.VolumeSource{
@@ -300,7 +300,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "file2",
 					MountPath: "/foo/file2",
 					VolumeSource: specs.VolumeSource{
@@ -309,7 +309,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "host-path-1",
 					MountPath: "/etc/host-path",
 					VolumeSource: specs.VolumeSource{
@@ -318,7 +318,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "empty-dir-1",
 					MountPath: "/etc/empty-dir",
 					VolumeSource: specs.VolumeSource{
@@ -327,7 +327,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "config-map-1",
 					MountPath: "/etc/config",
 					VolumeSource: specs.VolumeSource{
@@ -342,7 +342,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 						},
 					},
 				},
-				specs.FileSet{
+				{
 					Name:      "mysecret2",
 					MountPath: "/secrets",
 					VolumeSource: specs.VolumeSource{
@@ -366,7 +366,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 80, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				specs.FileSet{
+				{
 					Name:      "file1", // exact same file1 can be mounted to same path in a different container.
 					MountPath: "/foo/file1",
 					VolumeSource: specs.VolumeSource{

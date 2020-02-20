@@ -348,60 +348,7 @@ foo: bar
 			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
-	fileSet1 := specs.FileSet{
-		Name:      "configuration",
-		MountPath: "/var/lib/foo",
-	}
-	fileSet1.Files = map[string]string{
-		"file1": expectedFileContent,
-	}
-	fileSet2 := specs.FileSet{
-		Name:      "myhostpath",
-		MountPath: "/host/etc/cni/net.d",
-	}
-	fileSet2.HostPath = &specs.HostPathVol{
-		Path: "/etc/cni/net.d",
-		Type: "Directory",
-	}
-	fileSet3 := specs.FileSet{
-		Name:      "cache-volume",
-		MountPath: "/empty-dir",
-	}
-	fileSet3.EmptyDir = &specs.EmptyDirVol{
-		Medium: "Memory",
-	}
-	fileSet4 := specs.FileSet{
-		Name:      "log_level",
-		MountPath: "/log-config/log_level",
-	}
-	fileSet4.ConfigMap = &specs.ResourceRefVol{
-		Name:        "log-config",
-		DefaultMode: int32Ptr(511),
-		Optional:    boolPtr(true),
-		Items: []specs.KeyToPath{
-			{
-				Key:  "log_level",
-				Path: "log_level",
-				Mode: int32Ptr(511),
-			},
-		},
-	}
-	fileSet5 := specs.FileSet{
-		Name:      "mysecret2",
-		MountPath: "/secrets",
-	}
-	fileSet5.Secret = &specs.ResourceRefVol{
-		Name:        "mysecret2",
-		DefaultMode: int32Ptr(511),
-		Optional:    boolPtr(true),
-		Items: []specs.KeyToPath{
-			{
-				Key:  "password",
-				Path: "my-group/my-password",
-				Mode: int32Ptr(511),
-			},
-		},
-	}
+
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
@@ -448,7 +395,70 @@ echo "do some stuff here for gitlab container"
 					},
 				},
 				Files: []specs.FileSet{
-					fileSet1, fileSet2, fileSet3, fileSet4, fileSet5,
+					{
+						Name:      "configuration",
+						MountPath: "/var/lib/foo",
+						VolumeSource: specs.VolumeSource{
+							Files: map[string]string{
+								"file1": expectedFileContent,
+							},
+						},
+					},
+					{
+						Name:      "myhostpath",
+						MountPath: "/host/etc/cni/net.d",
+						VolumeSource: specs.VolumeSource{
+							HostPath: &specs.HostPathVol{
+								Path: "/etc/cni/net.d",
+								Type: "Directory",
+							},
+						},
+					},
+					{
+						Name:      "cache-volume",
+						MountPath: "/empty-dir",
+						VolumeSource: specs.VolumeSource{
+							EmptyDir: &specs.EmptyDirVol{
+								Medium: "Memory",
+							},
+						},
+					},
+					{
+						Name:      "log_level",
+						MountPath: "/log-config/log_level",
+						VolumeSource: specs.VolumeSource{
+							ConfigMap: &specs.ResourceRefVol{
+								Name:        "log-config",
+								DefaultMode: int32Ptr(511),
+								Optional:    boolPtr(true),
+								Items: []specs.KeyToPath{
+									{
+										Key:  "log_level",
+										Path: "log_level",
+										Mode: int32Ptr(511),
+									},
+								},
+							},
+						},
+					},
+					{
+						Name:      "mysecret2",
+						MountPath: "/secrets",
+						VolumeSource: specs.VolumeSource{
+							Secret: &specs.ResourceRefVol{
+								Name:        "mysecret2",
+								DefaultMode: int32Ptr(511),
+								Optional:    boolPtr(true),
+								Items: []specs.KeyToPath{
+									{
+										Key:  "password",
+										Path: "my-group/my-password",
+										Mode: int32Ptr(511),
+									},
+								},
+							},
+						},
+					},
 				},
 				ProviderContainer: &k8sspecs.K8sContainerSpec{
 					SecurityContext: &core.SecurityContext{
