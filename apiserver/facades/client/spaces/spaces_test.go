@@ -255,7 +255,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessNoControllerConfig(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
-	args, tag := s.getRemoveArgs(space)
+	args, tag := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
@@ -275,7 +275,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceSuccessControllerConfig(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
-	args, tag := s.getRemoveArgs(space)
+	args, tag := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
@@ -296,7 +296,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundApplications(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
-	args, _ := s.getRemoveArgs(space)
+	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
@@ -327,7 +327,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundController(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
-	args, _ := s.getRemoveArgs(space)
+	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
@@ -354,7 +354,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundConstraints(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
-	args, _ := s.getRemoveArgs(space)
+	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("2"), nil)
@@ -390,7 +390,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
-	args, _ := s.getRemoveArgs(space)
+	args, _ := s.getRemoveArgs(space, false)
 
 	s.expectDefaultSpace(ctrl, space, nil, nil)
 	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
@@ -431,13 +431,39 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorFoundAll(c *gc.C) {
 	c.Assert(res.Results[0].Error, gc.IsNil)
 }
 
+func (s *SpaceTestMockSuite) TestRemoveSpaceFoundAllWithForce(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	space := "myspace"
+	args, tag := s.getRemoveArgs(space, true)
+
+	s.expectDefaultSpace(ctrl, space, nil, nil)
+	s.expectEndpointBindings(s.getDefaultApplicationEndpoints("1"), nil)
+	s.mockBacking.EXPECT().IsController().Return(true)
+
+	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: "nothing", controller.JujuManagementSpace: space})
+	s.mockBacking.EXPECT().ControllerConfig().Return(currentConfig, nil)
+	s.mockOpFactory.EXPECT().NewRemoveSpaceModelOp(tag.Id()).Return(nil, nil)
+	s.mockBacking.EXPECT().ApplyOperation(nil).Return(nil)
+
+	_, _ = s.expectAllTags(space)
+
+	expected := params.RemoveSpaceResults{Results: []params.RemoveSpaceResult{{}}}
+
+	res, err := s.api.RemoveSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res, gc.DeepEquals, expected)
+}
+
 func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) {
 	ctrl, unreg := s.setupSpacesAPI(c, true, true)
 	defer ctrl.Finish()
 	defer unreg()
 	space := "myspace"
 
-	args, _ := s.getRemoveArgs(space)
+	args, _ := s.getRemoveArgs(space, false)
 
 	_, err := s.api.RemoveSpace(args)
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
@@ -453,7 +479,7 @@ func (s *SpaceTestMockSuite) expectAllTags(spaceName string) (names.ApplicationT
 	s.mockConstraints.EXPECT().ID().Return(application)
 	s.mockConstraints.EXPECT().ID().Return(unit)
 	s.mockBacking.EXPECT().ConstraintsBySpaceName(spaceName).Return([]spaces.Constraints{s.mockConstraints, s.mockConstraints, s.mockConstraints, s.mockConstraints}, nil)
-	return names.NewApplicationTag("mysql"), names.NewModelTag("e")
+	return names.NewApplicationTag("mysql"), names.NewModelTag(model)
 }
 
 func (s *SpaceTestMockSuite) getDefaultControllerConfig(c *gc.C, attr map[string]interface{}) controller.Config {
@@ -585,13 +611,15 @@ func (s *SpaceTestMockSuite) getRenameArgs(from, to string) params.RenameSpacesP
 	return args
 }
 
-func (s *SpaceTestMockSuite) getRemoveArgs(name string) (params.Entities, names.SpaceTag) {
+func (s *SpaceTestMockSuite) getRemoveArgs(name string, force bool) (params.RemoveSpaceParams, names.SpaceTag) {
 	spaceTag := names.NewSpaceTag(name)
-	args := params.Entities{Entities: []params.Entity{
+	args := params.RemoveSpaceParams{SpaceParams: []params.RemoveSpaceParam{
 		{
-			Tag: spaceTag.String(),
+			Space: params.Entity{Tag: spaceTag.String()},
+			Force: force,
 		},
-	}}
+	},
+	}
 	return args, spaceTag
 }
 

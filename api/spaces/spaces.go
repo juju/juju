@@ -142,7 +142,7 @@ func (api *API) ListSpaces() ([]params.Space, error) {
 	return response.Results, err
 }
 
-// ReloadSpaces reloads spaces from substrate
+// ReloadSpaces reloads spaces from substrate.
 func (api *API) ReloadSpaces() error {
 	if api.facade.BestAPIVersion() < 3 {
 		return errors.NewNotSupported(nil, "Controller does not support reloading spaces")
@@ -174,4 +174,89 @@ func (api *API) RenameSpace(oldName string, newName string) error {
 		return errors.Trace(err)
 	}
 	return nil
+}
+
+// RemoveSpace removes a space.
+func (api *API) RemoveSpace(name string, force bool, dryRun bool) (network.RemoveSpace, error) {
+	var response params.RemoveSpaceResults
+	args := params.RemoveSpaceParams{
+		SpaceParams: []params.RemoveSpaceParam{{
+			Space:  params.Entity{Tag: names.NewSpaceTag(name).String()},
+			Force:  force,
+			DryRun: dryRun,
+		}},
+	}
+	err := api.facade.FacadeCall("RemoveSpace", args, &response)
+	if err != nil {
+		if params.IsCodeNotSupported(err) {
+			return network.RemoveSpace{}, errors.NewNotSupported(nil, err.Error())
+		}
+		return network.RemoveSpace{}, errors.Trace(err)
+	}
+	if len(response.Results) == 0 {
+		return network.RemoveSpace{}, nil
+	}
+	if len(response.Results) > 1 {
+		return network.RemoveSpace{}, errors.Errorf("%d results, expected 0 or 1", len(response.Results))
+	}
+
+	for _, result := range response.Results {
+		if result.Error != nil {
+			return network.RemoveSpace{}, result.Error
+		}
+	}
+
+	result := response.Results[0]
+
+	constraints, err := convertEntitiesToStringAndSkipModel(result.Constraints)
+	if err != nil {
+		return network.RemoveSpace{}, err
+	}
+	hasModel, err := hasModelConstraint(result.Constraints)
+	if err != nil {
+		return network.RemoveSpace{}, err
+	}
+	bindings, err := convertEntitiesToStringAndSkipModel(result.Bindings)
+	if err != nil {
+		return network.RemoveSpace{}, err
+	}
+
+	return network.RemoveSpace{
+		HasModelConstraint: hasModel,
+		Space:              name,
+		Constraints:        constraints,
+		Bindings:           bindings,
+		ControllerConfig:   result.ControllerSettings,
+	}, nil
+
+}
+
+// convertEntitiesToStringAndSkipModel skips the modelTag as this will be used on another place.
+func convertEntitiesToStringAndSkipModel(entities []params.Entity) ([]string, error) {
+	var outputString []string
+	for _, ent := range entities {
+		tag, err := names.ParseTag(ent.Tag)
+		if err != nil {
+			return nil, err
+		}
+		if tag.Kind() == names.ModelTagKind {
+			continue
+		} else {
+			outputString = append(outputString, tag.Id())
+		}
+	}
+	return outputString, nil
+}
+
+func hasModelConstraint(entities []params.Entity) (bool, error) {
+	for _, entity := range entities {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return false, err
+		}
+		if tag.Kind() == names.ModelTagKind {
+			return true, nil
+		}
+	}
+	return false, nil
 }
