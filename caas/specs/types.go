@@ -150,17 +150,43 @@ func (cs *caasContainers) Validate() error {
 	if len(cs.Containers) == 0 {
 		return errors.New("require at least one container spec")
 	}
-	fileNames := set.NewStrings()
+	// Same FileSet can be shared across different containers in same pod.
+	// But we need ensure the two FileSets are exactly the same Volume if the FileSet.Name are same.
+	uniqVols := make(map[string]FileSet)
+
 	for _, c := range cs.Containers {
 		if err := c.Validate(); err != nil {
 			return errors.Trace(err)
 		}
-		for _, file := range c.Files {
-			fName := file.Name
-			if fileNames.Contains(fName) {
-				return errors.NotValidf("duplicated file %q", fName)
+
+		var uniqFileSets []FileSet
+		inUniqFileSets := func(f FileSet) bool {
+			for _, v := range uniqFileSets {
+				if f.Equal(v) {
+					return true
+				}
 			}
-			fileNames.Add(fName)
+			return false
+		}
+		mountPaths := set.NewStrings()
+		for _, f := range c.Files {
+			if v, ok := uniqVols[f.Name]; ok {
+				if !f.EqualVolume(v) {
+					return errors.NotValidf("duplicated file %q with different volume spec", f.Name)
+				}
+			}
+
+			// No deplicated FileSet in same container, but it's ok in different container in same pod.
+			if inUniqFileSets(f) {
+				return errors.NotValidf("duplicated file %q in container %q", f.Name, c.Name)
+			}
+			uniqFileSets = append(uniqFileSets, f)
+
+			// Same mount path can't be mounted more than once.
+			if mountPaths.Contains(f.MountPath) {
+				return errors.NotValidf("duplicated mount path %q in container %q", f.MountPath, c.Name)
+			}
+			mountPaths.Add(f.MountPath)
 		}
 	}
 	return nil

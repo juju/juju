@@ -5,6 +5,7 @@ package specs
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/juju/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -16,6 +17,22 @@ type FileSet struct {
 	Name         string `json:"name" yaml:"name"`
 	MountPath    string `json:"mountPath" yaml:"mountPath"`
 	VolumeSource `json:",inline" yaml:",inline"`
+}
+
+// Equal compares if two FileSet are same.
+func (fs FileSet) Equal(another FileSet) bool {
+	return reflect.DeepEqual(fs, another)
+}
+
+// EqualVolume checks if two fileset definitions will create same volume.
+func (fs FileSet) EqualVolume(another FileSet) bool {
+	if fs.Name != another.Name {
+		return false
+	}
+	if !reflect.DeepEqual(fs.VolumeSource, another.VolumeSource) {
+		return false
+	}
+	return true
 }
 
 // Validate validates FileSet.
