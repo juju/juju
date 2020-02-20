@@ -259,7 +259,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 	aCIDR := "10.0.0.0/24"
 
 	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
-	spacesMock.EXPECT().Id().Return("1").Times(1)
+	spacesMock.EXPECT().Id().Return("1")
 	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
 
 	moveModelMock := mocks.NewMockMoveToSpaceModelOp(ctrl)
@@ -268,20 +268,14 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceSuccess(c *gc.C) {
 		CIDR:      "10.10.10.10/16",
 	}})
 
-	subnetMock := mocks.NewMockMoveSubnet(ctrl)
-	subnetMock.EXPECT().SpaceID().Return("0")
-	subnetMock.EXPECT().CIDR().Return("123")
+	subnetMock := s.expectSubnetDefault(ctrl, aCIDR, "0")
+
 	s.mockBacking.EXPECT().AllConstraints().Return(nil, nil)
 	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(subnetMock, nil)
 	s.mockOpFactory.EXPECT().NewMoveToSpaceModelOp(spaceName, []spaces.MoveSubnet{subnetMock}).Return(moveModelMock, nil)
 	s.mockBacking.EXPECT().ApplyOperation(moveModelMock).Return(nil)
 	s.expectMachinesAddresses(ctrl, "10.11.12.12/14", nil, nil)
-	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
-		{
-			CIDRs:      []string{aCIDR},
-			SpaceTagTo: spaceTag.String(),
-		},
-	}}
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, false)
 
 	res, err := s.api.MoveToSpace(args)
 
@@ -299,14 +293,58 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorViolateConstraint(c *gc.C) {
 	spaceTag := names.NewSpaceTag(spaceName)
 	aCIDR := "10.0.0.0/24"
 
+	_, subnetMock, _ := s.expectDefaultConstraintViolation(ctrl, spaceTag, aCIDR, spaceName)
+	subnetMock.EXPECT().CIDR().Return(aCIDR)
+
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, false)
+	obtainedResponse, err := s.api.MoveToSpace(args)
+	expectedErrMsg := "cannot move CIDR \"10.0.0.0/24\" from space \"alpha\" to space: \"myspace\", as this would violate the current application constraint: \"^myspace\" on application \"mysql\""
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResponse.Results[0].Error.Message, gc.Equals, expectedErrMsg)
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorViolateConstraintForce(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
+	aCIDR := "10.0.0.0/24"
+
+	moveModelMock := mocks.NewMockMoveToSpaceModelOp(ctrl)
+	moveModelMock.EXPECT().GetMovedCIDRs().Return([]spaces.MovedCDIR{{
+		FromSpace: "from",
+		CIDR:      aCIDR,
+	}})
+
+	_, subnetMock, _ := s.expectDefaultConstraintViolation(ctrl, spaceTag, aCIDR, spaceName)
+	subnetMock.EXPECT().CIDR().Return(aCIDR)
+	s.mockOpFactory.EXPECT().NewMoveToSpaceModelOp(spaceName, []spaces.MoveSubnet{subnetMock}).Return(moveModelMock, nil)
+	s.mockBacking.EXPECT().ApplyOperation(moveModelMock).Return(nil)
+
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, true)
+	obtainedResponse, err := s.api.MoveToSpace(args)
+
+	expectedMoved := params.MoveToSpaceResult{
+		Moved: []params.MovedSpaceCIDR{{
+			CIDR:         aCIDR,
+			SpaceTagFrom: "space-from",
+			SpaceTagTo:   "space-myspace",
+		}},
+		Error: nil,
+	}
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResponse.Results[0], gc.DeepEquals, expectedMoved)
+}
+
+func (s *SpaceTestMockSuite) expectDefaultConstraintViolation(ctrl *gomock.Controller, spaceTag names.SpaceTag, aCIDR string, spaceName string) (*networkcommonmocks.MockBackingSpace, *mocks.MockMoveSubnet, *mocks.MockMachine) {
 	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
-	spacesMock.EXPECT().Id().Return("1").Times(1)
+	spacesMock.EXPECT().Id().Return("1")
 	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
 
-	subnetMock := mocks.NewMockMoveSubnet(ctrl)
-	subnetMock.EXPECT().SpaceID().Return("0")
-	subnetMock.EXPECT().CIDR().Return(aCIDR)
-	subnetMock.EXPECT().CIDR().Return(aCIDR)
+	subnetMock := s.expectSubnetDefault(ctrl, aCIDR, "0")
 	subnetMock.EXPECT().SpaceName().Return("alpha")
 	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(subnetMock, nil)
 
@@ -317,18 +355,107 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorViolateConstraint(c *gc.C) {
 	s.mockBacking.EXPECT().AllConstraints().Return([]spaces.Constraints{constraintsMock}, nil)
 	mockMachine := s.expectMachinesAddresses(ctrl, aCIDR, nil, nil)
 	mockMachine.EXPECT().ApplicationNames().Return([]string{"mediawiki", "mysql"}, nil)
-	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
-		{
-			CIDRs:      []string{aCIDR},
-			SpaceTagTo: spaceTag.String(),
-		},
-	}}
+
+	return spacesMock, subnetMock, mockMachine
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorInvalidCIDR(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
+	aCIDR := "10.0.3330.0/24"
+
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, false)
 
 	obtainedResponse, err := s.api.MoveToSpace(args)
-	expectedErrMsg := "cannot move CIDR \"10.0.0.0/24\" from space \"alpha\" to space: \"myspace\", as this would violate the current application constraint: \"^myspace\" on application \"mysql\""
+	expectedErrMsg := fmt.Sprintf("%q is not a valid CIDR", aCIDR)
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(obtainedResponse.Results[0].Error.Message, gc.Equals, expectedErrMsg)
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorSubnetDoesNotExit(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
+	aCIDR := "10.0.0.0/24"
+
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, false)
+	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(nil, errors.New("BAM"))
+
+	obtainedResponse, err := s.api.MoveToSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResponse.Results[0].Error.Message, gc.Equals, "BAM")
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorSpaceDoesNotExit(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
+	aCIDR := "10.0.0.0/24"
+
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, false)
+	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(nil, nil)
+	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(nil, errors.New("BAM"))
+
+	obtainedResponse, err := s.api.MoveToSpace(args)
+
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResponse.Results[0].Error.Message, gc.Equals, "BAM")
+}
+
+func (s *SpaceTestMockSuite) TestMoveToSpaceErrorCIDRAlreadyInSpace(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, false)
+	defer ctrl.Finish()
+	defer unreg()
+	spaceName := "myspace"
+	spaceTag := names.NewSpaceTag(spaceName)
+	aCIDR := "10.0.0.0/24"
+
+	spacesMock := s.expectSpaceDefault(ctrl, spaceName, "1")
+	s.mockBacking.EXPECT().SpaceByName(spaceTag.Id()).Return(spacesMock, nil)
+
+	subnetMock := s.expectSubnetDefault(ctrl, aCIDR, "1")
+	s.mockBacking.EXPECT().MoveSubnetByCIDR(aCIDR).Return(subnetMock, nil)
+
+	args := s.getMoveToSpaceParam(aCIDR, spaceTag, false)
+
+	obtainedResponse, err := s.api.MoveToSpace(args)
+
+	expectedErrMsg := fmt.Sprintf("supplied CIDR %q is already in space %q", aCIDR, spaceName)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(obtainedResponse.Results[0].Error.Message, gc.Equals, expectedErrMsg)
+}
+
+func (s *SpaceTestMockSuite) expectSpaceDefault(ctrl *gomock.Controller, spaceName string, subnetID string) *networkcommonmocks.MockBackingSpace {
+	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
+	spacesMock.EXPECT().Id().Return(subnetID)
+	spacesMock.EXPECT().Name().Return(spaceName)
+	return spacesMock
+}
+
+func (s *SpaceTestMockSuite) expectSubnetDefault(ctrl *gomock.Controller, aCIDR string, spaceID string) *mocks.MockMoveSubnet {
+	subnetMock := mocks.NewMockMoveSubnet(ctrl)
+	subnetMock.EXPECT().SpaceID().Return(spaceID)
+	subnetMock.EXPECT().CIDR().Return(aCIDR)
+	return subnetMock
+}
+
+func (s *SpaceTestMockSuite) getMoveToSpaceParam(aCIDR string, spaceTag names.SpaceTag, force bool) params.MoveToSpacesParams {
+	return params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParam{
+		{
+			CIDRs:      []string{aCIDR},
+			Force:      force,
+			SpaceTagTo: spaceTag.String(),
+		},
+	}}
 }
 
 func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) {
@@ -337,7 +464,7 @@ func (s *SpaceTestMockSuite) TestMoveToSpaceErrorProviderSpacesSupport(c *gc.C) 
 	defer unreg()
 	spaceName := "myspace"
 
-	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParams{
+	args := params.MoveToSpacesParams{MoveToSpace: []params.MoveToSpaceParam{
 		{
 			CIDRs:      []string{"192.168.1.0/16"},
 			SpaceTagTo: names.NewSpaceTag(spaceName).String(),

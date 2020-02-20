@@ -948,11 +948,11 @@ type CreateSpaceParams struct {
 
 // MoveToSpacesParams holds the arguments of the MoveToSpace API call.
 type MoveToSpacesParams struct {
-	MoveToSpace []MoveToSpaceParams `json:"update-spaces"`
+	MoveToSpace []MoveToSpaceParam `json:"update-spaces"`
 }
 
-// MoveToSpaceParams holds the space tag and at least one subnet required to move subnet to another space
-type MoveToSpaceParams struct {
+// MoveToSpaceParam holds the space tag and at least one subnet required to move subnet to another space
+type MoveToSpaceParam struct {
 	CIDRs      []string `json:"cidrs"`
 	SpaceTagTo string   `json:"space-tag-to"`
 	Force      bool     `json:"force"`

@@ -60,7 +60,7 @@ func (f *opFactory) NewRenameSpaceModelOp(fromName, toName string) (state.ModelO
 }
 
 // NewMoveToSpaceModelOp (OpFactory) returns an operation
-// for updating a space.
+// to move a list of CIDRs to a space.
 func (f *opFactory) NewMoveToSpaceModelOp(spaceName string, subnets []MoveSubnet) (MoveToSpaceModelOp, error) {
 	return NewUpdateSpaceModelOp(spaceName, subnets), nil
 }

@@ -237,6 +237,7 @@ func (s *Subnet) setSpace(subnets mongo.Collection) error {
 	return nil
 }
 
+// UpdateSpaceOps returns the required operations to update the space name in a subnet.
 func (s *Subnet) UpdateSpaceOps(spaceName string) ([]txn.Op, error) {
 	elem, err := s.updateSpaceElem(spaceName)
 	if err != nil {

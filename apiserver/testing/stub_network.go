@@ -10,12 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/juju/testing"
-	"github.com/juju/utils"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/names.v3"
-	"gopkg.in/mgo.v2/txn"
-
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
@@ -25,6 +19,10 @@ import (
 	"github.com/juju/juju/environs/context"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/testing"
+	"github.com/juju/utils"
+	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 )
 
 type StubNetwork struct {
@@ -319,14 +317,6 @@ type FakeSubnet struct {
 }
 
 var _ networkingcommon.BackingSubnet = (*FakeSubnet)(nil)
-
-func (f *FakeSubnet) UpdateOps(args network.SubnetInfo) ([]txn.Op, error) {
-	panic("should not be called")
-}
-
-func (f *FakeSubnet) Refresh() error {
-	panic("should not be called")
-}
 
 // GoString implements fmt.GoStringer.
 func (f *FakeSubnet) GoString() string {

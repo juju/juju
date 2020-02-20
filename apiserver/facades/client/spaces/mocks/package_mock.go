@@ -897,31 +897,31 @@ func (mr *MockRemoveSpaceMockRecorder) RemoveSpaceOps() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoveSpaceOps", reflect.TypeOf((*MockRemoveSpace)(nil).RemoveSpaceOps))
 }
 
-// MockSubnet is a mock of RemoveSubnet interface
-type MockSubnet struct {
+// MockRemoveSubnet is a mock of RemoveSubnet interface
+type MockRemoveSubnet struct {
 	ctrl     *gomock.Controller
-	recorder *MockSubnetMockRecorder
+	recorder *MockRemoveSubnetMockRecorder
 }
 
-// MockSubnetMockRecorder is the mock recorder for MockSubnet
-type MockSubnetMockRecorder struct {
-	mock *MockSubnet
+// MockRemoveSubnetMockRecorder is the mock recorder for MockRemoveSubnet
+type MockRemoveSubnetMockRecorder struct {
+	mock *MockRemoveSubnet
 }
 
-// NewMockSubnet creates a new mock instance
-func NewMockSubnet(ctrl *gomock.Controller) *MockSubnet {
-	mock := &MockSubnet{ctrl: ctrl}
-	mock.recorder = &MockSubnetMockRecorder{mock}
+// NewMockRemoveSubnet creates a new mock instance
+func NewMockRemoveSubnet(ctrl *gomock.Controller) *MockRemoveSubnet {
+	mock := &MockRemoveSubnet{ctrl: ctrl}
+	mock.recorder = &MockRemoveSubnetMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use
-func (m *MockSubnet) EXPECT() *MockSubnetMockRecorder {
+func (m *MockRemoveSubnet) EXPECT() *MockRemoveSubnetMockRecorder {
 	return m.recorder
 }
 
 // MoveSubnetOps mocks base method
-func (m *MockSubnet) MoveSubnetOps(arg0 string) []txn.Op {
+func (m *MockRemoveSubnet) MoveSubnetOps(arg0 string) []txn.Op {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MoveSubnetOps", arg0)
 	ret0, _ := ret[0].([]txn.Op)
@@ -929,9 +929,9 @@ func (m *MockSubnet) MoveSubnetOps(arg0 string) []txn.Op {
 }
 
 // MoveSubnetOps indicates an expected call of MoveSubnetOps
-func (mr *MockSubnetMockRecorder) MoveSubnetOps(arg0 interface{}) *gomock.Call {
+func (mr *MockRemoveSubnetMockRecorder) MoveSubnetOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnetOps", reflect.TypeOf((*MockSubnet)(nil).MoveSubnetOps), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnetOps", reflect.TypeOf((*MockRemoveSubnet)(nil).MoveSubnetOps), arg0)
 }
 
 // MockConstraints is a mock of Constraints interface

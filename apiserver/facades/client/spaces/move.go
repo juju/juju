@@ -27,7 +27,7 @@ type MoveSubnet interface {
 	SpaceID() string
 }
 
-// newMoveSubnetShim creates new MoveSubnet shim to be used by subnets movesubnet.
+// newMoveSubnetShim creates new MoveSubnet shim to be used by movesubnet.
 func newMoveSubnetShim(sub *state.Subnet) *moveSubnetShim {
 	return &moveSubnetShim{Subnet: sub}
 }
@@ -149,7 +149,7 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 			results.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		} else {
-			createMovedCidrs(operation.GetMovedCIDRs(), &results.Results[i], spaceTagTo)
+			createMovedCIDRs(operation.GetMovedCIDRs(), &results.Results[i], spaceTagTo)
 			// TODO (nammn): this patch does not include the code about moving subnets and the corresponding endpoints.
 			// e.g. mediawiki has slave:db-space with address in CIDR 10.10.10.10/18,
 			// moving this CIDR to space fe-space means a reply to the user saying that we may want to move the endpoint binding
@@ -162,7 +162,7 @@ func (api *API) MoveToSpace(args params.MoveToSpacesParams) (params.MoveToSpaceR
 	return results, nil
 }
 
-func createMovedCidrs(movedCDIRSpace []MovedCDIR, result *params.MoveToSpaceResult, spaceTo names.SpaceTag) {
+func createMovedCIDRs(movedCDIRSpace []MovedCDIR, result *params.MoveToSpaceResult, spaceTo names.SpaceTag) {
 	result.Moved = make([]params.MovedSpaceCIDR, len(movedCDIRSpace))
 	for i, v := range movedCDIRSpace {
 		result.Moved[i].SpaceTagTo = spaceTo.String()
@@ -192,7 +192,13 @@ func (api *API) checkSubnetAllowedToBeMoved(subnets []MoveSubnet, force bool, sp
 		return errors.Trace(err)
 	}
 
-	return api.checkApplicationConstraints(subnetsAndApplicationsInUse, spaceTag.Id())
+	err = api.checkApplicationConstraints(subnetsAndApplicationsInUse, spaceTag.Id())
+
+	if force {
+		return nil
+	}
+
+	return err
 }
 
 func (api *API) checkApplicationConstraints(subnetApplications []SubnetApplications, spaceTo string) error {

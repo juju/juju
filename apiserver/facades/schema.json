@@ -30976,6 +30976,17 @@
                         }
                     }
                 },
+                "MoveToSpace": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/MoveToSpacesParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/MoveToSpaceResults"
+                        }
+                    }
+                },
                 "ReloadSpaces": {
                     "type": "object"
                 },
@@ -31144,6 +31155,94 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "MoveToSpaceParam": {
+                    "type": "object",
+                    "properties": {
+                        "cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "space-tag-to": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidrs",
+                        "space-tag-to",
+                        "force"
+                    ]
+                },
+                "MoveToSpaceResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "moved-space-cidr": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MovedSpaceCIDR"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "MoveToSpaceResults": {
+                    "type": "object",
+                    "properties": {
+                        "update-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveToSpaceResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "update-spaces"
+                    ]
+                },
+                "MoveToSpacesParams": {
+                    "type": "object",
+                    "properties": {
+                        "update-spaces": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveToSpaceParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "update-spaces"
+                    ]
+                },
+                "MovedSpaceCIDR": {
+                    "type": "object",
+                    "properties": {
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "space-tag-from": {
+                            "type": "string"
+                        },
+                        "space-tag-to": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "space-tag-from",
+                        "space-tag-to"
                     ]
                 },
                 "RemoveSpaceParam": {

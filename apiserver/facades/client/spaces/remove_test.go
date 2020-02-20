@@ -16,7 +16,7 @@ import (
 
 type SpaceRemoveSuite struct {
 	space  *mocks.MockRemoveSpace
-	subnet *mocks.MockSubnet
+	subnet *mocks.MockRemoveSubnet
 }
 
 var _ = gc.Suite(&SpaceRemoveSuite{})
@@ -52,7 +52,7 @@ func (s *SpaceRemoveSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.space = mocks.NewMockRemoveSpace(ctrl)
-	s.subnet = mocks.NewMockSubnet(ctrl)
+	s.subnet = mocks.NewMockRemoveSubnet(ctrl)
 
 	return ctrl
 }
