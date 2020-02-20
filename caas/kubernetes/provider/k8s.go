@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1377,14 +1378,25 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			podSpec.Volumes = append(podSpec.Volumes, vol)
+			pushUniqVolume(podSpec, vol)
 			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, core.VolumeMount{
+				// TODO: more config field support, SubPath, ReadOnly etc!!!!!
 				Name:      vol.Name,
 				MountPath: fileSet.MountPath,
 			})
 		}
 	}
 	return nil
+}
+
+// pushUniqVolume ensures to only add unique volumes because k8s will not schedule pods if it has deplucated volumes.
+func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) {
+	for _, v := range podSpec.Volumes {
+		if reflect.DeepEqual(v, vol) {
+			return
+		}
+	}
+	podSpec.Volumes = append(podSpec.Volumes, vol)
 }
 
 func (k *kubernetesClient) fileSetToVolume(appName string,
@@ -1455,7 +1467,7 @@ func (k *kubernetesClient) fileSetToVolume(appName string,
 			}
 		}
 		if !found {
-			return vol, errors.NotValidf("non existing config map %q", refName)
+			return vol, errors.NotValidf("non existing secret %q", refName)
 		}
 
 		vol.Secret = &core.SecretVolumeSource{
