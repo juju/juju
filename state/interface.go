@@ -132,6 +132,7 @@ type InstanceIdGetter interface {
 type ActionsWatcher interface {
 	Entity
 	WatchActionNotifications() StringsWatcher
+	WatchPendingActionNotifications() StringsWatcher
 }
 
 // ActionReceiver describes Entities that can have Actions queued for
@@ -153,6 +154,10 @@ type ActionReceiver interface {
 	// WatchActionNotifications returns a StringsWatcher that will notify
 	// on changes to the queued actions for this ActionReceiver.
 	WatchActionNotifications() StringsWatcher
+
+	// WatchPendingActionNotifications returns a StringsWatcher that will notify
+	// on pending queued actions for this ActionReceiver.
+	WatchPendingActionNotifications() StringsWatcher
 
 	// Actions returns the list of Actions queued and completed for this
 	// ActionReceiver.
@@ -230,6 +235,12 @@ type Action interface {
 
 	// Messages returns the action's progress messages.
 	Messages() []ActionMessage
+
+	// Cancel or Abort the action.
+	Cancel() (Action, error)
+
+	// Refresh the contents of the action.
+	Refresh() error
 }
 
 // ApplicationEntity represents a local or remote application.

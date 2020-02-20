@@ -5,6 +5,7 @@ package operation_test
 
 import (
 	"path/filepath"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/testing"
@@ -15,6 +16,7 @@ import (
 
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type NewExecutorSuite struct {
@@ -103,18 +105,21 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
 
+	prepare := newStep(nil, nil)
+	execute := newStep(nil, nil)
+	commit := newStep(nil, nil)
 	op := &mockOperation{
-		prepare: newStep(nil, nil),
-		execute: newStep(nil, nil),
-		commit:  newStep(nil, nil),
+		prepare: prepare,
+		execute: execute,
+		commit:  commit,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
-	c.Assert(op.execute.gotState, gc.DeepEquals, initialState)
-	c.Assert(op.commit.gotState, gc.DeepEquals, initialState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(execute.gotState, gc.DeepEquals, initialState)
+	c.Assert(commit.gotState, gc.DeepEquals, initialState)
 	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
@@ -122,70 +127,113 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+
+	prepare := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	}, nil)
+	execute := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Done,
+		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	}, nil)
+	commit := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Queued,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}, nil)
 	op := &mockOperation{
-		prepare: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		}, nil),
-		execute: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Done,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		}, nil),
-		commit: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Queued,
-			Hook: &hook.Info{Kind: hooks.Start},
-		}, nil),
+		prepare: prepare,
+		execute: execute,
+		commit:  commit,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
-	c.Assert(op.execute.gotState, gc.DeepEquals, *op.prepare.newState)
-	c.Assert(op.commit.gotState, gc.DeepEquals, *op.execute.newState)
-	assertWroteState(c, statePath, *op.commit.newState)
-	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(execute.gotState, gc.DeepEquals, *prepare.newState)
+	c.Assert(commit.gotState, gc.DeepEquals, *execute.newState)
+	assertWroteState(c, statePath, *commit.newState)
+	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
+}
+
+func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
+	initialState := justInstalledState()
+	executor, _ := newExecutor(c, &initialState)
+
+	remoteStateUpdated := make(chan struct{}, 1)
+	prepare := newStep(nil, nil)
+	execute := mockStepFunc(func(state operation.State) (*operation.State, error) {
+		select {
+		case <-remoteStateUpdated:
+			return nil, nil
+		case <-time.After(testing.ShortWait):
+			c.Fatal("remote state wasn't updated")
+			return nil, nil
+		}
+	})
+	commit := newStep(nil, nil)
+	op := &mockOperation{
+		prepare: prepare,
+		execute: execute,
+		commit:  commit,
+		remoteStateFunc: func(snapshot remotestate.Snapshot) {
+			c.Assert(snapshot, gc.DeepEquals, remotestate.Snapshot{
+				ConfigHash: "test",
+			})
+			remoteStateUpdated <- struct{}{}
+		},
+	}
+
+	rs := make(chan remotestate.Snapshot, 1)
+	rs <- remotestate.Snapshot{
+		ConfigHash: "test",
+	}
+	err := executor.Run(op, rs)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	}, operation.ErrSkipExecute)
+	commit := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Queued,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}, nil)
 	op := &mockOperation{
-		prepare: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.ConfigChanged},
-		}, operation.ErrSkipExecute),
-		commit: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Queued,
-			Hook: &hook.Info{Kind: hooks.Start},
-		}, nil),
+		prepare: prepare,
+		commit:  commit,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
-	c.Assert(op.commit.gotState, gc.DeepEquals, *op.prepare.newState)
-	assertWroteState(c, statePath, *op.commit.newState)
-	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(commit.gotState, gc.DeepEquals, *prepare.newState)
+	assertWroteState(c, statePath, *commit.newState)
+	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
 }
 
 func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+	}, nil)
 	op := &mockOperation{
-		prepare: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-		}, nil),
+		prepare: prepare,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": invalid operation state: missing hook info with Kind RunHook`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "missing hook info with Kind RunHook")
 
@@ -196,15 +244,16 @@ func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(nil, errors.New("pow"))
 	op := &mockOperation{
-		prepare: newStep(nil, errors.New("pow")),
+		prepare: prepare,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": pow`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "pow")
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
 	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
@@ -212,36 +261,39 @@ func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
 func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}, errors.New("blam"))
 	op := &mockOperation{
-		prepare: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.Start},
-		}, errors.New("blam")),
+		prepare: prepare,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": blam`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "blam")
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, *op.prepare.newState)
-	c.Assert(executor.State(), gc.DeepEquals, *op.prepare.newState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
+	assertWroteState(c, statePath, *prepare.newState)
+	c.Assert(executor.State(), gc.DeepEquals, *prepare.newState)
 }
 
 func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(nil, nil)
+	execute := newStep(nil, errors.New("splat"))
 	op := &mockOperation{
-		prepare: newStep(nil, nil),
-		execute: newStep(nil, errors.New("splat")),
+		prepare: prepare,
+		execute: execute,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation": splat`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "splat")
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
 	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
@@ -249,38 +301,44 @@ func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
 func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(nil, nil)
+	execute := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}, errors.New("kerblooie"))
 	op := &mockOperation{
-		prepare: newStep(nil, nil),
-		execute: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.Start},
-		}, errors.New("kerblooie")),
+		prepare: prepare,
+		execute: execute,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `executing operation "mock operation": kerblooie`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "kerblooie")
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, *op.execute.newState)
-	c.Assert(executor.State(), gc.DeepEquals, *op.execute.newState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
+	assertWroteState(c, statePath, *execute.newState)
+	c.Assert(executor.State(), gc.DeepEquals, *execute.newState)
 }
 
 func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+
+	prepare := newStep(nil, nil)
+	execute := newStep(nil, nil)
+	commit := newStep(nil, errors.New("whack"))
 	op := &mockOperation{
-		prepare: newStep(nil, nil),
-		execute: newStep(nil, nil),
-		commit:  newStep(nil, errors.New("whack")),
+		prepare: prepare,
+		execute: execute,
+		commit:  commit,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation": whack`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "whack")
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
 	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
@@ -288,23 +346,26 @@ func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
 func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 	initialState := justInstalledState()
 	executor, statePath := newExecutor(c, &initialState)
+	prepare := newStep(nil, nil)
+	execute := newStep(nil, nil)
+	commit := newStep(&operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}, errors.New("take that you bandit"))
 	op := &mockOperation{
-		prepare: newStep(nil, nil),
-		execute: newStep(nil, nil),
-		commit: newStep(&operation.State{
-			Kind: operation.RunHook,
-			Step: operation.Pending,
-			Hook: &hook.Info{Kind: hooks.Start},
-		}, errors.New("take that you bandit")),
+		prepare: prepare,
+		execute: execute,
+		commit:  commit,
 	}
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `committing operation "mock operation": take that you bandit`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "take that you bandit")
 
-	c.Assert(op.prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, *op.commit.newState)
-	c.Assert(executor.State(), gc.DeepEquals, *op.commit.newState)
+	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
+	assertWroteState(c, statePath, *commit.newState)
+	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
 }
 
 func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func(), error)) operation.Executor {
@@ -330,7 +391,7 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
 	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(mockLock.calledLock, jc.IsTrue)
@@ -342,27 +403,30 @@ func (s *ExecutorSuite) TestLockSucceedsStepsCalled(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestLockFailsOpsStepsNotCalled(c *gc.C) {
+	prepare := newStep(nil, nil)
+	execute := newStep(nil, nil)
+	commit := newStep(nil, nil)
 	op := &mockOperation{
 		needsLock: true,
-		prepare:   newStep(nil, nil),
-		execute:   newStep(nil, nil),
-		commit:    newStep(nil, nil),
+		prepare:   prepare,
+		execute:   execute,
+		commit:    commit,
 	}
 
 	mockLock := &mockLockFunc{op: op}
 	lockFunc := mockLock.newFailingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, "could not acquire lock: wat")
 
 	c.Assert(mockLock.calledLock, jc.IsFalse)
 	c.Assert(mockLock.calledUnlock, jc.IsFalse)
 	c.Assert(mockLock.noStepsCalledOnLock, jc.IsTrue)
 
-	c.Assert(op.prepare.called, jc.IsFalse)
-	c.Assert(op.execute.called, jc.IsFalse)
-	c.Assert(op.commit.called, jc.IsFalse)
+	c.Assert(prepare.called, jc.IsFalse)
+	c.Assert(execute.called, jc.IsFalse)
+	c.Assert(commit.called, jc.IsFalse)
 }
 
 func (s *ExecutorSuite) testLockUnlocksOnError(c *gc.C, op *mockOperation) (error, *mockLockFunc) {
@@ -370,7 +434,7 @@ func (s *ExecutorSuite) testLockUnlocksOnError(c *gc.C, op *mockOperation) (erro
 	lockFunc := mockLock.newSucceedingLock()
 	executor := s.initLockTest(c, lockFunc)
 
-	err := executor.Run(op)
+	err := executor.Run(op, nil)
 
 	c.Assert(mockLock.calledLock, jc.IsTrue)
 	c.Assert(mockLock.calledUnlock, jc.IsTrue)
@@ -437,8 +501,8 @@ type mockLockFunc struct {
 
 func (mock *mockLockFunc) newFailingLock() func(string) (func(), error) {
 	return func(string) (func(), error) {
-		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
-			mock.op.commit.called == false
+		mock.noStepsCalledOnLock = mock.op.prepare.(*mockStep).called == false &&
+			mock.op.commit.(*mockStep).called == false
 		return nil, errors.New("wat")
 	}
 }
@@ -447,16 +511,26 @@ func (mock *mockLockFunc) newSucceedingLock() func(string) (func(), error) {
 	return func(string) (func(), error) {
 		mock.calledLock = true
 		// Ensure that when we lock no operation has been called
-		mock.noStepsCalledOnLock = mock.op.prepare.called == false &&
-			mock.op.commit.called == false
+		mock.noStepsCalledOnLock = mock.op.prepare.(*mockStep).called == false &&
+			mock.op.commit.(*mockStep).called == false
 		return func() {
 			// Record steps called when unlocking
-			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.called,
-				mock.op.execute.called,
-				mock.op.commit.called}
+			mock.stepsCalledOnUnlock = []bool{mock.op.prepare.(*mockStep).called,
+				mock.op.execute.(*mockStep).called,
+				mock.op.commit.(*mockStep).called}
 			mock.calledUnlock = true
 		}, nil
 	}
+}
+
+type mockStepInterface interface {
+	Run(state operation.State) (*operation.State, error)
+}
+
+type mockStepFunc func(state operation.State) (*operation.State, error)
+
+func (m mockStepFunc) Run(state operation.State) (*operation.State, error) {
+	return m(state)
 }
 
 type mockStep struct {
@@ -470,17 +544,18 @@ func newStep(newState *operation.State, err error) *mockStep {
 	return &mockStep{newState: newState, err: err}
 }
 
-func (step *mockStep) run(state operation.State) (*operation.State, error) {
+func (step *mockStep) Run(state operation.State) (*operation.State, error) {
 	step.called = true
 	step.gotState = state
 	return step.newState, step.err
 }
 
 type mockOperation struct {
-	needsLock bool
-	prepare   *mockStep
-	execute   *mockStep
-	commit    *mockStep
+	needsLock       bool
+	prepare         mockStepInterface
+	execute         mockStepInterface
+	commit          mockStepInterface
+	remoteStateFunc func(snapshot remotestate.Snapshot)
 }
 
 func (op *mockOperation) String() string {
@@ -492,13 +567,19 @@ func (op *mockOperation) NeedsGlobalMachineLock() bool {
 }
 
 func (op *mockOperation) Prepare(state operation.State) (*operation.State, error) {
-	return op.prepare.run(state)
+	return op.prepare.Run(state)
 }
 
 func (op *mockOperation) Execute(state operation.State) (*operation.State, error) {
-	return op.execute.run(state)
+	return op.execute.Run(state)
 }
 
 func (op *mockOperation) Commit(state operation.State) (*operation.State, error) {
-	return op.commit.run(state)
+	return op.commit.Run(state)
+}
+
+func (op *mockOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
+	if op.remoteStateFunc != nil {
+		op.remoteStateFunc(snapshot)
+	}
 }

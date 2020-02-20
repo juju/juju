@@ -247,6 +247,43 @@ func (s *actionsSuite) TestWatchOneActionReceiverNotifications(c *gc.C) {
 	}
 }
 
+func (s *actionsSuite) TestWatchPendingActionsForReceiver(c *gc.C) {
+	expectErr := errors.New("zwoosh")
+	registerFunc := func(facade.Resource) string { return "bambalam" }
+	tagToActionReceiver := common.TagToActionReceiverFn(makeFindEntity(map[string]state.Entity{
+		"machine-1": &fakeActionReceiver{watcher: &fakeWatcher{}},
+		"machine-2": &fakeActionReceiver{watcher: &fakeWatcher{err: expectErr}},
+	}))
+
+	watchOneFn := common.WatchPendingActionsForReceiver(tagToActionReceiver, registerFunc)
+
+	for i, test := range []struct {
+		tag       names.Tag
+		err       string
+		watcherId string
+	}{{
+		tag: names.NewMachineTag("0"),
+		err: "machine-0 not found",
+	}, {
+		tag:       names.NewMachineTag("1"),
+		watcherId: "bambalam",
+	}, {
+		tag: names.NewMachineTag("2"),
+		err: "zwoosh",
+	}} {
+		c.Logf("test %d", i)
+		c.Logf(test.tag.String())
+		result, err := watchOneFn(test.tag)
+		if test.err != "" {
+			c.Check(err, gc.ErrorMatches, test.err)
+			c.Check(result, jc.DeepEquals, params.StringsWatchResult{})
+		} else {
+			c.Check(err, jc.ErrorIsNil)
+			c.Check(result.StringsWatcherId, gc.Equals, test.watcherId)
+		}
+	}
+}
+
 func makeWatchOne(mapping map[names.Tag]params.StringsWatchResult) func(names.Tag) (params.StringsWatchResult, error) {
 	return func(tag names.Tag) (params.StringsWatchResult, error) {
 		result, ok := mapping[tag]
@@ -302,6 +339,10 @@ type fakeActionReceiver struct {
 }
 
 func (mock fakeActionReceiver) WatchActionNotifications() state.StringsWatcher {
+	return mock.watcher
+}
+
+func (mock fakeActionReceiver) WatchPendingActionNotifications() state.StringsWatcher {
 	return mock.watcher
 }
 

@@ -69,6 +69,7 @@ var (
 	DBCollectionSizeToInt         = dbCollectionSizeToInt
 	NewEntityWatcher              = newEntityWatcher
 	ApplicationHasConnectedOffers = applicationHasConnectedOffers
+	NewActionNotificationWatcher  = newActionNotificationWatcher
 )
 
 type (

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type UniterSuite struct {
@@ -1926,10 +1927,10 @@ type mockExecutor struct {
 	operation.Executor
 }
 
-func (m *mockExecutor) Run(op operation.Operation) error {
+func (m *mockExecutor) Run(op operation.Operation, rs <-chan remotestate.Snapshot) error {
 	// want to allow charm unpacking to occur
 	if strings.HasPrefix(op.String(), "install") {
-		return m.Executor.Run(op)
+		return m.Executor.Run(op, rs)
 	}
 	// but hooks should error
 	return mockExecutorErr

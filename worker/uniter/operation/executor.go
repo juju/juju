@@ -7,6 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type executorStep struct {
@@ -55,7 +57,7 @@ func (x *executor) State() State {
 }
 
 // Run is part of the Executor interface.
-func (x *executor) Run(op Operation) error {
+func (x *executor) Run(op Operation, remoteStateChange <-chan remotestate.Snapshot) error {
 	logger.Debugf("running operation %v", op)
 
 	if op.NeedsGlobalMachineLock() {
@@ -70,9 +72,25 @@ func (x *executor) Run(op Operation) error {
 	switch err := x.do(op, stepPrepare); errors.Cause(err) {
 	case ErrSkipExecute:
 	case nil:
+		done := make(chan struct{})
+		go func() {
+			for {
+				select {
+				case rs, ok := <-remoteStateChange:
+					if !ok {
+						return
+					}
+					op.RemoteStateChanged(rs)
+				case <-done:
+					return
+				}
+			}
+		}()
 		if err := x.do(op, stepExecute); err != nil {
+			close(done)
 			return err
 		}
+		close(done)
 	default:
 		return err
 	}

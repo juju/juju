@@ -71,7 +71,8 @@ func (f *mockOpFactory) NewAction(id string) (operation.Operation, error) {
 type mockOpExecutor struct {
 	operation.Executor
 	testing.Stub
-	st operation.State
+	st  operation.State
+	run func(operation.Operation, <-chan remotestate.Snapshot) error
 }
 
 func (e *mockOpExecutor) State() operation.State {
@@ -79,8 +80,11 @@ func (e *mockOpExecutor) State() operation.State {
 	return e.st
 }
 
-func (e *mockOpExecutor) Run(op operation.Operation) error {
-	e.MethodCall(e, "Run", op)
+func (e *mockOpExecutor) Run(op operation.Operation, rs <-chan remotestate.Snapshot) error {
+	e.MethodCall(e, "Run", op, rs)
+	if e.run != nil {
+		return e.run(op, rs)
+	}
 	return e.NextErr()
 }
 

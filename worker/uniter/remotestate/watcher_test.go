@@ -146,8 +146,9 @@ func (s *WatcherSuite) TearDownTest(c *gc.C) {
 func (s *WatcherSuiteIAAS) TestInitialSnapshot(c *gc.C) {
 	snap := s.watcher.Snapshot()
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
-		Relations: map[int]remotestate.RelationSnapshot{},
-		Storage:   map[names.StorageTag]remotestate.StorageSnapshot{},
+		Relations:     map[int]remotestate.RelationSnapshot{},
+		Storage:       map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged: map[string]int{},
 	})
 }
 
@@ -156,6 +157,7 @@ func (s *WatcherSuiteCAAS) TestInitialSnapshot(c *gc.C) {
 	c.Assert(snap, jc.DeepEquals, remotestate.Snapshot{
 		Relations:      map[int]remotestate.RelationSnapshot{},
 		Storage:        map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:  map[string]int{},
 		ActionsBlocked: true,
 	})
 }
@@ -209,6 +211,7 @@ func (s *WatcherSuiteIAAS) TestSnapshot(c *gc.C) {
 		Life:                  s.st.unit.life,
 		Relations:             map[int]remotestate.RelationSnapshot{},
 		Storage:               map[names.StorageTag]remotestate.StorageSnapshot{},
+		ActionChanged:         map[string]int{},
 		CharmModifiedVersion:  s.st.unit.application.charmModifiedVersion,
 		CharmURL:              s.st.unit.application.curl,
 		ForceCharmUpgrade:     s.st.unit.application.forceUpgrade,
@@ -242,6 +245,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		Leader:                true,
 		UpgradeSeriesStatus:   "",
 		ActionsBlocked:        true,
+		ActionChanged:         map[string]int{},
 	})
 
 	s.running = true
@@ -268,6 +272,7 @@ func (s *WatcherSuiteCAAS) TestSnapshot(c *gc.C) {
 		Leader:                true,
 		UpgradeSeriesStatus:   "",
 		ActionsBlocked:        false,
+		ActionChanged:         map[string]int{},
 	})
 }
 
@@ -332,7 +337,26 @@ func (s *WatcherSuite) TestActionsReceived(c *gc.C) {
 
 	s.st.unit.actionWatcher.changes <- []string{"an-action"}
 	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
-	c.Assert(s.watcher.Snapshot().Actions, gc.DeepEquals, []string{"an-action"})
+	snapshot := s.watcher.Snapshot()
+	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
+	c.Assert(snapshot.ActionChanged["an-action"], gc.NotNil)
+}
+
+func (s *WatcherSuite) TestActionsReceivedWithChanges(c *gc.C) {
+	s.signalAll()
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+
+	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snapshot := s.watcher.Snapshot()
+	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
+	c.Assert(snapshot.ActionChanged["an-action"], gc.Equals, 0)
+
+	s.st.unit.actionWatcher.changes <- []string{"an-action"}
+	assertNotifyEvent(c, s.watcher.RemoteStateChanged(), "waiting for remote state change")
+	snapshot = s.watcher.Snapshot()
+	c.Assert(snapshot.ActionsPending, gc.DeepEquals, []string{"an-action"})
+	c.Assert(snapshot.ActionChanged["an-action"], gc.Equals, 1)
 }
 
 func (s *WatcherSuite) TestClearResolvedMode(c *gc.C) {

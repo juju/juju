@@ -148,6 +148,33 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionResult, error)
 	return result, nil
 }
 
+// ActionStatus provides the status of a single action.
+func (st *State) ActionStatus(tag names.ActionTag) (string, error) {
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	}
+
+	var results params.StringResults
+	err := st.facade.FacadeCall("ActionStatus", args, &results)
+	if err != nil {
+		return "", err
+	}
+
+	if len(results.Results) > 1 {
+		return "", fmt.Errorf("expected only 1 action query result, got %d", len(results.Results))
+	}
+
+	// handle server errors
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return "", err
+	}
+
+	return result.Result, nil
+}
+
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	unit := &Unit{

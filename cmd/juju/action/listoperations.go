@@ -101,12 +101,21 @@ func (c *listOperationsCommand) Init(args []string) error {
 		case params.ActionPending,
 			params.ActionRunning,
 			params.ActionCompleted,
-			params.ActionFailed:
+			params.ActionFailed,
+			params.ActionCancelled,
+			params.ActionAborting,
+			params.ActionAborted:
 		default:
 			nameErrors = append(nameErrors,
-				fmt.Sprintf("%q is not a valid function status, want one of %v",
+				fmt.Sprintf("%q is not a valid task status, want one of %v",
 					status,
-					[]string{params.ActionPending, params.ActionRunning, params.ActionCompleted, params.ActionFailed}))
+					[]string{params.ActionPending,
+						params.ActionRunning,
+						params.ActionCompleted,
+						params.ActionFailed,
+						params.ActionCancelled,
+						params.ActionAborting,
+						params.ActionAborted}))
 		}
 	}
 	if len(nameErrors) > 0 {

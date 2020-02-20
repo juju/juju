@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -45,6 +46,10 @@ type Operation interface {
 	// Commit ensures that the operation's completion is recorded. If it returns
 	// a non-nil state, that state will be validated and recorded.
 	Commit(state State) (*State, error)
+
+	// RemoteStateChanged is called when the remote state changed during execution
+	// of the operation.
+	RemoteStateChanged(snapshot remotestate.Snapshot)
 }
 
 // Executor records and exposes uniter state, and applies suitable changes as
@@ -57,7 +62,9 @@ type Executor interface {
 	// Run will Prepare, Execute, and Commit the supplied operation, writing
 	// indicated state changes between steps. If any step returns an unknown
 	// error, the run will be aborted and an error will be returned.
-	Run(Operation) error
+	// On remote state change, the executor will fire the operation's
+	// RemoteStateChanged method.
+	Run(Operation, <-chan remotestate.Snapshot) error
 
 	// Skip will Commit the supplied operation, and write any state change
 	// indicated. If Commit returns an error, so will Skip.

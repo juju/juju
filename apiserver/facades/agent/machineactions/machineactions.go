@@ -69,7 +69,7 @@ func (f *Facade) FinishActions(args params.ActionExecutionResults) params.ErrorR
 // incoming action calls to a machine.
 func (f *Facade) WatchActionNotifications(args params.Entities) params.StringsWatchResults {
 	tagToActionReceiver := f.backend.TagToActionReceiverFn(f.backend.FindEntity)
-	watchOne := common.WatchOneActionReceiverNotifications(tagToActionReceiver, f.resources.Register)
+	watchOne := common.WatchPendingActionsForReceiver(tagToActionReceiver, f.resources.Register)
 	return common.WatchActionNotifications(args, f.accessMachine, watchOne)
 }
 

@@ -14,7 +14,7 @@ import (
 var _ = gc.Suite(&watcherSuite{})
 
 type watcherSuite struct {
-	testing.StateSuite
+	ConnSuite
 }
 
 func (s *watcherSuite) TestEntityWatcherEventsNonExistent(c *gc.C) {
@@ -34,4 +34,24 @@ func (s *watcherSuite) TestEntityWatcherFirstEvent(c *gc.C) {
 	c.Logf("Watch started")
 	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
+}
+
+func (s *watcherSuite) TestLegacyActionNotificationWatcher(c *gc.C) {
+	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+	unit, err := dummy.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	w := state.NewActionNotificationWatcher(s.State, true, unit)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := unit.AddAction(operationID, "snapshot", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(action.Id())
+
+	_, err = action.Cancel()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
 }

@@ -92,9 +92,54 @@ func (s *actionSuite) TestActionComplete(c *gc.C) {
 	action, err := s.uniterSuite.wordpressUnit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	err = s.uniter.ActionBegin(action.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+
 	actionResult := map[string]interface{}{"output": "it worked!"}
 	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
 	c.Assert(err, jc.ErrorIsNil)
+
+	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(completed), gc.Equals, 1)
+	c.Assert(completed[0].Status(), gc.Equals, state.ActionCompleted)
+	res, errstr := completed[0].Results()
+	c.Assert(errstr, gc.Equals, "")
+	c.Assert(res, gc.DeepEquals, actionResult)
+	c.Assert(completed[0].Name(), gc.Equals, "fakeaction")
+	operation, err := s.Model.Operation(operationID)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Status(), gc.Equals, state.ActionCompleted)
+}
+
+func (s *actionSuite) TestActionStatus(c *gc.C) {
+	completed, err := s.uniterSuite.wordpressUnit.CompletedActions()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(completed, gc.DeepEquals, ([]state.Action)(nil))
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.uniterSuite.wordpressUnit.AddAction(operationID, "fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err := s.uniter.ActionStatus(action.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, params.ActionPending)
+
+	err = s.uniter.ActionBegin(action.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err = s.uniter.ActionStatus(action.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, params.ActionRunning)
+
+	actionResult := map[string]interface{}{"output": "it worked!"}
+	err = s.uniter.ActionFinish(action.ActionTag(), params.ActionCompleted, actionResult, "")
+	c.Assert(err, jc.ErrorIsNil)
+
+	status, err = s.uniter.ActionStatus(action.ActionTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(status, gc.Equals, params.ActionCompleted)
 
 	completed, err = s.uniterSuite.wordpressUnit.CompletedActions()
 	c.Assert(err, jc.ErrorIsNil)

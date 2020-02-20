@@ -258,7 +258,7 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if err := u.operationExecutor.Run(op); err != nil {
+		if err := u.operationExecutor.Run(op, nil); err != nil {
 			return errors.Trace(err)
 		}
 		charmURL = opState.CharmURL
