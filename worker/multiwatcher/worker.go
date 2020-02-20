@@ -6,6 +6,7 @@ package multiwatcher
 import (
 	"sync"
 
+	"github.com/juju/collections/deque"
 	"github.com/juju/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
@@ -60,6 +61,13 @@ type Worker struct {
 	restartCount int
 	// remember the last five errors that caused us to restart the internal loop
 	errors []error
+
+	// The worker should not block incoming events from the watcher on the
+	// processing of those events. Use a queue to store the events that are
+	// needed to be processed.
+	pending *deque.Deque
+	data    chan struct{}
+	closed  chan struct{}
 }
 
 // request holds a message from the Multiwatcher to the
@@ -102,12 +110,17 @@ func NewWorker(config Config) (*Worker, error) {
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	closed := make(chan struct{})
+	close(closed)
 	w := &Worker{
 		config: config,
 		// There always needs to be a valid request channel.
 		request: make(chan *request),
 		waiting: make(map[*Watcher]*request),
 		store:   multiwatcher.NewStore(config.Logger),
+		pending: deque.New(),
+		data:    make(chan struct{}, 1),
+		closed:  closed,
 	}
 	w.metrics = NewMetricsCollector(w)
 	w.tomb.Go(w.loop)
@@ -231,10 +244,55 @@ func (w *Worker) loop() error {
 func (w *Worker) inner() error {
 	w.config.Logger.Tracef("worker inner started")
 	defer w.config.Logger.Tracef("worker inner completed")
+
+	// Create the wait group, and set up the defer before the watching
+	// the backing, as we want the backing unwatch to happen before the
+	// waitgroup wait call. This is to ensure we aren't blocking the
+	// backing event generator.
+	var wg sync.WaitGroup
+	wg.Add(1)
+	defer wg.Wait()
+
 	backing := w.config.Backing
 	in := make(chan watcher.Change)
 	backing.Watch(in)
 	defer backing.Unwatch(in)
+
+	processError := make(chan error)
+
+	go func() {
+		err := w.process(backing, w.tomb.Dying())
+		select {
+		case <-w.tomb.Dying():
+		case processError <- err:
+		}
+		wg.Done()
+	}()
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return errors.Trace(tomb.ErrDying)
+		case err := <-processError:
+			return errors.Trace(err)
+		case change := <-in:
+			w.mu.Lock()
+			w.pending.PushBack(&change)
+			if w.pending.Len() == 1 {
+				select {
+				// In all normal cases, we can push something onto sm.data
+				// as it is a buffered channel. And if the length is one,
+				// then data should be empty. However paranoia and all that.
+				case w.data <- struct{}{}:
+				default:
+				}
+			}
+			w.mu.Unlock()
+		}
+	}
+}
+
+func (w *Worker) process(backing state.AllWatcherBacking, done <-chan struct{}) error {
 	// We have no idea what changes the watcher might be trying to
 	// send us while getAll proceeds, but we don't mind, because
 	// backing.Changed is idempotent with respect to both updates
@@ -242,24 +300,50 @@ func (w *Worker) inner() error {
 	if err := backing.GetAll(w.store); err != nil {
 		return errors.Trace(err)
 	}
+	var next <-chan struct{}
+
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return errors.Trace(tomb.ErrDying)
-		case change := <-in:
-			w.config.Logger.Tracef("handle change: %#v", change)
-			// TODO: retry any errors here to deal with i/o timouts etc.
-			// Although to be honest, by the time we start getting i/o timeouts we
-			// have such a stressed system that nothing is working well.
-			if err := backing.Changed(w.store, change); err != nil {
-				return errors.Trace(err)
-			}
+		case <-done:
+			return nil
+		case <-w.data:
+			// Has new data been pushed on?
+			w.config.Logger.Tracef("new data pushed on queue")
+		case <-next:
+			// If there was already data, next is a closed channel.
+			// Otherwise it is nil, so won't pass through.
+			w.config.Logger.Tracef("process data on queue")
 		case req := <-w.request:
+			// If we get a watcher request to handle while we are
+			// waiting for changes, handle it, and respond.
 			w.config.Logger.Tracef("handle request: %#v", req)
 			w.handle(req)
 		}
+		change, empty := w.popOne()
+		if empty {
+			next = nil
+		} else {
+			next = w.closed
+		}
+		if change != nil {
+			if err := backing.Changed(w.store, *change); err != nil {
+				return errors.Trace(err)
+			}
+		}
 		w.respond()
 	}
+}
+
+func (w *Worker) popOne() (*watcher.Change, bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	val, ok := w.pending.PopFront()
+	if !ok {
+		// nothing to do
+		return nil, true
+	}
+	empty := w.pending.Len() == 0
+	return val.(*watcher.Change), empty
 }
 
 // Kill implements worker.Worker.Kill.
