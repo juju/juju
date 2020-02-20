@@ -52,6 +52,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Action}, "hooks.Kind Action is deprecated"},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},
+	{hook.Info{Kind: hooks.Remove}, ""},
 	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x/0", RemoteApplication: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationChanged, RemoteUnit: "x/0", RemoteApplication: "x"}, ""},
 	{hook.Info{Kind: hooks.RelationChanged, RemoteApplication: "x"}, ""},
