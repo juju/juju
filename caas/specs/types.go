@@ -160,7 +160,7 @@ func (cs *caasContainers) Validate() error {
 		}
 
 		var uniqFileSets []FileSet
-		inUniqFileSets := func(f FileSet) bool {
+		isDuplicateInContainer := func(f FileSet) bool {
 			for _, v := range uniqFileSets {
 				if f.Equal(v) {
 					return true
@@ -169,15 +169,18 @@ func (cs *caasContainers) Validate() error {
 			return false
 		}
 		mountPaths := set.NewStrings()
-		for _, f := range c.Files {
+		for i := range c.Files {
+			f := c.Files[i]
 			if v, ok := uniqVols[f.Name]; ok {
 				if !f.EqualVolume(v) {
 					return errors.NotValidf("duplicated file %q with different volume spec", f.Name)
 				}
+			} else {
+				uniqVols[f.Name] = f
 			}
 
 			// No deplicated FileSet in same container, but it's ok in different container in same pod.
-			if inUniqFileSets(f) {
+			if isDuplicateInContainer(f) {
 				return errors.NotValidf("duplicated file %q in container %q", f.Name, c.Name)
 			}
 			uniqFileSets = append(uniqFileSets, f)

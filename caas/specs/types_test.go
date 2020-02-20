@@ -155,17 +155,22 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 	fileSet1 := specs.FileSet{
 		Name:      "file1",
 		MountPath: "/foo/file1",
-	}
-	fileSet1.Files = map[string]string{
-		"foo": "bar",
+		VolumeSource: specs.VolumeSource{
+			Files: map[string]string{
+				"foo": "bar",
+			},
+		},
 	}
 	fileSet2 := specs.FileSet{
 		Name:      "file2",
 		MountPath: "/foo/file2",
+		VolumeSource: specs.VolumeSource{
+			Files: map[string]string{
+				"foo": "bar",
+			},
+		},
 	}
-	fileSet2.Files = map[string]string{
-		"foo": "bar",
-	}
+
 	k8sSpec.Containers = []specs.ContainerSpec{
 		{
 			Name:  "gitlab-helper",
@@ -193,7 +198,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file1" not valid`)
+	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file1" in container "gitlab-helper" not valid`)
 
 	k8sSpec = specs.CaasContainers{}
 	k8sSpec.Containers = []specs.ContainerSpec{
@@ -204,19 +209,174 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				fileSet1, fileSet2,
+				specs.FileSet{
+					Name:      "file1",
+					MountPath: "/same-mount-path",
+					VolumeSource: specs.VolumeSource{
+						Files: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "file2",
+					MountPath: "/same-mount-path",
+					VolumeSource: specs.VolumeSource{
+						HostPath: &specs.HostPathVol{
+							Path: "/foo/bar",
+						},
+					},
+				},
 			},
 		},
+	}
+	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated mount path "/same-mount-path" in container "gitlab-helper" not valid`)
+
+	k8sSpec = specs.CaasContainers{}
+	k8sSpec.Containers = []specs.ContainerSpec{
 		{
-			Name:  "mariadb-helper",
-			Image: "mariadb-helper/latest",
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
 			Files: []specs.FileSet{
-				fileSet2,
+				specs.FileSet{
+					Name:      "file1",
+					MountPath: "/etc/config",
+					VolumeSource: specs.VolumeSource{
+						Files: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:  "busybox",
+			Image: "busybox",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 80, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				specs.FileSet{
+					Name:      "file1",
+					MountPath: "/etc/config",
+					VolumeSource: specs.VolumeSource{
+						HostPath: &specs.HostPathVol{
+							Path: "/foo/bar",
+						},
+					},
+				},
 			},
 		},
 	}
-	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file2" not valid`)
+	c.Assert(k8sSpec.Validate(), gc.ErrorMatches, `duplicated file "file1" with different volume spec not valid`)
+
+	k8sSpec = specs.CaasContainers{}
+	k8sSpec.Containers = []specs.ContainerSpec{
+		{
+			Name:  "gitlab-helper",
+			Image: "gitlab-helper/latest",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 8080, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				specs.FileSet{
+					Name:      "file1",
+					MountPath: "/foo/file1",
+					VolumeSource: specs.VolumeSource{
+						Files: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "file1", // same file in same container mount to different path.
+					MountPath: "/foo/another-file1",
+					VolumeSource: specs.VolumeSource{
+						Files: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "file2",
+					MountPath: "/foo/file2",
+					VolumeSource: specs.VolumeSource{
+						Files: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "host-path-1",
+					MountPath: "/etc/host-path",
+					VolumeSource: specs.VolumeSource{
+						HostPath: &specs.HostPathVol{
+							Path: "/foo/bar",
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "empty-dir-1",
+					MountPath: "/etc/empty-dir",
+					VolumeSource: specs.VolumeSource{
+						EmptyDir: &specs.EmptyDirVol{
+							Medium: "Memory",
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "config-map-1",
+					MountPath: "/etc/config",
+					VolumeSource: specs.VolumeSource{
+						ConfigMap: &specs.ResourceRefVol{
+							Name: "log-config",
+							Items: []specs.KeyToPath{
+								{
+									Key:  "log_level",
+									Path: "log_level",
+								},
+							},
+						},
+					},
+				},
+				specs.FileSet{
+					Name:      "mysecret2",
+					MountPath: "/secrets",
+					VolumeSource: specs.VolumeSource{
+						Secret: &specs.ResourceRefVol{
+							Name: "mysecret2",
+							Items: []specs.KeyToPath{
+								{
+									Key:  "password",
+									Path: "my-group/my-password",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			Name:  "busybox",
+			Image: "busybox",
+			Ports: []specs.ContainerPort{
+				{ContainerPort: 80, Protocol: "TCP"},
+			},
+			Files: []specs.FileSet{
+				specs.FileSet{
+					Name:      "file1", // exact same file1 can be mounted to same path in a different container.
+					MountPath: "/foo/file1",
+					VolumeSource: specs.VolumeSource{
+						Files: map[string]string{
+							"foo": "bar",
+						},
+					},
+				},
+			},
+		},
+	}
+	c.Assert(k8sSpec.Validate(), jc.ErrorIsNil)
 }

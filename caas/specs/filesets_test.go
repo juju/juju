@@ -4,11 +4,9 @@
 package specs_test
 
 import (
-	// jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/caas/specs"
-	// "github.com/juju/juju/testing"
 )
 
 type validatorFileSet interface {
@@ -56,6 +54,187 @@ func (s *typesSuite) TestValidateFileSet(c *gc.C) {
 	} {
 		c.Logf("#%d: testing FileSet.Validate", i)
 		c.Check(tc.spec.Validate(), gc.ErrorMatches, tc.errStr)
+	}
+}
+
+type comparerFileSet interface {
+	Equal(specs.FileSet) bool
+}
+
+type comparerFileSetTc struct {
+	f1    comparerFileSet
+	f2    specs.FileSet
+	equal bool
+}
+
+func (s *typesSuite) TestCompareFileSet(c *gc.C) {
+	for i, tc := range []comparerFileSetTc{
+		{
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			equal: true,
+		},
+		{
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/foo", // different path.
+					},
+				},
+			},
+			equal: false,
+		},
+		{
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{ // different VolumeSource.
+					EmptyDir: &specs.EmptyDirVol{},
+				},
+			},
+			equal: false,
+		},
+	} {
+		c.Logf("#%d: testing FileSet.Equal", i)
+		c.Check(tc.f1.Equal(tc.f2), gc.DeepEquals, tc.equal)
+	}
+}
+
+type comparerFileSetVol interface {
+	EqualVolume(specs.FileSet) bool
+}
+
+type comparerFileSetVolTc struct {
+	f1    comparerFileSetVol
+	f2    specs.FileSet
+	equal bool
+}
+
+func (s *typesSuite) TestCompareFileSetVolume(c *gc.C) {
+	for i, tc := range []comparerFileSetVolTc{
+		{
+			// exactly same.
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			equal: true,
+		},
+		{
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bla", // different mount path.
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			equal: true,
+		},
+		{
+			// different name.
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file2",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			equal: false,
+		},
+		{
+			f1: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{
+					HostPath: &specs.HostPathVol{
+						Path: "/foo/bar",
+					},
+				},
+			},
+			f2: specs.FileSet{
+				Name:      "file1",
+				MountPath: "/foo/bar",
+				VolumeSource: specs.VolumeSource{ // different VolumeSource.
+					EmptyDir: &specs.EmptyDirVol{},
+				},
+			},
+			equal: false,
+		},
+	} {
+		c.Logf("#%d: testing FileSet.EqualVolume", i)
+		c.Check(tc.f1.EqualVolume(tc.f2), gc.DeepEquals, tc.equal)
 	}
 }
 
