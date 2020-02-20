@@ -84,6 +84,8 @@ clouds:
         endpoint: https://www.googleapis.com
       asia-northeast2:
         endpoint: https://www.googleapis.com
+      asia-northeast3:
+        endpoint: https://www.googleapis.com
       asia-south1:
         endpoint: https://www.googleapis.com
       asia-southeast1:
@@ -210,7 +212,7 @@ clouds:
       koreacentral:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
-        identity-endpoint: https://graph.windows.net        
+        identity-endpoint: https://graph.windows.net
       koreasouth:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
