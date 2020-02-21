@@ -102,6 +102,20 @@ func (c *Constraints) ChangeSpaceNameOps(from, to string) []txn.Op {
 	return []txn.Op{setConstraintsOp(c.ID(), val)}
 }
 
+// AllConstraints returns all constraints in the collection.
+func (st *State) AllConstraints() ([]*Constraints, error) {
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	defer closer()
+	var docs []constraintsDoc
+	err := constraintsCollection.Find(nil).All(&docs)
+
+	cons := make([]*Constraints, len(docs))
+	for i, doc := range docs {
+		cons[i] = &Constraints{doc: doc}
+	}
+	return cons, err
+}
+
 // ConstraintsBySpaceName returns all Constraints that include a positive
 // or negative space constraint for the input space name.
 func (st *State) ConstraintsBySpaceName(spaceName string) ([]*Constraints, error) {
