@@ -1035,22 +1035,23 @@ func addAddressToResult(networkInfos []network.NetworkInfo, address *Address) ([
 func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]MachineNetworkInfoResult {
 	results := make(map[string]MachineNetworkInfoResult)
 
-	var privateAddress corenetwork.SpaceAddress
+	var privateIPAddress string
 
 	if spaces.Contains(corenetwork.AlphaSpaceId) {
 		var err error
-		privateAddress, err = m.PrivateAddress()
+		privateMachineAddress, err := m.PrivateAddress()
 		if err != nil {
 			results[corenetwork.AlphaSpaceId] = MachineNetworkInfoResult{Error: errors.Annotatef(
 				err, "getting machine %q preferred private address", m.MachineTag())}
 
 			// Remove this id to prevent further processing.
 			spaces.Remove(corenetwork.AlphaSpaceId)
+		} else {
+			privateIPAddress = privateMachineAddress.Value
 		}
 	}
 
 	addresses, err := m.AllAddresses()
-	logger.Debugf("Looking for something from spaces %v in %v", spaces, addresses)
 	if err != nil {
 		result := MachineNetworkInfoResult{Error: errors.Annotate(err, "getting devices addresses")}
 		for _, id := range spaces.Values() {
@@ -1061,11 +1062,25 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 		return results
 	}
 
+	logger.Debugf("Looking for address from %v in spaces %v", spaces, addresses)
+
+	var privateLinkLayerAddress *Address
 	for _, addr := range addresses {
 		subnet, err := addr.Subnet()
 		switch {
 		case errors.IsNotFound(err):
 			logger.Debugf("skipping %s: not linked to a known subnet (%v)", addr, err)
+
+			// For a spaceless model, we will not have subnets populated,
+			// and will therefore not find a subnet for the address.
+			// Capture the link-layer information for machine private address
+			// so that we can return as much information as possible.
+			// TODO (manadart 2020-02-21): This will not be required once
+			// discovery (or population of subnets by other means) is
+			// introduced for the non-space IAAS providers (LXD, manual, etc).
+			if addr.Value() == privateIPAddress {
+				privateLinkLayerAddress = addr
+			}
 		case err != nil:
 			logger.Errorf("cannot get subnet for address %q - %q", addr, err)
 		default:
@@ -1078,7 +1093,19 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 					results[subnet.spaceID] = r
 				}
 			}
-			if spaces.Contains(corenetwork.AlphaSpaceId) && privateAddress.Value == addr.Value() {
+
+			// TODO (manadart 2020-02-21): This reflects the behaviour prior
+			// to the introduction of the alpha space.
+			// It mimics the old behaviour for the empty space ("").
+			// If that was passed in, we included the machine's preferred
+			// local-cloud address no matter what space it was in,
+			// treating the request as space-agnostic.
+			// To preserve this behaviour, we return the address as a result
+			// in the alpha space no matter its *real* space if addresses in
+			// the alpha space were requested.
+			// This should be removed with the institution of universal mutable
+			// spaces.
+			if spaces.Contains(corenetwork.AlphaSpaceId) && addr.Value() == privateIPAddress {
 				r := results[corenetwork.AlphaSpaceId]
 				r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, addr)
 				if err != nil {
@@ -1090,14 +1117,23 @@ func (m *Machine) GetNetworkInfoForSpaces(spaces set.Strings) map[string]Machine
 		}
 	}
 
-	// For a spaceless model we won't find a subnet that's linked to privateAddress,
-	// we have to work around that and at least return minimal information.
+	// If addresses in the alpha space were requested and we populated none,
+	// then we are working with a space-less provider.
+	// If we found a link-layer device for the machine's private address,
+	// use that information, otherwise return the minimal result based on
+	// the IP.
+	// TODO (manadart 2020-02-21): As mentioned above, this is not required
+	// when we have subnets populated for all providers.
 	if r, ok := results[corenetwork.AlphaSpaceId]; !ok && spaces.Contains(corenetwork.AlphaSpaceId) {
-		r.NetworkInfos = []network.NetworkInfo{{
-			Addresses: []network.InterfaceAddress{{
-				Address: privateAddress.Value,
-			}},
-		}}
+		if privateLinkLayerAddress != nil {
+			r.NetworkInfos, err = addAddressToResult(r.NetworkInfos, privateLinkLayerAddress)
+		} else {
+			r.NetworkInfos = []network.NetworkInfo{{
+				Addresses: []network.InterfaceAddress{{
+					Address: privateIPAddress,
+				}},
+			}}
+		}
 		results[corenetwork.AlphaSpaceId] = r
 	}
 
