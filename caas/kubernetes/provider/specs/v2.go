@@ -38,7 +38,7 @@ func (p podSpecV2) Validate() error {
 func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec := &specs.PodSpec{}
 	pSpec.Version = specs.CurrentVersion
-	// TOD(caas): OmitServiceFrontend is deprecated in v2 and will be removed in v3.
+	// TODO(caas): OmitServiceFrontend is deprecated in v2 and will be removed in a later version.
 	pSpec.OmitServiceFrontend = false
 	for _, c := range p.Containers {
 		pSpec.Containers = append(pSpec.Containers, c.ToContainerSpec())
@@ -46,7 +46,9 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	pSpec.Service = p.caaSSpecV2.Service
 	pSpec.ConfigMaps = p.caaSSpecV2.ConfigMaps
 	pSpec.ServiceAccount = p.caaSSpecV2.ServiceAccount
-	pSpec.ProviderPod = &p.K8sPodSpecV2
+	pSpec.ProviderPod = &K8sPodSpec{
+		KubernetesResources: p.K8sPodSpecV2.KubernetesResources,
+	}
 	return pSpec
 }
 

@@ -21,7 +21,7 @@ var _ = gc.Suite(&containerEnvSuite{})
 
 func (s *containerEnvSuite) TestContainerConfigToK8sEnvConfig(c *gc.C) {
 
-	specStr := versionHeader + `
+	specStr := version3Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
