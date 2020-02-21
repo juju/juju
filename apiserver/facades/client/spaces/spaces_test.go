@@ -170,7 +170,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorToAlreadyExist(c *gc.C) {
 
 	res, err := s.api.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("space: %q already exists", to)
+	expectedErr := fmt.Sprintf("space %q already exists", to)
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
@@ -187,7 +187,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorUnexpectedError(c *gc.C) {
 
 	res, err := s.api.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
-	expectedErr := fmt.Sprintf("retrieving space: %q unexpected error, besides not found: %v", to, bamErr.Error())
+	expectedErr := fmt.Sprintf("retrieving space %q: %v", to, bamErr.Error())
 	c.Assert(res.Results[0].Error, gc.ErrorMatches, expectedErr)
 }
 
@@ -218,7 +218,7 @@ func (s *SpaceTestMockSuite) TestRenameAlphaSpaceError(c *gc.C) {
 
 	res, err := s.api.RenameSpace(args)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(res.Results[0].Error, gc.ErrorMatches, "the alpha space cannot be renamed")
+	c.Assert(res.Results[0].Error, gc.ErrorMatches, `the "alpha" space cannot be renamed`)
 }
 
 func (s *SpaceTestMockSuite) TestRenameSpaceSuccess(c *gc.C) {

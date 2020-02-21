@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
+	"gopkg.in/mgo.v2/txn"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.spaces")
@@ -41,6 +42,7 @@ type Machine interface {
 // Constraints defines the methods supported by constraints used in the space context.
 type Constraints interface {
 	ID() string
+	ChangeSpaceNameOps(from, to string) []txn.Op
 }
 
 // ApplicationEndpointBindingsShim is a shim interface for stateless access to ApplicationEndpointBindings
@@ -453,7 +455,7 @@ func (api *API) checkSupportsSpaces() error {
 }
 
 // checkSupportsProviderSpaces checks if the environment implements
-// NetworkingEnviron and also if it support provider spaces.
+// NetworkingEnviron and also if it supports provider spaces.
 func (api *API) checkSupportsProviderSpaces() error {
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {

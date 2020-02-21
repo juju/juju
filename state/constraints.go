@@ -15,16 +15,7 @@ import (
 	"github.com/juju/juju/core/instance"
 )
 
-// Constraints represents the state of a constraints with an ID.
-type Constraints struct {
-	doc constraintsDoc
-}
-
-func (c *Constraints) ID() string {
-	return c.doc.DocID
-}
-
-// constraintsDoc is the mongodb representation of a constraints.Value.
+// constraintsDoc is the Mongo DB representation of a constraints.Value.
 type constraintsDoc struct {
 	DocID          string `bson:"_id,omitempty"`
 	ModelUUID      string `bson:"model-uuid"`
@@ -40,6 +31,25 @@ type constraintsDoc struct {
 	Spaces         *[]string
 	VirtType       *string
 	Zones          *[]string
+}
+
+func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
+	result := constraintsDoc{
+		DocID:          id,
+		Arch:           cons.Arch,
+		CpuCores:       cons.CpuCores,
+		CpuPower:       cons.CpuPower,
+		Mem:            cons.Mem,
+		RootDisk:       cons.RootDisk,
+		RootDiskSource: cons.RootDiskSource,
+		InstanceType:   cons.InstanceType,
+		Container:      cons.Container,
+		Tags:           cons.Tags,
+		Spaces:         cons.Spaces,
+		VirtType:       cons.VirtType,
+		Zones:          cons.Zones,
+	}
+	return result
 }
 
 func (doc constraintsDoc) value() constraints.Value {
@@ -60,23 +70,56 @@ func (doc constraintsDoc) value() constraints.Value {
 	return result
 }
 
-func newConstraintsDoc(cons constraints.Value, id string) constraintsDoc {
-	result := constraintsDoc{
-		DocID:          id,
-		Arch:           cons.Arch,
-		CpuCores:       cons.CpuCores,
-		CpuPower:       cons.CpuPower,
-		Mem:            cons.Mem,
-		RootDisk:       cons.RootDisk,
-		RootDiskSource: cons.RootDiskSource,
-		InstanceType:   cons.InstanceType,
-		Container:      cons.Container,
-		Tags:           cons.Tags,
-		Spaces:         cons.Spaces,
-		VirtType:       cons.VirtType,
-		Zones:          cons.Zones,
+// Constraints represents the state of a constraints with an ID.
+type Constraints struct {
+	doc constraintsDoc
+}
+
+// ID returns the Mongo document ID for the constraints instance.
+func (c *Constraints) ID() string {
+	return c.doc.DocID
+}
+
+// ChangeSpaceNameOps returns the transaction operations required to rename
+// a space used in these constraints.
+func (c *Constraints) ChangeSpaceNameOps(from, to string) []txn.Op {
+	val := c.doc.value()
+	spaces := val.Spaces
+	if spaces == nil {
+		return nil
 	}
-	return result
+
+	for i, space := range *spaces {
+		if space == from {
+			(*spaces)[i] = to
+			break
+		}
+		if space == "^"+from {
+			(*spaces)[i] = "^" + to
+		}
+	}
+
+	return []txn.Op{setConstraintsOp(c.ID(), val)}
+}
+
+// ConstraintsBySpaceName returns all Constraints that include a positive
+// or negative space constraint for the input space name.
+func (st *State) ConstraintsBySpaceName(spaceName string) ([]*Constraints, error) {
+	constraintsCollection, closer := st.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsDoc
+	query := bson.D{{"$or", []bson.D{
+		{{"spaces", spaceName}},
+		{{"spaces", "^" + spaceName}},
+	}}}
+	err := constraintsCollection.Find(query).All(&docs)
+
+	cons := make([]*Constraints, len(docs))
+	for i, doc := range docs {
+		cons[i] = &Constraints{doc: doc}
+	}
+	return cons, err
 }
 
 func createConstraintsOp(id string, cons constraints.Value) txn.Op {
@@ -124,68 +167,4 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}
 	return nil
-}
-
-func (st *State) ConstraintsBySpaceName(name string) ([]*Constraints, error) {
-	constraintsCollection, closer := st.db().GetCollection(constraintsC)
-	defer closer()
-	var docs []constraintsDoc
-	negatedSpace := fmt.Sprintf("^%v", name)
-	query := bson.D{{"$or", []bson.D{
-		{{"spaces", name}},
-		{{"spaces", negatedSpace}},
-	}}}
-	err := constraintsCollection.Find(query).All(&docs)
-
-	cons := make([]*Constraints, len(docs))
-	for i, doc := range docs {
-		cons[i] = &Constraints{doc: doc}
-	}
-	return cons, err
-}
-
-// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
-// to transform a constraints spaces from `a` to `b`
-func (st *State) ConstraintsOpsForSpaceNameChange(from, to string) ([]txn.Op, error) {
-	docs, err := st.ConstraintsBySpaceName(from)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	cons := getConstraintsChanges(docs, from, to)
-
-	ops := make([]txn.Op, len(docs))
-	i := 0
-	for docID, constraint := range cons {
-		ops[i] = setConstraintsOp(docID, constraint)
-		i++
-	}
-	return ops, nil
-}
-
-func getConstraintsChanges(cons []*Constraints, from, to string) map[string]constraints.Value {
-	negatedFrom := fmt.Sprintf("^%v", from)
-	negatedTo := fmt.Sprintf("^%v", to)
-
-	values := make(map[string]constraints.Value, len(cons))
-	for _, con := range cons {
-		values[con.ID()] = con.doc.value()
-	}
-	for _, constraint := range values {
-		spaces := constraint.Spaces
-		if spaces == nil {
-			continue
-		}
-		for i, space := range *spaces {
-			if space == from {
-				(*spaces)[i] = to
-				break
-			}
-			if space == negatedFrom {
-				(*spaces)[i] = negatedTo
-				break
-			}
-		}
-	}
-	return values
 }
