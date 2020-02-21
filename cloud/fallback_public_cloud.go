@@ -91,6 +91,8 @@ clouds:
         endpoint: https://www.googleapis.com
       asia-northeast2:
         endpoint: https://www.googleapis.com
+      asia-northeast3:
+        endpoint: https://www.googleapis.com
       asia-south1:
         endpoint: https://www.googleapis.com
       asia-southeast1:
@@ -178,6 +180,14 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      australiacentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      australiacentral2:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
       australiaeast:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
@@ -238,6 +248,38 @@ clouds:
         endpoint: https://management.azure.com
         storage-endpoint: https://core.windows.net
         identity-endpoint: https://graph.windows.net
+      germanynorth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      germanywestcentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      uaecentral:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      uaenorth:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      norwayeast:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      norwaywest:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      switzerlandeast:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
+      switzerlandwest:
+        endpoint: https://management.azure.com
+        storage-endpoint: https://core.windows.net
+        identity-endpoint: https://graph.windows.net
   azure-china:
     type: azure
     description: Microsoft Azure China
@@ -247,7 +289,15 @@ clouds:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
         identity-endpoint: https://graph.chinacloudapi.cn
+      chinaeast2:
+        endpoint: https://management.chinacloudapi.cn
+        storage-endpoint: https://core.chinacloudapi.cn
+        identity-endpoint: https://graph.chinacloudapi.cn
       chinanorth:
+        endpoint: https://management.chinacloudapi.cn
+        storage-endpoint: https://core.chinacloudapi.cn
+        identity-endpoint: https://graph.chinacloudapi.cn
+      chinanorth2:
         endpoint: https://management.chinacloudapi.cn
         storage-endpoint: https://core.chinacloudapi.cn
         identity-endpoint: https://graph.chinacloudapi.cn
