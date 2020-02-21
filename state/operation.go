@@ -226,6 +226,43 @@ func (m *Model) Operation(id string) (Operation, error) {
 	return newOperation(m.st, *doc, taskStatus), nil
 }
 
+// OperationWithActions returns an OperationInfo by Id.
+func (m *Model) OperationWithActions(id string) (*OperationInfo, error) {
+	// First gather the matching actions and record the parent operation ids we need.
+	actionsCollection, closer := m.st.db().GetCollection(actionsC)
+	defer closer()
+
+	var actions []actionDoc
+	err := actionsCollection.Find(bson.D{{"operation", id}}).
+		Sort("_id").All(&actions)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	operationCollection, closer := m.st.db().GetCollection(operationsC)
+	defer closer()
+
+	var docs []operationDoc
+	err = operationCollection.FindId(id).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(docs) == 0 {
+		return nil, errors.NotFoundf("operation %v", id)
+	}
+
+	var result OperationInfo
+	taskStatus := make([]ActionStatus, len(actions))
+	result.Actions = make([]Action, len(actions))
+	for i, action := range actions {
+		result.Actions[i] = newAction(m.st, action)
+		taskStatus[i] = action.Status
+	}
+	operation := newOperation(m.st, docs[0], taskStatus)
+	result.Operation = operation
+	return &result, nil
+}
+
 func (st *State) getOperationDoc(id string) (*operationDoc, []ActionStatus, error) {
 	operations, closer := st.db().GetCollection(operationsC)
 	defer closer()
@@ -274,9 +311,9 @@ func (m *Model) AllOperations() ([]Operation, error) {
 // return when performing an operations query.
 const defaultMaxOperationsLimit = 500
 
-// OperationSummary encapsulates an operation and summary
+// OperationInfo encapsulates an operation and summary
 // information about some of its actions.
-type OperationSummary struct {
+type OperationInfo struct {
 	Operation Operation
 	Actions   []Action
 }
@@ -285,7 +322,7 @@ type OperationSummary struct {
 func (m *Model) ListOperations(
 	actionNames []string, actionReceivers []names.Tag, operationStatus []ActionStatus,
 	offset, limit int,
-) ([]OperationSummary, bool, error) {
+) ([]OperationInfo, bool, error) {
 	// First gather the matching actions and record the parent operation ids we need.
 	actionsCollection, closer := m.st.db().GetCollection(actionsC)
 	defer closer()
@@ -359,7 +396,7 @@ func (m *Model) ListOperations(
 	}
 	truncated := nominalCount > len(docs)
 
-	result := make([]OperationSummary, len(docs))
+	result := make([]OperationInfo, len(docs))
 	for i, doc := range docs {
 		actions := operationActions[m.st.localID(doc.DocId)]
 		taskStatus := make([]ActionStatus, len(actions))

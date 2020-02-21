@@ -52,7 +52,7 @@ func (s *operationSuite) setupOperations(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
-func (s *operationSuite) TestOperationsStatusFilter(c *gc.C) {
+func (s *operationSuite) TestListOperationsStatusFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up a non running operation.
 	arg := params.Actions{
@@ -62,7 +62,7 @@ func (s *operationSuite) TestOperationsStatusFilter(c *gc.C) {
 	_, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.Operations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
 		Status: []string{"running"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -101,7 +101,7 @@ func (s *operationSuite) TestOperationsStatusFilter(c *gc.C) {
 	c.Assert(result.Actions[3].Status, gc.Equals, "pending")
 }
 
-func (s *operationSuite) TestOperationsNameFilter(c *gc.C) {
+func (s *operationSuite) TestListOperationsNameFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up a second operation.
 	arg := params.Actions{
@@ -111,7 +111,7 @@ func (s *operationSuite) TestOperationsNameFilter(c *gc.C) {
 	_, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.Operations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
 		ActionNames: []string{"anotherfakeaction"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -133,7 +133,7 @@ func (s *operationSuite) TestOperationsNameFilter(c *gc.C) {
 	c.Assert(result.Actions[0].Status, gc.Equals, "pending")
 }
 
-func (s *operationSuite) TestOperationsAppFilter(c *gc.C) {
+func (s *operationSuite) TestListOperationsAppFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up a second operation for a different app.
 	arg := params.Actions{
@@ -143,7 +143,7 @@ func (s *operationSuite) TestOperationsAppFilter(c *gc.C) {
 	_, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.Operations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
 		Applications: []string{"wordpress"},
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -171,7 +171,7 @@ func (s *operationSuite) TestOperationsAppFilter(c *gc.C) {
 	c.Assert(result.Actions[1].Status, gc.Equals, "pending")
 }
 
-func (s *operationSuite) TestOperationsUnitFilter(c *gc.C) {
+func (s *operationSuite) TestListOperationsUnitFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up an operation with a pending action.
 	arg := params.Actions{
@@ -181,7 +181,7 @@ func (s *operationSuite) TestOperationsUnitFilter(c *gc.C) {
 	_, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.Operations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
 		Units:  []string{"wordpress/0"},
 		Status: []string{"pending"},
 	})
@@ -202,7 +202,7 @@ func (s *operationSuite) TestOperationsUnitFilter(c *gc.C) {
 	c.Assert(result.Actions[0].Status, gc.Equals, "pending")
 }
 
-func (s *operationSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
+func (s *operationSuite) TestListOperationsAppAndUnitFilter(c *gc.C) {
 	s.setupOperations(c)
 	// Set up an operation with a pending action.
 	arg := params.Actions{
@@ -212,7 +212,7 @@ func (s *operationSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
 	_, err := s.action.Enqueue(arg)
 	c.Assert(err, jc.ErrorIsNil)
 
-	operations, err := s.action.Operations(params.OperationQueryArgs{
+	operations, err := s.action.ListOperations(params.OperationQueryArgs{
 		Applications: []string{"mysql"},
 		Units:        []string{"wordpress/0"},
 		Status:       []string{"running"},
@@ -230,6 +230,47 @@ func (s *operationSuite) TestOperationsAppAndUnitFilter(c *gc.C) {
 	if result.Started.IsZero() {
 		c.Fatal("started time not set")
 	}
+
+	action := result.Actions[0].Action
+	c.Assert(action.Name, gc.Equals, "fakeaction")
+	c.Assert(action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(action.Tag, gc.Equals, "action-2")
+	c.Assert(result.Actions[0].Status, gc.Equals, "running")
+	action = result.Actions[1].Action
+	c.Assert(action.Name, gc.Equals, "fakeaction")
+	c.Assert(action.Receiver, gc.Equals, "unit-mysql-0")
+	c.Assert(action.Tag, gc.Equals, "action-3")
+	c.Assert(result.Actions[1].Status, gc.Equals, "completed")
+	action = result.Actions[2].Action
+	c.Assert(action.Name, gc.Equals, "fakeaction")
+	c.Assert(action.Receiver, gc.Equals, "unit-wordpress-0")
+	c.Assert(action.Tag, gc.Equals, "action-4")
+	c.Assert(result.Actions[2].Status, gc.Equals, "pending")
+	action = result.Actions[3].Action
+	c.Assert(action.Name, gc.Equals, "anotherfakeaction")
+	c.Assert(action.Receiver, gc.Equals, "unit-mysql-0")
+	c.Assert(action.Tag, gc.Equals, "action-5")
+	c.Assert(result.Actions[3].Status, gc.Equals, "pending")
+}
+
+func (s *operationSuite) TestOperations(c *gc.C) {
+	s.setupOperations(c)
+	operations, err := s.action.Operations(params.Entities{
+		Entities: []params.Entity{{Tag: "operation-1"}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operations.Truncated, jc.IsFalse)
+	c.Assert(operations.Results, gc.HasLen, 1)
+	result := operations.Results[0]
+	c.Assert(result.Actions, gc.HasLen, 4)
+	c.Assert(result.Actions[0].Action, gc.NotNil)
+	if result.Enqueued.IsZero() {
+		c.Fatal("enqueued time not set")
+	}
+	if result.Started.IsZero() {
+		c.Fatal("started time not set")
+	}
+	c.Assert(result.Status, gc.Equals, "running")
 
 	action := result.Actions[0].Action
 	c.Assert(action.Name, gc.Equals, "fakeaction")

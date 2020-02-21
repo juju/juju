@@ -20,6 +20,7 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/core/actions"
 )
 
 func NewListOperationsCommand() cmd.Command {
@@ -138,7 +139,7 @@ func (c *listOperationsCommand) Run(ctx *cmd.Context) error {
 		ActionNames:  c.actionNames,
 		Status:       c.statusValues,
 	}
-	results, err := api.Operations(args)
+	results, err := api.ListOperations(args)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -258,12 +259,13 @@ func (s byId) Less(i, j int) bool {
 	return s[i].OperationTag < s[j].OperationTag
 }
 
-type operationSummary struct {
-	Summary string                 `yaml:"summary" json:"summary"`
-	Status  string                 `yaml:"status" json:"status"`
-	Action  *actionSummary         `yaml:"action,omitempty" json:"action,omitempty"`
-	Timing  timingInfo             `yaml:"timing,omitempty" json:"timing,omitempty"`
-	Tasks   map[string]taskSummary `yaml:"tasks,omitempty" json:"tasks,omitempty"`
+type operationInfo struct {
+	Summary string              `yaml:"summary" json:"summary"`
+	Status  string              `yaml:"status" json:"status"`
+	Error   string              `yaml:"error,omitempty" json:"error,omitempty"`
+	Action  *actionSummary      `yaml:"action,omitempty" json:"action,omitempty"`
+	Timing  timingInfo          `yaml:"timing,omitempty" json:"timing,omitempty"`
+	Tasks   map[string]taskInfo `yaml:"tasks,omitempty" json:"tasks,omitempty"`
 }
 
 type timingInfo struct {
@@ -277,17 +279,20 @@ type actionSummary struct {
 	Parameters map[string]interface{} `yaml:"parameters" json:"parameters"`
 }
 
-type taskSummary struct {
-	Name   string     `yaml:"name,omitempty" json:"name,omitempty"`
-	Host   string     `yaml:"host" json:"host"`
-	Status string     `yaml:"status" json:"status"`
-	Timing timingInfo `yaml:"timing,omitempty" json:"timing,omitempty"`
+type taskInfo struct {
+	Name    string                 `yaml:"name,omitempty" json:"name,omitempty"`
+	Host    string                 `yaml:"host" json:"host"`
+	Status  string                 `yaml:"status" json:"status"`
+	Timing  timingInfo             `yaml:"timing,omitempty" json:"timing,omitempty"`
+	Log     []string               `yaml:"log,omitempty" json:"log,omitempty"`
+	Message string                 `yaml:"message,omitempty" json:"message,omitempty"`
+	Results map[string]interface{} `yaml:"results,omitempty" json:"results,omitempty"`
 }
 
 // formatOperationResult inserts the remaining ones in a map[string]interface{} for cmd.Output to
 // write in an easy-to-read format.
-func formatOperationResult(operation params.OperationResult, utc bool) operationSummary {
-	result := operationSummary{
+func formatOperationResult(operation params.OperationResult, utc bool) operationInfo {
+	result := operationInfo{
 		Summary: operation.Summary,
 		Status:  operation.Status,
 		Timing: timingInfo{
@@ -295,7 +300,10 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 			Started:   formatTimestamp(operation.Started, false, utc, false),
 			Completed: formatTimestamp(operation.Completed, false, utc, false),
 		},
-		Tasks: make(map[string]taskSummary, len(operation.Actions)),
+		Tasks: make(map[string]taskInfo, len(operation.Actions)),
+	}
+	if err := operation.Error; err != nil {
+		result.Error = err.Error()
 	}
 	var singleAction actionSummary
 	haveSingleAction := true
@@ -309,7 +317,7 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 			// Not expected to happen.
 			continue
 		}
-		taskInfo := taskSummary{
+		taskInfo := taskInfo{
 			Host:   task.Action.Receiver,
 			Status: task.Status,
 			Timing: timingInfo{
@@ -317,10 +325,22 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 				Started:   formatTimestamp(task.Started, false, utc, false),
 				Completed: formatTimestamp(task.Completed, false, utc, false),
 			},
+			Message: task.Message,
+			Results: task.Output,
 		}
 		ut, err := names.ParseUnitTag(task.Action.Receiver)
 		if err == nil {
 			taskInfo.Host = ut.Id()
+		}
+		if len(task.Log) > 0 {
+			var logs []string
+			for _, msg := range task.Log {
+				logs = append(logs, formatLogMessage(actions.ActionMessage{
+					Timestamp: msg.Timestamp,
+					Message:   msg.Message,
+				}, false, utc, false))
+			}
+			taskInfo.Log = logs
 		}
 		result.Tasks[tag.Id()] = taskInfo
 		if i == 0 {

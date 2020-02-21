@@ -395,6 +395,7 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 		r.Register(action.NewRunCommand())
 		r.Register(action.NewListOperationsCommand())
 		r.Register(action.NewShowOperationCommand())
+		r.Register(action.NewShowTaskCommand())
 	} else {
 		r.Register(action.NewRunActionCommand())
 		r.Register(action.NewShowActionOutputCommand())

@@ -213,7 +213,7 @@ func (s *actionSuite) TestWatchActionProgressNotSupported(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "WatchActionProgress not supported by this version \\(4\\) of Juju")
 }
 
-func (s *actionSuite) TestOperations(c *gc.C) {
+func (s *actionSuite) TestListOperations(c *gc.C) {
 	var args params.OperationQueryArgs
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
@@ -222,7 +222,7 @@ func (s *actionSuite) TestOperations(c *gc.C) {
 				id, request string,
 				a, result interface{},
 			) error {
-				c.Assert(request, gc.Equals, "Operations")
+				c.Assert(request, gc.Equals, "ListOperations")
 				c.Assert(a, jc.DeepEquals, args)
 				c.Assert(result, gc.FitsTypeOf, &params.OperationResults{})
 				*(result.(*params.OperationResults)) = params.OperationResults{
@@ -236,7 +236,7 @@ func (s *actionSuite) TestOperations(c *gc.C) {
 		BestVersion: 6,
 	}
 	client := action.NewClient(apiCaller)
-	result, err := client.Operations(args)
+	result, err := client.ListOperations(args)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(result, jc.DeepEquals, params.OperationResults{
 		Results: []params.OperationResult{{
@@ -245,7 +245,7 @@ func (s *actionSuite) TestOperations(c *gc.C) {
 	})
 }
 
-func (s *actionSuite) TestOperationsNotSupported(c *gc.C) {
+func (s *actionSuite) TestListOperationsNotSupported(c *gc.C) {
 	apiCaller := basetesting.BestVersionCaller{
 		APICallerFunc: basetesting.APICallerFunc(
 			func(objType string,
@@ -259,7 +259,54 @@ func (s *actionSuite) TestOperationsNotSupported(c *gc.C) {
 		BestVersion: 4,
 	}
 	client := action.NewClient(apiCaller)
-	_, err := client.Operations(params.OperationQueryArgs{})
+	_, err := client.ListOperations(params.OperationQueryArgs{})
+	c.Assert(err, gc.ErrorMatches, "ListOperations not supported by this version \\(4\\) of Juju")
+}
+
+func (s *actionSuite) TestOperation(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				c.Assert(request, gc.Equals, "Operations")
+				c.Assert(a, jc.DeepEquals, params.Entities{Entities: []params.Entity{{Tag: "operation-666"}}})
+				c.Assert(result, gc.FitsTypeOf, &params.OperationResults{})
+				*(result.(*params.OperationResults)) = params.OperationResults{
+					Results: []params.OperationResult{{
+						Summary: "hello",
+					}},
+				}
+				return nil
+			},
+		),
+		BestVersion: 6,
+	}
+	client := action.NewClient(apiCaller)
+	result, err := client.Operation("666")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, jc.DeepEquals, params.OperationResult{
+		Summary: "hello",
+	})
+}
+
+func (s *actionSuite) TestOperationNotSupported(c *gc.C) {
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(
+			func(objType string,
+				version int,
+				id, request string,
+				a, result interface{},
+			) error {
+				return nil
+			},
+		),
+		BestVersion: 4,
+	}
+	client := action.NewClient(apiCaller)
+	_, err := client.Operation("666")
 	c.Assert(err, gc.ErrorMatches, "Operations not supported by this version \\(4\\) of Juju")
 }
 
