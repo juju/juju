@@ -2103,6 +2103,15 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	var firstErr error
 	novaClient := e.nova()
 	for _, id := range ids {
+		// Attempt to destroy the ports that could have been created when using
+		// spaces.
+		if err := e.terminateInstanceNetworkPorts(id); err != nil {
+			logger.Errorf("error attempting to remove ports associated with instance %q: %v", id, err)
+			// Unfortunately there is nothing we can do here, there could be
+			// orphan ports left.
+		}
+
+		// Once ports have been deleted, attempt to delete the server.
 		err := novaClient.DeleteServer(string(id))
 		if IsNotFoundError(err) {
 			err = nil
@@ -2114,17 +2123,6 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 				// We'll 100% fail all subsequent calls if we have an invalid credential.
 				break
 			}
-		}
-
-		// Attempt to destroy the ports that could have been created when using
-		// spaces.
-		if err := e.terminateInstanceNetworkPorts(id); err != nil {
-			logger.Debugf("error attempting to remove ports associated with instance %q: %v", id, err)
-			// Unfortunately there is nothing we can do here, there could be
-			// orphan ports left.
-			// We don't want to block terminating instances, so the only option
-			// available to us, is to move on to the next instance.
-			continue
 		}
 	}
 	return firstErr
