@@ -61,7 +61,7 @@ func (s *uniterResolver) NextOp(
 	remoteState remotestate.Snapshot,
 	opFactory operation.Factory,
 ) (operation.Operation, error) {
-	if remoteState.Life == life.Dead || localState.Stopped {
+	if remoteState.Life == life.Dead || localState.Removed {
 		return nil, resolver.ErrTerminate
 	}
 
@@ -276,8 +276,10 @@ func (s *uniterResolver) nextOp(
 		// TODO(axw) move logic for cascading destruction of
 		//           subordinates, relation units and storage
 		//           attachments into state, via cleanups.
-		if localState.Started {
+		if localState.Started && !localState.Stopped {
 			return opFactory.NewRunHook(hook.Info{Kind: hooks.Stop})
+		} else if localState.Installed && !localState.Removed {
+			return opFactory.NewRunHook(hook.Info{Kind: hooks.Remove})
 		}
 		fallthrough
 	case life.Dead:
