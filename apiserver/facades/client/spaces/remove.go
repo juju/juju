@@ -109,24 +109,11 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 	return results, nil
 }
 
-func (api *API) constraintsTagForSpaceName(name string) ([]names.Tag, error) {
-	cons, err := api.backing.ConstraintsBySpaceName(name)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	tags := make([]names.Tag, len(cons))
-	for i, doc := range cons {
-		tag := state.ParseLocalIDToTags(doc.ID())
-		if tag == nil {
-			return nil, errors.Errorf("Could not parse id: %q", doc.ID())
-		}
-		tags[i] = tag
-	}
-	return tags, nil
-}
-
-func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *params.RemoveSpaceResults, force bool) bool {
+func (api *API) checkSpaceIsRemovable(
+	index int, spacesTag names.Tag, results *params.RemoveSpaceResults, force bool,
+) bool {
 	removable := true
+
 	if spacesTag.Id() == network.AlphaSpaceName {
 		newErr := errors.New("the alpha space cannot be removed")
 		results.Results[index].Error = common.ServerError(newErr)
@@ -137,12 +124,12 @@ func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *p
 		results.Results[index].Error = common.ServerError(errors.Trace(err))
 		return false
 	}
-	bindingTags, err := api.getApplicationTagsPerSpace(space.Id())
+	bindingTags, err := api.applicationTagsForSpace(space.Id())
 	if err != nil {
 		results.Results[index].Error = common.ServerError(errors.Trace(err))
 		return false
 	}
-	constraintTags, err := api.getConstraintsTagsPerSpace(space.Name())
+	constraintTags, err := api.entityTagsForSpaceConstraintsBlockingRemove(space.Name())
 	if err != nil {
 		results.Results[index].Error = common.ServerError(errors.Trace(err))
 		return false
@@ -172,8 +159,10 @@ func (api *API) checkSpaceIsRemovable(index int, spacesTag names.Tag, results *p
 	return removable
 }
 
-func (api *API) getApplicationTagsPerSpace(spaceID string) ([]names.Tag, error) {
-	applications, err := api.getApplicationsBindSpace(spaceID)
+// applicationTagsForSpace returns the tags for all applications with an
+// endpoint bound to a space with the input name.
+func (api *API) applicationTagsForSpace(spaceID string) ([]names.Tag, error) {
+	applications, err := api.applicationsBoundToSpace(spaceID)
 	if err != nil {
 		return nil, errors.Trace(nil)
 	}
@@ -193,13 +182,17 @@ func convertTagsToEntities(tags []names.Tag) []params.Entity {
 	return entities
 }
 
-func (api *API) getConstraintsTagsPerSpace(spaceName string) ([]names.Tag, error) {
-	tags, err := api.constraintsTagForSpaceName(spaceName)
-	var notSkipping []names.Tag
+// entityTagsForSpaceConstraintsBlockingRemove returns tags for entities
+// with constraints for the input space name, that disallow removal of the
+// space. I.e. those other than units and machines.
+func (api *API) entityTagsForSpaceConstraintsBlockingRemove(spaceName string) ([]names.Tag, error) {
+	allTags, err := api.entityTagsForSpaceConstraints(spaceName)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	for _, tag := range tags {
+
+	var notSkipping []names.Tag
+	for _, tag := range allTags {
 		if tag.Kind() == names.UnitTagKind {
 			continue
 		}
@@ -209,6 +202,25 @@ func (api *API) getConstraintsTagsPerSpace(spaceName string) ([]names.Tag, error
 		notSkipping = append(notSkipping, tag)
 	}
 	return notSkipping, nil
+}
+
+// entityTagsForSpaceConstraints returns the tags for all entities
+// with constraints that refer to the input space name.
+func (api *API) entityTagsForSpaceConstraints(spaceName string) ([]names.Tag, error) {
+	cons, err := api.backing.ConstraintsBySpaceName(spaceName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	tags := make([]names.Tag, len(cons))
+	for i, doc := range cons {
+		tag := state.ParseLocalIDToTags(doc.ID())
+		if tag == nil {
+			return nil, errors.Errorf("Could not parse id: %q", doc.ID())
+		}
+		tags[i] = tag
+	}
+	return tags, nil
 }
 
 func (api *API) getSpaceControllerSettings(spaceName string) ([]string, error) {

@@ -395,7 +395,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 			result.Space.Subnets[i] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
 		}
 
-		applications, err := api.getApplicationsBindSpace(space.Id())
+		applications, err := api.applicationsBoundToSpace(space.Id())
 		if err != nil {
 			newErr := errors.Annotatef(err, "fetching applications")
 			results[i].Error = common.ServerError(newErr)
@@ -452,8 +452,8 @@ func (api *API) checkSupportsSpaces() error {
 	return nil
 }
 
-// checkSupportsProviderSpaces checks if the environment implements NetworkingEnviron
-// and also if it support provider spaces.
+// checkSupportsProviderSpaces checks if the environment implements
+// NetworkingEnviron and also if it support provider spaces.
 func (api *API) checkSupportsProviderSpaces() error {
 	env, err := environs.GetEnviron(api.backing, environs.New)
 	if err != nil {
@@ -483,16 +483,16 @@ func (api *API) getMachineCountBySpaceID(spaceID string) (int, error) {
 	return count, nil
 }
 
-func (api *API) getApplicationsBindSpace(givenSpaceID string) ([]string, error) {
+func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
 	endpointBindings, err := api.backing.AllEndpointBindings()
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	// Using a set as we only we want the application names once.
+
 	applications := set.NewStrings()
 	for _, binding := range endpointBindings {
-		for _, spaceID := range binding.Bindings {
-			if spaceID == givenSpaceID {
+		for _, boundSpace := range binding.Bindings {
+			if boundSpace == spaceID {
 				applications.Add(binding.AppName)
 			}
 		}
