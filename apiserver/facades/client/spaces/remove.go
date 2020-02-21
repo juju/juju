@@ -214,7 +214,7 @@ func (api *API) entityTagsForSpaceConstraints(spaceName string) ([]names.Tag, er
 
 	tags := make([]names.Tag, len(cons))
 	for i, doc := range cons {
-		tag := state.ParseLocalIDToTags(doc.ID())
+		tag := state.TagFromDocID(doc.ID())
 		if tag == nil {
 			return nil, errors.Errorf("Could not parse id: %q", doc.ID())
 		}
