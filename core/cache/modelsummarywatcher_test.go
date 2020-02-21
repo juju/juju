@@ -408,13 +408,6 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 		Life:      life.Alive,
 	}, s.events)
 
-	// Make sure all the published summary events have been handled.
-	// We know that the events are consumed in the order that they are
-	// published, and that any publishing will take place during the
-	// above ProcessChange calls above, so we only need to wait on the
-	// last publish event from model 2.
-	cache.WaitForModelSummaryHandled(c, s.controller, "model-2-uuid")
-
 	update := s.next(c, changes, "model-2-uuid")
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{

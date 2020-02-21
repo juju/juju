@@ -6,9 +6,10 @@ package cache
 import (
 	"time"
 
-	"github.com/juju/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+
+	"github.com/juju/juju/testing"
 )
 
 // Expose SetDetails for testing.

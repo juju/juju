@@ -186,7 +186,9 @@ func (c *Controller) loop() error {
 // Mark updates all cached entities to indicate they are stale.
 func (c *Controller) Mark() {
 	c.manager.mark()
+	c.mu.Lock()
 	c.initializing = true
+	c.mu.Unlock()
 }
 
 // Sweep evicts any stale entities from the cache,
@@ -196,8 +198,8 @@ func (c *Controller) Sweep() {
 	case <-c.manager.sweep():
 	case <-c.tomb.Dying():
 	}
-	c.initializing = false
 	c.mu.Lock()
+	c.initializing = false
 	for _, model := range c.models {
 		model.updateSummary()
 	}

@@ -9,12 +9,12 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/juju/juju/core/permission"
-	"github.com/juju/juju/core/status"
-
 	"github.com/juju/errors"
 	"github.com/juju/pubsub"
 	"gopkg.in/juju/names.v3"
+
+	"github.com/juju/juju/core/permission"
+	"github.com/juju/juju/core/status"
 )
 
 const (
@@ -128,23 +128,19 @@ func (m *Model) Summary() (ModelSummary, string) {
 func (m *Model) summaryCopy() ModelSummary {
 	result := m.summary
 	// Make a copy of the admins slice.
-	admins := make([]string, len(result.Admins))
-	copy(admins, result.Admins)
-	result.Admins = admins
+	result.Admins = append([]string(nil), result.Admins...)
 	// Make a copy of the messages slice.
-	messages := make([]ModelSummaryMessage, len(result.Messages))
-	copy(messages, result.Messages)
-	result.Messages = messages
+	result.Messages = append([]ModelSummaryMessage(nil), result.Messages...)
 	return result
 }
 
 func (m *Model) visibleTo(user string) bool {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	if user == "" {
 		return true
 	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	// Any permission is sufficient for the user to see the model.
 	// Read, Write, or Admin are all good for us. If the user doesn't

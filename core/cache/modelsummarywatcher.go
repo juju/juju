@@ -4,7 +4,7 @@
 package cache
 
 import (
-	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -264,11 +264,15 @@ func (s *ModelSummary) hash() (string, error) {
 		messages = m.Agent + m.Message
 	}
 	admins := strings.Join(s.Admins, ", ")
-	asString := fmt.Sprintf(
-		"%s %v %s %s %s %s %s %s %s %s %s, %d %d %d %d %d",
-		s.UUID, s.Removed, s.Namespace, s.Name, admins, s.Status, messages,
-		s.Cloud, s.Region, s.Credential, s.LastModified,
-		s.MachineCount, s.ContainerCount, s.ApplicationCount,
-		s.UnitCount, s.RelationCount)
-	return hash(asString)
+	return hash(
+		s.UUID, strconv.FormatBool(s.Removed),
+		s.Namespace, s.Name, admins, s.Status, messages,
+		s.Cloud, s.Region, s.Credential,
+		s.LastModified.String(),
+		strconv.Itoa(s.MachineCount),
+		strconv.Itoa(s.ContainerCount),
+		strconv.Itoa(s.ApplicationCount),
+		strconv.Itoa(s.UnitCount),
+		strconv.Itoa(s.RelationCount),
+	)
 }
