@@ -2122,8 +2122,8 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 			logger.Debugf("error attempting to remove ports associated with instance %q: %v", id, err)
 			// Unfortunately there is nothing we can do here, there could be
 			// orphan ports left.
-			// We don't want to block terminating instances so the only option
-			// available to us it to move on to the next instance.
+			// We don't want to block terminating instances, so the only option
+			// available to us, is to move on to the next instance.
 			continue
 		}
 	}
