@@ -79,7 +79,7 @@ func (s *ShowOperationSuite) TestRun(c *gc.C) {
 	}{{
 		should:         "handle wait-time formatting errors",
 		withClientWait: "not-a-duration-at-all",
-		expectedErr:    "time: invalid duration not-a-duration-at-all",
+		expectedErr:    `invalid value "not-a-duration-at-all" for option --wait.*`,
 	}, {
 		should:            "timeout if result never comes",
 		withClientWait:    "2s",

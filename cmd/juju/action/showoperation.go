@@ -4,12 +4,12 @@
 package action
 
 import (
-	"regexp"
 	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,8 +23,8 @@ func NewShowOperationCommand() cmd.Command {
 type showOperationCommand struct {
 	ActionCommandBase
 	out         cmd.Output
-	requestedId string
-	wait        string
+	requestedID string
+	wait        time.Duration
 	watch       bool
 	utc         bool
 }
@@ -33,7 +33,6 @@ const showOperationDoc = `
 Show the results returned by an operation with the given ID.  
 To block until the result is known completed or failed, use
 the --wait option with a duration, as in --wait 5s or --wait 1h.
-If units are left off, seconds are assumed.
 Use --watch to wait indefinitely.  
 
 The default behavior without --wait or --watch is to immediately check and return;
@@ -52,6 +51,8 @@ See also:
     show-task
 `
 
+const defaultOperationWait = -1 * time.Second
+
 // SetFlags implements Command.
 func (c *showOperationCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ActionCommandBase.SetFlags(f)
@@ -61,7 +62,7 @@ func (c *showOperationCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json": cmd.FormatJson,
 	})
 
-	f.StringVar(&c.wait, "wait", "-1s", "Wait for results")
+	f.DurationVar(&c.wait, "wait", defaultOperationWait, "Wait for results")
 	f.BoolVar(&c.watch, "watch", false, "Wait indefinitely for results")
 	f.BoolVar(&c.utc, "utc", false, "Show times in UTC")
 }
@@ -79,17 +80,17 @@ func (c *showOperationCommand) Info() *cmd.Info {
 // Init implements Command.
 func (c *showOperationCommand) Init(args []string) error {
 	if c.watch {
-		if c.wait != "-1s" {
+		if c.wait != defaultOperationWait {
 			return errors.New("specify either --watch or --wait but not both")
 		}
 		// If we are watching the wait is 0 (indefinite).
-		c.wait = "0s"
+		c.wait = 0 * time.Second
 	}
 	switch len(args) {
 	case 0:
 		return errors.New("no operation ID specified")
 	case 1:
-		c.requestedId = args[0]
+		c.requestedID = args[0]
 		return nil
 	default:
 		return cmd.CheckEmpty(args[1:])
@@ -98,45 +99,24 @@ func (c *showOperationCommand) Init(args []string) error {
 
 // Run implements Command.
 func (c *showOperationCommand) Run(ctx *cmd.Context) error {
-	// Check whether units were left off our time string.
-	r := regexp.MustCompile("[a-zA-Z]")
-	matches := r.FindStringSubmatch(c.wait[len(c.wait)-1:])
-	// If any match, we have units.  Otherwise, we don't; assume seconds.
-	if len(matches) == 0 {
-		c.wait = c.wait + "s"
-	}
-
-	waitDur, err := time.ParseDuration(c.wait)
-	if err != nil {
-		return err
-	}
-
 	api, err := c.NewActionAPIClient()
 	if err != nil {
 		return err
 	}
 	defer api.Close()
 
-	wait := time.NewTimer(0 * time.Second)
-
-	switch {
-	case waitDur.Nanoseconds() < 0:
-		// Negative duration signals immediate return.  All is well.
-	case waitDur.Nanoseconds() == 0:
+	wait := time.NewTimer(c.wait)
+	if c.wait.Nanoseconds() == 0 {
 		// Zero duration signals indefinite wait.  Discard the tick.
-		wait = time.NewTimer(0 * time.Second)
 		_ = <-wait.C
-	default:
-		// Otherwise, start an ordinary timer.
-		wait = time.NewTimer(waitDur)
 	}
 
 	var result params.OperationResult
-	shouldWatch := waitDur.Nanoseconds() >= 0
+	shouldWatch := c.wait.Nanoseconds() >= 0
 	if shouldWatch {
-		result, err = getOperationResult(api, c.requestedId, wait)
+		result, err = getOperationResult(api, c.requestedID, wait)
 	} else {
-		result, err = fetchOperationResult(api, c.requestedId)
+		result, err = fetchOperationResult(api, c.requestedID)
 	}
 	if err != nil {
 		return errors.Trace(err)

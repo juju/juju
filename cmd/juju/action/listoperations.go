@@ -333,12 +333,12 @@ func formatOperationResult(operation params.OperationResult, utc bool) operation
 			taskInfo.Host = ut.Id()
 		}
 		if len(task.Log) > 0 {
-			var logs []string
-			for _, msg := range task.Log {
-				logs = append(logs, formatLogMessage(actions.ActionMessage{
+			logs := make([]string, len(task.Log))
+			for i, msg := range task.Log {
+				logs[i] = formatLogMessage(actions.ActionMessage{
 					Timestamp: msg.Timestamp,
 					Message:   msg.Message,
-				}, false, utc, false))
+				}, false, utc, false)
 			}
 			taskInfo.Log = logs
 		}
