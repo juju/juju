@@ -80,6 +80,12 @@ func (c *Constraints) ID() string {
 	return c.doc.DocID
 }
 
+// Value returns the constraints.Value represented by the Constraints'
+// Mongo document.
+func (c *Constraints) Value() constraints.Value {
+	return c.doc.value()
+}
+
 // ChangeSpaceNameOps returns the transaction operations required to rename
 // a space used in these constraints.
 func (c *Constraints) ChangeSpaceNameOps(from, to string) []txn.Op {

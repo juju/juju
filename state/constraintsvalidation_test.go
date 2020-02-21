@@ -4,24 +4,15 @@
 package state_test
 
 import (
+	"regexp"
+
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/mgo.v2/bson"
-	"regexp"
 
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/state"
 )
-
-type applicationConstraintsSuite struct {
-	ConnSuite
-
-	applicationName string
-	testCharm       *state.Charm
-}
-
-var _ = gc.Suite(&applicationConstraintsSuite{})
 
 type constraintsValidationSuite struct {
 	ConnSuite
@@ -269,6 +260,15 @@ func (s *constraintsValidationSuite) TestApplicationConstraints(c *gc.C) {
 	}
 }
 
+type applicationConstraintsSuite struct {
+	ConnSuite
+
+	applicationName string
+	testCharm       *state.Charm
+}
+
+var _ = gc.Suite(&applicationConstraintsSuite{})
+
 func (s *applicationConstraintsSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.policy.GetConstraintsValidator = func() (constraints.Validator, error) {
@@ -303,19 +303,18 @@ func (s *applicationConstraintsSuite) TestAddApplicationValidConstraints(c *gc.C
 	c.Assert(application, gc.NotNil)
 }
 
-func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc.C) {
-	from, to, negatedTo := "db", "newdb", "^newdb"
-	cons := constraints.MustParse("spaces=db,alpha")
+func (s *applicationConstraintsSuite) TestConstraintsRetrieval(c *gc.C) {
+	posCons := constraints.MustParse("spaces=db")
 	application, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        s.applicationName,
 		Series:      "",
 		Charm:       s.testCharm,
-		Constraints: cons,
+		Constraints: posCons,
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(application, gc.NotNil)
 
-	negCons := constraints.MustParse("spaces=^db,alpha")
+	negCons := constraints.MustParse("spaces=^db2")
 	negApplication, err := s.State.AddApplication(state.AddApplicationArgs{
 		Name:        "unimportant",
 		Series:      "",
@@ -325,19 +324,23 @@ func (s *applicationConstraintsSuite) TestConstraintsOpsForSpaceNameChange(c *gc
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(negApplication, gc.NotNil)
 
-	ops, err := s.State.ConstraintsOpsForSpaceNameChange(from, to)
+	consBySpace, err := s.State.AllConstraints()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ops, gc.HasLen, 2)
 
-	var obtainedConstraintSpaces []string
-	for _, op := range ops {
-		found := op.Update.(bson.D).Map()["$set"].(state.ConstraintsDoc).Spaces
-		obtainedConstraintSpaces = append(obtainedConstraintSpaces, *found...)
-
+	vals := make([]string, len(consBySpace))
+	for i, cons := range consBySpace {
+		c.Log(cons.ID())
+		vals[i] = cons.Value().String()
 	}
-	expectedSpace := []string{to, "alpha"}
-	negExpectedSpace := []string{negatedTo, "alpha"}
-	expectedConstraintSpaces := append(expectedSpace, negExpectedSpace...)
+	// In addition to the application constraints, there is a single empty
+	// constraints document for the model.
+	c.Check(vals, jc.SameContents, []string{posCons.String(), negCons.String(), ""})
 
-	c.Assert(obtainedConstraintSpaces, jc.SameContents, expectedConstraintSpaces)
+	consBySpace, err = s.State.ConstraintsBySpaceName("db")
+	c.Assert(consBySpace, gc.HasLen, 1)
+	c.Check(consBySpace[0].Value(), jc.DeepEquals, posCons)
+
+	consBySpace, err = s.State.ConstraintsBySpaceName("db2")
+	c.Assert(consBySpace, gc.HasLen, 1)
+	c.Check(consBySpace[0].Value(), jc.DeepEquals, negCons)
 }
