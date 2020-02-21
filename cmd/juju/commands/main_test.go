@@ -633,7 +633,7 @@ var devFeatures = []string{
 
 // These are the commands that are behind the `devFeatures`.
 var commandNamesBehindFlags = set.NewStrings(
-	"run", "show-task", "operations", "list-operations",
+	"run", "show-task", "operations", "list-operations", "show-operation",
 )
 
 func (s *MainSuite) TestHelpCommands(c *gc.C) {

@@ -23,6 +23,10 @@ type ShowOutputCommand struct {
 	*showOutputCommand
 }
 
+type ShowOperationCommand struct {
+	*showOperationCommand
+}
+
 type StatusCommand struct {
 	*statusCommand
 }
@@ -118,6 +122,12 @@ func NewShowOutputCommandForTest(store jujuclient.ClientStore, logMessage func(*
 	}
 	c.SetClientStore(store)
 	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOutputCommand{c}
+}
+
+func NewShowOperationCommandForTest(store jujuclient.ClientStore) (cmd.Command, *ShowOperationCommand) {
+	c := &showOperationCommand{}
+	c.SetClientStore(store)
+	return modelcmd.Wrap(c, modelcmd.WrapSkipDefaultModel), &ShowOperationCommand{c}
 }
 
 func NewStatusCommandForTest(store jujuclient.ClientStore) (cmd.Command, *StatusCommand) {

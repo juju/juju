@@ -110,8 +110,8 @@ func (a *ActionAPI) enqueue(arg params.Actions) (string, params.ActionResults, e
 	return operationID, response, nil
 }
 
-// Operations fetches the called functions (actions) for specified apps/units.
-func (a *ActionAPI) Operations(arg params.OperationQueryArgs) (params.OperationResults, error) {
+// ListOperations fetches the called actions for specified apps/units.
+func (a *ActionAPI) ListOperations(arg params.OperationQueryArgs) (params.OperationResults, error) {
 	if err := a.checkCanRead(); err != nil {
 		return params.OperationResults{}, errors.Trace(err)
 	}
@@ -183,4 +183,40 @@ func (a *ActionAPI) Operations(arg params.OperationQueryArgs) (params.OperationR
 		}
 	}
 	return result, nil
+}
+
+// Operations fetches the specified operation ids.
+func (a *ActionAPI) Operations(arg params.Entities) (params.OperationResults, error) {
+	if err := a.checkCanRead(); err != nil {
+		return params.OperationResults{}, errors.Trace(err)
+	}
+	results := params.OperationResults{Results: make([]params.OperationResult, len(arg.Entities))}
+
+	for i, entity := range arg.Entities {
+		tag, err := names.ParseOperationTag(entity.Tag)
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		op, err := a.model.OperationWithActions(tag.Id())
+		if err != nil {
+			results.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		results.Results[i] = params.OperationResult{
+			OperationTag: op.Operation.Tag().String(),
+			Summary:      op.Operation.Summary(),
+			Enqueued:     op.Operation.Enqueued(),
+			Started:      op.Operation.Started(),
+			Completed:    op.Operation.Completed(),
+			Status:       string(op.Operation.Status()),
+			Actions:      make([]params.ActionResult, len(op.Actions)),
+		}
+		for j, a := range op.Actions {
+			receiver := names.NewUnitTag(a.Receiver())
+			results.Results[i].Actions[j] = common.MakeActionResult(receiver, a, false)
+		}
+	}
+	return results, nil
 }

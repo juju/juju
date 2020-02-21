@@ -104,6 +104,17 @@
                         }
                     }
                 },
+                "ListOperations": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/OperationQueryArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/OperationResults"
+                        }
+                    }
+                },
                 "ListPending": {
                     "type": "object",
                     "properties": {
@@ -130,7 +141,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/OperationQueryArgs"
+                            "$ref": "#/definitions/Entities"
                         },
                         "Result": {
                             "$ref": "#/definitions/OperationResults"
@@ -570,6 +581,9 @@
                         "enqueued": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
                         },
                         "operation": {
                             "type": "string"

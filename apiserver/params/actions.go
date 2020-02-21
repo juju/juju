@@ -150,6 +150,7 @@ type OperationResult struct {
 	Completed    time.Time      `json:"completed,omitempty"`
 	Status       string         `json:"status,omitempty"`
 	Actions      []ActionResult `json:"actions,omitempty"`
+	Error        *Error         `json:"error,omitempty"`
 }
 
 // ActionExecutionResults holds a slice of ActionExecutionResult for a
