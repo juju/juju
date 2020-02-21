@@ -1308,7 +1308,7 @@ func (e *Environ) startInstance(
 		return server, err
 	}
 
-	var opts = nova.RunServerOpts{
+	opts := nova.RunServerOpts{
 		Name:               machineName,
 		FlavorId:           spec.InstanceType.Id,
 		UserData:           userData,
@@ -2103,6 +2103,15 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	var firstErr error
 	novaClient := e.nova()
 	for _, id := range ids {
+		// Attempt to destroy the ports that could have been created when using
+		// spaces.
+		if err := e.terminateInstanceNetworkPorts(id); err != nil {
+			logger.Errorf("error attempting to remove ports associated with instance %q: %v", id, err)
+			// Unfortunately there is nothing we can do here, there could be
+			// orphan ports left.
+		}
+
+		// Once ports have been deleted, attempt to delete the server.
 		err := novaClient.DeleteServer(string(id))
 		if IsNotFoundError(err) {
 			err = nil
@@ -2117,6 +2126,40 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 		}
 	}
 	return firstErr
+}
+
+func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
+	filter := neutron.NewFilter()
+	filter.Set("device_id", string(id))
+
+	client := e.neutron()
+	instancePorts, err := client.ListPortsV2(filter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Unfortunately we're unable to bulk delete these ports, so we have to go
+	// over them, one by one.
+	var errs []error
+	for _, port := range instancePorts {
+		// Ensure we have the ports we want.
+		if port.DeviceId != string(id) {
+			continue
+		}
+
+		// Delete a port. If we encounter an error add it to the list of errors
+		// and continue until we've exhausted all the ports to delete.
+		if err := client.DeletePortV2(port.Id); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Errorf("error terminating network ports: %v", errs)
+	}
+
+	return nil
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
