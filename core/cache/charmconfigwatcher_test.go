@@ -187,7 +187,7 @@ func (s *charmConfigWatcherSuite) newStubModel() *stubCharmConfigModel {
 func (s *charmConfigWatcherSuite) assertOneChange(
 	c *gc.C, wc StringsWatcherC, cfg map[string]interface{}, extra ...string,
 ) {
-	h, err := hash(cfg, extra...)
+	h, err := hashSettings(cfg, extra...)
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange([]string{h})
 }
