@@ -27,9 +27,6 @@ run() {
   set_verbosity
   END_TIME=$(date +%s)
 
-  tput cuu1
-  tput el1
-
   echo "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME-START_TIME))s)"
 }
 
