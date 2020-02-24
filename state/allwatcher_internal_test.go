@@ -183,6 +183,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, jc.ErrorIsNil)
 	setApplicationConfigAttr(c, wordpress, "blog-title", "boring")
+	pairs := map[string]string{"x": "12", "y": "99"}
 	add(&multiwatcher.ApplicationInfo{
 		ModelUUID:   modelUUID,
 		Name:        "wordpress",
@@ -191,6 +192,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Life:        life.Alive,
 		MinUnits:    units,
 		Constraints: constraints.MustParse("mem=100M"),
+		Annotations: pairs,
 		Config:      charm.Settings{"blog-title": "boring"},
 		Subordinate: false,
 		Status: multiwatcher.StatusInfo{
@@ -200,7 +202,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Since:   &now,
 		},
 	})
-	pairs := map[string]string{"x": "12", "y": "99"}
 	err = model.SetAnnotations(wordpress, pairs)
 	c.Assert(err, jc.ErrorIsNil)
 	add(&multiwatcher.AnnotationInfo{
@@ -260,6 +261,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		c.Assert(err, jc.ErrorIsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
+		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		add(&multiwatcher.UnitInfo{
 			ModelUUID:   modelUUID,
 			Name:        fmt.Sprintf("wordpress/%d", i),
@@ -267,6 +269,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 			Series:      m.Series(),
 			Life:        life.Alive,
 			MachineID:   m.Id(),
+			Annotations: pairs,
 			Ports:       []network.Port{},
 			Subordinate: false,
 			WorkloadStatus: multiwatcher.StatusInfo{
@@ -282,7 +285,6 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 				Since:   &now,
 			},
 		})
-		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
 		err = model.SetAnnotations(wu, pairs)
 		c.Assert(err, jc.ErrorIsNil)
 		add(&multiwatcher.AnnotationInfo{
@@ -1460,11 +1462,22 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "annotation is added if it's in backing but not in Store",
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID: st.ModelUUID(),
+						ID:        "0",
+					},
+				},
 				change: watcher.Change{
 					C:  "annotations",
 					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID:   st.ModelUUID(),
+						ID:          "0",
+						Annotations: map[string]string{"foo": "bar", "arble": "baz"},
+					},
 					&multiwatcher.AnnotationInfo{
 						ModelUUID:   st.ModelUUID(),
 						Tag:         "machine-0",
@@ -1485,20 +1498,36 @@ func testChangeAnnotations(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 
 			return changeTestCase{
 				about: "annotation is updated if it's in backing and in multiwatcher.Store",
-				initialContents: []multiwatcher.EntityInfo{&multiwatcher.AnnotationInfo{
-					ModelUUID: st.ModelUUID(),
-					Tag:       "machine-0",
-					Annotations: map[string]string{
-						"arble":  "baz",
-						"foo":    "bar",
-						"pretty": "polly",
-					},
-				}},
+				initialContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID: st.ModelUUID(),
+						ID:        "0",
+						Annotations: map[string]string{
+							"arble":  "baz",
+							"foo":    "bar",
+							"pretty": "polly",
+						}},
+					&multiwatcher.AnnotationInfo{
+						ModelUUID: st.ModelUUID(),
+						Tag:       "machine-0",
+						Annotations: map[string]string{
+							"arble":  "baz",
+							"foo":    "bar",
+							"pretty": "polly",
+						},
+					}},
 				change: watcher.Change{
 					C:  "annotations",
 					Id: st.docID("m#0"),
 				},
 				expectContents: []multiwatcher.EntityInfo{
+					&multiwatcher.MachineInfo{
+						ModelUUID: st.ModelUUID(),
+						ID:        "0",
+						Annotations: map[string]string{
+							"arble": "khroomph",
+							"new":   "attr",
+						}},
 					&multiwatcher.AnnotationInfo{
 						ModelUUID: st.ModelUUID(),
 						Tag:       "machine-0",

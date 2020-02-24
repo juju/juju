@@ -81,6 +81,7 @@ type MachineInfo struct {
 	AgentStatus              StatusInfo
 	InstanceStatus           StatusInfo
 	Life                     life.Value
+	Annotations              map[string]string
 	Config                   map[string]interface{}
 	Series                   string
 	ContainerType            string
@@ -108,6 +109,12 @@ func (i *MachineInfo) EntityID() EntityID {
 func (i *MachineInfo) Clone() EntityInfo {
 	clone := *i
 	clone.HardwareCharacteristics = i.HardwareCharacteristics.Clone()
+	if len(i.Annotations) > 0 {
+		clone.Annotations = map[string]string{}
+		for k, v := range i.Annotations {
+			clone.Annotations[k] = v
+		}
+	}
 	if len(i.Config) > 0 {
 		clone.Config = map[string]interface{}{}
 		for k, v := range i.Config {
@@ -175,6 +182,7 @@ type ApplicationInfo struct {
 	Life            life.Value
 	MinUnits        int
 	Constraints     constraints.Value
+	Annotations     map[string]string
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          StatusInfo
@@ -194,6 +202,12 @@ func (i *ApplicationInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *ApplicationInfo) Clone() EntityInfo {
 	clone := *i
+	if len(i.Annotations) > 0 {
+		clone.Annotations = map[string]string{}
+		for k, v := range i.Annotations {
+			clone.Annotations[k] = v
+		}
+	}
 	if len(i.Config) > 0 {
 		clone.Config = map[string]interface{}{}
 		for k, v := range i.Config {
@@ -334,6 +348,7 @@ type UnitInfo struct {
 	Series         string
 	CharmURL       string
 	Life           life.Value
+	Annotations    map[string]string
 	PublicAddress  string
 	PrivateAddress string
 	MachineID      string
@@ -359,6 +374,12 @@ func (i *UnitInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *UnitInfo) Clone() EntityInfo {
 	clone := *i
+	if len(i.Annotations) > 0 {
+		clone.Annotations = map[string]string{}
+		for k, v := range i.Annotations {
+			clone.Annotations[k] = v
+		}
+	}
 	if len(i.Ports) > 0 {
 		clone.Ports = make([]network.Port, len(i.Ports))
 		for i, p := range i.Ports {
@@ -533,6 +554,7 @@ type ModelInfo struct {
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string
+	Annotations     map[string]string
 	Config          map[string]interface{}
 	Status          StatusInfo
 	Constraints     constraints.Value
@@ -559,6 +581,12 @@ func (i *ModelInfo) EntityID() EntityID {
 // Clone returns a clone of the EntityInfo.
 func (i *ModelInfo) Clone() EntityInfo {
 	clone := *i
+	if len(i.Annotations) > 0 {
+		clone.Annotations = map[string]string{}
+		for k, v := range i.Annotations {
+			clone.Annotations[k] = v
+		}
+	}
 	if len(i.Config) > 0 {
 		clone.Config = map[string]interface{}{}
 		for k, v := range i.Config {
