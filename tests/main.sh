@@ -10,6 +10,7 @@ export RUN_SUBTEST="${RUN_SUBTEST:-}"
 
 OPTIND=1
 VERBOSE=1
+TEST_VERBOSE=1
 RUN_ALL="false"
 SKIP_LIST=""
 ARITFACT_FILE=""
@@ -69,6 +70,7 @@ show_help() {
     echo "    $(green 'cmd -h')        Display this help message"
     echo "    $(green 'cmd -v')        Verbose and debug messages"
     echo "    $(green 'cmd -V')        Very verbose and debug messages"
+    echo "    $(green 'cmd -t')        Test Verbose and debug messages"
     echo "    $(green 'cmd -A')        Run all the test suites"
     echo "    $(green 'cmd -s')        Skip tests using a comma seperated list"
     echo "    $(green 'cmd -a')        Create an atifact file"
@@ -110,7 +112,7 @@ show_help() {
     exit 1
 }
 
-while getopts "hH?:vVAsaxrlp" opt; do
+while getopts "hH?:vVtAsaxrlp" opt; do
     case "${opt}" in
     h|\?)
         show_help
@@ -124,6 +126,11 @@ while getopts "hH?:vVAsaxrlp" opt; do
         ;;
     V)
         VERBOSE=3
+        shift
+        alias juju="juju --debug"
+        ;;
+    t)
+        TEST_VERBOSE=3
         shift
         alias juju="juju --debug"
         ;;
@@ -169,6 +176,7 @@ shift $((OPTIND-1))
 [ "${1:-}" = "--" ] && shift
 
 export VERBOSE="${VERBOSE}"
+export TEST_VERBOSE="${TEST_VERBOSE}"
 export SKIP_LIST="${SKIP_LIST}"
 
 if [ "$#" -eq 0 ]; then
@@ -215,6 +223,11 @@ cleanup() {
     echo ""
     if [ "${TEST_RESULT}" != "success" ]; then
         echo "==> TESTS DONE: ${TEST_CURRENT_DESCRIPTION}"
+        if [ -f "${TEST_DIR}/${TEST_CURRENT}.log" ]; then
+            echo "==> RUN OUTPUT: ${TEST_CURRENT}"
+            cat "${TEST_DIR}/${TEST_CURRENT}.log" | sed 's/^/    | /g'
+            echo ""
+        fi
     fi
     echo "==> Test result: ${TEST_RESULT}"
 
