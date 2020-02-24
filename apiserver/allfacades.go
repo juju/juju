@@ -192,6 +192,7 @@ func AllFacades() *facade.Registry {
 	reg("Controller", 6, controller.NewControllerAPIv6)
 	reg("Controller", 7, controller.NewControllerAPIv7)
 	reg("Controller", 8, controller.NewControllerAPIv8)
+	reg("Controller", 9, controller.NewControllerAPIv9)
 	reg("CrossModelRelations", 1, crossmodelrelations.NewStateCrossModelRelationsAPIV1)
 	reg("CrossModelRelations", 2, crossmodelrelations.NewStateCrossModelRelationsAPI) // Adds WatchRelationChanges, removes WatchRelationUnits
 	reg("CrossController", 1, crosscontroller.NewStateCrossControllerAPI)
@@ -354,6 +355,7 @@ func AllFacades() *facade.Registry {
 	regRaw("FilesystemAttachmentsWatcher", 2, newFilesystemAttachmentsWatcher, reflect.TypeOf((*srvMachineStorageIdsWatcher)(nil)))
 	regRaw("EntityWatcher", 2, newEntitiesWatcher, reflect.TypeOf((*srvEntitiesWatcher)(nil)))
 	regRaw("MigrationStatusWatcher", 1, newMigrationStatusWatcher, reflect.TypeOf((*srvMigrationStatusWatcher)(nil)))
+	regRaw("ModelSummaryWatcher", 1, newModelSummaryWatcher, reflect.TypeOf((*SrvModelSummaryWatcher)(nil)))
 
 	return registry
 }

@@ -27,6 +27,7 @@ import (
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/cloud"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -35,6 +36,8 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
+	"github.com/juju/juju/worker/gate"
+	"github.com/juju/juju/worker/modelcache"
 	"github.com/juju/juju/worker/multiwatcher"
 )
 
@@ -45,6 +48,7 @@ type controllerSuite struct {
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 	hub        *pubsub.StructuredHub
+	context    facadetest.Context
 }
 
 var _ = gc.Suite(&controllerSuite{})
@@ -65,6 +69,27 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	// The worker itself is a coremultiwatcher.Factory.
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
+	initialized := gate.NewLock()
+	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		InitializedGate:      initialized,
+		Logger:               loggo.GetLogger("test"),
+		WatcherFactory:       multiWatcherWorker.WatchController,
+		PrometheusRegisterer: noopRegisterer{},
+		Cleanup:              func() {},
+	}.WithDefaultRestartStrategy())
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, modelCache) })
+
+	select {
+	case <-initialized.Unlocked():
+	case <-time.After(10 * time.Second):
+		c.Error("model cache not initialized after 10 seconds")
+	}
+
+	var cacheController *cache.Controller
+	err = modelcache.ExtractCacheController(modelCache, &cacheController)
+	c.Assert(err, jc.ErrorIsNil)
+
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
@@ -74,15 +99,16 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	}
 	s.hub = pubsub.NewStructuredHub(nil)
 
-	controller, err := controller.NewControllerAPIv8(
-		facadetest.Context{
-			State_:               s.State,
-			StatePool_:           s.StatePool,
-			Resources_:           s.resources,
-			Auth_:                s.authorizer,
-			Hub_:                 s.hub,
-			MultiwatcherFactory_: multiWatcherWorker,
-		})
+	s.context = facadetest.Context{
+		State_:               s.State,
+		StatePool_:           s.StatePool,
+		Resources_:           s.resources,
+		Auth_:                s.authorizer,
+		Controller_:          cacheController,
+		Hub_:                 s.hub,
+		MultiwatcherFactory_: multiWatcherWorker,
+	}
+	controller, err := controller.LatestAPI(s.context)
 	c.Assert(err, jc.ErrorIsNil)
 	s.controller = controller
 
@@ -93,7 +119,7 @@ func (s *controllerSuite) TestNewAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := apiservertesting.FakeAuthorizer{
 		Tag: names.NewUnitTag("mysql/0"),
 	}
-	endPoint, err := controller.NewControllerAPIv4(
+	endPoint, err := controller.LatestAPI(
 		facadetest.Context{
 			State_:     s.State,
 			Resources_: s.resources,
@@ -1028,6 +1054,116 @@ func (s *controllerSuite) TestIdentityProviderURL(c *gc.C) {
 	urlRes, err = s.controller.IdentityProviderURL()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(urlRes.Result, gc.Equals, expURL)
+}
+
+func (s *controllerSuite) newSummaryWatcherFacade(c *gc.C, id string) *apiserver.SrvModelSummaryWatcher {
+	context := s.context
+	context.ID_ = id
+	watcher, err := apiserver.NewModelSummaryWatcher(context)
+	c.Assert(err, jc.ErrorIsNil)
+	return watcher
+}
+
+func (s *controllerSuite) TestWatchAllModelSummariesByAdmin(c *gc.C) {
+	// Default authorizer is an admin.
+	result, err := s.controller.WatchAllModelSummaries()
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
+
+	resultC := make(chan params.SummaryWatcherNextResults)
+	go func() {
+		result, err := watcherAPI.Next()
+		c.Assert(err, jc.ErrorIsNil)
+		resultC <- result
+	}()
+
+	select {
+	case result := <-resultC:
+		// Expect to see the initial environment be reported.
+		c.Assert(result, jc.DeepEquals, params.SummaryWatcherNextResults{
+			Models: []params.ModelAbstract{
+				{
+					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					Controller: "", // TODO(thumper): add controller name next branch
+					Name:       "controller",
+					Admins:     []string{"test-admin"},
+					Cloud:      "dummy",
+					Region:     "dummy-region",
+					Status:     "green",
+					Messages:   []params.ModelSummaryMessage{},
+				}}})
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
+}
+
+func (s *controllerSuite) TestWatchAllModelSummariesByNonAdmin(c *gc.C) {
+	anAuthoriser := apiservertesting.FakeAuthorizer{
+		Tag: names.NewLocalUserTag("bob"),
+	}
+	endPoint, err := controller.LatestAPI(
+		facadetest.Context{
+			State_:     s.State,
+			Resources_: s.resources,
+			Auth_:      anAuthoriser,
+		})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = endPoint.WatchAllModelSummaries()
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *controllerSuite) makeBobsModel(c *gc.C) string {
+	bob := s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "bob",
+		NoModelUser: true,
+	})
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Owner: bob.UserTag(),
+		Name:  "bobs-model"})
+	uuid := st.ModelUUID()
+	st.Close()
+	s.WaitForModelWatchersIdle(c, uuid)
+	return uuid
+}
+
+func (s *controllerSuite) TestWatchModelSummariesByNonAdmin(c *gc.C) {
+	s.makeBobsModel(c)
+
+	// Default authorizer is an admin. As a user, admin can't see
+	// Bob's model.
+	result, err := s.controller.WatchModelSummaries()
+	c.Assert(err, jc.ErrorIsNil)
+
+	watcherAPI := s.newSummaryWatcherFacade(c, result.WatcherID)
+
+	resultC := make(chan params.SummaryWatcherNextResults)
+	go func() {
+		result, err := watcherAPI.Next()
+		c.Assert(err, jc.ErrorIsNil)
+		resultC <- result
+	}()
+
+	select {
+	case result := <-resultC:
+		// Expect to see the initial environment be reported.
+		c.Assert(result, jc.DeepEquals, params.SummaryWatcherNextResults{
+			Models: []params.ModelAbstract{
+				{
+					UUID:       "deadbeef-0bad-400d-8000-4b1d0d06f00d",
+					Controller: "", // TODO(thumper): add controller name next branch
+					Name:       "controller",
+					Admins:     []string{"test-admin"},
+					Cloud:      "dummy",
+					Region:     "dummy-region",
+					Status:     "green",
+					Messages:   []params.ModelSummaryMessage{},
+				}}})
+	case <-time.After(testing.LongWait):
+		c.Fatal("timed out")
+	}
+
 }
 
 type noopRegisterer struct {

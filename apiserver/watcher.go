@@ -1038,3 +1038,108 @@ var getControllerCACert = func(st migrationBackend) (string, error) {
 	}
 	return cacert, nil
 }
+
+// newModelSummaryWatcher exists solely to be registered with regRaw.
+// Standard registration doesn't handle watcher types (it checks for
+// and empty ID in the context).
+func newModelSummaryWatcher(context facade.Context) (facade.Facade, error) {
+	return NewModelSummaryWatcher(context)
+}
+
+// NewModelSummaryWatcher returns a new API server endpoint for interacting with
+// a watcher created by the WatchModelSummaries and WatchAllModelSummaries API
+// calls.
+func NewModelSummaryWatcher(context facade.Context) (*SrvModelSummaryWatcher, error) {
+	id := context.ID()
+	auth := context.Auth()
+	resources := context.Resources()
+
+	if !auth.AuthClient() {
+		// Note that we don't need to check specific permissions
+		// here, as the AllWatcher can only do anything if the
+		// watcher resource has already been created, so we can
+		// rely on the permission check there to ensure that
+		// this facade can't do anything it shouldn't be allowed
+		// to.
+		//
+		// This is useful because the AllWatcher is reused for
+		// both the WatchAll (requires model access rights) and
+		// the WatchAllModels (requring controller superuser
+		// rights) API calls.
+		return nil, common.ErrPerm
+	}
+	watcher, ok := resources.Get(id).(cache.ModelSummaryWatcher)
+	if !ok {
+		return nil, errors.Annotatef(common.ErrUnknownWatcher, "watcher id: %s", id)
+	}
+	return &SrvModelSummaryWatcher{
+		watcherCommon: newWatcherCommon(context),
+		watcher:       watcher,
+	}, nil
+}
+
+// SrvModelSummaryWatcher defines the API methods on a ModelSummaryWatcher.
+type SrvModelSummaryWatcher struct {
+	watcherCommon
+	watcher cache.ModelSummaryWatcher
+}
+
+// Next will return the current state of everything on the first call
+// and subsequent calls will return just those model summaries that have
+// changed.
+func (w *SrvModelSummaryWatcher) Next() (params.SummaryWatcherNextResults, error) {
+	if summaries, ok := <-w.watcher.Changes(); ok {
+		return params.SummaryWatcherNextResults{
+			Models: w.translate(summaries),
+		}, nil
+	}
+	return params.SummaryWatcherNextResults{}, common.ErrStoppedWatcher
+}
+
+func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []params.ModelAbstract {
+	response := make([]params.ModelAbstract, 0, len(summaries))
+	for _, summary := range summaries {
+		if summary.Removed {
+			response = append(response, params.ModelAbstract{
+				UUID:    summary.UUID,
+				Removed: true,
+			})
+			continue
+		}
+
+		result := params.ModelAbstract{
+			UUID:       summary.UUID,
+			Controller: "", // get the controller name from the controller config
+			Name:       summary.Name,
+			Admins:     summary.Admins,
+			Cloud:      summary.Cloud,
+			Region:     summary.Region,
+			Credential: summary.Credential,
+			Size: params.ModelSummarySize{
+				Machines:     summary.MachineCount,
+				Containers:   summary.ContainerCount,
+				Applications: summary.ApplicationCount,
+				Units:        summary.UnitCount,
+				Relations:    summary.RelationCount,
+			},
+			Status:   string(summary.Status),
+			Messages: w.translateMessages(summary.Messages),
+		}
+		response = append(response, result)
+	}
+	return response
+}
+
+func (w *SrvModelSummaryWatcher) translateMessages(messages []cache.ModelSummaryMessage) []params.ModelSummaryMessage {
+	if messages == nil {
+		return nil
+	}
+	result := make([]params.ModelSummaryMessage, len(messages))
+	for i, m := range messages {
+		result[i] = params.ModelSummaryMessage{
+			Agent:   m.Agent,
+			Message: m.Message,
+		}
+	}
+	return result
+}
