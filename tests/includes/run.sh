@@ -11,7 +11,7 @@ run() {
 
   DESC=$(echo "${1}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
 
-  echo "===> [   ] Running: ${DESC}"
+  echo -n "===> [   ] Running: ${DESC}"
 
   START_TIME=$(date +%s)
   set_test_verbosity
@@ -30,7 +30,7 @@ run() {
   tput cuu1
   tput el1
 
-  echo "===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME-START_TIME))s)"
+  echo "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME-START_TIME))s)"
 }
 
 skip() {
