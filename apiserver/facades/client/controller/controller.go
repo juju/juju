@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	corecontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/cache"
 	coremigration "github.com/juju/juju/core/migration"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
@@ -50,14 +51,21 @@ type ControllerAPI struct {
 	resources  facade.Resources
 	presence   facade.Presence
 	hub        facade.Hub
+	controller *cache.Controller
 
 	multiwatcherFactory multiwatcher.Factory
+}
+
+// ControllerAPIv8 provides the v8 Controller API. The only difference
+// between this and v9 is that v8 doesn't have the model summary watchers.
+type ControllerAPIv8 struct {
+	*ControllerAPI
 }
 
 // ControllerAPIv7 provides the v7 Controller API. The only difference
 // between this and v8 is that v7 doesn't have the ControllerVersion method.
 type ControllerAPIv7 struct {
-	*ControllerAPI
+	*ControllerAPIv8
 }
 
 // ControllerAPIv6 provides the v6 Controller API. The only difference
@@ -84,8 +92,12 @@ type ControllerAPIv3 struct {
 	*ControllerAPIv4
 }
 
-// NewControllerAPIv8 creates a new ControllerAPIv7.
-func NewControllerAPIv8(ctx facade.Context) (*ControllerAPI, error) {
+// LatestAPI is used for testing purposes to create the latest
+// controller API.
+var LatestAPI = NewControllerAPIv9
+
+// NewControllerAPIv9 creates a new ControllerAPIv9.
+func NewControllerAPIv9(ctx facade.Context) (*ControllerAPI, error) {
 	st := ctx.State()
 	authorizer := ctx.Auth()
 	pool := ctx.StatePool()
@@ -93,6 +105,7 @@ func NewControllerAPIv8(ctx facade.Context) (*ControllerAPI, error) {
 	presence := ctx.Presence()
 	hub := ctx.Hub()
 	factory := ctx.MultiwatcherFactory()
+	controller := ctx.Controller()
 
 	return NewControllerAPI(
 		st,
@@ -102,7 +115,17 @@ func NewControllerAPIv8(ctx facade.Context) (*ControllerAPI, error) {
 		presence,
 		hub,
 		factory,
+		controller,
 	)
+}
+
+// NewControllerAPIv8 creates a new ControllerAPIv8.
+func NewControllerAPIv8(ctx facade.Context) (*ControllerAPIv8, error) {
+	v9, err := NewControllerAPIv9(ctx)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &ControllerAPIv8{v9}, nil
 }
 
 // NewControllerAPIv7 creates a new ControllerAPIv7.
@@ -160,6 +183,7 @@ func NewControllerAPI(
 	presence facade.Presence,
 	hub facade.Hub,
 	factory multiwatcher.Factory,
+	controller *cache.Controller,
 ) (*ControllerAPI, error) {
 	if !authorizer.AuthClient() {
 		return nil, errors.Trace(common.ErrPerm)
@@ -196,10 +220,11 @@ func NewControllerAPI(
 		presence:            presence,
 		hub:                 hub,
 		multiwatcherFactory: factory,
+		controller:          controller,
 	}, nil
 }
 
-func (c *ControllerAPI) checkHasAdmin() error {
+func (c *ControllerAPI) checkIsSuperUser() error {
 	isAdmin, err := c.authorizer.HasPermission(permission.SuperuserAccess, c.state.ControllerTag())
 	if err != nil {
 		return errors.Trace(err)
@@ -272,7 +297,7 @@ func (c *ControllerAPIv5) MongoVersion() {}
 // MongoVersion allows the introspection of the mongo version per controller
 func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 	result := params.StringResult{}
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
 	}
 	version, err := c.state.MongoVersion()
@@ -287,7 +312,7 @@ func (c *ControllerAPI) MongoVersion() (params.StringResult, error) {
 // models in the controller.
 func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
 	result := params.UserModelList{}
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -341,7 +366,7 @@ func (c *ControllerAPI) AllModels() (params.UserModelList, error) {
 // list.
 func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 	results := params.ModelBlockInfoList{}
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return results, errors.Trace(err)
 	}
 	blocks, err := c.state.AllBlocksForController()
@@ -386,7 +411,7 @@ func (c *ControllerAPI) ListBlockedModels() (params.ModelBlockInfoList, error) {
 // client.ModelGet
 func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 	result := params.ModelConfigResults{}
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -414,7 +439,7 @@ func (c *ControllerAPI) ModelConfig() (params.ModelConfigResults, error) {
 // directly.
 func (c *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, error) {
 	result := params.HostedModelConfigsResults{}
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return result, errors.Trace(err)
 	}
 
@@ -464,7 +489,7 @@ func (c *ControllerAPI) HostedModelConfigs() (params.HostedModelConfigsResults, 
 
 // RemoveBlocks removes all the blocks in the controller.
 func (c *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -478,7 +503,7 @@ func (c *ControllerAPI) RemoveBlocks(args params.RemoveBlocksArgs) error {
 // controller. The returned AllWatcherId should be used with Next on the
 // AllModelWatcher endpoint to receive deltas.
 func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return params.AllWatcherId{}, errors.Trace(err)
 	}
 	w := c.multiwatcherFactory.WatchController()
@@ -486,6 +511,35 @@ func (c *ControllerAPI) WatchAllModels() (params.AllWatcherId, error) {
 		AllWatcherId: c.resources.Register(w),
 	}, nil
 }
+
+// WatchAllModelSummaries starts watching the summary updates from the cache.
+// This method is superuser access only, and watches all models in the
+// controller.
+func (c *ControllerAPI) WatchAllModelSummaries() (params.SummaryWatcherID, error) {
+	if err := c.checkIsSuperUser(); err != nil {
+		return params.SummaryWatcherID{}, errors.Trace(err)
+	}
+	w := c.controller.WatchAllModels()
+	return params.SummaryWatcherID{
+		WatcherID: c.resources.Register(w),
+	}, nil
+}
+
+// WatchAllModelSummaries isn't on the v8 API.
+func (c *ControllerAPIv8) WatchAllModelSummaries(_, _ struct{}) {}
+
+// WatchModelSummaries starts watching the summary updates from the cache.
+// Only models that the user has access to are returned.
+func (c *ControllerAPI) WatchModelSummaries() (params.SummaryWatcherID, error) {
+	user := c.apiUser.Id()
+	w := c.controller.WatchModelsAsUser(user)
+	return params.SummaryWatcherID{
+		WatcherID: c.resources.Register(w),
+	}, nil
+}
+
+// WatchModelSummaries isn't on the v8 API.
+func (c *ControllerAPIv8) WatchModelSummaries(_, _ struct{}) {}
 
 // GetControllerAccess returns the level of access the specified users
 // have on the controller.
@@ -528,7 +582,7 @@ func (c *ControllerAPI) InitiateMigration(reqArgs params.InitiateMigrationArgs) 
 	out := params.InitiateMigrationResults{
 		Results: make([]params.InitiateMigrationResult, len(reqArgs.Specs)),
 	}
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return out, errors.Trace(err)
 	}
 
@@ -652,7 +706,7 @@ func (c *ControllerAPI) ModifyControllerAccess(args params.ModifyControllerAcces
 // settings. Only some settings can be changed after bootstrap.
 // Settings that aren't specified in the params are left unchanged.
 func (c *ControllerAPI) ConfigSet(args params.ControllerConfigSet) error {
-	if err := c.checkHasAdmin(); err != nil {
+	if err := c.checkIsSuperUser(); err != nil {
 		return errors.Trace(err)
 	}
 	if err := c.state.UpdateControllerConfig(args.Config, nil); err != nil {
