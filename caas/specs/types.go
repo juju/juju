@@ -11,10 +11,10 @@ import (
 )
 
 // CurrentVersion is the latest version of pod spec.
-const CurrentVersion Version = Version2
+const CurrentVersion Version = Version3
 
 // PodSpec is the current version of pod spec.
-type PodSpec = PodSpecV2
+type PodSpec = PodSpecV3
 
 // FileSet defines a set of files to mount
 // into the container.

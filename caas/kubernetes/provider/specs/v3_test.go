@@ -1,4 +1,4 @@
-// Copyright 2019 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package specs_test
@@ -21,19 +21,19 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-type v2SpecsSuite struct {
+type v3SpecsSuite struct {
 	testing.BaseSuite
 }
 
-var _ = gc.Suite(&v2SpecsSuite{})
+var _ = gc.Suite(&v3SpecsSuite{})
 
-var version2Header = `
-version: 2
+var version3Header = `
+version: 3
 `[1:]
 
-func (s *v2SpecsSuite) TestParse(c *gc.C) {
+func (s *v3SpecsSuite) TestParse(c *gc.C) {
 
-	specStrBase := version2Header + `
+	specStrBase := version3Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -722,9 +722,9 @@ password: shhhh`[1:],
 	c.Assert(spec, jc.DeepEquals, getExpectedPodSpecBase())
 }
 
-func (s *v2SpecsSuite) TestValidateMissingContainers(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingContainers(c *gc.C) {
 
-	specStr := version2Header + `
+	specStr := version3Header + `
 containers:
 `[1:]
 
@@ -732,9 +732,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, "require at least one container spec")
 }
 
-func (s *v2SpecsSuite) TestValidateMissingName(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingName(c *gc.C) {
 
-	specStr := version2Header + `
+	specStr := version3Header + `
 containers:
   - image: gitlab/latest
 `[1:]
@@ -743,9 +743,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, "spec name is missing")
 }
 
-func (s *v2SpecsSuite) TestValidateMissingImage(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingImage(c *gc.C) {
 
-	specStr := version2Header + `
+	specStr := version3Header + `
 containers:
   - name: gitlab
 `[1:]
@@ -754,9 +754,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, "spec image details is missing")
 }
 
-func (s *v2SpecsSuite) TestValidateFileSetPath(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateFileSetPath(c *gc.C) {
 
-	specStr := version2Header + `
+	specStr := version3Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -771,9 +771,9 @@ containers:
 	c.Assert(err, gc.ErrorMatches, `file set name is missing`)
 }
 
-func (s *v2SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
+func (s *v3SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
 
-	specStr := version2Header + `
+	specStr := version3Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -789,8 +789,8 @@ containers:
 	c.Assert(err, gc.ErrorMatches, `mount path is missing for file set "configuration"`)
 }
 
-func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
-	specStr := version2Header + `
+func (s *v3SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
+	specStr := version3Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -805,8 +805,8 @@ serviceAccount:
 	c.Assert(err, gc.ErrorMatches, `rules is required`)
 }
 
-func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
-	specStr := version2Header + `
+func (s *v3SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
+	specStr := version3Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -850,8 +850,8 @@ kubernetesResources:
 	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
 }
 
-func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
-	specStr := version2Header + `
+func (s *v3SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
+	specStr := version3Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -867,8 +867,8 @@ kubernetesResources:
 	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-mutatingwebhookconfiguration" not valid`)
 }
 
-func (s *v2SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
-	specStr := version2Header + `
+func (s *v3SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
+	specStr := version3Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -884,8 +884,8 @@ kubernetesResources:
 	c.Assert(err, gc.ErrorMatches, `empty webhooks "example-validatingwebhookconfiguration" not valid`)
 }
 
-func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
-	specStr := version2Header + `
+func (s *v3SpecsSuite) TestValidateIngressResources(c *gc.C) {
+	specStr := version3Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -912,8 +912,8 @@ kubernetesResources:
 	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
 }
 
-func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {
-	specStr := version2Header + `
+func (s *v3SpecsSuite) TestUnknownFieldError(c *gc.C) {
+	specStr := version3Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -925,25 +925,4 @@ bar: a-bad-guy
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
-}
-
-// TODO(caas): move these pointer related value change funcs to /testing package.
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func strPtr(b string) *string {
-	return &b
 }
