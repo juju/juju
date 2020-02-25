@@ -214,6 +214,43 @@ func (s *modelSummaryWatcherSuite) TestRemoveModelRemovesModel(c *gc.C) {
 	})
 }
 
+func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
+	watcher := s.controller.WatchAllModels()
+	defer workertest.CleanKill(c, watcher)
+
+	changes := watcher.Changes()
+	// discard the initial event
+	_ = s.next(c, changes)
+
+	s.ProcessChange(c, cache.ModelChange{
+		ModelUUID: "model-2-uuid",
+		Name:      "model-2",
+		Life:      life.Alive,
+		Owner:     "bob",
+		UserPermissions: map[string]permission.Access{
+			"bob":  permission.AdminAccess,
+			"mary": permission.ReadAccess,
+		},
+		Annotations: map[string]string{
+			"muted": "true",
+		},
+	}, s.events)
+
+	update := s.next(c, changes)
+	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
+		{
+			UUID:      "model-2-uuid",
+			Namespace: "bob",
+			Name:      "model-2",
+			Admins:    []string{"bob"},
+			Status:    cache.StatusGreen,
+			Annotations: map[string]string{
+				"muted": "true",
+			},
+		},
+	})
+}
+
 func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)

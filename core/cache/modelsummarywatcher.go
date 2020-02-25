@@ -4,6 +4,7 @@
 package cache
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,10 +29,11 @@ type ModelSummary struct {
 	// either been removed, or there access revoked.
 	Removed bool
 
-	Namespace string
-	Name      string
-	Admins    []string
-	Status    string
+	Namespace   string
+	Name        string
+	Admins      []string
+	Status      string
+	Annotations map[string]string
 
 	// Messages contain status message for any unit status in error.
 	Messages []ModelSummaryMessage
@@ -261,12 +263,21 @@ func (s *ModelSummary) hash() (string, error) {
 	// Make a string representation of the summary, and hash that string.
 	var messages string
 	for _, m := range s.Messages {
-		messages = m.Agent + m.Message
+		messages += m.Agent + m.Message
+	}
+	var annotations string
+	var keys []string
+	for key := range s.Annotations {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		annotations += key + "=" + s.Annotations[key] + " "
 	}
 	admins := strings.Join(s.Admins, ", ")
 	return hash(
 		s.UUID, strconv.FormatBool(s.Removed),
-		s.Namespace, s.Name, admins, s.Status, messages,
+		s.Namespace, s.Name, admins, s.Status, annotations, messages,
 		s.Cloud, s.Region, s.Credential,
 		s.LastModified.String(),
 		strconv.Itoa(s.MachineCount),

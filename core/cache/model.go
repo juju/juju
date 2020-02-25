@@ -700,12 +700,13 @@ func (m *Model) updateSummary() {
 	sort.Strings(admins)
 
 	summary := ModelSummary{
-		UUID:      m.details.ModelUUID,
-		Namespace: m.details.Owner,
-		Name:      m.details.Name,
-		Admins:    admins,
-		Status:    overallStatus,
-		Messages:  messages,
+		UUID:        m.details.ModelUUID,
+		Namespace:   m.details.Owner,
+		Name:        m.details.Name,
+		Admins:      admins,
+		Status:      overallStatus,
+		Annotations: copyStringMap(m.details.Annotations),
+		Messages:    messages,
 
 		Cloud:      m.details.Cloud,
 		Region:     m.details.CloudRegion,
