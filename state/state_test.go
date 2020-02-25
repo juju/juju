@@ -174,10 +174,10 @@ func (s *StateSuite) TestParseIDToTag(c *gc.C) {
 	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
 	application := "c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql"
 	unit := "c9741ea1-0c2a-444d-82f5-787583a48557:u#mysql/0"
-	moTag := state.ParseLocalIDToTags(model)
-	maTag := state.ParseLocalIDToTags(machine)
-	unTag := state.ParseLocalIDToTags(unit)
-	apTag := state.ParseLocalIDToTags(application)
+	moTag := state.TagFromDocID(model)
+	maTag := state.TagFromDocID(machine)
+	unTag := state.TagFromDocID(unit)
+	apTag := state.TagFromDocID(application)
 
 	tag, err := names.ParseTag(moTag.String())
 	c.Assert(err, jc.ErrorIsNil)
