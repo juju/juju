@@ -93,8 +93,8 @@ type ContainerSpec struct {
 	Args       []string `json:"args,omitempty" yaml:"args,omitempty"`
 	WorkingDir string   `json:"workingDir,omitempty" yaml:"workingDir,omitempty"`
 
-	Config ContainerConfig `json:"config,omitempty" yaml:"config,omitempty"`
-	Files  []FileSet       `json:"files,omitempty" yaml:"files,omitempty"`
+	EnvConfig    ContainerConfig `json:"envConfig,omitempty" yaml:"envConfig,omitempty"`
+	VolumeConfig []FileSet       `json:"volumeConfig,omitempty" yaml:"volumeConfig,omitempty"`
 
 	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
 
@@ -115,7 +115,7 @@ func (spec *ContainerSpec) Validate() error {
 	if spec.Image == "" && spec.ImageDetails.ImagePath == "" {
 		return errors.New("spec image details is missing")
 	}
-	for _, fs := range spec.Files {
+	for _, fs := range spec.VolumeConfig {
 		if err := fs.Validate(); err != nil {
 			return errors.Trace(err)
 		}
@@ -228,8 +228,8 @@ func (cs *caasContainers) Validate() error {
 			return false
 		}
 		mountPaths := set.NewStrings()
-		for i := range c.Files {
-			f := c.Files[i]
+		for i := range c.VolumeConfig {
+			f := c.VolumeConfig[i]
 			if v, ok := uniqVols[f.Name]; ok {
 				if !f.EqualVolume(v) {
 					return errors.NotValidf("duplicated file %q with different volume spec", f.Name)

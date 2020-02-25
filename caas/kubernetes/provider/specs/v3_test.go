@@ -66,7 +66,7 @@ containers:
         httpGet:
           path: /pingReady
           port: www
-    config:
+    envConfig:
       attr: foo=bar; name["fred"]="blogs";
       foo: bar
       brackets: '["hello", "world"]'
@@ -78,7 +78,7 @@ containers:
           container-name: container1
           resource: requests.cpu
           divisor: 1m
-    files:
+    volumeConfig:
       - name: configuration
         mountPath: /var/lib/foo
         files:
@@ -145,7 +145,7 @@ containers:
       protocol: TCP
     - containerPort: 443
       name: mary
-    config:
+    envConfig:
       brackets: '["hello", "world"]'
       foo: bar
       restricted: 'yes'
@@ -379,7 +379,7 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 					{ContainerPort: 443, Name: "mary"},
 				},
-				Config: map[string]interface{}{
+				EnvConfig: map[string]interface{}{
 					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
 					"restricted": "yes",
@@ -394,7 +394,7 @@ echo "do some stuff here for gitlab container"
 						},
 					},
 				},
-				Files: []specs.FileSet{
+				VolumeConfig: []specs.FileSet{
 					{
 						Name:      "configuration",
 						MountPath: "/var/lib/foo",
@@ -518,7 +518,7 @@ echo "do some stuff here for gitlab-init container"
 					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 					{ContainerPort: 443, Name: "mary"},
 				},
-				Config: map[string]interface{}{
+				EnvConfig: map[string]interface{}{
 					"foo":        "bar",
 					"restricted": "yes",
 					"switch":     true,
@@ -847,7 +847,7 @@ func (s *v3SpecsSuite) TestValidateFileSetPath(c *gc.C) {
 containers:
   - name: gitlab
     image: gitlab/latest
-    files:
+    volumeConfig:
       - files:
           file1: |-
             [config]
@@ -864,7 +864,7 @@ func (s *v3SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
 containers:
   - name: gitlab
     image: gitlab/latest
-    files:
+    volumeConfig:
       - name: configuration
         files:
           file1: |-

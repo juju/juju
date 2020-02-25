@@ -178,7 +178,7 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 					{ContainerPort: 443, Name: "mary"},
 				},
-				Config: map[string]interface{}{
+				EnvConfig: map[string]interface{}{
 					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
 					"restricted": "yes",
@@ -186,7 +186,7 @@ echo "do some stuff here for gitlab container"
 					"brackets":   `["hello", "world"]`,
 					"special":    "p@ssword's",
 				},
-				Files: []specs.FileSet{
+				VolumeConfig: []specs.FileSet{
 					{
 						Name:      "configuration",
 						MountPath: "/var/lib/foo",
@@ -255,7 +255,7 @@ echo "do some stuff here for gitlab-init container"
 					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 					{ContainerPort: 443, Name: "mary"},
 				},
-				Config: map[string]interface{}{
+				EnvConfig: map[string]interface{}{
 					"foo":        "bar",
 					"restricted": "yes",
 					"switch":     true,

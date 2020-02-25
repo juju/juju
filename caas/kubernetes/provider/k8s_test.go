@@ -275,7 +275,7 @@ func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 			Ports:           []specs.ContainerPort{{ContainerPort: 80, Protocol: "TCP"}},
 			Image:           "juju/image",
 			ImagePullPolicy: specs.PullPolicy("Always"),
-			Config: map[string]interface{}{
+			EnvConfig: map[string]interface{}{
 				"restricted": "yes",
 				"secret1": map[string]interface{}{
 					"secret": map[string]interface{}{
@@ -536,7 +536,7 @@ func getBasicPodspec() *specs.PodSpec {
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
-		Config: map[string]interface{}{
+		EnvConfig: map[string]interface{}{
 			"foo":        "bar",
 			"restricted": "yes",
 			"bar":        true,
@@ -941,14 +941,14 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 		Command:      []string{"sh", "-c"},
 		Args:         []string{"doIt", "--debug"},
 		WorkingDir:   "/path/to/here",
-		Config: map[string]interface{}{
+		EnvConfig: map[string]interface{}{
 			"foo":        "bar",
 			"restricted": "yes",
 			"bar":        true,
 			"switch":     true,
 			"brackets":   `["hello", "world"]`,
 		},
-		Files: []specs.FileSet{
+		VolumeConfig: []specs.FileSet{
 			{
 				Name:      "myhostpath",
 				MountPath: "/host/etc/cni/net.d",
@@ -983,7 +983,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 		Name:  "test2",
 		Ports: []specs.ContainerPort{{ContainerPort: 8080, Protocol: "TCP", Name: "fred"}},
 		Image: "juju/image2",
-		Files: []specs.FileSet{
+		VolumeConfig: []specs.FileSet{
 			{
 				// exact same volume can be mounted to same path in different container.
 				Name:      "myhostpath",

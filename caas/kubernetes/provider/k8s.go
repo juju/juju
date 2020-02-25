@@ -1373,7 +1373,7 @@ func (k *kubernetesClient) configurePodFiles(
 	cfgMapName configMapNameFunc,
 ) error {
 	for i, container := range containers {
-		for _, fileSet := range container.Files {
+		for _, fileSet := range container.VolumeConfig {
 			vol, err := k.fileSetToVolume(appName, annotations, workloadSpec, fileSet, cfgMapName)
 			if err != nil {
 				return errors.Trace(err)
@@ -2560,7 +2560,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 			pc.ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
 		}
 
-		if pc.Env, pc.EnvFrom, err = k8sspecs.ContainerConfigToK8sEnvConfig(c.Config); err != nil {
+		if pc.Env, pc.EnvFrom, err = k8sspecs.ContainerConfigToK8sEnvConfig(c.EnvConfig); err != nil {
 			return errors.Trace(err)
 		}
 

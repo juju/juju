@@ -57,8 +57,8 @@ func (c *k8sContainerV2) ToContainerSpec() specs.ContainerSpec {
 		Command:         c.Command,
 		Args:            c.Args,
 		WorkingDir:      c.WorkingDir,
-		Config:          c.Config,
-		Files:           fileSetsV2ToFileSets(c.Files),
+		EnvConfig:       c.Config,
+		VolumeConfig:    fileSetsV2ToFileSets(c.Files),
 		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.Kubernetes != nil {
@@ -68,7 +68,7 @@ func (c *k8sContainerV2) ToContainerSpec() specs.ContainerSpec {
 }
 
 type k8sContainersV2 struct {
-	Containers []k8sContainer `json:"containers" yaml:"containers"`
+	Containers []k8sContainerV2 `json:"containers" yaml:"containers"`
 }
 
 // Validate is defined on ProviderContainer.

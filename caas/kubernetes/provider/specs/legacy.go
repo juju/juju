@@ -40,8 +40,8 @@ func (c *k8sContainerLegacy) ToContainerSpec() specs.ContainerSpec {
 		Command:         c.Command,
 		Args:            c.Args,
 		WorkingDir:      c.WorkingDir,
-		Config:          c.Config,
-		Files:           fileSetsV2ToFileSets(c.Files),
+		EnvConfig:       c.Config,
+		VolumeConfig:    fileSetsV2ToFileSets(c.Files),
 		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.K8sContainerSpec != nil {

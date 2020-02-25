@@ -25,7 +25,7 @@ func (s *containerEnvSuite) TestContainerConfigToK8sEnvConfig(c *gc.C) {
 containers:
   - name: gitlab
     image: gitlab/latest
-    config:
+    envConfig:
       attr: foo=bar; name["fred"]="blogs";
       foo: bar
       brackets: '["hello", "world"]'
@@ -107,7 +107,7 @@ containers:
 
 	specs, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, jc.ErrorIsNil)
-	envVars, envFromSource, err := k8sspecs.ContainerConfigToK8sEnvConfig(specs.Containers[0].Config)
+	envVars, envFromSource, err := k8sspecs.ContainerConfigToK8sEnvConfig(specs.Containers[0].EnvConfig)
 	c.Assert(err, jc.ErrorIsNil)
 	expectedEnvVar := []core.EnvVar{
 		{

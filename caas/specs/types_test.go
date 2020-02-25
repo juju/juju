@@ -178,7 +178,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				fileSet1, fileSet2,
 			},
 		},
@@ -193,7 +193,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				fileSet1, fileSet1,
 			},
 		},
@@ -208,7 +208,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				{
 					Name:      "file1",
 					MountPath: "/same-mount-path",
@@ -240,7 +240,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				{
 					Name:      "file1",
 					MountPath: "/etc/config",
@@ -258,7 +258,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 80, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				{
 					Name:      "file1",
 					MountPath: "/etc/config",
@@ -281,7 +281,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 8080, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				{
 					Name:      "file1",
 					MountPath: "/foo/file1",
@@ -365,7 +365,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 			Ports: []specs.ContainerPort{
 				{ContainerPort: 80, Protocol: "TCP"},
 			},
-			Files: []specs.FileSet{
+			VolumeConfig: []specs.FileSet{
 				{
 					Name:      "file1", // exact same file1 can be mounted to same path in a different container.
 					MountPath: "/foo/file1",
