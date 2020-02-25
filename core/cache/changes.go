@@ -16,6 +16,12 @@ import (
 	"github.com/juju/juju/core/status"
 )
 
+// ControllerConfigChange represents the initial controller config,
+// or a change initiated by an admin updating the controller config.
+type ControllerConfigChange struct {
+	Config map[string]string
+}
+
 // ModelChange represents either a new model, or a change
 // to an existing model.
 type ModelChange struct {

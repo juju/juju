@@ -82,6 +82,9 @@ type Controller struct {
 	mu      sync.Mutex
 	metrics *ControllerGauges
 
+	// config is the controller config.
+	config map[string]string
+
 	// While a controller is initializing it does not update
 	// any model summaries. The initializing component is handled
 	// with the Mark and Sweep methods. Calling Mark sets the controller
@@ -139,6 +142,10 @@ func (c *Controller) loop() error {
 			var err error
 
 			switch ch := change.(type) {
+			case ControllerConfigChange:
+				c.mu.Lock()
+				c.config = ch.Config
+				c.mu.Unlock()
 			case ModelChange:
 				c.updateModel(ch)
 			case RemoveModel:
@@ -240,6 +247,13 @@ func (c *Controller) Kill() {
 // Wait is part of the worker.Worker interface.
 func (c *Controller) Wait() error {
 	return c.tomb.Wait()
+}
+
+// Name returns the controller-name from the controller config.
+func (c *Controller) Name() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.config["controller-name"]
 }
 
 // Model returns the model for the specified UUID.
