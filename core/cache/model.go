@@ -645,12 +645,15 @@ func (w *waitUnitChange) close() {
 	}
 }
 
+// updateSummary generates a summary of the model,
+// then publishes it via the controller's hub.
+// Callers of this method must take responsibility for appropriate locking.
 func (m *Model) updateSummary() {
 	if m.initializer.initializing() {
 		logger.Tracef("skipping update as initializing")
 		return
 	}
-	// This method is only called from within a mutex lock.
+
 	overallStatus := StatusGreen
 	var messages []ModelSummaryMessage
 	var machines, containers int

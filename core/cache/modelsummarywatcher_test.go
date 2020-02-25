@@ -106,7 +106,7 @@ func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the initial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.ModelChange{
@@ -219,7 +219,7 @@ func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.MachineChange{
@@ -246,7 +246,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveMachine{
@@ -274,7 +274,7 @@ func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.ApplicationChange{
@@ -301,7 +301,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveApplication{
@@ -330,7 +330,7 @@ func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.UnitChange{
@@ -359,7 +359,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveUnit{
@@ -387,7 +387,7 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveUnit{
@@ -432,7 +432,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	modelUpdate := cache.ModelChange{
@@ -491,7 +491,7 @@ func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	// Simulate a watcher reset.
