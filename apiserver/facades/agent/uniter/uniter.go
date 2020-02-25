@@ -992,13 +992,13 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			continue
 		}
 
-		openPortRange := corenetwork.PortRange{
+		openPortRange := []corenetwork.PortRange{{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
-		}
+		}}
 
-		err = unit.OpenClosePortsOnSubnet("", []corenetwork.PortRange{openPortRange}, nil)
+		err = unit.OpenClosePortsOnSubnet("", openPortRange, nil)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -1031,13 +1031,13 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			continue
 		}
 
-		closePortRange := corenetwork.PortRange{
+		closePortRange := []corenetwork.PortRange{{
 			FromPort: entity.FromPort,
 			ToPort:   entity.ToPort,
 			Protocol: entity.Protocol,
-		}
+		}}
 
-		err = unit.OpenClosePortsOnSubnet("", nil, []corenetwork.PortRange{closePortRange})
+		err = unit.OpenClosePortsOnSubnet("", nil, closePortRange)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

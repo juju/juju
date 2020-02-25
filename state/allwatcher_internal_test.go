@@ -2946,8 +2946,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
 
-			openRange := corenetwork.PortRange{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}
-			err = u.OpenClosePortsOnSubnet(emptySubnet, []corenetwork.PortRange{openRange}, nil)
+			openRange := []corenetwork.PortRange{{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}}
+			err = u.OpenClosePortsOnSubnet(emptySubnet, openRange, nil)
 			if flag&assignUnit != 0 {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
@@ -2957,8 +2957,8 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 		}
 		if flag&closePorts != 0 {
 			// Close the port again (only if been opened before).
-			closeRange := corenetwork.PortRange{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}
-			err = u.OpenClosePortsOnSubnet(emptySubnet, nil, []corenetwork.PortRange{closeRange})
+			closeRange := []corenetwork.PortRange{{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}}
+			err = u.OpenClosePortsOnSubnet(emptySubnet, nil, closeRange)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}
