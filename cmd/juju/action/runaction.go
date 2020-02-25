@@ -278,7 +278,7 @@ func (c *runActionCommand) Run(ctx *cmd.Context) error {
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(result, false, true)
+		d := FormatActionResult(tag.Id(), result, false, true)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		out[result.Action.Receiver] = d
 	}

@@ -14,6 +14,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cmd/juju/action"
@@ -266,9 +267,56 @@ func (c *fakeAPIClient) WatchActionProgress(actionId string) (watcher.StringsWat
 	return watchertest.NewMockStringsWatcher(c.logMessageCh), nil
 }
 
-func (c *fakeAPIClient) Operations(args params.OperationQueryArgs) (params.OperationResults, error) {
+func (c *fakeAPIClient) ListOperations(args params.OperationQueryArgs) (params.OperationResults, error) {
 	c.operationQueryArgs = args
 	return params.OperationResults{
 		Results: c.operationResults,
 	}, c.apiErr
+}
+
+func (c *fakeAPIClient) Operation(id string) (params.OperationResult, error) {
+	// If the test supplies a delay time too long, we'll return an error
+	// to prevent the test hanging.  If the given wait is up, then return
+	// the results; otherwise, return a pending status.
+
+	if c.delay == nil && c.waitForResults == nil {
+		// No delay requested, just return immediately.
+		return c.getOperation(id)
+	}
+	var delayChan, timeoutChan <-chan time.Time
+	if c.delay != nil {
+		delayChan = c.delay.C
+	}
+	if c.timeout != nil {
+		timeoutChan = c.timeout.C
+	}
+	select {
+	case <-c.waitForResults:
+		return c.getOperation(id)
+	case _ = <-delayChan:
+		// The API delay timer is up.
+		return c.getOperation(id)
+	case _ = <-timeoutChan:
+		// Timeout to prevent tests from hanging.
+		return params.OperationResult{}, errors.New("test timed out before wait time")
+	default:
+		// Timeout should only be nonzero in case we want to test
+		// pending behavior with a --wait flag on FetchCommand.
+		return params.OperationResult{
+			OperationTag: names.NewOperationTag("667").String(),
+			Status:       params.ActionPending,
+			Started:      time.Date(2015, time.February, 14, 8, 15, 0, 0, time.UTC),
+			Enqueued:     time.Date(2015, time.February, 14, 8, 13, 0, 0, time.UTC),
+		}, nil
+	}
+}
+
+func (c *fakeAPIClient) getOperation(id string) (params.OperationResult, error) {
+	if c.apiErr != nil {
+		return params.OperationResult{}, c.apiErr
+	}
+	if len(c.operationResults) == 0 || c.operationResults[0].OperationTag != names.NewOperationTag(id).String() {
+		return params.OperationResult{}, errors.NotFoundf("operation %q", id)
+	}
+	return c.operationResults[0], nil
 }

@@ -104,6 +104,17 @@
                         }
                     }
                 },
+                "ListOperations": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/OperationQueryArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/OperationResults"
+                        }
+                    }
+                },
                 "ListPending": {
                     "type": "object",
                     "properties": {
@@ -130,7 +141,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/OperationQueryArgs"
+                            "$ref": "#/definitions/Entities"
                         },
                         "Result": {
                             "$ref": "#/definitions/OperationResults"
@@ -570,6 +581,9 @@
                         "enqueued": {
                             "type": "string",
                             "format": "date-time"
+                        },
+                        "error": {
+                            "$ref": "#/definitions/Error"
                         },
                         "operation": {
                             "type": "string"
@@ -12422,7 +12436,7 @@
     },
     {
         "Name": "Controller",
-        "Version": 8,
+        "Version": 9,
         "Schema": {
             "type": "object",
             "properties": {
@@ -12591,6 +12605,14 @@
                         }
                     }
                 },
+                "WatchAllModelSummaries": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SummaryWatcherID"
+                        }
+                    }
+                },
                 "WatchAllModels": {
                     "type": "object",
                     "properties": {
@@ -12607,6 +12629,14 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/NotifyWatchResults"
+                        }
+                    }
+                },
+                "WatchModelSummaries": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SummaryWatcherID"
                         }
                     }
                 }
@@ -13415,6 +13445,18 @@
                     "additionalProperties": false,
                     "required": [
                         "result"
+                    ]
+                },
+                "SummaryWatcherID": {
+                    "type": "object",
+                    "properties": {
+                        "watcher-id": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "watcher-id"
                     ]
                 },
                 "UserAccess": {
@@ -24918,6 +24960,128 @@
         }
     },
     {
+        "Name": "ModelSummaryWatcher",
+        "Version": 1,
+        "Schema": {
+            "type": "object",
+            "properties": {
+                "Next": {
+                    "type": "object",
+                    "properties": {
+                        "Result": {
+                            "$ref": "#/definitions/SummaryWatcherNextResults"
+                        }
+                    }
+                },
+                "Stop": {
+                    "type": "object"
+                }
+            },
+            "definitions": {
+                "ModelAbstract": {
+                    "type": "object",
+                    "properties": {
+                        "admins": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        "cloud": {
+                            "type": "string"
+                        },
+                        "controller": {
+                            "type": "string"
+                        },
+                        "credential": {
+                            "type": "string"
+                        },
+                        "messages": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelSummaryMessage"
+                            }
+                        },
+                        "name": {
+                            "type": "string"
+                        },
+                        "region": {
+                            "type": "string"
+                        },
+                        "removed": {
+                            "type": "boolean"
+                        },
+                        "size": {
+                            "$ref": "#/definitions/ModelSummarySize"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "uuid": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "uuid"
+                    ]
+                },
+                "ModelSummaryMessage": {
+                    "type": "object",
+                    "properties": {
+                        "agent": {
+                            "type": "string"
+                        },
+                        "message": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "agent",
+                        "message"
+                    ]
+                },
+                "ModelSummarySize": {
+                    "type": "object",
+                    "properties": {
+                        "applications": {
+                            "type": "integer"
+                        },
+                        "containers": {
+                            "type": "integer"
+                        },
+                        "machines": {
+                            "type": "integer"
+                        },
+                        "relations": {
+                            "type": "integer"
+                        },
+                        "units": {
+                            "type": "integer"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SummaryWatcherNextResults": {
+                    "type": "object",
+                    "properties": {
+                        "models": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/ModelAbstract"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "models"
+                    ]
+                }
+            }
+        }
+    },
+    {
         "Name": "ModelUpgrader",
         "Version": 1,
         "Schema": {
@@ -30983,7 +31147,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/Entities"
+                            "$ref": "#/definitions/RemoveSpaceParams"
                         },
                         "Result": {
                             "$ref": "#/definitions/RemoveSpaceResults"
@@ -31144,6 +31308,39 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "RemoveSpaceParam": {
+                    "type": "object",
+                    "properties": {
+                        "dry-run": {
+                            "type": "boolean"
+                        },
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "space": {
+                            "$ref": "#/definitions/Entity"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "space"
+                    ]
+                },
+                "RemoveSpaceParams": {
+                    "type": "object",
+                    "properties": {
+                        "space-param": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RemoveSpaceParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "space-param"
                     ]
                 },
                 "RemoveSpaceResult": {
@@ -34902,6 +35099,17 @@
                     "properties": {
                         "Result": {
                             "$ref": "#/definitions/APIHostPortsResult"
+                        }
+                    }
+                },
+                "ActionStatus": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/Entities"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/StringResults"
                         }
                     }
                 },

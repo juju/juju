@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"fmt"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/state"
@@ -162,7 +165,7 @@ var twoSubnetsAfterFAN = []network.SubnetInfo{
 		CIDR:              "10.100.30.1/24",
 	},
 	{
-		ProviderId:        "2-INFAN-10-100-30-0-24",
+		ProviderId:        corenetwork.Id(fmt.Sprintf("2-%s-10-100-30-0-24", corenetwork.InFan)),
 		AvailabilityZones: []string{"3", "4"},
 		CIDR:              "253.30.0.0/16",
 	},

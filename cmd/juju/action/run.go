@@ -306,7 +306,7 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 		if err != nil {
 			return errors.Trace(err)
 		}
-		d := FormatActionResult(actionResult, c.utc, false)
+		d := FormatActionResult(tag.Id(), actionResult, c.utc, false)
 		d["id"] = tag.Id() // Action ID is required in case we timed out.
 		info[result.receiver] = d
 	}
@@ -467,7 +467,11 @@ func printPlainOutput(writer io.Writer, value interface{}) error {
 				}
 			}
 		} else {
-			actionOutput[k] = fmt.Sprintf("Operation %v complete\n", resultMetadata["id"])
+			status, ok := resultMetadata["status"].(string)
+			if !ok {
+				status = "has unknown status"
+			}
+			actionOutput[k] = fmt.Sprintf("Task %v %v\n", resultMetadata["id"], status)
 		}
 		actionInfo[k] = map[string]interface{}{
 			"id":     resultMetadata["id"],

@@ -4,14 +4,23 @@
 package space_test
 
 import (
+	"github.com/golang/mock/gomock"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/cmd/juju/space"
+	"github.com/juju/juju/cmd/juju/space/mocks"
 )
 
 type SpaceCommandSuite struct {
 	BaseSpaceSuite
+}
+
+func setUpMocks(c *gc.C) (*gomock.Controller, *mocks.MockSpaceAPI) {
+	ctrl := gomock.NewController(c)
+	api := mocks.NewMockSpaceAPI(ctrl)
+	api.EXPECT().Close()
+	return ctrl, api
 }
 
 var _ = gc.Suite(&SpaceCommandSuite{})

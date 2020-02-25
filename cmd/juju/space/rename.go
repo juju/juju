@@ -54,7 +54,7 @@ func (c *RenameCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "rename-space",
 		Args:    "<old-name> <new-name>",
-		Purpose: "Rename a network space",
+		Purpose: "Rename a network space.",
 		Doc:     strings.TrimSpace(renameCommandDoc),
 	})
 }

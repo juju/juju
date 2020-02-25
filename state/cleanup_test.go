@@ -707,30 +707,37 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestCleanupWithCompletedActions(c *gc.C) {
-	// Create a application with a unit.
-	dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
-	unit, err := dummy.AddUnit(state.AddUnitParams{})
-	c.Assert(err, jc.ErrorIsNil)
-	s.assertDoesNotNeedCleanup(c)
+	for _, status := range []state.ActionStatus{
+		state.ActionCompleted,
+		state.ActionCancelled,
+		state.ActionAborted,
+		state.ActionFailed,
+	} {
+		// Create a application with a unit.
+		dummy := s.AddTestingApplication(c, "dummy", s.AddTestingCharm(c, "dummy"))
+		unit, err := dummy.AddUnit(state.AddUnitParams{})
+		c.Assert(err, jc.ErrorIsNil)
+		s.assertDoesNotNeedCleanup(c)
 
-	// Add a completed action to the unit.
-	operationID, err := s.Model.EnqueueOperation("a test")
-	c.Assert(err, jc.ErrorIsNil)
-	action, err := unit.AddAction(operationID, "snapshot", nil)
-	c.Assert(err, jc.ErrorIsNil)
-	action, err = action.Finish(state.ActionResults{
-		Status:  state.ActionCompleted,
-		Message: "done",
-	})
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(action.Status(), gc.Equals, state.ActionCompleted)
+		// Add a completed action to the unit.
+		operationID, err := s.Model.EnqueueOperation("a test")
+		c.Assert(err, jc.ErrorIsNil)
+		action, err := unit.AddAction(operationID, "snapshot", nil)
+		c.Assert(err, jc.ErrorIsNil)
+		action, err = action.Finish(state.ActionResults{
+			Status:  status,
+			Message: "done",
+		})
+		c.Assert(err, jc.ErrorIsNil)
+		c.Assert(action.Status(), gc.Equals, status)
 
-	// Destroy application and run cleanups.
-	err = dummy.Destroy()
-	c.Assert(err, jc.ErrorIsNil)
-	// First cleanup marks all units of the application as dying.
-	// Second cleanup clear pending actions.
-	s.assertCleanupCount(c, 3)
+		// Destroy application and run cleanups.
+		err = dummy.Destroy()
+		c.Assert(err, jc.ErrorIsNil)
+		// First cleanup marks all units of the application as dying.
+		// Second cleanup clear pending actions.
+		s.assertCleanupCount(c, 3)
+	}
 }
 
 func (s *CleanupSuite) TestCleanupStorageAttachments(c *gc.C) {

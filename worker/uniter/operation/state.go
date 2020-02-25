@@ -68,6 +68,9 @@ type State struct {
 	// Installed indicates whether the install hook has run.
 	Installed bool `yaml:"installed"`
 
+	// Removed indicates whether the remove hook has run.
+	Removed bool `yaml:"removed"`
+
 	// StatusSet indicates whether the charm being deployed has ever invoked
 	// the status-set hook tool.
 	StatusSet bool `yaml:"status-set"`

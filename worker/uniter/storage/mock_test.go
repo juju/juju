@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type mockStorageAccessor struct {
@@ -70,4 +71,7 @@ func (m *mockOperation) Execute(state operation.State) (*operation.State, error)
 
 func (m *mockOperation) Commit(state operation.State) (*operation.State, error) {
 	return &state, nil
+}
+
+func (m *mockOperation) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

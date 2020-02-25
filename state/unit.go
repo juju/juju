@@ -3101,6 +3101,11 @@ func (u *Unit) CancelAction(action Action) (Action, error) {
 // WatchActionNotifications starts and returns a StringsWatcher that
 // notifies when actions with Id prefixes matching this Unit are added
 func (u *Unit) WatchActionNotifications() StringsWatcher {
+	return u.st.watchActionNotificationsFilteredBy(u)
+}
+
+// WatchPendingActionNotifications is part of the ActionReceiver interface.
+func (u *Unit) WatchPendingActionNotifications() StringsWatcher {
 	return u.st.watchEnqueuedActionsFilteredBy(u)
 }
 

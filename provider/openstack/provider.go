@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"math/rand"
 	"net/url"
 	"path"
 	"sort"
@@ -1162,7 +1163,7 @@ func (e *Environ) startInstance(
 	}
 	logger.Debugf("openstack user data; %d bytes", len(userData))
 
-	networks, err := e.networksForInstance()
+	networks, err := e.networksForInstance(args)
 	if err != nil {
 		return nil, common.ZoneIndependentError(err)
 	}
@@ -1307,7 +1308,7 @@ func (e *Environ) startInstance(
 		return server, err
 	}
 
-	var opts = nova.RunServerOpts{
+	opts := nova.RunServerOpts{
 		Name:               machineName,
 		FlavorId:           spec.InstanceType.Id,
 		UserData:           userData,
@@ -1403,14 +1404,121 @@ func (e *Environ) validateAvailabilityZone(ctx context.ProviderCallContext, args
 
 // networksForInstance returns networks that will be attached
 // to a new Openstack instance.
-func (e *Environ) networksForInstance() ([]nova.ServerNetworks, error) {
+func (e *Environ) networksForInstance(args environs.StartInstanceParams) ([]nova.ServerNetworks, error) {
+	networks, err := e.networksForModel()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	if !args.Constraints.HasSpaces() {
+		return networks, nil
+	}
+	if len(networks) == 0 {
+		return nil, errors.New("space constraints were supplied, but no Openstack network is configured")
+	}
+
+	// We know that we are operating in the single configured network.
+	networkID := networks[0].NetworkId
+
+	// Attempt to filter the subnet IDs for the configured availability zone.
+	// If there is no configured zone, consider all subnet IDs.
+	az := args.AvailabilityZone
+	subnetIDsForZone := make([][]corenetwork.Id, len(args.SubnetsToZones))
+	for i, nic := range args.SubnetsToZones {
+		var subnetIDs []corenetwork.Id
+		if az != "" {
+			var err error
+			if subnetIDs, err = corenetwork.FindSubnetIDsForAvailabilityZone(az, nic); err != nil {
+				return nil, errors.Annotatef(err, "getting subnets in zone %q", az)
+			}
+			if len(subnetIDs) == 0 {
+				return nil, errors.Errorf("availability zone %q has no subnets satisfying space constraints", az)
+			}
+		} else {
+			for subnetID := range nic {
+				subnetIDs = append(subnetIDs, subnetID)
+			}
+		}
+
+		// Filter out any fan networks.
+		subnetIDsForZone[i] = corenetwork.FilterInFanNetwork(subnetIDs)
+	}
+
+	/// For each list of subnet IDs that satisfy space and zone constraints,
+	// choose a single one at random.
+	subnetIDForZone := make([]corenetwork.Id, len(subnetIDsForZone))
+	for i, subnetIDs := range subnetIDsForZone {
+		if len(subnetIDs) == 1 {
+			subnetIDForZone[i] = subnetIDs[0]
+			continue
+		}
+
+		subnetIDForZone[i] = subnetIDs[rand.Intn(len(subnetIDs))]
+	}
+
+	// Set the subnetID on the network for all networks.
+	// For each of the subnetIDs selected, create a port for each one.
+	subnetNetworks := make([]nova.ServerNetworks, 0, len(subnetIDForZone))
+	for _, subnetID := range subnetIDForZone {
+		var portID string
+		portID, err = e.networking.CreatePort(e.uuid, networkID, subnetID)
+		if err != nil {
+			break
+		}
+
+		logger.Infof("created new port %q connected to Openstack subnet %q", portID, subnetID)
+		subnetNetworks = append(subnetNetworks, nova.ServerNetworks{
+			NetworkId: networkID,
+			PortId:    portID,
+		})
+	}
+
+	if err != nil {
+		err1 := e.DeletePorts(subnetNetworks)
+		if err1 != nil {
+			logger.Errorf("Unable to delete ports from the provider %+v", subnetNetworks)
+		}
+		return nil, errors.Annotatef(err, "creating ports for instance")
+	}
+
+	return subnetNetworks, nil
+}
+
+// DeletePorts goes through and attempts to delete any ports that have been
+// created during the creation of the networks for the given instance.
+func (e *Environ) DeletePorts(networks []nova.ServerNetworks) error {
+	var errs []error
+	for _, network := range networks {
+		if network.NetworkId != "" && network.PortId != "" {
+			err := e.networking.DeletePortByID(network.PortId)
+			if err != nil {
+				errs = append(errs, err)
+			}
+		}
+	}
+	if len(errs) > 0 {
+		// It would be nice to generalize this so we have the same expected
+		// behaviour from all our slices of errors.
+		for _, err := range errs {
+			logger.Errorf("Unable to delete port with error: %v", err)
+		}
+		return errs[0]
+	}
+	return nil
+}
+
+// networksForModel returns the Openstack network list based on current model
+// configuration.
+// Note that the current implementation of DefaultNetworks means that this will
+// always return a single network, or none.
+func (e *Environ) networksForModel() ([]nova.ServerNetworks, error) {
 	networks, err := e.networking.DefaultNetworks()
 	if err != nil {
 		return nil, errors.Annotate(err, "getting initial networks")
 	}
 
 	usingNetwork := e.ecfg().network()
-	networkId, err := e.networking.ResolveNetwork(usingNetwork, false)
+	networkID, err := e.networking.ResolveNetwork(usingNetwork, false)
 	if err != nil {
 		if usingNetwork == "" {
 			// If there is no network configured, we only throw out when the
@@ -1420,15 +1528,13 @@ func (e *Environ) networksForInstance() ([]nova.ServerNetworks, error) {
 			if strings.HasPrefix(err.Error(), "multiple networks") {
 				return nil, errors.New(noNetConfigMsg(err))
 			}
-		} else {
-			return nil, errors.Trace(err)
+			return nil, nil
 		}
-	} else {
-		logger.Debugf("using network id %q", networkId)
-		networks = append(networks, nova.ServerNetworks{NetworkId: networkId})
+		return nil, errors.Trace(err)
 	}
 
-	return networks, nil
+	logger.Debugf("using network id %q", networkID)
+	return append(networks, nova.ServerNetworks{NetworkId: networkID}), nil
 }
 
 func (e *Environ) configureRootDisk(ctx context.ProviderCallContext, args environs.StartInstanceParams,
@@ -1997,6 +2103,15 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 	var firstErr error
 	novaClient := e.nova()
 	for _, id := range ids {
+		// Attempt to destroy the ports that could have been created when using
+		// spaces.
+		if err := e.terminateInstanceNetworkPorts(id); err != nil {
+			logger.Errorf("error attempting to remove ports associated with instance %q: %v", id, err)
+			// Unfortunately there is nothing we can do here, there could be
+			// orphan ports left.
+		}
+
+		// Once ports have been deleted, attempt to delete the server.
 		err := novaClient.DeleteServer(string(id))
 		if IsNotFoundError(err) {
 			err = nil
@@ -2011,6 +2126,40 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 		}
 	}
 	return firstErr
+}
+
+func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
+	filter := neutron.NewFilter()
+	filter.Set("device_id", string(id))
+
+	client := e.neutron()
+	instancePorts, err := client.ListPortsV2(filter)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// Unfortunately we're unable to bulk delete these ports, so we have to go
+	// over them, one by one.
+	var errs []error
+	for _, port := range instancePorts {
+		// Ensure we have the ports we want.
+		if port.DeviceId != string(id) {
+			continue
+		}
+
+		// Delete a port. If we encounter an error add it to the list of errors
+		// and continue until we've exhausted all the ports to delete.
+		if err := client.DeletePortV2(port.Id); err != nil {
+			errs = append(errs, err)
+			continue
+		}
+	}
+
+	if len(errs) > 0 {
+		return errors.Errorf("error terminating network ports: %v", errs)
+	}
+
+	return nil
 }
 
 // MetadataLookupParams returns parameters which are used to query simplestreams metadata.
@@ -2106,10 +2255,10 @@ func (e *Environ) NetworkInterfaces(ctx context.ProviderCallContext, ids []insta
 
 // SupportsSpaces is specified on environs.Networking.
 func (e *Environ) SupportsSpaces(ctx context.ProviderCallContext) (bool, error) {
-	return false, nil
+	return true, nil
 }
 
-// SupportsSpaces is specified on environs.Networking.
+// SupportsProviderSpaces is specified on environs.Networking.
 func (e *Environ) SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error) {
 	return false, nil
 }

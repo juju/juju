@@ -230,9 +230,9 @@ func (sa *StubAPI) AddSpace(name string, subnetIds []string, public bool) error 
 	return sa.NextErr()
 }
 
-func (sa *StubAPI) RemoveSpace(name string) error {
+func (sa *StubAPI) RemoveSpace(name string, force bool, dryRun bool) (network.RemoveSpace, error) {
 	sa.MethodCall(sa, "RemoveSpace", name)
-	return sa.NextErr()
+	return network.RemoveSpace{}, sa.NextErr()
 }
 
 func (sa *StubAPI) UpdateSpace(name string, subnetIds []string) error {

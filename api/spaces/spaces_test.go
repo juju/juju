@@ -48,6 +48,169 @@ func (s *spacesSuite) setUpMocks(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+func (s *spacesSuite) TestRemoveSpace(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{},
+	}
+	args := getRemoveSpaceArgs(name, false, false)
+
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	bounds, err := s.API.RemoveSpace(name, false, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+}
+
+func (s *spacesSuite) TestRemoveSpaceUnexpectedError(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{
+			Constraints:        nil,
+			Bindings:           nil,
+			ControllerSettings: nil,
+			Error: &params.Error{
+				Message: "bam",
+				Code:    "500",
+			},
+		}},
+	}
+	args := getRemoveSpaceArgs(name, false, false)
+
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	bounds, err := s.API.RemoveSpace(name, false, false)
+	c.Assert(err, gc.ErrorMatches, "bam")
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+}
+
+func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICall(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{}}
+	args := getRemoveSpaceArgs(name, false, false)
+
+	bam := errors.New("bam")
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(bam)
+
+	bounds, err := s.API.RemoveSpace(name, false, false)
+	c.Assert(err, gc.ErrorMatches, bam.Error())
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+}
+
+func (s *spacesSuite) TestRemoveSpaceUnexpectedErrorAPICallNotSupported(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{}}
+	args := getRemoveSpaceArgs(name, false, false)
+
+	bam := params.Error{
+		Message: "not supported",
+		Code:    params.CodeNotSupported,
+		Info:    nil,
+	}
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(bam)
+
+	bounds, err := s.API.RemoveSpace(name, false, false)
+	c.Assert(err, gc.ErrorMatches, bam.Error())
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{})
+}
+
+func (s *spacesSuite) TestRemoveSpaceConstraintsBindings(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{
+			Constraints: []params.Entity{
+				{
+					Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e",
+				},
+				{
+					Tag: "application-mysql",
+				},
+			},
+			Bindings: []params.Entity{
+				{
+					Tag: "application-mysql",
+				},
+				{
+					Tag: "application-mediawiki",
+				},
+			},
+			ControllerSettings: []string{"jujuhaspace", "juuuu-space"},
+			Error:              nil,
+		}}}
+	args := getRemoveSpaceArgs(name, false, false)
+
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	bounds, err := s.API.RemoveSpace(name, false, false)
+
+	expectedBounds := network.RemoveSpace{
+		HasModelConstraint: true,
+		Space:              name,
+		Constraints:        []string{"mysql"},
+		Bindings:           []string{"mysql", "mediawiki"},
+		ControllerConfig:   []string{"jujuhaspace", "juuuu-space"},
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bounds, jc.DeepEquals, expectedBounds)
+}
+func (s *spacesSuite) TestRemoveSpaceConstraints(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{
+			Constraints: []params.Entity{
+				{
+					Tag: "model-42c4f770-86ed-4fcc-8e39-697063d082bc:e",
+				}, {
+					Tag: "application-mysql",
+				},
+			},
+			Error: nil,
+		}}}
+	args := getRemoveSpaceArgs(name, false, false)
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	bounds, err := s.API.RemoveSpace(name, false, false)
+	expectedBounds := network.RemoveSpace{
+		HasModelConstraint: true,
+		Space:              name,
+		Constraints:        []string{"mysql"},
+	}
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(bounds, jc.DeepEquals, expectedBounds)
+}
+
+func (s *spacesSuite) TestRemoveSpaceForce(c *gc.C) {
+	defer s.setUpMocks(c).Finish()
+	name := "myspace"
+	resultSource := params.RemoveSpaceResults{
+		Results: []params.RemoveSpaceResult{{}}}
+	args := getRemoveSpaceArgs(name, true, false)
+	s.fCaller.EXPECT().FacadeCall("RemoveSpace", args, gomock.Any()).SetArg(2, resultSource).Return(nil)
+
+	bounds, err := s.API.RemoveSpace(name, true, false)
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(bounds, gc.DeepEquals, network.RemoveSpace{Space: name})
+}
+
+func getRemoveSpaceArgs(spaceName string, force, dryRun bool) params.RemoveSpaceParams {
+	return params.RemoveSpaceParams{SpaceParams: []params.RemoveSpaceParam{
+		{
+			Space:  params.Entity{Tag: names.NewSpaceTag(spaceName).String()},
+			Force:  force,
+			DryRun: dryRun,
+		},
+	}}
+}
+
 func (s *spacesSuite) TestRenameSpace(c *gc.C) {
 	defer s.setUpMocks(c).Finish()
 	from, to := "from", "to"

@@ -63,7 +63,7 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook has a remote unit but no application", hi.Kind)
 		}
 		return nil
-	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,
+	case hooks.Install, hooks.Remove, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken,
 		hooks.CollectMetrics, hooks.MeterStatusChanged, hooks.UpdateStatus, hooks.PreSeriesUpgrade, hooks.PostSeriesUpgrade:
 		return nil
 	case hooks.Action:

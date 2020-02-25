@@ -13,6 +13,7 @@ import (
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/worker.v1/workertest"
 
 	coretesting "github.com/juju/juju/testing"
 )
@@ -66,6 +67,66 @@ func (s *BaseSuite) NewHub() *pubsub.SimpleHub {
 	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{Logger: logger})
 }
 
+func (s *BaseSuite) New(c *gc.C) (*Controller, <-chan interface{}) {
+	events := s.CaptureEvents(c)
+	controller, err := s.NewController()
+	c.Assert(err, jc.ErrorIsNil)
+	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, controller) })
+	return controller, events
+}
+
+func (s *BaseSuite) CaptureEvents(c *gc.C) <-chan interface{} {
+	events := make(chan interface{})
+	s.Config.Notify = func(change interface{}) {
+		send := false
+		switch change.(type) {
+		case ModelChange, RemoveModel,
+			ApplicationChange, RemoveApplication,
+			CharmChange, RemoveCharm,
+			MachineChange, RemoveMachine,
+			UnitChange, RemoveUnit,
+			RelationChange, RemoveRelation,
+			BranchChange, RemoveBranch:
+			send = true
+		default:
+			// no-op
+		}
+		if send {
+			c.Logf("sending %#v", change)
+			select {
+			case events <- change:
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("change not processed by test")
+			}
+		}
+	}
+	return events
+}
+
+func (s *BaseSuite) ProcessChange(c *gc.C, change interface{}, notify <-chan interface{}) {
+	select {
+	case s.Changes <- change:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("controller did not read change")
+	}
+	select {
+	case obtained := <-notify:
+		c.Check(obtained, jc.DeepEquals, change)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("controller did not handle change")
+	}
+}
+
+func (s *BaseSuite) NextChange(c *gc.C, changes <-chan interface{}) interface{} {
+	var obtained interface{}
+	select {
+	case obtained = <-changes:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no change")
+	}
+	return obtained
+}
+
 // entitySuite is the base suite for testing cached entities
 // (models, applications, machines).
 type EntitySuite struct {
@@ -83,7 +144,13 @@ func (s *EntitySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EntitySuite) NewModel(details ModelChange) *Model {
-	m := newModel(s.Gauges, s.Hub, s.Manager.new())
+	m := newModel(modelConfig{
+		initializer: noopInitializer{},
+		metrics:     s.Gauges,
+		hub:         s.Hub,
+		chub:        s.NewHub(),
+		res:         s.Manager.new(),
+	})
 	m.setDetails(details)
 	return m
 }
@@ -284,4 +351,10 @@ func (c StringsWatcherC) AssertStops() {
 	default:
 		c.Fatalf("channel not closed")
 	}
+}
+
+type noopInitializer struct{}
+
+func (noopInitializer) initializing() bool {
+	return false
 }

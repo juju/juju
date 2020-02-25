@@ -356,6 +356,54 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroup(c *gc.C) {
 	workertest.CleanKill(c, task)
 }
 
+func (s *ProvisionerTaskSuite) TestZoneConstraintsNoDistributionGroupRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1")
+
+	// For the call to start instance, we expect the same zone constraint to
+	// be present, but we also expect that the zone in start instance params
+	// matches the constraint, based on being available in this environ.
+	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az1")
+	azConstraintsAndDerivedZone.addMatch("availability zone: az1", func(p environs.StartInstanceParams) bool {
+		return p.AvailabilityZone == "az1"
+	})
+
+	failedErr := errors.Errorf("oh no")
+	// Use satisfaction of this call as the synchronisation point.
+	started := make(chan struct{})
+	gomock.InOrder(
+		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil),
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(nil, failedErr),
+		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil),
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+			Instance: &testInstance{id: "instance-1"},
+		}, nil).Do(func(_ ...interface{}) {
+			go func() { started <- struct{}{} }()
+		}),
+	)
+
+	task := s.newProvisionerTaskWithBroker(c, broker, nil)
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
+	s.sendMachineErrorRetryChange(c)
+	s.sendMachineErrorRetryChange(c)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no matching call to StartInstance")
+	}
+
+	workertest.CleanKill(c, task)
+}
+
 func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

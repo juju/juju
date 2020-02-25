@@ -27,13 +27,13 @@ type v2SpecsSuite struct {
 
 var _ = gc.Suite(&v2SpecsSuite{})
 
-var versionHeader = `
+var version2Header = `
 version: 2
 `[1:]
 
 func (s *v2SpecsSuite) TestParse(c *gc.C) {
 
-	specStrBase := versionHeader + `
+	specStrBase := version2Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -811,7 +811,7 @@ password: shhhh`[1:],
 
 func (s *v2SpecsSuite) TestValidateMissingContainers(c *gc.C) {
 
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
 `[1:]
 
@@ -821,7 +821,7 @@ containers:
 
 func (s *v2SpecsSuite) TestValidateMissingName(c *gc.C) {
 
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - image: gitlab/latest
 `[1:]
@@ -832,7 +832,7 @@ containers:
 
 func (s *v2SpecsSuite) TestValidateMissingImage(c *gc.C) {
 
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab
 `[1:]
@@ -843,7 +843,7 @@ containers:
 
 func (s *v2SpecsSuite) TestValidateFileSetPath(c *gc.C) {
 
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -860,7 +860,7 @@ containers:
 
 func (s *v2SpecsSuite) TestValidateMissingMountPath(c *gc.C) {
 
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab
     image: gitlab/latest
@@ -877,7 +877,7 @@ containers:
 }
 
 func (s *v2SpecsSuite) TestValidateServiceAccountShouldBeOmittedForEmptyValue(c *gc.C) {
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -893,7 +893,7 @@ serviceAccount:
 }
 
 func (s *v2SpecsSuite) TestValidateCustomResourceDefinitions(c *gc.C) {
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -938,7 +938,7 @@ kubernetesResources:
 }
 
 func (s *v2SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -955,7 +955,7 @@ kubernetesResources:
 }
 
 func (s *v2SpecsSuite) TestValidateValidatingWebhookConfigurations(c *gc.C) {
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -972,7 +972,7 @@ kubernetesResources:
 }
 
 func (s *v2SpecsSuite) TestValidateIngressResources(c *gc.C) {
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
@@ -1000,7 +1000,7 @@ kubernetesResources:
 }
 
 func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {
-	specStr := versionHeader + `
+	specStr := version2Header + `
 containers:
   - name: gitlab-helper
     image: gitlab-helper/latest

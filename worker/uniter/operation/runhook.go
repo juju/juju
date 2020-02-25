@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
@@ -169,6 +170,11 @@ func (rh *runHook) beforeHook(state State) error {
 	case hooks.Stop:
 		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Maintenance),
+			Info:   "stopping charm software",
+		})
+	case hooks.Remove:
+		err = rh.runner.Context().SetUnitStatus(jujuc.StatusInfo{
+			Status: string(status.Maintenance),
 			Info:   "cleaning up prior to charm deletion",
 		})
 	case hooks.PreSeriesUpgrade:
@@ -198,6 +204,10 @@ func (rh *runHook) afterHook(state State) (_ bool, err error) {
 	hasRunStatusSet := ctx.HasExecutionSetUnitStatus() || state.StatusSet
 	switch rh.info.Kind {
 	case hooks.Stop:
+		err = ctx.SetUnitStatus(jujuc.StatusInfo{
+			Status: string(status.Maintenance),
+		})
+	case hooks.Remove:
 		// Charm is no longer of this world.
 		err = ctx.SetUnitStatus(jujuc.StatusInfo{
 			Status: string(status.Terminated),
@@ -284,7 +294,14 @@ func (rh *runHook) Commit(state State) (*State, error) {
 		newState.Started = true
 	case hooks.Stop:
 		newState.Stopped = true
+	case hooks.Remove:
+		newState.Removed = true
 	}
 
 	return newState, nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (rh *runHook) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

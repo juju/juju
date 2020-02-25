@@ -8,6 +8,7 @@ import (
 	"gopkg.in/juju/charm.v6/hooks"
 
 	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type acceptLeadership struct {
@@ -50,6 +51,11 @@ func (al *acceptLeadership) Commit(state State) (*State, error) {
 	}.apply(state)
 	newState.Leader = true
 	return newState, nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (al *acceptLeadership) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }
 
 func (al *acceptLeadership) checkState(state State) error {
@@ -121,4 +127,9 @@ func (rl *resignLeadership) Execute(state State) (*State, error) {
 func (rl *resignLeadership) Commit(state State) (*State, error) {
 	state.Leader = false
 	return &state, nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (rl *resignLeadership) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }

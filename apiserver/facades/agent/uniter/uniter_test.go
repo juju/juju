@@ -1221,6 +1221,36 @@ func (s *uniterSuite) TestLogActionMessage(c *gc.C) {
 	c.Assert(messages[0].Timestamp(), gc.NotNil)
 }
 
+func (s *uniterSuite) TestLogActionMessageAborting(c *gc.C) {
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	anAction, err := s.wordpressUnit.AddAction(operationID, "fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(anAction.Messages(), gc.HasLen, 0)
+	_, err = anAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = anAction.Cancel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	args := params.ActionMessageParams{Messages: []params.EntityString{
+		{Tag: anAction.Tag().String(), Value: "hello"},
+	}}
+	result, err := s.uniter.LogActionsMessages(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{},
+		},
+	})
+	anAction, err = s.Model.Action(anAction.Id())
+	c.Assert(err, jc.ErrorIsNil)
+	messages := anAction.Messages()
+	c.Assert(messages, gc.HasLen, 1)
+	c.Assert(messages[0].Message(), gc.Equals, "hello")
+	c.Assert(messages[0].Timestamp(), gc.NotNil)
+}
+
 func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, jc.ErrorIsNil)
@@ -1257,6 +1287,13 @@ func (s *uniterSuite) TestWatchActionNotifications(c *gc.C) {
 	addedAction, err := s.wordpressUnit.AddAction(operationID, "fakeaction", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
+	wc.AssertChange(addedAction.Id())
+
+	_, err = addedAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = addedAction.Cancel()
 	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
 }
@@ -4961,4 +4998,64 @@ type fakeToken struct {
 
 func (t *fakeToken) Check(int, interface{}) error {
 	return t.err
+}
+
+type uniterV14Suite struct {
+	uniterSuiteBase
+	uniterV14 *uniter.UniterAPIV14
+}
+
+var _ = gc.Suite(&uniterV14Suite{})
+
+func (s *uniterV14Suite) SetUpTest(c *gc.C) {
+	s.uniterSuiteBase.SetUpTest(c)
+
+	uniterV14, err := uniter.NewUniterAPIV14(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+	s.uniterV14 = uniterV14
+}
+
+func (s *uniterV14Suite) TestWatchActionNotificationsLegacy(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniterV14.WatchActionNotifications(args)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{StringsWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	operationID, err := s.Model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	addedAction, err := s.wordpressUnit.AddAction(operationID, "fakeaction", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertChange(addedAction.Id())
+
+	_, err = addedAction.Begin()
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	_, err = addedAction.Cancel()
+	wc.AssertNoChange()
 }

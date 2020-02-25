@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -752,6 +753,25 @@ func assertSecurityGroups(c *gc.C, env environs.Environ, expected []string) {
 	}
 }
 
+type portAssertion struct {
+	SubnetIDs  []string
+	NamePrefix string
+}
+
+func assertPorts(c *gc.C, env environs.Environ, expected []portAssertion) {
+	neutronClient := openstack.GetNeutronClient(env)
+	ports, err := neutronClient.ListPortsV2()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ports, gc.HasLen, len(expected))
+	for k, port := range ports {
+		c.Assert(port.Name, jc.HasPrefix, expected[k].NamePrefix)
+		c.Assert(port.FixedIPs, gc.HasLen, len(expected[k].SubnetIDs))
+		for i, ip := range port.FixedIPs {
+			c.Assert(ip.SubnetID, gc.Equals, expected[k].SubnetIDs[i])
+		}
+	}
+}
+
 func assertInstanceIds(c *gc.C, env environs.Environ, callCtx context.ProviderCallContext, expected ...instance.Id) {
 	allInstances, err := env.AllRunningInstances(callCtx)
 	c.Assert(err, jc.ErrorIsNil)
@@ -902,6 +922,63 @@ func (s *localServerSuite) TestDestroyHostedModel(c *gc.C) {
 	assertSecurityGroups(c, controllerEnv, allControllerSecurityGroups)
 	assertInstanceIds(c, env, s.callCtx)
 	assertInstanceIds(c, controllerEnv, s.callCtx, controllerInstance.Id())
+}
+
+func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
+	uuid := utils.MustNewUUID().String()
+	env := s.openEnviron(c, coretesting.Attrs{"uuid": uuid})
+	controllerEnv := s.env
+
+	s.srv.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{
+			Name: "zone-0",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
+
+	controllerInstanceName := "100"
+	params := environs.StartInstanceParams{
+		ControllerUUID:   s.ControllerUUID,
+		AvailabilityZone: "zone-0",
+		Constraints:      constraints.MustParse("spaces=space-1 zones=zone-0"),
+		SubnetsToZones: []map[corenetwork.Id][]string{
+			{
+				"xxx-yyy-zzz": {"zone-0"},
+			},
+		},
+	}
+	_, err := testing.StartInstanceWithParams(env, s.callCtx, controllerInstanceName, params)
+	c.Assert(err, jc.ErrorIsNil)
+	assertPorts(c, env, []portAssertion{
+		{NamePrefix: fmt.Sprintf("juju-%s-", uuid), SubnetIDs: []string{"xxx-yyy-zzz"}},
+	})
+
+	// The openstack runtime would assign a device_id to a port when it's
+	// assigned to an instance. To ensure that all ports are correctly removed
+	// when destroying and so we can exercise all the code paths we have to
+	// replicate that piece of code.
+	// When moving to mocking of providers, this shouldn't be need or required.
+	s.assignDeviceIdToPort(c, "1", "1")
+
+	err = controllerEnv.DestroyController(s.callCtx, s.ControllerUUID)
+	c.Check(err, jc.ErrorIsNil)
+	assertSecurityGroups(c, controllerEnv, []string{"default"})
+	assertInstanceIds(c, env, s.callCtx)
+	assertInstanceIds(c, controllerEnv, s.callCtx)
+	assertPorts(c, env, []portAssertion{})
+}
+
+func (s *localServerSuite) assignDeviceIdToPort(c *gc.C, portId, deviceId string) {
+	model := s.srv.Neutron.NeutronModel()
+	port, err := model.Port("1")
+	c.Assert(err, jc.ErrorIsNil)
+	err = model.RemovePort("1")
+	c.Assert(err, jc.ErrorIsNil)
+	port.DeviceId = "1"
+	err = model.AddPort(*port)
+	c.Assert(err, jc.ErrorIsNil)
 }
 
 var instanceGathering = []struct {

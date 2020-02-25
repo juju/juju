@@ -35,17 +35,49 @@ func (c *Client) Actions(arg params.Entities) (params.ActionResults, error) {
 	return results, err
 }
 
-// Operations fetches the called operations for specified apps/units.
-func (c *Client) Operations(arg params.OperationQueryArgs) (params.OperationResults, error) {
+// ListOperations fetches the operation summaries for specified apps/units.
+func (c *Client) ListOperations(arg params.OperationQueryArgs) (params.OperationResults, error) {
 	results := params.OperationResults{}
 	if v := c.BestAPIVersion(); v < 6 {
-		return results, errors.Errorf("Operations not supported by this version (%d) of Juju", v)
+		return results, errors.Errorf("ListOperations not supported by this version (%d) of Juju", v)
 	}
-	err := c.facade.FacadeCall("Operations", arg, &results)
+	err := c.facade.FacadeCall("ListOperations", arg, &results)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
 	return results, err
+}
+
+// Operation fetches the operation with the specified id.
+func (c *Client) Operation(id string) (params.OperationResult, error) {
+	if v := c.BestAPIVersion(); v < 6 {
+		return params.OperationResult{}, errors.Errorf("Operations not supported by this version (%d) of Juju", v)
+	}
+	arg := params.Entities{
+		Entities: []params.Entity{{names.NewOperationTag(id).String()}},
+	}
+	var results params.OperationResults
+	err := c.facade.FacadeCall("Operations", arg, &results)
+	if err != nil {
+		return params.OperationResult{}, err
+	}
+	if len(results.Results) != 1 {
+		return params.OperationResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return params.OperationResult{}, maybeNotFound(result.Error)
+	}
+	return result, nil
+}
+
+// maybeNotFound returns an error satisfying errors.IsNotFound
+// if the supplied error has a CodeNotFound error.
+func maybeNotFound(err *params.Error) error {
+	if err == nil || !params.IsCodeNotFound(err) {
+		return err
+	}
+	return errors.NewNotFound(err, "")
 }
 
 // FindActionTagsByPrefix takes a list of string prefixes and finds

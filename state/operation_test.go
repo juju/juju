@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/clock/testclock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
@@ -104,8 +105,16 @@ func (s *OperationSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
+	ver, err := s.Model.AgentVersion()
+	c.Assert(err, jc.ErrorIsNil)
+
+	if !state.IsNewActionIDSupported(ver) {
+		err := s.State.SetModelAgentVersion(state.MinVersionSupportNewActionID, true)
+		c.Assert(err, jc.ErrorIsNil)
+	}
+
 	clock := testclock.NewClock(coretesting.NonZeroTime().Round(time.Second))
-	err := s.State.SetClockForTesting(clock)
+	err = s.State.SetClockForTesting(clock)
 	c.Assert(err, jc.ErrorIsNil)
 
 	charm := s.AddTestingCharm(c, "dummy")
@@ -125,9 +134,15 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	c.Assert(err, jc.ErrorIsNil)
 	anAction2, err := s.Model.EnqueueAction(operationID2, unit.Tag(), "restore", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = anAction2.Begin()
+	a, err := anAction2.Begin()
 	c.Assert(err, jc.ErrorIsNil)
-	_, err = anAction2.Finish(state.ActionResults{Status: state.ActionCompleted})
+	err = a.Log("hello")
+	c.Assert(err, jc.ErrorIsNil)
+	_, err = anAction2.Finish(state.ActionResults{
+		Status:  state.ActionCompleted,
+		Message: "done",
+		Results: map[string]interface{}{"foo": "bar"},
+	})
 	c.Assert(err, jc.ErrorIsNil)
 
 	unit2, err := application.AddUnit(state.AddUnitParams{})
@@ -141,7 +156,7 @@ func (s *OperationSuite) setupOperations(c *gc.C) names.Tag {
 	return unit.Tag()
 }
 
-func (s *OperationSuite) assertActions(c *gc.C, operations []state.OperationSummary) {
+func (s *OperationSuite) assertActions(c *gc.C, operations []state.OperationInfo) {
 	for _, operation := range operations {
 		for _, a := range operation.Actions {
 			c.Assert(operation.Operation.Id(), gc.Equals, state.ActionOperationId(a))
@@ -150,6 +165,10 @@ func (s *OperationSuite) assertActions(c *gc.C, operations []state.OperationSumm
 			} else {
 				c.Assert(a.Status(), gc.Equals, state.ActionRunning)
 			}
+			c.Assert(a.Messages(), gc.HasLen, 0)
+			c.Assert(a.Messages(), gc.HasLen, 0)
+			results, _ := a.Results()
+			c.Assert(results, gc.HasLen, 0)
 		}
 	}
 }
@@ -224,4 +243,30 @@ func (s *OperationSuite) TestListOperationsSubset(c *gc.C) {
 	c.Assert(operations[0].Operation.Summary(), gc.Equals, "another operation")
 	c.Assert(operations[0].Actions, gc.HasLen, 1)
 	s.assertActions(c, operations)
+}
+
+func (s *OperationSuite) TestOperationWithActions(c *gc.C) {
+	s.setupOperations(c)
+	operation, err := s.Model.OperationWithActions("2")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(operation.Operation.OperationTag().String(), gc.Equals, "operation-2")
+	c.Assert(operation.Operation.Id(), gc.Equals, "2")
+	c.Assert(operation.Operation.Summary(), gc.Equals, "another operation")
+	c.Assert(operation.Operation.Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(operation.Operation.Enqueued(), gc.Not(gc.Equals), time.Time{})
+	c.Assert(operation.Operation.Started(), gc.Not(gc.Equals), time.Time{})
+	c.Assert(operation.Operation.Completed(), gc.Not(gc.Equals), time.Time{})
+	c.Assert(operation.Actions, gc.HasLen, 1)
+	c.Assert(operation.Actions[0].Id(), gc.Equals, "4")
+	c.Assert(operation.Actions[0].Status(), gc.Equals, state.ActionCompleted)
+	results, message := operation.Actions[0].Results()
+	c.Assert(results, jc.DeepEquals, map[string]interface{}{"foo": "bar"})
+	c.Assert(message, gc.Equals, "done")
+	c.Assert(operation.Actions[0].Messages(), gc.HasLen, 1)
+	c.Assert(operation.Actions[0].Messages()[0].Message(), gc.Equals, "hello")
+}
+
+func (s *OperationSuite) TestOperationWithActionsNotFound(c *gc.C) {
+	_, err := s.Model.OperationWithActions("1")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/worker/common/charmrunner"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
@@ -94,6 +95,11 @@ func (ra *runAction) Commit(state State) (*State, error) {
 		Step: Pending,
 		Hook: state.Hook,
 	}.apply(state), nil
+}
+
+// RemoteStateChanged is called when the remote state changed during execution
+// of the operation.
+func (ra *runAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
 }
 
 // continuationKind determines what State Kind the operation

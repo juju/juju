@@ -407,6 +407,9 @@ func testBeforeHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo) {
 		c.Assert(status.Info, gc.Equals, "installing charm software")
 	case hooks.Stop:
 		c.Assert(status.Status, gc.Equals, "maintenance")
+		c.Assert(status.Info, gc.Equals, "stopping charm software")
+	case hooks.Remove:
+		c.Assert(status.Status, gc.Equals, "maintenance")
 		c.Assert(status.Info, gc.Equals, "cleaning up prior to charm deletion")
 	default:
 		c.Assert(status.Status, gc.Equals, "")
@@ -425,6 +428,8 @@ func testAfterHookStatus(c *gc.C, kind hooks.Kind, status *jujuc.StatusInfo, sta
 			c.Assert(status.Status, gc.Equals, "unknown")
 		}
 	case hooks.Stop:
+		c.Assert(status.Status, gc.Equals, "maintenance")
+	case hooks.Remove:
 		c.Assert(status.Status, gc.Equals, "terminated")
 	default:
 		c.Assert(status.Status, gc.Equals, "")

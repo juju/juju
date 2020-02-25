@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/juju/clock"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/retry"
 	"github.com/juju/utils"
@@ -577,15 +576,17 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 	}
 
 	haveVPCID := isVPCIDSet(e.ecfg().vpcID())
-	var subnetIDsForZone []string
+	var subnetIDsForZone []corenetwork.Id
 	var subnetErr error
 	if haveVPCID {
-		var allowedSubnetIDs []string
+		var allowedSubnetIDs []corenetwork.Id
 		if placementSubnetID != "" {
-			allowedSubnetIDs = []string{placementSubnetID}
+			allowedSubnetIDs = []corenetwork.Id{placementSubnetID}
 		} else {
-			for subnetID := range subnetZones {
-				allowedSubnetIDs = append(allowedSubnetIDs, string(subnetID))
+			for _, spaces := range args.SubnetsToZones {
+				for subnetID := range spaces {
+					allowedSubnetIDs = append(allowedSubnetIDs, subnetID)
+				}
 			}
 		}
 		subnetIDsForZone, subnetErr = getVPCSubnetIDsForAvailabilityZone(
@@ -595,9 +596,9 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 			corenetwork.FindSubnetIDsForAvailabilityZone(availabilityZone, subnetZones)
 
 		if subnetErr == nil && placementSubnetID != "" {
-			asSet := set.NewStrings(subnetIDsForZone...)
+			asSet := corenetwork.MakeSubnetSet(subnetIDsForZone...)
 			if asSet.Contains(placementSubnetID) {
-				subnetIDsForZone = []string{placementSubnetID}
+				subnetIDsForZone = []corenetwork.Id{placementSubnetID}
 			} else {
 				subnetIDsForZone = nil
 				subnetErr = errors.NotFoundf("subnets %q in AZ %q", placementSubnetID, availabilityZone)
@@ -616,10 +617,10 @@ func (e *environ) StartInstance(ctx context.ProviderCallContext, args environs.S
 		// still work correctly if we happen to pick a constrained subnet
 		// (we'll just treat this the same way we treat constrained zones
 		// and retry).
-		runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))]
+		runArgs.SubnetId = subnetIDsForZone[rand.Intn(len(subnetIDsForZone))].String()
 		logger.Debugf("selected random subnet %q from all matching in zone %q", runArgs.SubnetId, availabilityZone)
 	case len(subnetIDsForZone) == 1:
-		runArgs.SubnetId = subnetIDsForZone[0]
+		runArgs.SubnetId = subnetIDsForZone[0].String()
 		logger.Debugf("selected subnet %q in zone %q", runArgs.SubnetId, availabilityZone)
 	}
 
@@ -691,7 +692,7 @@ func (e *environ) deriveAvailabilityZone(ctx context.ProviderCallContext, args e
 	return availabilityZone, err
 }
 
-func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, string, error) {
+func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallContext, args environs.StartInstanceParams) (string, corenetwork.Id, error) {
 	// Determine the availability zones of existing volumes that are to be
 	// attached to the machine. They must all match, and must be the same
 	// as specified zone (if any).
@@ -734,11 +735,11 @@ func (e *environ) deriveAvailabilityZoneAndSubnetID(ctx context.ProviderCallCont
 	return availabilityZone, placementSubnetID, nil
 }
 
-func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placement, volumeAttachmentsZone string) (zone, subnet string, _ error) {
+func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placement, volumeAttachmentsZone string) (zone string, subnet corenetwork.Id, _ error) {
 	if placement == "" {
 		return volumeAttachmentsZone, "", nil
 	}
-	var placementSubnetID string
+	var placementSubnetID corenetwork.Id
 	instPlacement, err := e.parsePlacement(ctx, placement)
 	if err != nil {
 		return "", "", errors.Trace(err)
@@ -760,7 +761,7 @@ func (e *environ) instancePlacementZone(ctx context.ProviderCallContext, placeme
 		if instPlacement.subnet.State != availableState {
 			return "", "", errors.Errorf("subnet %q is %q", instPlacement.subnet.CIDRBlock, instPlacement.subnet.State)
 		}
-		placementSubnetID = instPlacement.subnet.Id
+		placementSubnetID = corenetwork.Id(instPlacement.subnet.Id)
 	}
 	return instPlacement.availabilityZone.Name, placementSubnetID, nil
 }

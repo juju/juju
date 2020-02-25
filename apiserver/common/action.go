@@ -30,6 +30,10 @@ func ParamsActionExecutionResultsToStateActionResults(arg params.ActionExecution
 		status = state.ActionFailed
 	case params.ActionPending:
 		status = state.ActionPending
+	case params.ActionAborting:
+		status = state.ActionAborting
+	case params.ActionAborted:
+		status = state.ActionAborted
 	default:
 		return state.ActionResults{}, errors.Errorf("unrecognized action status '%s'", arg.Status)
 	}
@@ -162,7 +166,8 @@ func Actions(args params.Entities, actionFn func(string) (state.Action, error)) 
 	return results
 }
 
-// WatchOneActionReceiverNotifications to create a watcher for one receiver.
+// WatchOneActionReceiverNotifications returns a function for creating a
+// watcher on all action notifications (action adds + changes) for one receiver.
 // It needs a tagToActionReceiver function and a registerFunc to register
 // resources.
 // It's a helper function currently used by the uniter and by machineactions
@@ -174,6 +179,30 @@ func WatchOneActionReceiverNotifications(tagToActionReceiver func(tag string) (s
 			return nothing, err
 		}
 		watch := receiver.WatchActionNotifications()
+
+		if changes, ok := <-watch.Changes(); ok {
+			return params.StringsWatchResult{
+				StringsWatcherId: registerFunc(watch),
+				Changes:          changes,
+			}, nil
+		}
+		return nothing, watcher.EnsureErr(watch)
+	}
+}
+
+// WatchPendingActionsForReceiver returns a function for creating a
+// watcher on new pending Actions for one receiver.
+// It needs a tagToActionReceiver function and a registerFunc to register
+// resources.
+// It's a helper function currently used by the uniter and by machineactions
+func WatchPendingActionsForReceiver(tagToActionReceiver func(tag string) (state.ActionReceiver, error), registerFunc func(r facade.Resource) string) func(names.Tag) (params.StringsWatchResult, error) {
+	return func(tag names.Tag) (params.StringsWatchResult, error) {
+		nothing := params.StringsWatchResult{}
+		receiver, err := tagToActionReceiver(tag.String())
+		if err != nil {
+			return nothing, err
+		}
+		watch := receiver.WatchPendingActionNotifications()
 
 		if changes, ok := <-watch.Changes(); ok {
 			return params.StringsWatchResult{

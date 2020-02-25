@@ -11,6 +11,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
@@ -49,6 +50,13 @@ const (
 
 	// ActionRunning indicates that the Action is currently running.
 	ActionRunning ActionStatus = "running"
+
+	// ActionAborting indicates that the Action is running but should be
+	// aborted.
+	ActionAborting ActionStatus = "aborting"
+
+	// ActionAborted indicates the Action was aborted.
+	ActionAborted ActionStatus = "aborted"
 )
 
 type actionNotificationDoc struct {
@@ -68,6 +76,11 @@ type actionNotificationDoc struct {
 	// ActionID is the unique identifier for the Action this notification
 	// represents.
 	ActionID string `bson:"actionid"`
+
+	// Changed represents the time when the corrosponding Action had a change
+	// worthy of notifying on.
+	// NOTE: changed should not be set on pending actions, see actionNotificationWatcher.
+	Changed time.Time `bson:"changed,omitempty"`
 }
 
 type actionDoc struct {
@@ -137,6 +150,23 @@ func (m ActionMessage) Message() string {
 type action struct {
 	st  *State
 	doc actionDoc
+}
+
+// Refresh the contents of the action.
+func (a *action) Refresh() error {
+	actions, closer := a.st.db().GetCollection(actionsC)
+	defer closer()
+	id := a.Id()
+	doc := actionDoc{}
+	err := actions.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return errors.NotFoundf("action %q", id)
+	}
+	if err != nil {
+		return errors.Annotatef(err, "cannot get action %q", id)
+	}
+	a.doc = doc
+	return nil
 }
 
 // Id returns the local id of the Action.
@@ -277,6 +307,58 @@ func (a *action) Finish(results ActionResults) (Action, error) {
 	return a.removeAndLog(results.Status, results.Results, results.Message)
 }
 
+// Cancel or Abort the action.
+func (a *action) Cancel() (Action, error) {
+	m, err := a.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	parentOperation, err := m.Operation(a.doc.Operation)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+
+	cancelTime := a.st.nowToTheSecond()
+	removeAndLog := a.removeAndLogBuildTxn(ActionCancelled, nil, "action cancelled via the API",
+		m, parentOperation, cancelTime)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		err := a.Refresh()
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+		switch a.Status() {
+		case ActionRunning:
+			ops := []txn.Op{
+				{
+					C:      actionsC,
+					Id:     a.doc.DocId,
+					Assert: bson.D{{"status", ActionRunning}},
+					Update: bson.D{{"$set", bson.D{
+						{"status", ActionAborting},
+					}}},
+				}, {
+					C:  actionNotificationsC,
+					Id: m.st.docID(ensureActionMarker(a.Receiver()) + a.Id()),
+					Update: bson.D{{"$set", bson.D{
+						{"changed", cancelTime},
+					}}},
+				},
+			}
+			return ops, nil
+		case ActionPending:
+			return removeAndLog(attempt)
+		default:
+			// Already done.
+			return nil, nil
+		}
+	}
+	if err = m.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m.Action(a.Id())
+}
+
 // removeAndLog takes the action off of the pending queue, and creates
 // an actionresult to capture the outcome of the action. It asserts that
 // the action is not already completed.
@@ -290,13 +372,25 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, errors.Trace(err)
 	}
+
 	completedTime := a.st.nowToTheSecond()
-	buildTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := a.removeAndLogBuildTxn(finalStatus, results, message, m, parentOperation, completedTime)
+	if err = m.st.db().Run(buildTxn); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return m.Action(a.Id())
+}
+
+// removeAndLogBuildTxn is shared by Cancel and removeAndLog to correctly finalise an action and it's parent op.
+func (a *action) removeAndLogBuildTxn(finalStatus ActionStatus, results map[string]interface{}, message string,
+	m *Model, parentOperation Operation, completedTime time.Time) jujutxn.TransactionSource {
+	return func(attempt int) ([]txn.Op, error) {
 		assertNotComplete := bson.D{{"status", bson.D{
 			{"$nin", []interface{}{
 				ActionCompleted,
 				ActionCancelled,
 				ActionFailed,
+				ActionAborted,
 			}}}}}
 		// If this is the last action to be marked as completed
 		// for the parent operation, the operation itself is also
@@ -372,10 +466,6 @@ func (a *action) removeAndLog(finalStatus ActionStatus, results map[string]inter
 		}
 		return ops, nil
 	}
-	if err = m.st.db().Run(buildTxn); err != nil {
-		return nil, errors.Trace(err)
-	}
-	return m.Action(a.Id())
 }
 
 // Messages returns the action's progress messages.
@@ -411,14 +501,17 @@ func (a *action) Log(message string) error {
 			}
 			a = anAction.(*action)
 		}
-		if s := a.Status(); s != ActionRunning {
+		if s := a.Status(); s != ActionRunning && s != ActionAborting {
 			return nil, errors.Errorf("cannot log message to task %q with status %v", a.Id(), s)
 		}
 		ops := []txn.Op{
 			{
-				C:      actionsC,
-				Id:     a.doc.DocId,
-				Assert: bson.D{{"status", ActionRunning}},
+				C:  actionsC,
+				Id: a.doc.DocId,
+				Assert: bson.D{{"$or", []bson.D{
+					{{"status", ActionRunning}},
+					{{"status", ActionAborting}},
+				}}},
 				Update: bson.D{{"$push", bson.D{
 					{"messages", ActionMessage{MessageValue: message, TimestampValue: a.st.nowToTheSecond().UTC()}},
 				}}},
@@ -672,15 +765,18 @@ func (st *State) matchingActionsByReceiverId(id string) ([]Action, error) {
 // matchingActionsPending finds actions that match ActionReceiver and
 // that are pending.
 func (st *State) matchingActionsPending(ar ActionReceiver) ([]Action, error) {
-	completed := bson.D{{"status", ActionPending}}
-	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
+	pending := bson.D{{"status", ActionPending}}
+	return st.matchingActionsByReceiverAndStatus(ar.Tag(), pending)
 }
 
 // matchingActionsRunning finds actions that match ActionReceiver and
 // that are running.
 func (st *State) matchingActionsRunning(ar ActionReceiver) ([]Action, error) {
-	completed := bson.D{{"status", ActionRunning}}
-	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
+	running := bson.D{{"$or", []bson.D{
+		{{"status", ActionRunning}},
+		{{"status", ActionAborting}},
+	}}}
+	return st.matchingActionsByReceiverAndStatus(ar.Tag(), running)
 }
 
 // matchingActionsCompleted finds actions that match ActionReceiver and
@@ -690,6 +786,7 @@ func (st *State) matchingActionsCompleted(ar ActionReceiver) ([]Action, error) {
 		{{"status", ActionCompleted}},
 		{{"status", ActionCancelled}},
 		{{"status", ActionFailed}},
+		{{"status", ActionAborted}},
 	}}}
 	return st.matchingActionsByReceiverAndStatus(ar.Tag(), completed)
 }

@@ -72,7 +72,7 @@ func (c *hashCache) generateHash(keys []string) string {
 			}
 		}
 	}
-	h, err := hash(interested)
+	h, err := hashSettings(interested)
 	if err != nil {
 		logger.Errorf("invariant error - model config should be yaml serializable and hashable, %v", err)
 		return ""
@@ -92,25 +92,25 @@ func (c *hashCache) incMisses() {
 	}
 }
 
-// hash returns a hash of the yaml serialized settings.
-// If the settings are not able to be serialized an error is returned.
-func hash(settings map[string]interface{}, extra ...string) (string, error) {
-	encoded, err := yaml.Marshal(settings)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-
+// hash returns a hash of the string values.
+func hash(values ...string) (string, error) {
 	hash := sha256.New()
-	for _, s := range extra {
-		_, err = hash.Write([]byte(s))
+	for _, s := range values {
+		_, err := hash.Write([]byte(s))
 		if err != nil {
 			return "", errors.Trace(err)
 		}
 	}
-	_, err = hash.Write(encoded)
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// hashSettings returns a hash of the yaml serialized settings.
+// If the settings are not able to be serialized an error is returned.
+func hashSettings(settings map[string]interface{}, extras ...string) (string, error) {
+	encoded, err := yaml.Marshal(settings)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
-
-	return hex.EncodeToString(hash.Sum(nil)), nil
+	values := append(extras, string(encoded))
+	return hash(values...)
 }

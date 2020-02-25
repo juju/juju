@@ -19,14 +19,14 @@ import (
 
 func (s *ControllerSuite) TestCollect(c *gc.C) {
 	loggo.GetLogger("juju.core.cache").SetLogLevel(loggo.TRACE)
-	controller, events := s.new(c)
+	controller, events := s.New(c)
 
 	// Note that the model change is processed last.
-	s.processChange(c, charmChange, events)
-	s.processChange(c, appChange, events)
-	s.processChange(c, machineChange, events)
-	s.processChange(c, unitChange, events)
-	s.processChange(c, modelChange, events)
+	s.ProcessChange(c, charmChange, events)
+	s.ProcessChange(c, appChange, events)
+	s.ProcessChange(c, machineChange, events)
+	s.ProcessChange(c, unitChange, events)
+	s.ProcessChange(c, modelChange, events)
 
 	collector := cache.NewMetricsCollector(controller)
 

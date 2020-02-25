@@ -103,34 +103,34 @@ timing:
 	}, {
 		should:            "pass api error through properly",
 		withClientQueryID: validActionId,
-		withAPITimeout:    2 * time.Second,
+		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIError:      "api call error",
 		expectedErr:       "api call error",
 	}, {
 		should:            "fail with no tag matches",
 		withClientQueryID: validActionId,
-		withAPITimeout:    2 * time.Second,
+		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId),
 		expectedErr:       `actions for identifier "` + validActionId + `" not found`,
 	}, {
 		should:            "fail with no results",
 		withClientQueryID: validActionId,
-		withAPITimeout:    2 * time.Second,
+		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{},
 		expectedErr:       "no results for action " + validActionId,
 	}, {
 		should:            "error correctly with multiple results",
 		withClientQueryID: validActionId,
-		withAPITimeout:    2 * time.Second,
+		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse:   []params.ActionResult{{}, {}},
 		expectedErr:       "too many results for action " + validActionId,
 	}, {
 		should:            "pass through an error from the API server",
 		withClientQueryID: validActionId,
-		withAPITimeout:    2 * time.Second,
+		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Error: common.ServerError(errors.New("an apiserver error")),
@@ -157,7 +157,7 @@ timing:
 	}, {
 		should:            "pretty-print action output",
 		withClientQueryID: validActionId,
-		withAPITimeout:    2 * time.Second,
+		withAPITimeout:    1 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
 			Status:  "complete",
@@ -172,6 +172,7 @@ timing:
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 		}},
 		expectedOutput: `
+id: f47ac10b-58cc-4372-a567-0e02b2c3d479
 message: oh dear
 results:
   foo:
@@ -185,6 +186,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no completed time",
 		withClientQueryID: validActionId,
+		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
@@ -210,6 +212,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no enqueued time",
 		withClientQueryID: validActionId,
+		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
@@ -224,6 +227,7 @@ timing:
 		}},
 		expectedErr: "timeout reached",
 		expectedOutput: `
+id: f47ac10b-58cc-4372-a567-0e02b2c3d479
 results:
   foo:
     bar: baz
@@ -235,6 +239,7 @@ timing:
 	}, {
 		should:            "pretty-print action output with no started time",
 		withClientQueryID: validActionId,
+		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
 		withAPIResponse: []params.ActionResult{{
@@ -249,6 +254,7 @@ timing:
 		}},
 		expectedErr: "timeout reached",
 		expectedOutput: `
+id: f47ac10b-58cc-4372-a567-0e02b2c3d479
 results:
   foo:
     bar: baz
@@ -260,6 +266,7 @@ timing:
 	}, {
 		should:            "plain format action output",
 		withClientQueryID: validActionId,
+		withClientWait:    "1s",
 		withAPITimeout:    2 * time.Second,
 		withFormat:        "plain",
 		withTags:          tagsForIdPrefix(validActionId, validActionTagString),
@@ -301,6 +308,7 @@ hello
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 		}},
 		expectedOutput: `
+id: f47ac10b-58cc-4372-a567-0e02b2c3d479
 results:
   foo:
     bar: baz
@@ -320,6 +328,7 @@ timing:
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 		}},
 		expectedOutput: `
+id: f47ac10b-58cc-4372-a567-0e02b2c3d479
 status: completed
 timing:
   completed: 2015-02-14 08:15:30 +0000 UTC
@@ -339,6 +348,7 @@ timing:
 			Completed: time.Date(2015, time.February, 14, 8, 15, 30, 0, time.UTC),
 		}},
 		expectedOutput: `
+id: f47ac10b-58cc-4372-a567-0e02b2c3d479
 status: completed
 timing:
   completed: 2015-02-14 08:15:30 +0000 UTC
