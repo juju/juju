@@ -3,7 +3,8 @@
 
 package ec2instancetypes
 
-//go:generate go run process_cost_data.go -o generated.go index.json
+//go:generate go run fetch_instance_types.go
+//go:generate go run process_cost_data.go -type-file data.yaml -o generated.go index.json
 
 import (
 	"strings"
