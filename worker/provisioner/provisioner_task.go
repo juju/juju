@@ -1120,6 +1120,14 @@ func (task *provisionerTask) startMachine(
 			// next time until the error is resolved.
 			task.removeMachineFromAZMap(machine)
 			return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
+		} else {
+			if startInstanceParams.AvailabilityZone != "" {
+				task.logger.Warningf("machine %s failed to start in availability zone %s: %v",
+					machine, startInstanceParams.AvailabilityZone, err)
+			} else {
+				task.logger.Warningf("machine %s failed to start: %v",
+					machine, err)
+			}
 		}
 
 		retrying := true
@@ -1127,7 +1135,8 @@ func (task *provisionerTask) startMachine(
 		if startInstanceParams.AvailabilityZone != "" && !environs.IsAvailabilityZoneIndependent(err) {
 			// We've specified a zone, and the error may be specific to
 			// that zone. Retry in another zone if there are any untried.
-			azRemaining, err2 := task.markMachineFailedInAZ(machine, startInstanceParams.AvailabilityZone)
+			azRemaining, err2 := task.markMachineFailedInAZ(machine,
+				startInstanceParams.AvailabilityZone, startInstanceParams.Constraints)
 			if err2 != nil {
 				if err = task.setErrorStatus("cannot start instance: %v", machine, err2); err != nil {
 					task.logger.Errorf("setting error status: %s", err)
@@ -1246,27 +1255,30 @@ func (task *provisionerTask) gatherCharmLXDProfiles(
 // markMachineFailedInAZ moves the machine in zone from MachineIds to FailedMachineIds
 // in availabilityZoneMachines, report if there are any availability zones not failed for
 // the specified machine.
-func (task *provisionerTask) markMachineFailedInAZ(machine apiprovisioner.MachineProvisioner, zone string) (bool, error) {
+func (task *provisionerTask) markMachineFailedInAZ(machine apiprovisioner.MachineProvisioner, zone string,
+	cons constraints.Value) (bool, error) {
 	if zone == "" {
 		return false, errors.New("no zone provided")
 	}
 	task.machinesMutex.Lock()
 	defer task.machinesMutex.Unlock()
-	azRemaining := false
 	for _, zoneMachines := range task.availabilityZoneMachines {
 		if zone == zoneMachines.ZoneName {
 			zoneMachines.MachineIds.Remove(machine.Id())
 			zoneMachines.FailedMachineIds.Add(machine.Id())
-			if azRemaining {
-				break
-			}
-		}
-		if !zoneMachines.FailedMachineIds.Contains(machine.Id()) &&
-			!zoneMachines.ExcludedMachineIds.Contains(machine.Id()) {
-			azRemaining = true
+			break
 		}
 	}
-	return azRemaining, nil
+
+	// Check if there are any zones left to try (that also match constraints).
+	zoneMap := azMachineFilterSort(task.availabilityZoneMachines).FilterZones(cons)
+	for _, zoneMachines := range zoneMap {
+		if !zoneMachines.FailedMachineIds.Contains(machine.Id()) &&
+			!zoneMachines.ExcludedMachineIds.Contains(machine.Id()) {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (task *provisionerTask) clearMachineAZFailures(machine apiprovisioner.MachineProvisioner) {
