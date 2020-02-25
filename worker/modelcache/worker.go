@@ -34,8 +34,15 @@ type Clock interface {
 	After(time.Duration) <-chan time.Time
 }
 
+// Hub defines the methods of the apiserver centralhub that the peer
+// grouper uses.
+type Hub interface {
+	Subscribe(topic string, handler interface{}) (func(), error)
+}
+
 // Config describes the necessary fields for NewWorker.
 type Config struct {
+	Hub                  Hub
 	InitializedGate      Unlocker
 	Logger               Logger
 	PrometheusRegisterer prometheus.Registerer
@@ -79,6 +86,9 @@ func (c Config) WithDefaultRestartStrategy() Config {
 
 // Validate ensures all the necessary values are specified
 func (c *Config) Validate() error {
+	if c.Hub == nil {
+		return errors.NotValidf("missing hub")
+	}
 	if c.InitializedGate == nil {
 		return errors.NotValidf("missing initialized gate")
 	}

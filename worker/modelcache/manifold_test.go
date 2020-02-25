@@ -6,6 +6,7 @@ package modelcache_test
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -28,6 +29,7 @@ var _ = gc.Suite(&ManifoldSuite{})
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 	s.config = modelcache.ManifoldConfig{
+		CentralHubName:       "central-hub",
 		MultiwatcherName:     "multiwatcher",
 		InitializedGateName:  "initialized-gate",
 		Logger:               loggo.GetLogger("test"),
@@ -43,7 +45,7 @@ func (s *ManifoldSuite) manifold() dependency.Manifold {
 }
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
-	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"multiwatcher", "initialized-gate"})
+	c.Check(s.manifold().Inputs, jc.DeepEquals, []string{"central-hub", "multiwatcher", "initialized-gate"})
 }
 
 func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
@@ -51,18 +53,25 @@ func (s *ManifoldSuite) TestConfigValidation(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *ManifoldSuite) TestConfigValidationMissingCentralHubName(c *gc.C) {
+	s.config.CentralHubName = ""
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing CentralHubName not valid")
+}
+
 func (s *ManifoldSuite) TestConfigValidationMissingInitializedGateName(c *gc.C) {
 	s.config.InitializedGateName = ""
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "empty InitializedGateName not valid")
+	c.Check(err, gc.ErrorMatches, "missing InitializedGateName not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingMultiwatcherName(c *gc.C) {
 	s.config.MultiwatcherName = ""
 	err := s.config.Validate()
 	c.Check(err, jc.Satisfies, errors.IsNotValid)
-	c.Check(err, gc.ErrorMatches, "empty MultiwatcherName not valid")
+	c.Check(err, gc.ErrorMatches, "missing MultiwatcherName not valid")
 }
 
 func (s *ManifoldSuite) TestConfigValidationMissingPrometheusRegisterer(c *gc.C) {
@@ -95,8 +104,21 @@ func (s *ManifoldSuite) TestManifoldCallsValidate(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `missing Logger not valid`)
 }
 
-func (s *ManifoldSuite) TestStateMissing(c *gc.C) {
+func (s *ManifoldSuite) TestCentralHubMissing(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
+		"central-hub":      dependency.ErrMissing,
+		"multiwatcher":     &fakeMultwatcherFactory{},
+		"initialized-gate": gate.NewLock(),
+	})
+
+	w, err := s.manifold().Start(context)
+	c.Check(w, gc.IsNil)
+	c.Check(errors.Cause(err), gc.Equals, dependency.ErrMissing)
+}
+
+func (s *ManifoldSuite) TestMultiwatcherMissing(c *gc.C) {
+	context := dt.StubContext(nil, map[string]interface{}{
+		"central-hub":      pubsub.NewStructuredHub(nil),
 		"multiwatcher":     dependency.ErrMissing,
 		"initialized-gate": gate.NewLock(),
 	})
@@ -108,6 +130,7 @@ func (s *ManifoldSuite) TestStateMissing(c *gc.C) {
 
 func (s *ManifoldSuite) TestInitializedGateMissing(c *gc.C) {
 	context := dt.StubContext(nil, map[string]interface{}{
+		"central-hub":      pubsub.NewStructuredHub(nil),
 		"multiwatcher":     &fakeMultwatcherFactory{},
 		"initialized-gate": dependency.ErrMissing,
 	})
@@ -125,6 +148,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	}
 
 	context := dt.StubContext(nil, map[string]interface{}{
+		"central-hub":      pubsub.NewStructuredHub(nil),
 		"multiwatcher":     &fakeMultwatcherFactory{},
 		"initialized-gate": gate.NewLock(),
 	})
@@ -134,6 +158,7 @@ func (s *ManifoldSuite) TestNewWorkerArgs(c *gc.C) {
 	c.Check(w, gc.NotNil)
 
 	c.Check(config.Validate(), jc.ErrorIsNil)
+	c.Check(config.Hub, gc.NotNil)
 	c.Check(config.WatcherFactory, gc.NotNil)
 	c.Check(config.Logger, gc.Equals, s.config.Logger)
 	c.Check(config.PrometheusRegisterer, gc.Equals, s.config.PrometheusRegisterer)

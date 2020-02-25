@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -46,6 +47,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		Hub:                  pubsub.NewStructuredHub(nil),
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("modelcache"),
 		WatcherFactory:       multiWatcherWorker.WatchController,

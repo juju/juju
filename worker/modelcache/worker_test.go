@@ -12,6 +12,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/pubsub"
 	jt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/prometheus/client_golang/prometheus"
@@ -55,6 +56,9 @@ func (s *WorkerConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
 	s.config = modelcache.Config{
+		Hub: pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
+			Logger: loggo.GetLogger("test"),
+		}),
 		InitializedGate: gate.NewLock(),
 		Logger:          loggo.GetLogger("test"),
 		WatcherFactory: func() multiwatcher.Watcher {
@@ -85,6 +89,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.mwFactory = w
 
 	s.config = modelcache.Config{
+		Hub: pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
+			Logger: loggo.GetLogger("test"),
+		}),
 		InitializedGate:        s.gate,
 		Logger:                 s.logger,
 		WatcherFactory:         s.mwFactory.WatchController,
@@ -94,6 +101,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		WatcherRestartDelayMax: time.Millisecond,
 		Clock:                  clock.WallClock,
 	}
+}
+
+func (s *WorkerConfigSuite) TestConfigMissingHub(c *gc.C) {
+	s.config.Hub = nil
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing hub not valid")
 }
 
 func (s *WorkerConfigSuite) TestConfigMissingLogger(c *gc.C) {
