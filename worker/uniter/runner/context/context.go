@@ -1019,11 +1019,11 @@ func (ctx *HookContext) doFlush(process string) error {
 	// relation settings for the unit endpoints are up to date after
 	// potential changes to already bound endpoints.
 	if process == string(hooks.ConfigChanged) {
-		b = b.UpdateNetworkInfo()
+		b.UpdateNetworkInfo()
 	}
 
 	if ctx.cacheDirty {
-		b = b.UpdateUnitState(ctx.cacheValues)
+		b.UpdateUnitState(ctx.cacheValues)
 	}
 
 	for _, rctx := range ctx.relations {
@@ -1031,15 +1031,15 @@ func (ctx *HookContext) doFlush(process string) error {
 		if len(unitSettings)+len(appSettings) == 0 {
 			continue // no settings need updating
 		}
-		b = b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
+		b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
 	}
 
 	for portRange, info := range ctx.pendingPorts {
 		if info.ShouldOpen {
-			b = b.OpenPortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
-			continue
+			b.OpenPortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
+		} else {
+			b.ClosePortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
 		}
-		b = b.ClosePortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
 	}
 
 	// Generate change request but skip its execution if no changes are pending.

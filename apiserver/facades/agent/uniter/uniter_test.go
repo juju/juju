@@ -4667,14 +4667,14 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 
-	req, _ := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag()).
-		UpdateNetworkInfo().
-		UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"}).
-		OpenPortRange("tcp", 80, 81).
-		OpenPortRange("tcp", 7337, 7337). // same port closed below; this should be a no-op
-		ClosePortRange("tcp", 7337, 7337).
-		UpdateUnitState(map[string]string{"charm-key": "charm-value"}).
-		Build()
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"})
+	b.OpenPortRange("tcp", 80, 81)
+	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
+	b.ClosePortRange("tcp", 7337, 7337)
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
 
 	// Add some extra args to test error handling
 	req.Args = append(req.Args,
@@ -4738,9 +4738,9 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	relList, err := s.wordpressUnit.RelationsJoined()
 	c.Assert(err, gc.IsNil)
 
-	req, _ := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag()).
-		UpdateRelationUnitSettings(relList[0].Tag().String(), nil, params.Settings{"can't": "touch this!"}).
-		Build()
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateRelationUnitSettings(relList[0].Tag().String(), nil, params.Settings{"can't": "touch this!"})
+	req, _ := b.Build()
 
 	// Test-suite uses an older API version
 	api, err := uniter.NewUniterAPI(s.facadeContext())

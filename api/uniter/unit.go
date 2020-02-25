@@ -880,9 +880,8 @@ func (u *Unit) CommitHookChanges(req params.CommitHookChangesArgs) error {
 	return results.Combine()
 }
 
-// CommitHookParamsBuilder is a helper type that provides a fluid interface
-// for populating the set of parameters for performing a CommitHookChanges
-// API call.
+// CommitHookParamsBuilder is a helper type for populating the set of
+// parameters used to perform a CommitHookChanges API call.
 type CommitHookParamsBuilder struct {
 	arg params.CommitHookChangesArg
 }
@@ -898,7 +897,7 @@ func NewCommitHookParamsBuilder(unitTag names.UnitTag) *CommitHookParamsBuilder 
 }
 
 // OpenPortRange records a request to open a particular port range.
-func (b *CommitHookParamsBuilder) OpenPortRange(protocol string, fromPort, toPort int) *CommitHookParamsBuilder {
+func (b *CommitHookParamsBuilder) OpenPortRange(protocol string, fromPort, toPort int) {
 	b.arg.OpenPorts = append(b.arg.OpenPorts, params.EntityPortRange{
 		// The Tag is optional as the call uses the Tag from the
 		// CommitHookChangesArg; it is included here for consistency.
@@ -907,11 +906,10 @@ func (b *CommitHookParamsBuilder) OpenPortRange(protocol string, fromPort, toPor
 		FromPort: fromPort,
 		ToPort:   toPort,
 	})
-	return b
 }
 
 // ClosePortRange records a request to close a particular port range.
-func (b *CommitHookParamsBuilder) ClosePortRange(protocol string, fromPort, toPort int) *CommitHookParamsBuilder {
+func (b *CommitHookParamsBuilder) ClosePortRange(protocol string, fromPort, toPort int) {
 	b.arg.ClosePorts = append(b.arg.ClosePorts, params.EntityPortRange{
 		// The Tag is optional as the call uses the Tag from the
 		// CommitHookChangesArg; it is included here for consistency.
@@ -920,37 +918,33 @@ func (b *CommitHookParamsBuilder) ClosePortRange(protocol string, fromPort, toPo
 		FromPort: fromPort,
 		ToPort:   toPort,
 	})
-	return b
 }
 
 // UpdateRelationUnitSettings records a request to update the unit/application
 // settings for a relation.
-func (b *CommitHookParamsBuilder) UpdateRelationUnitSettings(relName string, unitSettings, appSettings params.Settings) *CommitHookParamsBuilder {
+func (b *CommitHookParamsBuilder) UpdateRelationUnitSettings(relName string, unitSettings, appSettings params.Settings) {
 	b.arg.RelationUnitSettings = append(b.arg.RelationUnitSettings, params.RelationUnitSettings{
 		Relation:            relName,
 		Unit:                b.arg.Tag,
 		Settings:            unitSettings,
 		ApplicationSettings: appSettings,
 	})
-	return b
 }
 
 // UpdateRelationUnitSettings records a request to update the network information
 // settings for each joined relation.
-func (b *CommitHookParamsBuilder) UpdateNetworkInfo() *CommitHookParamsBuilder {
+func (b *CommitHookParamsBuilder) UpdateNetworkInfo() {
 	b.arg.UpdateNetworkInfo = true
-	return b
 }
 
 // UpdateUnitState records a request to update the server-persisted charm state.
-func (b *CommitHookParamsBuilder) UpdateUnitState(state map[string]string) *CommitHookParamsBuilder {
+func (b *CommitHookParamsBuilder) UpdateUnitState(state map[string]string) {
 	b.arg.SetUnitState = &params.SetUnitStateArg{
 		// The Tag is optional as the call uses the Tag from the
 		// CommitHookChangesArg; it is included here for consistency.
 		Tag:   b.arg.Tag,
 		State: state,
 	}
-	return b
 }
 
 // Build assembles the recorded change requests into a CommitHookChangesArgs
