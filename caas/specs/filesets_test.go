@@ -18,6 +18,26 @@ type validateFileSetTc struct {
 	errStr string
 }
 
+func (s *typesSuite) TestValidateFileSetV2(c *gc.C) {
+	for i, tc := range []validateTc{
+		{
+			spec: &specs.FileSetV2{
+				Name: "file1",
+			},
+			errStr: `mount path is missing for file set "file1"`,
+		},
+		{
+			spec: &specs.FileSetV2{
+				MountPath: "/foo/bar",
+			},
+			errStr: `file set name is missing`,
+		},
+	} {
+		c.Logf("#%d: testing FileSetV2.Validate", i)
+		c.Check(tc.spec.Validate(), gc.ErrorMatches, tc.errStr)
+	}
+}
+
 func (s *typesSuite) TestValidateFileSet(c *gc.C) {
 	badMultiSource := &specs.FileSet{
 		Name:      "file1",

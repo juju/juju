@@ -37,6 +37,48 @@ type PullPolicy string
 // ContainerConfig describes the config used for setting up a pod container's environment variables.
 type ContainerConfig map[string]interface{}
 
+// ContainerSpecV2 defines the data values used to configure
+// a container on the CAAS substrate.
+type ContainerSpecV2 struct {
+	Name string `json:"name" yaml:"name"`
+	Init bool   `json:"init,omitempty" yaml:"init,omitempty"`
+	// Image is deprecated in preference to using ImageDetails.
+	Image        string          `json:"image,omitempty" yaml:"image,omitempty"`
+	ImageDetails ImageDetails    `json:"imageDetails" yaml:"imageDetails"`
+	Ports        []ContainerPort `json:"ports,omitempty" yaml:"ports,omitempty"`
+
+	Command    []string `json:"command,omitempty" yaml:"command,omitempty"`
+	Args       []string `json:"args,omitempty" yaml:"args,omitempty"`
+	WorkingDir string   `json:"workingDir,omitempty" yaml:"workingDir,omitempty"`
+
+	Config ContainerConfig `json:"config,omitempty" yaml:"config,omitempty"`
+	Files  []FileSetV2     `json:"files,omitempty" yaml:"files,omitempty"`
+
+	ImagePullPolicy PullPolicy `json:"imagePullPolicy,omitempty" yaml:"imagePullPolicy,omitempty"`
+
+	// ProviderContainer defines config which is specific to a substrate, eg k8s
+	ProviderContainer `json:"-" yaml:"-"`
+}
+
+// Validate is defined on ProviderContainer.
+func (spec *ContainerSpecV2) Validate() error {
+	if spec.Name == "" {
+		return errors.New("spec name is missing")
+	}
+	if spec.Image == "" && spec.ImageDetails.ImagePath == "" {
+		return errors.New("spec image details is missing")
+	}
+	for _, fs := range spec.Files {
+		if err := fs.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	if spec.ProviderContainer != nil {
+		return spec.ProviderContainer.Validate()
+	}
+	return nil
+}
+
 // ContainerSpec defines the data values used to configure
 // a container on the CAAS substrate.
 type ContainerSpec struct {
@@ -141,6 +183,23 @@ type PodSpecVersion struct {
 // ConfigMap describes the format of configmap resource.
 type ConfigMap map[string]string
 
+type caasContainersV2 struct {
+	Containers []ContainerSpecV2
+}
+
+// Validate is defined on ProviderContainer.
+func (cs *caasContainersV2) Validate() error {
+	if len(cs.Containers) == 0 {
+		return errors.New("require at least one container spec")
+	}
+	for _, c := range cs.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 type caasContainers struct {
 	Containers []ContainerSpec
 }
@@ -191,6 +250,45 @@ func (cs *caasContainers) Validate() error {
 			}
 			mountPaths.Add(f.MountPath)
 		}
+	}
+	return nil
+}
+
+// podSpecBaseV2 defines the data values used to configure a pod on the CAAS substrate.
+type podSpecBaseV2 struct {
+	PodSpecVersion `json:",inline" yaml:",inline"`
+
+	// TODO(caas): remove OmitServiceFrontend later once we deprecate legacy version.
+	// Keep it for now because we have to combine it with the ServerType (from metadata.yaml).
+	OmitServiceFrontend bool `json:"omitServiceFrontend" yaml:"omitServiceFrontend"`
+
+	Service    *ServiceSpec         `json:"service,omitempty" yaml:"service,omitempty"`
+	ConfigMaps map[string]ConfigMap `json:"configmaps,omitempty" yaml:"configmaps,omitempty"`
+
+	caasContainersV2 // containers field is decoded in provider spec level.
+
+	// ProviderPod defines config which is specific to a substrate, eg k8s
+	ProviderPod `json:"-" yaml:"-"`
+}
+
+// Validate returns an error if the spec is not valid.
+func (spec *podSpecBaseV2) Validate(ver Version) error {
+	if spec.Version != ver {
+		return errors.NewNotValid(nil, fmt.Sprintf("expected version %d, but found %d", ver, spec.Version))
+	}
+
+	if spec.Service != nil {
+		if err := spec.Service.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+
+	if err := spec.caasContainersV2.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+
+	if spec.ProviderPod != nil {
+		return spec.ProviderPod.Validate()
 	}
 	return nil
 }

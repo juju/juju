@@ -11,6 +11,25 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
+// FileSetV2 defines a set of files to mount
+// into the container.
+type FileSetV2 struct {
+	Name      string            `json:"name" yaml:"name"`
+	MountPath string            `json:"mountPath" yaml:"mountPath"`
+	Files     map[string]string `json:"files" yaml:"files"`
+}
+
+// Validate validates FileSetV2.
+func (fs *FileSetV2) Validate() error {
+	if fs.Name == "" {
+		return errors.New("file set name is missing")
+	}
+	if fs.MountPath == "" {
+		return errors.Errorf("mount path is missing for file set %q", fs.Name)
+	}
+	return nil
+}
+
 // FileSet defines a set of files to mount
 // into the container.
 type FileSet struct {

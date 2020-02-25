@@ -13,13 +13,13 @@ import (
 )
 
 type k8sContainerLegacy struct {
-	specs.ContainerSpec `json:",inline" yaml:",inline"`
-	*K8sContainerSpec   `json:",inline" yaml:",inline"`
+	specs.ContainerSpecV2 `json:",inline" yaml:",inline"`
+	*K8sContainerSpec     `json:",inline" yaml:",inline"`
 }
 
 // Validate validates k8sContainerLegacy.
 func (c *k8sContainerLegacy) Validate() error {
-	if err := c.ContainerSpec.Validate(); err != nil {
+	if err := c.ContainerSpecV2.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	if c.K8sContainerSpec != nil {
@@ -41,7 +41,7 @@ func (c *k8sContainerLegacy) ToContainerSpec() specs.ContainerSpec {
 		Args:            c.Args,
 		WorkingDir:      c.WorkingDir,
 		Config:          c.Config,
-		Files:           c.Files,
+		Files:           fileSetsV2ToFileSets(c.Files),
 		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.K8sContainerSpec != nil {

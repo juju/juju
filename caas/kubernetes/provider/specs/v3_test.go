@@ -85,6 +85,35 @@ containers:
           file1: |
             [config]
             foo: bar
+      - name: myhostpath
+        mountPath: /host/etc/cni/net.d
+        hostPath:
+          path: /etc/cni/net.d
+          type: Directory
+      - name: cache-volume
+        mountPath: /empty-dir
+        emptyDir:
+          medium: Memory
+      - name: log_level
+        mountPath: /log-config/log_level
+        configMap:
+          name: log-config
+          defaultMode: 511
+          optional: true
+          items:
+            - key: log_level
+              path: log_level
+              mode: 511
+      - name: mysecret2
+        mountPath: /secrets
+        secret:
+          name: mysecret2
+          defaultMode: 511
+          optional: true
+          items:
+            - key: password
+              path: my-group/my-password
+              mode: 511
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
@@ -319,6 +348,7 @@ foo: bar
 			Verbs:     []string{"get", "watch", "list"},
 		},
 	}
+
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
@@ -368,8 +398,65 @@ echo "do some stuff here for gitlab container"
 					{
 						Name:      "configuration",
 						MountPath: "/var/lib/foo",
-						Files: map[string]string{
-							"file1": expectedFileContent,
+						VolumeSource: specs.VolumeSource{
+							Files: map[string]string{
+								"file1": expectedFileContent,
+							},
+						},
+					},
+					{
+						Name:      "myhostpath",
+						MountPath: "/host/etc/cni/net.d",
+						VolumeSource: specs.VolumeSource{
+							HostPath: &specs.HostPathVol{
+								Path: "/etc/cni/net.d",
+								Type: "Directory",
+							},
+						},
+					},
+					{
+						Name:      "cache-volume",
+						MountPath: "/empty-dir",
+						VolumeSource: specs.VolumeSource{
+							EmptyDir: &specs.EmptyDirVol{
+								Medium: "Memory",
+							},
+						},
+					},
+					{
+						Name:      "log_level",
+						MountPath: "/log-config/log_level",
+						VolumeSource: specs.VolumeSource{
+							ConfigMap: &specs.ResourceRefVol{
+								Name:        "log-config",
+								DefaultMode: int32Ptr(511),
+								Optional:    boolPtr(true),
+								Items: []specs.KeyToPath{
+									{
+										Key:  "log_level",
+										Path: "log_level",
+										Mode: int32Ptr(511),
+									},
+								},
+							},
+						},
+					},
+					{
+						Name:      "mysecret2",
+						MountPath: "/secrets",
+						VolumeSource: specs.VolumeSource{
+							Secret: &specs.ResourceRefVol{
+								Name:        "mysecret2",
+								DefaultMode: int32Ptr(511),
+								Optional:    boolPtr(true),
+								Items: []specs.KeyToPath{
+									{
+										Key:  "password",
+										Path: "my-group/my-password",
+										Mode: int32Ptr(511),
+									},
+								},
+							},
 						},
 					},
 				},
@@ -925,4 +1012,24 @@ bar: a-bad-guy
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
+}
+
+func float64Ptr(f float64) *float64 {
+	return &f
+}
+
+func int32Ptr(i int32) *int32 {
+	return &i
+}
+
+func int64Ptr(i int64) *int64 {
+	return &i
+}
+
+func boolPtr(b bool) *bool {
+	return &b
+}
+
+func strPtr(b string) *string {
+	return &b
 }

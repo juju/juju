@@ -16,12 +16,80 @@ import (
 	"github.com/juju/juju/caas/specs"
 )
 
+type k8sContainerV2 struct {
+	specs.ContainerSpecV2 `json:",inline" yaml:",inline"`
+	Kubernetes            *K8sContainerSpec `json:"kubernetes,omitempty" yaml:"kubernetes,omitempty"`
+}
+
+// Validate validates k8sContainerV2.
+func (c *k8sContainerV2) Validate() error {
+	if err := c.ContainerSpecV2.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if c.Kubernetes != nil {
+		if err := c.Kubernetes.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func fileSetsV2ToFileSets(fs []specs.FileSetV2) (out []specs.FileSet) {
+	for _, f := range fs {
+		out = append(out, specs.FileSet{
+			Name:      f.Name,
+			MountPath: f.MountPath,
+			VolumeSource: specs.VolumeSource{
+				Files: f.Files,
+			},
+		})
+	}
+	return out
+}
+
+func (c *k8sContainerV2) ToContainerSpec() specs.ContainerSpec {
+	result := specs.ContainerSpec{
+		ImageDetails:    c.ImageDetails,
+		Name:            c.Name,
+		Init:            c.Init,
+		Image:           c.Image,
+		Ports:           c.Ports,
+		Command:         c.Command,
+		Args:            c.Args,
+		WorkingDir:      c.WorkingDir,
+		Config:          c.Config,
+		Files:           fileSetsV2ToFileSets(c.Files),
+		ImagePullPolicy: c.ImagePullPolicy,
+	}
+	if c.Kubernetes != nil {
+		result.ProviderContainer = c.Kubernetes
+	}
+	return result
+}
+
+type k8sContainersV2 struct {
+	Containers []k8sContainer `json:"containers" yaml:"containers"`
+}
+
+// Validate is defined on ProviderContainer.
+func (cs *k8sContainersV2) Validate() error {
+	if len(cs.Containers) == 0 {
+		return errors.New("require at least one container spec")
+	}
+	for _, c := range cs.Containers {
+		if err := c.Validate(); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
 type caaSSpecV2 = specs.PodSpecV2
 
 type podSpecV2 struct {
-	caaSSpecV2    `json:",inline" yaml:",inline"`
-	K8sPodSpecV2  `json:",inline" yaml:",inline"`
-	k8sContainers `json:",inline" yaml:",inline"`
+	caaSSpecV2      `json:",inline" yaml:",inline"`
+	K8sPodSpecV2    `json:",inline" yaml:",inline"`
+	k8sContainersV2 `json:",inline" yaml:",inline"`
 }
 
 // Validate is defined on ProviderPod.
@@ -29,7 +97,7 @@ func (p podSpecV2) Validate() error {
 	if err := p.K8sPodSpecV2.Validate(); err != nil {
 		return errors.Trace(err)
 	}
-	if err := p.k8sContainers.Validate(); err != nil {
+	if err := p.k8sContainersV2.Validate(); err != nil {
 		return errors.Trace(err)
 	}
 	return nil
