@@ -75,10 +75,10 @@ func (k *kubernetesClient) configureStatefulSet(
 			ServiceName:         headlessServiceName(deploymentName),
 		},
 	}
-	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, workloadSpec, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
+	podSpec := workloadSpec.Pod
 	existingPodSpec := podSpec
 
 	// Create a new stateful set with the necessary storage config.

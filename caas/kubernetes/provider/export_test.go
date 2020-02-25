@@ -128,11 +128,10 @@ func (k *kubernetesClient) ConfigurePodFiles(
 	appName string,
 	annotations map[string]string,
 	workloadSpec *workloadSpec,
-	podSpec *core.PodSpec,
 	containers []specs.ContainerSpec,
 	cfgMapName configMapNameFunc,
 ) error {
-	return k.configurePodFiles(appName, annotations, workloadSpec, podSpec, containers, cfgMapName)
+	return k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgMapName)
 }
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {

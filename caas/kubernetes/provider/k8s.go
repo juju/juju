@@ -1368,7 +1368,6 @@ func (k *kubernetesClient) configurePodFiles(
 	appName string,
 	annotations map[string]string,
 	workloadSpec *workloadSpec,
-	podSpec *core.PodSpec,
 	containers []specs.ContainerSpec,
 	cfgMapName configMapNameFunc,
 ) error {
@@ -1378,8 +1377,8 @@ func (k *kubernetesClient) configurePodFiles(
 			if err != nil {
 				return errors.Trace(err)
 			}
-			pushUniqVolume(podSpec, vol)
-			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, core.VolumeMount{
+			pushUniqVolume(&workloadSpec.Pod, vol)
+			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
 				// TODO(caas): add more config fields support(SubPath, ReadOnly, etc).
 				Name:      vol.Name,
 				MountPath: fileSet.MountPath,
@@ -1406,19 +1405,19 @@ func (k *kubernetesClient) fileSetToVolume(
 	fileSet specs.FileSet,
 	cfgMapName configMapNameFunc,
 ) (core.Volume, error) {
-	fileSetItemsToVolItems := func(items []specs.KeyToPath) (out []core.KeyToPath) {
-		for _, item := range items {
+	fileRefsToVolItems := func(fs []specs.FileRef) (out []core.KeyToPath) {
+		for _, f := range fs {
 			out = append(out, core.KeyToPath{
-				Key:  item.Key,
-				Path: item.Path,
-				Mode: item.Mode,
+				Key:  f.Key,
+				Path: f.Path,
+				Mode: f.Mode,
 			})
 		}
 		return out
 	}
 
 	vol := core.Volume{Name: fileSet.Name}
-	if fileSet.Files != nil {
+	if len(fileSet.Files) > 0 {
 		vol.Name = cfgMapName(fileSet.Name)
 		if _, err := k.ensureConfigMapLegacy(filesetConfigMap(vol.Name, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
 			return vol, errors.Annotatef(err, "creating or updating ConfigMap for file set %v", vol.Name)
@@ -1427,6 +1426,13 @@ func (k *kubernetesClient) fileSetToVolume(
 			LocalObjectReference: core.LocalObjectReference{
 				Name: vol.Name,
 			},
+		}
+		for _, f := range fileSet.Files {
+			vol.ConfigMap.Items = append(vol.ConfigMap.Items, core.KeyToPath{
+				Key:  f.Path,
+				Path: f.Path,
+				Mode: f.Mode,
+			})
 		}
 	} else if fileSet.HostPath != nil {
 		t := core.HostPathType(fileSet.HostPath.Type)
@@ -1449,7 +1455,9 @@ func (k *kubernetesClient) fileSetToVolume(
 			}
 		}
 		if !found {
-			return vol, errors.NotValidf("non existing config map %q", refName)
+			return vol, errors.NewNotValid(nil, fmt.Sprintf(
+				"cannot mount a volume using a config map if the config map %q is not specified in the pod spec YAML", refName,
+			))
 		}
 
 		vol.ConfigMap = &core.ConfigMapVolumeSource{
@@ -1458,7 +1466,7 @@ func (k *kubernetesClient) fileSetToVolume(
 			},
 			DefaultMode: fileSet.ConfigMap.DefaultMode,
 			Optional:    fileSet.ConfigMap.Optional,
-			Items:       fileSetItemsToVolItems(fileSet.ConfigMap.Items),
+			Items:       fileRefsToVolItems(fileSet.ConfigMap.Files),
 		}
 	} else if fileSet.Secret != nil {
 		found := false
@@ -1470,14 +1478,16 @@ func (k *kubernetesClient) fileSetToVolume(
 			}
 		}
 		if !found {
-			return vol, errors.NotValidf("non existing secret %q", refName)
+			return vol, errors.NewNotValid(nil, fmt.Sprintf(
+				"cannot mount a volume using a secret if the secret %q is not specified in the pod spec YAML", refName,
+			))
 		}
 
 		vol.Secret = &core.SecretVolumeSource{
 			SecretName:  refName,
 			DefaultMode: fileSet.Secret.DefaultMode,
 			Optional:    fileSet.Secret.Optional,
-			Items:       fileSetItemsToVolItems(fileSet.Secret.Items),
+			Items:       fileRefsToVolItems(fileSet.Secret.Files),
 		}
 	} else {
 		// This should never happen because FileSet validation has been in k8s spec level.
@@ -1573,8 +1583,7 @@ func (k *kubernetesClient) configureDaemonSet(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, workloadSpec, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return cleanUp, errors.Trace(err)
 	}
 
@@ -1594,7 +1603,7 @@ func (k *kubernetesClient) configureDaemonSet(
 					Labels:       k.getDaemonSetLabels(appName),
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
-				Spec: podSpec,
+				Spec: workloadSpec.Pod,
 			},
 		},
 	}
@@ -1614,8 +1623,7 @@ func (k *kubernetesClient) configureDeployment(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, workloadSpec, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1636,7 +1644,7 @@ func (k *kubernetesClient) configureDeployment(
 					Labels:       map[string]string{labelApplication: appName},
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
-				Spec: podSpec,
+				Spec: workloadSpec.Pod,
 			},
 		},
 	}
@@ -2417,8 +2425,8 @@ func filesetConfigMap(configMapName string, labels, annotations map[string]strin
 		},
 		Data: map[string]string{},
 	}
-	for name, data := range files.Files {
-		result.Data[name] = data
+	for _, f := range files.Files {
+		result.Data[f.Path] = f.Content
 	}
 	return result
 }

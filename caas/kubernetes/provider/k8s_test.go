@@ -696,8 +696,8 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
 		Name:      "configuration",
 		MountPath: "/var/lib/foo",
 		VolumeSource: specs.VolumeSource{
-			Files: map[string]string{
-				"file1": `foo=bar`,
+			Files: []specs.File{
+				{Path: "file1", Content: "foo=bar"},
 			},
 		},
 	}
@@ -724,6 +724,12 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeFiles(c *gc.C) {
 					ConfigMap: &core.ConfigMapVolumeSource{
 						LocalObjectReference: core.LocalObjectReference{
 							Name: "configuration",
+						},
+						Items: []core.KeyToPath{
+							{
+								Key:  "file1",
+								Path: "file1",
+							},
 						},
 					},
 				},
@@ -800,7 +806,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 						Name:        "log-config",
 						DefaultMode: int32Ptr(511),
 						Optional:    boolPtr(true),
-						Items: []specs.KeyToPath{
+						Files: []specs.FileRef{
 							{
 								Key:  "log_level",
 								Path: "log_level",
@@ -842,7 +848,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 						Name:        "non-existing-config-map",
 						DefaultMode: int32Ptr(511),
 						Optional:    boolPtr(true),
-						Items: []specs.KeyToPath{
+						Files: []specs.FileRef{
 							{
 								Key:  "log_level",
 								Path: "log_level",
@@ -853,7 +859,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(_ core.Volume, err error) {
-				c.Check(err, gc.ErrorMatches, `non existing config map "non-existing-config-map" not valid`)
+				c.Check(err, gc.ErrorMatches, `cannot mount a volume using a config map if the config map "non-existing-config-map" is not specified in the pod spec YAML`)
 			},
 		},
 		{
@@ -865,7 +871,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 						Name:        "mysecret2",
 						DefaultMode: int32Ptr(511),
 						Optional:    boolPtr(true),
-						Items: []specs.KeyToPath{
+						Files: []specs.FileRef{
 							{
 								Key:  "password",
 								Path: "my-group/my-password",
@@ -905,7 +911,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 						Name:        "non-existing-secret",
 						DefaultMode: int32Ptr(511),
 						Optional:    boolPtr(true),
-						Items: []specs.KeyToPath{
+						Files: []specs.FileRef{
 							{
 								Key:  "password",
 								Path: "my-group/my-password",
@@ -916,7 +922,7 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 				},
 			},
 			resultChecker: func(_ core.Volume, err error) {
-				c.Check(err, gc.ErrorMatches, `non existing secret "non-existing-secret" not valid`)
+				c.Check(err, gc.ErrorMatches, `cannot mount a volume using a secret if the secret "non-existing-secret" is not specified in the pod spec YAML`)
 			},
 		},
 	} {
@@ -1049,7 +1055,7 @@ func (s *K8sBrokerSuite) TestConfigurePodFiles(c *gc.C) {
 	}
 
 	err = s.broker.ConfigurePodFiles(
-		"app-name", annotations, workloadSpec, &workloadSpec.Pod, basicPodSpec.Containers, cfgMapName,
+		"app-name", annotations, workloadSpec, basicPodSpec.Containers, cfgMapName,
 	)
 	c.Assert(err, jc.ErrorIsNil)
 	hostPathType := core.HostPathDirectory

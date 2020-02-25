@@ -33,9 +33,9 @@ func (fs *FileSetV2) Validate() error {
 // FileSet defines a set of files to mount
 // into the container.
 type FileSet struct {
+	VolumeSource `json:",inline" yaml:",inline"`
 	Name         string `json:"name" yaml:"name"`
 	MountPath    string `json:"mountPath" yaml:"mountPath"`
-	VolumeSource `json:",inline" yaml:",inline"`
 }
 
 // Equal compares if two FileSet are same.
@@ -70,11 +70,11 @@ func (fs *FileSet) Validate() error {
 
 // VolumeSource represents the source of a volume to mount.
 type VolumeSource struct {
-	Files     map[string]string `json:"files" yaml:"files"`
-	HostPath  *HostPathVol      `json:"hostPath" yaml:"hostPath"`
-	EmptyDir  *EmptyDirVol      `json:"emptyDir" yaml:"emptyDir"`
-	ConfigMap *ResourceRefVol   `json:"configMap" yaml:"configMap"`
-	Secret    *ResourceRefVol   `json:"secret" yaml:"secret"`
+	Files     []File          `json:"files" yaml:"files"`
+	HostPath  *HostPathVol    `json:"hostPath" yaml:"hostPath"`
+	EmptyDir  *EmptyDirVol    `json:"emptyDir" yaml:"emptyDir"`
+	ConfigMap *ResourceRefVol `json:"configMap" yaml:"configMap"`
+	Secret    *ResourceRefVol `json:"secret" yaml:"secret"`
 }
 
 type validator interface {
@@ -84,8 +84,13 @@ type validator interface {
 // Validate validates VolumeSource.
 func (vs VolumeSource) Validate(name string) error {
 	nonNilSource := 0
-	if vs.Files != nil {
+	if len(vs.Files) > 0 {
 		nonNilSource++
+		for _, f := range vs.Files {
+			if err := f.Validate(name); err != nil {
+				return errors.Trace(err)
+			}
+		}
 	}
 	if vs.HostPath != nil {
 		nonNilSource++
@@ -120,6 +125,42 @@ func (vs VolumeSource) Validate(name string) error {
 	return nil
 }
 
+// File describes a file to mount into a pod.
+type File struct {
+	Path    string `json:"path" yaml:"path"`
+	Content string `json:"content" yaml:"content"`
+	Mode    *int32 `json:"mode,omitempty" yaml:"mode,omitempty"`
+}
+
+// Validate validates File.
+func (f *File) Validate(name string) error {
+	if f.Path == "" {
+		return errors.Errorf("Path is missing for %q", name)
+	}
+	if f.Content == "" {
+		return errors.Errorf("Content is missing for %q", name)
+	}
+	return nil
+}
+
+// FileRef describes a file to mount into a pod.
+type FileRef struct {
+	Key  string `json:"key" yaml:"key"`
+	Path string `json:"path" yaml:"path"`
+	Mode *int32 `json:"mode,omitempty" yaml:"mode,omitempty"`
+}
+
+// Validate validates FileRef.
+func (f *FileRef) Validate(name string) error {
+	if f.Key == "" {
+		return errors.Errorf("Key is missing for %q", name)
+	}
+	if f.Path == "" {
+		return errors.Errorf("Path is missing for %q", name)
+	}
+	return nil
+}
+
 // HostPathVol represents a host path mapped into a pod.
 type HostPathVol struct {
 	Path string `json:"path" yaml:"path"`
@@ -147,10 +188,10 @@ func (edv *EmptyDirVol) Validate(name string) error {
 
 // ResourceRefVol reprents a configmap or secret source could be referenced by a volume.
 type ResourceRefVol struct {
-	Name        string      `json:"name" yaml:"name"`
-	Items       []KeyToPath `json:"items,omitempty" yaml:"items,omitempty"`
-	DefaultMode *int32      `json:"defaultMode,omitempty" yaml:"defaultMode,omitempty"`
-	Optional    *bool       `json:"optional,omitempty" yaml:"optional,omitempty"`
+	Name        string    `json:"name" yaml:"name"`
+	Files       []FileRef `json:"files,omitempty" yaml:"files,omitempty"`
+	DefaultMode *int32    `json:"defaultMode,omitempty" yaml:"defaultMode,omitempty"`
+	Optional    *bool     `json:"optional,omitempty" yaml:"optional,omitempty"`
 }
 
 // Validate validates ResourceRefVol.
@@ -158,28 +199,10 @@ func (rrv *ResourceRefVol) Validate(name string) error {
 	if rrv.Name == "" {
 		return errors.Errorf("Name is missing for %q", name)
 	}
-	for _, item := range rrv.Items {
-		if err := item.Validate(name); err != nil {
+	for _, f := range rrv.Files {
+		if err := f.Validate(name); err != nil {
 			return errors.Trace(err)
 		}
-	}
-	return nil
-}
-
-// KeyToPath maps a string key to a path within a volume.
-type KeyToPath struct {
-	Key  string `json:"key" yaml:"key"`
-	Path string `json:"path" yaml:"path"`
-	Mode *int32 `json:"mode,omitempty" yaml:"mode,omitempty"`
-}
-
-// Validate validates KeyToPath.
-func (ktp *KeyToPath) Validate(name string) error {
-	if ktp.Key == "" {
-		return errors.Errorf("Key is missing for %q", name)
-	}
-	if ktp.Path == "" {
-		return errors.Errorf("Path is missing for %q", name)
 	}
 	return nil
 }

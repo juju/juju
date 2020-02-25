@@ -288,11 +288,21 @@ func (s *typesSuite) TestValidateFileSetVolumeSource(c *gc.C) {
 			errStr: `Name is missing for "fakeFileSet"`,
 		},
 		{
-			spec:   &specs.KeyToPath{},
+			spec:   &specs.File{},
+			errStr: `Path is missing for "fakeFileSet"`,
+		},
+		{
+			spec: &specs.File{
+				Path: "foo/key1",
+			},
+			errStr: `Content is missing for "fakeFileSet"`,
+		},
+		{
+			spec:   &specs.FileRef{},
 			errStr: `Key is missing for "fakeFileSet"`,
 		},
 		{
-			spec: &specs.KeyToPath{
+			spec: &specs.FileRef{
 				Key: "key1",
 			},
 			errStr: `Path is missing for "fakeFileSet"`,

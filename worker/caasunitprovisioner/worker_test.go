@@ -86,7 +86,7 @@ func getParsedSpec() *specs.PodSpec {
 				{ContainerPort: 80, Protocol: "TCP"},
 				{ContainerPort: 443},
 			},
-			Config: map[string]interface{}{
+			EnvConfig: map[string]interface{}{
 				"attr": "foo=bar; fred=blogs",
 				"foo":  "bar",
 			},

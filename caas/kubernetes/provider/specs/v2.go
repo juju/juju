@@ -36,13 +36,17 @@ func (c *k8sContainerV2) Validate() error {
 
 func fileSetsV2ToFileSets(fs []specs.FileSetV2) (out []specs.FileSet) {
 	for _, f := range fs {
-		out = append(out, specs.FileSet{
+		newf := specs.FileSet{
 			Name:      f.Name,
 			MountPath: f.MountPath,
-			VolumeSource: specs.VolumeSource{
-				Files: f.Files,
-			},
-		})
+		}
+		for k, v := range f.Files {
+			newf.Files = append(newf.Files, specs.File{
+				Path:    k,
+				Content: v,
+			})
+		}
+		out = append(out, newf)
 	}
 	return out
 }

@@ -82,9 +82,11 @@ containers:
       - name: configuration
         mountPath: /var/lib/foo
         files:
-          file1: |
-            [config]
-            foo: bar
+          - path: file1
+            mode: 644
+            content: |
+              [config]
+              foo: bar
       - name: myhostpath
         mountPath: /host/etc/cni/net.d
         hostPath:
@@ -100,7 +102,7 @@ containers:
           name: log-config
           defaultMode: 511
           optional: true
-          items:
+          files:
             - key: log_level
               path: log_level
               mode: 511
@@ -110,7 +112,7 @@ containers:
           name: mysecret2
           defaultMode: 511
           optional: true
-          items:
+          files:
             - key: password
               path: my-group/my-password
               mode: 511
@@ -399,8 +401,12 @@ echo "do some stuff here for gitlab container"
 						Name:      "configuration",
 						MountPath: "/var/lib/foo",
 						VolumeSource: specs.VolumeSource{
-							Files: map[string]string{
-								"file1": expectedFileContent,
+							Files: []specs.File{
+								{
+									Path:    "file1",
+									Content: expectedFileContent,
+									Mode:    int32Ptr(644),
+								},
 							},
 						},
 					},
@@ -431,7 +437,7 @@ echo "do some stuff here for gitlab container"
 								Name:        "log-config",
 								DefaultMode: int32Ptr(511),
 								Optional:    boolPtr(true),
-								Items: []specs.KeyToPath{
+								Files: []specs.FileRef{
 									{
 										Key:  "log_level",
 										Path: "log_level",
@@ -449,7 +455,7 @@ echo "do some stuff here for gitlab container"
 								Name:        "mysecret2",
 								DefaultMode: int32Ptr(511),
 								Optional:    boolPtr(true),
-								Items: []specs.KeyToPath{
+								Files: []specs.FileRef{
 									{
 										Key:  "password",
 										Path: "my-group/my-password",
@@ -849,7 +855,9 @@ containers:
     image: gitlab/latest
     volumeConfig:
       - files:
-          file1: |-
+        - path: file1
+          mode: 644
+          content: |
             [config]
             foo: bar
 `[1:]
@@ -867,9 +875,11 @@ containers:
     volumeConfig:
       - name: configuration
         files:
-          file1: |-
-            [config]
-            foo: bar
+         - path: file1
+           mode: 644
+           content: |
+             [config]
+             foo: bar
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)

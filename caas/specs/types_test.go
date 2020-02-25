@@ -156,8 +156,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 		Name:      "file1",
 		MountPath: "/foo/file1",
 		VolumeSource: specs.VolumeSource{
-			Files: map[string]string{
-				"foo": "bar",
+			Files: []specs.File{
+				{Path: "foo", Content: "bar"},
 			},
 		},
 	}
@@ -165,8 +165,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 		Name:      "file2",
 		MountPath: "/foo/file2",
 		VolumeSource: specs.VolumeSource{
-			Files: map[string]string{
-				"foo": "bar",
+			Files: []specs.File{
+				{Path: "foo", Content: "bar"},
 			},
 		},
 	}
@@ -213,8 +213,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					Name:      "file1",
 					MountPath: "/same-mount-path",
 					VolumeSource: specs.VolumeSource{
-						Files: map[string]string{
-							"foo": "bar",
+						Files: []specs.File{
+							{Path: "foo", Content: "bar"},
 						},
 					},
 				},
@@ -245,8 +245,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					Name:      "file1",
 					MountPath: "/etc/config",
 					VolumeSource: specs.VolumeSource{
-						Files: map[string]string{
-							"foo": "bar",
+						Files: []specs.File{
+							{Path: "foo", Content: "bar"},
 						},
 					},
 				},
@@ -286,8 +286,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					Name:      "file1",
 					MountPath: "/foo/file1",
 					VolumeSource: specs.VolumeSource{
-						Files: map[string]string{
-							"foo": "bar",
+						Files: []specs.File{
+							{Path: "foo", Content: "bar"},
 						},
 					},
 				},
@@ -295,8 +295,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					Name:      "file1", // same file in same container mount to different path.
 					MountPath: "/foo/another-file1",
 					VolumeSource: specs.VolumeSource{
-						Files: map[string]string{
-							"foo": "bar",
+						Files: []specs.File{
+							{Path: "foo", Content: "bar"},
 						},
 					},
 				},
@@ -304,8 +304,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					Name:      "file2",
 					MountPath: "/foo/file2",
 					VolumeSource: specs.VolumeSource{
-						Files: map[string]string{
-							"foo": "bar",
+						Files: []specs.File{
+							{Path: "foo", Content: "bar"},
 						},
 					},
 				},
@@ -333,7 +333,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					VolumeSource: specs.VolumeSource{
 						ConfigMap: &specs.ResourceRefVol{
 							Name: "log-config",
-							Items: []specs.KeyToPath{
+							Files: []specs.FileRef{
 								{
 									Key:  "log_level",
 									Path: "log_level",
@@ -348,7 +348,7 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					VolumeSource: specs.VolumeSource{
 						Secret: &specs.ResourceRefVol{
 							Name: "mysecret2",
-							Items: []specs.KeyToPath{
+							Files: []specs.FileRef{
 								{
 									Key:  "password",
 									Path: "my-group/my-password",
@@ -370,8 +370,8 @@ func (s *typesSuite) TestValidateCaaSContainers(c *gc.C) {
 					Name:      "file1", // exact same file1 can be mounted to same path in a different container.
 					MountPath: "/foo/file1",
 					VolumeSource: specs.VolumeSource{
-						Files: map[string]string{
-							"foo": "bar",
+						Files: []specs.File{
+							{Path: "foo", Content: "bar"},
 						},
 					},
 				},

@@ -369,8 +369,8 @@ echo "do some stuff here for gitlab container"
 						Name:      "configuration",
 						MountPath: "/var/lib/foo",
 						VolumeSource: specs.VolumeSource{
-							Files: map[string]string{
-								"file1": expectedFileContent,
+							Files: []specs.File{
+								{Path: "file1", Content: expectedFileContent},
 							},
 						},
 					},
