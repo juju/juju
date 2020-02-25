@@ -19,7 +19,7 @@ import (
 // ControllerConfigChange represents the initial controller config,
 // or a change initiated by an admin updating the controller config.
 type ControllerConfigChange struct {
-	Config map[string]string
+	Config map[string]interface{}
 }
 
 // ModelChange represents either a new model, or a change

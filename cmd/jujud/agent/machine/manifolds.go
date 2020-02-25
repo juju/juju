@@ -427,6 +427,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// it up to date using an all model watcher. The controller is then
 		// used by the apiserver.
 		modelCacheName: ifDatabaseUpgradeComplete(ifController(modelcache.Manifold(modelcache.ManifoldConfig{
+			StateName:            stateName,
 			CentralHubName:       centralHubName,
 			MultiwatcherName:     multiwatcherName,
 			InitializedGateName:  modelCacheInitializedGateName,

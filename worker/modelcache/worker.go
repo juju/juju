@@ -20,6 +20,8 @@ import (
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/pubsub/controller"
+	"github.com/juju/juju/state"
 )
 
 // Unlocker is used to indicate that the model cache is ready to be used.
@@ -42,6 +44,7 @@ type Hub interface {
 
 // Config describes the necessary fields for NewWorker.
 type Config struct {
+	StatePool            *state.StatePool
 	Hub                  Hub
 	InitializedGate      Unlocker
 	Logger               Logger
@@ -86,6 +89,9 @@ func (c Config) WithDefaultRestartStrategy() Config {
 
 // Validate ensures all the necessary values are specified
 func (c *Config) Validate() error {
+	if c.StatePool == nil {
+		return errors.NotValidf("missing state pool")
+	}
 	if c.Hub == nil {
 		return errors.NotValidf("missing hub")
 	}
@@ -161,6 +167,22 @@ func (c *cacheWorker) Report() map[string]interface{} {
 	return c.controller.Report()
 }
 
+func (c *cacheWorker) init() error {
+	// Initialize the cache controller with controller config.
+	controllerConfig, err := c.config.StatePool.SystemState().ControllerConfig()
+	if err != nil {
+		return errors.Annotate(err, "unable to get controller config")
+	}
+	cc := cache.ControllerConfigChange{
+		Config: controllerConfig,
+	}
+	select {
+	case c.changes <- cc:
+	case <-c.catacomb.Dying():
+	}
+	return nil
+}
+
 func (c *cacheWorker) loop() error {
 	defer c.config.Cleanup()
 
@@ -175,6 +197,17 @@ func (c *cacheWorker) loop() error {
 	_ = c.config.PrometheusRegisterer.Register(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(allWatcherStarts)
 	defer c.config.PrometheusRegisterer.Unregister(collector)
+
+	if err := c.init(); err != nil {
+		return errors.Trace(err)
+	}
+
+	unsubscribe, err := c.config.Hub.Subscribe(controller.ConfigChanged, c.onConfigChanged)
+	if err != nil {
+		c.config.Logger.Criticalf("programming error in subscribe function: %v", err)
+		return errors.Trace(err)
+	}
+	defer unsubscribe()
 
 	watcherChanges := make(chan []multiwatcher.Delta)
 	// This worker needs to be robust with respect to the multiwatcher errors.
@@ -262,6 +295,22 @@ func (c *cacheWorker) loop() error {
 			}
 		}
 	}
+}
+
+func (c *cacheWorker) onConfigChanged(topic string, data controller.ConfigChangedMessage, err error) {
+	if err != nil {
+		c.config.Logger.Criticalf("programming error in %s message data: %v", topic, err)
+		return
+	}
+
+	cc := cache.ControllerConfigChange{
+		Config: data.Config,
+	}
+	select {
+	case c.changes <- cc:
+	case <-c.catacomb.Dying():
+	}
+
 }
 
 func (c *cacheWorker) processWatcher(watcherChanges chan<- []multiwatcher.Delta) error {

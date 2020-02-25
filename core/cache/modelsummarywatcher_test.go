@@ -582,7 +582,7 @@ func (s *modelSummaryWatcherSuite) noUpdates(c *gc.C, changes <-chan []cache.Mod
 func (s *modelSummaryWatcherSuite) baseScenario(c *gc.C) {
 	// The values here a minimal, and only set values that are really necessary.
 	s.ProcessChange(c, cache.ControllerConfigChange{
-		Config: map[string]string{
+		Config: map[string]interface{}{
 			"controller-name": "test-controller",
 		},
 	}, s.events)

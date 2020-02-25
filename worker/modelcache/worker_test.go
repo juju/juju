@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/permission"
+	controllermsg "github.com/juju/juju/pubsub/controller"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -44,6 +45,7 @@ var _ = gc.Suite(&WorkerConfigSuite{})
 type WorkerSuite struct {
 	statetesting.StateSuite
 	gate      gate.Lock
+	hub       *pubsub.StructuredHub
 	logger    loggo.Logger
 	mwFactory multiwatcher.Factory
 	config    modelcache.Config
@@ -55,7 +57,9 @@ var _ = gc.Suite(&WorkerSuite{})
 func (s *WorkerConfigSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
 
+	tracker := &fakeStateTracker{}
 	s.config = modelcache.Config{
+		StatePool: tracker.pool(),
 		Hub: pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
 			Logger: loggo.GetLogger("test"),
 		}),
@@ -78,6 +82,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.logger = loggo.GetLogger("test")
 	s.logger.SetLogLevel(loggo.TRACE)
 	s.gate = gate.NewLock()
+	s.hub = pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
+		Logger: loggo.GetLogger("test"),
+	})
 	w, err := multiworker.NewWorker(
 		multiworker.Config{
 			Logger:               s.logger,
@@ -89,9 +96,8 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 	s.mwFactory = w
 
 	s.config = modelcache.Config{
-		Hub: pubsub.NewStructuredHub(&pubsub.StructuredHubConfig{
-			Logger: loggo.GetLogger("test"),
-		}),
+		StatePool:              s.StatePool,
+		Hub:                    s.hub,
 		InitializedGate:        s.gate,
 		Logger:                 s.logger,
 		WatcherFactory:         s.mwFactory.WatchController,
@@ -101,6 +107,13 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		WatcherRestartDelayMax: time.Millisecond,
 		Clock:                  clock.WallClock,
 	}
+}
+
+func (s *WorkerConfigSuite) TestConfigMissingStatePool(c *gc.C) {
+	s.config.StatePool = nil
+	err := s.config.Validate()
+	c.Check(err, jc.Satisfies, errors.IsNotValid)
+	c.Check(err, gc.ErrorMatches, "missing state pool not valid")
 }
 
 func (s *WorkerConfigSuite) TestConfigMissingHub(c *gc.C) {
@@ -229,6 +242,46 @@ func (s *WorkerSuite) TestInitialModel(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Errorf("worker did not get marked as initialized")
 	}
+}
+
+func (s *WorkerSuite) TestControllerConfigOnInit(c *gc.C) {
+	err := s.StatePool.SystemState().UpdateControllerConfig(
+		map[string]interface{}{
+			"controller-name": "test-controller",
+		}, nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	changes := s.captureEvents(c, cachetest.ControllerEvents)
+	w := s.start(c)
+	controller := s.getController(c, w)
+	// discard initial event
+	s.nextChange(c, changes)
+	c.Assert(controller.Name(), gc.Equals, "test-controller")
+}
+
+func (s *WorkerSuite) TestControllerConfigPubsubChange(c *gc.C) {
+	changes := s.captureEvents(c, cachetest.ControllerEvents)
+	w := s.start(c)
+	controller := s.getController(c, w)
+	// discard initial event
+	s.nextChange(c, changes)
+
+	handled, err := s.hub.Publish(controllermsg.ConfigChanged, controllermsg.ConfigChangedMessage{
+		Config: map[string]interface{}{
+			"controller-name": "updated-name",
+		},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	select {
+	case <-handled:
+	case <-time.After(testing.LongWait):
+		c.Fatalf("config changed not handled")
+	}
+
+	// discard update event
+	s.nextChange(c, changes)
+	c.Assert(controller.Name(), gc.Equals, "updated-name")
 }
 
 func (s *WorkerSuite) TestModelConfigChange(c *gc.C) {

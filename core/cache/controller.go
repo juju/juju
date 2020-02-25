@@ -83,7 +83,7 @@ type Controller struct {
 	metrics *ControllerGauges
 
 	// config is the controller config.
-	config map[string]string
+	config map[string]interface{}
 
 	// While a controller is initializing it does not update
 	// any model summaries. The initializing component is handled
@@ -253,7 +253,11 @@ func (c *Controller) Wait() error {
 func (c *Controller) Name() string {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.config["controller-name"]
+	value := c.config["controller-name"]
+	if name, ok := value.(string); ok {
+		return name
+	}
+	return ""
 }
 
 // Model returns the model for the specified UUID.

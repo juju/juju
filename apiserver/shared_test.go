@@ -52,6 +52,7 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	initialized := gate.NewLock()
 	s.hub = pubsub.NewStructuredHub(nil)
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		StatePool:            s.StatePool,
 		Hub:                  s.hub,
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("test"),

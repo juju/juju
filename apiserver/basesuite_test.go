@@ -47,6 +47,7 @@ func (s *baseSuite) SetUpTest(c *gc.C) {
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		StatePool:            s.StatePool,
 		Hub:                  pubsub.NewStructuredHub(nil),
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("modelcache"),

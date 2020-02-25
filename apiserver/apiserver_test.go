@@ -95,6 +95,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		StatePool:            s.StatePool,
 		Hub:                  hub,
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("test"),
