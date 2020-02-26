@@ -453,6 +453,11 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err e
 	}
 	defer watcher.Kill()
 
+	if err := k.deleteClusterScropeResources(); err != nil {
+		return errors.Annotate(err, "deleting cluster scope resources")
+	}
+	// TODO: watch those cluster scope resource have been deleted!!!!!!!
+
 	if err := k.deleteNamespace(); err != nil {
 		return errors.Annotate(err, "deleting model namespace")
 	}
@@ -485,6 +490,34 @@ func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err e
 			logger.Debugf("namespace %q is still been terminating", k.namespace)
 		}
 	}
+}
+
+func (k *kubernetesClient) deleteClusterScropeResources() error {
+	labels := map[string]string{
+		labelModel: k.namespace,
+	}
+	// Order matters.
+	if err := k.deleteClusterRoleBindings(labels); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteClusterRoles(labels); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := k.deleteGlobalCustomResources(labels); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteCustomResourceDefinitions(labels); err != nil {
+		return errors.Trace(err)
+	}
+
+	if err := k.deleteMutatingWebhookConfigurations(labels); err != nil {
+		return errors.Trace(err)
+	}
+	if err := k.deleteValidatingWebhookConfigurations(labels); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // APIVersion returns the version info for the cluster.
@@ -790,17 +823,17 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 	// Order matters: delete custom resources first then custom resource definitions.
-	if err := k.deleteCustomResources(appName); err != nil {
+	if err := k.deleteCustomResourcesForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
+	if err := k.deleteCustomResourceDefinitionsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := k.deleteMutatingWebhookConfigurations(appName); err != nil {
+	if err := k.deleteMutatingWebhookConfigurationsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteValidatingWebhookConfigurations(appName); err != nil {
+	if err := k.deleteValidatingWebhookConfigurationsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
 

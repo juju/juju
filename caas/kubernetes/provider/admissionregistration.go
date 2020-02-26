@@ -123,16 +123,20 @@ func (k *kubernetesClient) listMutatingWebhookConfigurations(labels map[string]s
 	return cfgList.Items, nil
 }
 
-func (k *kubernetesClient) deleteMutatingWebhookConfigurations(appName string) error {
+func (k *kubernetesClient) deleteMutatingWebhookConfigurations(labels map[string]string) error {
 	err := k.client().AdmissionregistrationV1beta1().MutatingWebhookConfigurations().DeleteCollection(&metav1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, metav1.ListOptions{
-		LabelSelector: labelsToSelector(k.getAdmissionControllerLabels(appName)),
+		LabelSelector: labelsToSelector(labels),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName string) error {
+	return errors.Trace(k.deleteMutatingWebhookConfigurations(k.getAdmissionControllerLabels(appName)))
 }
 
 func (k *kubernetesClient) ensureValidatingWebhookConfigurations(
@@ -236,14 +240,18 @@ func (k *kubernetesClient) listValidatingWebhookConfigurations(labels map[string
 	return cfgList.Items, nil
 }
 
-func (k *kubernetesClient) deleteValidatingWebhookConfigurations(appName string) error {
+func (k *kubernetesClient) deleteValidatingWebhookConfigurations(labels map[string]string) error {
 	err := k.client().AdmissionregistrationV1beta1().ValidatingWebhookConfigurations().DeleteCollection(&metav1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, metav1.ListOptions{
-		LabelSelector: labelsToSelector(k.getAdmissionControllerLabels(appName)),
+		LabelSelector: labelsToSelector(labels),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 	return errors.Trace(err)
+}
+
+func (k *kubernetesClient) deleteValidatingWebhookConfigurationsForApp(appName string) error {
+	return errors.Trace(k.deleteValidatingWebhookConfigurations(k.getAdmissionControllerLabels(appName)))
 }
