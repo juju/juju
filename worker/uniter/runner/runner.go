@@ -59,7 +59,7 @@ func (t HookHandlerType) String() string {
 }
 
 const (
-	invalidHookHandler HookHandlerType = iota
+	InvalidHookHandler HookHandlerType = iota
 
 	// LegacyHookHandler indicates that a bespoke, per-hook script was
 	// used for handling a particular hook.
@@ -348,18 +348,18 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	if rMode == runOnRemote {
 		token, err = utils.RandomPassword()
 		if err != nil {
-			return invalidHookHandler, errors.Trace(err)
+			return InvalidHookHandler, errors.Trace(err)
 		}
 	}
 	srv, err := runner.startJujucServer(token, rMode)
 	if err != nil {
-		return invalidHookHandler, err
+		return InvalidHookHandler, err
 	}
 	defer srv.Close()
 
 	env, err := runner.context.HookVars(runner.paths, rMode == runOnRemote)
 	if err != nil {
-		return invalidHookHandler, errors.Trace(err)
+		return InvalidHookHandler, errors.Trace(err)
 	}
 	if jujuos.HostOS() == jujuos.Windows {
 		// TODO(fwereade): somehow consolidate with utils/exec?
@@ -370,7 +370,6 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	if rMode == runOnRemote {
 		env = append(env, "JUJU_AGENT_TOKEN="+token)
 	}
-	// TODO: ponder how to set this iff we do use dispatch.
 	env = append(env, "JUJU_DISPATCH_PATH="+charmLocation+"/"+hookName)
 
 	defer func() {
@@ -511,7 +510,7 @@ func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, char
 	charmDir := runner.paths.GetCharmDir()
 	hookHandlerType, hook, err := runner.getHook(hookName, charmDir, charmLocation)
 	if err != nil {
-		return invalidHookHandler, err
+		return InvalidHookHandler, err
 	}
 	hookCmd := hookCommand(hook)
 	ps := exec.Command(hookCmd[0], hookCmd[1:]...)
@@ -595,9 +594,6 @@ func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, char
 			return o.Bytes()
 		}
 		exitCode := func(exitErr error) int {
-			// TODO(achilleasa): if using the hook dispatcher, check for
-			// special exit code that indicates that the dispatcher did
-			// not know how to handle the hook.
 			if exitErr != nil {
 				if exitErr, ok := exitErr.(*exec.ExitError); ok {
 					if status, ok := exitErr.Sys().(syscall.WaitStatus); ok {
@@ -620,9 +616,6 @@ func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, char
 		}
 	}
 
-	// TODO(achilleasa): if using the hook dispatcher, check for special
-	// exit code (via exitErr) that indicates that the dispatcher did not
-	// know how to handle the hook and return back a HookNotFound error.
 	return hookHandlerType, errors.Trace(exitErr)
 }
 
@@ -634,12 +627,12 @@ func (runner *runner) getHook(hookName, charmDir, charmLocation string) (HookHan
 		return DispatchingHookHander, hook, nil
 	}
 	if !charmrunner.IsMissingHookError(err) {
-		return invalidHookHandler, "", err
+		return InvalidHookHandler, "", err
 	}
 	if hook, err = searchHook(charmDir, filepath.Join(charmLocation, hookName)); err == nil {
 		return LegacyHookHander, hook, err
 	}
-	return invalidHookHandler, hook, err
+	return InvalidHookHandler, hook, err
 }
 
 func (runner *runner) startJujucServer(token string, rMode runMode) (*jujuc.Server, error) {
