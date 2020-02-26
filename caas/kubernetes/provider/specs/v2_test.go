@@ -349,7 +349,7 @@ echo "do some stuff here for gitlab container"
 					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 					{ContainerPort: 443, Name: "mary"},
 				},
-				Config: map[string]interface{}{
+				EnvConfig: map[string]interface{}{
 					"attr":       `foo=bar; name["fred"]="blogs";`,
 					"foo":        "bar",
 					"restricted": "yes",
@@ -364,12 +364,14 @@ echo "do some stuff here for gitlab container"
 						},
 					},
 				},
-				Files: []specs.FileSet{
+				VolumeConfig: []specs.FileSet{
 					{
 						Name:      "configuration",
 						MountPath: "/var/lib/foo",
-						Files: map[string]string{
-							"file1": expectedFileContent,
+						VolumeSource: specs.VolumeSource{
+							Files: []specs.File{
+								{Path: "file1", Content: expectedFileContent},
+							},
 						},
 					},
 				},
@@ -431,7 +433,7 @@ echo "do some stuff here for gitlab-init container"
 					{ContainerPort: 80, Protocol: "TCP", Name: "fred"},
 					{ContainerPort: 443, Name: "mary"},
 				},
-				Config: map[string]interface{}{
+				EnvConfig: map[string]interface{}{
 					"foo":        "bar",
 					"restricted": "yes",
 					"switch":     true,
@@ -925,25 +927,4 @@ bar: a-bad-guy
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `json: unknown field "bar"`)
-}
-
-// TODO(caas): move these pointer related value change funcs to /testing package.
-func float64Ptr(f float64) *float64 {
-	return &f
-}
-
-func int32Ptr(i int32) *int32 {
-	return &i
-}
-
-func int64Ptr(i int64) *int64 {
-	return &i
-}
-
-func boolPtr(b bool) *bool {
-	return &b
-}
-
-func strPtr(b string) *string {
-	return &b
 }

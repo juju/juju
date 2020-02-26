@@ -54,8 +54,8 @@ func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 		Command:         c.Command,
 		Args:            c.Args,
 		WorkingDir:      c.WorkingDir,
-		Config:          c.Config,
-		Files:           c.Files,
+		EnvConfig:       c.EnvConfig,
+		VolumeConfig:    c.VolumeConfig,
 		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.Kubernetes != nil {
