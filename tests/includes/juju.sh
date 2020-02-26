@@ -57,6 +57,8 @@ bootstrap() {
             shift
 
             provider="${manual_name}"
+        "microstack")
+            provider="microstack"
             ;;
         "microk8s")
           provider="microk8s"
