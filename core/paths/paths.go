@@ -29,11 +29,16 @@ const (
 	instanceCloudInitDir
 	cloudInitCfgDir
 	curtinInstallConfig
+	transientDataDir
 )
 
 const (
 	// NixDataDir is location for agent binaries on *nix operating systems.
 	NixDataDir = "/var/lib/juju"
+
+	// NixTransientDataDir is location for storing transient data on *nix
+	// operating systems.
+	NixTransientDataDir = "/var/run/juju"
 
 	// NixLogDir is location for Juju logs on *nix operating systems.
 	NixLogDir = "/var/log"
@@ -43,6 +48,7 @@ var nixVals = map[osVarType]string{
 	tmpDir:               "/tmp",
 	logDir:               NixLogDir,
 	dataDir:              NixDataDir,
+	transientDataDir:     NixTransientDataDir,
 	storageDir:           "/var/lib/juju/storage",
 	confDir:              "/etc/juju",
 	jujuRun:              "/usr/bin/juju-run",
@@ -61,6 +67,7 @@ var winVals = map[osVarType]string{
 	tmpDir:           "C:/Juju/tmp",
 	logDir:           "C:/Juju/log",
 	dataDir:          "C:/Juju/lib/juju",
+	transientDataDir: "C:/Juju/lib/juju-transient",
 	storageDir:       "C:/Juju/lib/juju/storage",
 	confDir:          "C:/Juju/etc",
 	jujuRun:          "C:/Juju/bin/juju-run.exe",
@@ -109,6 +116,12 @@ func LogDir(series string) (string, error) {
 // store tools, charms, locks, etc
 func DataDir(series string) (string, error) {
 	return osVal(series, dataDir)
+}
+
+// TransientDataDir returns a filesystem path to the folder used by juju to
+// store transient data that will not survive a reboot.
+func TransientDataDir(series string) (string, error) {
+	return osVal(series, transientDataDir)
 }
 
 // MetricsSpoolDir returns a filesystem path to the folder used by juju

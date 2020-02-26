@@ -872,6 +872,13 @@ func (s *JujuConnSuite) DataDir() string {
 	return filepath.Join(s.RootDir, "/var/lib/juju")
 }
 
+func (s *JujuConnSuite) TransientDataDir() string {
+	if s.RootDir == "" {
+		panic("TransientDataDir called out of test context")
+	}
+	return filepath.Join(s.RootDir, "/var/run/juju")
+}
+
 func (s *JujuConnSuite) ConfDir() string {
 	if s.RootDir == "" {
 		panic("DataDir called out of test context")

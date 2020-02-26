@@ -147,6 +147,7 @@ func (s *AgentSuite) PrimeAgentVersion(c *gc.C, tag names.Tag, password string, 
 	apiInfo := s.APIInfo(c)
 	paths := agent.DefaultPaths
 	paths.DataDir = s.DataDir()
+	paths.TransientDataDir = s.TransientDataDir()
 	paths.LogDir = s.LogDir
 	paths.MetricsSpoolDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(
