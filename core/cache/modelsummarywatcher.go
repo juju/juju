@@ -102,8 +102,8 @@ type modelSummaryWatcher struct {
 }
 
 func (w *modelSummaryWatcher) init() {
-	w.controller.mu.Lock()
-	defer w.controller.mu.Unlock()
+	w.controller.modelsMu.Lock()
+	defer w.controller.modelsMu.Unlock()
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	for _, model := range w.controller.models {

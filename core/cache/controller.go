@@ -79,7 +79,6 @@ type Controller struct {
 	models   map[string]*Model
 
 	tomb    tomb.Tomb
-	mu      sync.Mutex
 	metrics *ControllerGauges
 
 	// While a controller is initializing it does not update any model
@@ -87,9 +86,17 @@ type Controller struct {
 	// The initialization status is handled with the Mark and Sweep methods.
 	// Calling Mark sets the controller as initializing, and Sweep completes
 	// the initialization.
-	// This status is shared with the cached models via an indirection that
-	// hides the channel
-	initializing chan struct{}
+	// This status is shared with the cached models by passing the controller's
+	// isInitialising method.
+	initializing bool
+
+	// modelsMu protects access to the controller's collection of models.
+	modelsMu sync.Mutex
+
+	// initMu protects access to the controller's initialization status.
+	// We do this separately from models, as we may need to synchronise access
+	// to both aspects at once without deadlocking.
+	initMu sync.Mutex
 }
 
 // NewController creates a new cached controller instance.
@@ -106,18 +113,14 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		return nil, errors.Trace(err)
 	}
 
-	init := make(chan struct{})
-	close(init)
-
 	c := &Controller{
-		manager:      manager,
-		changes:      config.Changes,
-		notify:       config.Notify,
-		idleFunc:     IdleFunc,
-		hub:          newPubSubHub(),
-		models:       make(map[string]*Model),
-		metrics:      createControllerGauges(),
-		initializing: init,
+		manager:  manager,
+		changes:  config.Changes,
+		notify:   config.Notify,
+		idleFunc: IdleFunc,
+		hub:      newPubSubHub(),
+		models:   make(map[string]*Model),
+		metrics:  createControllerGauges(),
 	}
 
 	manager.dying = c.tomb.Dying()
@@ -190,9 +193,7 @@ func (c *Controller) loop() error {
 // Mark updates all cached entities to indicate they are stale.
 func (c *Controller) Mark() {
 	c.manager.mark()
-	c.mu.Lock()
-	c.initializing = make(chan struct{})
-	c.mu.Unlock()
+	c.setInitializing(true)
 }
 
 // Sweep evicts any stale entities from the cache,
@@ -203,54 +204,52 @@ func (c *Controller) Sweep() {
 	case <-c.tomb.Dying():
 	}
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	select {
-	case <-c.initializing:
-		// if the channel is already closed, then this call to `Sweep` was not
-		// the first after a `Mark`. This means that the cache is primed and
-		// the last summaries published reflect the correct state of the world.
-		// No need to proceed from here.
+	// If we are not currently initialising, then this call to `Sweep` was not
+	// the first after a `Mark`. This means that the cache is primed and
+	// the last summaries published reflect the correct state of the world.
+	// No need to proceed from here.
+	publishSummaries := c.isInitializing()
+	c.setInitializing(false)
+	if !publishSummaries {
 		return
-	default:
-		close(c.initializing)
 	}
 
 	// When this call to `Sweep` is the first after a `Mark`, we will have been
 	// in initialization mode, and updates to cached models will not have
 	// caused summaries to be published.
 	// Now that the we are primed, publish all the summary data.
+	c.modelsMu.Lock()
 	for _, model := range c.models {
 		model.mu.Lock()
 		model.updateSummary()
 		model.mu.Unlock()
 	}
+	c.modelsMu.Unlock()
 }
 
 // Report returns information that is used in the dependency engine report.
 func (c *Controller) Report() map[string]interface{} {
 	result := make(map[string]interface{})
 
-	c.mu.Lock()
+	c.modelsMu.Lock()
 	for uuid, model := range c.models {
 		result[uuid] = model.Report()
 	}
-	c.mu.Unlock()
+	c.modelsMu.Unlock()
 
 	return result
 }
 
 // ModelUUIDs returns the UUIDs of the models in the cache.
 func (c *Controller) ModelUUIDs() []string {
-	c.mu.Lock()
+	c.modelsMu.Lock()
 
 	result := make([]string, 0, len(c.models))
 	for uuid := range c.models {
 		result = append(result, uuid)
 	}
 
-	c.mu.Unlock()
+	c.modelsMu.Unlock()
 	return result
 }
 
@@ -267,8 +266,8 @@ func (c *Controller) Wait() error {
 // Model returns the model for the specified UUID.
 // If the model isn't found, a NotFoundError is returned.
 func (c *Controller) Model(uuid string) (*Model, error) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.modelsMu.Lock()
+	defer c.modelsMu.Unlock()
 
 	model, found := c.models[uuid]
 	if !found {
@@ -293,8 +292,8 @@ func (c *Controller) WaitForModel(uuid string, clock Clock) (*Model, error) {
 // down the changes channel when it becomes available. It may
 // be immediately available.
 func (c *Controller) modelWatcher(uuid string) ModelWatcher {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.modelsMu.Lock()
+	defer c.modelsMu.Unlock()
 
 	model, _ := c.models[uuid]
 	return newModelWatcher(uuid, c.hub, model)
@@ -310,8 +309,8 @@ func (c *Controller) updateModel(ch ModelChange) {
 
 // removeModel removes the model from the cache.
 func (c *Controller) removeModel(ch RemoveModel) error {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.modelsMu.Lock()
+	defer c.modelsMu.Unlock()
 
 	mod, ok := c.models[ch.ModelUUID]
 	if ok {
@@ -387,14 +386,14 @@ func (c *Controller) removeBranch(ch RemoveBranch) error {
 // If the cache does not have the model loaded for the resident yet,
 // then it will not have the entity cached, and a no-op results.
 func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) error) error {
-	c.mu.Lock()
+	c.modelsMu.Lock()
 
 	var err error
 	if model, ok := c.models[modelUUID]; ok {
 		err = removeFrom(model)
 	}
 
-	c.mu.Unlock()
+	c.modelsMu.Unlock()
 	return errors.Trace(err)
 }
 
@@ -405,7 +404,7 @@ func (c *Controller) removeResident(modelUUID string, removeFrom func(m *Model) 
 // enough to make sure that we can handle when this is not the case.
 // No model returned by this method is ever considered to be stale.
 func (c *Controller) ensureModel(modelUUID string) *Model {
-	c.mu.Lock()
+	c.modelsMu.Lock()
 
 	model, found := c.models[modelUUID]
 	if !found {
@@ -421,20 +420,20 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 		model.setStale(false)
 	}
 
-	c.mu.Unlock()
+	c.modelsMu.Unlock()
 	return model
 }
 
 func (c *Controller) isInitializing() bool {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.initMu.Lock()
+	defer c.initMu.Unlock()
+	return c.initializing
+}
 
-	select {
-	case <-c.initializing:
-		return false
-	default:
-		return true
-	}
+func (c *Controller) setInitializing(init bool) {
+	c.initMu.Lock()
+	c.initializing = init
+	c.initMu.Unlock()
 }
 
 // WatchModelsAsUser returns a watcher that will signal whenever there are
