@@ -3,6 +3,7 @@
 package cache_test
 
 import (
+	"strconv"
 	"time"
 
 	"github.com/juju/clock/testclock"
@@ -378,6 +379,37 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 	}
 
 	s.AssertNoResidents(c)
+}
+
+func (s *ControllerSuite) TestSweepWithConcurrentUpdates(c *gc.C) {
+	controller, events := s.New(c)
+	s.ProcessChange(c, modelChange, events)
+
+	done := make(chan struct{})
+
+	// As long as the channel is open, keep running mark/sweep.
+	// This will generate model summaries repeatedly.
+	go func() {
+		for {
+			controller.Sweep()
+			select {
+			case <-done:
+				return
+			default:
+			}
+		}
+	}()
+
+	// Add a bunch of machines while we are sweeping.
+	// Many will be evicted, but we don't care; we are flexing a data race
+	// scenario by causing writes the the model's machines map.
+	for i := 0; i < 50; i++ {
+		m := machineChange
+		m.Id = strconv.Itoa(i)
+		s.ProcessChange(c, m, events)
+	}
+
+	close(done)
 }
 
 func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {

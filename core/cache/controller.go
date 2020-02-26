@@ -82,14 +82,14 @@ type Controller struct {
 	mu      sync.Mutex
 	metrics *ControllerGauges
 
-	// While a controller is initializing it does not update
-	// any model summaries. The initializing component is handled
-	// with the Mark and Sweep methods. Calling Mark sets the controller
-	// as initializing, and Sweep completes the initialization.
-	// This is a shared variable with the Models. Models only access
-	// the initializer through the interface that allows them to only
-	// read the value.
-	initializing bool
+	// While a controller is initializing it does not update any model
+	// summaries - we want to avoid publishing events related to cache priming.
+	// The initialization status is handled with the Mark and Sweep methods.
+	// Calling Mark sets the controller as initializing, and Sweep completes
+	// the initialization.
+	// This status is shared with the cached models via an indirection that
+	// hides the channel
+	initializing chan struct{}
 }
 
 // NewController creates a new cached controller instance.
@@ -106,14 +106,18 @@ func newController(config ControllerConfig, manager *residentManager) (*Controll
 		return nil, errors.Trace(err)
 	}
 
+	init := make(chan struct{})
+	close(init)
+
 	c := &Controller{
-		manager:  manager,
-		changes:  config.Changes,
-		notify:   config.Notify,
-		idleFunc: IdleFunc,
-		hub:      newPubSubHub(),
-		models:   make(map[string]*Model),
-		metrics:  createControllerGauges(),
+		manager:      manager,
+		changes:      config.Changes,
+		notify:       config.Notify,
+		idleFunc:     IdleFunc,
+		hub:          newPubSubHub(),
+		models:       make(map[string]*Model),
+		metrics:      createControllerGauges(),
+		initializing: init,
 	}
 
 	manager.dying = c.tomb.Dying()
@@ -187,7 +191,7 @@ func (c *Controller) loop() error {
 func (c *Controller) Mark() {
 	c.manager.mark()
 	c.mu.Lock()
-	c.initializing = true
+	c.initializing = make(chan struct{})
 	c.mu.Unlock()
 }
 
@@ -198,10 +202,27 @@ func (c *Controller) Sweep() {
 	case <-c.manager.sweep():
 	case <-c.tomb.Dying():
 	}
+
+	select {
+	case <-c.initializing:
+		// if the channel is already closed, then this call to `Sweep` was not
+		// the first after a `Mark`. This means that the cache is primed and
+		// the last summaries published reflect the correct state of the world.
+		// No need to proceed from here.
+		return
+	default:
+		close(c.initializing)
+	}
+
+	// When this call to `Sweep` is the first after a `Mark`, we will have been
+	// in initialization mode, and updates to cached models will not have
+	// caused summaries to be published.
+	// Now that the we are primed, publish all the summary data.
 	c.mu.Lock()
-	c.initializing = false
 	for _, model := range c.models {
+		model.mu.Lock()
 		model.updateSummary()
+		model.mu.Unlock()
 	}
 	c.mu.Unlock()
 }
@@ -387,7 +408,7 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 
 	model, found := c.models[modelUUID]
 	if !found {
-		initializer := &initializeState{&c.initializing}
+		initializer := &initializeState{c.initializing}
 		model = newModel(modelConfig{
 			initializer: initializer,
 			metrics:     c.metrics,
@@ -425,9 +446,14 @@ func (c *Controller) WatchAllModels() ModelSummaryWatcher {
 }
 
 type initializeState struct {
-	init *bool
+	init chan struct{}
 }
 
 func (s *initializeState) initializing() bool {
-	return *s.init
+	select {
+	case <-s.init:
+		return false
+	default:
+		return true
+	}
 }
