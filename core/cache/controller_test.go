@@ -383,19 +383,36 @@ func (s *ControllerSuite) TestMarkAndSweep(c *gc.C) {
 
 func (s *ControllerSuite) TestSweepWithConcurrentUpdates(c *gc.C) {
 	controller, events := s.New(c)
-	s.ProcessChange(c, modelChange, events)
-
 	done := make(chan struct{})
+
+	s.ProcessChange(c, modelChange, events)
 
 	// As long as the channel is open, keep running mark/sweep.
 	// This will generate model summaries repeatedly.
 	go func() {
 		for {
-			controller.Sweep()
 			select {
 			case <-done:
 				return
 			default:
+				controller.Mark()
+				controller.Sweep()
+			}
+		}
+	}()
+
+	// Keep pulling processed changes off the events channel.
+	// We can't be deterministic about what events will come,
+	// because marking and sweeping will evict residents,
+	// causing an arbitrary number of removal events.
+	// Once we see an application change, we are done.
+	go func() {
+		for {
+			select {
+			case change := <-events:
+				if _, ok := change.(cache.ApplicationChange); ok {
+					return
+				}
 			}
 		}
 	}()
@@ -403,13 +420,17 @@ func (s *ControllerSuite) TestSweepWithConcurrentUpdates(c *gc.C) {
 	// Add a bunch of machines while we are sweeping.
 	// Many will be evicted, but we don't care; we are flexing a data race
 	// scenario by causing writes the the model's machines map.
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 100; i++ {
 		m := machineChange
 		m.Id = strconv.Itoa(i)
-		s.ProcessChange(c, m, events)
+		s.SendChange(c, m)
 	}
 
 	close(done)
+
+	// We need to ensure all change processing is completed,
+	// so send the flagging change to conclude.
+	s.SendChange(c, appChange)
 }
 
 func (s *ControllerSuite) TestWatchMachineStops(c *gc.C) {

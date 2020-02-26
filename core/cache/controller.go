@@ -203,6 +203,9 @@ func (c *Controller) Sweep() {
 	case <-c.tomb.Dying():
 	}
 
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	select {
 	case <-c.initializing:
 		// if the channel is already closed, then this call to `Sweep` was not
@@ -218,13 +221,11 @@ func (c *Controller) Sweep() {
 	// in initialization mode, and updates to cached models will not have
 	// caused summaries to be published.
 	// Now that the we are primed, publish all the summary data.
-	c.mu.Lock()
 	for _, model := range c.models {
 		model.mu.Lock()
 		model.updateSummary()
 		model.mu.Unlock()
 	}
-	c.mu.Unlock()
 }
 
 // Report returns information that is used in the dependency engine report.
@@ -408,13 +409,12 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 
 	model, found := c.models[modelUUID]
 	if !found {
-		initializer := &initializeState{c.initializing}
 		model = newModel(modelConfig{
-			initializer: initializer,
-			metrics:     c.metrics,
-			hub:         newPubSubHub(),
-			chub:        c.hub,
-			res:         c.manager.new(),
+			initializing: c.isInitializing,
+			metrics:      c.metrics,
+			hub:          newPubSubHub(),
+			chub:         c.hub,
+			res:          c.manager.new(),
 		})
 		c.models[modelUUID] = model
 	} else {
@@ -425,11 +425,16 @@ func (c *Controller) ensureModel(modelUUID string) *Model {
 	return model
 }
 
-func newPubSubHub() *pubsub.SimpleHub {
-	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
-		// TODO: (thumper) add a get child method to loggers.
-		Logger: loggo.GetLogger("juju.core.cache.hub"),
-	})
+func (c *Controller) isInitializing() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	select {
+	case <-c.initializing:
+		return false
+	default:
+		return true
+	}
 }
 
 // WatchModelsAsUser returns a watcher that will signal whenever there are
@@ -445,15 +450,9 @@ func (c *Controller) WatchAllModels() ModelSummaryWatcher {
 	return newModelSummaryWatcher(c, "")
 }
 
-type initializeState struct {
-	init chan struct{}
-}
-
-func (s *initializeState) initializing() bool {
-	select {
-	case <-s.init:
-		return false
-	default:
-		return true
-	}
+func newPubSubHub() *pubsub.SimpleHub {
+	return pubsub.NewSimpleHub(&pubsub.SimpleHubConfig{
+		// TODO: (thumper) add a get child method to loggers.
+		Logger: loggo.GetLogger("juju.core.cache.hub"),
+	})
 }
