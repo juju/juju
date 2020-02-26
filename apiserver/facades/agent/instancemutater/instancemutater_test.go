@@ -5,14 +5,14 @@ package instancemutater_test
 
 import (
 	"fmt"
-	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v6"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	coretesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"

@@ -4,12 +4,12 @@
 package simplestreams_test
 
 import (
-	"github.com/juju/utils"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/environs/imagemetadata"
