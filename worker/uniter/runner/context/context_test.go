@@ -12,7 +12,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v3"
 
+	basetesting "github.com/juju/juju/api/base/testing"
+	"github.com/juju/juju/api/uniter"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
 	"github.com/juju/juju/core/model"
@@ -345,7 +348,7 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 	for i, t := range tests {
 		c.Logf("UpdateActionResults test %d: %#v: %#v", i, t.keys, t.value)
 		hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
-		context.WithActionContext(hctx, t.initial)
+		context.WithActionContext(hctx, t.initial, nil)
 		err := hctx.UpdateActionResults(t.keys, t.value)
 		c.Assert(err, jc.ErrorIsNil)
 		actionData, err := hctx.ActionData()
@@ -357,7 +360,7 @@ func (s *InterfaceSuite) TestUpdateActionResults(c *gc.C) {
 // TestSetActionFailed ensures SetActionFailed works properly.
 func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
-	context.WithActionContext(hctx, nil)
+	context.WithActionContext(hctx, nil, nil)
 	err := hctx.SetActionFailed()
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
@@ -368,7 +371,7 @@ func (s *InterfaceSuite) TestSetActionFailed(c *gc.C) {
 // TestSetActionMessage ensures SetActionMessage works properly.
 func (s *InterfaceSuite) TestSetActionMessage(c *gc.C) {
 	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
-	context.WithActionContext(hctx, nil)
+	context.WithActionContext(hctx, nil, nil)
 	err := hctx.SetActionMessage("because reasons")
 	c.Assert(err, jc.ErrorIsNil)
 	actionData, err := hctx.ActionData()
@@ -397,7 +400,7 @@ func (s *InterfaceSuite) TestLogActionMessage(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	hctx := s.getHookContext(c, s.State.ModelUUID(), -1, "")
-	context.WithActionContext(hctx, nil)
+	context.WithActionContext(hctx, nil, nil)
 	err = hctx.LogActionMessage("hello world")
 	c.Assert(err, jc.ErrorIsNil)
 	a, err := s.Model.Action(action.Id())
@@ -735,4 +738,54 @@ func (s *mockHookContextSuite) expectStateValues() {
 		"seven": "",
 	}
 	s.mockUnit.EXPECT().State().Return(s.mockCache, nil)
+}
+
+func (s *mockHookContextSuite) TestActionAbort(c *gc.C) {
+	tests := []struct {
+		Status string
+		Failed bool
+		Cancel bool
+	}{
+		{Status: "aborted", Failed: true, Cancel: true},
+		{Status: "failed", Failed: true, Cancel: false},
+		{Status: "aborted", Failed: false, Cancel: true},
+		{Status: "failed", Failed: false, Cancel: false},
+	}
+	for _, test := range tests {
+		mocks := s.setupMocks(c)
+		apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Uniter")
+			c.Assert(version, gc.Equals, 0)
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "FinishActions")
+			c.Assert(arg, gc.DeepEquals, params.ActionExecutionResults{
+				Results: []params.ActionExecutionResult{{
+					ActionTag: "action-2",
+					Status:    test.Status,
+					Message:   "failed yo",
+				}}})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{}},
+			}
+			return nil
+		})
+		state := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+		hookContext := context.NewMockUnitHookContextWithState(s.mockUnit, state)
+		cancel := make(chan struct{})
+		if test.Cancel {
+			close(cancel)
+		}
+		context.WithActionContext(hookContext, nil, cancel)
+		if test.Failed {
+			err := hookContext.SetActionFailed()
+			c.Assert(err, jc.ErrorIsNil)
+		}
+		actionData, err := hookContext.ActionData()
+		c.Assert(err, jc.ErrorIsNil)
+		c.Check(actionData.Failed, gc.Equals, test.Failed)
+		err = hookContext.Flush("", errors.Errorf("failed yo"))
+		c.Assert(err, jc.ErrorIsNil)
+		mocks.Finish()
+	}
 }

@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"sync"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	utilexec "github.com/juju/utils/exec"
@@ -118,6 +120,9 @@ type RunActionCallbacks struct {
 	operation.Callbacks
 	*MockFailAction
 	executingMessage string
+	actionStatus     string
+	actionStatusErr  error
+	mut              sync.Mutex
 }
 
 func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
@@ -125,8 +130,23 @@ func (cb *RunActionCallbacks) FailAction(actionId, message string) error {
 }
 
 func (cb *RunActionCallbacks) SetExecutingStatus(message string) error {
+	cb.mut.Lock()
+	defer cb.mut.Unlock()
 	cb.executingMessage = message
 	return nil
+}
+
+func (cb *RunActionCallbacks) ActionStatus(actionId string) (string, error) {
+	cb.mut.Lock()
+	defer cb.mut.Unlock()
+	return cb.actionStatus, cb.actionStatusErr
+}
+
+func (cb *RunActionCallbacks) setActionStatus(status string, err error) {
+	cb.mut.Lock()
+	defer cb.mut.Unlock()
+	cb.actionStatus = status
+	cb.actionStatusErr = err
 }
 
 type RunCommandsCallbacks struct {
@@ -214,12 +234,28 @@ func (cb *CommitHookCallbacks) CommitHook(hookInfo hook.Info) error {
 
 type MockNewActionRunner struct {
 	gotActionId *string
+	gotCancel   <-chan struct{}
 	runner      *MockRunner
 	err         error
 }
 
-func (mock *MockNewActionRunner) Call(actionId string) (runner.Runner, error) {
+func (mock *MockNewActionRunner) Call(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
 	mock.gotActionId = &actionId
+	mock.gotCancel = cancel
+	return mock.runner, mock.err
+}
+
+type MockNewActionWaitRunner struct {
+	gotActionId *string
+	gotCancel   <-chan struct{}
+	runner      *MockActionWaitRunner
+	err         error
+}
+
+func (mock *MockNewActionWaitRunner) Call(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
+	mock.gotActionId = &actionId
+	mock.gotCancel = cancel
+	mock.runner.context.(*MockContext).actionData.Cancel = cancel
 	return mock.runner, mock.err
 }
 
@@ -251,8 +287,8 @@ type MockRunnerFactory struct {
 	*MockNewCommandRunner
 }
 
-func (f *MockRunnerFactory) NewActionRunner(actionId string) (runner.Runner, error) {
-	return f.MockNewActionRunner.Call(actionId)
+func (f *MockRunnerFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionRunner.Call(actionId, cancel)
 }
 
 func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, error) {
@@ -261,6 +297,15 @@ func (f *MockRunnerFactory) NewHookRunner(hookInfo hook.Info) (runner.Runner, er
 
 func (f *MockRunnerFactory) NewCommandRunner(commandInfo context.CommandInfo) (runner.Runner, error) {
 	return f.MockNewCommandRunner.Call(commandInfo)
+}
+
+type MockRunnerActionWaitFactory struct {
+	runner.Factory
+	*MockNewActionWaitRunner
+}
+
+func (f *MockRunnerActionWaitFactory) NewActionRunner(actionId string, cancel <-chan struct{}) (runner.Runner, error) {
+	return f.MockNewActionWaitRunner.Call(actionId, cancel)
 }
 
 type MockContext struct {
@@ -386,6 +431,24 @@ func (r *MockRunner) RunHook(hookName string) error {
 	return r.MockRunHook.Call(hookName)
 }
 
+type MockActionWaitRunner struct {
+	runner.Runner
+
+	context    runner.Context
+	actionChan <-chan error
+
+	actionName string
+}
+
+func (r *MockActionWaitRunner) Context() runner.Context {
+	return r.context
+}
+
+func (r *MockActionWaitRunner) RunAction(actionName string) error {
+	r.actionName = actionName
+	return <-r.actionChan
+}
+
 func NewDeployCallbacks() *DeployCallbacks {
 	return &DeployCallbacks{
 		MockGetArchiveInfo:  &MockGetArchiveInfo{info: &MockBundleInfo{}},
@@ -420,6 +483,21 @@ func NewRunActionRunnerFactory(runErr error) *MockRunnerFactory {
 				MockRunAction: &MockRunAction{err: runErr},
 				context: &MockContext{
 					actionData: &context.ActionData{Name: "some-action-name"},
+				},
+			},
+		},
+	}
+}
+
+func NewRunActionWaitRunnerFactory(actionChan <-chan error) *MockRunnerActionWaitFactory {
+	return &MockRunnerActionWaitFactory{
+		MockNewActionWaitRunner: &MockNewActionWaitRunner{
+			runner: &MockActionWaitRunner{
+				actionChan: actionChan,
+				context: &MockContext{
+					actionData: &context.ActionData{
+						Name: "some-action-name",
+					},
 				},
 			},
 		},

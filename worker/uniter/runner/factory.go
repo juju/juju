@@ -30,7 +30,7 @@ type Factory interface {
 
 	// NewActionRunner returns an execution context suitable for running the
 	// action identified by the supplied id.
-	NewActionRunner(actionId string) (Runner, error)
+	NewActionRunner(actionId string, cancel <-chan struct{}) (Runner, error)
 }
 
 // NewFactory returns a Factory capable of creating runners for executing
@@ -89,7 +89,7 @@ func (f *factory) NewHookRunner(hookInfo hook.Info) (Runner, error) {
 }
 
 // NewActionRunner exists to satisfy the Factory interface.
-func (f *factory) NewActionRunner(actionId string) (Runner, error) {
+func (f *factory) NewActionRunner(actionId string, cancel <-chan struct{}) (Runner, error) {
 	ch, err := getCharm(f.paths.GetCharmDir())
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -125,7 +125,7 @@ func (f *factory) NewActionRunner(actionId string) (Runner, error) {
 		return nil, charmrunner.NewBadActionError(name, err.Error())
 	}
 
-	actionData := context.NewActionData(name, &tag, params)
+	actionData := context.NewActionData(name, &tag, params, cancel)
 	ctx, err := f.contextFactory.ActionContext(actionData)
 	if err != nil {
 		return nil, charmrunner.NewBadActionError(name, err.Error())

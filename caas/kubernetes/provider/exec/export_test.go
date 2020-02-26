@@ -11,6 +11,7 @@ var (
 	ProcessEnv                   = processEnv
 	NewForTest                   = newClient
 	HandleContainerNotFoundError = handleContainerNotFoundError
+	RandomString                 = &randomString
 )
 
 func (ep *ExecParams) Validate(podGetter typedcorev1.PodInterface) error {

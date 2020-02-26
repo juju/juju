@@ -448,7 +448,7 @@ var commandNames = []string{
 	"bootstrap",
 	"budget",
 	"cached-images",
-	"cancel-action",
+	"cancel-task",
 	"change-user-password",
 	"charm",
 	"charm-resources",
@@ -653,6 +653,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 		cmdSet.Add("show-action")
 		cmdSet.Add("show-action-status")
 		cmdSet.Add("show-action-output")
+		cmdSet.Add("cancel-action")
 	}
 
 	// 1. Default Commands. Disable all features.
@@ -672,7 +673,7 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(unknown, jc.DeepEquals, set.NewStrings())
 	missing = cmdSet.Difference(registered)
 	c.Assert(missing, jc.DeepEquals, set.NewStrings(
-		"run-action", "show-action-status", "show-action-output"))
+		"cancel-action", "run-action", "show-action-status", "show-action-output"))
 }
 
 func getHelpCommandNames(c *gc.C) set.Strings {
@@ -754,7 +755,7 @@ func (s *MainSuite) TestRegisterCommands(c *gc.C) {
 	copy(expected, commandNames)
 	expected = append(expected, extraNames...)
 	if !featureflag.Enabled(feature.JujuV3) {
-		expected = append(expected, "run-action", "show-action-status", "show-action-output")
+		expected = append(expected, "cancel-action", "run-action", "show-action-status", "show-action-output")
 	}
 	sort.Strings(expected)
 	c.Check(registry.names, jc.DeepEquals, expected)

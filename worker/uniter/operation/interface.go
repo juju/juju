@@ -171,6 +171,10 @@ type Callbacks interface {
 	// RunActions operations.
 	FailAction(actionId, message string) error
 
+	// ActionStatus returns the status of the action required by the action operation for
+	// cancelation.
+	ActionStatus(actionId string) (string, error)
+
 	// GetArchiveInfo is used to find out how to download a charm archive. It's
 	// only used by Deploy operations.
 	GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error)

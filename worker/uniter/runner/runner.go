@@ -145,13 +145,13 @@ func (runner *runner) RunCommands(commands string) (*utilexec.ExecResponse, erro
 	if runner.context.ModelType() == model.CAAS {
 		runMode = runOnRemote
 	}
-	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runMode)
+	result, err := runner.runCommandsWithTimeout(commands, 0, clock.WallClock, runMode, nil)
 	return result, runner.context.Flush("run commands", err)
 }
 
 // runCommandsWithTimeout is a helper to abstract common code between run commands and
 // juju-run as an action
-func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, rMode runMode) (*utilexec.ExecResponse, error) {
+func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Duration, clock clock.Clock, rMode runMode, abort <-chan struct{}) (*utilexec.ExecResponse, error) {
 	var err error
 	token := ""
 	if rMode == runOnRemote {
@@ -203,10 +203,11 @@ func (runner *runner) runCommandsWithTimeout(commands string, timeout time.Durat
 // runJujuRunAction is the function that executes when a juju-run action is ran.
 func (runner *runner) runJujuRunAction() (err error) {
 	logger.Debugf("juju-run action is running")
-	params, err := runner.context.ActionParams()
+	data, err := runner.context.ActionData()
 	if err != nil {
 		return errors.Trace(err)
 	}
+	params := data.Params
 	command, ok := params["command"].(string)
 	if !ok {
 		return errors.New("no command parameter to juju-run action")
@@ -225,7 +226,7 @@ func (runner *runner) runJujuRunAction() (err error) {
 			rMode = runOnRemote
 		}
 	}
-	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode)
+	results, err := runner.runCommandsWithTimeout(command, time.Duration(timeout), clock.WallClock, rMode, data.Cancel)
 	if results != nil {
 		if err := runner.updateActionResults(results); err != nil {
 			return runner.context.Flush("juju-run", err)
@@ -287,7 +288,7 @@ func (runner *runner) RunAction(actionName string) error {
 	}
 	rMode := runOnLocal
 	if runner.context.ModelType() == model.CAAS {
-		// run actions/functions on remote workload pod if it's caas model.
+		// run actions on remote workload pod if it's caas model.
 		rMode = runOnRemote
 	}
 	return runner.runCharmHookWithLocation(actionName, runner.getFunctionDir(), rMode)
@@ -345,9 +346,9 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 		return session.RunHook(hookName, runner.paths.GetCharmDir(), env)
 	}
 	if rMode == runOnRemote {
-		return runner.runCharmHookOnRemote(hookName, env, charmLocation)
+		return runner.runCharmProcessOnRemote(hookName, env, charmLocation)
 	}
-	return runner.runCharmHookOnLocal(hookName, env, charmLocation)
+	return runner.runCharmProcessOnLocal(hookName, env, charmLocation)
 }
 
 // loggerAdaptor implements MessageReceiver and
@@ -391,11 +392,11 @@ func (b *bufferAdaptor) Messagef(isPrefix bool, message string, args ...interfac
 	b.outCopy.WriteString(formattedMessage)
 }
 
-func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmLocation string) error {
+func (runner *runner) runCharmProcessOnRemote(hookName string, env []string, charmLocation string) error {
 	charmDir := runner.paths.GetCharmDir()
 	hook := filepath.Join(charmDir, filepath.Join(charmLocation, hookName))
 
-	var cancel chan struct{}
+	var cancel <-chan struct{}
 	outReader, outWriter, err := os.Pipe()
 	if err != nil {
 		return errors.Errorf("cannot make stdout logging pipe: %v", err)
@@ -414,9 +415,11 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 	// separately to pass back.
 	var actionErr = actionOut
 	var hookErrLogger *charmrunner.HookLogger
-	_, err = runner.context.ActionData()
-	runningAction := err == nil
+	actionData, err := runner.context.ActionData()
+	runningAction := err == nil && actionData != nil
 	if runningAction {
+		cancel = actionData.Cancel
+
 		errReader, errWriter, err := os.Pipe()
 		if err != nil {
 			return errors.Errorf("cannot make stderr logging pipe: %v", err)
@@ -458,7 +461,7 @@ func (runner *runner) runCharmHookOnRemote(hookName string, env []string, charmL
 	return errors.Trace(err)
 }
 
-func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLocation string) error {
+func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, charmLocation string) error {
 	charmDir := runner.paths.GetCharmDir()
 	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {
@@ -488,9 +491,12 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 	// separately to pass back.
 	var actionErr io.Reader
 	var hookErrLogger *charmrunner.HookLogger
-	_, err = runner.context.ActionData()
-	runningAction := err == nil
+	var cancel <-chan struct{}
+	actionData, err := runner.context.ActionData()
+	runningAction := err == nil && actionData != nil
 	if runningAction {
+		cancel = actionData.Cancel
+
 		errReader, errWriter, err := os.Pipe()
 		if err != nil {
 			return errors.Errorf("cannot make stderr logging pipe: %v", err)
@@ -511,10 +517,21 @@ func (runner *runner) runCharmHookOnLocal(hookName string, env []string, charmLo
 	err = ps.Start()
 	var exitErr error
 	if err == nil {
+		done := make(chan struct{})
+		if cancel != nil {
+			go func() {
+				select {
+				case <-cancel:
+					ps.Process.Kill()
+				case <-done:
+				}
+			}()
+		}
 		// Record the *os.Process of the hook
 		runner.context.SetProcess(hookProcess{ps.Process})
 		// Block until execution finishes
 		exitErr = ps.Wait()
+		close(done)
 	} else {
 		exitErr = err
 	}

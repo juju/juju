@@ -4,13 +4,17 @@
 package exec
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net/url"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	core "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,6 +26,14 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.kubernetes.provider.exec")
+
+const (
+	sigkillRetryDelay = 100 * time.Millisecond
+	gracefulKillDelay = 10 * time.Second
+	maxTrys           = 10
+)
+
+var randomString = utils.RandomString
 
 //go:generate mockgen -package mocks -destination mocks/remotecommand_mock.go k8s.io/client-go/tools/remotecommand Executor
 type client struct {
@@ -96,6 +108,8 @@ type ExecParams struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+
+	Signal <-chan syscall.Signal
 }
 
 func (ep *ExecParams) validate(podGetter typedcorev1.PodInterface) (err error) {
@@ -128,6 +142,7 @@ func processEnv(env []string) string {
 }
 
 func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
+	pidFile := fmt.Sprintf("/tmp/%s.pid", randomString(8, utils.LowerAlpha))
 	cmd := ""
 	if opts.WorkingDir != "" {
 		cmd += fmt.Sprintf("cd %s; ", opts.WorkingDir)
@@ -135,7 +150,8 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 	if len(opts.Env) > 0 {
 		cmd += processEnv(opts.Env)
 	}
-	cmd += fmt.Sprintf("%s; ", strings.Join(opts.Commands, " "))
+	cmd += fmt.Sprintf("mkdir -p /tmp; echo $$ > %s; ", pidFile)
+	cmd += fmt.Sprintf("exec %s; ", strings.Join(opts.Commands, " "))
 	cmdArgs := []string{"sh", "-c", cmd}
 	logger.Debugf("exec on pod %q for cmd %v", opts.PodName, cmdArgs)
 	req := c.clientset.CoreV1().RESTClient().Post().
@@ -167,11 +183,94 @@ func (c client) exec(opts ExecParams, cancel <-chan struct{}) error {
 			Tty:    false,
 		})
 	}()
-	select {
-	case err := <-errChan:
-		return errors.Trace(err)
-	case <-cancel:
-		return errors.New(fmt.Sprintf("exec cancelled: %v", opts))
+
+	sendSignal := func(sig syscall.Signal, group bool) error {
+		var cmd []string
+		if group {
+			// Group is mostly for SIGKILL sending a signal to the whole process group.
+			cmd = []string{"sh", "-c", fmt.Sprintf("kill -%d -$(cat %s)", int(sig), pidFile)}
+		} else {
+			cmd = []string{"sh", "-c", fmt.Sprintf("kill -%d $(cat %s)", int(sig), pidFile)}
+		}
+		req := c.clientset.CoreV1().RESTClient().Post().
+			Resource("pods").
+			Name(opts.PodName).
+			Namespace(c.namespace).
+			SubResource("exec").
+			Param("container", opts.ContainerName).
+			VersionedParams(&core.PodExecOptions{
+				Container: opts.ContainerName,
+				Command:   cmd,
+				Stdout:    true,
+				Stderr:    true,
+				TTY:       false,
+			}, scheme.ParameterCodec)
+		executor, err := c.remoteCmdExecutorGetter("POST", req.URL())
+		if err != nil {
+			return errors.Trace(err)
+		}
+		out := &bytes.Buffer{}
+		err = executor.Stream(remotecommand.StreamOptions{
+			Stdout: out,
+			Stderr: out,
+			Tty:    false,
+		})
+		if exitErr, ok := err.(ExitError); ok {
+			// Ignore exitcode from kill, as the process may have already exited or
+			// the pid file hasn't yet been written.
+			logger.Debugf("%q exited with code %d", strings.Join(cmd, " "), exitErr.ExitStatus())
+			return nil
+		}
+		return err
+	}
+
+	kill := make(chan struct{}, 1)
+	killTrys := 0
+	var timer <-chan time.Time
+	for {
+		select {
+		case err := <-errChan:
+			return errors.Trace(err)
+		case <-cancel:
+			cancel = nil
+			err := sendSignal(syscall.SIGTERM, false)
+			if err != nil {
+				return errors.Annotatef(err, "send signal %d failed", syscall.SIGTERM)
+			}
+			// Trigger SIGKILL
+			timer = time.After(gracefulKillDelay)
+		case <-kill:
+			killTrys++
+			if killTrys > maxTrys {
+				return errors.Errorf("SIGKILL failed after %d attempts", maxTrys)
+			}
+			err := sendSignal(syscall.SIGKILL, true)
+			if err != nil {
+				return errors.Annotatef(err, "send signal %d failed", syscall.SIGKILL)
+			}
+			// Retry SIGKILL.
+			timer = time.After(sigkillRetryDelay)
+		case <-timer:
+			timer = nil
+			// Trigger SIGKILL
+			select {
+			case kill <- struct{}{}:
+			default:
+			}
+		case sig := <-opts.Signal:
+			if sig == syscall.SIGKILL {
+				// Trigger SIGKILL
+				select {
+				case kill <- struct{}{}:
+				default:
+				}
+			} else {
+				err := sendSignal(sig, false)
+				if err != nil {
+					return errors.Annotatef(err, "send signal %d failed", sig)
+				}
+			}
+		}
 	}
 }
 

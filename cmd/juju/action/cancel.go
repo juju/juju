@@ -5,16 +5,19 @@ package action
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	"github.com/juju/utils/featureflag"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/cmd/output"
+	"github.com/juju/juju/feature"
 )
 
 func NewCancelCommand() cmd.Command {
@@ -24,7 +27,7 @@ func NewCancelCommand() cmd.Command {
 type cancelCommand struct {
 	ActionCommandBase
 	out          cmd.Output
-	requestedIds []string
+	requestedIDs []string
 }
 
 // Set up the output.
@@ -34,19 +37,31 @@ func (c *cancelCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 const cancelDoc = `
-Cancel actions matching given IDs or partial ID prefixes.`
+Cancel pending or running tasks matching given IDs or partial ID prefixes.`
 
 func (c *cancelCommand) Info() *cmd.Info {
-	return jujucmd.Info(&cmd.Info{
-		Name:    "cancel-action",
-		Args:    "<<action ID | action ID prefix>...>",
-		Purpose: "Cancel pending actions.",
-		Doc:     cancelDoc,
-	})
+	var info *cmd.Info
+	if featureflag.Enabled(feature.JujuV3) {
+		info = &cmd.Info{
+			Name:    "cancel-task",
+			Args:    "<<task ID | task ID prefix>...>",
+			Purpose: "Cancel pending or running tasks.",
+			Doc:     cancelDoc,
+		}
+	} else {
+		info = &cmd.Info{
+			Name:    "cancel-action",
+			Args:    "<<action ID | action ID prefix>...>",
+			Purpose: "Cancel pending or running actions.",
+			Doc:     strings.ReplaceAll(cancelDoc, "task", "action"),
+			Aliases: []string{"cancel-task"},
+		}
+	}
+	return jujucmd.Info(info)
 }
 
 func (c *cancelCommand) Init(args []string) error {
-	c.requestedIds = args
+	c.requestedIDs = args
 	return nil
 }
 
@@ -57,20 +72,20 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	}
 	defer api.Close()
 
-	if len(c.requestedIds) == 0 {
+	if len(c.requestedIDs) == 0 {
 		return errors.Errorf("no actions specified")
 	}
 
 	var actionTags []names.ActionTag
-	for _, requestedId := range c.requestedIds {
-		requestedActionTags, err := getActionTagsByPrefix(api, requestedId)
+	for _, requestedID := range c.requestedIDs {
+		requestedActionTags, err := getActionTagsByPrefix(api, requestedID)
 		if err != nil {
 			return err
 		}
 
 		// If a non existing ID was submitted we abort the command taking no further action.
 		if len(requestedActionTags) < 1 {
-			return errors.Errorf("no actions found matching prefix %s, no actions have been canceled", requestedId)
+			return errors.Errorf("no actions found matching prefix %s, no actions have been canceled", requestedID)
 		}
 
 		actionTags = append(actionTags, requestedActionTags...)
@@ -87,7 +102,7 @@ func (c *cancelCommand) Run(ctx *cmd.Context) error {
 	}
 
 	if len(actions.Results) < 1 {
-		return errors.Errorf("identifier(s) %q matched action(s) %q, but no actions were canceled", c.requestedIds, actionTags)
+		return errors.Errorf("identifier(s) %q matched action(s) %q, but no actions were canceled", c.requestedIDs, actionTags)
 	}
 
 	type unCanceledAction struct {

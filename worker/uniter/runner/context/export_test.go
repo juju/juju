@@ -97,6 +97,13 @@ func NewMockUnitHookContext(mockUnit *mocks.MockHookUnit) *HookContext {
 	}
 }
 
+func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter.State) *HookContext {
+	return &HookContext{
+		unit:  mockUnit,
+		state: state,
+	}
+}
+
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
 func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName string, remoteAppName string) {
@@ -124,10 +131,11 @@ func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]i
 	}
 }
 
-func WithActionContext(ctx *HookContext, in map[string]interface{}) {
+func WithActionContext(ctx *HookContext, in map[string]interface{}, cancel <-chan struct{}) {
 	ctx.actionData = &ActionData{
 		Tag:        names.NewActionTag("2"),
 		ResultsMap: in,
+		Cancel:     cancel,
 	}
 }
 

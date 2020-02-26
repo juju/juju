@@ -1135,7 +1135,12 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 	tag := ctx.actionData.Tag
 	actionStatus := params.ActionCompleted
 	if ctx.actionData.Failed {
-		actionStatus = params.ActionFailed
+		select {
+		case <-ctx.actionData.Cancel:
+			actionStatus = params.ActionAborted
+		default:
+			actionStatus = params.ActionFailed
+		}
 	}
 
 	// If we had an action error, we'll simply encapsulate it in the response
@@ -1145,7 +1150,12 @@ func (ctx *HookContext) finalizeAction(err, unhandledErr error) error {
 		if charmrunner.IsMissingHookError(err) {
 			message = fmt.Sprintf("action not implemented on unit %q", ctx.unitName)
 		}
-		actionStatus = params.ActionFailed
+		select {
+		case <-ctx.actionData.Cancel:
+			actionStatus = params.ActionAborted
+		default:
+			actionStatus = params.ActionFailed
+		}
 	}
 
 	callErr := ctx.state.ActionFinish(tag, actionStatus, results, message)

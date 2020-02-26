@@ -6,6 +6,7 @@ package exec_test
 import (
 	"io"
 	"net/url"
+	"reflect"
 
 	"github.com/golang/mock/gomock"
 	gc "gopkg.in/check.v1"
@@ -29,6 +30,7 @@ type BaseSuite struct {
 	execClient            exec.Executor
 	mockPodGetter         *mocks.MockPodInterface
 	mockRemoteCmdExecutor *execmocks.MockExecutor
+	suiteMocks            *suiteMocks
 
 	pipReader io.Reader
 	pipWriter io.WriteCloser
@@ -63,12 +65,14 @@ func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
 	mockCoreV1.EXPECT().Pods(s.namespace).AnyTimes().Return(s.mockPodGetter)
 
 	s.mockRemoteCmdExecutor = execmocks.NewMockExecutor(ctrl)
+
+	s.suiteMocks = newSuiteMocks(ctrl)
 	s.execClient = exec.NewForTest(
 		s.namespace,
 		s.k8sClient,
 		&rest.Config{},
 		func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
-			return s.mockRemoteCmdExecutor, nil
+			return s.suiteMocks.RemoteCmdExecutorGetter(config, method, url)
 		},
 		func() (io.Reader, io.WriteCloser) {
 			return s.pipReader, s.pipWriter
@@ -79,4 +83,34 @@ func (s *BaseSuite) setupExecClient(c *gc.C) *gomock.Controller {
 
 func (s *BaseSuite) k8sNotFoundError() *k8serrors.StatusError {
 	return k8serrors.NewNotFound(schema.GroupResource{}, "test")
+}
+
+type suiteMocks struct {
+	ctrl     *gomock.Controller
+	recorder *suiteMocksRecorder
+}
+
+type suiteMocksRecorder struct {
+	mock *suiteMocks
+}
+
+func newSuiteMocks(ctrl *gomock.Controller) *suiteMocks {
+	mock := &suiteMocks{ctrl: ctrl}
+	mock.recorder = &suiteMocksRecorder{mock}
+	return mock
+}
+
+func (m *suiteMocks) EXPECT() *suiteMocksRecorder {
+	return m.recorder
+}
+
+func (m *suiteMocks) RemoteCmdExecutorGetter(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
+	ret := m.ctrl.Call(m, "RemoteCmdExecutorGetter", config, method, url)
+	ret0, _ := ret[0].(remotecommand.Executor)
+	ret1, _ := ret[0].(error)
+	return ret0, ret1
+}
+
+func (mr *suiteMocksRecorder) RemoteCmdExecutorGetter(config interface{}, method interface{}, url interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RemoteCmdExecutorGetter", reflect.TypeOf((*suiteMocks)(nil).RemoteCmdExecutorGetter), config, method, url)
 }

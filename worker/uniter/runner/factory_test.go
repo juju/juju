@@ -237,7 +237,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), test.actionName, test.payload)
 		c.Assert(err, jc.ErrorIsNil)
-		rnr, err := s.factory.NewActionRunner(action.Id())
+		rnr, err := s.factory.NewActionRunner(action.Id(), nil)
 		c.Assert(err, jc.ErrorIsNil)
 		s.AssertPaths(c, rnr)
 		ctx := rnr.Context()
@@ -260,7 +260,7 @@ func (s *FactorySuite) TestNewActionRunnerGood(c *gc.C) {
 }
 
 func (s *FactorySuite) TestNewActionRunnerBadCharm(c *gc.C) {
-	rnr, err := s.factory.NewActionRunner("irrelevant")
+	rnr, err := s.factory.NewActionRunner("irrelevant", nil)
 	c.Assert(rnr, gc.IsNil)
 	c.Assert(errors.Cause(err), jc.Satisfies, os.IsNotExist)
 	c.Assert(err, gc.Not(jc.Satisfies), charmrunner.IsBadActionError)
@@ -272,7 +272,7 @@ func (s *FactorySuite) TestNewActionRunnerBadName(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), "no-such-action", nil)
 	c.Assert(err, jc.ErrorIsNil) // this will fail when using AddAction on unit
-	rnr, err := s.factory.NewActionRunner(action.Id())
+	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"no-such-action\" action: not defined")
 	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
@@ -286,7 +286,7 @@ func (s *FactorySuite) TestNewActionRunnerBadParams(c *gc.C) {
 		"outfile": 123,
 	})
 	c.Assert(err, jc.ErrorIsNil) // this will fail when state is done right
-	rnr, err := s.factory.NewActionRunner(action.Id())
+	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "cannot run \"snapshot\" action: .*")
 	c.Check(err, jc.Satisfies, charmrunner.IsBadActionError)
@@ -300,7 +300,7 @@ func (s *FactorySuite) TestNewActionRunnerMissingAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.unit.CancelAction(action)
 	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id())
+	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
@@ -314,8 +314,41 @@ func (s *FactorySuite) TestNewActionRunnerUnauthAction(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	action, err := s.model.EnqueueAction(operationID, otherUnit.Tag(), "snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
-	rnr, err := s.factory.NewActionRunner(action.Id())
+	rnr, err := s.factory.NewActionRunner(action.Id(), nil)
 	c.Check(rnr, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "action no longer available")
 	c.Check(err, gc.Equals, charmrunner.ErrActionNotAvailable)
+}
+
+func (s *FactorySuite) TestNewActionRunnerWithCancel(c *gc.C) {
+	s.SetCharm(c, "dummy")
+	actionName := "snapshot"
+	payload := map[string]interface{}{
+		"outfile": "/some/file.bz2",
+	}
+	cancel := make(chan struct{})
+	operationID, err := s.model.EnqueueOperation("a test")
+	c.Assert(err, jc.ErrorIsNil)
+	action, err := s.model.EnqueueAction(operationID, s.unit.Tag(), actionName, payload)
+	c.Assert(err, jc.ErrorIsNil)
+	rnr, err := s.factory.NewActionRunner(action.Id(), cancel)
+	c.Assert(err, jc.ErrorIsNil)
+	s.AssertPaths(c, rnr)
+	ctx := rnr.Context()
+	data, err := ctx.ActionData()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(data, jc.DeepEquals, &context.ActionData{
+		Name:       actionName,
+		Tag:        action.ActionTag(),
+		Params:     payload,
+		ResultsMap: map[string]interface{}{},
+		Cancel:     cancel,
+	})
+	vars, err := ctx.HookVars(s.paths, false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(len(vars) > 0, jc.IsTrue, gc.Commentf("expected HookVars but found none"))
+	combined := strings.Join(vars, "|")
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_NAME=`+actionName+`(\|.*|$)`)
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_UUID=`+action.Id()+`(\|.*|$)`)
+	c.Assert(combined, gc.Matches, `(^|.*\|)JUJU_ACTION_TAG=`+action.Tag().String()+`(\|.*|$)`)
 }

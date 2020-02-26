@@ -6,6 +6,7 @@ package exec_test
 import (
 	"bytes"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/golang/mock/gomock"
@@ -91,6 +92,8 @@ func (s *execSuite) TestProcessEnv(c *gc.C) {
 func (s *execSuite) TestExecParamsValidatePodContainerExistence(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
+
+	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	// failed - completed pod.
 	params := exec.ExecParams{
@@ -290,6 +293,8 @@ func (s *execSuite) TestExec(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
+	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+
 	var stdin, stdout, stderr bytes.Buffer
 	params := exec.ExecParams{
 		Commands: []string{"echo", "'hello world'"},
@@ -357,6 +362,117 @@ func (s *execSuite) TestExec(c *gc.C) {
 	case err := <-errChan:
 		c.Assert(err, jc.ErrorIsNil)
 	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for Exec return")
+	}
+}
+
+func (s *execSuite) TestExecCancel(c *gc.C) {
+	ctrl := s.setupExecClient(c)
+	defer ctrl.Finish()
+
+	s.PatchValue(exec.RandomString, func(n int, validRunes []rune) string {
+		return "random"
+	})
+
+	var stdin, stdout, stderr bytes.Buffer
+	params := exec.ExecParams{
+		Commands: []string{"echo", "'hello world'"},
+		PodName:  "gitlab-k8s-uid",
+		Stdout:   &stdout,
+		Stderr:   &stderr,
+		Stdin:    &stdin,
+	}
+	c.Assert(params.ContainerName, gc.Equals, "")
+	pod := core.Pod{
+		Spec: core.PodSpec{
+			Containers: []core.Container{
+				{Name: "gitlab-container"},
+			},
+		},
+		Status: core.PodStatus{
+			Phase: core.PodRunning,
+			ContainerStatuses: []core.ContainerStatus{
+				{Name: "gitlab-container", State: core.ContainerState{Running: &core.ContainerStateRunning{}}},
+			},
+		},
+	}
+	pod.SetUID("gitlab-k8s-uid")
+	pod.SetName("gitlab-k8s-0")
+
+	cancel := make(chan struct{})
+	wait := make(chan struct{})
+	mut := sync.Mutex{}
+	callNum := 0
+
+	urls := []string{
+		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=mkdir+-p+%2Ftmp%3B+echo+%24%24+%3E+%2Ftmp%2Frandom.pid%3B+exec+echo+%27hello+world%27%3B+&container=gitlab-container&container=gitlab-container&stderr=true&stdin=true&stdout=true",
+		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=kill+-15+%24%28cat+%2Ftmp%2Frandom.pid%29&container=gitlab-container&container=gitlab-container&stderr=true&stdout=true",
+		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=kill+-9+-%24%28cat+%2Ftmp%2Frandom.pid%29&container=gitlab-container&container=gitlab-container&stderr=true&stdout=true",
+		"/path/namespaces/test/pods/gitlab-k8s-0/exec?command=sh&command=-c&command=kill+-9+-%24%28cat+%2Ftmp%2Frandom.pid%29&container=gitlab-container&container=gitlab-container&stderr=true&stdout=true",
+	}
+	waitTime := 11 * time.Second
+	requests := []*rest.Request{}
+	for i := 0; i < len(urls); i++ {
+		request := rest.NewRequestWithClient(
+			&url.URL{Path: "/path/"},
+			"",
+			rest.ClientContentConfig{GroupVersion: core.SchemeGroupVersion},
+			nil,
+		)
+		requests = append(requests, request)
+	}
+
+	gomock.InOrder(
+		s.mockPodGetter.EXPECT().Get("gitlab-k8s-uid", metav1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockPodGetter.EXPECT().List(metav1.ListOptions{}).
+			Return(&core.PodList{Items: []core.Pod{pod}}, nil),
+	)
+
+	s.restClient.EXPECT().Post().AnyTimes().DoAndReturn(func() *rest.Request {
+		mut.Lock()
+		defer mut.Unlock()
+		c.Assert(callNum, jc.LessThan, len(requests))
+		return requests[callNum]
+	})
+	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().
+		DoAndReturn(func(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
+			mut.Lock()
+			defer mut.Unlock()
+			c.Assert(callNum, jc.LessThan, len(urls))
+			c.Check(url.String(), gc.Equals, urls[callNum])
+			return s.mockRemoteCmdExecutor, nil
+		})
+	s.mockRemoteCmdExecutor.EXPECT().Stream(gomock.Any()).AnyTimes().DoAndReturn(func(opts remotecommand.StreamOptions) error {
+		mut.Lock()
+		currentCall := callNum
+		callNum++
+		mut.Unlock()
+		switch currentCall {
+		case 0:
+			close(cancel)
+			select {
+			case <-wait:
+			case <-time.After(waitTime):
+				c.Fatalf("timed out waiting for exit")
+			}
+		case 1:
+		case 2:
+		case 3:
+			close(wait)
+		}
+		return nil
+	})
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- s.execClient.Exec(params, cancel)
+	}()
+
+	select {
+	case err := <-errChan:
+		c.Assert(err, jc.ErrorIsNil)
+	case <-time.After(waitTime):
 		c.Fatalf("timed out waiting for Exec return")
 	}
 }
