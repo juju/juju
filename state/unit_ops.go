@@ -20,18 +20,14 @@ type unitSetStateOperation struct {
 
 // Build implements ModelOperation.
 func (op *unitSetStateOperation) Build(attempt int) ([]txn.Op, error) {
-	annotateErr := func(err error) error {
-		return errors.Annotatef(err, "cannot persist state for unit %q", op.u)
-	}
-
 	if attempt > 0 {
 		if err := op.u.Refresh(); err != nil {
-			return nil, annotateErr(errors.Trace(err))
+			return nil, errors.Annotatef(err, "cannot persist state for unit %q", op.u)
 		}
 	}
 
 	if op.u.Life() != Alive {
-		return nil, annotateErr(errors.NotFoundf("unit %s", op.u.Name()))
+		return nil, errors.Annotatef(errors.NotFoundf("unit %s", op.u.Name()), "cannot persist state for unit %q", op.u)
 	}
 
 	coll, closer := op.u.st.db().GetCollection(unitStatesC)
@@ -48,7 +44,7 @@ func (op *unitSetStateOperation) Build(attempt int) ([]txn.Op, error) {
 	unitGlobalKey := op.u.globalKey()
 	if err := coll.FindId(unitGlobalKey).One(&stDoc); err != nil {
 		if err != mgo.ErrNotFound {
-			return nil, errors.Trace(err)
+			return nil, errors.Annotatef(err, "cannot persist state for unit %q", op.u)
 		}
 
 		escapedState := make(map[string]string, len(op.newState))

@@ -24,27 +24,17 @@ type openClosePortsOperation struct {
 
 // Build implements ModelOperartion.
 func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
-	annotateErr := func(err error) error {
-		return errors.Annotatef(err, "cannot open/close ports")
-	}
-	annotateOpenErr := func(err error, portRange PortRange) error {
-		return errors.Annotatef(err, "cannot open ports %v", portRange)
-	}
-	annotateCloseErr := func(err error, portRange PortRange) error {
-		return errors.Annotatef(err, "cannot close ports %v", portRange)
-	}
-
 	var createPortsDoc = op.p.areNew
 	if attempt > 0 {
 		if err := checkModelActive(op.p.st); err != nil {
-			return nil, annotateErr(errors.Trace(err))
+			return nil, errors.Annotate(err, "cannot open/close ports")
 		}
 		if err := op.verifySubnetAliveWhenSet(); err != nil {
-			return nil, annotateErr(errors.Trace(err))
+			return nil, errors.Annotate(err, "cannot open/close ports")
 		}
 		if err := op.p.Refresh(); err != nil {
 			if !errors.IsNotFound(err) {
-				return nil, annotateErr(errors.Trace(err))
+				return nil, errors.Annotate(err, "cannot open/close ports")
 			}
 
 			// Ports doc not found; we need to add a new one.
@@ -70,7 +60,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 			}
 
 			if err := existingPorts.CheckConflicts(openPortRange); err != nil {
-				return nil, annotateOpenErr(errors.Trace(err), openPortRange)
+				return nil, errors.Annotatef(err, "cannot open ports %v", openPortRange)
 			}
 		}
 
@@ -91,7 +81,7 @@ func (op *openClosePortsOperation) Build(attempt int) ([]txn.Op, error) {
 			}
 
 			if err := existingPorts.CheckConflicts(closePortRange); err != nil && existingPorts.UnitName == closePortRange.UnitName {
-				return nil, annotateCloseErr(errors.Trace(err), closePortRange)
+				return nil, errors.Annotatef(err, "cannot close ports %v", closePortRange)
 			}
 		}
 
