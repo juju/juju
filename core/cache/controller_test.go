@@ -387,9 +387,8 @@ func (s *ControllerSuite) TestSweepWithConcurrentUpdates(c *gc.C) {
 
 	done := make(chan struct{})
 
-	// As long as the channel is open, keep running sweep.
-	// No mark has been run, so nothing will be evicted.
-	// But we will keep generating model summaries.
+	// As long as the channel is open, keep running mark/sweep.
+	// This will generate model summaries repeatedly.
 	go func() {
 		for {
 			controller.Sweep()
@@ -402,6 +401,8 @@ func (s *ControllerSuite) TestSweepWithConcurrentUpdates(c *gc.C) {
 	}()
 
 	// Add a bunch of machines while we are sweeping.
+	// Many will be evicted, but we don't care; we are flexing a data race
+	// scenario by causing writes the the model's machines map.
 	for i := 0; i < 50; i++ {
 		m := machineChange
 		m.Id = strconv.Itoa(i)

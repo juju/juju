@@ -205,11 +205,19 @@ func (c *Controller) Sweep() {
 
 	select {
 	case <-c.initializing:
-		// The channel is already closed.
+		// if the channel is already closed, then this call to `Sweep` was not
+		// the first after a `Mark`. This means that the cache is primed and
+		// the last summaries published reflect the correct state of the world.
+		// No need to proceed from here.
+		return
 	default:
 		close(c.initializing)
 	}
 
+	// When this call to `Sweep` is the first after a `Mark`, we will have been
+	// in initialization mode, and updates to cached models will not have
+	// caused summaries to be published.
+	// Now that the we are primed, publish all the summary data.
 	c.mu.Lock()
 	for _, model := range c.models {
 		model.mu.Lock()
