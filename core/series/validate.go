@@ -13,7 +13,7 @@ import (
 // Returns the series it validated against or an error if one is found.
 // Note: the selected series will be returned if there is an error to help use
 // that for a fallback during error scenarios.
-func ValidateSeries(supportedSeries set.Strings, series, fallbackPerferedSeries string) (string, error) {
+func ValidateSeries(supportedSeries set.Strings, series, fallbackPreferredSeries string) (string, error) {
 	// Validate the requested series.
 	// Attempt to do the validation in one place, so it makes it easier to
 	// reason about where the validation happens. This only happens for IAAS
@@ -25,7 +25,7 @@ func ValidateSeries(supportedSeries set.Strings, series, fallbackPerferedSeries 
 		// If no bootstrap series is supplied, go and get that information from
 		// the fallback. We should still validate the fallback value to ensure
 		// that we also work with that series.
-		requestedSeries = fallbackPerferedSeries
+		requestedSeries = fallbackPreferredSeries
 	}
 	if !supportedSeries.Contains(requestedSeries) {
 		return requestedSeries, errors.NotSupportedf("%s", requestedSeries)
