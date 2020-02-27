@@ -805,7 +805,6 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 					ConfigMap: &specs.ResourceRefVol{
 						Name:        "log-config",
 						DefaultMode: int32Ptr(511),
-						Optional:    boolPtr(true),
 						Files: []specs.FileRef{
 							{
 								Key:  "log_level",
@@ -826,7 +825,6 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 								Name: "log-config",
 							},
 							DefaultMode: int32Ptr(511),
-							Optional:    boolPtr(true),
 							Items: []core.KeyToPath{
 								{
 									Key:  "log_level",
@@ -847,7 +845,6 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 					ConfigMap: &specs.ResourceRefVol{
 						Name:        "non-existing-config-map",
 						DefaultMode: int32Ptr(511),
-						Optional:    boolPtr(true),
 						Files: []specs.FileRef{
 							{
 								Key:  "log_level",
@@ -870,7 +867,6 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 					Secret: &specs.ResourceRefVol{
 						Name:        "mysecret2",
 						DefaultMode: int32Ptr(511),
-						Optional:    boolPtr(true),
 						Files: []specs.FileRef{
 							{
 								Key:  "password",
@@ -889,7 +885,6 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 						Secret: &core.SecretVolumeSource{
 							SecretName:  "mysecret2",
 							DefaultMode: int32Ptr(511),
-							Optional:    boolPtr(true),
 							Items: []core.KeyToPath{
 								{
 									Key:  "password",
@@ -910,7 +905,6 @@ func (s *K8sBrokerSuite) TestFileSetToVolumeNonFiles(c *gc.C) {
 					Secret: &specs.ResourceRefVol{
 						Name:        "non-existing-secret",
 						DefaultMode: int32Ptr(511),
-						Optional:    boolPtr(true),
 						Files: []specs.FileRef{
 							{
 								Key:  "password",

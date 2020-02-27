@@ -1498,7 +1498,6 @@ func (k *kubernetesClient) fileSetToVolume(
 				Name: refName,
 			},
 			DefaultMode: fileSet.ConfigMap.DefaultMode,
-			Optional:    fileSet.ConfigMap.Optional,
 			Items:       fileRefsToVolItems(fileSet.ConfigMap.Files),
 		}
 	} else if fileSet.Secret != nil {
@@ -1519,7 +1518,6 @@ func (k *kubernetesClient) fileSetToVolume(
 		vol.Secret = &core.SecretVolumeSource{
 			SecretName:  refName,
 			DefaultMode: fileSet.Secret.DefaultMode,
-			Optional:    fileSet.Secret.Optional,
 			Items:       fileRefsToVolItems(fileSet.Secret.Files),
 		}
 	} else {
