@@ -6,6 +6,7 @@ package provider
 import (
 	"context"
 	"sync"
+	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
@@ -166,13 +167,17 @@ func ensureResourcesDeletedfunc(
 	if err = deleter(labels); err != nil {
 		return
 	}
-
+	interval := 1 * time.Second
+	ticker := clk.NewTimer(interval)
+	defer ticker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			err = errors.Trace(ctx.Err())
 			return
-		default:
+		case <-ticker.Chan():
+			ticker.Reset(interval)
+
 			err = checker(labels)
 			if errors.IsNotFound(err) {
 				// Deleted already.
