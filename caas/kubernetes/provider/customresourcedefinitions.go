@@ -104,6 +104,20 @@ func (k *kubernetesClient) getCustomResourceDefinition(name string) (*apiextensi
 	return crd, errors.Trace(err)
 }
 
+func (k *kubernetesClient) listCustomResourceDefinitions(labels map[string]string) ([]apiextensionsv1beta1.CustomResourceDefinition, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: labelsToSelector(labels),
+	}
+	list, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("custom resource definitions with labels %v", labels)
+	}
+	return list.Items, nil
+}
+
 func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
 	return errors.Trace(k.deleteCustomResourceDefinitions(k.getCRDLabelsGlobal(appName)))
 }
@@ -319,12 +333,13 @@ func (k *kubernetesClient) getCRDsForCRs(
 		clk jujuclock.Clock,
 	) {
 		var crd *apiextensionsv1beta1.CustomResourceDefinition
-		err := retry.Call(retry.CallArgs{
+		var err error
+		err = retry.Call(retry.CallArgs{
 			Attempts: 8,
 			Delay:    1 * time.Second,
 			Clock:    clk,
 			Stop:     ctx.Done(),
-			Func: func() (err error) {
+			Func: func() error {
 				crd, err = getter.Get(name)
 				return errors.Trace(err)
 			},
