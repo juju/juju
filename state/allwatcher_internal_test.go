@@ -25,11 +25,15 @@ import (
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/core/network"
+	corenetwork "github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
+
+const emptySubnet = ""
 
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
@@ -56,6 +60,7 @@ options:
 
 type allWatcherBaseSuite struct {
 	internalStateSuite
+	networktesting.FirewallHelper
 	currentTime time.Time
 }
 
@@ -804,8 +809,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 	privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
 	err = m.SetProviderAddresses(publicAddress, privateAddress)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.OpenPorts("tcp", 12345, 12345)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
 	// Create all watcher state backing.
 	b := NewAllWatcherBacking(s.pool)
 	all := multiwatcher.NewStore(loggo.GetLogger("test"))
@@ -851,8 +855,7 @@ func (s *allWatcherStateSuite) TestClosingPorts(c *gc.C) {
 		},
 	})
 	// Close the ports.
-	err = u.ClosePorts("tcp", 12345, 12345)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCloseUnitPort(c, u, emptySubnet, "tcp", 12345)
 	err = b.Changed(all, watcher.Change{
 		C:  openedPortsC,
 		Id: s.state.docID("m#0#0.1.2.0/24"),
@@ -2303,6 +2306,7 @@ func testChangeApplicationsConstraints(c *gc.C, owner names.UserTag, runChangeTe
 }
 
 func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []changeTestFunc)) {
+	var fw networktesting.FirewallHelper
 	changeTestFuncs := []changeTestFunc{
 		func(c *gc.C, st *State) changeTestCase {
 			return changeTestCase{
@@ -2335,11 +2339,9 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPort("tcp", 12345)
-			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPort("udp", 54321)
-			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPorts("tcp", 5555, 5558)
+			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
+			fw.AssertOpenUnitPort(c, u, emptySubnet, "udp", 54321)
+			fw.AssertOpenUnitPorts(c, u, emptySubnet, "tcp", 5555, 5558)
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
 			sInfo := status.StatusInfo{
@@ -2399,8 +2401,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPort("udp", 17070)
-			c.Assert(err, jc.ErrorIsNil)
+			fw.AssertOpenUnitPort(c, u, emptySubnet, "udp", 17070)
 			err = u.SetAgentVersion(version.MustParseBinary("2.4.1-bionic-amd64"))
 			c.Assert(err, jc.ErrorIsNil)
 			now := st.clock().Now()
@@ -2462,8 +2463,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPort("tcp", 4242)
-			c.Assert(err, jc.ErrorIsNil)
+			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 4242)
 
 			return changeTestCase{
 				about: "unit info is updated if a port is opened on the machine it is placed in",
@@ -2502,8 +2502,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPorts("tcp", 21, 22)
-			c.Assert(err, jc.ErrorIsNil)
+			fw.AssertOpenUnitPorts(c, u, emptySubnet, "tcp", 21, 22)
 			now := st.clock().Now()
 			return changeTestCase{
 				about: "unit is created if a port is opened on the machine it is placed in",
@@ -2553,8 +2552,7 @@ func testChangeUnits(c *gc.C, owner names.UserTag, runChangeTests func(*gc.C, []
 			c.Assert(err, jc.ErrorIsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPort("tcp", 12345)
-			c.Assert(err, jc.ErrorIsNil)
+			fw.AssertOpenUnitPort(c, u, emptySubnet, "tcp", 12345)
 			publicAddress := network.NewScopedSpaceAddress("public", network.ScopePublic)
 			privateAddress := network.NewScopedSpaceAddress("private", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
@@ -2947,17 +2945,20 @@ func testChangeUnitsNonNilPorts(c *gc.C, owner names.UserTag, runChangeTests fun
 			privateAddress := network.NewScopedSpaceAddress("4.3.2.1", network.ScopeCloudLocal)
 			err = m.SetProviderAddresses(publicAddress, privateAddress)
 			c.Assert(err, jc.ErrorIsNil)
-			err = u.OpenPort("tcp", 12345)
+
+			openRange := []corenetwork.PortRange{{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}}
+			err = u.OpenClosePortsOnSubnet(emptySubnet, openRange, nil)
 			if flag&assignUnit != 0 {
 				c.Assert(err, jc.ErrorIsNil)
 			} else {
-				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345-12345/tcp \("wordpress/0"\) for unit "wordpress/0".*`)
+				c.Assert(err, gc.ErrorMatches, `cannot open ports 12345/tcp for unit "wordpress/0".*`)
 				c.Assert(err, jc.Satisfies, errors.IsNotAssigned)
 			}
 		}
 		if flag&closePorts != 0 {
 			// Close the port again (only if been opened before).
-			err = u.ClosePort("tcp", 12345)
+			closeRange := []corenetwork.PortRange{{FromPort: 12345, ToPort: 12345, Protocol: "tcp"}}
+			err = u.OpenClosePortsOnSubnet(emptySubnet, nil, closeRange)
 			c.Assert(err, jc.ErrorIsNil)
 		}
 	}

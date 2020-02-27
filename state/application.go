@@ -2451,64 +2451,15 @@ func (a *Application) UpdateLeaderSettings(token leadership.Token, updates map[s
 	for k, v := range updates {
 		converted[k] = v
 	}
-	err := updateLeaderSettings(a.st.db(), token, key, converted)
+
+	modelOp := newUpdateLeaderSettingsOperation(a.st.db(), token, key, converted)
+	err := a.st.ApplyOperation(modelOp)
 	if errors.IsNotFound(err) {
 		return errors.NotFoundf("application %q", a.doc.Name)
 	} else if err != nil {
 		return errors.Annotatef(err, "application %q", a.doc.Name)
 	}
 	return nil
-}
-
-func updateLeaderSettings(db Database, token leadership.Token, key string, updates map[string]interface{}) error {
-	// We can calculate the actual update ahead of time; it's not dependent
-	// upon the current state of the document. (*Writing* it should depend
-	// on document state, but that's handled below.)
-	sets := bson.M{}
-	unsets := bson.M{}
-	for unescapedKey, value := range updates {
-		key := mgoutils.EscapeKey(unescapedKey)
-		if value == "" {
-			unsets[key] = 1
-		} else {
-			sets[key] = value
-		}
-	}
-	update := setUnsetUpdateSettings(sets, unsets)
-
-	isNullChange := func(rawMap map[string]interface{}) bool {
-		for key := range unsets {
-			if _, found := rawMap[key]; found {
-				return false
-			}
-		}
-		for key, value := range sets {
-			if current := rawMap[key]; current != value {
-				return false
-			}
-		}
-		return true
-	}
-
-	buildTxn := func(_ int) ([]txn.Op, error) {
-		// Read the current document state so we can abort if there's
-		// no actual change; and the version number so we can assert
-		// on it and prevent these settings from landing late.
-		doc, err := readSettingsDoc(db, settingsC, key)
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if isNullChange(doc.Settings) {
-			return nil, jujutxn.ErrNoOperations
-		}
-		return []txn.Op{{
-			C:      settingsC,
-			Id:     key,
-			Assert: bson.D{{"version", doc.Version}},
-			Update: update,
-		}}, nil
-	}
-	return db.Run(buildTxnWithLeadership(buildTxn, token))
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate applications")

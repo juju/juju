@@ -12,6 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/application"
@@ -684,6 +685,7 @@ func (s *mockHookContextSuite) TestFlushWithNonDirtyCache(c *gc.C) {
 	defer s.setupMocks(c).Finish()
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	s.expectStateValues()
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0"))
 
 	// The following commands are no-ops as they don't mutate the cache.
 	err := hookContext.SetCacheValue("one", "two") // no-op: KV already present
@@ -703,11 +705,22 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 
 	// We expect a single call for the following API endpoints
 	s.expectStateValues()
-	s.mockUnit.EXPECT().SetState(map[string]string{
-		"one":   "two",
-		"three": "four",
-		"lorem": "ipsum",
-		"seven": "",
+	s.mockUnit.EXPECT().Tag().Return(names.NewUnitTag("wordpress/0")).Times(2)
+	s.mockUnit.EXPECT().CommitHookChanges(params.CommitHookChangesArgs{
+		Args: []params.CommitHookChangesArg{
+			{
+				Tag: "unit-wordpress-0",
+				SetUnitState: &params.SetUnitStateArg{
+					Tag: "unit-wordpress-0",
+					State: map[string]string{
+						"one":   "two",
+						"three": "four",
+						"lorem": "ipsum",
+						"seven": "",
+					},
+				},
+			},
+		},
 	}).Return(nil)
 
 	// Mutate cache and flush; this should call out to SetState and reset

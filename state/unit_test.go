@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	corenetwork "github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -37,6 +38,7 @@ const (
 
 type UnitSuite struct {
 	ConnSuite
+	networktesting.FirewallHelper
 	charm       *state.Charm
 	application *state.Application
 	unit        *state.Unit
@@ -1494,13 +1496,10 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 
 	// Verify ports can be opened and closed only when the unit has
 	// assigned machine.
-	err := s.unit.OpenPortOnSubnet(subnetID, "tcp", 10)
+	portRange := []corenetwork.PortRange{{FromPort: 10, ToPort: 20, Protocol: "tcp"}}
+	err := s.unit.OpenClosePortsOnSubnet(subnetID, portRange, nil)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.OpenPortsOnSubnet(subnetID, "tcp", 10, 20)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.ClosePortOnSubnet(subnetID, "tcp", 10)
-	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
-	err = s.unit.ClosePortsOnSubnet(subnetID, "tcp", 10, 20)
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, nil, portRange)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
 	open, err := s.unit.OpenedPortsOnSubnet(subnetID)
 	c.Check(errors.Cause(err), jc.Satisfies, errors.IsNotAssigned)
@@ -1518,11 +1517,14 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 	}
 
 	// Now open and close ports and ranges and check.
+	onePort := []corenetwork.PortRange{{FromPort: 80, ToPort: 80, Protocol: "tcp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, onePort, nil)
+	checkExpectedError(err)
 
-	err = s.unit.OpenPortOnSubnet(subnetID, "tcp", 80)
+	portRange = []corenetwork.PortRange{{FromPort: 100, ToPort: 200, Protocol: "udp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, portRange, nil)
 	checkExpectedError(err)
-	err = s.unit.OpenPortsOnSubnet(subnetID, "udp", 100, 200)
-	checkExpectedError(err)
+
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
 		c.Check(open, gc.DeepEquals, []corenetwork.PortRange{
@@ -1531,7 +1533,8 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 		})
 	}
 
-	err = s.unit.OpenPortOnSubnet(subnetID, "udp", 53)
+	onePort = []corenetwork.PortRange{{FromPort: 53, ToPort: 53, Protocol: "udp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, onePort, nil)
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
@@ -1542,7 +1545,8 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 		})
 	}
 
-	err = s.unit.OpenPortsOnSubnet(subnetID, "tcp", 53, 55)
+	portRange = []corenetwork.PortRange{{FromPort: 53, ToPort: 55, Protocol: "tcp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, portRange, nil)
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
@@ -1554,7 +1558,8 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 		})
 	}
 
-	err = s.unit.OpenPortOnSubnet(subnetID, "tcp", 443)
+	onePort = []corenetwork.PortRange{{FromPort: 443, ToPort: 443, Protocol: "tcp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, onePort, nil)
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
@@ -1567,7 +1572,8 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 		})
 	}
 
-	err = s.unit.ClosePortOnSubnet(subnetID, "tcp", 80)
+	onePort = []corenetwork.PortRange{{FromPort: 80, ToPort: 80, Protocol: "tcp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, nil, onePort)
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
@@ -1579,7 +1585,8 @@ func (s *UnitSuite) testOpenedPorts(c *gc.C, subnetID, expectedErrorCauseMatches
 		})
 	}
 
-	err = s.unit.ClosePortsOnSubnet(subnetID, "udp", 100, 200)
+	portRange = []corenetwork.PortRange{{FromPort: 100, ToPort: 200, Protocol: "udp"}}
+	err = s.unit.OpenClosePortsOnSubnet(subnetID, nil, portRange)
 	checkExpectedError(err)
 	open, err = s.unit.OpenedPortsOnSubnet(subnetID)
 	if checkExpectedError(err) {
@@ -1599,11 +1606,14 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 
 	preventUnitDestroyRemove(c, s.unit)
 	testWhenDying(c, s.unit, noErr, contentionErr, func() error {
-		err := s.unit.OpenPort("tcp", 20)
+		onePort := []corenetwork.PortRange{{FromPort: 20, ToPort: 20, Protocol: "tcp"}}
+		portRange := []corenetwork.PortRange{{FromPort: 10, ToPort: 15, Protocol: "tcp"}}
+
+		err := s.unit.OpenClosePortsOnSubnet("", onePort, nil)
 		if err != nil {
 			return err
 		}
-		err = s.unit.OpenPorts("tcp", 10, 15)
+		err = s.unit.OpenClosePortsOnSubnet("", portRange, nil)
 		if err != nil {
 			return err
 		}
@@ -1611,11 +1621,11 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
 		if err != nil {
 			return err
 		}
-		err = s.unit.ClosePort("tcp", 20)
+		err = s.unit.OpenClosePortsOnSubnet("", nil, onePort)
 		if err != nil {
 			return err
 		}
-		return s.unit.ClosePorts("tcp", 10, 15)
+		return s.unit.OpenClosePortsOnSubnet("", nil, portRange)
 	})
 }
 
@@ -1629,8 +1639,7 @@ func (s *UnitSuite) TestRemoveLastUnitOnMachineRemovesAllPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err = s.unit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
 
 	ports, err = machine.AllPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -1671,10 +1680,8 @@ func (s *UnitSuite) TestRemoveUnitRemovesItsPortsOnly(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err = s.unit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherUnit.OpenPorts("udp", 300, 400)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
+	s.AssertOpenUnitPorts(c, otherUnit, "", "udp", 300, 400)
 
 	ports, err = machine.AllPorts()
 	c.Assert(err, jc.ErrorIsNil)

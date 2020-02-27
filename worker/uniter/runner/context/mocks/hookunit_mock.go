@@ -86,6 +86,18 @@ func (mr *MockHookUnitMockRecorder) ClosePorts(arg0, arg1, arg2 interface{}) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClosePorts", reflect.TypeOf((*MockHookUnit)(nil).ClosePorts), arg0, arg1, arg2)
 }
 
+// CommitHookChanges mocks base method
+func (m *MockHookUnit) CommitHookChanges(arg0 params.CommitHookChangesArgs) error {
+	ret := m.ctrl.Call(m, "CommitHookChanges", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CommitHookChanges indicates an expected call of CommitHookChanges
+func (mr *MockHookUnitMockRecorder) CommitHookChanges(arg0 interface{}) *gomock.Call {
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitHookChanges", reflect.TypeOf((*MockHookUnit)(nil).CommitHookChanges), arg0)
+}
+
 // ConfigSettings mocks base method
 func (m *MockHookUnit) ConfigSettings() (charm_v6.Settings, error) {
 	ret := m.ctrl.Call(m, "ConfigSettings")

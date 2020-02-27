@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -49,6 +50,7 @@ import (
 // but embedded.
 type uniterSuiteBase struct {
 	testing.JujuConnSuite
+	networktesting.FirewallHelper
 
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
@@ -258,41 +260,6 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(statusInfo.Status, gc.Equals, status.Rebooting)
 	c.Assert(statusInfo.Message, gc.Equals, "foobar")
-}
-
-func (s *uniterSuite) TestSetState(c *gc.C) {
-	expState := map[string]string{
-		"foo.bar":  "baz",
-		"payload$": "enc0d3d",
-	}
-	args := params.SetUnitStateArgs{
-		Args: []params.SetUnitStateArg{
-			{Tag: "not-a-unit-tag", State: map[string]string{"not": "important"}},
-			{Tag: "unit-wordpress-0", State: expState},
-			{Tag: "unit-mysql-0", State: map[string]string{"not": "important"}}, // not accessible by current user
-			{Tag: "unit-notfound-0", State: map[string]string{"not": "important"}},
-		},
-	}
-	result, err := s.uniter.SetState(args)
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
-			{Error: nil},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-
-	// Verify that mysql unit's state was not mutated
-	unitState, err := s.mysqlUnit.State()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, gc.IsNil, gc.Commentf("unexpected state doc mutation"))
-
-	// Verify wordpress state was mutated
-	unitState, err = s.wordpressUnit.State()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(unitState, jc.DeepEquals, expState, gc.Commentf("state doc not updated"))
 }
 
 func (s *uniterSuite) TestState(c *gc.C) {
@@ -1080,8 +1047,7 @@ func (s *uniterSuite) TestOpenPorts(c *gc.C) {
 
 func (s *uniterSuite) TestClosePorts(c *gc.C) {
 	// Open port udp:4321 in advance on wordpressUnit.
-	err := s.wordpressUnit.OpenPorts("udp", 4321, 5000)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 4321, 5000)
 	openedPorts, err := s.wordpressUnit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(openedPorts, gc.DeepEquals, []network.PortRange{
@@ -3340,14 +3306,10 @@ func (s *uniterSuite) TestAllMachinePorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	err = s.wordpressUnit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.wordpressUnit.OpenPorts("udp", 10, 20)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlUnit1.OpenPorts("tcp", 201, 250)
-	c.Assert(err, jc.ErrorIsNil)
-	err = mysqlUnit1.OpenPorts("udp", 1, 8)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "tcp", 100, 200)
+	s.AssertOpenUnitPorts(c, s.wordpressUnit, "", "udp", 10, 20)
+	s.AssertOpenUnitPorts(c, mysqlUnit1, "", "tcp", 201, 250)
+	s.AssertOpenUnitPorts(c, mysqlUnit1, "", "udp", 1, 8)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -4681,6 +4643,116 @@ func (s *uniterNetworkInfoSuite) TestUpdateNetworkInfo(c *gc.C) {
 		c.Assert(relMap["ingress-address"], gc.Equals, "10.0.0.10")
 		c.Assert(relMap["egress-subnets"], gc.Equals, "10.0.0.10/32")
 	}
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChanges(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	err := s.State.LeadershipClaimer().ClaimLeadership(s.wordpress.ApplicationTag().Id(), s.wordpressUnit.UnitTag().Id(), time.Minute)
+	c.Assert(err, gc.IsNil)
+
+	// Clear network settings from all relation units
+	relList, err := s.wordpressUnit.RelationsJoined()
+	c.Assert(err, gc.IsNil)
+	for _, rel := range relList {
+		relUnit, err := rel.Unit(s.wordpressUnit)
+		c.Assert(err, gc.IsNil)
+		relSettings, err := relUnit.Settings()
+		c.Assert(err, gc.IsNil)
+		relSettings.Delete("private-address")
+		relSettings.Delete("ingress-address")
+		relSettings.Delete("egress-subnets")
+		relSettings.Set("some", "settings")
+		_, err = relSettings.Write()
+		c.Assert(err, gc.IsNil)
+	}
+
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateRelationUnitSettings(relList[0].Tag().String(), params.Settings{"just": "added"}, params.Settings{"app_data": "updated"})
+	b.OpenPortRange("tcp", 80, 81)
+	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
+	b.ClosePortRange("tcp", 7337, 7337)
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	req, _ := b.Build()
+
+	// Add some extra args to test error handling
+	req.Args = append(req.Args,
+		params.CommitHookChangesArg{Tag: "not-a-unit-tag"},
+		params.CommitHookChangesArg{Tag: "unit-mysql-0"}, // not accessible by current user
+		params.CommitHookChangesArg{Tag: "unit-notfound-0"},
+	)
+
+	// Test-suite uses an older API version
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+			{Error: &params.Error{Message: `"not-a-unit-tag" is not a valid tag`}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify expected wordpress unit state
+	relUnit, err := relList[0].Unit(s.wordpressUnit)
+	relSettings, err := relUnit.Settings()
+	c.Assert(err, jc.ErrorIsNil)
+	expRelSettings := map[string]interface{}{
+		// Network info injected due to the "UpdateNetworkInfo" request
+		"egress-subnets":  "10.0.0.10/32",
+		"ingress-address": "10.0.0.10",
+		"private-address": "10.0.0.10",
+		// Pre-existing setting
+		"some": "settings",
+		// Setting added due to update relation settings request
+		"just": "added",
+	}
+	c.Assert(relSettings.Map(), jc.DeepEquals, expRelSettings, gc.Commentf("composed model operations did not yield expected result for unit relation settings"))
+
+	portRanges, err := s.wordpressUnit.OpenedPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRanges, jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+
+	unitState, err := s.wordpressUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	appCfg, err := relList[0].ApplicationSettings(s.wordpress.Name())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(appCfg, gc.DeepEquals, map[string]interface{}{"app_data": "updated"}, gc.Commentf("application data not updated by leader unit"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
+	s.addRelationAndAssertInScope(c)
+
+	// Make wordpress/0 the leader; we are working with wordpress/1
+	c.Assert(s.wordpressUnit.UnitTag().Id(), gc.Not(gc.Equals), "wordpress/0")
+	err := s.State.LeadershipClaimer().ClaimLeadership(s.wordpress.ApplicationTag().Id(), "wordpress/0", time.Minute)
+	c.Assert(err, gc.IsNil)
+
+	relList, err := s.wordpressUnit.RelationsJoined()
+	c.Assert(err, gc.IsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(s.wordpressUnit.UnitTag())
+	b.UpdateRelationUnitSettings(relList[0].Tag().String(), nil, params.Settings{"can't": "touch this!"})
+	req, _ := b.Build()
+
+	// Test-suite uses an older API version
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `prerequisites failed: "wordpress/1" is not leader of "wordpress"`}},
+		},
+	})
 }
 
 func (s *uniterSuite) TestNetworkInfoCAASModelRelation(c *gc.C) {

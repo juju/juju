@@ -9,12 +9,14 @@ import (
 
 	apitesting "github.com/juju/juju/api/testing"
 	"github.com/juju/juju/core/instance"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
 
 type stateSuite struct {
 	firewallerSuite
+	networktesting.FirewallHelper
 	*apitesting.ModelWatcherTests
 }
 
@@ -60,10 +62,8 @@ func (s *stateSuite) TestWatchModelMachines(c *gc.C) {
 
 func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	// Open some ports.
-	err := s.units[0].OpenPorts("tcp", 1234, 1400)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.units[2].OpenPort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.units[0], "", "tcp", 1234, 1400)
+	s.AssertOpenUnitPort(c, s.units[2], "", "udp", 4321)
 
 	w, err := s.firewaller.WatchOpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)
@@ -78,25 +78,21 @@ func (s *stateSuite) TestWatchOpenedPorts(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Close a port, make sure it's detected.
-	err = s.units[2].ClosePort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 4321)
 
 	wc.AssertChange(expectChanges[1])
 	wc.AssertNoChange()
 
 	// Close it again, no changes.
-	err = s.units[2].ClosePort("udp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 4321)
 	wc.AssertNoChange()
 
 	// Close non-existing port, no changes.
-	err = s.units[0].ClosePort("udp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertCloseUnitPort(c, s.units[2], "", "udp", 1234)
 	wc.AssertNoChange()
 
 	// Open another port range, ensure it's detected.
-	err = s.units[1].OpenPorts("tcp", 8080, 8088)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.units[1], "", "tcp", 8080, 8088)
 	wc.AssertChange("1:")
 	wc.AssertNoChange()
 }

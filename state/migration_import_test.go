@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	corenetwork "github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -45,6 +46,7 @@ import (
 
 type MigrationImportSuite struct {
 	MigrationBaseSuite
+	networktesting.FirewallHelper
 }
 
 var _ = gc.Suite(&MigrationImportSuite{})
@@ -1259,8 +1261,7 @@ func (s *MigrationImportSuite) TestEndpointBindings(c *gc.C) {
 
 func (s *MigrationImportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
-	err := unit.OpenPorts("tcp", 1234, 2345)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, unit, "", "tcp", 1234, 2345)
 
 	_, newSt := s.importModel(c, s.State)
 
