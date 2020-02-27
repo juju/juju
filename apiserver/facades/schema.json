@@ -36409,6 +36409,12 @@
                 "CommitHookChangesArg": {
                     "type": "object",
                     "properties": {
+                        "add-storage": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StorageAddParams"
+                            }
+                        },
                         "close-ports": {
                             "type": "array",
                             "items": {
@@ -36420,6 +36426,9 @@
                             "items": {
                                 "$ref": "#/definitions/EntityPortRange"
                             }
+                        },
+                        "pod-spec": {
+                            "$ref": "#/definitions/PodSpec"
                         },
                         "relation-unit-settings": {
                             "type": "array",
