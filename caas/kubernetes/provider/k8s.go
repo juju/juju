@@ -5,6 +5,7 @@ package provider
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -56,7 +57,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -333,7 +334,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 }
 
 // Create implements environs.BootstrapEnviron.
-func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	// must raise errors.AlreadyExistsf if it's already exist.
 	return k.createNamespace(k.namespace)
 }
@@ -341,7 +342,7 @@ func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreatePa
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(
 	ctx environs.BootstrapContext,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
@@ -424,7 +425,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 }
 
 // DestroyController implements the Environ interface.
-func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
@@ -440,84 +441,44 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err error) {
+func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (err error) {
 	defer func() {
 		if err != nil && k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
-			logger.Warningf("k8s cluster is not accessible: %v", err)
+			// logger.Warningf("k8s cluster is not accessible: %v", err)
+			logger.Criticalf("k8s cluster is not accessible: %v", errors.ErrorStack(err))
 			err = nil
 		}
 	}()
-	watcher, err := k.WatchNamespace()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer watcher.Kill()
 
-	if err := k.deleteClusterScropeResources(); err != nil {
-		return errors.Annotate(err, "deleting cluster scope resources")
-	}
-	// TODO: watch those cluster scope resource have been deleted!!!!!!!
+	errChan := make(chan error)
+	done := make(chan struct{})
 
-	if err := k.deleteNamespace(); err != nil {
-		return errors.Annotate(err, "deleting model namespace")
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	// Delete any storage classes created as part of this model.
-	// Storage classes live outside the namespace so need to be deleted separately.
-	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-	err = k.client().StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	}, v1.ListOptions{
-		LabelSelector: modelSelector,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Annotate(err, "deleting model storage classes")
-	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go k.deleteClusterScropeResourcesModelTeardown(ctx, &wg, errChan)
+	wg.Add(1)
+	go k.deleteNamespaceModelTeardown(ctx, &wg, errChan)
+
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
 	for {
 		select {
 		case <-callbacks.Dying():
 			return nil
-		case <-watcher.Changes():
-			// ensure namespace has been deleted - notfound error expected.
-			_, err := k.GetNamespace(k.namespace)
-			if errors.IsNotFound(err) {
-				// namespace ha been deleted.
-				return nil
-			}
+		case err = <-errChan:
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("namespace %q is still been terminating", k.namespace)
+		case <-done:
+			return nil
 		}
 	}
-}
-
-func (k *kubernetesClient) deleteClusterScropeResources() error {
-	labels := map[string]string{
-		labelModel: k.namespace,
-	}
-	// Order matters.
-	if err := k.deleteClusterRoleBindings(labels); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteClusterRoles(labels); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := k.deleteGlobalCustomResources(labels); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteCustomResourceDefinitions(labels); err != nil {
-		return errors.Trace(err)
-	}
-
-	if err := k.deleteMutatingWebhookConfigurations(labels); err != nil {
-		return errors.Trace(err)
-	}
-	if err := k.deleteValidatingWebhookConfigurations(labels); err != nil {
-		return errors.Trace(err)
-	}
-	return nil
 }
 
 // APIVersion returns the version info for the cluster.
@@ -822,10 +783,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteAllServiceAccountResources(appName); err != nil {
 		return errors.Trace(err)
 	}
-	// Order matters: delete custom resources first then custom resource definitions.
-	if err := k.deleteCustomResourcesForApp(appName); err != nil {
-		return errors.Trace(err)
-	}
+	// // Order matters: delete custom resources first then custom resource definitions.
+	// if err := k.deleteCustomResourcesForApp(appName); err != nil {
+	// 	return errors.Trace(err)
+	// }
 	if err := k.deleteCustomResourceDefinitionsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
