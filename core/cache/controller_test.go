@@ -426,7 +426,11 @@ func (s *ControllerSuite) TestSweepWithConcurrentUpdates(c *gc.C) {
 		s.SendChange(c, m)
 	}
 
-	close(done)
+	select {
+	case done <- struct{}{}:
+	case <-time.After(testing.ShortWait):
+		c.Fatal("test did not complete mark/sweep goroutine.")
+	}
 
 	// We need to ensure all change processing is completed,
 	// so send the flagging change to conclude.
