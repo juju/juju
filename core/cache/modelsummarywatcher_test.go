@@ -497,9 +497,31 @@ func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
 	// Simulate a watcher reset.
 	s.controller.Mark()
 
-	// Resend initial state.
+	// Change one of the existing models.
+	s.ProcessChange(c, cache.ApplicationChange{
+		ModelUUID: "model-1-uuid",
+		Name:      "totally-new-application",
+		Life:      life.Alive,
+	}, s.events)
+
+	s.noUpdates(c, changes)
+}
+
+func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *gc.C) {
+	watcher := s.controller.WatchAllModels()
+	defer workertest.CleanKill(c, watcher)
+
+	changes := watcher.Changes()
+	// Discard the initial event.
+	_ = s.next(c, changes)
+
+	// Simulate a watcher reset.
+	s.controller.Mark()
+
+	// Resend initial state. This will prevent eviction on sweep.
 	s.baseScenario(c)
-	// And another change.
+
+	// Add a new model.
 	s.ProcessChange(c, cache.ModelChange{
 		ModelUUID: "new-model-uuid",
 		Name:      "new-model",
@@ -512,10 +534,13 @@ func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
 	}, s.events)
 
 	s.noUpdates(c, changes)
-	// Sweep triggers model summary updates for all models.
 
+	// Sweep triggers model summary updates for all models.
+	// Hashes for the base scenario entities will be the same,
+	// so no summaries are sent.
 	s.controller.Sweep()
 
+	// Only the new model summary is published.
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{

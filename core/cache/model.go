@@ -31,21 +31,17 @@ const (
 	modelBranchRemove = "model-branch-remove"
 )
 
-type initializer interface {
-	initializing() bool
-}
-
 type modelConfig struct {
-	initializer initializer
-	metrics     *ControllerGauges
-	hub         *pubsub.SimpleHub
-	chub        *pubsub.SimpleHub
-	res         *Resident
+	initializing func() bool
+	metrics      *ControllerGauges
+	hub          *pubsub.SimpleHub
+	chub         *pubsub.SimpleHub
+	res          *Resident
 }
 
 func newModel(config modelConfig) *Model {
 	m := &Model{
-		initializer:   config.initializer,
+		initializing:  config.initializing,
 		Resident:      config.res,
 		metrics:       config.metrics,
 		hub:           config.hub,
@@ -67,7 +63,7 @@ type Model struct {
 	// and tracks resources that it is responsible for cleaning up.
 	*Resident
 
-	initializer   initializer
+	initializing  func() bool
 	metrics       *ControllerGauges
 	hub           *pubsub.SimpleHub
 	controllerHub *pubsub.SimpleHub
@@ -649,8 +645,8 @@ func (w *waitUnitChange) close() {
 // then publishes it via the controller's hub.
 // Callers of this method must take responsibility for appropriate locking.
 func (m *Model) updateSummary() {
-	if m.initializer.initializing() {
-		logger.Tracef("skipping update as initializing")
+	if m.initializing() {
+		logger.Tracef("skipping update - cache is initializing")
 		return
 	}
 
