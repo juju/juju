@@ -11,7 +11,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	context "github.com/juju/juju/environs/context"
 	instances "github.com/juju/juju/environs/instances"
-	charm_v6 "gopkg.in/juju/charm.v6"
+	charm "gopkg.in/juju/charm.v6"
 	reflect "reflect"
 )
 
@@ -69,7 +69,7 @@ func (mr *MockLXDProfilerMockRecorder) LXDProfileNames(arg0 interface{}) *gomock
 }
 
 // MaybeWriteLXDProfile mocks base method
-func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 *charm_v6.LXDProfile) error {
+func (m *MockLXDProfiler) MaybeWriteLXDProfile(arg0 string, arg1 *charm.LXDProfile) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MaybeWriteLXDProfile", arg0, arg1)
 	ret0, _ := ret[0].(error)

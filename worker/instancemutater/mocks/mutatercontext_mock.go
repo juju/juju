@@ -5,14 +5,13 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	environs "github.com/juju/juju/environs"
 	instancemutater0 "github.com/juju/juju/worker/instancemutater"
-	names_v3 "gopkg.in/juju/names.v3"
-	worker_v1 "gopkg.in/juju/worker.v1"
+	names "gopkg.in/juju/names.v3"
+	worker "gopkg.in/juju/worker.v1"
+	reflect "reflect"
 )
 
 // MockMutaterContext is a mock of MutaterContext interface
@@ -51,7 +50,7 @@ func (mr *MockMutaterContextMockRecorder) KillWithError(arg0 interface{}) *gomoc
 }
 
 // add mocks base method
-func (m *MockMutaterContext) add(arg0 worker_v1.Worker) error {
+func (m *MockMutaterContext) add(arg0 worker.Worker) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "add", arg0)
 	ret0, _ := ret[0].(error)
@@ -107,7 +106,7 @@ func (mr *MockMutaterContextMockRecorder) getBroker() *gomock.Call {
 }
 
 // getMachine mocks base method
-func (m *MockMutaterContext) getMachine(arg0 names_v3.MachineTag) (instancemutater.MutaterMachine, error) {
+func (m *MockMutaterContext) getMachine(arg0 names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "getMachine", arg0)
 	ret0, _ := ret[0].(instancemutater.MutaterMachine)

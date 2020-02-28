@@ -12,7 +12,7 @@ import (
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
 	version "github.com/juju/version"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -158,10 +158,10 @@ func (mr *MockMachineProvisionerMockRecorder) Life() *gomock.Call {
 }
 
 // MachineTag mocks base method
-func (m *MockMachineProvisioner) MachineTag() names_v3.MachineTag {
+func (m *MockMachineProvisioner) MachineTag() names.MachineTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MachineTag")
-	ret0, _ := ret[0].(names_v3.MachineTag)
+	ret0, _ := ret[0].(names.MachineTag)
 	return ret0
 }
 
@@ -406,10 +406,10 @@ func (mr *MockMachineProvisionerMockRecorder) SupportsNoContainers() *gomock.Cal
 }
 
 // Tag mocks base method
-func (m *MockMachineProvisioner) Tag() names_v3.Tag {
+func (m *MockMachineProvisioner) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v3.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 

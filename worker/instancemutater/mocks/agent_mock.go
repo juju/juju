@@ -5,8 +5,6 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	agent "github.com/juju/juju/agent"
 	api "github.com/juju/juju/api"
@@ -15,7 +13,8 @@ import (
 	mongo "github.com/juju/juju/mongo"
 	shell "github.com/juju/utils/shell"
 	version "github.com/juju/version"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockAgent is a mock of Agent interface
@@ -137,10 +136,10 @@ func (mr *MockConfigMockRecorder) CACert() *gomock.Call {
 }
 
 // Controller mocks base method
-func (m *MockConfig) Controller() names_v3.ControllerTag {
+func (m *MockConfig) Controller() names.ControllerTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Controller")
-	ret0, _ := ret[0].(names_v3.ControllerTag)
+	ret0, _ := ret[0].(names.ControllerTag)
 	return ret0
 }
 
@@ -180,6 +179,7 @@ func (mr *MockConfigMockRecorder) Dir() *gomock.Call {
 
 // Jobs mocks base method
 func (m *MockConfig) Jobs() []model.MachineJob {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Jobs")
 	ret0, _ := ret[0].([]model.MachineJob)
 	return ret0
@@ -234,10 +234,10 @@ func (mr *MockConfigMockRecorder) MetricsSpoolDir() *gomock.Call {
 }
 
 // Model mocks base method
-func (m *MockConfig) Model() names_v3.ModelTag {
+func (m *MockConfig) Model() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Model")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
@@ -348,10 +348,10 @@ func (mr *MockConfigMockRecorder) SystemIdentityPath() *gomock.Call {
 }
 
 // Tag mocks base method
-func (m *MockConfig) Tag() names_v3.Tag {
+func (m *MockConfig) Tag() names.Tag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v3.Tag)
+	ret0, _ := ret[0].(names.Tag)
 	return ret0
 }
 
@@ -359,6 +359,20 @@ func (m *MockConfig) Tag() names_v3.Tag {
 func (mr *MockConfigMockRecorder) Tag() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tag", reflect.TypeOf((*MockConfig)(nil).Tag))
+}
+
+// TransientDataDir mocks base method
+func (m *MockConfig) TransientDataDir() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TransientDataDir")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// TransientDataDir indicates an expected call of TransientDataDir
+func (mr *MockConfigMockRecorder) TransientDataDir() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TransientDataDir", reflect.TypeOf((*MockConfig)(nil).TransientDataDir))
 }
 
 // UpgradedToVersion mocks base method

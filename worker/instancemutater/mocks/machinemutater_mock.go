@@ -5,15 +5,14 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	instance "github.com/juju/juju/core/instance"
 	life "github.com/juju/juju/core/life"
 	status "github.com/juju/juju/core/status"
 	watcher "github.com/juju/juju/core/watcher"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockMutaterMachine is a mock of MutaterMachine interface
@@ -86,6 +85,7 @@ func (mr *MockMutaterMachineMockRecorder) InstanceId() *gomock.Call {
 
 // Life mocks base method
 func (m *MockMutaterMachine) Life() life.Value {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Life")
 	ret0, _ := ret[0].(life.Value)
 	return ret0
@@ -140,10 +140,10 @@ func (mr *MockMutaterMachineMockRecorder) SetModificationStatus(arg0, arg1, arg2
 }
 
 // Tag mocks base method
-func (m *MockMutaterMachine) Tag() names_v3.MachineTag {
+func (m *MockMutaterMachine) Tag() names.MachineTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tag")
-	ret0, _ := ret[0].(names_v3.MachineTag)
+	ret0, _ := ret[0].(names.MachineTag)
 	return ret0
 }
 
