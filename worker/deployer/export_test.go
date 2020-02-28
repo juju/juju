@@ -18,7 +18,7 @@ func (*fakeAPI) ConnectionInfo() (params.DeployerConnectionValues, error) {
 	}, nil
 }
 
-func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *svctesting.FakeServiceData) *SimpleContext {
+func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *svctesting.FakeServiceData, monStatePurger RebootMonitorStatePurger) *SimpleContext {
 	return &SimpleContext{
 		api:         &fakeAPI{},
 		agentConfig: agentConfig,
@@ -30,5 +30,6 @@ func NewTestSimpleContext(agentConfig agent.Config, logDir string, data *svctest
 		listServices: func() ([]string, error) {
 			return data.InstalledNames(), nil
 		},
+		rebootMonitorStatePurger: monStatePurger,
 	}
 }
