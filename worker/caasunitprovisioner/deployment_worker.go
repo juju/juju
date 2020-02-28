@@ -4,15 +4,19 @@
 package caasunitprovisioner
 
 import (
+	"reflect"
+
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
 
+	apicaasunitprovisioner "github.com/juju/juju/api/caasunitprovisioner"
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
 	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
+	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/core/watcher"
 )
 
@@ -74,11 +78,11 @@ func (w *deploymentWorker) loop() error {
 	w.catacomb.Add(appScaleWatcher)
 
 	var (
-		cw       watcher.NotifyWatcher
-		specChan watcher.NotifyChannel
+		pw            watcher.NotifyWatcher
+		provisionChan watcher.NotifyChannel
 
 		currentScale int
-		currentSpec  string
+		currentInfo  *apicaasunitprovisioner.ProvisioningInfo
 	)
 
 	gotSpecNotify := false
@@ -99,16 +103,16 @@ func (w *deploymentWorker) loop() error {
 				return errors.Trace(err)
 			}
 			logger.Debugf("desiredScale changed to %d", desiredScale)
-			if desiredScale > 0 && specChan == nil {
+			if desiredScale > 0 && provisionChan == nil {
 				var err error
-				cw, err = w.provisioningInfoGetter.WatchPodSpec(w.application)
+				pw, err = w.provisioningInfoGetter.WatchPodSpec(w.application)
 				if err != nil {
 					return errors.Trace(err)
 				}
-				w.catacomb.Add(cw)
-				specChan = cw.Changes()
+				w.catacomb.Add(pw)
+				provisionChan = pw.Changes()
 			}
-		case _, ok := <-specChan:
+		case _, ok := <-provisionChan:
 			if !ok {
 				return errors.New("watcher closed channel")
 			}
@@ -126,9 +130,9 @@ func (w *deploymentWorker) loop() error {
 			return errors.Trace(err)
 		}
 		if desiredScale == 0 {
-			if cw != nil {
-				worker.Stop(cw)
-				specChan = nil
+			if pw != nil {
+				worker.Stop(pw)
+				provisionChan = nil
 			}
 			logger.Debugf("no units for %v", w.application)
 			err = w.broker.EnsureService(w.application, w.provisioningStatusSetter.SetOperatorStatus, &caas.ServiceParams{}, 0, nil)
@@ -140,12 +144,42 @@ func (w *deploymentWorker) loop() error {
 		}
 
 		specStr := info.PodSpec
-		if desiredScale == currentScale && specStr == currentSpec {
+		var currentSpec string
+		if currentInfo != nil {
+			currentSpec = currentInfo.PodSpec
+		}
+		if desiredScale == currentScale && info.PodSpec == currentSpec {
 			continue
 		}
 
+		// We need to disallow updates that k8s does not yet support,
+		// eg changing the filesystem or device directives, or deployment info.
+		// TODO(wallyworld) - support resizing of existing storage.
+		if currentInfo != nil {
+			var unsupportedReason string
+			if !reflect.DeepEqual(info.DeploymentInfo, currentInfo.DeploymentInfo) {
+				unsupportedReason = "k8s does not support updating deployment info"
+			} else if !reflect.DeepEqual(info.Filesystems, currentInfo.Filesystems) {
+				unsupportedReason = "k8s does not support updating storage"
+			} else if !reflect.DeepEqual(info.Devices, currentInfo.Devices) {
+				unsupportedReason = "k8s does not support updating devices"
+			}
+
+			if unsupportedReason != "" {
+				if err = w.provisioningStatusSetter.SetOperatorStatus(
+					w.application,
+					status.Error,
+					unsupportedReason,
+					nil,
+				); err != nil {
+					return errors.Trace(err)
+				}
+				continue
+			}
+		}
+
 		currentScale = desiredScale
-		currentSpec = specStr
+		currentInfo = info
 
 		appConfig, err := w.applicationGetter.ApplicationConfig(w.application)
 		if err != nil {

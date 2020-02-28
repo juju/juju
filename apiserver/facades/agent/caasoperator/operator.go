@@ -184,6 +184,7 @@ func (f *Facade) Charm(args params.Entities) (params.ApplicationCharmResults, er
 }
 
 // SetPodSpec sets the container specs for a set of applications.
+// TODO(juju3) - remove
 func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Specs)),
@@ -204,7 +205,7 @@ func (f *Facade) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, 
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			f.model.SetPodSpec(tag, arg.Value),
+			f.model.SetPodSpec(tag, &arg.Value),
 		)
 	}
 	return results, nil
