@@ -15,16 +15,15 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1/workertest"
+	admissionregistrationv1beta1 "k8s.io/api/admissionregistration/v1beta1"
 	apps "k8s.io/api/apps/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
-	k8sstorage "k8s.io/api/storage/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8sversion "k8s.io/apimachinery/pkg/version"
@@ -1175,7 +1174,7 @@ func (s *K8sBrokerSuite) TestBootstrap(c *gc.C) {
 		SupportedBootstrapSeries: testing.FakeSupportedJujuSeries,
 	}
 
-	sc := &k8sstorage.StorageClass{
+	sc := &storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "some-storage",
 		},
@@ -1213,7 +1212,7 @@ func (s *K8sBrokerSuite) TestPrepareForBootstrap(c *gc.C) {
 	// Ensure the broker is configured with operator storage.
 	s.setupOperatorStorageConfig(c)
 
-	sc := &k8sstorage.StorageClass{
+	sc := &storagev1.StorageClass{
 		ObjectMeta: v1.ObjectMeta{
 			Name: "some-storage",
 		},
@@ -1326,31 +1325,89 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	namespaceWatcher, namespaceFirer := newKubernetesTestWatcher()
 	s.k8sWatcherFn = newK8sWatcherFunc(namespaceWatcher)
 
-	gomock.InOrder(
-		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
-			Return(ns, nil),
+	// timer +1.
+	s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+		Return(&rbacv1.ClusterRoleBindingList{}, nil).
+		After(
+			s.mockClusterRoleBindings.EXPECT().DeleteCollection(
+				s.deleteOptions(v1.DeletePropagationForeground, ""),
+				v1.ListOptions{LabelSelector: "juju-model==test"},
+			).Return(s.k8sNotFoundError()),
+		)
 
-		s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
-			Return(nil),
+	// timer +1.
+	s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+		Return(&rbacv1.ClusterRoleList{}, nil).
+		After(
+			s.mockClusterRoles.EXPECT().DeleteCollection(
+				s.deleteOptions(v1.DeletePropagationForeground, ""),
+				v1.ListOptions{LabelSelector: "juju-model==test"},
+			).Return(s.k8sNotFoundError()),
+		)
 
-		s.mockStorageClass.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-model==test"},
-		).
-			Return(s.k8sNotFoundError()),
+	// timer +1.
+	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
+		After(
+			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
+				s.deleteOptions(v1.DeletePropagationForeground, ""),
+				v1.ListOptions{LabelSelector: "juju-model==test"},
+			).Return(s.k8sNotFoundError()),
+		)
 
-		// still terminating.
-		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
-			DoAndReturn(func(_, _ interface{}) (*core.Namespace, error) {
-				namespaceFirer()
-				return ns, nil
-			}),
-		// terminated, not found returned
-		s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
-			Return(nil, s.k8sNotFoundError()),
-	)
+	// timer +1.
+	s.mockMutatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+		Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{}, nil).
+		After(
+			s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
+				s.deleteOptions(v1.DeletePropagationForeground, ""),
+				v1.ListOptions{LabelSelector: "juju-model==test"},
+			).Return(s.k8sNotFoundError()),
+		)
 
-	c.Assert(destroyFunc(), jc.ErrorIsNil)
+	// timer +1.
+	s.mockValidatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+		Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{}, nil).
+		After(
+			s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
+				s.deleteOptions(v1.DeletePropagationForeground, ""),
+				v1.ListOptions{LabelSelector: "juju-model==test"},
+			).Return(s.k8sNotFoundError()),
+		)
+
+	// timer +1.
+	s.mockStorageClass.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+		Return(&storagev1.StorageClassList{}, nil).
+		After(
+			s.mockStorageClass.EXPECT().DeleteCollection(
+				s.deleteOptions(v1.DeletePropagationForeground, ""),
+				v1.ListOptions{LabelSelector: "juju-model==test"},
+			).Return(nil),
+		)
+
+	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+		Return(ns, nil)
+	s.mockNamespaces.EXPECT().Delete("test", s.deleteOptions(v1.DeletePropagationForeground, "")).
+		Return(nil)
+	// still terminating.
+	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+		DoAndReturn(func(_, _ interface{}) (*core.Namespace, error) {
+			namespaceFirer()
+			return ns, nil
+		})
+	// terminated, not found returned
+	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
+		Return(nil, s.k8sNotFoundError())
+
+	errCh := make(chan error)
+	go func() {
+		errCh <- destroyFunc()
+	}()
+
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Assert(<-errCh, jc.ErrorIsNil)
 	for _, watcher := range s.watchers {
 		c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
 	}
@@ -1459,62 +1516,6 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crd := &apiextensionsv1beta1.CustomResourceDefinition{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
-		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "kubeflow.org",
-			Version: "v1alpha2",
-			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
-				{Name: "v1", Served: true, Storage: true},
-				{Name: "v1alpha2", Served: true, Storage: false},
-			},
-			Scope: "Namespaced",
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:   "tfjobs",
-				Kind:     "TFJob",
-				Singular: "tfjob",
-			},
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
-										},
-									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
 	// Delete operations below return a not found to ensure it's treated as a no-op.
 	gomock.InOrder(
 		s.mockStatefulSets.EXPECT().Get("juju-operator-test", v1.GetOptions{}).
@@ -1559,34 +1560,6 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test"},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
-		).Return(nil),
-
-		// list cluster wide all custom resource definitions for deleting custom resources.
-		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).
-			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crd}}, nil),
-		// delete all custom resources for crd "v1".
-		s.mockDynamicClient.EXPECT().Resource(
-			schema.GroupVersionResource{
-				Group:    crd.Spec.Group,
-				Version:  "v1",
-				Resource: crd.Spec.Names.Plural,
-			},
-		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().DeleteCollection(
-			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
-		).Return(nil),
-		// delete all custom resources for crd "v1alpha2".
-		s.mockDynamicClient.EXPECT().Resource(
-			schema.GroupVersionResource{
-				Group:    crd.Spec.Group,
-				Version:  "v1alpha2",
-				Resource: crd.Spec.Names.Plural,
-			},
-		).Return(s.mockNamespaceableResourceClient),
-		s.mockResourceClient.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
 			v1.ListOptions{LabelSelector: "juju-app==test"},
 		).Return(nil),

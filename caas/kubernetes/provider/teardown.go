@@ -20,10 +20,8 @@ func (k *kubernetesClient) deleteClusterScropeResourcesModelTeardown(ctx context
 	labels := map[string]string{
 		labelModel: k.namespace,
 	}
-	logger.Criticalf("--> deleteClusterScropeResourcesModelTeardown")
 
 	tasks := []teardownResources{
-		// Order matters.
 		k.deleteClusterRoleBindingsModelTeardown,
 		k.deleteClusterRolesModelTeardown,
 		// delete CRDs will delete CRs that were created by this CRD automatically.
@@ -59,7 +57,6 @@ func (k *kubernetesClient) deleteClusterRoleBindingsModelTeardown(
 	ensureResourcesDeletedfunc(ctx, labels, clk, wg, errChan,
 		k.deleteClusterRoleBindings, func(labels map[string]string) error {
 			_, err := k.listClusterRoleBindings(labels)
-			logger.Criticalf("listClusterRoleBindings err -> %#v", err)
 			return err
 		},
 	)
@@ -75,7 +72,6 @@ func (k *kubernetesClient) deleteClusterRolesModelTeardown(
 	ensureResourcesDeletedfunc(ctx, labels, clk, wg, errChan,
 		k.deleteClusterRoles, func(labels map[string]string) error {
 			_, err := k.listClusterRoles(labels)
-			logger.Criticalf("listClusterRoles err -> %#v", err)
 			return err
 		},
 	)
@@ -91,7 +87,6 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsModelTeardown(
 	ensureResourcesDeletedfunc(ctx, labels, clk, wg, errChan,
 		k.deleteCustomResourceDefinitions, func(labels map[string]string) error {
 			_, err := k.listCustomResourceDefinitions(labels)
-			logger.Criticalf("listCustomResourceDefinitions err -> %#v", err)
 			return err
 		},
 	)
@@ -107,7 +102,6 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsModelTeardown(
 	ensureResourcesDeletedfunc(ctx, labels, clk, wg, errChan,
 		k.deleteMutatingWebhookConfigurations, func(labels map[string]string) error {
 			_, err := k.listMutatingWebhookConfigurations(labels)
-			logger.Criticalf("listMutatingWebhookConfigurations err -> %#v", err)
 			return err
 		},
 	)
@@ -123,7 +117,6 @@ func (k *kubernetesClient) deleteValidatingWebhookConfigurationsModelTeardown(
 	ensureResourcesDeletedfunc(ctx, labels, clk, wg, errChan,
 		k.deleteValidatingWebhookConfigurations, func(labels map[string]string) error {
 			_, err := k.listValidatingWebhookConfigurations(labels)
-			logger.Criticalf("listValidatingWebhookConfigurations err -> %#v", err)
 			return err
 		},
 	)
@@ -138,7 +131,6 @@ func (k *kubernetesClient) deleteStorageClassesModelTeardown(
 	ensureResourcesDeletedfunc(ctx, labels, clk, wg, errChan,
 		k.deleteStorageClasses, func(labels map[string]string) error {
 			_, err := k.listStorageClasses(labels)
-			logger.Criticalf("listStorageClasses err -> %#v", err)
 			return err
 		},
 	)
@@ -164,9 +156,14 @@ func ensureResourcesDeletedfunc(
 			}
 		}
 	}()
+
 	if err = deleter(labels); err != nil {
+		if errors.IsNotFound(err) {
+			err = nil
+		}
 		return
 	}
+
 	interval := 1 * time.Second
 	ticker := clk.NewTimer(interval)
 	defer ticker.Stop()
@@ -176,8 +173,6 @@ func ensureResourcesDeletedfunc(
 			err = errors.Trace(ctx.Err())
 			return
 		case <-ticker.Chan():
-			ticker.Reset(interval)
-
 			err = checker(labels)
 			if errors.IsNotFound(err) {
 				// Deleted already.
@@ -188,8 +183,9 @@ func ensureResourcesDeletedfunc(
 				err = errors.Trace(err)
 				return
 			}
-			// Keep checking.
 		}
+		// Keep checking.
+		ticker.Reset(interval)
 	}
 }
 
@@ -204,8 +200,6 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 			}
 		}
 	}()
-
-	logger.Criticalf("--> deleteNamespaceModelTeardown")
 
 	var w watcher.NotifyWatcher
 	if w, err = k.WatchNamespace(); err != nil {
