@@ -35690,7 +35690,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SetPodSpecParams"
+                            "$ref": "#/definitions/SetPodSpecParamsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -37334,6 +37334,21 @@
                         "results"
                     ]
                 },
+                "PodSpec": {
+                    "type": "object",
+                    "properties": {
+                        "spec": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
                 "PortRange": {
                     "type": "object",
                     "properties": {
@@ -37719,13 +37734,13 @@
                         "results"
                     ]
                 },
-                "SetPodSpecParams": {
+                "SetPodSpecParamsV2": {
                     "type": "object",
                     "properties": {
                         "specs": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/EntityString"
+                                "$ref": "#/definitions/PodSpec"
                             }
                         }
                     },

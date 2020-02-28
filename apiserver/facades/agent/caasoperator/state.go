@@ -28,7 +28,7 @@ type CAASOperatorState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {
-	SetPodSpec(names.ApplicationTag, string) error
+	SetPodSpec(names.ApplicationTag, *string) error
 	Name() string
 	UUID() string
 	Type() state.ModelType

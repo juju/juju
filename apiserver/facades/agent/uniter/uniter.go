@@ -2713,7 +2713,21 @@ func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.Network
 func (u *UniterAPIV7) SetPodSpec(_, _ struct{}) {}
 
 // SetPodSpec sets the pod specs for a set of applications.
-func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
+func (u *UniterAPIV14) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
+	v2Args := params.SetPodSpecParamsV2{
+		Specs: make([]params.PodSpec, len(args.Specs)),
+	}
+	for i, arg := range args.Specs {
+		v2Args.Specs[i] = params.PodSpec{
+			Tag:  arg.Tag,
+			Spec: &arg.Value,
+		}
+	}
+	return u.UniterAPI.SetPodSpec(v2Args)
+}
+
+// SetPodSpec sets the pod specs for a set of applications.
+func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
@@ -2741,9 +2755,11 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := k8sspecs.ParsePodSpec(arg.Value); err != nil {
-			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
-			continue
+		if arg.Spec != nil {
+			if _, err := k8sspecs.ParsePodSpec(*arg.Spec); err != nil {
+				results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
+				continue
+			}
 		}
 		cm, err := u.m.CAASModel()
 		if err != nil {
@@ -2751,7 +2767,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			cm.SetPodSpec(tag, arg.Value),
+			cm.SetPodSpec(tag, arg.Spec),
 		)
 	}
 	return results, nil

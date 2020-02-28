@@ -3632,9 +3632,22 @@ containers:
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
 
-	err := u.SetPodSpec(app.Name(), podSpec)
+	err := u.SetPodSpec(app.Name(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	spec, err := cm.PodSpec(app.ApplicationTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, podSpec)
+}
+
+func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
+	u, cm, app, _ := s.setupCAASModel(c)
+
+	err := cm.SetPodSpec(app.ApplicationTag(), &podSpec)
+	c.Assert(err, jc.ErrorIsNil)
+	err = cm.SetPodSpec(app.ApplicationTag(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	// Spec doesn't change when setting with nil.
+	spec, err := u.GetPodSpec(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, gc.Equals, podSpec)
 }
@@ -3642,7 +3655,7 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
 
-	err := cm.SetPodSpec(app.ApplicationTag(), podSpec)
+	err := cm.SetPodSpec(app.ApplicationTag(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	spec, err := u.GetPodSpec(app.Name())
 	c.Assert(err, jc.ErrorIsNil)

@@ -753,7 +753,7 @@ containers:
   - name: gitlab
     image: gitlab/latest
 `[1:]
-	err = cm.SetPodSpec(s.app.ApplicationTag(), spec)
+	err = cm.SetPodSpec(s.app.ApplicationTag(), &spec)
 	c.Assert(err, jc.ErrorIsNil)
 
 	status, err := client.Status(nil)

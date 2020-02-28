@@ -198,7 +198,6 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 		DataDir:               s.dataDir,
 		CharmGetter:           &s.client,
 		Clock:                 s.clock,
-		PodSpecSetter:         &s.client,
 		Downloader:            &s.charmDownloader,
 		StatusSetter:          &s.client,
 		UnitGetter:            &s.client,

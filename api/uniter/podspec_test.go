@@ -21,7 +21,41 @@ type podSpecSuite struct {
 
 var _ = gc.Suite(&podSpecSuite{})
 
+func strPtr(s string) *string {
+	return &s
+}
+
 func (s *podSpecSuite) TestSetPodSpec(c *gc.C) {
+	expected := params.SetPodSpecParamsV2{
+		Specs: []params.PodSpec{{
+			Tag:  "application-mysql",
+			Spec: strPtr("spec"),
+		}},
+	}
+
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Uniter")
+			c.Assert(version, gc.Equals, 15)
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "SetPodSpec")
+			c.Assert(arg, gc.DeepEquals, expected)
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: &params.Error{Message: "yoink"},
+				}},
+			}
+			return nil
+		}),
+		BestVersion: 15,
+	}
+	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
+	err := st.SetPodSpec("mysql", strPtr("spec"))
+	c.Assert(err, gc.ErrorMatches, "yoink")
+}
+
+func (s *podSpecSuite) TestSetPodSpecLegacy(c *gc.C) {
 	expected := params.SetPodSpecParams{
 		Specs: []params.EntityString{{
 			Tag:   "application-mysql",
@@ -29,22 +63,25 @@ func (s *podSpecSuite) TestSetPodSpec(c *gc.C) {
 		}},
 	}
 
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "SetPodSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		*(result.(*params.ErrorResults)) = params.ErrorResults{
-			Results: []params.ErrorResult{{
-				Error: &params.Error{Message: "yoink"},
-			}},
-		}
-		return nil
-	})
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Uniter")
+			c.Assert(version, gc.Equals, 14)
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "SetPodSpec")
+			c.Assert(arg, gc.DeepEquals, expected)
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			*(result.(*params.ErrorResults)) = params.ErrorResults{
+				Results: []params.ErrorResult{{
+					Error: &params.Error{Message: "yoink"},
+				}},
+			}
+			return nil
+		}),
+		BestVersion: 14,
+	}
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.SetPodSpec("mysql", "spec")
+	err := st.SetPodSpec("mysql", strPtr("spec"))
 	c.Assert(err, gc.ErrorMatches, "yoink")
 }
 
@@ -55,34 +92,37 @@ func (s *podSpecSuite) TestSetPodSpecInvalidApplicationName(c *gc.C) {
 	})
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.SetPodSpec("", "spec")
+	err := st.SetPodSpec("", nil)
 	c.Assert(err, gc.ErrorMatches, `application name "" not valid`)
 }
 
 func (s *podSpecSuite) TestSetPodSpecError(c *gc.C) {
-	expected := params.SetPodSpecParams{
-		Specs: []params.EntityString{{
-			Tag:   "application-mysql",
-			Value: "spec",
+	expected := params.SetPodSpecParamsV2{
+		Specs: []params.PodSpec{{
+			Tag:  "application-mysql",
+			Spec: strPtr("spec"),
 		}},
 	}
 
 	var called bool
 	msg := "yoink"
-	apiCaller := basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
-		c.Assert(objType, gc.Equals, "Uniter")
-		c.Assert(version, gc.Equals, 0)
-		c.Assert(id, gc.Equals, "")
-		c.Assert(request, gc.Equals, "SetPodSpec")
-		c.Assert(arg, gc.DeepEquals, expected)
-		called = true
+	apiCaller := basetesting.BestVersionCaller{
+		APICallerFunc: basetesting.APICallerFunc(func(objType string, version int, id, request string, arg, result interface{}) error {
+			c.Assert(objType, gc.Equals, "Uniter")
+			c.Assert(version, gc.Equals, 15)
+			c.Assert(id, gc.Equals, "")
+			c.Assert(request, gc.Equals, "SetPodSpec")
+			c.Assert(arg, gc.DeepEquals, expected)
+			called = true
 
-		c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
-		return errors.New(msg)
-	})
+			c.Assert(result, gc.FitsTypeOf, &params.ErrorResults{})
+			return errors.New(msg)
+		}),
+		BestVersion: 15,
+	}
 
 	st := uniter.NewState(apiCaller, names.NewUnitTag("mysql/0"))
-	err := st.SetPodSpec("mysql", "spec")
+	err := st.SetPodSpec("mysql", strPtr("spec"))
 	c.Assert(err, gc.ErrorMatches, msg)
 	c.Assert(called, jc.IsTrue)
 }

@@ -1064,8 +1064,13 @@ func (ctx *HookContext) doFlush(process string) error {
 		}
 	}
 
-	if ctx.podSpecYaml != nil {
-		return ctx.commitPodSpec()
+	if ctx.modelType == model.CAAS {
+		// If we're running the upgrade-charm hook and no podspec update was done,
+		// we'll still trigger a change to a counter on the podspec so that we can
+		// ensure any other charm changes (eg storage) are acted on.
+		if ctx.podSpecYaml != nil || process == string(hooks.UpgradeCharm) {
+			return ctx.commitPodSpec()
+		}
 	}
 
 	return nil
@@ -1073,10 +1078,6 @@ func (ctx *HookContext) doFlush(process string) error {
 
 // commitPodSpec dispatches pending SetPodSpec call.
 func (ctx *HookContext) commitPodSpec() error {
-	if ctx.podSpecYaml == nil {
-		return nil
-	}
-	specYaml := *ctx.podSpecYaml
 	entityName := ctx.unitName
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
@@ -1087,7 +1088,7 @@ func (ctx *HookContext) commitPodSpec() error {
 		return ErrIsNotLeader
 	}
 	entityName = ctx.unit.ApplicationName()
-	err = ctx.state.SetPodSpec(entityName, specYaml)
+	err = ctx.state.SetPodSpec(entityName, ctx.podSpecYaml)
 	if err != nil {
 		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
 			Status: status.Blocked.String(),

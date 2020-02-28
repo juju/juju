@@ -518,16 +518,31 @@ func goalStateFromParams(paramsGoalState *params.GoalState) application.GoalStat
 }
 
 // SetPodSpec sets the pod spec of the specified application.
-func (st *State) SetPodSpec(appName string, spec string) error {
+func (st *State) SetPodSpec(appName string, spec *string) error {
 	if !names.IsValidApplication(appName) {
 		return errors.NotValidf("application name %q", appName)
 	}
 	tag := names.NewApplicationTag(appName)
 	var result params.ErrorResults
-	args := params.SetPodSpecParams{
-		Specs: []params.EntityString{{
-			Tag:   tag.String(),
-			Value: spec,
+	if st.BestAPIVersion() < 15 {
+		if spec == nil {
+			return nil
+		}
+		args := params.SetPodSpecParams{
+			Specs: []params.EntityString{{
+				Tag:   tag.String(),
+				Value: *spec,
+			}},
+		}
+		if err := st.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
+			return errors.Trace(err)
+		}
+		return result.OneError()
+	}
+	args := params.SetPodSpecParamsV2{
+		Specs: []params.PodSpec{{
+			Tag:  tag.String(),
+			Spec: spec,
 		}},
 	}
 	if err := st.facade.FacadeCall("SetPodSpec", args, &result); err != nil {

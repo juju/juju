@@ -88,11 +88,6 @@ func (c *fakeClient) Charm(application string) (*charm.URL, bool, string, int, e
 	return gitlabCharmURL, true, fakeCharmSHA256, fakeModifiedVersion, nil
 }
 
-func (c *fakeClient) SetPodSpec(entityName, spec string) error {
-	c.MethodCall(c, "SetPodSpec", entityName, spec)
-	return c.NextErr()
-}
-
 func (c *fakeClient) CharmConfig(application string) (charm.Settings, error) {
 	c.MethodCall(c, "CharmConfig", application)
 	if err := c.NextErr(); err != nil {
