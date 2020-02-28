@@ -610,7 +610,11 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		machineID := ipAddr.MachineID()
 		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
 		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
-			if spaceName := spaceIDToSpaceName[subnet.SpaceID()]; spaceName != "" {
+			spaceName, found := spaceIDToSpaceName[subnet.SpaceID()]
+			if !found {
+				spaceName = network.AlphaSpaceName
+			}
+			if spaceName != "" {
 				devices, ok := spacesPerMachine[machineID]
 				if !ok {
 					devices = make(map[string]set.Strings)
