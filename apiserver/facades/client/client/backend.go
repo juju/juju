@@ -44,6 +44,7 @@ type Backend interface {
 	AllLinkLayerDevices() ([]*state.LinkLayerDevice, error)
 	AllRelations() ([]*state.Relation, error)
 	AllSubnets() ([]*state.Subnet, error)
+	AllSpaces() ([]*state.Space, error)
 	Annotations(state.GlobalEntity) (map[string]string, error)
 	APIHostPortsForClients() ([]network.SpaceHostPorts, error)
 	Application(string) (*state.Application, error)

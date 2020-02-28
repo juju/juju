@@ -580,7 +580,7 @@ func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
 // so we want all or none.
 func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
 	ipAddresses := make(map[string][]*state.Address)
-	spaces := make(map[string]map[string]set.Strings)
+	spacesPerMachine := make(map[string]map[string]set.Strings)
 	subnets, err := st.AllSubnets()
 	if err != nil {
 		return nil, nil, nil, err
@@ -588,6 +588,14 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 	subnetsByCIDR := make(map[string]*state.Subnet)
 	for _, subnet := range subnets {
 		subnetsByCIDR[subnet.CIDR()] = subnet
+	}
+	spaces, err := st.AllSpaces()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	spaceIDToSpaceName := make(map[string]string)
+	for _, space := range spaces {
+		spaceIDToSpaceName[space.Id()] = space.Name()
 	}
 	// For every machine, track what devices have addresses so we can filter linklayerdevices later
 	devicesWithAddresses := make(map[string]set.Strings)
@@ -602,11 +610,11 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		machineID := ipAddr.MachineID()
 		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
 		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
-			if spaceName := subnet.SpaceName(); spaceName != "" {
-				devices, ok := spaces[machineID]
+			if spaceName := spaceIDToSpaceName[subnet.SpaceID()]; spaceName != "" {
+				devices, ok := spacesPerMachine[machineID]
 				if !ok {
 					devices = make(map[string]set.Strings)
-					spaces[machineID] = devices
+					spacesPerMachine[machineID] = devices
 				}
 				deviceName := ipAddr.DeviceName()
 				spacesSet, ok := devices[deviceName]
@@ -648,7 +656,7 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
 	}
 
-	return ipAddresses, spaces, linkLayerDevices, nil
+	return ipAddresses, spacesPerMachine, linkLayerDevices, nil
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
