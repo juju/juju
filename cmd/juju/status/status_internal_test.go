@@ -4611,6 +4611,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
+		tracker := ctx.st.TrackQueries()
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
 		args := []string{"--format", format.name}
@@ -4622,6 +4623,8 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(string(stderr), gc.Equals, e.stderr)
+
+		fmt.Fprintf(os.Stderr, "read queries (%s - %s): %d\n", e.what, format.name, tracker.ReadCount())
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
