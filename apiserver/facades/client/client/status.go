@@ -589,13 +589,10 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 	for _, subnet := range subnets {
 		subnetsByCIDR[subnet.CIDR()] = subnet
 	}
-	spaces, err := st.AllSpaces()
+
+	spaceIDToSpaceName, err := st.SpaceNamesByID()
 	if err != nil {
 		return nil, nil, nil, err
-	}
-	spaceIDToSpaceName := make(map[string]string)
-	for _, space := range spaces {
-		spaceIDToSpaceName[space.Id()] = space.Name()
 	}
 	// For every machine, track what devices have addresses so we can filter linklayerdevices later
 	devicesWithAddresses := make(map[string]set.Strings)
