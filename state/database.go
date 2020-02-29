@@ -259,6 +259,8 @@ type database struct {
 
 	// clock is used to time how long transactions take to run
 	clock clock.Clock
+
+	queryTracker *queryTracker
 }
 
 // RunTransactionObserverFunc is the type of a function to be called
@@ -311,6 +313,7 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 		collection = &modelStateCollection{
 			WriteCollection: collection.Writeable(),
 			modelUUID:       db.modelUUID,
+			queryTracker:    db.queryTracker,
 		}
 	}
 
