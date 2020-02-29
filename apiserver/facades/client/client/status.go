@@ -212,7 +212,7 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
 	}
 	// These may be empty when machines have not finished deployment.
-	if context.ipAddresses, context.spaces, context.linkLayerDevices, err =
+	if context.ipAddresses, context.machineDeviceSpaces, context.linkLayerDevices, err =
 		fetchNetworkInterfaces(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch IP addresses and link layer devices")
 	}
@@ -503,8 +503,8 @@ type statusContext struct {
 	// ipAddresses: machine id -> list of ip.addresses
 	ipAddresses map[string][]*state.Address
 
-	// spaces: machine id -> deviceName -> list of spaceNames
-	spaces map[string]map[string]set.Strings
+	// machineDeviceSpaces: machine id -> deviceName -> set of spaceNames
+	machineDeviceSpaces map[string]map[string]set.Strings
 
 	// linkLayerDevices: machine id -> list of linkLayerDevices
 	linkLayerDevices map[string][]*state.LinkLayerDevice
@@ -589,13 +589,9 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 	for _, subnet := range subnets {
 		subnetsByCIDR[subnet.CIDR()] = subnet
 	}
-	spaces, err := st.AllSpaces()
+	spaceIDToSpaceName, err := st.SpaceNamesByID()
 	if err != nil {
 		return nil, nil, nil, err
-	}
-	spaceIDToSpaceName := make(map[string]string)
-	for _, space := range spaces {
-		spaceIDToSpaceName[space.Id()] = space.Name()
 	}
 	// For every machine, track what devices have addresses so we can filter linklayerdevices later
 	devicesWithAddresses := make(map[string]set.Strings)
@@ -673,6 +669,10 @@ func fetchAllApplicationsAndUnits(
 	unitMap := make(map[string]map[string]*state.Unit)
 	latestCharms := make(map[charm.URL]*state.Charm)
 	applications, err := st.AllApplications()
+	if err != nil {
+		return applicationStatusInfo{}, err
+	}
+	spaceIDToSpaceName, err := st.SpaceNamesByID()
 	if err != nil {
 		return applicationStatusInfo{}, err
 	}
@@ -897,7 +897,7 @@ func (c *statusContext) processMachines() map[string]params.MachineStatus {
 func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo applicationStatusInfo) (status params.MachineStatus) {
 	machineID := machine.Id()
 	ipAddresses := c.ipAddresses[machineID]
-	spaces := c.spaces[machineID]
+	spaces := c.machineDeviceSpaces[machineID]
 	linkLayerDevices := c.linkLayerDevices[machineID]
 
 	var err error
