@@ -114,7 +114,6 @@ type context struct {
 	adminUserTag  string // A string repr of the tag.
 	expectIsoTime bool
 	skipTest      bool
-	waitForIdle   func()
 }
 
 func (ctx *context) reset(c *gc.C) {
@@ -158,12 +157,6 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
-	wait := func() {
-		s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
-	}
-	// We make changes in the API server's state so that
-	// our changes to presence are immediately noticed
-	// in the status.
 	return &context{
 		st:           st,
 		pool:         s.StatePool,
@@ -172,7 +165,6 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 		charms:       make(map[string]*state.Charm),
 		pingers:      make(map[string]*presence.Pinger),
 		adminUserTag: s.AdminUserTag(c).String(),
-		waitForIdle:  wait,
 	}
 }
 
@@ -3501,6 +3493,7 @@ var statusTests = []testCase{
 		addAliveUnit{"wordpress", "1"},
 
 		scopedExpect{
+			what: "endpoints in correct spaces",
 			output: M{
 				"model": M{
 					"region":  "dummy-region",
@@ -4612,8 +4605,6 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
-		ctx.waitForIdle()
-		tracker := ctx.st.TrackQueries()
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
 		args := []string{"--format", format.name}
@@ -4625,8 +4616,6 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(string(stderr), gc.Equals, e.stderr)
-
-		fmt.Fprintf(os.Stderr, "read queries (%s - %s): %d\n", e.what, format.name, tracker.ReadCount())
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
