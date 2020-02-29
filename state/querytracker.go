@@ -27,7 +27,7 @@ type QueryDetails struct {
 // track the database queries made.
 func (s *State) TrackQueries() QueryTracker {
 	tracker := &queryTracker{}
-	s.database.(*database).queryTracker = tracker
+	s.database.(*database).setTracker(tracker)
 	return tracker
 }
 

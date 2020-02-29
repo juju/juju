@@ -6,6 +6,7 @@ package state
 import (
 	"runtime/debug"
 	"strings"
+	"sync"
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -260,6 +261,7 @@ type database struct {
 	// clock is used to time how long transactions take to run
 	clock clock.Clock
 
+	mu           sync.RWMutex
 	queryTracker *queryTracker
 }
 
@@ -278,6 +280,12 @@ func (db *database) copySession(modelUUID string) (*database, SessionCloser) {
 		serverSideTransactions: db.serverSideTransactions,
 		clock:                  db.clock,
 	}, session.Close
+}
+
+func (db *database) setTracker(tracker *queryTracker) {
+	db.mu.Lock()
+	db.queryTracker = tracker
+	db.mu.Unlock()
 }
 
 // Copy is part of the Database interface.
@@ -310,11 +318,13 @@ func (db *database) GetCollection(name string) (collection mongo.Collection, clo
 
 	// Apply model filtering.
 	if !info.global {
+		db.mu.RLock()
 		collection = &modelStateCollection{
 			WriteCollection: collection.Writeable(),
 			modelUUID:       db.modelUUID,
 			queryTracker:    db.queryTracker,
 		}
+		db.mu.RUnlock()
 	}
 
 	// Prevent layer-breaking.
