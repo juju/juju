@@ -100,21 +100,6 @@ type stepper interface {
 // context
 //
 
-func newContext(st *state.State, pool *state.StatePool, env environs.Environ, adminUserTag string) *context {
-	// We make changes in the API server's state so that
-	// our changes to presence are immediately noticed
-	// in the status.
-	return &context{
-		st:           st,
-		pool:         pool,
-		env:          env,
-		statusSetter: env.(agentStatusSetter),
-		charms:       make(map[string]*state.Charm),
-		pingers:      make(map[string]*presence.Pinger),
-		adminUserTag: adminUserTag,
-	}
-}
-
 type agentStatusSetter interface {
 	SetAgentStatus(agent string, status corepresence.Status)
 }
@@ -129,6 +114,7 @@ type context struct {
 	adminUserTag  string // A string repr of the tag.
 	expectIsoTime bool
 	skipTest      bool
+	waitForIdle   func()
 }
 
 func (ctx *context) reset(c *gc.C) {
@@ -172,7 +158,22 @@ func (s *StatusSuite) newContext(c *gc.C) *context {
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
-	return newContext(st, s.StatePool, s.Environ, s.AdminUserTag(c).String())
+	wait := func() {
+		s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	}
+	// We make changes in the API server's state so that
+	// our changes to presence are immediately noticed
+	// in the status.
+	return &context{
+		st:           st,
+		pool:         s.StatePool,
+		env:          s.Environ,
+		statusSetter: s.Environ.(agentStatusSetter),
+		charms:       make(map[string]*state.Charm),
+		pingers:      make(map[string]*presence.Pinger),
+		adminUserTag: s.AdminUserTag(c).String(),
+		waitForIdle:  wait,
+	}
 }
 
 func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
@@ -4611,6 +4612,7 @@ func (e scopedExpect) step(c *gc.C, ctx *context) {
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
+		ctx.waitForIdle()
 		tracker := ctx.st.TrackQueries()
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
