@@ -82,7 +82,8 @@ type Controller struct {
 	metrics *ControllerGauges
 
 	// config is the controller config.
-	config map[string]interface{}
+	configMu sync.Mutex
+	config   map[string]interface{}
 
 	// While a controller is initializing it does not update any model
 	// summaries - we want to avoid publishing events related to cache priming.
@@ -150,9 +151,9 @@ func (c *Controller) loop() error {
 
 			switch ch := change.(type) {
 			case ControllerConfigChange:
-				c.mu.Lock()
+				c.configMu.Lock()
 				c.config = ch.Config
-				c.mu.Unlock()
+				c.configMu.Unlock()
 			case ModelChange:
 				c.updateModel(ch)
 			case RemoveModel:
@@ -272,8 +273,8 @@ func (c *Controller) Wait() error {
 
 // Name returns the controller-name from the controller config.
 func (c *Controller) Name() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.configMu.Lock()
+	defer c.configMu.Unlock()
 	value := c.config["controller-name"]
 	if name, ok := value.(string); ok {
 		return name
