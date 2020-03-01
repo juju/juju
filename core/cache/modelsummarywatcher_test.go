@@ -246,11 +246,12 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Name:      "model-2",
-			Admins:    []string{"bob"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Name:       "model-2",
+			Admins:     []string{"bob"},
+			Status:     cache.StatusGreen,
 			Annotations: map[string]string{
 				"muted": "true",
 			},
