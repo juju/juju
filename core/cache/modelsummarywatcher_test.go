@@ -225,11 +225,7 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 	watcher := s.controller.WatchAllModels()
 	defer workertest.CleanKill(c, watcher)
 
-	changes := watcher.Changes()
-	// discard the initial event
-	_ = s.next(c, changes)
-
-	s.ProcessChange(c, cache.ModelChange{
+	modelChange := cache.ModelChange{
 		ModelUUID: "model-2-uuid",
 		Name:      "model-2",
 		Life:      life.Alive,
@@ -238,10 +234,18 @@ func (s *modelSummaryWatcherSuite) TestModelAnnotationsChange(c *gc.C) {
 			"bob":  permission.AdminAccess,
 			"mary": permission.ReadAccess,
 		},
-		Annotations: map[string]string{
-			"muted": "true",
-		},
-	}, s.events)
+	}
+
+	s.ProcessChange(c, modelChange, s.events)
+
+	changes := watcher.Changes()
+	// discard the initial event
+	_ = s.next(c, changes)
+
+	modelChange.Annotations = map[string]string{
+		"muted": "true",
+	}
+	s.ProcessChange(c, modelChange, s.events)
 
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
