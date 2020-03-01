@@ -5,6 +5,14 @@ package cachetest
 
 import "github.com/juju/juju/core/cache"
 
+func ControllerEvents(change interface{}) bool {
+	switch change.(type) {
+	case cache.ControllerConfigChange:
+		return true
+	}
+	return false
+}
+
 func ModelEvents(change interface{}) bool {
 	switch change.(type) {
 	case cache.ModelChange:

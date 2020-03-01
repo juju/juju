@@ -81,6 +81,10 @@ type Controller struct {
 	tomb    tomb.Tomb
 	metrics *ControllerGauges
 
+	// config is the controller config.
+	configMu sync.Mutex
+	config   map[string]interface{}
+
 	// While a controller is initializing it does not update any model
 	// summaries - we want to avoid publishing events related to cache priming.
 	// The initialization status is handled with the Mark and Sweep methods.
@@ -146,6 +150,10 @@ func (c *Controller) loop() error {
 			var err error
 
 			switch ch := change.(type) {
+			case ControllerConfigChange:
+				c.configMu.Lock()
+				c.config = ch.Config
+				c.configMu.Unlock()
 			case ModelChange:
 				c.updateModel(ch)
 			case RemoveModel:
@@ -261,6 +269,17 @@ func (c *Controller) Kill() {
 // Wait is part of the worker.Worker interface.
 func (c *Controller) Wait() error {
 	return c.tomb.Wait()
+}
+
+// Name returns the controller-name from the controller config.
+func (c *Controller) Name() string {
+	c.configMu.Lock()
+	defer c.configMu.Unlock()
+	value := c.config["controller-name"]
+	if name, ok := value.(string); ok {
+		return name
+	}
+	return ""
 }
 
 // Model returns the model for the specified UUID.

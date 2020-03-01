@@ -42,6 +42,7 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 	c.Assert(initial, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:         "controller-uuid",
+			Controller:   "test-controller",
 			Namespace:    "test-admin",
 			Name:         "controller",
 			Admins:       []string{"test-admin"},
@@ -49,6 +50,7 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 			MachineCount: 1,
 		}, {
 			UUID:             "model-1-uuid",
+			Controller:       "test-controller",
 			Namespace:        "test-admin",
 			Name:             "model-1",
 			Admins:           []string{"test-admin"},
@@ -57,11 +59,12 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 			ApplicationCount: 1,
 			UnitCount:        1,
 		}, {
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Admins:    []string{"bob"},
-			Name:      "model-2",
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Admins:     []string{"bob"},
+			Name:       "model-2",
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -75,6 +78,7 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *gc.C) {
 	c.Assert(initial, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-1-uuid",
+			Controller:       "test-controller",
 			Namespace:        "test-admin",
 			Name:             "model-1",
 			Admins:           []string{"test-admin"},
@@ -83,11 +87,12 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *gc.C) {
 			ApplicationCount: 1,
 			UnitCount:        1,
 		}, {
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Name:      "model-2",
-			Admins:    []string{"bob"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Name:       "model-2",
+			Admins:     []string{"bob"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -125,11 +130,12 @@ func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Name:      "model-2",
-			Admins:    []string{"albert", "bob"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Name:       "model-2",
+			Admins:     []string{"albert", "bob"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -184,11 +190,12 @@ func (s *modelSummaryWatcherSuite) TestAddModelShowsModel(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-3-uuid",
-			Namespace: "mary",
-			Name:      "model-3",
-			Admins:    []string{"mary"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-3-uuid",
+			Controller: "test-controller",
+			Namespace:  "mary",
+			Name:       "model-3",
+			Admins:     []string{"mary"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -232,6 +239,7 @@ func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:         "model-2-uuid",
+			Controller:   "test-controller",
 			Namespace:    "bob",
 			Name:         "model-2",
 			Admins:       []string{"bob"},
@@ -257,11 +265,12 @@ func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 			// We didn't actually remove the application, or unit yet.
 			ApplicationCount: 1,
 			UnitCount:        1,
@@ -287,6 +296,7 @@ func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-2-uuid",
+			Controller:       "test-controller",
 			Namespace:        "bob",
 			Name:             "model-2",
 			Admins:           []string{"bob"},
@@ -312,11 +322,12 @@ func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 			// We didn't actually remove the machine, or unit yet.
 			// Yes I know in theory this can't happen, but hey, this is a test.
 			MachineCount: 1,
@@ -343,6 +354,7 @@ func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-1-uuid",
+			Controller:       "test-controller",
 			Namespace:        "test-admin",
 			Name:             "model-1",
 			Admins:           []string{"test-admin"},
@@ -370,11 +382,12 @@ func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 			// We didn't actually remove the machine, or application yet.
 			MachineCount:     1,
 			ApplicationCount: 1,
@@ -411,13 +424,15 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 	update := s.next(c, changes, "model-2-uuid")
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 		}, {
 			UUID:             "model-2-uuid",
+			Controller:       "test-controller",
 			Namespace:        "bob",
 			Name:             "model-2",
 			Admins:           []string{"bob"},
@@ -450,11 +465,12 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "new-model-uuid",
-			Namespace: "mary",
-			Name:      "new-model",
-			Admins:    []string{"mary"},
-			Status:    cache.StatusGreen,
+			UUID:       "new-model-uuid",
+			Controller: "test-controller",
+			Namespace:  "mary",
+			Name:       "new-model",
+			Admins:     []string{"mary"},
+			Status:     cache.StatusGreen,
 		},
 	})
 
@@ -477,6 +493,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-2-uuid",
+			Controller:       "test-controller",
 			Namespace:        "bob",
 			Name:             "model-2",
 			Admins:           []string{"bob"},
@@ -544,11 +561,12 @@ func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *g
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "new-model-uuid",
-			Namespace: "mary",
-			Name:      "new-model",
-			Admins:    []string{"mary"},
-			Status:    cache.StatusGreen,
+			UUID:       "new-model-uuid",
+			Controller: "test-controller",
+			Namespace:  "mary",
+			Name:       "new-model",
+			Admins:     []string{"mary"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -588,6 +606,11 @@ func (s *modelSummaryWatcherSuite) noUpdates(c *gc.C, changes <-chan []cache.Mod
 
 func (s *modelSummaryWatcherSuite) baseScenario(c *gc.C) {
 	// The values here a minimal, and only set values that are really necessary.
+	s.ProcessChange(c, cache.ControllerConfigChange{
+		Config: map[string]interface{}{
+			"controller-name": "test-controller",
+		},
+	}, s.events)
 	s.ProcessChange(c, cache.ModelChange{
 		ModelUUID: "controller-uuid",
 		Name:      "controller",

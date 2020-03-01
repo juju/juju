@@ -70,7 +70,10 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	initialized := gate.NewLock()
+	s.hub = pubsub.NewStructuredHub(nil)
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		StatePool:            s.StatePool,
+		Hub:                  s.hub,
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("test"),
 		WatcherFactory:       multiWatcherWorker.WatchController,
@@ -97,7 +100,6 @@ func (s *controllerSuite) SetUpTest(c *gc.C) {
 		Tag:      s.Owner,
 		AdminTag: s.Owner,
 	}
-	s.hub = pubsub.NewStructuredHub(nil)
 
 	s.context = facadetest.Context{
 		State_:               s.State,

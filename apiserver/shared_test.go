@@ -50,7 +50,10 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
 	initialized := gate.NewLock()
+	s.hub = pubsub.NewStructuredHub(nil)
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		StatePool:            s.StatePool,
+		Hub:                  s.hub,
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("test"),
 		WatcherFactory:       multiWatcherWorker.WatchController,
@@ -66,7 +69,6 @@ func (s *sharedServerContextSuite) SetUpTest(c *gc.C) {
 	controllerConfig, err := s.State.ControllerConfig()
 	c.Assert(err, jc.ErrorIsNil)
 
-	s.hub = pubsub.NewStructuredHub(nil)
 	s.config = sharedServerConfig{
 		statePool:           s.StatePool,
 		controller:          controller,

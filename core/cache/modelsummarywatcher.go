@@ -28,10 +28,11 @@ type ModelSummary struct {
 	// either been removed, or there access revoked.
 	Removed bool
 
-	Namespace string
-	Name      string
-	Admins    []string
-	Status    string
+	Controller string
+	Namespace  string
+	Name       string
+	Admins     []string
+	Status     string
 
 	// Messages contain status message for any unit status in error.
 	Messages []ModelSummaryMessage
@@ -102,6 +103,7 @@ type modelSummaryWatcher struct {
 }
 
 func (w *modelSummaryWatcher) init() {
+	controllerName := w.controller.Name()
 	w.controller.modelsMu.Lock()
 	defer w.controller.modelsMu.Unlock()
 	w.mu.Lock()
@@ -111,6 +113,7 @@ func (w *modelSummaryWatcher) init() {
 			continue
 		}
 		summary, hash := model.Summary()
+		summary.Controller = controllerName
 		w.pending = append(w.pending, summary)
 		uuid := model.UUID()
 		w.hashes[uuid] = hash
@@ -192,6 +195,7 @@ func (w *modelSummaryWatcher) onSummaryUpdate(topic string, data interface{}) {
 		w.hashes[uuid] = payload.hash
 		w.visibleModels.Add(uuid)
 		summary = payload.summary
+		summary.Controller = w.controller.Name()
 	} else {
 		if !w.visibleModels.Contains(uuid) {
 			// We aren't tracking, and shouldn't be, so nothing to do.
