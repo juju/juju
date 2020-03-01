@@ -18,7 +18,8 @@ import (
 // possible).
 type modelStateCollection struct {
 	mongo.WriteCollection
-	modelUUID string
+	modelUUID    string
+	queryTracker *queryTracker
 }
 
 // Writeable is part of the Collection interface.
@@ -31,6 +32,9 @@ func (c *modelStateCollection) Writeable() mongo.WriteCollection {
 // Count returns the number of documents in the collection that belong
 // to the model that the modelStateCollection is filtering on.
 func (c *modelStateCollection) Count() (int, error) {
+	if c.queryTracker != nil {
+		c.queryTracker.TrackRead(c.Name(), "count")
+	}
 	return c.WriteCollection.Find(bson.D{{"model-uuid", c.modelUUID}}).Count()
 }
 
@@ -47,6 +51,9 @@ func (c *modelStateCollection) Count() (int, error) {
 // these cases it is up to the caller to add model UUID
 // prefixes when necessary.
 func (c *modelStateCollection) Find(query interface{}) mongo.Query {
+	if c.queryTracker != nil {
+		c.queryTracker.TrackRead(c.Name(), query)
+	}
 	return c.WriteCollection.Find(c.mungeQuery(query))
 }
 
@@ -54,6 +61,9 @@ func (c *modelStateCollection) Find(query interface{}) mongo.Query {
 // relevant model UUID prefix will be added to it. Otherwise, the
 // query will be handled as per Find().
 func (c *modelStateCollection) FindId(id interface{}) mongo.Query {
+	if c.queryTracker != nil {
+		c.queryTracker.TrackRead(c.Name(), bson.M{"_id": id})
+	}
 	if sid, ok := id.(string); ok {
 		return c.WriteCollection.FindId(ensureModelUUID(c.modelUUID, sid))
 	}
