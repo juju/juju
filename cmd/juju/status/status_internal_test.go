@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/core/migration"
 	coremodel "github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	corepresence "github.com/juju/juju/core/presence"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -63,6 +64,7 @@ func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 
 type StatusSuite struct {
 	testing.JujuConnSuite
+	networktesting.FirewallHelper
 }
 
 var _ = gc.Suite(&StatusSuite{})
@@ -4392,7 +4394,13 @@ type openUnitPort struct {
 func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
 	c.Assert(err, jc.ErrorIsNil)
-	err = u.OpenPort(oup.protocol, oup.number)
+
+	openPortRange := network.PortRange{
+		FromPort: oup.number,
+		ToPort:   oup.number,
+		Protocol: oup.protocol,
+	}
+	err = u.OpenClosePortsOnSubnet("", []network.PortRange{openPortRange}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 }
 

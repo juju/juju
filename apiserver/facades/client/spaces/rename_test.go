@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
 	"github.com/juju/juju/apiserver/facades/client/spaces/mocks"
@@ -20,104 +21,89 @@ import (
 )
 
 type SpaceRenameSuite struct {
+	spaceName string
+
 	state    *mocks.MockRenameSpaceState
 	space    *mocks.MockRenameSpace
 	settings *mocks.MockSettings
+	cons1    *mocks.MockConstraints
+	cons2    *mocks.MockConstraints
 }
 
 var _ = gc.Suite(&SpaceRenameSuite{})
 
-func (s *SpaceRenameSuite) TearDownTest(c *gc.C) {
-}
+func (s *SpaceRenameSuite) TestBuildSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-func (s *SpaceRenameSuite) TestSuccess(c *gc.C) {
-	toName := "blub"
-	fromName := "db"
+	toName := "external"
 
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	currentConfig := s.getDefaultControllerConfig(
+		c, map[string]interface{}{controller.JujuHASpace: s.spaceName, controller.JujuManagementSpace: "nochange"})
 
-	s.space.EXPECT().Name().Return(fromName).Times(2)
-	s.space.EXPECT().RenameSpaceOps(toName).Return(nil)
-	currentConfig := s.getDefaultControllerConfig(c, map[string]interface{}{controller.JujuHASpace: fromName, controller.JujuManagementSpace: "nochange"})
+	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
 	s.state.EXPECT().ControllerConfig().Return(currentConfig, nil)
-	s.state.EXPECT().ConstraintsOpsForSpaceNameChange(fromName, toName).Return(nil, nil)
+	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return([]spaces.Constraints{s.cons1, s.cons2}, nil)
+	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
+	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 
 	expectedConfigDelta := settings.ItemChanges{{
 		Type:     1,
 		Key:      controller.JujuHASpace,
-		OldValue: fromName,
+		OldValue: s.spaceName,
 		NewValue: toName,
 	}}
-	s.settings.EXPECT().DeltaOps(state.ControllerSettingsGlobalKey, expectedConfigDelta).Return(nil, nil)
+	s.settings.EXPECT().DeltaOps(state.ControllerSettingsGlobalKey, expectedConfigDelta).Return([]txn.Op{{}}, nil)
 
 	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// this is because the code itself does not test for the ops but for expected constraints and delta,
-	// which are used to create the ops.
-	c.Assert(ops, gc.HasLen, 0)
+	c.Assert(ops, gc.HasLen, 4)
 }
 
-func (s *SpaceRenameSuite) TestNotControllerModelSuccess(c *gc.C) {
-	toName := "blub"
-	fromName := "db"
+func (s *SpaceRenameSuite) TestBuildNotControllerModelSuccess(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	toName := "external"
 
-	s.space.EXPECT().Name().Return(fromName).Times(1)
-	s.state.EXPECT().ConstraintsOpsForSpaceNameChange(fromName, toName).Return(nil, nil)
-	s.space.EXPECT().RenameSpaceOps(toName).Return(nil)
+	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
+	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return([]spaces.Constraints{s.cons1, s.cons2}, nil)
+	s.cons1.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
+	s.cons2.EXPECT().ChangeSpaceNameOps(s.spaceName, toName).Return([]txn.Op{{}})
 
 	op := spaces.NewRenameSpaceModelOp(false, s.settings, s.state, s.space, toName)
 	ops, err := op.Build(0)
 	c.Assert(err, jc.ErrorIsNil)
-
-	// this is because the code itself does not test for the ops but for expected constraints and delta,
-	// which are used to create the ops.
-	c.Assert(ops, gc.HasLen, 0)
+	c.Assert(ops, gc.HasLen, 3)
 }
 
-func (s *SpaceRenameSuite) TestErrorSettingsChanges(c *gc.C) {
-	toName := "blub"
-	fromName := "db"
+func (s *SpaceRenameSuite) TestBuildSettingsChangesError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
+	toName := "external"
 
-	s.space.EXPECT().Name().Return(fromName).Times(2)
-	s.state.EXPECT().ConstraintsOpsForSpaceNameChange(fromName, toName).Return(nil, nil)
-	s.space.EXPECT().RenameSpaceOps(toName).Return(nil)
+	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
+	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, nil)
 
 	bamErr := errors.New("bam")
 	s.state.EXPECT().ControllerConfig().Return(nil, bamErr)
 
 	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
-	ops, err := op.Build(0)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving setting changes: %v", bamErr.Error()))
-
-	c.Assert(ops, gc.HasLen, 0)
+	_, err := op.Build(0)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving settings changes: %v", bamErr.Error()))
 }
 
-func (s *SpaceRenameSuite) TestErrorConstraintsChanges(c *gc.C) {
-	toName := "blub"
-	fromName := "db"
+func (s *SpaceRenameSuite) TestBuildConstraintsRetrievalError(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 
-	ctrl := s.setupMocks(c)
-	defer ctrl.Finish()
-
-	s.space.EXPECT().Name().Return(fromName).Times(1)
-
+	toName := "external"
 	bamErr := errors.New("bam")
-	s.state.EXPECT().ConstraintsOpsForSpaceNameChange(fromName, toName).Return(nil, bamErr)
+
+	s.space.EXPECT().RenameSpaceOps(toName).Return([]txn.Op{{}})
+	s.state.EXPECT().ConstraintsBySpaceName(s.spaceName).Return(nil, bamErr)
 
 	op := spaces.NewRenameSpaceModelOp(true, s.settings, s.state, s.space, toName)
-	ops, err := op.Build(0)
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("retrieving constraint changes: %v", bamErr.Error()))
-
-	c.Assert(ops, gc.HasLen, 0)
+	_, err := op.Build(0)
+	c.Assert(err, gc.ErrorMatches, bamErr.Error())
 }
 
 func (s *SpaceRenameSuite) getDefaultControllerConfig(c *gc.C, attr map[string]interface{}) controller.Config {
@@ -129,9 +115,14 @@ func (s *SpaceRenameSuite) getDefaultControllerConfig(c *gc.C, attr map[string]i
 func (s *SpaceRenameSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
+	s.spaceName = "db"
 	s.space = mocks.NewMockRenameSpace(ctrl)
+	s.space.EXPECT().Name().Return(s.spaceName).AnyTimes()
+
 	s.state = mocks.NewMockRenameSpaceState(ctrl)
 	s.settings = mocks.NewMockSettings(ctrl)
+	s.cons1 = mocks.NewMockConstraints(ctrl)
+	s.cons2 = mocks.NewMockConstraints(ctrl)
 
 	return ctrl
 }

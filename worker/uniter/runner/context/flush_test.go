@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter/runner/context"
@@ -20,6 +21,7 @@ import (
 
 type FlushContextSuite struct {
 	HookContextSuite
+	networktesting.FirewallHelper
 	stub testing.Stub
 }
 
@@ -108,10 +110,8 @@ func (s *FlushContextSuite) TestRunHookOpensAndClosesPendingPorts(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Open some ports on both units.
-	err = s.unit.OpenPorts("tcp", 100, 200)
-	c.Assert(err, jc.ErrorIsNil)
-	err = otherUnit.OpenPorts("udp", 200, 300)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.unit, "", "tcp", 100, 200)
+	s.AssertOpenUnitPorts(c, otherUnit, "", "udp", 200, 300)
 
 	unitRanges, err = s.unit.OpenedPorts()
 	c.Assert(err, jc.ErrorIsNil)

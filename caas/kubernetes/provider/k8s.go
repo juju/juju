@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
+	"reflect"
 	"regexp"
 	"sort"
 	"strconv"
@@ -1366,30 +1367,133 @@ type configMapNameFunc func(fileSetName string) string
 func (k *kubernetesClient) configurePodFiles(
 	appName string,
 	annotations map[string]string,
-	podSpec *core.PodSpec,
+	workloadSpec *workloadSpec,
 	containers []specs.ContainerSpec,
 	cfgMapName configMapNameFunc,
 ) error {
 	for i, container := range containers {
-		for _, fileSet := range container.Files {
-			cfgName := cfgMapName(fileSet.Name)
-			vol := core.Volume{Name: cfgName}
-			if _, err := k.ensureConfigMapLegacy(filesetConfigMap(cfgName, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
-				return errors.Annotatef(err, "creating or updating ConfigMap for file set %v", cfgName)
+		for _, fileSet := range container.VolumeConfig {
+			vol, err := k.fileSetToVolume(appName, annotations, workloadSpec, fileSet, cfgMapName)
+			if err != nil {
+				return errors.Trace(err)
 			}
-			vol.ConfigMap = &core.ConfigMapVolumeSource{
-				LocalObjectReference: core.LocalObjectReference{
-					Name: cfgName,
-				},
-			}
-			podSpec.Volumes = append(podSpec.Volumes, vol)
-			podSpec.Containers[i].VolumeMounts = append(podSpec.Containers[i].VolumeMounts, core.VolumeMount{
-				Name:      cfgName,
+			pushUniqVolume(&workloadSpec.Pod, vol)
+			workloadSpec.Pod.Containers[i].VolumeMounts = append(workloadSpec.Pod.Containers[i].VolumeMounts, core.VolumeMount{
+				// TODO(caas): add more config fields support(SubPath, ReadOnly, etc).
+				Name:      vol.Name,
 				MountPath: fileSet.MountPath,
 			})
 		}
 	}
 	return nil
+}
+
+// pushUniqVolume ensures to only add unique volumes because k8s will not schedule pods if it has deplucated volumes.
+func pushUniqVolume(podSpec *core.PodSpec, vol core.Volume) {
+	for _, v := range podSpec.Volumes {
+		if reflect.DeepEqual(v, vol) {
+			return
+		}
+	}
+	podSpec.Volumes = append(podSpec.Volumes, vol)
+}
+
+func (k *kubernetesClient) fileSetToVolume(
+	appName string,
+	annotations map[string]string,
+	workloadSpec *workloadSpec,
+	fileSet specs.FileSet,
+	cfgMapName configMapNameFunc,
+) (core.Volume, error) {
+	fileRefsToVolItems := func(fs []specs.FileRef) (out []core.KeyToPath) {
+		for _, f := range fs {
+			out = append(out, core.KeyToPath{
+				Key:  f.Key,
+				Path: f.Path,
+				Mode: f.Mode,
+			})
+		}
+		return out
+	}
+
+	vol := core.Volume{Name: fileSet.Name}
+	if len(fileSet.Files) > 0 {
+		vol.Name = cfgMapName(fileSet.Name)
+		if _, err := k.ensureConfigMapLegacy(filesetConfigMap(vol.Name, k.getConfigMapLabels(appName), annotations, &fileSet)); err != nil {
+			return vol, errors.Annotatef(err, "creating or updating ConfigMap for file set %v", vol.Name)
+		}
+		vol.ConfigMap = &core.ConfigMapVolumeSource{
+			LocalObjectReference: core.LocalObjectReference{
+				Name: vol.Name,
+			},
+		}
+		for _, f := range fileSet.Files {
+			vol.ConfigMap.Items = append(vol.ConfigMap.Items, core.KeyToPath{
+				Key:  f.Path,
+				Path: f.Path,
+				Mode: f.Mode,
+			})
+		}
+	} else if fileSet.HostPath != nil {
+		t := core.HostPathType(fileSet.HostPath.Type)
+		vol.HostPath = &core.HostPathVolumeSource{
+			Path: fileSet.HostPath.Path,
+			Type: &t,
+		}
+	} else if fileSet.EmptyDir != nil {
+		vol.EmptyDir = &core.EmptyDirVolumeSource{
+			Medium:    core.StorageMedium(fileSet.EmptyDir.Medium),
+			SizeLimit: fileSet.EmptyDir.SizeLimit,
+		}
+	} else if fileSet.ConfigMap != nil {
+		found := false
+		refName := fileSet.ConfigMap.Name
+		for cfgN := range workloadSpec.ConfigMaps {
+			if cfgN == refName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return vol, errors.NewNotValid(nil, fmt.Sprintf(
+				"cannot mount a volume using a config map if the config map %q is not specified in the pod spec YAML", refName,
+			))
+		}
+
+		vol.ConfigMap = &core.ConfigMapVolumeSource{
+			LocalObjectReference: core.LocalObjectReference{
+				Name: refName,
+			},
+			DefaultMode: fileSet.ConfigMap.DefaultMode,
+			Optional:    fileSet.ConfigMap.Optional,
+			Items:       fileRefsToVolItems(fileSet.ConfigMap.Files),
+		}
+	} else if fileSet.Secret != nil {
+		found := false
+		refName := fileSet.Secret.Name
+		for _, secret := range workloadSpec.Secrets {
+			if secret.Name == refName {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return vol, errors.NewNotValid(nil, fmt.Sprintf(
+				"cannot mount a volume using a secret if the secret %q is not specified in the pod spec YAML", refName,
+			))
+		}
+
+		vol.Secret = &core.SecretVolumeSource{
+			SecretName:  refName,
+			DefaultMode: fileSet.Secret.DefaultMode,
+			Optional:    fileSet.Secret.Optional,
+			Items:       fileRefsToVolItems(fileSet.Secret.Files),
+		}
+	} else {
+		// This should never happen because FileSet validation has been in k8s spec level.
+		return vol, errors.NotValidf("fileset %q is empty", fileSet.Name)
+	}
+	return vol, nil
 }
 
 func configureInitContainer(podSpec *core.PodSpec, operatorImagePath string) error {
@@ -1479,8 +1583,7 @@ func (k *kubernetesClient) configureDaemonSet(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return cleanUp, errors.Trace(err)
 	}
 
@@ -1500,7 +1603,7 @@ func (k *kubernetesClient) configureDaemonSet(
 					Labels:       k.getDaemonSetLabels(appName),
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
-				Spec: podSpec,
+				Spec: workloadSpec.Pod,
 			},
 		},
 	}
@@ -1520,8 +1623,7 @@ func (k *kubernetesClient) configureDeployment(
 	cfgName := func(fileSetName string) string {
 		return applicationConfigMapName(deploymentName, fileSetName)
 	}
-	podSpec := workloadSpec.Pod
-	if err := k.configurePodFiles(appName, annotations, &podSpec, containers, cfgName); err != nil {
+	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1542,7 +1644,7 @@ func (k *kubernetesClient) configureDeployment(
 					Labels:       map[string]string{labelApplication: appName},
 					Annotations:  podAnnotations(annotations.Copy()).ToMap(),
 				},
-				Spec: podSpec,
+				Spec: workloadSpec.Pod,
 			},
 		},
 	}
@@ -2323,8 +2425,8 @@ func filesetConfigMap(configMapName string, labels, annotations map[string]strin
 		},
 		Data: map[string]string{},
 	}
-	for name, data := range files.Files {
-		result.Data[name] = data
+	for _, f := range files.Files {
+		result.Data[f.Path] = f.Content
 	}
 	return result
 }
@@ -2466,7 +2568,7 @@ func populateContainerDetails(deploymentName string, pod *core.PodSpec, podConta
 			pc.ImagePullPolicy = core.PullPolicy(c.ImagePullPolicy)
 		}
 
-		if pc.Env, pc.EnvFrom, err = k8sspecs.ContainerConfigToK8sEnvConfig(c.Config); err != nil {
+		if pc.Env, pc.EnvFrom, err = k8sspecs.ContainerConfigToK8sEnvConfig(c.EnvConfig); err != nil {
 			return errors.Trace(err)
 		}
 

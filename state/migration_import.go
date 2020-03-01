@@ -870,7 +870,8 @@ func (i *importer) application(a description.Application) error {
 		if err != nil {
 			return errors.NewNotSupported(err, "adding pod spec to IAAS model")
 		}
-		if err := cm.SetPodSpec(a.Tag(), a.PodSpec()); err != nil {
+		spec := a.PodSpec()
+		if err := cm.SetPodSpec(a.Tag(), &spec); err != nil {
 			return errors.Trace(err)
 		}
 	}

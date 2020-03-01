@@ -129,12 +129,12 @@ type HookUnit interface {
 	NetworkInfo(bindings []string, relationId *int) (map[string]params.NetworkInfoResult, error)
 	OpenPorts(protocol string, fromPort, toPort int) error
 	RequestReboot() error
-	SetState(map[string]string) error
 	SetUnitStatus(unitStatus status.Status, info string, data map[string]interface{}) error
 	State() (map[string]string, error)
 	Tag() names.UnitTag
 	UnitStatus() (params.StatusResult, error)
 	UpdateNetworkInfo() error
+	CommitHookChanges(params.CommitHookChangesArgs) error
 }
 
 // HookContext is the implementation of runner.Context.
@@ -948,29 +948,33 @@ func (ctx *HookContext) HookVars(paths Paths, remote bool) ([]string, error) {
 	return append(vars, OSDependentEnvVars(paths)...), nil
 }
 
-func (ctx *HookContext) handleReboot(err *error) {
+func (ctx *HookContext) handleReboot(ctxErr error) error {
 	logger.Tracef("checking for reboot request")
 	rebootPriority := ctx.GetRebootPriority()
 	switch rebootPriority {
 	case jujuc.RebootSkip:
-		return
+		return ctxErr
 	case jujuc.RebootAfterHook:
-		// Reboot should happen only after hook has finished.
-		if *err != nil {
-			return
+		// Reboot should only happen after hook finished successfully.
+		if ctxErr != nil {
+			return ctxErr
 		}
-		*err = ErrReboot
+		return ErrReboot
 	case jujuc.RebootNow:
-		*err = ErrRequeueAndReboot
+		return ErrRequeueAndReboot
 	}
-	err2 := ctx.unit.SetUnitStatus(status.Rebooting, "", nil)
-	if err2 != nil {
-		logger.Errorf("updating agent status: %v", err2)
+
+	// Do a best-effort attempt to set the unit status; we don't care if it
+	// fails as we will request a reboot anyway.
+	if err := ctx.unit.SetUnitStatus(status.Rebooting, "", nil); err != nil {
+		logger.Errorf("updating agent status: %v", err)
 	}
-	reqErr := ctx.unit.RequestReboot()
-	if reqErr != nil {
-		*err = reqErr
+
+	if err := ctx.unit.RequestReboot(); err != nil {
+		return err
 	}
+
+	return ctxErr
 }
 
 // Prepare implements the runner.Context interface.
@@ -985,124 +989,95 @@ func (ctx *HookContext) Prepare() error {
 }
 
 // Flush implements the runner.Context interface.
-func (ctx *HookContext) Flush(process string, ctxErr error) (err error) {
-	writeChanges := ctxErr == nil
-
-	// In the case of Actions, handle any errors using finalizeAction.
-	if ctx.actionData != nil {
-		// If we had an error in err at this point, it's part of the
-		// normal behavior of an Action.  Errors which happen during
-		// the finalize should be handed back to the uniter.  Close
-		// over the existing err, clear it, and only return errors
-		// which occur during the finalize, e.g. API call errors.
-		defer func(ctxErr error) {
-			err = ctx.finalizeAction(ctxErr, err)
-		}(ctxErr)
-		ctxErr = nil
-	} else {
-		// TODO(gsamfira): Just for now, reboot will not be supported in actions.
-		defer ctx.handleReboot(&err)
+func (ctx *HookContext) Flush(process string, ctxErr error) error {
+	// Apply the changes if no error reported while the hook was executing.
+	var flushErr error
+	if ctxErr == nil {
+		flushErr = ctx.doFlush(process)
 	}
+
+	if ctx.actionData != nil {
+		// While an Action is executing, errors may happen as part of
+		// its normal flow. We pass both potential action errors
+		// (ctxErr) and any flush errors to finalizeAction helper
+		// which will figure out if an error needs to be returned back
+		// to the uniter.
+		return ctx.finalizeAction(ctxErr, flushErr)
+	}
+
+	// TODO(gsamfira): Just for now, reboot will not be supported in actions.
+	if ctxErr == nil {
+		ctxErr = flushErr
+	}
+	return ctx.handleReboot(ctxErr)
+}
+
+func (ctx *HookContext) doFlush(process string) error {
+	b := uniter.NewCommitHookParamsBuilder(ctx.unit.Tag())
 
 	// When processing config changed hooks we need to ensure that the
 	// relation settings for the unit endpoints are up to date after
 	// potential changes to already bound endpoints.
 	if process == string(hooks.ConfigChanged) {
-		if e := ctx.unit.UpdateNetworkInfo(); e != nil {
-			return errors.Trace(e)
+		b.UpdateNetworkInfo()
+	}
+
+	if ctx.cacheDirty {
+		b.UpdateUnitState(ctx.cacheValues)
+	}
+
+	for _, rctx := range ctx.relations {
+		unitSettings, appSettings := rctx.FinalSettings()
+		if len(unitSettings)+len(appSettings) == 0 {
+			continue // no settings need updating
+		}
+		b.UpdateRelationUnitSettings(rctx.RelationTag().String(), unitSettings, appSettings)
+	}
+
+	for portRange, info := range ctx.pendingPorts {
+		if info.ShouldOpen {
+			b.OpenPortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
+		} else {
+			b.ClosePortRange(portRange.Ports.Protocol, portRange.Ports.FromPort, portRange.Ports.ToPort)
 		}
 	}
 
-	// Local cache changes will only be persisted if the actual cached
-	// contents have been modified.
-	if ctx.cacheDirty && writeChanges {
-		if e := ctx.unit.SetState(ctx.cacheValues); e != nil {
-			return errors.Trace(e)
-		}
-
-		ctx.cacheDirty = false
-	}
-
-	for id, rctx := range ctx.relations {
-		if writeChanges {
-			if e := rctx.WriteSettings(); e != nil {
-				e = errors.Errorf(
-					"could not write settings from %q to relation %d: %v",
-					process, id, e,
-				)
-				logger.Errorf("%v", e)
-				if ctxErr == nil {
-					ctxErr = e
-				}
-			}
+	// Generate change request but skip its execution if no changes are pending.
+	commitReq, numChanges := b.Build()
+	if numChanges > 0 {
+		if err := ctx.unit.CommitHookChanges(commitReq); err != nil {
+			err = errors.Annotatef(err, "cannot apply changes")
+			logger.Errorf("%v", err)
+			return err
 		}
 	}
 
-	for rangeKey, rangeInfo := range ctx.pendingPorts {
-		if writeChanges {
-			var e error
-			var op string
-			if rangeInfo.ShouldOpen {
-				e = ctx.unit.OpenPorts(
-					rangeKey.Ports.Protocol,
-					rangeKey.Ports.FromPort,
-					rangeKey.Ports.ToPort,
-				)
-				op = "open"
-			} else {
-				e = ctx.unit.ClosePorts(
-					rangeKey.Ports.Protocol,
-					rangeKey.Ports.FromPort,
-					rangeKey.Ports.ToPort,
-				)
-				op = "close"
-			}
-			if e != nil {
-				e = errors.Annotatef(e, "cannot %s %v", op, rangeKey.Ports)
-				logger.Errorf("%v", e)
-				if ctxErr == nil {
-					ctxErr = e
-				}
-			}
-		}
-	}
+	// Call completed successfully; update local state
+	ctx.cacheDirty = false
 
 	// add storage to unit dynamically
-	if len(ctx.storageAddConstraints) > 0 && writeChanges {
-		err := ctx.unit.AddStorage(ctx.storageAddConstraints)
-		if err != nil {
+	if len(ctx.storageAddConstraints) > 0 {
+		if err := ctx.unit.AddStorage(ctx.storageAddConstraints); err != nil {
 			err = errors.Annotatef(err, "cannot add storage")
 			logger.Errorf("%v", err)
-			if ctxErr == nil {
-				ctxErr = err
-			}
+			return err
 		}
 	}
 
-	if ctx.podSpecYaml != nil && writeChanges {
-		err := ctx.commitPodSpec()
-		if ctxErr == nil {
-			ctxErr = err
+	if ctx.modelType == model.CAAS {
+		// If we're running the upgrade-charm hook and no podspec update was done,
+		// we'll still trigger a change to a counter on the podspec so that we can
+		// ensure any other charm changes (eg storage) are acted on.
+		if ctx.podSpecYaml != nil || process == string(hooks.UpgradeCharm) {
+			return ctx.commitPodSpec()
 		}
 	}
 
-	// TODO (tasdomas) 2014 09 03: context finalization needs to modified to apply all
-	//                             changes in one api call to minimize the risk
-	//                             of partial failures.
-
-	if !writeChanges {
-		return ctxErr
-	}
-
-	return ctxErr
+	return nil
 }
 
 // commitPodSpec dispatches pending SetPodSpec call.
 func (ctx *HookContext) commitPodSpec() error {
-	if ctx.podSpecYaml == nil {
-		return nil
-	}
-	specYaml := *ctx.podSpecYaml
 	entityName := ctx.unitName
 	isLeader, err := ctx.IsLeader()
 	if err != nil {
@@ -1113,7 +1088,7 @@ func (ctx *HookContext) commitPodSpec() error {
 		return ErrIsNotLeader
 	}
 	entityName = ctx.unit.ApplicationName()
-	err = ctx.state.SetPodSpec(entityName, specYaml)
+	err = ctx.state.SetPodSpec(entityName, ctx.podSpecYaml)
 	if err != nil {
 		if err2 := ctx.SetApplicationStatus(jujuc.StatusInfo{
 			Status: status.Blocked.String(),

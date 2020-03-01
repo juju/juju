@@ -10,6 +10,7 @@ import (
 	"github.com/juju/clock/testclock"
 	"github.com/juju/errors"
 	"github.com/juju/juju/environs"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -275,16 +276,13 @@ containers:
       foo: bar
 `[1:]
 
-func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
+func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.ContextFactory, string) {
 	st := s.Factory.MakeCAASModel(c, nil)
-	defer st.Close()
 	f := factory.NewFactory(st, s.StatePool)
 	ch := f.MakeCharm(c, &factory.CharmParams{Name: "gitlab", Series: "kubernetes"})
 	app := f.MakeApplication(c, &factory.ApplicationParams{Name: "gitlab", Charm: ch})
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
-
-	appName := names.NewApplicationTag(unit.ApplicationName())
 
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
@@ -303,7 +301,7 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:   uniter,
-		UnitTag: unit.Tag().(names.UnitTag),
+		UnitTag: unit.UnitTag(),
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},
@@ -313,7 +311,14 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 		Clock:            testclock.NewClock(time.Time{}),
 	})
 	c.Assert(err, jc.ErrorIsNil)
-	ctx, err := contextFactory.HookContext(hook.Info{
+	return st, contextFactory, unit.ApplicationName()
+}
+
+func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
+	st, cf, appName := s.setupPodSpec(c)
+	defer st.Close()
+
+	ctx, err := cf.HookContext(hook.Info{
 		Kind: hooks.ConfigChanged,
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -326,15 +331,53 @@ func (s *ContextFactorySuite) TestHookContextCAASDeferredSetPodSpec(c *gc.C) {
 	err = ctx.SetPodSpec(podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	_, err = cm.PodSpec(appName)
+	appTag := names.NewApplicationTag(appName)
+	_, err = cm.PodSpec(appTag)
 	c.Assert(err, gc.ErrorMatches, "pod spec for application gitlab not found")
 
 	err = ctx.Flush("", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	ps, err := cm.PodSpec(appName)
+	ps, err := cm.PodSpec(appTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ps, gc.Equals, podSpec)
+}
+
+func (s *ContextFactorySuite) TestHookContextCAASNilPodSpec(c *gc.C) {
+	st, cf, appName := s.setupPodSpec(c)
+	defer st.Close()
+
+	ctx, err := cf.HookContext(hook.Info{
+		Kind: hooks.UpgradeCharm,
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	sm, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	cm, err := sm.CAASModel()
+	c.Assert(err, jc.ErrorIsNil)
+
+	appTag := names.NewApplicationTag(appName)
+	w, err := cm.WatchPodSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange() // initial event.
+
+	// No change for non upgrade-hook.
+	err = ctx.Flush("", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertNoChange()
+
+	err = ctx.Flush("upgrade-charm", nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
+
+	ps, err := cm.PodSpec(appTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(ps, gc.Equals, "")
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {

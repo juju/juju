@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
-	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
@@ -27,21 +27,36 @@ type RenameSpace interface {
 
 // RenameSpaceState describes state operations required
 // to execute the renameSpace operation.
-// * This allows us to indirect state at the operation level instead of the
-// * whole API level as currently done in interface.go
 type RenameSpaceState interface {
 	// ControllerConfig returns current ControllerConfig.
-	ControllerConfig() (jujucontroller.Config, error)
+	ControllerConfig() (controller.Config, error)
 
-	// ConstraintsOpsForSpaceNameChange returns all the database transaction operation required
-	// to transform a constraints spaces from `a` to `b`
-	ConstraintsOpsForSpaceNameChange(spaceName, toName string) ([]txn.Op, error)
+	// ConstraintsBySpaceName returns all the constraints
+	// that refer to the input space name.
+	ConstraintsBySpaceName(spaceName string) ([]Constraints, error)
 }
 
 // Settings describes methods for interacting with settings to apply
 // space-based configuration deltas.
 type Settings interface {
 	DeltaOps(key string, delta settings.ItemChanges) ([]txn.Op, error)
+}
+
+type renameSpaceState struct {
+	*state.State
+}
+
+func (st renameSpaceState) ConstraintsBySpaceName(spaceName string) ([]Constraints, error) {
+	stateCons, err := st.State.ConstraintsBySpaceName(spaceName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	spaceCons := make([]Constraints, len(stateCons))
+	for i, cons := range stateCons {
+		spaceCons[i] = cons
+	}
+	return spaceCons, nil
 }
 
 type spaceRenameModelOp struct {
@@ -52,11 +67,9 @@ type spaceRenameModelOp struct {
 	toName       string
 }
 
-func (o *spaceRenameModelOp) Done(err error) error {
-	return err
-}
-
-func NewRenameSpaceModelOp(isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string) *spaceRenameModelOp {
+func NewRenameSpaceModelOp(
+	isController bool, settings Settings, st RenameSpaceState, space RenameSpace, toName string,
+) *spaceRenameModelOp {
 	return &spaceRenameModelOp{
 		st:           st,
 		settings:     settings,
@@ -64,10 +77,6 @@ func NewRenameSpaceModelOp(isController bool, settings Settings, st RenameSpaceS
 		isController: isController,
 		toName:       toName,
 	}
-}
-
-type renameSpaceStateShim struct {
-	*state.State
 }
 
 // Build (state.ModelOperation) creates and returns a slice of transaction
@@ -79,20 +88,20 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 		}
 	}
 
-	newConstraintsOps, err := o.st.ConstraintsOpsForSpaceNameChange(o.space.Name(), o.toName)
+	ops := o.space.RenameSpaceOps(o.toName)
+
+	constraintsWithSpace, err := o.st.ConstraintsBySpaceName(o.space.Name())
 	if err != nil {
-		newErr := errors.Annotatef(err, "retrieving constraint changes")
-		return nil, errors.Trace(newErr)
+		return nil, errors.Trace(err)
 	}
-
-	completeOps := o.space.RenameSpaceOps(o.toName)
-
-	totalOps := append(completeOps, newConstraintsOps...)
+	for _, cons := range constraintsWithSpace {
+		ops = append(ops, cons.ChangeSpaceNameOps(o.space.Name(), o.toName)...)
+	}
 
 	if o.isController {
 		settingsDelta, err := o.getSettingsChanges(o.space.Name(), o.toName)
 		if err != nil {
-			return nil, errors.Annotatef(err, "retrieving setting changes")
+			return nil, errors.Annotatef(err, "retrieving settings changes")
 		}
 
 		newSettingsOps, err := o.settings.DeltaOps(state.ControllerSettingsGlobalKey, settingsDelta)
@@ -100,10 +109,10 @@ func (o *spaceRenameModelOp) Build(attempt int) ([]txn.Op, error) {
 			return nil, errors.Trace(err)
 		}
 
-		totalOps = append(totalOps, newSettingsOps...)
+		ops = append(ops, newSettingsOps...)
 	}
 
-	return totalOps, nil
+	return ops, nil
 }
 
 // getSettingsChanges get's skipped and returns nil if we are not in the controllerModel
@@ -116,11 +125,11 @@ func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (s
 	var deltas settings.ItemChanges
 
 	if mgmtSpace := currentControllerConfig.JujuManagementSpace(); mgmtSpace == fromSpaceName {
-		change := settings.MakeModification(jujucontroller.JujuManagementSpace, fromSpaceName, toName)
+		change := settings.MakeModification(controller.JujuManagementSpace, fromSpaceName, toName)
 		deltas = append(deltas, change)
 	}
 	if haSpace := currentControllerConfig.JujuHASpace(); haSpace == fromSpaceName {
-		change := settings.MakeModification(jujucontroller.JujuHASpace, fromSpaceName, toName)
+		change := settings.MakeModification(controller.JujuHASpace, fromSpaceName, toName)
 		deltas = append(deltas, change)
 	}
 	return deltas, nil
@@ -152,7 +161,7 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 			continue
 		}
 		if fromTag.Id() == network.AlphaSpaceName {
-			newErr := errors.New("the alpha space cannot be renamed")
+			newErr := errors.Errorf("the %q space cannot be renamed", network.AlphaSpaceName)
 			results.Results[i].Error = common.ServerError(newErr)
 			continue
 		}
@@ -163,12 +172,12 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 		}
 		toSpace, err := api.backing.SpaceByName(toTag.Id())
 		if err != nil && !errors.IsNotFound(err) {
-			newErr := errors.Annotatef(err, "retrieving space: %q unexpected error, besides not found", toTag.Id())
+			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
 		if toSpace != nil {
-			newErr := errors.AlreadyExistsf("space: %q", toTag.Id())
+			newErr := errors.AlreadyExistsf("space %q", toTag.Id())
 			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
@@ -183,4 +192,8 @@ func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults
 		}
 	}
 	return results, nil
+}
+
+func (o *spaceRenameModelOp) Done(err error) error {
+	return err
 }

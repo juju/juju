@@ -105,16 +105,23 @@ func (s *BaseSuite) CaptureEvents(c *gc.C) <-chan interface{} {
 }
 
 func (s *BaseSuite) ProcessChange(c *gc.C, change interface{}, notify <-chan interface{}) {
-	select {
-	case s.Changes <- change:
-	case <-time.After(coretesting.LongWait):
-		c.Fatalf("controller did not read change")
-	}
+	s.SendChange(c, change)
+
 	select {
 	case obtained := <-notify:
 		c.Check(obtained, jc.DeepEquals, change)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("controller did not handle change")
+	}
+}
+
+// SendChange writes the input change to the suite's changes channel.
+// It cares only the the change was read, not about processing.
+func (s *BaseSuite) SendChange(c *gc.C, change interface{}) {
+	select {
+	case s.Changes <- change:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("controller did not read change")
 	}
 }
 
@@ -146,11 +153,11 @@ func (s *EntitySuite) SetUpTest(c *gc.C) {
 
 func (s *EntitySuite) NewModel(details ModelChange) *Model {
 	m := newModel(modelConfig{
-		initializer: noopInitializer{},
-		metrics:     s.Gauges,
-		hub:         s.Hub,
-		chub:        s.NewHub(),
-		res:         s.Manager.new(),
+		initializing: func() bool { return false },
+		metrics:      s.Gauges,
+		hub:          s.Hub,
+		chub:         s.NewHub(),
+		res:          s.Manager.new(),
 	})
 	m.setDetails(details)
 	return m
@@ -352,10 +359,4 @@ func (c StringsWatcherC) AssertStops() {
 	default:
 		c.Fatalf("channel not closed")
 	}
-}
-
-type noopInitializer struct{}
-
-func (noopInitializer) initializing() bool {
-	return false
 }

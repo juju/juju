@@ -808,21 +808,34 @@ func (r *Relation) ApplicationSettings(appName string) (map[string]interface{}, 
 // UpdateApplicationSettings updates the given application's settings
 // in this relation. It requires a current leadership token.
 func (r *Relation) UpdateApplicationSettings(appName string, token leadership.Token, updates map[string]interface{}) error {
-	// We can calculate the actual update ahead of time; it's not dependent
-	// upon the current state of the document. (*Writing* it should depend
-	// on document state, but that's handled below.)
-	ep, err := r.Endpoint(appName)
+	modelOp, err := r.UpdateApplicationSettingsOperation(appName, token, updates)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
-	err = updateLeaderSettings(r.st.db(), token, key, updates)
+
+	err = r.st.ApplyOperation(modelOp)
 	if errors.IsNotFound(err) {
 		return errors.NotFoundf("relation %q application %q", r, appName)
 	} else if err != nil {
 		return errors.Annotatef(err, "relation %q application %q", r, appName)
 	}
 	return nil
+}
+
+// UpdateApplicationSettingsOperation returns a ModelOperation for updating the
+// given application's settings in this relation. It requires a current
+// leadership token.
+func (r *Relation) UpdateApplicationSettingsOperation(appName string, token leadership.Token, updates map[string]interface{}) (ModelOperation, error) {
+	// We can calculate the actual update ahead of time; it's not dependent
+	// upon the current state of the document. (*Writing* it should depend
+	// on document state, but that's handled below.)
+	ep, err := r.Endpoint(appName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	key := relationApplicationSettingsKey(r.Id(), ep.ApplicationName)
+	return newUpdateLeaderSettingsOperation(r.st.db(), token, key, updates), nil
 }
 
 // WatchApplicationSettings returns a notify watcher that will signal

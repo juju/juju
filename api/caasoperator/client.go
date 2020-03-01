@@ -123,25 +123,6 @@ func (c *Client) Charm(application string) (_ *charm.URL, forceUpgrade bool, sha
 	return curl, result.ForceUpgrade, result.SHA256, result.CharmModifiedVersion, nil
 }
 
-// SetPodSpec sets the pod spec of the specified application.
-func (c *Client) SetPodSpec(appName string, spec string) error {
-	tag, err := applicationTag(appName)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	var result params.ErrorResults
-	args := params.SetPodSpecParams{
-		Specs: []params.EntityString{{
-			Tag:   tag.String(),
-			Value: spec,
-		}},
-	}
-	if err := c.facade.FacadeCall("SetPodSpec", args, &result); err != nil {
-		return errors.Trace(err)
-	}
-	return result.OneError()
-}
-
 func applicationTag(application string) (names.ApplicationTag, error) {
 	if !names.IsValidApplication(application) {
 		return names.ApplicationTag{}, errors.NotValidf("application name %q", application)

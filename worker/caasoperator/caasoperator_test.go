@@ -117,7 +117,6 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		Application:           "gitlab",
 		CharmGetter:           &s.client,
 		Clock:                 s.clock,
-		PodSpecSetter:         &s.client,
 		DataDir:               c.MkDir(),
 		ProfileDir:            c.MkDir(),
 		Downloader:            &s.charmDownloader,
@@ -185,10 +184,6 @@ func (s *WorkerSuite) TestValidateConfig(c *gc.C) {
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.Clock = nil
 	}, `missing Clock not valid`)
-
-	s.testValidateConfig(c, func(config *caasoperator.Config) {
-		config.PodSpecSetter = nil
-	}, `missing PodSpecSetter not valid`)
 
 	s.testValidateConfig(c, func(config *caasoperator.Config) {
 		config.DataDir = ""

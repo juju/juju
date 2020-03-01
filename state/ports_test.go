@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn"
 	gc "gopkg.in/check.v1"
 
 	"github.com/juju/juju/core/network"
@@ -295,6 +296,73 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 		err = ports.Remove()
 		c.Check(err, jc.ErrorIsNil)
 	}
+}
+
+func (s *PortsDocSuite) TestComposedOpenCloseOperation(c *gc.C) {
+	// Open initial port range
+	openPortRange := state.PortRange{
+		FromPort: 200,
+		ToPort:   210,
+		UnitName: s.unit1.Name(),
+		Protocol: "TCP",
+	}
+	err := s.portsWithoutSubnet.OpenPorts(openPortRange)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Run a composed open/close operation
+	op, err := s.portsWithoutSubnet.OpenClosePortsOperation(
+		// Open 400-500
+		[]state.PortRange{{FromPort: 400, ToPort: 500, UnitName: s.unit1.Name(), Protocol: "TCP"}},
+		// Close 200-210 that we opened before
+		[]state.PortRange{{FromPort: 200, ToPort: 210, UnitName: s.unit1.Name(), Protocol: "TCP"}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// Enumerate ports
+	err = s.portsWithoutSubnet.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	allRanges := s.portsWithoutSubnet.PortsForUnit(s.unit1.Name())
+	c.Assert(allRanges, gc.DeepEquals, []state.PortRange{
+		{FromPort: 400, ToPort: 500, Protocol: "TCP", UnitName: s.unit1.Name()},
+	})
+
+	// Open and close the same set of ports should cause the port doc to be deleted
+	err = s.portsWithoutSubnet.Refresh()
+	c.Assert(err, jc.ErrorIsNil)
+
+	op, err = s.portsWithoutSubnet.OpenClosePortsOperation(
+		[]state.PortRange{{FromPort: 400, ToPort: 500, UnitName: s.unit1.Name(), Protocol: "TCP"}},
+		[]state.PortRange{{FromPort: 400, ToPort: 500, UnitName: s.unit1.Name(), Protocol: "TCP"}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.ApplyOperation(op)
+	c.Assert(err, jc.ErrorIsNil)
+
+	err = s.portsWithoutSubnet.Refresh()
+	c.Assert(errors.IsNotFound(err), jc.IsTrue)
+}
+
+func (s *PortsDocSuite) TestComposedOpenCloseOperationNoEffectiveOps(c *gc.C) {
+	// Run a composed open/close operation
+	op, err := s.portsWithoutSubnet.OpenClosePortsOperation(
+		// Open 400-500
+		[]state.PortRange{
+			{FromPort: 400, ToPort: 500, UnitName: s.unit1.Name(), Protocol: "TCP"},
+			// Duplicate range should be skipped
+			{FromPort: 400, ToPort: 500, UnitName: s.unit1.Name(), Protocol: "TCP"},
+		},
+		// Close 400-500
+		[]state.PortRange{{FromPort: 400, ToPort: 500, UnitName: s.unit1.Name(), Protocol: "TCP"}},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// As the doc does not exist and the end result is still an empty port range
+	// this should return ErrNoOperations
+	_, err = op.Build(0)
+	c.Assert(err, gc.Equals, jujutxn.ErrNoOperations)
 }
 
 func (s *PortsDocSuite) TestAllPortRanges(c *gc.C) {

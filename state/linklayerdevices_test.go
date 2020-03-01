@@ -806,6 +806,32 @@ func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpaces(c *gc.C) {
 	c.Assert(resDoesNotExists.NetworkInfos, gc.HasLen, 0)
 }
 
+// TODO (manadart 2020-02-21): This test can be removed after universal subnet
+// discovery is implemented.
+func (s *linkLayerDevicesStateSuite) TestGetNetworkInfoForSpacesAlphaNoSubnets(c *gc.C) {
+	s.createNICAndBridgeWithIP(c, s.machine, "eth0", "br-eth0", "10.0.0.20/24")
+	s.createNICWithIP(c, s.machine, "eth1", "10.10.0.20/24")
+	s.createNICWithIP(c, s.machine, "eth2", "10.20.0.20/24")
+
+	err := s.machine.SetMachineAddresses(corenetwork.NewScopedSpaceAddress("10.0.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.20", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.10.0.30", corenetwork.ScopePublic),
+		corenetwork.NewScopedSpaceAddress("10.20.0.20", corenetwork.ScopeCloudLocal))
+	c.Assert(err, jc.ErrorIsNil)
+
+	res := s.machine.GetNetworkInfoForSpaces(set.NewStrings(corenetwork.AlphaSpaceId))
+	c.Assert(res, gc.HasLen, 1)
+
+	resEmpty, ok := res[corenetwork.AlphaSpaceId]
+	c.Assert(ok, jc.IsTrue)
+	c.Check(resEmpty.Error, jc.ErrorIsNil)
+	c.Assert(resEmpty.NetworkInfos, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].InterfaceName, gc.Equals, "eth2")
+	c.Assert(resEmpty.NetworkInfos[0].Addresses, gc.HasLen, 1)
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].Address, gc.Equals, "10.20.0.20")
+	c.Check(resEmpty.NetworkInfos[0].Addresses[0].CIDR, gc.Equals, "10.20.0.0/24")
+}
+
 func (s *linkLayerDevicesStateSuite) TestSetLinkLayerDevicesWithLightStateChurn(c *gc.C) {
 	childArgs, churnHook := s.prepareSetLinkLayerDevicesWithStateChurn(c)
 	defer state.SetTestHooks(c, s.State, churnHook).Check()

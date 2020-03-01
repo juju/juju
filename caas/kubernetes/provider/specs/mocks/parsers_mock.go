@@ -35,9 +35,9 @@ func (m *MockPodSpecConverter) EXPECT() *MockPodSpecConverterMockRecorder {
 }
 
 // ToLatest mocks base method
-func (m *MockPodSpecConverter) ToLatest() *specs.PodSpecV2 {
+func (m *MockPodSpecConverter) ToLatest() *specs.PodSpecV3 {
 	ret := m.ctrl.Call(m, "ToLatest")
-	ret0, _ := ret[0].(*specs.PodSpecV2)
+	ret0, _ := ret[0].(*specs.PodSpecV3)
 	return ret0
 }
 

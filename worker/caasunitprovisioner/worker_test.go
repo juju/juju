@@ -86,7 +86,7 @@ func getParsedSpec() *specs.PodSpec {
 				{ContainerPort: 80, Protocol: "TCP"},
 				{ContainerPort: 443},
 			},
-			Config: map[string]interface{}{
+			EnvConfig: map[string]interface{}{
 				"attr": "foo=bar; fred=blogs",
 				"foo":  "bar",
 			},
@@ -163,7 +163,9 @@ func (s *WorkerSuite) SetUpTest(c *gc.C) {
 		deleted:        s.serviceDeleted,
 		serviceWatcher: watchertest.NewMockNotifyWatcher(s.caasServiceChanges),
 	}
-	s.statusSetter = mockProvisioningStatusSetter{}
+	s.statusSetter = mockProvisioningStatusSetter{
+		statusSet: make(chan struct{}, 1),
+	}
 
 	s.config = caasunitprovisioner.Config{
 		ApplicationGetter:        &s.applicationGetter,
@@ -461,8 +463,17 @@ containers:
 	}}
 
 	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
-		PodSpec: anotherSpec,
-		Tags:    map[string]string{"foo": "bar"},
+		PodSpec:     anotherSpec,
+		Tags:        map[string]string{"foo": "bar"},
+		Constraints: constraints.MustParse("mem=4G"),
+		DeploymentInfo: apicaasunitprovisioner.DeploymentInfo{
+			DeploymentType: "stateful",
+			ServiceType:    "loadbalancer",
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+		}},
 	})
 	s.sendContainerSpecChange(c)
 	s.podSpecGetter.assertSpecRetrieved(c)
@@ -476,10 +487,75 @@ containers:
 	expectedParams := &caas.ServiceParams{
 		PodSpec:      anotherParsedSpec,
 		ResourceTags: map[string]string{"foo": "bar"},
+		Constraints:  constraints.MustParse("mem=4G"),
+		Deployment: caas.DeploymentParams{
+			DeploymentType: "stateful",
+			ServiceType:    "loadbalancer",
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+		}},
 	}
 	s.serviceBroker.CheckCallNames(c, "EnsureService")
 	s.serviceBroker.CheckCall(c, 0, "EnsureService",
 		"gitlab", expectedParams, 1, application.ConfigAttributes{"juju-external-hostname": "exthost"})
+}
+
+func (s *WorkerSuite) TestInvalidDeploymentChange(c *gc.C) {
+	w := s.setupNewUnitScenario(c)
+	defer workertest.CleanKill(c, w)
+
+	s.serviceBroker.ResetCalls()
+
+	// Same spec, nothing happens.
+	s.sendContainerSpecChange(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
+	select {
+	case <-s.serviceEnsured:
+		c.Fatal("service/unit ensured unexpectedly")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	var (
+		anotherSpec = `
+containers:
+  - name: gitlab
+    image: gitlab/latest
+`[1:]
+	)
+	anotherParsedSpec := &specs.PodSpec{}
+	anotherParsedSpec.Version = specs.CurrentVersion
+	anotherParsedSpec.Containers = []specs.ContainerSpec{{
+		Name:  "gitlab",
+		Image: "gitlab/latest",
+	}}
+
+	s.podSpecGetter.setProvisioningInfo(apicaasunitprovisioner.ProvisioningInfo{
+		PodSpec:     anotherSpec,
+		Tags:        map[string]string{"foo": "bar"},
+		Constraints: constraints.MustParse("mem=4G"),
+		DeploymentInfo: apicaasunitprovisioner.DeploymentInfo{
+			DeploymentType: "stateful",
+			ServiceType:    "loadbalancer",
+		},
+		Filesystems: []storage.KubernetesFilesystemParams{{
+			StorageName: "database",
+			Size:        100,
+		}, {
+			StorageName: "logs",
+			Size:        100,
+		}},
+	})
+	s.sendContainerSpecChange(c)
+	s.podSpecGetter.assertSpecRetrieved(c)
+	s.statusSetter.assertStatusSet(c)
+
+	c.Assert(s.serviceBroker.Calls(), gc.HasLen, 0)
+	// First call is for "waiting"
+	s.statusSetter.CheckCallNames(c, "SetOperatorStatus", "SetOperatorStatus")
+	s.statusSetter.CheckCall(c, 1, "SetOperatorStatus",
+		"gitlab", status.Error, "k8s does not support updating storage", map[string]interface{}(nil))
 }
 
 func (s *WorkerSuite) TestScaleZero(c *gc.C) {
