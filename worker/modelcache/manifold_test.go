@@ -4,8 +4,6 @@
 package modelcache_test
 
 import (
-	"unsafe"
-
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/pubsub"
@@ -234,7 +232,7 @@ func (f *fakeStateTracker) Use() (*state.StatePool, error) {
 }
 
 func (f *fakeStateTracker) pool() *state.StatePool {
-	return (*state.StatePool)(unsafe.Pointer(f))
+	return &state.StatePool{}
 }
 
 // Done tracks that the used pool is released.
