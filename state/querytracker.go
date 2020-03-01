@@ -11,7 +11,8 @@ type QueryTracker interface {
 	Reset()
 	ListQueries() []QueryDetails
 	ReadCount() int
-	WriteCount() int
+	// TODO: implement the write tracking.
+	// WriteCount() int
 }
 
 // QueryDetails is a POD type recording the database query

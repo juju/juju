@@ -146,7 +146,9 @@ func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// The number of queries should be the same.
-	c.Check(tracker.ReadCount(), gc.Equals, queryCount)
+	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
+		gc.Commentf("if the query count is not the same, there has been a regression "+
+			"in the way the addresses are processed"))
 }
 
 func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
