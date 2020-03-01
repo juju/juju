@@ -33,6 +33,7 @@ type ModelChange struct {
 	Cloud           string
 	CloudRegion     string
 	CloudCredential string
+	Annotations     map[string]string
 	Config          map[string]interface{}
 	Status          status.StatusInfo
 
@@ -55,6 +56,7 @@ type ApplicationChange struct {
 	Life            life.Value
 	MinUnits        int
 	Constraints     constraints.Value
+	Annotations     map[string]string
 	Config          map[string]interface{}
 	Subordinate     bool
 	Status          status.StatusInfo
@@ -66,6 +68,7 @@ func (a ApplicationChange) copy() ApplicationChange {
 	cons := a.Constraints.String()
 	a.Constraints = constraints.MustParse(cons)
 
+	a.Annotations = copyStringMap(a.Annotations)
 	a.Config = copyDataMap(a.Config)
 	a.Status = copyStatusInfo(a.Status)
 
@@ -136,6 +139,7 @@ type UnitChange struct {
 	Name           string
 	Application    string
 	Series         string
+	Annotations    map[string]string
 	CharmURL       string
 	Life           life.Value
 	PublicAddress  string
@@ -171,6 +175,7 @@ func (u UnitChange) copy() UnitChange {
 	}
 	u.PortRanges = cPortRanges
 
+	u.Annotations = copyStringMap(u.Annotations)
 	u.WorkloadStatus = copyStatusInfo(u.WorkloadStatus)
 	u.AgentStatus = copyStatusInfo(u.AgentStatus)
 
@@ -231,6 +236,7 @@ type MachineChange struct {
 	AgentStatus              status.StatusInfo
 	InstanceStatus           status.StatusInfo
 	Life                     life.Value
+	Annotations              map[string]string
 	Config                   map[string]interface{}
 	Series                   string
 	ContainerType            string
@@ -247,6 +253,7 @@ type MachineChange struct {
 func (m MachineChange) copy() MachineChange {
 	m.AgentStatus = copyStatusInfo(m.AgentStatus)
 	m.InstanceStatus = copyStatusInfo(m.InstanceStatus)
+	m.Annotations = copyStringMap(m.Annotations)
 	m.Config = copyDataMap(m.Config)
 
 	var cSupportedContainers []instance.ContainerType
@@ -375,6 +382,17 @@ func copyDataMap(data map[string]interface{}) map[string]interface{} {
 	var cData map[string]interface{}
 	if data != nil {
 		cData = make(map[string]interface{}, len(data))
+		for i, d := range data {
+			cData[i] = d
+		}
+	}
+	return cData
+}
+
+func copyStringMap(data map[string]string) map[string]string {
+	var cData map[string]string
+	if data != nil {
+		cData = make(map[string]string, len(data))
 		for i, d := range data {
 			cData[i] = d
 		}

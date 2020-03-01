@@ -24987,6 +24987,14 @@
                                 "type": "string"
                             }
                         },
+                        "annotations": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "cloud": {
                             "type": "string"
                         },

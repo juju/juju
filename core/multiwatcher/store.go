@@ -115,7 +115,7 @@ func (a *store) All() []EntityInfo {
 		if entry.removed {
 			continue
 		}
-		entities = append(entities, entry.info)
+		entities = append(entities, entry.info.Clone())
 	}
 	return entities
 }
