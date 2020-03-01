@@ -361,78 +361,15 @@ func removeUnitStateOp(mb modelBackend, globalKey string) txn.Op {
 // SetState replaces the currently stored state for a unit with the contents
 // of the provided unitState parameter.
 func (u *Unit) SetState(unitState map[string]string) error {
-	unitGlobalKey := u.globalKey()
+	modelOp := u.SetStateOperation(unitState)
+	return u.st.ApplyOperation(modelOp)
+}
 
-	var stDoc unitStateDoc
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		if attempt > 0 {
-			if err := u.Refresh(); err != nil {
-				return nil, errors.Trace(err)
-			}
-		}
-
-		if u.Life() != Alive {
-			return nil, errors.NotFoundf("unit %s", u.Name())
-		}
-
-		coll, closer := u.st.db().GetCollection(unitStatesC)
-		defer closer()
-
-		// The state of a unit can only be updated if it is currently
-		// alive.
-		unitAliveOp := txn.Op{
-			C:      unitsC,
-			Id:     u.doc.DocID,
-			Assert: isAliveDoc,
-		}
-
-		if err := coll.FindId(unitGlobalKey).One(&stDoc); err != nil {
-			if err != mgo.ErrNotFound {
-				return nil, errors.Trace(err)
-			}
-
-			escapedState := make(map[string]string, len(unitState))
-			for k, v := range unitState {
-				escapedState[mgoutils.EscapeKey(k)] = v
-			}
-
-			return []txn.Op{unitAliveOp, {
-				C:      unitStatesC,
-				Id:     unitGlobalKey,
-				Assert: txn.DocMissing,
-				Insert: unitStateDoc{
-					DocID: unitGlobalKey,
-					State: escapedState,
-				},
-			}}, nil
-		}
-
-		// State keys may contain dots or dollar chars which need to be escaped.
-		escapedState := make(bson.M, len(unitState))
-		for k, v := range unitState {
-			escapedState[mgoutils.EscapeKey(k)] = v
-		}
-
-		// Check if we need to update
-		if stDoc.stateMatches(escapedState) {
-			return nil, jujutxn.ErrNoOperations
-		}
-
-		return []txn.Op{unitAliveOp, {
-			C:  unitStatesC,
-			Id: unitGlobalKey,
-			Assert: bson.D{
-				{"txn-revno", stDoc.TxnRevno},
-			},
-			Update: bson.D{{"$set", bson.D{{"state", escapedState}}}},
-		}}, nil
-
-	}
-
-	if err := u.st.db().Run(buildTxn); err != nil {
-		return errors.Annotatef(onAbort(err, ErrDead), "cannot persist state for unit %q", u)
-	}
-	return nil
+// SetStateOperation returns a ModelOperation for replacing the currently
+// stored state for a unit with the contents of the provided unitState
+// parameter.
+func (u *Unit) SetStateOperation(unitState map[string]string) ModelOperation {
+	return &unitSetStateOperation{u: u, newState: unitState}
 }
 
 // State returns the persisted state for a unit.
@@ -1545,33 +1482,92 @@ func (u *Unit) SetStatus(unitStatus status.StatusInfo) error {
 	})
 }
 
-// OpenPortsOnSubnet opens the given port range and protocol for the unit on the
-// given subnet, which can be empty. When non-empty, subnetID must refer to an
-// existing, alive subnet, otherwise an error is returned. Returns an error if
-// opening the requested range conflicts with another already opened range on
-// the same subnet and and the unit's assigned machine.
-func (u *Unit) OpenPortsOnSubnet(subnetID, protocol string, fromPort, toPort int) (err error) {
-	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
-	if err != nil {
-		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
-	}
-	defer errors.DeferredAnnotatef(&err, "cannot open ports %v for unit %q on subnet %q", ports, u, subnetID)
+// OpenClosePortsOnSubnet opens and closes the given port ranges for the unit
+// on the given subnet, which can be empty. When non-empty, subnetID must refer
+// to an existing, alive subnet, otherwise an error is returned. Returns an
+// error if opening the requested range conflicts with another already opened
+// range on the same subnet and and the unit's assigned machine.
+//
+// Either of the open or close PortRange arguments can be nil to indicate that
+// they should be ignored (e.g. for open- or close-only calls).
+//
+// NOTE(achilleasa): we should probably refactor this in the future to work
+// with endpoints instead of subnet IDs.
+func (u *Unit) OpenClosePortsOnSubnet(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) error {
+	annotateErr := func(err error) error {
+		openIsEmpty := len(openPortRanges) == 0
+		closeIsEmpty := len(closePortRanges) == 0
 
+		if !openIsEmpty && !closeIsEmpty {
+			return errors.Annotatef(err, "cannot open ports %v / close ports %v for unit %q", openPortRanges, closePortRanges, u)
+		} else if !openIsEmpty {
+			// Improve error messages when opening a single port fails.
+			if len(openPortRanges) == 1 {
+				return errors.Annotatef(err, "cannot open ports %v for unit %q", openPortRanges[0], u)
+			}
+			return errors.Annotatef(err, "cannot open ports %v for unit %q", openPortRanges, u)
+		}
+		// Improve error messages when closing a single port fails.
+		if len(closePortRanges) == 1 {
+			return errors.Annotatef(err, "cannot close ports %v for unit %q", closePortRanges[0], u)
+		}
+		return errors.Annotatef(err, "cannot close ports %v for unit %q", closePortRanges, u)
+	}
+
+	modelOp, err := u.OpenClosePortsOnSubnetOperation(subnetID, openPortRanges, closePortRanges)
+	if err != nil {
+		return annotateErr(errors.Trace(err))
+	}
+
+	if err = u.st.ApplyOperation(modelOp); err != nil {
+		return annotateErr(errors.Trace(err))
+	}
+	return nil
+}
+
+// OpenClosePortsOnSubnetOperation returns a ModelOperation that opens and
+// closes the given port ranges for the unit on the given subnet, which can be
+// empty. When non-empty, subnetID must refer to an existing, alive subnet,
+// otherwise an error is returned.
+//
+// Either of the open or close PortRange arguments can be nil to indicate
+// that they should be ignored (e.g. for open- or close-only calls).
+//
+// NOTE(achilleasa): we should probably refactor this in the future to work
+// with endpoints instead of subnet IDs.
+func (u *Unit) OpenClosePortsOnSubnetOperation(subnetID string, openPortRanges, closePortRanges []corenetwork.PortRange) (ModelOperation, error) {
 	machineID, err := u.AssignedMachineId()
 	if err != nil {
-		return errors.Annotatef(err, "unit %q has no assigned machine", u)
+		return nil, errors.Annotatef(err, "unit %q has no assigned machine", u)
 	}
 
 	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
 	machinePorts, err := getOrCreatePorts(u.st, machineID, subnetID)
 	if err != nil {
-		return errors.Annotate(err, "cannot get or create ports")
+		return nil, errors.Annotate(err, "cannot get or create ports")
 	}
 
-	return machinePorts.OpenPorts(ports)
+	var openRanges, closeRanges []PortRange
+	unitName := u.Name()
+	for _, p := range openPortRanges {
+		openRanges = append(openRanges, convertPortRange(unitName, p))
+	}
+	for _, p := range closePortRanges {
+		closeRanges = append(closeRanges, convertPortRange(unitName, p))
+	}
+	return machinePorts.OpenClosePortsOperation(openRanges, closeRanges)
+}
+
+func convertPortRange(unitName string, p corenetwork.PortRange) PortRange {
+	return PortRange{
+		UnitName: unitName,
+		FromPort: p.FromPort,
+		ToPort:   p.ToPort,
+		Protocol: p.Protocol,
+	}
 }
 
 func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
@@ -1590,81 +1586,6 @@ func (u *Unit) checkSubnetAliveWhenSet(subnetID string) error {
 		return errors.Errorf("subnet %q not found or not alive", subnetID)
 	}
 	return nil
-}
-
-// ClosePortsOnSubnet closes the given port range and protocol for the unit on
-// the given subnet, which can be empty. When non-empty, subnetID must refer to
-// an existing, alive subnet, otherwise an error is returned.
-func (u *Unit) ClosePortsOnSubnet(subnetID, protocol string, fromPort, toPort int) (err error) {
-	ports, err := NewPortRange(u.Name(), fromPort, toPort, protocol)
-	if err != nil {
-		return errors.Annotatef(err, "invalid port range %v-%v/%v", fromPort, toPort, protocol)
-	}
-	defer errors.DeferredAnnotatef(&err, "cannot close ports %v for unit %q on subnet %q", ports, u, subnetID)
-
-	machineID, err := u.AssignedMachineId()
-	if err != nil {
-		return errors.Annotatef(err, "unit %q has no assigned machine", u)
-	}
-
-	if err := u.checkSubnetAliveWhenSet(subnetID); err != nil {
-		return errors.Trace(err)
-	}
-
-	machinePorts, err := getOrCreatePorts(u.st, machineID, subnetID)
-	if err != nil {
-		return errors.Annotate(err, "cannot get or create ports")
-	}
-
-	return machinePorts.ClosePorts(ports)
-}
-
-// OpenPorts opens the given port range and protocol for the unit, if it does
-// not conflict with another already opened range on the unit's assigned
-// machine.
-//
-// TODO(dimitern): This should be removed once we use OpenPortsOnSubnet across
-// the board, passing subnet IDs explicitly.
-func (u *Unit) OpenPorts(protocol string, fromPort, toPort int) error {
-	return u.OpenPortsOnSubnet("", protocol, fromPort, toPort)
-}
-
-// ClosePorts closes the given port range and protocol for the unit.
-//
-// TODO(dimitern): This should be removed once we use ClosePortsOnSubnet across
-// the board, passing subnet IDs explicitly.
-func (u *Unit) ClosePorts(protocol string, fromPort, toPort int) (err error) {
-	return u.ClosePortsOnSubnet("", protocol, fromPort, toPort)
-}
-
-// OpenPortOnSubnet opens the given port and protocol for the unit on the given
-// subnet, which can be empty. When non-empty, subnetID must refer to an
-// existing, alive subnet, otherwise an error is returned.
-func (u *Unit) OpenPortOnSubnet(subnetID, protocol string, number int) error {
-	return u.OpenPortsOnSubnet(subnetID, protocol, number, number)
-}
-
-// ClosePortOnSubnet closes the given port and protocol for the unit on the given
-// subnet, which can be empty. When non-empty, subnetID must refer to an
-// existing, alive subnet, otherwise an error is returned.
-func (u *Unit) ClosePortOnSubnet(subnetID, protocol string, number int) error {
-	return u.ClosePortsOnSubnet(subnetID, protocol, number, number)
-}
-
-// OpenPort opens the given port and protocol for the unit.
-//
-// TODO(dimitern): This should be removed once we use OpenPort(s)OnSubnet across
-// the board, passing subnet IDs explicitly.
-func (u *Unit) OpenPort(protocol string, number int) error {
-	return u.OpenPortOnSubnet("", protocol, number)
-}
-
-// ClosePort closes the given port and protocol for the unit.
-//
-// TODO(dimitern): This should be removed once we use ClosePortsOnSubnet across
-// the board, passing subnet IDs explicitly.
-func (u *Unit) ClosePort(protocol string, number int) error {
-	return u.ClosePortOnSubnet("", protocol, number)
 }
 
 // OpenedPortsOnSubnet returns a slice containing the open port ranges of the
@@ -3312,4 +3233,14 @@ func (u *Unit) SetUpgradeSeriesStatus(status model.UpgradeSeriesStatus, message 
 		return err
 	}
 	return machine.SetUpgradeSeriesUnitStatus(u.Name(), status, message)
+}
+
+// assertUnitNotDeadOp returns a txn.Op that asserts the given unit name is
+// not dead.
+func assertUnitNotDeadOp(st *State, unitName string) txn.Op {
+	return txn.Op{
+		C:      unitsC,
+		Id:     st.docID(unitName),
+		Assert: notDeadDoc,
+	}
 }

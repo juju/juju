@@ -11,7 +11,7 @@ import (
 	"strconv"
 
 	"github.com/juju/errors"
-	statetxn "github.com/juju/txn"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -126,7 +126,7 @@ func (st *State) SetAPIHostPorts(newHostPorts []network.SpaceHostPorts) error {
 		ops = append(ops, agentAddrOps...)
 
 		if ops == nil || len(ops) == 0 {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 		return ops, nil
 	}

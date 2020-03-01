@@ -42,6 +42,7 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 	c.Assert(initial, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:         "controller-uuid",
+			Controller:   "test-controller",
 			Namespace:    "test-admin",
 			Name:         "controller",
 			Admins:       []string{"test-admin"},
@@ -49,6 +50,7 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 			MachineCount: 1,
 		}, {
 			UUID:             "model-1-uuid",
+			Controller:       "test-controller",
 			Namespace:        "test-admin",
 			Name:             "model-1",
 			Admins:           []string{"test-admin"},
@@ -57,11 +59,12 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsAll(c *gc.C) {
 			ApplicationCount: 1,
 			UnitCount:        1,
 		}, {
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Admins:    []string{"bob"},
-			Name:      "model-2",
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Admins:     []string{"bob"},
+			Name:       "model-2",
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -75,6 +78,7 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *gc.C) {
 	c.Assert(initial, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-1-uuid",
+			Controller:       "test-controller",
 			Namespace:        "test-admin",
 			Name:             "model-1",
 			Admins:           []string{"test-admin"},
@@ -83,11 +87,12 @@ func (s *modelSummaryWatcherSuite) TestInitialModelsBob(c *gc.C) {
 			ApplicationCount: 1,
 			UnitCount:        1,
 		}, {
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Name:      "model-2",
-			Admins:    []string{"bob"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Name:       "model-2",
+			Admins:     []string{"bob"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -106,7 +111,7 @@ func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the initial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.ModelChange{
@@ -125,11 +130,12 @@ func (s *modelSummaryWatcherSuite) TestAddPermissionShowsModel(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-2-uuid",
-			Namespace: "bob",
-			Name:      "model-2",
-			Admins:    []string{"albert", "bob"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-2-uuid",
+			Controller: "test-controller",
+			Namespace:  "bob",
+			Name:       "model-2",
+			Admins:     []string{"albert", "bob"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -184,11 +190,12 @@ func (s *modelSummaryWatcherSuite) TestAddModelShowsModel(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-3-uuid",
-			Namespace: "mary",
-			Name:      "model-3",
-			Admins:    []string{"mary"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-3-uuid",
+			Controller: "test-controller",
+			Namespace:  "mary",
+			Name:       "model-3",
+			Admins:     []string{"mary"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -256,7 +263,7 @@ func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.MachineChange{
@@ -269,6 +276,7 @@ func (s *modelSummaryWatcherSuite) TestAddingMachineIsChange(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:         "model-2-uuid",
+			Controller:   "test-controller",
 			Namespace:    "bob",
 			Name:         "model-2",
 			Admins:       []string{"bob"},
@@ -283,7 +291,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveMachine{
@@ -294,11 +302,12 @@ func (s *modelSummaryWatcherSuite) TestRemovingMachineIsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 			// We didn't actually remove the application, or unit yet.
 			ApplicationCount: 1,
 			UnitCount:        1,
@@ -311,7 +320,7 @@ func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.ApplicationChange{
@@ -324,6 +333,7 @@ func (s *modelSummaryWatcherSuite) TestAddingApplicationIsChange(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-2-uuid",
+			Controller:       "test-controller",
 			Namespace:        "bob",
 			Name:             "model-2",
 			Admins:           []string{"bob"},
@@ -338,7 +348,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveApplication{
@@ -349,11 +359,12 @@ func (s *modelSummaryWatcherSuite) TestRemovingApplicationIsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 			// We didn't actually remove the machine, or unit yet.
 			// Yes I know in theory this can't happen, but hey, this is a test.
 			MachineCount: 1,
@@ -367,7 +378,7 @@ func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.UnitChange{
@@ -380,6 +391,7 @@ func (s *modelSummaryWatcherSuite) TestAddingUnitIsChange(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-1-uuid",
+			Controller:       "test-controller",
 			Namespace:        "test-admin",
 			Name:             "model-1",
 			Admins:           []string{"test-admin"},
@@ -396,7 +408,7 @@ func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveUnit{
@@ -407,11 +419,12 @@ func (s *modelSummaryWatcherSuite) TestRemovingUnitIsChange(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 			// We didn't actually remove the machine, or application yet.
 			MachineCount:     1,
 			ApplicationCount: 1,
@@ -424,7 +437,7 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	s.ProcessChange(c, cache.RemoveUnit{
@@ -448,13 +461,15 @@ func (s *modelSummaryWatcherSuite) TestChangesToOneModelCoalesced(c *gc.C) {
 	update := s.next(c, changes, "model-2-uuid")
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "model-1-uuid",
-			Namespace: "test-admin",
-			Name:      "model-1",
-			Admins:    []string{"test-admin"},
-			Status:    cache.StatusGreen,
+			UUID:       "model-1-uuid",
+			Controller: "test-controller",
+			Namespace:  "test-admin",
+			Name:       "model-1",
+			Admins:     []string{"test-admin"},
+			Status:     cache.StatusGreen,
 		}, {
 			UUID:             "model-2-uuid",
+			Controller:       "test-controller",
 			Namespace:        "bob",
 			Name:             "model-2",
 			Admins:           []string{"bob"},
@@ -469,7 +484,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	modelUpdate := cache.ModelChange{
@@ -487,11 +502,12 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "new-model-uuid",
-			Namespace: "mary",
-			Name:      "new-model",
-			Admins:    []string{"mary"},
-			Status:    cache.StatusGreen,
+			UUID:       "new-model-uuid",
+			Controller: "test-controller",
+			Namespace:  "mary",
+			Name:       "new-model",
+			Admins:     []string{"mary"},
+			Status:     cache.StatusGreen,
 		},
 	})
 
@@ -514,6 +530,7 @@ func (s *modelSummaryWatcherSuite) TestUpdatesThatDontChangeSummary(c *gc.C) {
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
 			UUID:             "model-2-uuid",
+			Controller:       "test-controller",
 			Namespace:        "bob",
 			Name:             "model-2",
 			Admins:           []string{"bob"},
@@ -528,15 +545,37 @@ func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
 	defer workertest.CleanKill(c, watcher)
 
 	changes := watcher.Changes()
-	// discard the intial event
+	// Discard the initial event.
 	_ = s.next(c, changes)
 
 	// Simulate a watcher reset.
 	s.controller.Mark()
 
-	// Resend initial state.
+	// Change one of the existing models.
+	s.ProcessChange(c, cache.ApplicationChange{
+		ModelUUID: "model-1-uuid",
+		Name:      "totally-new-application",
+		Life:      life.Alive,
+	}, s.events)
+
+	s.noUpdates(c, changes)
+}
+
+func (s *modelSummaryWatcherSuite) TestSummarySentForChangedModelAfterSweep(c *gc.C) {
+	watcher := s.controller.WatchAllModels()
+	defer workertest.CleanKill(c, watcher)
+
+	changes := watcher.Changes()
+	// Discard the initial event.
+	_ = s.next(c, changes)
+
+	// Simulate a watcher reset.
+	s.controller.Mark()
+
+	// Resend initial state. This will prevent eviction on sweep.
 	s.baseScenario(c)
-	// And another change.
+
+	// Add a new model.
 	s.ProcessChange(c, cache.ModelChange{
 		ModelUUID: "new-model-uuid",
 		Name:      "new-model",
@@ -549,18 +588,22 @@ func (s *modelSummaryWatcherSuite) TestNoUpdatesDuringInitialization(c *gc.C) {
 	}, s.events)
 
 	s.noUpdates(c, changes)
-	// Sweep triggers model summary updates for all models.
 
+	// Sweep triggers model summary updates for all models.
+	// Hashes for the base scenario entities will be the same,
+	// so no summaries are sent.
 	s.controller.Sweep()
 
+	// Only the new model summary is published.
 	update := s.next(c, changes)
 	c.Assert(update, jc.DeepEquals, []cache.ModelSummary{
 		{
-			UUID:      "new-model-uuid",
-			Namespace: "mary",
-			Name:      "new-model",
-			Admins:    []string{"mary"},
-			Status:    cache.StatusGreen,
+			UUID:       "new-model-uuid",
+			Controller: "test-controller",
+			Namespace:  "mary",
+			Name:       "new-model",
+			Admins:     []string{"mary"},
+			Status:     cache.StatusGreen,
 		},
 	})
 }
@@ -600,6 +643,11 @@ func (s *modelSummaryWatcherSuite) noUpdates(c *gc.C, changes <-chan []cache.Mod
 
 func (s *modelSummaryWatcherSuite) baseScenario(c *gc.C) {
 	// The values here a minimal, and only set values that are really necessary.
+	s.ProcessChange(c, cache.ControllerConfigChange{
+		Config: map[string]interface{}{
+			"controller-name": "test-controller",
+		},
+	}, s.events)
 	s.ProcessChange(c, cache.ModelChange{
 		ModelUUID: "controller-uuid",
 		Name:      "controller",

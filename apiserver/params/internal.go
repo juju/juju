@@ -274,6 +274,24 @@ type SetUnitStateArg struct {
 	State map[string]string `json:"state"`
 }
 
+// CommitHookChangesArgs serves as a container for CommitHookChangesArg objects
+// to be processed by the controller.
+type CommitHookChangesArgs struct {
+	Args []CommitHookChangesArg `json:"args"`
+}
+
+// CommitHookChangesArg holds a unit tag and a list of optional uniter API
+// call payloads that are to be executed transactionally.
+type CommitHookChangesArg struct {
+	Tag string `json:"tag"`
+
+	UpdateNetworkInfo    bool                   `json:"update-network-info"`
+	RelationUnitSettings []RelationUnitSettings `json:"relation-unit-settings,omitempty"`
+	OpenPorts            []EntityPortRange      `json:"open-ports,omitempty"`
+	ClosePorts           []EntityPortRange      `json:"close-ports,omitempty"`
+	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
+}
+
 // ModelConfig holds a model configuration.
 type ModelConfig map[string]interface{}
 
@@ -948,8 +966,21 @@ type EntityString struct {
 
 // SetPodSpecParams holds the arguments for setting the pod
 // spec for a set of applications.
+// TODO(juju3) - remove
 type SetPodSpecParams struct {
 	Specs []EntityString `json:"specs"`
+}
+
+// PodSpec holds an entity tag and optional podspec value.
+type PodSpec struct {
+	Tag  string  `json:"tag"`
+	Spec *string `json:"spec,omitempty"`
+}
+
+// SetPodSpecParamsV2 holds the arguments for setting the pod
+// spec for a set of applications.
+type SetPodSpecParamsV2 struct {
+	Specs []PodSpec `json:"specs"`
 }
 
 // GoalStateResults holds the results of GoalStates API call

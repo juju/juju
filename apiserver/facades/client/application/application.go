@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math"
 	"net"
+	"reflect"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -989,6 +990,26 @@ func (api *APIBase) SetCharm(args params.ApplicationSetCharm) error {
 	)
 }
 
+var (
+	deploymentInfoUpgradeMessage = `
+Juju on k8s does not support updating deployment info for services.
+The new charm's metadata contains updated deployment info.
+You'll need to deploy a new charm rather than upgrading if you need this change.
+`[1:]
+
+	storageUpgradeMessage = `
+k8s does not support updating storage on a statefulset.
+The new charm's metadata contains updated storage declarations.
+You'll need to deploy a new charm rather than upgrading if you need this change.
+`[1:]
+
+	devicesUpgradeMessage = `
+k8s does not support updating node selectors (configured from charm devices).
+The new charm's metadata contains updated device declarations.
+You'll need to deploy a new charm rather than upgrading if you need this change.
+`[1:]
+)
+
 // setCharmWithAgentValidation checks the agent versions of the application
 // and unit before continuing on. These checks are important to prevent old
 // code running at the same time as the new code. If you encounter the error,
@@ -1006,11 +1027,29 @@ func (api *APIBase) setCharmWithAgentValidation(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	oneApplication := params.Application
+	currentCharm, _, err := oneApplication.Charm()
+	if err != nil {
+		logger.Debugf("Unable to locate current charm: %v", err)
+	}
 	if api.modelType == state.ModelTypeCAAS {
+		// We need to disallow updates that k8s does not yet support,
+		// eg changing the filesystem or device directives, or deployment info.
+		// TODO(wallyworld) - support resizing of existing storage.
+		var unsupportedReason string
+		if !reflect.DeepEqual(currentCharm.Meta().Deployment, newCharm.Meta().Deployment) {
+			unsupportedReason = deploymentInfoUpgradeMessage
+		} else if !reflect.DeepEqual(currentCharm.Meta().Storage, newCharm.Meta().Storage) {
+			unsupportedReason = storageUpgradeMessage
+		} else if !reflect.DeepEqual(currentCharm.Meta().Devices, newCharm.Meta().Devices) {
+			unsupportedReason = devicesUpgradeMessage
+		}
+		if unsupportedReason != "" {
+			return errors.NotSupportedf(unsupportedReason)
+		}
 		return api.applicationSetCharm(params, newCharm)
 	}
 
-	oneApplication := params.Application
 	// Check if the controller agent tools version is greater than the
 	// version we support for the new LXD profiles.
 	// Then check all the units, to see what their agent tools versions is
@@ -1028,10 +1067,6 @@ func (api *APIBase) setCharmWithAgentValidation(
 	// machines what profiles they currently have and matching with the
 	// incoming update. This could be very costly when you have lots of
 	// machines.
-	currentCharm, _, err := oneApplication.Charm()
-	if err != nil {
-		logger.Debugf("Unable to locate current charm: %v", err)
-	}
 	if lxdprofile.NotEmpty(lxdCharmProfiler{Charm: currentCharm}) ||
 		lxdprofile.NotEmpty(lxdCharmProfiler{Charm: newCharm}) {
 		if err := validateAgentVersions(oneApplication, api.model); err != nil {

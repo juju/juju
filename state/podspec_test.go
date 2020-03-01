@@ -50,7 +50,7 @@ func (s *PodSpecSuite) assertPodSpecNotFound(c *gc.C, tag names.ApplicationTag) 
 }
 
 func (s *PodSpecSuite) TestSetPodSpecApplication(c *gc.C) {
-	err := s.Model.SetPodSpec(s.application.ApplicationTag(), "foo")
+	err := s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("foo"))
 	c.Assert(err, jc.ErrorIsNil)
 	s.assertPodSpec(c, s.application.ApplicationTag(), "foo")
 }
@@ -61,21 +61,21 @@ func (s *PodSpecSuite) TestSetPodSpecApplicationDying(c *gc.C) {
 	err := s.application.Destroy()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "foo")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("foo"))
 	c.Assert(err, gc.ErrorMatches, "application gitlab not alive")
 	s.assertPodSpecNotFound(c, s.application.ApplicationTag())
 }
 
 func (s *PodSpecSuite) TestSetPodSpecUpdates(c *gc.C) {
 	for _, spec := range []string{"spec0", "spec1"} {
-		err := s.Model.SetPodSpec(s.application.ApplicationTag(), spec)
+		err := s.Model.SetPodSpec(s.application.ApplicationTag(), &spec)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertPodSpec(c, s.application.ApplicationTag(), spec)
 	}
 }
 
 func (s *PodSpecSuite) TestRemoveApplicationRemovesPodSpec(c *gc.C) {
-	err := s.Model.SetPodSpec(s.application.ApplicationTag(), "spec")
+	err := s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("spec"))
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.application.Destroy()
@@ -90,19 +90,27 @@ func (s *PodSpecSuite) TestWatchPodSpec(c *gc.C) {
 	wc.AssertOneChange()
 
 	// No spec -> spec set.
-	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec0")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("spec0"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
 
-	// No change.
-	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec0")
+	// No change to spec but still a change because of incremented counter.
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("spec0"))
 	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
+	wc.AssertOneChange()
+
+	// Nil spec also triggers a change because of incremented counter.
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), nil)
+	c.Assert(err, jc.ErrorIsNil)
+	wc.AssertOneChange()
 
 	// Multiple changes coalesced.
-	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec1")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("spec1"))
 	c.Assert(err, jc.ErrorIsNil)
-	err = s.Model.SetPodSpec(s.application.ApplicationTag(), "spec2")
+	err = s.Model.SetPodSpec(s.application.ApplicationTag(), strPtr("spec2"))
 	c.Assert(err, jc.ErrorIsNil)
 	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }

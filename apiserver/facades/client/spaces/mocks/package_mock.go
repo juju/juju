@@ -439,19 +439,19 @@ func (m *MockRenameSpaceState) EXPECT() *MockRenameSpaceStateMockRecorder {
 	return m.recorder
 }
 
-// ConstraintsOpsForSpaceNameChange mocks base method
-func (m *MockRenameSpaceState) ConstraintsOpsForSpaceNameChange(arg0, arg1 string) ([]txn.Op, error) {
+// ConstraintsBySpaceName mocks base method
+func (m *MockRenameSpaceState) ConstraintsBySpaceName(arg0 string) ([]spaces.Constraints, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ConstraintsOpsForSpaceNameChange", arg0, arg1)
-	ret0, _ := ret[0].([]txn.Op)
+	ret := m.ctrl.Call(m, "ConstraintsBySpaceName", arg0)
+	ret0, _ := ret[0].([]spaces.Constraints)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// ConstraintsOpsForSpaceNameChange indicates an expected call of ConstraintsOpsForSpaceNameChange
-func (mr *MockRenameSpaceStateMockRecorder) ConstraintsOpsForSpaceNameChange(arg0, arg1 interface{}) *gomock.Call {
+// ConstraintsBySpaceName indicates an expected call of ConstraintsBySpaceName
+func (mr *MockRenameSpaceStateMockRecorder) ConstraintsBySpaceName(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsOpsForSpaceNameChange", reflect.TypeOf((*MockRenameSpaceState)(nil).ConstraintsOpsForSpaceNameChange), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ConstraintsBySpaceName", reflect.TypeOf((*MockRenameSpaceState)(nil).ConstraintsBySpaceName), arg0)
 }
 
 // ControllerConfig mocks base method
@@ -669,6 +669,20 @@ func NewMockConstraints(ctrl *gomock.Controller) *MockConstraints {
 // EXPECT returns an object that allows the caller to indicate expected use
 func (m *MockConstraints) EXPECT() *MockConstraintsMockRecorder {
 	return m.recorder
+}
+
+// ChangeSpaceNameOps mocks base method
+func (m *MockConstraints) ChangeSpaceNameOps(arg0, arg1 string) []txn.Op {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ChangeSpaceNameOps", arg0, arg1)
+	ret0, _ := ret[0].([]txn.Op)
+	return ret0
+}
+
+// ChangeSpaceNameOps indicates an expected call of ChangeSpaceNameOps
+func (mr *MockConstraintsMockRecorder) ChangeSpaceNameOps(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ChangeSpaceNameOps", reflect.TypeOf((*MockConstraints)(nil).ChangeSpaceNameOps), arg0, arg1)
 }
 
 // ID mocks base method

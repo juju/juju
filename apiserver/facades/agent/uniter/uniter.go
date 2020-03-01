@@ -36,8 +36,9 @@ import (
 
 var logger = loggo.GetLogger("juju.apiserver.uniter")
 
-// UniterAPI implements the latest version (v15) of the Uniter API,
-// which adds the State, SetState calls and changes WatchActionNotifications to notify on action changes.
+// UniterAPI implements the latest version (v15) of the Uniter API, which adds
+// the State, CommitHookChanges calls and changes WatchActionNotifications to
+// notify on action changes.
 type UniterAPI struct {
 	*common.LifeGetter
 	*StatusAPI
@@ -980,14 +981,24 @@ func (u *UniterAPI) OpenPorts(args params.EntitiesPortRanges) (params.ErrorResul
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				err = unit.OpenPorts(entity.Protocol, entity.FromPort, entity.ToPort)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
+
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		openPortRange := []corenetwork.PortRange{{
+			FromPort: entity.FromPort,
+			ToPort:   entity.ToPort,
+			Protocol: entity.Protocol,
+		}}
+
+		err = unit.OpenClosePortsOnSubnet("", openPortRange, nil)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -1009,14 +1020,24 @@ func (u *UniterAPI) ClosePorts(args params.EntitiesPortRanges) (params.ErrorResu
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		err = common.ErrPerm
-		if canAccess(tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(tag)
-			if err == nil {
-				err = unit.ClosePorts(entity.Protocol, entity.FromPort, entity.ToPort)
-			}
+		if !canAccess(tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
+
+		unit, err := u.getUnit(tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		closePortRange := []corenetwork.PortRange{{
+			FromPort: entity.FromPort,
+			ToPort:   entity.ToPort,
+			Protocol: entity.Protocol,
+		}}
+
+		err = unit.OpenClosePortsOnSubnet("", nil, closePortRange)
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -1725,43 +1746,56 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 		return params.ErrorResults{}, err
 	}
 
-	updateOne := func(arg params.RelationUnitSettings) error {
-		unitTag, err := names.ParseUnitTag(arg.Unit)
-		if err != nil {
-			return common.ErrPerm
-		}
-		rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		relUnit, err := rel.Unit(unit)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.updateApplicationSettings(rel, unit, arg.ApplicationSettings)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		err = u.updateUnitSettings(relUnit, arg.Settings)
-		if err != nil {
-			return errors.Trace(err)
-		}
-		return nil
-	}
-
 	for i, arg := range args.RelationUnits {
-		result.Results[i].Error = common.ServerError(updateOne(arg))
+		updateOp, err := u.updateUnitAndApplicationSettingsOp(arg, canAccess)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if err = u.st.ApplyOperation(updateOp); err != nil {
+			if leadership.IsNotLeaderError(err) {
+				err = common.ErrPerm
+			}
+
+			result.Results[i].Error = common.ServerError(err)
+		}
 	}
 	return result, nil
 }
 
-func (u *UniterAPI) updateUnitSettings(relUnit *state.RelationUnit, newSettings params.Settings) error {
+func (u *UniterAPI) updateUnitAndApplicationSettingsOp(arg params.RelationUnitSettings, canAccess common.AuthFunc) (state.ModelOperation, error) {
+	unitTag, err := names.ParseUnitTag(arg.Unit)
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	rel, unit, err := u.getRelationAndUnit(canAccess, arg.Relation, unitTag)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	relUnit, err := rel.Unit(unit)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	appSettingsUpdateOp, err := u.updateApplicationSettingsOp(rel, unit, arg.ApplicationSettings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	unitSettingsUpdateOp, err := u.updateUnitSettingsOp(relUnit, arg.Settings)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	return state.ComposeModelOperations(appSettingsUpdateOp, unitSettingsUpdateOp), nil
+}
+
+func (u *UniterAPI) updateUnitSettingsOp(relUnit *state.RelationUnit, newSettings params.Settings) (state.ModelOperation, error) {
 	if len(newSettings) == 0 {
-		return nil
+		return nil, nil
 	}
 	settings, err := relUnit.Settings()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 	for k, v := range newSettings {
 		if v == "" {
@@ -1770,24 +1804,20 @@ func (u *UniterAPI) updateUnitSettings(relUnit *state.RelationUnit, newSettings 
 			settings.Set(k, v)
 		}
 	}
-	_, err = settings.Write()
-	return errors.Trace(err)
+	return settings.WriteOperation(), nil
 }
 
-func (u *UniterAPI) updateApplicationSettings(rel *state.Relation, unit *state.Unit, settings params.Settings) error {
+func (u *UniterAPI) updateApplicationSettingsOp(rel *state.Relation, unit *state.Unit, settings params.Settings) (state.ModelOperation, error) {
 	if len(settings) == 0 {
-		return nil
+		return nil, nil
 	}
 	token := u.leadershipChecker.LeadershipCheck(unit.ApplicationName(), unit.Name())
 	settingsMap := make(map[string]interface{}, len(settings))
 	for k, v := range settings {
 		settingsMap[k] = v
 	}
-	err := rel.UpdateApplicationSettings(unit.ApplicationName(), token, settingsMap)
-	if leadership.IsNotLeaderError(err) {
-		return common.ErrPerm
-	}
-	return errors.Trace(err)
+
+	return rel.UpdateApplicationSettingsOperation(unit.ApplicationName(), token, settingsMap)
 }
 
 // WatchRelationUnits returns a RelationUnitsWatcher for observing
@@ -2683,7 +2713,21 @@ func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.Network
 func (u *UniterAPIV7) SetPodSpec(_, _ struct{}) {}
 
 // SetPodSpec sets the pod specs for a set of applications.
-func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
+func (u *UniterAPIV14) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
+	v2Args := params.SetPodSpecParamsV2{
+		Specs: make([]params.PodSpec, len(args.Specs)),
+	}
+	for i, arg := range args.Specs {
+		v2Args.Specs[i] = params.PodSpec{
+			Tag:  arg.Tag,
+			Spec: &arg.Value,
+		}
+	}
+	return u.UniterAPI.SetPodSpec(v2Args)
+}
+
+// SetPodSpec sets the pod specs for a set of applications.
+func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
@@ -2711,9 +2755,11 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := k8sspecs.ParsePodSpec(arg.Value); err != nil {
-			results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
-			continue
+		if arg.Spec != nil {
+			if _, err := k8sspecs.ParsePodSpec(*arg.Spec); err != nil {
+				results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
+				continue
+			}
 		}
 		cm, err := u.m.CAASModel()
 		if err != nil {
@@ -2721,7 +2767,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResult
 			continue
 		}
 		results.Results[i].Error = common.ServerError(
-			cm.SetPodSpec(tag, arg.Value),
+			cm.SetPodSpec(tag, arg.Spec),
 		)
 	}
 	return results, nil
@@ -3175,31 +3221,39 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 		return errors.Trace(err)
 	}
 
+	modelOp, err := u.updateUnitNetworkInfoOperation(unitTag, unit)
+	if err != nil {
+		return err
+	}
+	return u.st.ApplyOperation(modelOp)
+}
+
+func (u *UniterAPI) updateUnitNetworkInfoOperation(unitTag names.UnitTag, unit *state.Unit) (state.ModelOperation, error) {
 	joinedRelations, err := unit.RelationsJoined()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, errors.Trace(err)
 	}
 
-	settingsGroup := make(state.SettingsGroup, len(joinedRelations))
+	modelOps := make([]state.ModelOperation, len(joinedRelations))
 	for idx, rel := range joinedRelations {
 		relUnit, err := rel.Unit(unit)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		relSettings, err := relUnit.Settings()
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		netInfo, err := NewNetworkInfo(u.st, unitTag)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		_, ingressAddresses, egressSubnets, err := netInfo.NetworksForRelation(relUnit.Endpoint().Name, rel, false)
 		if err != nil {
-			return errors.Trace(err)
+			return nil, errors.Trace(err)
 		}
 
 		if len(ingressAddresses) == 0 {
@@ -3217,10 +3271,10 @@ func (u *UniterAPI) updateUnitNetworkInfo(unitTag names.UnitTag) error {
 			relSettings.Set("egress-subnets", strings.Join(egressSubnets, ","))
 		}
 
-		settingsGroup[idx] = relSettings
+		modelOps[idx] = relSettings.WriteOperation()
 	}
 
-	return settingsGroup.Write()
+	return state.ComposeModelOperations(modelOps...), nil
 }
 
 // State isn't on the v14 API.
@@ -3260,11 +3314,13 @@ func (u *UniterAPI) State(args params.Entities) (params.UnitStateResults, error)
 	return params.UnitStateResults{Results: res}, nil
 }
 
-// SetState isn't on the v14 API.
-func (u *UniterAPIV14) SetState(_ struct{}) {}
+// CommitHookChanges isn't on the v14 API.
+func (u *UniterAPIV14) CommitHookChanges(_ struct{}) {}
 
-// SetState persists the state of the charm running in this unit.
-func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults, error) {
+// CommitHookChanges batches together all required API calls for applying
+// a set of changes after a hook successfully completes and executes them in a
+// single transaction.
+func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params.ErrorResults, error) {
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
@@ -3283,16 +3339,84 @@ func (u *UniterAPI) SetState(args params.SetUnitStateArgs) (params.ErrorResults,
 			continue
 		}
 
-		unit, err := u.getUnit(unitTag)
-		if err != nil {
-			res[i].Error = common.ServerError(err)
-			continue
-		}
-
-		if err = unit.SetState(arg.State); err != nil {
-			res[i].Error = common.ServerError(err)
-		}
+		res[i].Error = common.ServerError(u.commitHookChangesForOneUnit(unitTag, arg, canAccess))
 	}
 
 	return params.ErrorResults{Results: res}, nil
+}
+
+func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccess common.AuthFunc) error {
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	var modelOps []state.ModelOperation
+
+	if changes.UpdateNetworkInfo {
+		modelOp, err := u.updateUnitNetworkInfoOperation(unitTag, unit)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	for _, rus := range changes.RelationUnitSettings {
+		// Ensure the unit in the unit settings matches the root unit name
+		if rus.Unit != changes.Tag {
+			return common.ErrPerm
+		}
+		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccess)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	if len(changes.OpenPorts)+len(changes.ClosePorts) > 0 {
+		var openPortRanges, closePortRanges []corenetwork.PortRange
+		for _, r := range changes.OpenPorts {
+			// Ensure the tag in the port open request matches the root unit name
+			if r.Tag != changes.Tag {
+				return common.ErrPerm
+			}
+			openPortRanges = append(openPortRanges, corenetwork.PortRange{
+				FromPort: r.FromPort,
+				ToPort:   r.ToPort,
+				Protocol: r.Protocol,
+			})
+		}
+		for _, r := range changes.ClosePorts {
+			// Ensure the tag in the port close request matches the root unit name
+			if r.Tag != changes.Tag {
+				return common.ErrPerm
+			}
+			closePortRanges = append(closePortRanges, corenetwork.PortRange{
+				FromPort: r.FromPort,
+				ToPort:   r.ToPort,
+				Protocol: r.Protocol,
+			})
+		}
+
+		// TODO(achilleas): we should be using endpoints instead of subnets
+		// here. This emulates the existing behavior for the individual
+		// Open/ClosePort API calls.
+		modelOp, err := unit.OpenClosePortsOnSubnetOperation("", openPortRanges, closePortRanges)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	if changes.SetUnitState != nil {
+		// Ensure the tag in the set state request matches the root unit name
+		if changes.SetUnitState.Tag != changes.Tag {
+			return common.ErrPerm
+		}
+		modelOp := unit.SetStateOperation(changes.SetUnitState.State)
+		modelOps = append(modelOps, modelOp)
+	}
+
+	// Apply all changes in a single transaction.
+	return u.st.ApplyOperation(state.ComposeModelOperations(modelOps...))
 }

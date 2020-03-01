@@ -90,8 +90,13 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	// The worker itself is a coremultiwatcher.Factory.
 	s.AddCleanup(func(c *gc.C) { workertest.CleanKill(c, multiWatcherWorker) })
 
+	machineTag := names.NewMachineTag("0")
+	hub := centralhub.New(machineTag)
+
 	initialized := gate.NewLock()
 	modelCache, err := modelcache.NewWorker(modelcache.Config{
+		StatePool:            s.StatePool,
+		Hub:                  hub,
 		InitializedGate:      initialized,
 		Logger:               loggo.GetLogger("test"),
 		WatcherFactory:       multiWatcherWorker.WatchController,
@@ -111,7 +116,6 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 	err = modelcache.ExtractCacheController(modelCache, &controller)
 	c.Assert(err, jc.ErrorIsNil)
 
-	machineTag := names.NewMachineTag("0")
 	s.config = apiserver.ServerConfig{
 		StatePool:           s.StatePool,
 		Controller:          controller,
@@ -122,7 +126,7 @@ func (s *apiserverConfigFixture) SetUpTest(c *gc.C) {
 		Tag:                 machineTag,
 		DataDir:             c.MkDir(),
 		LogDir:              c.MkDir(),
-		Hub:                 centralhub.New(machineTag),
+		Hub:                 hub,
 		Presence:            presence.New(clock.WallClock),
 		LeaseManager:        apitesting.StubLeaseManager{},
 		Mux:                 s.mux,

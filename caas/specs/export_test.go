@@ -4,5 +4,6 @@
 package specs
 
 type (
-	PodSpecBase = podSpecBase
+	PodSpecBase    = podSpecBase
+	CaasContainers = caasContainers
 )

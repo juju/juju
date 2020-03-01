@@ -18,7 +18,7 @@ var logger = loggo.GetLogger("juju.kubernetes.provider.specs")
 
 type (
 	// K8sPodSpec is the current k8s pod spec.
-	K8sPodSpec = K8sPodSpecV2
+	K8sPodSpec = K8sPodSpecV3
 )
 
 type k8sContainer struct {
@@ -54,8 +54,8 @@ func (c *k8sContainer) ToContainerSpec() specs.ContainerSpec {
 		Command:         c.Command,
 		Args:            c.Args,
 		WorkingDir:      c.WorkingDir,
-		Config:          c.Config,
-		Files:           c.Files,
+		EnvConfig:       c.EnvConfig,
+		VolumeConfig:    c.VolumeConfig,
 		ImagePullPolicy: c.ImagePullPolicy,
 	}
 	if c.Kubernetes != nil {
@@ -172,6 +172,8 @@ type PodSpecConverter interface {
 
 func getParser(specVersion specs.Version) (parserType, error) {
 	switch specVersion {
+	case specs.Version3:
+		return parsePodSpecV3, nil
 	case specs.Version2:
 		return parsePodSpecV2, nil
 	case specs.VersionLegacy:

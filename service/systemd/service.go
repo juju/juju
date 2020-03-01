@@ -587,7 +587,7 @@ func (s *Service) WriteService() error {
 // indicated by the service unit file `ExecStart` property.
 // This is required for non-trivial start-up logic, as bash-isms are not
 // supported.
-//See: https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines
+// See: https://www.freedesktop.org/software/systemd/man/systemd.service.html#Command%20lines
 func (s *Service) execStartFileName() string {
 	return s.Name() + "-exec-start"
 }

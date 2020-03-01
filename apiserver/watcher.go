@@ -1109,7 +1109,7 @@ func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []par
 
 		result := params.ModelAbstract{
 			UUID:       summary.UUID,
-			Controller: "", // get the controller name from the controller config
+			Controller: summary.Controller,
 			Name:       summary.Name,
 			Admins:     summary.Admins,
 			Cloud:      summary.Cloud,

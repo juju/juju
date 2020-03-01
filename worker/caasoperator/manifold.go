@@ -181,7 +181,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				Application:           applicationTag.Id(),
 				CharmGetter:           client,
 				Clock:                 clock,
-				PodSpecSetter:         client,
 				DataDir:               agentConfig.DataDir(),
 				ProfileDir:            config.ProfileDir,
 				Downloader:            downloader,

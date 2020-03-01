@@ -36,6 +36,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -174,10 +175,10 @@ func (s *StateSuite) TestParseIDToTag(c *gc.C) {
 	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
 	application := "c9741ea1-0c2a-444d-82f5-787583a48557:a#mysql"
 	unit := "c9741ea1-0c2a-444d-82f5-787583a48557:u#mysql/0"
-	moTag := state.ParseLocalIDToTags(model)
-	maTag := state.ParseLocalIDToTags(machine)
-	unTag := state.ParseLocalIDToTags(unit)
-	apTag := state.ParseLocalIDToTags(application)
+	moTag := state.TagFromDocID(model)
+	maTag := state.TagFromDocID(machine)
+	unTag := state.TagFromDocID(unit)
+	apTag := state.TagFromDocID(application)
 
 	tag, err := names.ParseTag(moTag.String())
 	c.Assert(err, jc.ErrorIsNil)
@@ -254,6 +255,7 @@ func (s *StateSuite) TestMongoSession(c *gc.C) {
 
 type MultiModelStateSuite struct {
 	ConnSuite
+	networktesting.FirewallHelper
 	OtherState *state.State
 	OtherModel *state.Model
 }
@@ -479,8 +481,7 @@ func (s *MultiModelStateSuite) TestWatchTwoModels(c *gc.C) {
 			triggerEvent: func(st *state.State) {
 				u, err := st.Unit("mysql/0")
 				c.Assert(err, jc.ErrorIsNil)
-				err = u.OpenPorts("TCP", 100, 200)
-				c.Assert(err, jc.ErrorIsNil)
+				s.AssertOpenUnitPorts(c, u, "", "TCP", 100, 200)
 			},
 		}, {
 			about: "cleanups",

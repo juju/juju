@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/lease"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs"
@@ -64,6 +65,7 @@ var testAnnotations = map[string]string{
 
 type MigrationBaseSuite struct {
 	ConnWithWallClockSuite
+	networktesting.FirewallHelper
 }
 
 func (s *MigrationBaseSuite) setLatestTools(c *gc.C, latestTools version.Number) {
@@ -480,7 +482,7 @@ func (s *MigrationExportSuite) assertMigrateApplications(c *gc.C, st *state.Stat
 
 		caasModel, err := dbModel.CAASModel()
 		c.Assert(err, jc.ErrorIsNil)
-		err = caasModel.SetPodSpec(application.ApplicationTag(), "pod spec")
+		err = caasModel.SetPodSpec(application.ApplicationTag(), strPtr("pod spec"))
 		c.Assert(err, jc.ErrorIsNil)
 		addr := network.NewScopedSpaceAddress("192.168.1.1", network.ScopeCloudLocal)
 		err = application.UpdateCloudService("provider-id", []network.SpaceAddress{addr})
@@ -909,8 +911,7 @@ func (s *MigrationExportSuite) TestApplicationLeadership(c *gc.C) {
 
 func (s *MigrationExportSuite) TestUnitsOpenPorts(c *gc.C) {
 	unit := s.Factory.MakeUnit(c, nil)
-	err := unit.OpenPorts("tcp", 1234, 2345)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, unit, "", "tcp", 1234, 2345)
 
 	model, err := s.State.Export()
 	c.Assert(err, jc.ErrorIsNil)

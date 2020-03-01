@@ -2593,9 +2593,11 @@ func (st *State) globalClockReader() (*globalclock.Reader, error) {
 	})
 }
 
-// ParseLocalIDToTags tries to parse a DocID e.g. `c9741ea1-0c2a-444d-82f5-787583a48557:a#mediawiki
-// to a corresponding Tag. In the above case -> applicationTag.
-func ParseLocalIDToTags(docID string) names.Tag {
+// TagFromDocID tries attempts to extract an entity-identifying tag from a
+// Mongo document ID.
+// For example "c9741ea1-0c2a-444d-82f5-787583a48557:a#mediawiki" would yield
+// an application tag for "mediawiki"
+func TagFromDocID(docID string) names.Tag {
 	_, localID, _ := splitDocID(docID)
 	switch {
 	case strings.HasPrefix(localID, "a#"):

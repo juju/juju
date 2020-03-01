@@ -12,12 +12,14 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/core/watcher/watchertest"
 	"github.com/juju/juju/state"
 )
 
 type machineSuite struct {
 	firewallerSuite
+	networktesting.FirewallHelper
 
 	apiMachine *firewaller.Machine
 }
@@ -101,8 +103,7 @@ func (s *machineSuite) TestActiveSubnets(c *gc.C) {
 	c.Assert(subnets, gc.HasLen, 0)
 
 	// Open a port and check again.
-	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPort(c, s.units[0], "", "tcp", 1234)
 	subnets, err = s.apiMachine.ActiveSubnets()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(subnets, jc.DeepEquals, []names.SubnetTag{{}})
@@ -126,8 +127,7 @@ func (s *machineSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Open a port and check again.
-	err = s.units[0].OpenPort("tcp", 1234)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPort(c, s.units[0], "", "tcp", 1234)
 	ports, err = s.apiMachine.OpenedPorts(names.SubnetTag{})
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ports, jc.DeepEquals, map[network.PortRange]names.UnitTag{

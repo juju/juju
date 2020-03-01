@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/network"
+	networktesting "github.com/juju/juju/core/network/testing"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -27,6 +28,7 @@ import (
 type firewallerSuite struct {
 	firewallerBaseSuite
 	*commontesting.ModelWatcherTest
+	networktesting.FirewallHelper
 
 	firewaller *firewaller.FirewallerAPIV3
 	subnet     *state.Subnet
@@ -102,12 +104,9 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 
 func (s *firewallerSuite) openPorts(c *gc.C) {
 	// Open some ports on the units.
-	err := s.units[0].OpenPortsOnSubnet(s.subnet.ID(), "tcp", 1234, 1400)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.units[0].OpenPort("tcp", 4321)
-	c.Assert(err, jc.ErrorIsNil)
-	err = s.units[2].OpenPorts("udp", 1111, 2222)
-	c.Assert(err, jc.ErrorIsNil)
+	s.AssertOpenUnitPorts(c, s.units[0], s.subnet.ID(), "tcp", 1234, 1400)
+	s.AssertOpenUnitPort(c, s.units[0], "", "tcp", 4321)
+	s.AssertOpenUnitPorts(c, s.units[2], "", "udp", 1111, 2222)
 }
 
 func (s *firewallerSuite) TestWatchOpenedPorts(c *gc.C) {

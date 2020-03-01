@@ -313,6 +313,23 @@ func (s *ApplicationSuite) TestSetCharmStorageConstraints(c *gc.C) {
 	})
 }
 
+func (s *ApplicationSuite) TestSetCAASCharmInvalid(c *gc.C) {
+	s.model.modelType = state.ModelTypeCAAS
+	s.setAPIUser(c, names.NewUserTag("admin"))
+	s.backend.charm = &mockCharm{
+		meta: &charm.Meta{
+			Deployment: &charm.Deployment{},
+		},
+	}
+	err := s.api.SetCharm(params.ApplicationSetCharm{
+		ApplicationName: "postgresql",
+		CharmURL:        "cs:postgresql",
+	})
+	c.Assert(err, gc.NotNil)
+	msg := strings.Replace(err.Error(), "\n", "", -1)
+	c.Assert(msg, gc.Matches, "Juju on k8s does not support updating deployment info.*")
+}
+
 func (s *ApplicationSuite) TestSetCharmConfigSettings(c *gc.C) {
 	err := s.api.SetCharm(params.ApplicationSetCharm{
 		ApplicationName: "postgresql",
