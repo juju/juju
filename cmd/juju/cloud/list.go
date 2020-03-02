@@ -175,16 +175,6 @@ func (c *listCloudsCommand) getCloudList(ctxt *cmd.Context) (*cloudList, error) 
 }
 
 func (c *listCloudsCommand) Run(ctxt *cmd.Context) error {
-	// TODO (stickupkid): IsSerial states that its machine is serialisable, we
-	// shouldn't prompt in those situations. This is a general clean up of how
-	// we handle formatting directives the user has requested.
-	// The aim is to provide a more holistic approach at the CLI, rather than
-	// magic string checking.
-	// In an ideal world we would move this into MaybePrompt, but the changes
-	// may have unintended consequences without proper understanding.
-	// See: https://discourse.jujucharms.com/t/cli-serialisable-output-formats/2490
-	// Should fix this for Juju 3.0
-	c.ReadOnly = ctxt.IsSerial()
 	if err := c.MaybePrompt(ctxt, "list clouds from"); err != nil {
 		return errors.Trace(err)
 	}
