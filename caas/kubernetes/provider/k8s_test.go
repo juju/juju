@@ -24,6 +24,7 @@ import (
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
@@ -1460,11 +1461,41 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		)
 
 	// timer +1.
-	// delete all custom resources for crd "v1alpha2".
-	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
-		s.deleteOptions(v1.DeletePropagationForeground, ""),
+	s.mockNamespaceableResourceClient.EXPECT().List(
+		// list all custom resources for crd "v1alpha2".
 		v1.ListOptions{LabelSelector: "juju-model==test"},
-	).Return(nil).After(
+	).Return(&unstructured.UnstructuredList{}, nil).After(
+		s.mockDynamicClient.EXPECT().Resource(
+			schema.GroupVersionResource{
+				Group:    crdClusterScope.Spec.Group,
+				Version:  "v1alpha2",
+				Resource: crdClusterScope.Spec.Names.Plural,
+			},
+		).Return(s.mockNamespaceableResourceClient),
+	).After(
+		// list all custom resources for crd "v1".
+		s.mockNamespaceableResourceClient.EXPECT().List(
+			v1.ListOptions{LabelSelector: "juju-model==test"},
+		).Return(&unstructured.UnstructuredList{}, nil),
+	).After(
+		s.mockDynamicClient.EXPECT().Resource(
+			schema.GroupVersionResource{
+				Group:    crdClusterScope.Spec.Group,
+				Version:  "v1",
+				Resource: crdClusterScope.Spec.Names.Plural,
+			},
+		).Return(s.mockNamespaceableResourceClient),
+	).After(
+		// list cluster wide all custom resource definitions for listing custom resources.
+		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
+	).After(
+		// delete all custom resources for crd "v1alpha2".
+		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+			v1.ListOptions{LabelSelector: "juju-model==test"},
+		).Return(nil),
+	).After(
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
 				Group:    crdClusterScope.Spec.Group,
@@ -1493,7 +1524,9 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	)
 
 	// timer +1.
-	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).AnyTimes().
+	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{
+		LabelSelector: "juju-model==test",
+	}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
@@ -1542,7 +1575,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 			namespaceFirer()
 			return ns, nil
 		})
-	// terminated, not found returned
+	// terminated, not found returned.
 	s.mockNamespaces.EXPECT().Get("test", v1.GetOptions{}).
 		Return(nil, s.k8sNotFoundError())
 
@@ -1554,9 +1587,14 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 7)
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(<-errCh, jc.ErrorIsNil)
-	for _, watcher := range s.watchers {
-		c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+	select {
+	case err := <-errCh:
+		c.Assert(err, jc.ErrorIsNil)
+		for _, watcher := range s.watchers {
+			c.Assert(workertest.CheckKilled(c, watcher), jc.ErrorIsNil)
+		}
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timed out waiting for destroyFunc return")
 	}
 }
 

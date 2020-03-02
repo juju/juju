@@ -25,7 +25,7 @@ func (k *kubernetesClient) deleteClusterScropeResourcesModelTeardown(ctx context
 	tasks := []teardownResources{
 		k.deleteClusterRoleBindingsModelTeardown,
 		k.deleteClusterRolesModelTeardown,
-		k.deleteCustomResourcesModelTeardown,
+		k.deleteClusterScopeCustomResourcesModelTeardown,
 		k.deleteCustomResourceDefinitionsModelTeardown,
 		k.deleteMutatingWebhookConfigurationsModelTeardown,
 		k.deleteValidatingWebhookConfigurationsModelTeardown,
@@ -78,26 +78,26 @@ func (k *kubernetesClient) deleteClusterRolesModelTeardown(
 	)
 }
 
-func (k *kubernetesClient) deleteCustomResourcesModelTeardown(
+func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 	ctx context.Context,
 	labels map[string]string,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
+	getLabels := func(crd apiextensionsv1beta1.CustomResourceDefinition) map[string]string {
+		if !isCRDNameSpaced(crd.Spec.Scope) {
+			// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
+			return labels
+		}
+		return nil
+	}
 	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
 		func(labels map[string]string) error {
-			getLabels := func(crd apiextensionsv1beta1.CustomResourceDefinition) map[string]string {
-				if !isCRDNameSpaced(crd.Spec.Scope) {
-					// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
-					return labels
-				}
-				return nil
-			}
 			return k.deleteCustomResources(getLabels)
 		},
 		func(labels map[string]string) error {
-			_, err := k.listCustomResourceDefinitions(labels)
+			_, err := k.listCustomResources(getLabels)
 			return err
 		},
 	)
@@ -179,6 +179,7 @@ func ensureResourcesDeletedFunc(
 		if err != nil {
 			select {
 			case errChan <- err:
+			default:
 			}
 		}
 	}()
@@ -223,6 +224,7 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 		if err != nil {
 			select {
 			case errChan <- err:
+			default:
 			}
 		}
 	}()
@@ -245,7 +247,7 @@ func (k *kubernetesClient) deleteNamespaceModelTeardown(ctx context.Context, wg 
 			return
 		case <-w.Changes():
 			// Ensures the namespace to be deleted - notfound error expected.
-			_, err := k.GetNamespace(k.namespace)
+			_, err = k.GetNamespace(k.namespace)
 			if errors.IsNotFound(err) {
 				// Namespace has been deleted.
 				err = nil

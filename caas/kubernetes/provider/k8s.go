@@ -449,7 +449,7 @@ func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (er
 		}
 	}()
 
-	errChan := make(chan error)
+	errChan := make(chan error, 1)
 	done := make(chan struct{})
 
 	ctx, cancel := context.WithCancel(context.Background())

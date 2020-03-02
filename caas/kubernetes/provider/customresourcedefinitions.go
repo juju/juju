@@ -154,7 +154,7 @@ func (k *kubernetesClient) deleteCustomResources(labelsGetter func(apiextensions
 	}
 	for _, crd := range crds.Items {
 		labels := labelsGetter(crd)
-		if labels == nil {
+		if len(labels) == 0 {
 			continue
 		}
 		for _, version := range crd.Spec.Versions {
@@ -173,6 +173,38 @@ func (k *kubernetesClient) deleteCustomResources(labelsGetter func(apiextensions
 		}
 	}
 	return nil
+}
+
+func (k *kubernetesClient) listCustomResources(labelsGetter func(apiextensionsv1beta1.CustomResourceDefinition) map[string]string) (out []unstructured.Unstructured, err error) {
+	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{
+		// CRDs might be provisioned by another application/charm from a different model.
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, crd := range crds.Items {
+		labels := labelsGetter(crd)
+		if labels == nil {
+			continue
+		}
+		for _, version := range crd.Spec.Versions {
+			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			list, err := crdClient.List(v1.ListOptions{
+				LabelSelector: labelsToSelector(labels),
+			})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+			out = append(out, list.Items...)
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.NewNotFound(nil, "no customer resource found")
+	}
+	return out, nil
 }
 
 type apiVersionGetter interface {
