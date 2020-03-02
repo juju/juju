@@ -4,7 +4,9 @@
 package apiserver
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -979,6 +981,33 @@ func (srv *Server) serveConn(
 	st, err := statePool.Get(resolvedModelUUID)
 	if err == nil {
 		defer st.Release()
+
+		tracker := st.TrackQueries()
+		defer func() {
+			var buf bytes.Buffer
+			err := json.NewEncoder(&buf).Encode(tracker)
+			if err != nil {
+				panic(err)
+			}
+
+			path := "/tmp/" + resolvedModelUUID + ".log"
+
+			var f *os.File
+			if _, err = os.Stat(path); os.IsNotExist(err) {
+				f, err = os.Create(path)
+			} else {
+				f, err = os.Open(path)
+			}
+			if err != nil {
+				panic(err)
+			}
+			defer f.Close()
+
+			fmt.Fprintln(f, buf.String())
+
+			f.Sync()
+		}()
+
 		h, err = newAPIHandler(srv, st.State, conn, modelUUID, connectionID, host)
 	}
 	if errors.IsNotFound(err) {

@@ -3,7 +3,10 @@
 
 package state
 
-import "runtime/debug"
+import (
+	"encoding/json"
+	"runtime/debug"
+)
 
 // QueryTracker provides a way for tests to determine how many
 // database queries have been made, and who made them.
@@ -21,6 +24,7 @@ type QueryDetails struct {
 	Type           string // read or write
 	CollectionName string
 	Query          interface{}
+	Updates        interface{}
 	Traceback      string
 }
 
@@ -80,4 +84,36 @@ func (q *queryTracker) TrackRead(collectionName string, query interface{}) {
 		Query:          query,
 		Traceback:      string(debug.Stack()),
 	})
+}
+
+func (q *queryTracker) TrackUpdate(collectionName string, query, updates interface{}) {
+	q.queries = append(q.queries, QueryDetails{
+		Type:           "update",
+		CollectionName: collectionName,
+		Query:          query,
+		Updates:        updates,
+		Traceback:      string(debug.Stack()),
+	})
+}
+
+func (q *queryTracker) TrackRemove(collectionName string, query interface{}) {
+	q.queries = append(q.queries, QueryDetails{
+		Type:           "remove",
+		CollectionName: collectionName,
+		Query:          query,
+		Traceback:      string(debug.Stack()),
+	})
+}
+
+func (q *queryTracker) TrackRemoveAll(collectionName string, query interface{}) {
+	q.queries = append(q.queries, QueryDetails{
+		Type:           "remove-all",
+		CollectionName: collectionName,
+		Query:          query,
+		Traceback:      string(debug.Stack()),
+	})
+}
+
+func (q *queryTracker) MarshalJSON() ([]byte, error) {
+	return json.Marshal(q.queries)
 }

@@ -84,6 +84,9 @@ func (c *modelStateCollection) Insert(docs ...interface{}) error {
 		}
 		mungedDocs = append(mungedDocs, mungedDoc)
 	}
+	if c.queryTracker != nil {
+		c.queryTracker.TrackUpdate(c.Name(), nil, mungedDocs)
+	}
 	return c.WriteCollection.Insert(mungedDocs...)
 }
 
@@ -100,6 +103,9 @@ func (c *modelStateCollection) Insert(docs ...interface{}) error {
 // these cases it is up to the caller to add model UUID
 // prefixes when necessary.
 func (c *modelStateCollection) Update(query interface{}, update interface{}) error {
+	if c.queryTracker != nil {
+		c.queryTracker.TrackUpdate(c.Name(), c.mungeQuery(query), update)
+	}
 	return c.WriteCollection.Update(c.mungeQuery(query), update)
 }
 
@@ -109,6 +115,9 @@ func (c *modelStateCollection) Update(query interface{}, update interface{}) err
 // prefix isn't there already.
 func (c *modelStateCollection) UpdateId(id interface{}, update interface{}) error {
 	if sid, ok := id.(string); ok {
+		if c.queryTracker != nil {
+			c.queryTracker.TrackUpdate(c.Name(), ensureModelUUID(c.modelUUID, sid), update)
+		}
 		return c.WriteCollection.UpdateId(ensureModelUUID(c.modelUUID, sid), update)
 	}
 	return c.WriteCollection.UpdateId(bson.D{{"_id", id}}, update)
@@ -117,6 +126,9 @@ func (c *modelStateCollection) UpdateId(id interface{}, update interface{}) erro
 // Remove deletes a single document using the query provided. The
 // query will be handled as per Find().
 func (c *modelStateCollection) Remove(query interface{}) error {
+	if c.queryTracker != nil {
+		c.queryTracker.TrackRemove(c.Name(), c.mungeQuery(query))
+	}
 	return c.WriteCollection.Remove(c.mungeQuery(query))
 }
 
@@ -125,6 +137,9 @@ func (c *modelStateCollection) Remove(query interface{}) error {
 // query will be handled as per Find().
 func (c *modelStateCollection) RemoveId(id interface{}) error {
 	if sid, ok := id.(string); ok {
+		if c.queryTracker != nil {
+			c.queryTracker.TrackRemove(c.Name(), ensureModelUUID(c.modelUUID, sid))
+		}
 		return c.WriteCollection.RemoveId(ensureModelUUID(c.modelUUID, sid))
 	}
 	return c.Remove(bson.D{{"_id", id}})
@@ -133,6 +148,9 @@ func (c *modelStateCollection) RemoveId(id interface{}) error {
 // RemoveAll deletes all documents that match a query. The query will
 // be handled as per Find().
 func (c *modelStateCollection) RemoveAll(query interface{}) (*mgo.ChangeInfo, error) {
+	if c.queryTracker != nil {
+		c.queryTracker.TrackRemoveAll(c.Name(), c.mungeQuery(query))
+	}
 	return c.WriteCollection.RemoveAll(c.mungeQuery(query))
 }
 
