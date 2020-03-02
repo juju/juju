@@ -1320,6 +1320,119 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
+	// CRs of this Cluster scope CRD will get deleted.
+	crdClusterScope := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "tfjobs.kubeflow.org",
+			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+				{Name: "v1", Served: true, Storage: true},
+				{Name: "v1alpha2", Served: true, Storage: false},
+			},
+			Scope: apiextensionsv1beta1.ClusterScoped,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
+			},
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	// CRs of this namespaced scope CRD will be skipped.
+	crdNamespacedScope := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: v1.ObjectMeta{
+			Name:      "tfjobs.kubeflow.org",
+			Namespace: "test",
+			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   "kubeflow.org",
+			Version: "v1alpha2",
+			Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+				{Name: "v1", Served: true, Storage: true},
+				{Name: "v1alpha2", Served: true, Storage: false},
+			},
+			Scope: apiextensionsv1beta1.NamespaceScoped,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:   "tfjobs",
+				Kind:     "TFJob",
+				Singular: "tfjob",
+			},
+			Validation: &apiextensionsv1beta1.CustomResourceValidation{
+				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+						"tfReplicaSpecs": {
+							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+								"Worker": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"PS": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type: "integer", Minimum: float64Ptr(1),
+										},
+									},
+								},
+								"Chief": {
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"replicas": {
+											Type:    "integer",
+											Minimum: float64Ptr(1),
+											Maximum: float64Ptr(1),
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
 	ns := &core.Namespace{}
 	ns.Name = "test"
 	s.ensureJujuNamespaceAnnotations(isController, ns)
@@ -1347,7 +1460,40 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		)
 
 	// timer +1.
-	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+	// delete all custom resources for crd "v1alpha2".
+	s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+		s.deleteOptions(v1.DeletePropagationForeground, ""),
+		v1.ListOptions{LabelSelector: "juju-model==test"},
+	).Return(nil).After(
+		s.mockDynamicClient.EXPECT().Resource(
+			schema.GroupVersionResource{
+				Group:    crdClusterScope.Spec.Group,
+				Version:  "v1alpha2",
+				Resource: crdClusterScope.Spec.Names.Plural,
+			},
+		).Return(s.mockNamespaceableResourceClient),
+	).After(
+		// delete all custom resources for crd "v1".
+		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
+			s.deleteOptions(v1.DeletePropagationForeground, ""),
+			v1.ListOptions{LabelSelector: "juju-model==test"},
+		).Return(nil),
+	).After(
+		s.mockDynamicClient.EXPECT().Resource(
+			schema.GroupVersionResource{
+				Group:    crdClusterScope.Spec.Group,
+				Version:  "v1",
+				Resource: crdClusterScope.Spec.Names.Plural,
+			},
+		).Return(s.mockNamespaceableResourceClient),
+	).After(
+		// list cluster wide all custom resource definitions for deleting custom resources.
+		s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{}).AnyTimes().
+			Return(&apiextensionsv1beta1.CustomResourceDefinitionList{Items: []apiextensionsv1beta1.CustomResourceDefinition{*crdClusterScope, *crdNamespacedScope}}, nil),
+	)
+
+	// timer +1.
+	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
@@ -1405,7 +1551,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		errCh <- destroyFunc()
 	}()
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 7)
 	c.Assert(err, jc.ErrorIsNil)
 
 	c.Assert(<-errCh, jc.ErrorIsNil)

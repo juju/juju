@@ -25,7 +25,7 @@ func (k *kubernetesClient) deleteClusterScropeResourcesModelTeardown(ctx context
 	tasks := []teardownResources{
 		k.deleteClusterRoleBindingsModelTeardown,
 		k.deleteClusterRolesModelTeardown,
-		// delete CRDs will delete CRs that were created by this CRD automatically.
+		k.deleteCustomResourcesModelTeardown,
 		k.deleteCustomResourceDefinitionsModelTeardown,
 		k.deleteMutatingWebhookConfigurationsModelTeardown,
 		k.deleteValidatingWebhookConfigurationsModelTeardown,

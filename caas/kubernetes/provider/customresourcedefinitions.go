@@ -140,7 +140,6 @@ func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
 		if isCRDNameSpaced(crd.Spec.Scope) {
 			labels = k.getCRDLabelsNamespaced(appName)
 		}
-		logger.Criticalf("labels %+v", labels)
 		return labels
 	}
 	return k.deleteCustomResources(labelsGetter)
