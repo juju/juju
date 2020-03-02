@@ -749,6 +749,7 @@ var expectedMachineManifoldsWithDependencies = map[string][]string{
 
 	"model-cache": {
 		"agent",
+		"central-hub",
 		"is-controller-flag",
 		"model-cache-initialized-gate",
 		"multiwatcher",

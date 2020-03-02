@@ -22,7 +22,6 @@ type Client interface {
 	UnitRemover
 	ApplicationWatcher
 	ContainerStartWatcher
-	PodSpecSetter
 	StatusSetter
 	VersionSetter
 	Model() (*model.Model, error)
@@ -60,12 +59,6 @@ type ApplicationWatcher interface {
 // for unit starts.
 type ContainerStartWatcher interface {
 	WatchContainerStart(string, string) (watcher.StringsWatcher, error)
-}
-
-// PodSpecSetter provides an interface for
-// setting the pod spec for the application.
-type PodSpecSetter interface {
-	SetPodSpec(appName, spec string) error
 }
 
 // StatusSetter provides an interface for setting

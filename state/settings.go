@@ -9,6 +9,7 @@ import (
 	"sort"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -46,33 +47,6 @@ func (m *settingsMap) SetBSON(raw bson.Raw) error {
 func (m settingsMap) GetBSON() (interface{}, error) {
 	escapedMap := utils.EscapeKeys(m)
 	return escapedMap, nil
-}
-
-// SetingsGroup models a list of Settings that can all be atomically written to
-// the backing store.
-type SettingsGroup []*Settings
-
-// Write the changes from all Settings in the group to the backing store in a
-// single transaction.
-func (sg SettingsGroup) Write() error {
-	if len(sg) == 0 {
-		return nil
-	}
-
-	var grpUpdateOps []txn.Op
-	for _, s := range sg {
-		if s == nil {
-			return errors.Errorf("encountered nil Setting value in SettingsGroup")
-		}
-		_, ops := s.settingsUpdateOps()
-		grpUpdateOps = append(grpUpdateOps, ops...)
-	}
-
-	if len(grpUpdateOps) == 0 {
-		return nil
-	}
-
-	return sg[0].write(grpUpdateOps)
 }
 
 // A Settings manages changes to settings as a delta in memory and merges
@@ -239,6 +213,29 @@ func (s *Settings) Write() (settings.ItemChanges, error) {
 		}
 	}
 	return changes, nil
+}
+
+// WriteOperation returns a ModelOperation to persist all mutations to a
+// Settings instance.
+func (s *Settings) WriteOperation() ModelOperation {
+	return modelOperationFunc{
+		buildFn: func(_ int) ([]txn.Op, error) {
+			_, ops := s.settingsUpdateOps()
+			if len(ops) == 0 {
+				return nil, jujutxn.ErrNoOperations
+			}
+
+			return ops, nil
+		},
+		doneFn: func(err error) error {
+			if err != nil {
+				return err
+			}
+
+			s.disk = copyMap(s.core, nil)
+			return nil
+		},
+	}
 }
 
 // Read (re)reads the node data into c.

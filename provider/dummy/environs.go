@@ -951,6 +951,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, callCtx context.Provi
 
 			initialized := gate.NewLock()
 			modelCache, err := modelcache.NewWorker(modelcache.Config{
+				StatePool:            statePool,
+				Hub:                  estate.hub,
 				InitializedGate:      initialized,
 				Logger:               loggo.GetLogger("dummy.modelcache"),
 				WatcherFactory:       multiWatcherWorker.WatchController,

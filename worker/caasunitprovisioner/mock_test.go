@@ -287,12 +287,25 @@ func (m *mockUnitUpdater) UpdateUnits(arg params.UpdateApplicationUnits) (*param
 
 type mockProvisioningStatusSetter struct {
 	testing.Stub
+	statusSet chan struct{}
 }
 
 func (m *mockProvisioningStatusSetter) SetOperatorStatus(appName string, status status.Status, message string, data map[string]interface{}) error {
 	m.MethodCall(m, "SetOperatorStatus", appName, status, message, data)
+	select {
+	case m.statusSet <- struct{}{}:
+	default:
+	}
 	if err := m.NextErr(); err != nil {
 		return err
 	}
 	return nil
+}
+
+func (m *mockProvisioningStatusSetter) assertStatusSet(c *gc.C) {
+	select {
+	case <-m.statusSet:
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("timed out waiting for status to be set")
+	}
 }

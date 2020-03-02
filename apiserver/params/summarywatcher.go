@@ -32,9 +32,7 @@ type ModelAbstract struct {
 	Status   string                `json:"status,omitempty"`
 	Messages []ModelSummaryMessage `json:"messages,omitempty"`
 
-	// We'd need annotations if we are using annotations to indicate
-	// that the model is muted.
-	// Annotations map[string]string `json:"annotations,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ModelSummarySize represents the number of various entities in the model.

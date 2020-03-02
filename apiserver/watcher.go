@@ -1109,7 +1109,7 @@ func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []par
 
 		result := params.ModelAbstract{
 			UUID:       summary.UUID,
-			Controller: "", // get the controller name from the controller config
+			Controller: summary.Controller,
 			Name:       summary.Name,
 			Admins:     summary.Admins,
 			Cloud:      summary.Cloud,
@@ -1122,8 +1122,9 @@ func (w *SrvModelSummaryWatcher) translate(summaries []cache.ModelSummary) []par
 				Units:        summary.UnitCount,
 				Relations:    summary.RelationCount,
 			},
-			Status:   string(summary.Status),
-			Messages: w.translateMessages(summary.Messages),
+			Status:      string(summary.Status),
+			Messages:    w.translateMessages(summary.Messages),
+			Annotations: summary.Annotations,
 		}
 		response = append(response, result)
 	}

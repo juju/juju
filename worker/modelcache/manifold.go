@@ -5,6 +5,7 @@ package modelcache
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/pubsub"
 	"github.com/prometheus/client_golang/prometheus"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
@@ -12,6 +13,7 @@ import (
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/multiwatcher"
 	"github.com/juju/juju/worker/gate"
+	workerstate "github.com/juju/juju/worker/state"
 )
 
 // Logger describes the logging methods used in this package by the worker.
@@ -19,11 +21,14 @@ type Logger interface {
 	IsTraceEnabled() bool
 	Tracef(string, ...interface{})
 	Errorf(string, ...interface{})
+	Criticalf(string, ...interface{})
 }
 
 // ManifoldConfig holds the information necessary to run a model cache worker in
 // a dependency.Engine.
 type ManifoldConfig struct {
+	StateName           string
+	CentralHubName      string
 	MultiwatcherName    string
 	InitializedGateName string
 	Logger              Logger
@@ -35,11 +40,17 @@ type ManifoldConfig struct {
 
 // Validate validates the manifold configuration.
 func (config ManifoldConfig) Validate() error {
+	if config.StateName == "" {
+		return errors.NotValidf("missing StateName")
+	}
+	if config.CentralHubName == "" {
+		return errors.NotValidf("missing CentralHubName")
+	}
 	if config.MultiwatcherName == "" {
-		return errors.NotValidf("empty MultiwatcherName")
+		return errors.NotValidf("missing MultiwatcherName")
 	}
 	if config.InitializedGateName == "" {
-		return errors.NotValidf("empty InitializedGateName")
+		return errors.NotValidf("missing InitializedGateName")
 	}
 	if config.Logger == nil {
 		return errors.NotValidf("missing Logger")
@@ -59,6 +70,8 @@ func (config ManifoldConfig) Validate() error {
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
+			config.StateName,
+			config.CentralHubName,
 			config.MultiwatcherName,
 			config.InitializedGateName,
 		},
@@ -72,6 +85,12 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	if err := config.Validate(); err != nil {
 		return nil, errors.Trace(err)
 	}
+	// Get the hub.
+	var hub *pubsub.StructuredHub
+	if err := context.Get(config.CentralHubName, &hub); err != nil {
+		config.Logger.Tracef("hub dependency not available")
+		return nil, err
+	}
 	var unlocker gate.Unlocker
 	if err := context.Get(config.InitializedGateName, &unlocker); err != nil {
 		return nil, errors.Trace(err)
@@ -81,14 +100,27 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var stTracker workerstate.StateTracker
+	if err := context.Get(config.StateName, &stTracker); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	pool, err := stTracker.Use()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	w, err := config.NewWorker(Config{
+		StatePool:            pool,
+		Hub:                  hub,
 		InitializedGate:      unlocker,
 		Logger:               config.Logger,
 		WatcherFactory:       factory.WatchController,
 		PrometheusRegisterer: config.PrometheusRegisterer,
-		Cleanup:              func() {},
+		Cleanup:              func() { _ = stTracker.Done() },
 	}.WithDefaultRestartStrategy())
 	if err != nil {
+		_ = stTracker.Done()
 		return nil, errors.Trace(err)
 	}
 	return w, nil

@@ -24987,6 +24987,14 @@
                                 "type": "string"
                             }
                         },
+                        "annotations": {
+                            "type": "object",
+                            "patternProperties": {
+                                ".*": {
+                                    "type": "string"
+                                }
+                            }
+                        },
                         "cloud": {
                             "type": "string"
                         },
@@ -35272,6 +35280,17 @@
                         }
                     }
                 },
+                "CommitHookChanges": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CommitHookChangesArgs"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/ErrorResults"
+                        }
+                    }
+                },
                 "ConfigSettings": {
                     "type": "object",
                     "properties": {
@@ -35679,7 +35698,7 @@
                     "type": "object",
                     "properties": {
                         "Params": {
-                            "$ref": "#/definitions/SetPodSpecParams"
+                            "$ref": "#/definitions/SetPodSpecParamsV2"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -35691,17 +35710,6 @@
                     "properties": {
                         "Params": {
                             "$ref": "#/definitions/RelationStatusArgs"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
-                "SetState": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetUnitStateArgs"
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
@@ -36405,6 +36413,58 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "CommitHookChangesArg": {
+                    "type": "object",
+                    "properties": {
+                        "close-ports": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityPortRange"
+                            }
+                        },
+                        "open-ports": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/EntityPortRange"
+                            }
+                        },
+                        "relation-unit-settings": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/RelationUnitSettings"
+                            }
+                        },
+                        "tag": {
+                            "type": "string"
+                        },
+                        "unit-state": {
+                            "$ref": "#/definitions/SetUnitStateArg"
+                        },
+                        "update-network-info": {
+                            "type": "boolean"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag",
+                        "update-network-info"
+                    ]
+                },
+                "CommitHookChangesArgs": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/CommitHookChangesArg"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
                 },
                 "ConfigSettingsResult": {
                     "type": "object",
@@ -37282,6 +37342,21 @@
                         "results"
                     ]
                 },
+                "PodSpec": {
+                    "type": "object",
+                    "properties": {
+                        "spec": {
+                            "type": "string"
+                        },
+                        "tag": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "tag"
+                    ]
+                },
                 "PortRange": {
                     "type": "object",
                     "properties": {
@@ -37667,13 +37742,13 @@
                         "results"
                     ]
                 },
-                "SetPodSpecParams": {
+                "SetPodSpecParamsV2": {
                     "type": "object",
                     "properties": {
                         "specs": {
                             "type": "array",
                             "items": {
-                                "$ref": "#/definitions/EntityString"
+                                "$ref": "#/definitions/PodSpec"
                             }
                         }
                     },
@@ -37716,21 +37791,6 @@
                     "required": [
                         "tag",
                         "state"
-                    ]
-                },
-                "SetUnitStateArgs": {
-                    "type": "object",
-                    "properties": {
-                        "args": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SetUnitStateArg"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "args"
                     ]
                 },
                 "SettingsResult": {

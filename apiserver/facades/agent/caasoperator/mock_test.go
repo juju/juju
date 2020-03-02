@@ -101,8 +101,8 @@ type mockModel struct {
 	containers []state.CloudContainer
 }
 
-func (m *mockModel) SetPodSpec(tag names.ApplicationTag, spec string) error {
-	m.MethodCall(m, "SetPodSpec", tag, spec)
+func (m *mockModel) SetPodSpec(tag names.ApplicationTag, spec *string) error {
+	m.MethodCall(m, "SetPodSpec", tag, *spec)
 	return m.NextErr()
 }
 
