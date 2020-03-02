@@ -171,6 +171,7 @@ func (s *BaseSuite) TearDownTest(c *gc.C) {
 	s.clock = nil
 	s.k8sClient = nil
 	s.mockApiextensionsClient = nil
+	s.watchers = nil
 
 	s.BaseSuite.TearDownTest(c)
 }
