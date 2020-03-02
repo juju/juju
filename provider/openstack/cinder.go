@@ -671,16 +671,25 @@ func getVolumeEndpointURL(client endpointResolver, region string) (*url.URL, err
 		}
 	}
 	endpointMap := client.EndpointsForRegion(region)
-	// The cinder openstack charm appends 'v2' to the type for the v2 api.
-	endpoint, ok := endpointMap["volumev2"]
-	if !ok {
-		logger.Debugf(`endpoint "volumev2" not found for %q region, trying "volume"`, region)
-		endpoint, ok = endpointMap["volume"]
-		if !ok {
-			return nil, errors.NotFoundf(`endpoint "volume" in region %q`, region)
-		}
+
+	// Different versions of block storage in OpenStack have different entries
+	// in the service catalog.  Find the most recent version.  If it does exist,
+	// fall back to older ones.
+	endpoint, ok := endpointMap["volumev3"]
+	if ok {
+		return url.Parse(endpoint)
 	}
-	return url.Parse(endpoint)
+	logger.Debugf(`endpoint "volumev3" not found for %q region, trying "volumev2"`, region)
+	endpoint, ok = endpointMap["volumev2"]
+	if ok {
+		return url.Parse(endpoint)
+	}
+	logger.Debugf(`endpoint "volumev2" not found for %q region, trying "volume"`, region)
+	endpoint, ok = endpointMap["volume"]
+	if ok {
+		return url.Parse(endpoint)
+	}
+	return nil, errors.NotFoundf(`endpoint "volume" in region %q`, region)
 }
 
 type openstackStorageAdapter struct {
