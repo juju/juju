@@ -201,6 +201,19 @@ func (m *Model) Branch(name string) (Branch, error) {
 	return Branch{}, errors.NotFoundf("branch %q", name)
 }
 
+// Applications makes a copy of the model's application collection and returns it.
+func (m *Model) Applications() map[string]Application {
+	m.mu.Lock()
+
+	apps := make(map[string]Application, len(m.applications))
+	for k, v := range m.applications {
+		apps[k] = v.copy()
+	}
+
+	m.mu.Unlock()
+	return apps
+}
+
 // Application returns the application for the input name.
 // If the application is not found, a NotFoundError is returned.
 func (m *Model) Application(appName string) (Application, error) {

@@ -185,6 +185,17 @@ func (s *ModelSuite) TestApplicationReturnsCopy(c *gc.C) {
 	c.Assert(a2.Config(), gc.DeepEquals, appChange.Config)
 }
 
+func (s *ModelSuite) TestApplications(c *gc.C) {
+	m := s.NewModel(modelChange)
+	m.UpdateApplication(appChange, s.Manager)
+
+	apps := m.Applications()
+	c.Assert(apps, gc.HasLen, 1)
+	app := apps[appChange.Name]
+	c.Check(app.CharmURL(), gc.Equals, appChange.CharmURL)
+	c.Check(app.Config(), gc.DeepEquals, appChange.Config)
+}
+
 func (s *ModelSuite) TestCharmNotFoundError(c *gc.C) {
 	m := s.NewModel(modelChange)
 	_, err := m.Charm("nope")
