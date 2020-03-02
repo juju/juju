@@ -108,6 +108,14 @@ func (opc *operationCallbacks) FailAction(actionId, message string) error {
 	return err
 }
 
+func (opc *operationCallbacks) ActionStatus(actionId string) (string, error) {
+	if !names.IsValidAction(actionId) {
+		return "", errors.NotValidf("invalid action id %q", actionId)
+	}
+	tag := names.NewActionTag(actionId)
+	return opc.u.st.ActionStatus(tag)
+}
+
 // GetArchiveInfo is part of the operation.Callbacks interface.
 func (opc *operationCallbacks) GetArchiveInfo(charmURL *corecharm.URL) (charm.BundleInfo, error) {
 	ch, err := opc.u.st.Charm(charmURL)

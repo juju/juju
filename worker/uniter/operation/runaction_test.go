@@ -4,6 +4,8 @@
 package operation_test
 
 import (
+	"time"
+
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +15,7 @@ import (
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner/context"
 )
 
@@ -41,6 +44,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailSucceeds(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "squelch")
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
 	c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
 	c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, errBadAction.Error())
 }
@@ -64,6 +68,7 @@ func (s *RunActionSuite) TestPrepareErrorBadActionAndFailErrors(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
 	c.Assert(*callbacks.MockFailAction.gotActionId, gc.Equals, someActionId)
 	c.Assert(*callbacks.MockFailAction.gotMessage, gc.Equals, errBadAction.Error())
 }
@@ -82,6 +87,7 @@ func (s *RunActionSuite) TestPrepareErrorActionNotAvailable(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.Equals, operation.ErrSkipExecute)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
 }
 
 func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
@@ -98,6 +104,7 @@ func (s *RunActionSuite) TestPrepareErrorOther(c *gc.C) {
 	c.Assert(newState, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `cannot create runner for action ".*": foop`)
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
 }
 
 func (s *RunActionSuite) TestPrepareCtxCalled(c *gc.C) {
@@ -159,6 +166,7 @@ func (s *RunActionSuite) TestPrepareSuccessCleanState(c *gc.C) {
 		ActionId: &someActionId,
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
 }
 
 func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
@@ -179,6 +187,7 @@ func (s *RunActionSuite) TestPrepareSuccessDirtyState(c *gc.C) {
 		Hook:     &hook.Info{Kind: hooks.Install},
 	})
 	c.Assert(*runnerFactory.MockNewActionRunner.gotActionId, gc.Equals, someActionId)
+	c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
 }
 
 func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
@@ -224,6 +233,69 @@ func (s *RunActionSuite) TestExecuteSuccess(c *gc.C) {
 		c.Assert(newState, jc.DeepEquals, &test.after)
 		c.Assert(callbacks.executingMessage, gc.Equals, "running action some-action-name")
 		c.Assert(*runnerFactory.MockNewActionRunner.runner.MockRunAction.gotName, gc.Equals, "some-action-name")
+		c.Assert(runnerFactory.MockNewActionRunner.gotCancel, gc.NotNil)
+	}
+}
+
+func (s *RunActionSuite) TestExecuteCancel(c *gc.C) {
+	actionChan := make(chan error)
+	defer close(actionChan)
+	runnerFactory := NewRunActionWaitRunnerFactory(actionChan)
+	callbacks := &RunActionCallbacks{
+		actionStatus: "running",
+	}
+	factory := operation.NewFactory(operation.FactoryParams{
+		RunnerFactory: runnerFactory,
+		Callbacks:     callbacks,
+	})
+	op, err := factory.NewAction(someActionId)
+	c.Assert(err, jc.ErrorIsNil)
+	midState, err := op.Prepare(operation.State{})
+	c.Assert(midState, gc.NotNil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	abortedErr := errors.Errorf("aborted")
+	wait := make(chan struct{})
+	go func() {
+		newState, err := op.Execute(*midState)
+		c.Assert(errors.Cause(err), gc.Equals, abortedErr)
+		c.Assert(newState, gc.IsNil)
+		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionName, gc.Equals, "some-action-name")
+		c.Assert(runnerFactory.MockNewActionWaitRunner.runner.actionChan, gc.Equals, (<-chan error)(actionChan))
+		c.Assert(runnerFactory.MockNewActionWaitRunner.gotCancel, gc.NotNil)
+		close(wait)
+	}()
+
+	op.RemoteStateChanged(remotestate.Snapshot{
+		ActionChanged: map[string]int{
+			someActionId: 1,
+		},
+	})
+
+	callbacks.setActionStatus("aborting", nil)
+
+	op.RemoteStateChanged(remotestate.Snapshot{
+		ActionChanged: map[string]int{
+			someActionId: 2,
+		},
+	})
+
+	select {
+	case <-runnerFactory.gotCancel:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("waiting for cancel")
+	}
+
+	select {
+	case actionChan <- abortedErr:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("waiting for send")
+	}
+
+	select {
+	case <-wait:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("waiting for finish")
 	}
 }
 

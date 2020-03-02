@@ -15,16 +15,18 @@ type ActionData struct {
 	Failed         bool
 	ResultsMessage string
 	ResultsMap     map[string]interface{}
+	Cancel         <-chan struct{}
 }
 
 // NewActionData builds a suitable ActionData struct with no nil members.
 // this should only be called in the event that an Action hook is being requested.
-func NewActionData(name string, tag *names.ActionTag, params map[string]interface{}) *ActionData {
+func NewActionData(name string, tag *names.ActionTag, params map[string]interface{}, cancel <-chan struct{}) *ActionData {
 	return &ActionData{
 		Name:       name,
 		Tag:        *tag,
 		Params:     params,
 		ResultsMap: map[string]interface{}{},
+		Cancel:     cancel,
 	}
 }
 

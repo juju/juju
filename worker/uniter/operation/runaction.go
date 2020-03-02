@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter/remotestate"
 	"github.com/juju/juju/worker/uniter/runner"
@@ -15,6 +16,10 @@ import (
 
 type runAction struct {
 	actionId string
+
+	change  int
+	changed chan struct{}
+	cancel  chan struct{}
 
 	callbacks     Callbacks
 	runnerFactory runner.Factory
@@ -35,7 +40,9 @@ func (ra *runAction) String() string {
 // state.
 // Prepare is part of the Operation interface.
 func (ra *runAction) Prepare(state State) (*State, error) {
-	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId)
+	ra.changed = make(chan struct{}, 1)
+	ra.cancel = make(chan struct{})
+	rnr, err := ra.runnerFactory.NewActionRunner(ra.actionId, ra.cancel)
 	if cause := errors.Cause(err); charmrunner.IsBadActionError(cause) {
 		if err := ra.callbacks.FailAction(ra.actionId, err.Error()); err != nil {
 			return nil, err
@@ -69,11 +76,36 @@ func (ra *runAction) Prepare(state State) (*State, error) {
 // Execute is part of the Operation interface.
 func (ra *runAction) Execute(state State) (*State, error) {
 	message := fmt.Sprintf("running action %s", ra.name)
-
 	if err := ra.callbacks.SetExecutingStatus(message); err != nil {
 		return nil, err
 	}
+
+	done := make(chan struct{})
+	wait := make(chan struct{})
+	go func() {
+		defer close(wait)
+		for {
+			select {
+			case <-done:
+				return
+			case <-ra.changed:
+			}
+			status, err := ra.callbacks.ActionStatus(ra.actionId)
+			if err != nil {
+				logger.Warningf("unable to get action status for %q: %v", ra.actionId, err)
+				continue
+			}
+			if status == params.ActionAborting {
+				logger.Infof("action %s aborting", ra.actionId)
+				close(ra.cancel)
+				return
+			}
+		}
+	}()
+
 	err := ra.runner.RunAction(ra.name)
+	close(done)
+	<-wait
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
 		// be handled inside the Runner, and returned as nil.
@@ -100,6 +132,20 @@ func (ra *runAction) Commit(state State) (*State, error) {
 // RemoteStateChanged is called when the remote state changed during execution
 // of the operation.
 func (ra *runAction) RemoteStateChanged(snapshot remotestate.Snapshot) {
+	change, ok := snapshot.ActionChanged[ra.actionId]
+	if !ok {
+		logger.Errorf("action %s missing action changed entry", ra.actionId)
+		// Shouldn't happen.
+		return
+	}
+	if ra.change < change {
+		ra.change = change
+		logger.Errorf("running action %s changed", ra.actionId)
+		select {
+		case ra.changed <- struct{}{}:
+		default:
+		}
+	}
 }
 
 // continuationKind determines what State Kind the operation

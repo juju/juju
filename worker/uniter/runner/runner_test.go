@@ -160,6 +160,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 type MockContext struct {
 	runner.Context
 	actionData      *context.ActionData
+	actionDataErr   error
 	actionParams    map[string]interface{}
 	actionParamsErr error
 	actionResults   map[string]interface{}
@@ -182,7 +183,7 @@ func (ctx *MockContext) ActionData() (*context.ActionData, error) {
 	if ctx.actionData == nil {
 		return nil, errors.New("blam")
 	}
-	return ctx.actionData, nil
+	return ctx.actionData, ctx.actionDataErr
 }
 
 func (ctx *MockContext) SetProcess(process context.HookProcess) {
@@ -366,23 +367,26 @@ func (s *RunMockContextSuite) TestRunActionFlushFailure(c *gc.C) {
 	s.assertRecordedPid(c, ctx.expectPid)
 }
 
-func (s *RunMockContextSuite) TestRunActionParamsFailure(c *gc.C) {
+func (s *RunMockContextSuite) TestRunActionDataFailure(c *gc.C) {
 	expectErr := errors.New("stork")
 	ctx := &MockContext{
-		actionData:      &context.ActionData{},
-		actionParamsErr: expectErr,
+		actionData:    &context.ActionData{},
+		actionDataErr: expectErr,
 	}
 	actualErr := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
 	c.Assert(errors.Cause(actualErr), gc.Equals, expectErr)
 }
 
 func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
+	params := map[string]interface{}{
+		"command": "echo 1",
+		"timeout": 0,
+	}
 	ctx := &MockContext{
-		actionData: &context.ActionData{},
-		actionParams: map[string]interface{}{
-			"command": "echo 1",
-			"timeout": 0,
+		actionData: &context.ActionData{
+			Params: params,
 		},
+		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
 	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
@@ -395,12 +399,15 @@ func (s *RunMockContextSuite) TestRunActionSuccessful(c *gc.C) {
 }
 
 func (s *RunMockContextSuite) TestRunActionError(c *gc.C) {
+	params := map[string]interface{}{
+		"command": "echo 1\nexit 3",
+		"timeout": 0,
+	}
 	ctx := &MockContext{
-		actionData: &context.ActionData{},
-		actionParams: map[string]interface{}{
-			"command": "echo 1\nexit 3",
-			"timeout": 0,
+		actionData: &context.ActionData{
+			Params: params,
 		},
+		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
 	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
@@ -414,12 +421,15 @@ func (s *RunMockContextSuite) TestRunActionError(c *gc.C) {
 
 func (s *RunMockContextSuite) TestRunActionCancelled(c *gc.C) {
 	timeout := 1 * time.Nanosecond
+	params := map[string]interface{}{
+		"command": "sleep 10",
+		"timeout": float64(timeout.Nanoseconds()),
+	}
 	ctx := &MockContext{
-		actionData: &context.ActionData{},
-		actionParams: map[string]interface{}{
-			"command": "sleep 10",
-			"timeout": float64(timeout.Nanoseconds()),
+		actionData: &context.ActionData{
+			Params: params,
 		},
+		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
 	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")
@@ -456,14 +466,17 @@ func (s *RunMockContextSuite) TestRunCommandsFlushFailure(c *gc.C) {
 }
 
 func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
+	params := map[string]interface{}{
+		"command":          "echo 1",
+		"timeout":          0,
+		"workload-context": true,
+	}
 	ctx := &MockContext{
-		modelType:  model.CAAS,
-		actionData: &context.ActionData{},
-		actionParams: map[string]interface{}{
-			"command":          "echo 1",
-			"timeout":          0,
-			"workload-context": true,
+		modelType: model.CAAS,
+		actionData: &context.ActionData{
+			Params: params,
 		},
+		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
 	execFunc := func(params runner.ExecParams) (*exec.ExecResponse, error) {
@@ -480,14 +493,17 @@ func (s *RunMockContextSuite) TestRunActionCAASSuccess(c *gc.C) {
 }
 
 func (s *RunMockContextSuite) TestRunActionOnWorkloadIgnoredIAAS(c *gc.C) {
+	params := map[string]interface{}{
+		"command":          "echo 1",
+		"timeout":          0,
+		"workload-context": true,
+	}
 	ctx := &MockContext{
-		modelType:  model.IAAS,
-		actionData: &context.ActionData{},
-		actionParams: map[string]interface{}{
-			"command":          "echo 1",
-			"timeout":          0,
-			"workload-context": true,
+		modelType: model.IAAS,
+		actionData: &context.ActionData{
+			Params: params,
 		},
+		actionParams:  params,
 		actionResults: map[string]interface{}{},
 	}
 	err := runner.NewRunner(ctx, s.paths, nil).RunAction("juju-run")

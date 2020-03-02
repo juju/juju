@@ -34,6 +34,8 @@ func (s *execSuite) TestCopyParamsValidate(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
 
+	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
+
 	type testcase struct {
 		Params exec.CopyParams
 		Err    string
@@ -118,6 +120,8 @@ func (s *execSuite) TestCopyFromPodNotSupported(c *gc.C) {
 func (s *execSuite) TestCopyToPod(c *gc.C) {
 	ctrl := s.setupExecClient(c)
 	defer ctrl.Finish()
+
+	s.suiteMocks.EXPECT().RemoteCmdExecutorGetter(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().Return(s.mockRemoteCmdExecutor, nil)
 
 	srcPath, err := ioutil.TempFile(c.MkDir(), "testfile")
 	c.Assert(err, jc.ErrorIsNil)
