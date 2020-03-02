@@ -302,6 +302,9 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 	if c.Replace {
 		ctxt.Warningf("'add-cloud --replace' is deprecated. Use 'update-cloud' instead.")
 	}
+	if err := c.MaybePrompt(ctxt, "add cloud to"); err != nil {
+		return errors.Trace(err)
+	}
 	var newCloud *jujucloud.Cloud
 	var err error
 	if c.CloudFile != "" {
@@ -318,9 +321,6 @@ func (c *AddCloudCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	if err != nil {
-		return errors.Trace(err)
-	}
-	if err := c.MaybePrompt(ctxt, fmt.Sprintf("add cloud %q to", newCloud.Name)); err != nil {
 		return errors.Trace(err)
 	}
 
