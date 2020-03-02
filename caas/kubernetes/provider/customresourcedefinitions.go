@@ -135,42 +135,29 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(labels map[string]str
 }
 
 func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
-	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{})
-	if err != nil {
-		return errors.Trace(err)
-	}
-	for _, crd := range crds.Items {
-		for _, version := range crd.Spec.Versions {
-			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
-			if err != nil {
-				return errors.Trace(err)
-			}
-			labels := k.getCRDLabelsGlobal(appName)
-			if isCRDNameSpaced(crd.Spec.Scope) {
-				labels = k.getCRDLabelsNamespaced(appName)
-			}
-			err = crdClient.DeleteCollection(&v1.DeleteOptions{
-				PropagationPolicy: &defaultPropagationPolicy,
-			}, v1.ListOptions{
-				LabelSelector: labelsToSelector(labels),
-			})
-			if err != nil && !k8serrors.IsNotFound(err) {
-				return errors.Trace(err)
-			}
+	labelsGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) map[string]string {
+		labels := k.getCRDLabelsGlobal(appName)
+		if isCRDNameSpaced(crd.Spec.Scope) {
+			labels = k.getCRDLabelsNamespaced(appName)
 		}
+		logger.Criticalf("labels %+v", labels)
+		return labels
 	}
-	return nil
+	return k.deleteCustomResources(labelsGetter)
 }
 
-func (k *kubernetesClient) deleteGlobalCustomResources(labels map[string]string) error {
-	selector := labelsToSelector(labels)
+func (k *kubernetesClient) deleteCustomResources(labelsGetter func(apiextensionsv1beta1.CustomResourceDefinition) map[string]string) error {
 	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{
-		LabelSelector: selector,
+		// CRDs might be provisioned by another application/charm from a different model.
 	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, crd := range crds.Items {
+		labels := labelsGetter(crd)
+		if labels == nil {
+			continue
+		}
 		for _, version := range crd.Spec.Versions {
 			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
 			if err != nil {
@@ -179,7 +166,7 @@ func (k *kubernetesClient) deleteGlobalCustomResources(labels map[string]string)
 			err = crdClient.DeleteCollection(&v1.DeleteOptions{
 				PropagationPolicy: &defaultPropagationPolicy,
 			}, v1.ListOptions{
-				LabelSelector: selector,
+				LabelSelector: labelsToSelector(labels),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Trace(err)

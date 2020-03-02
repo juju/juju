@@ -782,10 +782,10 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 	if err := k.deleteAllServiceAccountResources(appName); err != nil {
 		return errors.Trace(err)
 	}
-	// // Order matters: delete custom resources first then custom resource definitions.
-	// if err := k.deleteCustomResourcesForApp(appName); err != nil {
-	// 	return errors.Trace(err)
-	// }
+	// Order matters: delete custom resources first then custom resource definitions.
+	if err := k.deleteCustomResourcesForApp(appName); err != nil {
+		return errors.Trace(err)
+	}
 	if err := k.deleteCustomResourceDefinitionsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
