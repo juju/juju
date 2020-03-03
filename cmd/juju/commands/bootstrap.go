@@ -135,15 +135,43 @@ Available keys for use with --config are:
 
 var usageBootstrapDetailsPartTwo = `
 Examples:
+
     juju bootstrap
+		Create a controller by using the interactive prompt.
+
     juju bootstrap --clouds
+		List the clouds that are available to bootstrap to, including k8s 
+		clouds. Also presents the credentials loaded for each cloud and their 
+		default regions. 
+
     juju bootstrap --regions aws
+		List the regions that Juju supports for AWS.
+
     juju bootstrap aws
+		Create a Juju controller hosted on AWS, using the default region and 
+		an auto-generated controller name.
+
     juju bootstrap aws/us-east-1
+		Create a Juju controller hosted on AWS within the us-east-1 region. 
+		Juju will create a controller name.
+
     juju bootstrap google joe-us-east1
+		Create a Juju controller hosted on the Google Compute Platform with 
+		the name joe-us-east1. Uses the default region.
+
     juju bootstrap --config=~/config-rs.yaml rackspace joe-syd
-    juju bootstrap --agent-version=2.2.4 aws joe-us-east-1
+		Create a Juju controller hosted by Rackspace named joe-syd. Uses the 
+		default region, but configuration parameters have been altered by 
+		the contents of config-rs.yaml.
+
+    juju bootstrap --agent-version=2.7.0 aws joe-us-east-1
+		Create a Juju controller hosted on AWS that uses the version 2.7.0. 
+		This version will be used, irrespective of the version of Juju that 
+		you are currently running.
+
     juju bootstrap --config bootstrap-timeout=1200 azure joe-eastus
+		Create a Juju controller hosted on Azure. The bootstrap process will 
+		abort if it has not succeeded after 20 minutes.
 
 See also:
     add-credentials
