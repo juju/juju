@@ -468,6 +468,14 @@ func (c *OptionalControllerCommand) MaybePrompt(ctxt *cmd.Context, action string
 			msg += " but there are other controllers registered: use -c or --controller to specify a controller if needed."
 		}
 		ctxt.Infof(msg)
+
+		// If there are no controllers registered on this client,
+		// assume the operation only needs to run on a client.
+		if len(all) == 0 {
+			c.Client = true
+			return nil
+		}
+
 		pollster := interact.New(ctxt.Stdin, ctxt.Stdout, interact.NewErrWriter(ctxt.Stdout))
 		useClient, err := pollster.YN(fmt.Sprintf("Do you ONLY want to %v this client", action), true)
 		if err != nil {
