@@ -1090,6 +1090,12 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
+	if params.Deployment.DeploymentType != caas.DeploymentStateful {
+		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
+			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s application", caas.DeploymentStateful))
+		}
+	}
+
 	hasService := !params.PodSpec.OmitServiceFrontend && !params.Deployment.ServiceType.IsOmit()
 	if hasService {
 		var ports []core.ContainerPort
@@ -1586,7 +1592,7 @@ func (k *kubernetesClient) configureDaemonSet(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-	// We don't want keep any replicaset history.
+	// We don't want to keep any replicaset history.
 	var revisionHistoryLimit int32 = 0
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
@@ -1628,7 +1634,7 @@ func (k *kubernetesClient) configureDeployment(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
-	// We don't want keep any replicaset history.
+	// We don't want to keep any replicaset history.
 	var revisionHistoryLimit int32 = 0
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
