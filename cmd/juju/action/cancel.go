@@ -53,7 +53,7 @@ func (c *cancelCommand) Info() *cmd.Info {
 			Name:    "cancel-action",
 			Args:    "<<action ID | action ID prefix>...>",
 			Purpose: "Cancel pending or running actions.",
-			Doc:     strings.ReplaceAll(cancelDoc, "task", "action"),
+			Doc:     strings.Replace(cancelDoc, "task", "action", -1),
 			Aliases: []string{"cancel-task"},
 		}
 	}
