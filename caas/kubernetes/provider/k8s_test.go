@@ -1427,6 +1427,7 @@ func unitStatefulSetArg(numUnits int32, scName string, podSpec core.PodSpec) *ap
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
+			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{"juju-app": "app-name"},
@@ -1792,7 +1793,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceStatelessWithScalePolicyInvalid(c *gc.
 		"kubernetes-service-externalname":    "ext-name",
 		"kubernetes-service-annotations":     map[string]interface{}{"a": "b"},
 	})
-	c.Assert(err, gc.ErrorMatches, `ScalePolicy is only supported for stateful application`)
+	c.Assert(err, gc.ErrorMatches, `ScalePolicy is only supported for stateful applications`)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsCreate(c *gc.C) {
@@ -2241,6 +2242,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceNoStorageStateful(c *gc.C) {
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
+			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{"juju-app": "app-name"},
@@ -2326,6 +2328,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomType(c *gc.C) {
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
+			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels: map[string]string{"juju-app": "app-name"},
@@ -4742,6 +4745,7 @@ func (s *K8sBrokerSuite) TestUpgradeController(c *gc.C) {
 			Labels: map[string]string{"juju-operator": "controller"},
 		},
 		Spec: apps.StatefulSetSpec{
+			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Annotations: map[string]string{

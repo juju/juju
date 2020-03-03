@@ -65,6 +65,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
 			},
+			RevisionHistoryLimit: getRevisionHistoryLimit(),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      k.getStatefulSetLabels(appName),
