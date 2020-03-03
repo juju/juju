@@ -110,6 +110,43 @@ beehive:
 `[1:])
 }
 
+func (s *listSuite) TestListClientAndController(c *gc.C) {
+	cmd := cloud.NewListCloudCommandForTest(
+		s.store,
+		func() (cloud.ListCloudsAPI, error) {
+			return s.api, nil
+		})
+	s.api.controllerClouds = make(map[names.CloudTag]jujucloud.Cloud)
+	s.api.controllerClouds[names.NewCloudTag("beehive")] = jujucloud.Cloud{
+		Name:      "beehive",
+		Type:      "openstack",
+		AuthTypes: []jujucloud.AuthType{"userpass", "access-key"},
+		Endpoint:  "http://myopenstack",
+		Regions: []jujucloud.Region{
+			{
+				Name:     "regionone",
+				Endpoint: "http://boston/1.0",
+			},
+		},
+	}
+
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--format", "yaml")
+	c.Assert(err, jc.ErrorIsNil)
+	s.api.CheckCallNames(c, "Clouds", "Close")
+	c.Assert(cmd.ControllerName, gc.Equals, "mycontroller")
+
+	c.Assert(cmdtesting.Stdout(ctx), jc.Contains, `
+beehive:
+  defined: public
+  type: openstack
+  auth-types: [userpass, access-key]
+  endpoint: http://myopenstack
+  regions:
+    regionone:
+      endpoint: http://boston/1.0
+`[1:])
+}
+
 func (s *listSuite) TestListKubernetes(c *gc.C) {
 	cmd := cloud.NewListCloudCommandForTest(
 		s.store,

@@ -73,6 +73,7 @@ type Backend interface {
 	SetAnnotations(state.GlobalEntity, map[string]string) error
 	SetModelAgentVersion(version.Number, bool) error
 	SetModelConstraints(constraints.Value) error
+	SpaceNamesByID() (map[string]string, error)
 	Unit(string) (Unit, error)
 	UpdateModelConfig(map[string]interface{}, []string, ...state.ValidateConfigFunc) error
 }

@@ -221,26 +221,16 @@ func (s *OptionalControllerCommandSuite) TestPromptManyControllersNoCurrent(c *g
 	})
 }
 
-func (s *OptionalControllerCommandSuite) TestPromptNoControllersAndNoCurrent(c *gc.C) {
+func (s *OptionalControllerCommandSuite) TestPromptNoRegisteredControllers(c *gc.C) {
+	// Since there are no controllers registered on the client, the operation is
+	// assumed to be desired only on the client.
 	s.assertPrompted(c, jujuclient.NewMemStore(), testData{
-		userAnswer:     "y\n",
-		expectedPrompt: "Do you ONLY want to  this client? (Y/n): \n",
+		userAnswer:     "n\n",
+		expectedPrompt: "",
 		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
 			"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n",
 		expectedControllerName:  "",
 		expectedClientOperation: true,
-	})
-}
-
-func (s *OptionalControllerCommandSuite) TestPromptDenyClientAndNoCurrent(c *gc.C) {
-	s.assertPrompted(c, jujuclient.NewMemStore(), testData{
-		userAnswer:     "n\n",
-		expectedPrompt: "Do you ONLY want to  this client? (Y/n): \n",
-		expectedInfo: "This operation can be applied to both a copy on this client and to the one on a controller.\n" +
-			"No current controller was detected and there are no registered controllers on this client: either bootstrap one or register one.\n" +
-			"Neither client nor controller specified - nothing to do.\n",
-		expectedControllerName:  "",
-		expectedClientOperation: false,
 	})
 }
 

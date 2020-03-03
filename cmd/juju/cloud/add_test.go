@@ -184,7 +184,7 @@ func (s *addSuite) TestAddBadCloudName(c *gc.C) {
 	fake := newFakeCloudMetadataStore()
 	fake.Call("ParseCloudMetadataFile", "testFile").Returns(map[string]jujucloud.Cloud{"notcloud": {}}, nil)
 
-	_, err := s.runCommand(c, fake, "cloud", "testFile")
+	_, err := s.runCommand(c, fake, "cloud", "testFile", "--client")
 	c.Assert(err, gc.ErrorMatches, `cloud "cloud" not found in file .*`)
 }
 
@@ -362,7 +362,7 @@ func (s *addSuite) TestAddNewInvalidAuthType(c *gc.C) {
 
 	fake.Call("ParseCloudMetadataFile", cloudFile.Name()).Returns(mockCloud, nil)
 
-	_, err = s.runCommand(c, fake, "fakecloud", cloudFile.Name())
+	_, err = s.runCommand(c, fake, "fakecloud", cloudFile.Name(), "--client")
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta(`auth type "user-pass" not supported`))
 }
 
@@ -879,10 +879,12 @@ func (s *addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 	fake.Call("PersonalCloudMetadata").Returns(homestackMetadata(), nil)
 
 	command := cloud.NewAddCloudCommandForTest(fake, s.store, nil)
+	err := cmdtesting.InitCommand(command, []string{"--client"})
+	c.Assert(err, jc.ErrorIsNil)
 	// Running the command will return an error because we only give
 	// enough input to get to the prompt we care about checking. This
 	// test ignores this error.
-	err := command.Run(ctx)
+	err = command.Run(ctx)
 	c.Assert(errors.Cause(err), gc.Equals, io.EOF)
 
 	c.Check(out.String(), gc.Matches, "(?s).+Enter a name for your manual cloud: .*")
@@ -890,10 +892,9 @@ func (s *addSuite) TestInteractiveAddCloud_PromptForNameIsCorrect(c *gc.C) {
 
 func (s *addSuite) TestSpecifyingjujucloudThroughFlag_CorrectlySetsMemberVar(c *gc.C) {
 	runCmd := func() {
-		s.runCommand(c, nil, "garage-maas", "-f", "fake.yaml")
+		s.runCommand(c, nil, "garage-maas", "-f", "fake.yaml", "--client")
 	}
 	c.Assert(runCmd, gc.PanicMatches, "runtime error: invalid memory address or nil pointer dereference")
-	//c.Check(command.jujucloud, gc.Equals, "fake.yaml")
 }
 
 func (s *addSuite) TestSpecifyingjujucloudThroughFlagAndArgument_Errors(c *gc.C) {
