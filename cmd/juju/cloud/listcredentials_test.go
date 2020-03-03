@@ -263,7 +263,7 @@ func (s *listCredentialsSuite) TestListAllCredentials(c *gc.C) {
 			{Error: common.ServerError(errors.New("kabbom"))},
 		}, nil
 	}
-	out := s.listCredentials(c, "-c", "mycontroller", "--client")
+	out := s.listCredentials(c)
 	c.Assert(out, gc.Equals, `
 
 Controller Credentials:
