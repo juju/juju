@@ -1586,7 +1586,8 @@ func (k *kubernetesClient) configureDaemonSet(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-
+	// We don't want keep any replicaset history.
+	var revisionHistoryLimit int32 = 0
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
@@ -1597,6 +1598,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: k.getDaemonSetLabels(appName),
 			},
+			RevisionHistoryLimit: &revisionHistoryLimit,
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
@@ -1626,7 +1628,8 @@ func (k *kubernetesClient) configureDeployment(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
-
+	// We don't want keep any replicaset history.
+	var revisionHistoryLimit int32 = 0
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
@@ -1634,7 +1637,8 @@ func (k *kubernetesClient) configureDeployment(
 			Annotations: annotations.ToMap()},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
-			Replicas: replicas,
+			Replicas:             replicas,
+			RevisionHistoryLimit: &revisionHistoryLimit,
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
 			},
@@ -1672,9 +1676,9 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func getPodManagementPolicy(svc *specs.ServiceSpec) (out apps.PodManagementPolicyType) {
-	// default to "Parallel".
+	// Default to "Parallel".
 	out = apps.ParallelPodManagement
-	if svc == nil {
+	if svc == nil || svc.ScalePolicy == "" {
 		return out
 	}
 
