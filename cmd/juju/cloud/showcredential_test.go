@@ -130,7 +130,7 @@ func (s *ShowCredentialSuite) TestShowCredentialBothClientAndController(c *gc.C)
 		},
 	}
 	cmd := cloud.NewShowCredentialCommandForTest(s.store, s.api)
-	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets", "-c", "controller", "--client")
+	ctx, err := cmdtesting.RunCommand(c, cmd, "--show-secrets")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cmdtesting.Stderr(ctx), gc.Equals, ``)
 	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, `
