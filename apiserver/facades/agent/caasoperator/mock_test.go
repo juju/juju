@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/agent/caasoperator"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	_ "github.com/juju/juju/caas/kubernetes/provider"
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	corewatcher "github.com/juju/juju/core/watcher"
@@ -101,8 +102,8 @@ type mockModel struct {
 	containers []state.CloudContainer
 }
 
-func (m *mockModel) SetPodSpec(tag names.ApplicationTag, spec *string) error {
-	m.MethodCall(m, "SetPodSpec", tag, *spec)
+func (m *mockModel) SetPodSpec(token leadership.Token, tag names.ApplicationTag, spec *string) error {
+	m.MethodCall(m, "SetPodSpec", token, tag, *spec)
 	return m.NextErr()
 }
 

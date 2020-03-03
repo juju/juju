@@ -2712,27 +2712,32 @@ func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.Network
 // SetPodSpec isn't on the v7 API.
 func (u *UniterAPIV7) SetPodSpec(_, _ struct{}) {}
 
-// SetPodSpec sets the pod specs for a set of applications.
+// SetPodSpec sets the pod specs for a set of applications. This call is kept
+// here for backwards compatibility with V14 clients. Clients that support V15+
+// of the facade will use the CommitHookChanges API call instead.
 func (u *UniterAPIV14) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
-	v2Args := params.SetPodSpecParamsV2{
-		Specs: make([]params.PodSpec, len(args.Specs)),
-	}
-	for i, arg := range args.Specs {
-		v2Args.Specs[i] = params.PodSpec{
-			Tag:  arg.Tag,
-			Spec: &arg.Value,
-		}
-	}
-	return u.UniterAPI.SetPodSpec(v2Args)
-}
-
-// SetPodSpec sets the pod specs for a set of applications.
-func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
 	authTag := u.auth.GetAuthTag()
-	canAccess := func(tag names.Tag) bool {
+	canAccessApp := makeAppAuthChecker(authTag)
+
+	for i, arg := range args.Specs {
+		results.Results[i].Error = common.ServerError(
+			// NOTE(achilleasa) The operator authenticates as the
+			// application so we cannot extract the unit id for
+			// leadership check purposes. To this end we pass
+			// nil as the unit tag to bypass the leadership check.
+			// Newer controllers will use the CommitHookChanges
+			// call which does perform the leadership check.
+			u.setPodSpec(arg.Tag, &arg.Value, nil, canAccessApp),
+		)
+	}
+	return results, nil
+}
+
+func makeAppAuthChecker(authTag names.Tag) common.AuthFunc {
+	return func(tag names.Tag) bool {
 		if tag, ok := tag.(names.ApplicationTag); ok {
 			switch authTag.(type) {
 			case names.UnitTag:
@@ -2744,33 +2749,45 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResu
 		}
 		return false
 	}
+}
 
-	for i, arg := range args.Specs {
-		tag, err := names.ParseApplicationTag(arg.Tag)
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		if !canAccess(tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if arg.Spec != nil {
-			if _, err := k8sspecs.ParsePodSpec(*arg.Spec); err != nil {
-				results.Results[i].Error = common.ServerError(errors.Annotate(err, "invalid pod spec"))
-				continue
-			}
-		}
-		cm, err := u.m.CAASModel()
-		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		results.Results[i].Error = common.ServerError(
-			cm.SetPodSpec(tag, arg.Spec),
-		)
+func (u *UniterAPI) setPodSpec(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) error {
+	modelOp, err := u.setPodSpecOperation(appTag, spec, unitTag, canAccessApp)
+	if err != nil {
+		return err
 	}
-	return results, nil
+	return u.st.ApplyOperation(modelOp)
+}
+
+func (u *UniterAPI) setPodSpecOperation(appTag string, spec *string, unitTag names.Tag, canAccessApp common.AuthFunc) (state.ModelOperation, error) {
+	parsedAppTag, err := names.ParseApplicationTag(appTag)
+	if err != nil {
+		return nil, err
+	}
+	if !canAccessApp(parsedAppTag) {
+		return nil, common.ErrPerm
+	}
+	if spec != nil {
+		if _, err := k8sspecs.ParsePodSpec(*spec); err != nil {
+			return nil, errors.Annotate(err, "invalid pod spec")
+		}
+	}
+
+	cm, err := u.m.CAASModel()
+	if err != nil {
+		return nil, err
+	}
+
+	// If this call is invoked by the CommitHookChanges call, the unit tag
+	// is known and can be used for a leadership check. For calls to the
+	// SetPodSpec API endpoint (older k8s deployments) the unit tag is
+	// unknown since the uniter authenticates as an application. In the
+	// latter case, the leadership check is skipped.
+	var token leadership.Token
+	if unitTag != nil {
+		token = u.leadershipChecker.LeadershipCheck(parsedAppTag.Id(), unitTag.Id())
+	}
+	return cm.SetPodSpecOperation(token, parsedAppTag, spec), nil
 }
 
 // Mask the GetPodSpec method from the v13 API. The API reflection code
@@ -3321,10 +3338,12 @@ func (u *UniterAPIV14) CommitHookChanges(_ struct{}) {}
 // a set of changes after a hook successfully completes and executes them in a
 // single transaction.
 func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params.ErrorResults, error) {
-	canAccess, err := u.accessUnit()
+	canAccessUnit, err := u.accessUnit()
 	if err != nil {
 		return params.ErrorResults{}, errors.Trace(err)
 	}
+
+	canAccessApp := makeAppAuthChecker(u.auth.GetAuthTag())
 
 	res := make([]params.ErrorResult, len(args.Args))
 	for i, arg := range args.Args {
@@ -3334,22 +3353,28 @@ func (u *UniterAPI) CommitHookChanges(args params.CommitHookChangesArgs) (params
 			continue
 		}
 
-		if !canAccess(unitTag) {
+		if !canAccessUnit(unitTag) {
 			res[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
-		res[i].Error = common.ServerError(u.commitHookChangesForOneUnit(unitTag, arg, canAccess))
+		res[i].Error = common.ServerError(u.commitHookChangesForOneUnit(unitTag, arg, canAccessUnit, canAccessApp))
 	}
 
 	return params.ErrorResults{Results: res}, nil
 }
 
-func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccess common.AuthFunc) error {
+func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes params.CommitHookChangesArg, canAccessUnit, canAccessApp common.AuthFunc) error {
 	unit, err := u.getUnit(unitTag)
 	if err != nil {
 		return errors.Trace(err)
 	}
+
+	appName, err := names.UnitApplication(unit.Name())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	appTag := names.NewApplicationTag(appName).String()
 
 	var modelOps []state.ModelOperation
 
@@ -3366,7 +3391,7 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 		if rus.Unit != changes.Tag {
 			return common.ErrPerm
 		}
-		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccess)
+		modelOp, err := u.updateUnitAndApplicationSettingsOp(rus, canAccessUnit)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -3414,6 +3439,37 @@ func (u *UniterAPI) commitHookChangesForOneUnit(unitTag names.UnitTag, changes p
 			return common.ErrPerm
 		}
 		modelOp := unit.SetStateOperation(changes.SetUnitState.State)
+		modelOps = append(modelOps, modelOp)
+	}
+
+	for _, addParams := range changes.AddStorage {
+		// Ensure the tag in the request matches the root unit name
+		if addParams.UnitTag != changes.Tag {
+			return common.ErrPerm
+		}
+
+		curCons, err := unitStorageConstraints(u.backend, unitTag)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		modelOp, err := u.addStorageToOneUnitOperation(unitTag, addParams, curCons)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		modelOps = append(modelOps, modelOp)
+	}
+
+	if changes.SetPodSpec != nil {
+		// Ensure the application tag for the unit in the change arg
+		// matches the one specified in the SetPodSpec payload
+		if changes.SetPodSpec.Tag != appTag {
+			return errors.BadRequestf("application tag %q in SetPodSpec payload does not match the application for unit %q", changes.SetPodSpec.Tag, changes.Tag)
+		}
+		modelOp, err := u.setPodSpecOperation(changes.SetPodSpec.Tag, changes.SetPodSpec.Spec, unitTag, canAccessApp)
+		if err != nil {
+			return errors.Trace(err)
+		}
 		modelOps = append(modelOps, modelOp)
 	}
 

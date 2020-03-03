@@ -290,6 +290,8 @@ type CommitHookChangesArg struct {
 	OpenPorts            []EntityPortRange      `json:"open-ports,omitempty"`
 	ClosePorts           []EntityPortRange      `json:"close-ports,omitempty"`
 	SetUnitState         *SetUnitStateArg       `json:"unit-state,omitempty"`
+	AddStorage           []StorageAddParams     `json:"add-storage,omitempty"`
+	SetPodSpec           *PodSpec               `json:"pod-spec,omitempty"`
 }
 
 // ModelConfig holds a model configuration.
@@ -975,12 +977,6 @@ type SetPodSpecParams struct {
 type PodSpec struct {
 	Tag  string  `json:"tag"`
 	Spec *string `json:"spec,omitempty"`
-}
-
-// SetPodSpecParamsV2 holds the arguments for setting the pod
-// spec for a set of applications.
-type SetPodSpecParamsV2 struct {
-	Specs []PodSpec `json:"specs"`
 }
 
 // GoalStateResults holds the results of GoalStates API call

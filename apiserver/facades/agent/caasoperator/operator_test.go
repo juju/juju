@@ -265,7 +265,7 @@ containers:
 
 	s.st.CheckCallNames(c, "Model")
 	s.st.model.CheckCallNames(c, "SetPodSpec", "SetPodSpec")
-	s.st.model.CheckCall(c, 0, "SetPodSpec", names.NewApplicationTag("gitlab"), validSpecStr)
+	s.st.model.CheckCall(c, 0, "SetPodSpec", nil, names.NewApplicationTag("gitlab"), validSpecStr)
 }
 
 func (s *CAASOperatorSuite) TestModel(c *gc.C) {

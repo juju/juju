@@ -947,6 +947,30 @@ func (b *CommitHookParamsBuilder) UpdateUnitState(state map[string]string) {
 	}
 }
 
+// AddStorage records a request for adding storage.
+func (b *CommitHookParamsBuilder) AddStorage(constraints map[string][]params.StorageConstraints) {
+	storageReqs := make([]params.StorageAddParams, 0, len(constraints))
+	for storage, cons := range constraints {
+		for _, one := range cons {
+			storageReqs = append(storageReqs, params.StorageAddParams{
+				UnitTag:     b.arg.Tag,
+				StorageName: storage,
+				Constraints: one,
+			})
+		}
+	}
+
+	b.arg.AddStorage = storageReqs
+}
+
+// SetPodSpec records a request to update the PodSpec for an application.
+func (b *CommitHookParamsBuilder) SetPodSpec(appTag names.ApplicationTag, spec *string) {
+	b.arg.SetPodSpec = &params.PodSpec{
+		Tag:  appTag.String(),
+		Spec: spec,
+	}
+}
+
 // Build assembles the recorded change requests into a CommitHookChangesArgs
 // instance that can be passed as an argument to the CommitHookChanges API
 // call.
@@ -967,9 +991,13 @@ func (b *CommitHookParamsBuilder) changeCount() int {
 	if b.arg.SetUnitState != nil {
 		count++
 	}
+	if b.arg.SetPodSpec != nil {
+		count++
+	}
 
 	count += len(b.arg.RelationUnitSettings)
 	count += len(b.arg.OpenPorts)
 	count += len(b.arg.ClosePorts)
+	count += len(b.arg.AddStorage)
 	return count
 }

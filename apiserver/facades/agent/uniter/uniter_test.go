@@ -3630,32 +3630,80 @@ containers:
 `[1:]
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
-	u, cm, app, _ := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := u.SetPodSpec(app.Name(), &podSpec)
+	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetPodSpec(app.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
 	spec, err := cm.PodSpec(app.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(spec, gc.Equals, podSpec)
 }
 
 func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
-	u, cm, app, _ := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := cm.SetPodSpec(app.ApplicationTag(), &podSpec)
+	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cm.SetPodSpec(app.ApplicationTag(), nil)
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetPodSpec(app.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	result, err := uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
 	// Spec doesn't change when setting with nil.
-	spec, err := u.GetPodSpec(app.Name())
+	b = apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetPodSpec(app.ApplicationTag(), nil)
+	req, _ = b.Build()
+
+	result, err = uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.Equals, podSpec)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	getSpecRes, err := uniterAPI.GetPodSpec(params.Entities{
+		Entities: []params.Entity{{Tag: app.ApplicationTag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(getSpecRes, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{Result: podSpec}},
+	})
 }
 
 func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
 	u, cm, app, _ := s.setupCAASModel(c)
 
-	err := cm.SetPodSpec(app.ApplicationTag(), &podSpec)
+	err := cm.SetPodSpec(nil, app.ApplicationTag(), &podSpec)
 	c.Assert(err, jc.ErrorIsNil)
 	spec, err := u.GetPodSpec(app.Name())
 	c.Assert(err, jc.ErrorIsNil)
@@ -4764,6 +4812,130 @@ func (s *uniterNetworkInfoSuite) TestCommitHookChangesWhenNotLeader(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{Error: &params.Error{Message: `prerequisites failed: "wordpress/1" is not leader of "wordpress"`}},
+		},
+	})
+}
+
+func (s *uniterSuite) TestCommitHookChangesWithStorage(c *gc.C) {
+	// We need to set up a unit that has storage metadata defined.
+	ch := s.AddTestingCharm(c, "storage-block2") // supports multiple storage instances
+	application := s.AddTestingApplication(c, "storage-block2", ch)
+	unit, err := application.AddUnit(state.AddUnitParams{})
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.State.AssignUnit(unit, state.AssignCleanEmpty)
+	c.Assert(err, jc.ErrorIsNil)
+	assignedMachineId, err := unit.AssignedMachineId()
+	c.Assert(err, jc.ErrorIsNil)
+	machine, err := s.State.Machine(assignedMachineId)
+	c.Assert(err, jc.ErrorIsNil)
+	oldVolumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+
+	stCount := uint64(1)
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.OpenPortRange("tcp", 80, 81)
+	b.OpenPortRange("tcp", 7337, 7337) // same port closed below; this should be a no-op
+	b.ClosePortRange("tcp", 7337, 7337)
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.AddStorage(map[string][]params.StorageConstraints{
+		"multi1to10": {{Count: &stCount}},
+	})
+	req, _ := b.Build()
+
+	// Test-suite uses an older API version. Create a new one and override
+	// authorizer to allow access to the unit we just created.
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: unit.Tag(),
+	}
+	api, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := api.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Verify state
+	portRanges, err := unit.OpenedPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(portRanges, jc.DeepEquals, []network.PortRange{{Protocol: "tcp", FromPort: 80, ToPort: 81}})
+
+	unitState, err := unit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+
+	newVolumeAttachments, err := machine.VolumeAttachments()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(newVolumeAttachments, gc.HasLen, len(oldVolumeAttachments)+1, gc.Commentf("expected an additional instance of block storage to be added"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAAS(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+
+	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), gitlabUnit.UnitTag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	// Verify expected unit state
+	spec, err := cm.PodSpec(gitlab.ApplicationTag())
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(spec, gc.Equals, podSpec)
+
+	unitState, err := gitlabUnit.State()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(unitState, jc.DeepEquals, map[string]string{"charm-key": "charm-value"}, gc.Commentf("state doc not updated"))
+}
+
+func (s *uniterNetworkInfoSuite) TestCommitHookChangesCAASNotLeader(c *gc.C) {
+	_, cm, gitlab, gitlabUnit := s.setupCAASModel(c)
+
+	f := factory.NewFactory(cm.State(), s.StatePool)
+	otherGitlabUnit := f.MakeUnit(c, &factory.UnitParams{
+		Application: gitlab,
+		SetCharmURL: true,
+	})
+
+	err := cm.State().LeadershipClaimer().ClaimLeadership(gitlab.ApplicationTag().Id(), otherGitlabUnit.Tag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
+	b := apiuniter.NewCommitHookParamsBuilder(gitlabUnit.UnitTag())
+	b.UpdateNetworkInfo()
+	b.UpdateUnitState(map[string]string{"charm-key": "charm-value"})
+	b.SetPodSpec(gitlab.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: gitlabUnit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+	c.Assert(err, jc.ErrorIsNil)
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: &params.Error{Message: `prerequisites failed: "` + gitlabUnit.Tag().Id() + `" is not leader of "` + gitlab.Name() + `"`}},
 		},
 	})
 }

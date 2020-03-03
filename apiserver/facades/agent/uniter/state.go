@@ -22,7 +22,7 @@ type storageInterface interface {
 	RemoveStorageAttachment(names.StorageTag, names.UnitTag, bool) error
 	DestroyUnitStorageAttachments(names.UnitTag) error
 	StorageAttachment(names.StorageTag, names.UnitTag) (state.StorageAttachment, error)
-	AddStorageForUnit(tag names.UnitTag, name string, cons state.StorageConstraints) ([]names.StorageTag, error)
+	AddStorageForUnitOperation(names.UnitTag, string, state.StorageConstraints) (state.ModelOperation, error)
 	WatchStorageAttachments(names.UnitTag) state.StringsWatcher
 	WatchStorageAttachment(names.StorageTag, names.UnitTag) state.NotifyWatcher
 }
@@ -79,6 +79,7 @@ func (s *storageShim) FilesystemAccess() storageFilesystemInterface {
 
 type backend interface {
 	Unit(string) (Unit, error)
+	ApplyOperation(state.ModelOperation) error
 }
 
 type Unit interface {

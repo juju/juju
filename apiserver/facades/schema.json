@@ -35694,17 +35694,6 @@
                         }
                     }
                 },
-                "SetPodSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetPodSpecParamsV2"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
                 "SetRelationStatus": {
                     "type": "object",
                     "properties": {
@@ -36417,6 +36406,12 @@
                 "CommitHookChangesArg": {
                     "type": "object",
                     "properties": {
+                        "add-storage": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/StorageAddParams"
+                            }
+                        },
                         "close-ports": {
                             "type": "array",
                             "items": {
@@ -36428,6 +36423,9 @@
                             "items": {
                                 "$ref": "#/definitions/EntityPortRange"
                             }
+                        },
+                        "pod-spec": {
+                            "$ref": "#/definitions/PodSpec"
                         },
                         "relation-unit-settings": {
                             "type": "array",
@@ -37740,21 +37738,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "SetPodSpecParamsV2": {
-                    "type": "object",
-                    "properties": {
-                        "specs": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/PodSpec"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "specs"
                     ]
                 },
                 "SetStatus": {

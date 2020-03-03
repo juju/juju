@@ -7,8 +7,9 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
+
+	"github.com/juju/juju/core/leadership"
 )
 
 type containerSpecDoc struct {
@@ -22,49 +23,23 @@ type containerSpecDoc struct {
 	UpgradeCounter int `bson:"upgrade-counter"`
 }
 
-// SetPodSpec sets the pod spec for the given application tag.
-// An error will be returned if the specified application is not alive.
-func (m *CAASModel) SetPodSpec(appTag names.ApplicationTag, spec *string) error {
-	buildTxn := func(attempt int) ([]txn.Op, error) {
-		var prereqOps []txn.Op
-		app, err := m.State().Application(appTag.Id())
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		if app.Life() != Alive {
-			return nil, errors.Errorf("application %s not alive", app.String())
-		}
-		prereqOps = append(prereqOps, txn.Op{
-			C:      applicationsC,
-			Id:     app.doc.DocID,
-			Assert: isAliveDoc,
-		})
+// SetPodSpec sets the pod spec for the given application tag while making sure
+// that the caller is the leader by validating the provided token. For cases
+// where leadership checks are not important (e.g. migrations), a nil Token can
+// be provided to bypass the leadership checks.
+//
+// An error will be returned if the specified application is not alive or the
+// leadership check fails.
+func (m *CAASModel) SetPodSpec(token leadership.Token, appTag names.ApplicationTag, spec *string) error {
+	modelOp := m.SetPodSpecOperation(token, appTag, spec)
+	return m.st.ApplyOperation(modelOp)
+}
 
-		op := txn.Op{
-			C:  podSpecsC,
-			Id: applicationGlobalKey(appTag.Id()),
-		}
-		existing, err := m.podInfo(appTag)
-		if err == nil {
-			updates := bson.D{{"$inc", bson.D{{"upgrade-counter", 1}}}}
-			if spec != nil {
-				updates = append(updates, bson.DocElem{"$set", bson.D{{"spec", *spec}}})
-			}
-			op.Assert = bson.D{{"upgrade-counter", existing.UpgradeCounter}}
-			op.Update = updates
-		} else if errors.IsNotFound(err) {
-			op.Assert = txn.DocMissing
-			var specStr string
-			if spec != nil {
-				specStr = *spec
-			}
-			op.Insert = containerSpecDoc{Spec: specStr}
-		} else {
-			return nil, err
-		}
-		return append(prereqOps, op), nil
-	}
-	return m.mb.db().Run(buildTxn)
+// SetPodSpecOperation returns a ModelOperation for updating a PodSpec. For
+// cases where leadership checks are not important (e.g. migrations), a nil
+// Token can be provided to bypass the leadership checks.
+func (m *CAASModel) SetPodSpecOperation(token leadership.Token, appTag names.ApplicationTag, spec *string) ModelOperation {
+	return newSetPodSpecOperation(m, token, appTag, spec)
 }
 
 // PodSpec returns the pod spec for the given application tag.

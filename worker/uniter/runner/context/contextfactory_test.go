@@ -284,6 +284,14 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	unit, err := app.AddUnit(state.AddUnitParams{})
 	c.Assert(err, jc.ErrorIsNil)
 
+	// We are using the lease.Manager from the apiserver and not st.LeadershipClaimer
+	// so unfortunately, we need to hack the acquisition of a lease because of the
+	// way this test is set up.
+	claimer, err := s.LeaseManager.Claimer("application-leadership", st.ModelUUID())
+	c.Assert(err, jc.ErrorIsNil)
+	err = claimer.Claim(app.Tag().Id(), unit.Tag().Id(), time.Minute)
+	c.Assert(err, jc.ErrorIsNil)
+
 	password, err := utils.RandomPassword()
 	c.Assert(err, jc.ErrorIsNil)
 	err = unit.SetPassword(password)

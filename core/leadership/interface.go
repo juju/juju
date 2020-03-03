@@ -122,7 +122,7 @@ type Checker interface {
 	// This method returns a token that accepts a *[]txn.Op, into which
 	// it will (on success) copy mgo/txn operations that can be used to
 	// verify the unit's continued leadership as part of another txn.
-	LeadershipCheck(applicationName, unitName string) Token
+	LeadershipCheck(applicationId, unitId string) Token
 }
 
 // Ticket is used to communicate leadership status to Tracker clients.

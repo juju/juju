@@ -7,6 +7,7 @@ import (
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/core/leadership"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/environs/config"
@@ -28,7 +29,7 @@ type CAASOperatorState interface {
 // Model provides the subset of CAAS model state required
 // by the CAAS operator facade.
 type Model interface {
-	SetPodSpec(names.ApplicationTag, *string) error
+	SetPodSpec(leadership.Token, names.ApplicationTag, *string) error
 	Name() string
 	UUID() string
 	Type() state.ModelType
