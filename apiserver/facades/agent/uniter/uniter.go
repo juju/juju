@@ -2712,22 +2712,10 @@ func (u *UniterAPIV6) NetworkInfo(args params.NetworkInfoParams) (params.Network
 // SetPodSpec isn't on the v7 API.
 func (u *UniterAPIV7) SetPodSpec(_, _ struct{}) {}
 
-// SetPodSpec sets the pod specs for a set of applications.
+// SetPodSpec sets the pod specs for a set of applications. This call is kept
+// here for backwards compatibility with V14 clients. Clients that support V15+
+// of the facade will use the CommitHookChanges API call instead.
 func (u *UniterAPIV14) SetPodSpec(args params.SetPodSpecParams) (params.ErrorResults, error) {
-	v2Args := params.SetPodSpecParamsV2{
-		Specs: make([]params.PodSpec, len(args.Specs)),
-	}
-	for i, arg := range args.Specs {
-		v2Args.Specs[i] = params.PodSpec{
-			Tag:  arg.Tag,
-			Spec: &arg.Value,
-		}
-	}
-	return u.UniterAPI.SetPodSpec(v2Args)
-}
-
-// SetPodSpec sets the pod specs for a set of applications.
-func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Specs)),
 	}
@@ -2742,7 +2730,7 @@ func (u *UniterAPI) SetPodSpec(args params.SetPodSpecParamsV2) (params.ErrorResu
 			// nil as the unit tag to bypass the leadership check.
 			// Newer controllers will use the CommitHookChanges
 			// call which does perform the leadership check.
-			u.setPodSpec(arg.Tag, arg.Spec, nil, canAccessApp),
+			u.setPodSpec(arg.Tag, &arg.Value, nil, canAccessApp),
 		)
 	}
 	return results, nil

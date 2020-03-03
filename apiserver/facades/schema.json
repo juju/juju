@@ -35686,17 +35686,6 @@
                         }
                     }
                 },
-                "SetPodSpec": {
-                    "type": "object",
-                    "properties": {
-                        "Params": {
-                            "$ref": "#/definitions/SetPodSpecParamsV2"
-                        },
-                        "Result": {
-                            "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
                 "SetRelationStatus": {
                     "type": "object",
                     "properties": {
@@ -37741,21 +37730,6 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
-                    ]
-                },
-                "SetPodSpecParamsV2": {
-                    "type": "object",
-                    "properties": {
-                        "specs": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/PodSpec"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "specs"
                     ]
                 },
                 "SetStatus": {

@@ -979,12 +979,6 @@ type PodSpec struct {
 	Spec *string `json:"spec,omitempty"`
 }
 
-// SetPodSpecParamsV2 holds the arguments for setting the pod
-// spec for a set of applications.
-type SetPodSpecParamsV2 struct {
-	Specs []PodSpec `json:"specs"`
-}
-
 // GoalStateResults holds the results of GoalStates API call
 type GoalStateResults struct {
 	Results []GoalStateResult `json:"results"`

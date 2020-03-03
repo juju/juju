@@ -3630,10 +3630,26 @@ containers:
 `[1:]
 
 func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
-	u, cm, app, _ := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := u.SetPodSpec(app.Name(), &podSpec)
+	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetPodSpec(app.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	result, err := uniterAPI.CommitHookChanges(req)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
 
 	spec, err := cm.PodSpec(app.ApplicationTag())
 	c.Assert(err, jc.ErrorIsNil)
@@ -3641,16 +3657,47 @@ func (s *uniterSuite) TestSetPodSpec(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetPodSpecNil(c *gc.C) {
-	u, cm, app, _ := s.setupCAASModel(c)
+	_, cm, app, unit := s.setupCAASModel(c)
 
-	err := cm.SetPodSpec(nil, app.ApplicationTag(), &podSpec)
+	err := cm.State().LeadershipClaimer().ClaimLeadership(app.ApplicationTag().Id(), unit.UnitTag().Id(), time.Minute)
 	c.Assert(err, jc.ErrorIsNil)
-	err = cm.SetPodSpec(nil, app.ApplicationTag(), nil)
+
+	s.State = cm.State()
+	s.authorizer = apiservertesting.FakeAuthorizer{Tag: unit.Tag()}
+	uniterAPI, err := uniter.NewUniterAPI(s.facadeContext())
+
+	b := apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetPodSpec(app.ApplicationTag(), &podSpec)
+	req, _ := b.Build()
+
+	result, err := uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
 	// Spec doesn't change when setting with nil.
-	spec, err := u.GetPodSpec(app.Name())
+	b = apiuniter.NewCommitHookParamsBuilder(unit.UnitTag())
+	b.SetPodSpec(app.ApplicationTag(), nil)
+	req, _ = b.Build()
+
+	result, err = uniterAPI.CommitHookChanges(req)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spec, gc.Equals, podSpec)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{Error: nil},
+		},
+	})
+
+	getSpecRes, err := uniterAPI.GetPodSpec(params.Entities{
+		Entities: []params.Entity{{Tag: app.ApplicationTag().String()}},
+	})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(getSpecRes, gc.DeepEquals, params.StringResults{
+		Results: []params.StringResult{{Result: podSpec}},
+	})
 }
 
 func (s *uniterSuite) TestGetPodSpec(c *gc.C) {
