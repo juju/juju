@@ -62,7 +62,7 @@ juju_cache_units{agent_status="active",life="alive",workload_status="active"} 1
 }
 
 func (s *ControllerSuite) TestCollectIsolation(c *gc.C) {
-	controller, events := s.new(c)
+	controller, events := s.New(c)
 
 	// Populate the cache with 10 models so the collect takes
 	// more time.
@@ -70,7 +70,7 @@ func (s *ControllerSuite) TestCollectIsolation(c *gc.C) {
 		change := modelChange
 		change.ModelUUID = utils.MustNewUUID().String()
 		change.Name = fmt.Sprintf("test-model-%d", i)
-		s.processChange(c, change, events)
+		s.ProcessChange(c, change, events)
 	}
 
 	collector := cache.NewMetricsCollector(controller)
