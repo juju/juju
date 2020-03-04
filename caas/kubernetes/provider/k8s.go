@@ -718,6 +718,9 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 	deploymentName := k.deploymentName(appName)
 	statefulsets := k.client().AppsV1().StatefulSets(k.namespace)
 	ss, err := statefulsets.Get(deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
 	if err == nil {
 		if ss.Spec.Replicas != nil {
 			scale := int(*ss.Spec.Replicas)
@@ -735,9 +738,6 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		}
 		return &result, nil
 	}
-	if !k8serrors.IsNotFound(err) {
-		return nil, errors.Trace(err)
-	}
 
 	deployments := k.client().AppsV1().Deployments(k.namespace)
 	deployment, err := deployments.Get(deploymentName, v1.GetOptions{})
@@ -752,6 +752,29 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		gen := deployment.GetGeneration()
 		result.Generation = &gen
 		message, ssStatus, err := k.getDeploymentStatus(deployment)
+		if err != nil {
+			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
+		}
+		result.Status = status.StatusInfo{
+			Status:  ssStatus,
+			Message: message,
+		}
+		return &result, nil
+	}
+
+	daemonsets := k.client().AppsV1().DaemonSets(k.namespace)
+	ds, err := daemonsets.Get(deploymentName, v1.GetOptions{})
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	if err == nil {
+		// The total number of nodes that should be running the daemon pod (including nodes correctly running the daemon pod).
+		scale := int(ds.Status.DesiredNumberScheduled)
+		result.Scale = &scale
+
+		gen := ds.GetGeneration()
+		result.Generation = &gen
+		message, ssStatus, err := k.getDaemonSetStatus(ds)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
 		}
@@ -2349,6 +2372,18 @@ func (k *kubernetesClient) getDeploymentStatus(deployment *apps.Deployment) (str
 		jujuStatus = status.Active
 	}
 	return k.getStatusFromEvents(deployment.Name, "Deployment", jujuStatus)
+}
+
+func (k *kubernetesClient) getDaemonSetStatus(ds *apps.DaemonSet) (string, status.Status, error) {
+	terminated := ds.DeletionTimestamp != nil
+	jujuStatus := status.Waiting
+	if terminated {
+		jujuStatus = status.Terminated
+	}
+	if ds.Status.NumberReady == ds.Status.DesiredNumberScheduled {
+		jujuStatus = status.Active
+	}
+	return k.getStatusFromEvents(ds.Name, "DaemonSet", jujuStatus)
 }
 
 func (k *kubernetesClient) getStatusFromEvents(name, kind string, jujuStatus status.Status) (string, status.Status, error) {

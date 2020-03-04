@@ -697,6 +697,8 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
 
 		// below calls are for GetService - 2nd address is ready.
 		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test"}).
@@ -706,6 +708,8 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 		s.mockStatefulSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockDeployments.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get("juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 
 		// ensure shared-secret secret.
