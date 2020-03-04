@@ -42,15 +42,20 @@ import shutil
 
 import snapcraft
 from snapcraft import common
-from snapcraft.internal import errors
+from snapcraft import file_utils
 
 logger = logging.getLogger(__name__)
 
 
+# TODO(wallyworld) - remove when we migrate to go mod
 class DepPlugin(snapcraft.BasePlugin):
     @classmethod
     def schema(cls):
         schema = super().schema()
+        schema["properties"]["go-channel"] = {
+            "type": "string",
+            "default": "latest/stable",
+        }
         schema["properties"]["go-importpath"] = {"type": "string"}
         schema["properties"]["go-packages"] = {
             "type": "array",
@@ -59,9 +64,14 @@ class DepPlugin(snapcraft.BasePlugin):
             "items": {"type": "string"},
             "default": [],
         }
+        schema["properties"]["go-external-strings"] = {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "default": {},
+        }
 
         # The import path must be specified.
-        schema["required"].append("go-importpath")
+        schema["required"] = ["go-importpath"]
 
         return schema
 
@@ -69,7 +79,7 @@ class DepPlugin(snapcraft.BasePlugin):
     def get_build_properties(cls):
         # Inform Snapcraft of the properties associated with building. If these
         # change in the YAML Snapcraft will consider the build step dirty.
-        return ["go-packages"]
+        return ["go-packages", "go-external-strings", "go-channel"]
 
     @classmethod
     def get_pull_properties(cls):
@@ -79,7 +89,8 @@ class DepPlugin(snapcraft.BasePlugin):
 
     def __init__(self, name, options, project):
         super().__init__(name, options, project)
-        self.build_packages.extend(["golang-go", "git"])
+        self.build_packages.extend(["gcc", "git"])
+        self.build_snaps.extend(["go/"+self.options.go_channel])
         self._gopath = os.path.join(self.partdir, "go")
         self._gopath_src = os.path.join(self._gopath, "src")
         self._gopath_bin = os.path.join(self._gopath, "bin")
@@ -96,7 +107,7 @@ class DepPlugin(snapcraft.BasePlugin):
         finally:
             os.makedirs(os.path.dirname(self._path_in_gopath), exist_ok=True)
 
-        shutil.copytree(self.sourcedir, self._path_in_gopath, symlinks=True, ignore_dangling_symlinks=True)
+        file_utils.link_or_copy_tree(self.sourcedir, self._path_in_gopath)
 
         # Fetch and run dep
         logger.info("Fetching dep...")
@@ -121,10 +132,20 @@ class DepPlugin(snapcraft.BasePlugin):
     def build(self):
         super().build()
 
+        cmd = ["go", "install"]
+        if len(self.options.go_external_strings) > 0:
+            cmd.append("-ldflags")
+            flags = ""
+            for k, v in self.options.go_external_strings.items():
+                flags += " -X {}={}".format(k, v)
+            cmd.append(flags)
+
         for go_package in self.options.go_packages:
-            self._run(["go", "install", go_package])
+            cmd.append(go_package)
         if not self.options.go_packages:
-            self._run(["go", "install", "./{}/...".format(self.options.go_importpath)])
+            cmd.append("./{}/...".format(self.options.go_importpath))
+
+        self._run(cmd)
 
         install_bin_path = os.path.join(self.installdir, "bin")
         os.makedirs(install_bin_path, exist_ok=True)
