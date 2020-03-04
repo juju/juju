@@ -105,7 +105,7 @@ func (m main) Run(args []string) int {
 
 	// note that this has to come before we init the juju home directory,
 	// since it relies on detecting the lack of said directory.
-	newInstall := m.maybeWarnJuju1x()
+	newInstall := m.maybeWarnJuju1x(ctx)
 
 	if err = juju.InitJujuXDGDataHome(); err != nil {
 		cmd.WriteError(ctx.Stderr, err)
@@ -118,7 +118,7 @@ func (m main) Run(args []string) int {
 	}
 
 	if newInstall {
-		fmt.Fprintf(ctx.Stderr, "Since Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
+		ctx.Infof("\nSince Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdatePublicCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
 			cmd.WriteError(ctx.Stderr, err)
@@ -155,7 +155,7 @@ func installProxy() error {
 	return nil
 }
 
-func (m main) maybeWarnJuju1x() (newInstall bool) {
+func (m main) maybeWarnJuju1x(ctx *cmd.Context) (newInstall bool) {
 	newInstall = !juju2xConfigDataExists()
 	if !shouldWarnJuju1x() {
 		return newInstall
@@ -181,7 +181,7 @@ If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuC
 		"OldJujuVersion":     ver,
 		"OldJujuCommand":     juju1xCmdName,
 	})
-	fmt.Fprintln(os.Stderr, buf.String())
+	ctx.Infof(buf.String())
 	return newInstall
 }
 
