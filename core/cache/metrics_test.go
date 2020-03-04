@@ -4,9 +4,12 @@ package cache_test
 
 import (
 	"bytes"
+	"fmt"
+	"sync"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/worker.v1/workertest"
@@ -56,4 +59,44 @@ juju_cache_units{agent_status="active",life="alive",workload_status="active"} 1
 	}
 
 	workertest.CleanKill(c, controller)
+}
+
+func (s *ControllerSuite) TestCollectIsolation(c *gc.C) {
+	controller, events := s.new(c)
+
+	// Populate the cache with 10 models so the collect takes
+	// more time.
+	for i := 0; i < 10; i++ {
+		change := modelChange
+		change.ModelUUID = utils.MustNewUUID().String()
+		change.Name = fmt.Sprintf("test-model-%d", i)
+		s.processChange(c, change, events)
+	}
+
+	collector := cache.NewMetricsCollector(controller)
+
+	// Start a number of goroutines that hit the collector hopefully
+	// concurrently.
+	expected := `
+# HELP juju_cache_models Number of models in the controller.
+# TYPE juju_cache_models gauge
+juju_cache_models{life="alive",status="active"} 10
+		`[1:]
+	var wg sync.WaitGroup
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(loop int) {
+			defer wg.Done()
+			for i := 0; i < 10; i++ {
+				expectedBuff := bytes.NewBuffer([]byte(expected))
+				err := testutil.CollectAndCompare(
+					collector, expectedBuff,
+					"juju_cache_models")
+				if !c.Check(err, jc.ErrorIsNil) {
+					c.Logf("%d,%d:\nerror:\n%v", loop, i, err)
+				}
+			}
+		}(i)
+	}
+	wg.Wait()
 }
