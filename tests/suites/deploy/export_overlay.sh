@@ -31,8 +31,8 @@ EOT
 
     # did the annotations and overlay get exported?
     echo "${OUT}" | grep -- "--- # overlay.yaml"
-    echo "${OUT}" | grep "enc: bXktaW5jbHVkZQ=="
-    echo "${OUT}" | grep "raw: my-include"
+    echo "${OUT}" | check "enc: bXktaW5jbHVkZQ=="
+    echo "${OUT}" | check "raw: my-include"
 
     destroy_model "cmr-bundles-test-export-overlay"
     destroy_model "test1"

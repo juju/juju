@@ -50,3 +50,25 @@ check_contains() {
         echo "Success: \"${value}\" found"
     fi
 }
+
+check() {
+    local want got
+
+    want=${1}
+
+    got=
+    while read -r d; do
+        got="${got}\n${d}"
+    done
+
+    OUT=$(echo "${got}" | grep -E "${want}" || true)
+    if [ -z "${OUT}" ]; then
+        echo "" 1>&2
+        # shellcheck disable=SC2059
+        printf "Expected: ${want}\n" 1>&2
+        # shellcheck disable=SC2059
+        printf "Recieved: ${got}\n" 1>&2
+        echo "" 1>&2
+        exit 1
+    fi
+}
