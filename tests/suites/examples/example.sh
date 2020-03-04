@@ -7,7 +7,7 @@ run_example1() {
     ensure "example1" "${file}"
 
     # Run your checks here
-    echo "Hello example 1!"
+    echo "Hello example 1!" | check "Hello example 1!"
 
     # Clean up!
     destroy_model "example1"
@@ -16,9 +16,10 @@ run_example1() {
 run_example2() {
     echo
 
+    file="${TEST_DIR}/test-example2.txt"
     ensure "example2" "${file}"
 
-    echo "Hello example 2!"
+    echo "Hello example 2!" | check "Hello example 2!"
 
     destroy_model "example2"
 }

@@ -20,7 +20,7 @@ run_whitespace() {
 }
 
 run_trailing_whitespace() {
-  OUT=$(grep -r " $" tests/ | grep '\.sh:' || true)
+  OUT=$(grep -nr " $" tests/ | grep '\.sh:' || true)
   if [ -n "${OUT}" ]; then
     echo ""
     echo "$(red 'Found some issues:')"
