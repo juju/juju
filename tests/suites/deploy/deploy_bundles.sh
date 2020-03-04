@@ -62,7 +62,7 @@ run_deploy_trusted_bundle() {
 
     bundle=./tests/suites/deploy/bundles/trusted_bundle.yaml
     OUT=$(juju deploy ${bundle} 2>&1 || true)
-    echo "${OUT}" | grep "repeat the deploy command with the --trust argument"
+    echo "${OUT}" | check "repeat the deploy command with the --trust argument"
 
     juju deploy --trust ${bundle}
 
@@ -98,7 +98,7 @@ run_deploy_lxd_profile_bundle_openstack() {
 
     lxd_profile_name="juju-${model_name}-neutron-openvswitch"
     machine_6="$(machine_path 6)"
-    juju status --format=json | jq "${machine_6}" | grep -q "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_6}" | check "${lxd_profile_name}"
 
     destroy_model "${model_name}"
 }
@@ -133,9 +133,9 @@ run_deploy_lxd_profile_bundle() {
     for i in 0 1 2 3
     do
         machine_n_lxd0="$(machine_container_path "${i}" "${i}"/lxd/0)"
-        juju status --format=json | jq "${machine_n_lxd0}" | grep -q "${lxd_profile_name}"
+        juju status --format=json | jq "${machine_n_lxd0}" | check "${lxd_profile_name}"
         machine_n_lxd1="$(machine_container_path "${i}" "${i}"/lxd/1)"
-        juju status --format=json | jq "${machine_n_lxd1}" | grep -q "${lxd_profile_name}"
+        juju status --format=json | jq "${machine_n_lxd1}" | check "${lxd_profile_name}"
     done
 
     destroy_model "${model_name}"
