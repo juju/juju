@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 )
 
-func (k *kubernetesClient) deleteClusterScropeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
+func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
 	defer wg.Done()
 
 	labels := map[string]string{
@@ -25,8 +25,7 @@ func (k *kubernetesClient) deleteClusterScropeResourcesModelTeardown(ctx context
 	tasks := []teardownResources{
 		k.deleteClusterRoleBindingsModelTeardown,
 		k.deleteClusterRolesModelTeardown,
-		k.deleteClusterScopeCustomResourcesModelTeardown,
-		k.deleteCustomResourceDefinitionsModelTeardown,
+		k.deleteClusterScopeAPIExtensionResourcesModelTeardown,
 		k.deleteMutatingWebhookConfigurationsModelTeardown,
 		k.deleteValidatingWebhookConfigurationsModelTeardown,
 		k.deleteStorageClassesModelTeardown,
@@ -78,6 +77,23 @@ func (k *kubernetesClient) deleteClusterRolesModelTeardown(
 	)
 }
 
+func (k *kubernetesClient) deleteClusterScopeAPIExtensionResourcesModelTeardown(
+	ctx context.Context,
+	labels map[string]string,
+	clk jujuclock.Clock,
+	wg *sync.WaitGroup,
+	errChan chan<- error,
+) {
+	defer wg.Done()
+
+	var subwg sync.WaitGroup
+	subwg.Add(2)
+	defer subwg.Wait()
+	// Delete CRs first then CRDs.
+	k.deleteClusterScopeCustomResourcesModelTeardown(ctx, labels, clk, &subwg, errChan)
+	k.deleteCustomResourceDefinitionsModelTeardown(ctx, labels, clk, &subwg, errChan)
+}
+
 func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 	ctx context.Context,
 	labels map[string]string,
@@ -86,7 +102,7 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 	errChan chan<- error,
 ) {
 	getLabels := func(crd apiextensionsv1beta1.CustomResourceDefinition) map[string]string {
-		if !isCRDNameSpaced(crd.Spec.Scope) {
+		if !isCRDScopeNamespaced(crd.Spec.Scope) {
 			// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
 			return labels
 		}

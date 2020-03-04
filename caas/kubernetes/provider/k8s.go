@@ -246,7 +246,7 @@ func purifyResource(resource resourcePurifier) {
 	resource.SetResourceVersion("")
 }
 
-func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
+func (k *kubernetesClient) extendedClient() apiextensionsclientset.Interface {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 	client := k.apiextensionsClientUnlocked
@@ -457,7 +457,7 @@ func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (er
 
 	var wg sync.WaitGroup
 	wg.Add(1)
-	go k.deleteClusterScropeResourcesModelTeardown(ctx, &wg, errChan)
+	go k.deleteClusterScopeResourcesModelTeardown(ctx, &wg, errChan)
 	wg.Add(1)
 	go k.deleteNamespaceModelTeardown(ctx, &wg, errChan)
 

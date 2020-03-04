@@ -1584,7 +1584,9 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		errCh <- destroyFunc()
 	}()
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 7)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 
 	select {

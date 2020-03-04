@@ -24,16 +24,15 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) TestdeleteClusterScropeResourcesModelTeardown(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardown(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	// CRs of this Cluster scope CRD will get deleted.
 	crdClusterScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -87,9 +86,8 @@ func (s *K8sBrokerSuite) TestdeleteClusterScropeResourcesModelTeardown(c *gc.C) 
 	// CRs of this namespaced scope CRD will be skipped.
 	crdNamespacedScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -277,27 +275,28 @@ func (s *K8sBrokerSuite) TestdeleteClusterScropeResourcesModelTeardown(c *gc.C) 
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go s.broker.DeleteClusterScropeResourcesModelTeardown(ctx, &wg, errCh)
+	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
-	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 7)
+	err := s.clock.WaitAdvance(time.Second, testing.ShortWait, 6)
+	c.Assert(err, jc.ErrorIsNil)
+	err = s.clock.WaitAdvance(time.Second, testing.ShortWait, 1)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for DeleteClusterScropeResourcesModelTeardown return")
+		c.Fatalf("timed out waiting for DeleteClusterScopeResourcesModelTeardown return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestdeleteClusterScropeResourcesModelTeardownTimeout(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
 	// CRs of this Cluster scope CRD will get deleted.
 	crdClusterScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -351,9 +350,8 @@ func (s *K8sBrokerSuite) TestdeleteClusterScropeResourcesModelTeardownTimeout(c 
 	// CRs of this namespaced scope CRD will be skipped.
 	crdNamespacedScope := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "tfjobs.kubeflow.org",
-			Namespace: "test",
-			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
+			Name:   "tfjobs.kubeflow.org",
+			Labels: map[string]string{"juju-app": "app-name", "juju-model": "test"},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   "kubeflow.org",
@@ -480,19 +478,19 @@ func (s *K8sBrokerSuite) TestdeleteClusterScropeResourcesModelTeardownTimeout(c 
 
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
-	go s.broker.DeleteClusterScropeResourcesModelTeardown(ctx, &wg, errCh)
+	go s.broker.DeleteClusterScopeResourcesModelTeardown(ctx, &wg, errCh)
 
-	err := s.clock.WaitAdvance(500*time.Millisecond, testing.ShortWait, 7)
+	err := s.clock.WaitAdvance(500*time.Millisecond, testing.ShortWait, 6)
 	c.Assert(err, jc.ErrorIsNil)
 	select {
 	case <-done:
 		c.Assert(<-errCh, gc.ErrorMatches, `context deadline exceeded`)
 	case <-time.After(testing.LongWait):
-		c.Fatalf("timed out waiting for DeleteClusterScropeResourcesModelTeardown return")
+		c.Fatalf("timed out waiting for DeleteClusterScopeResourcesModelTeardown return")
 	}
 }
 
-func (s *K8sBrokerSuite) TestdeleteNamespaceModelTeardown(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardown(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -541,7 +539,7 @@ func (s *K8sBrokerSuite) TestdeleteNamespaceModelTeardown(c *gc.C) {
 	}
 }
 
-func (s *K8sBrokerSuite) TestdeleteNamespaceModelTeardownFailed(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteNamespaceModelTeardownFailed(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 

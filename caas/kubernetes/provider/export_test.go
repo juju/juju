@@ -137,8 +137,8 @@ func (k *kubernetesClient) ConfigurePodFiles(
 	return k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgMapName)
 }
 
-func (k *kubernetesClient) DeleteClusterScropeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
-	k.deleteClusterScropeResourcesModelTeardown(ctx, wg, errChan)
+func (k *kubernetesClient) DeleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
+	k.deleteClusterScopeResourcesModelTeardown(ctx, wg, errChan)
 }
 
 func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
