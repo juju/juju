@@ -8,7 +8,10 @@ base: core18
 
 apps:
   juju:
-    command: wrappers/juju
+    environment:
+      # Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
+      PATH: "$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH"
+    command: bin/juju
   fetch-oci:
     daemon: oneshot
     command: wrappers/fetch-oci
@@ -18,7 +21,11 @@ parts:
     plugin: dump
     source: snap/local
   juju:
+    # TODO(wallyworld) - use go plugin and remove dep when we migrate to go mod.
+    # plugin: go
+    # go-buildtags: xxx
     plugin: dep
+    go-channel: 1.14/stable
     go-importpath: github.com/juju/juju
     # The source can be your local tree or github
     # source: https://github.com/juju/juju.git
@@ -27,10 +34,8 @@ parts:
     # source: file:///full/file/path
     # By default, reuse existing tree
     source: .
-    source-type: git
-    # this is for building in a docker container
-    build-packages: [gcc, libc6-dev]
-    build-attributes: [no-patchelf]
+    # TODO(wallyworld) - uncomment source-type once LP:1860526 is fixed. 
+    #source-type: git
     # You can grab a specific tag, commit, or branch
     # source-tag: juju-2.0.2
     # source-commit: a83896d913d7e43c960e441c1e41612116d92d46
@@ -42,6 +47,10 @@ parts:
       # Instead, you should use the released agent
       - github.com/juju/juju/cmd/jujud
       - github.com/juju/juju/cmd/plugins/juju-metadata
+    go-external-strings:
+      github.com/juju/juju/version.GitCommit: ""
+      github.com/juju/juju/version.GitTreeState: ""
+      github.com/juju/juju/version.build: ""
     override-build: |
       snapcraftctl build
 
@@ -61,9 +70,9 @@ parts:
       cp -a jujud-versions.yaml $SNAPCRAFT_PART_INSTALL/bin
 
 hooks:
-  install: {}
   connect-plug-peers: {}
   disconnect-plug-peers: {}
+  post-refresh: {}
 
 plugs:
   peers:
