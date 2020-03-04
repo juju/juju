@@ -236,7 +236,7 @@ destroy_controller() {
 
     echo "====> Destroying juju ($(green "${name}"))"
     echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
-    CHK=$(cat "${OUT}" | grep -i "ERROR" || true)
+    CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues\\n"
         cat "${output}"
