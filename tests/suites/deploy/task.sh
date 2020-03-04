@@ -9,13 +9,13 @@ test_deploy() {
     echo "==> Checking for dependencies"
     check_dependencies juju
 
-    file="${TEST_DIR}/test-cmr-bundles.txt"
+    file="${TEST_DIR}/test-deploy-ctl.txt"
 
-    bootstrap "test-cmr-bundles" "${file}"
+    bootstrap "test-deploy-ctl" "${file}"
 
     test_deploy_charms
     test_deploy_bundles
     test_cmr_bundles_export_overlay
 
-    destroy_controller "test-cmr-bundles"
+    destroy_controller "test-deploy-ctl"
 }

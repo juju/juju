@@ -180,7 +180,7 @@ destroy_model() {
     output="${TEST_DIR}/${name}-destroy.txt"
 
     echo "====> Destroying juju model ${name}"
-    echo "${name}" | xargs -I % juju destroy-model --force -y % 2>&1 | add_date >"${output}"
+    echo "${name}" | xargs -I % juju destroy-model --force -y % >"${output}" 2>&1
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues\\n"
@@ -214,37 +214,30 @@ destroy_controller() {
         echo "====> Destroying model ($(green "${name}"))"
 
         output="${TEST_DIR}/${name}-destroy-model.txt"
-        echo "${name}" | xargs -I % juju destroy-model --force -y % 2>&1 | add_date >"${output}"
+        echo "${name}" | xargs -I % juju destroy-model --force -y % >"${output}" 2>&1
 
         echo "====> Destroyed model ($(green "${name}"))"
         return
     fi
 
-    echo "====> Introspection gathering"
-
     set +e
-    introspect_controller "${name}" || true
-    set_verbosity
 
+    echo "====> Introspection gathering"
+    introspect_controller "${name}" || true
     echo "====> Introspection gathered"
 
     # Unfortunately having any offers on a model, leads to failure to clean
     # up a controller.
     # See discussion under https://bugs.launchpad.net/juju/+bug/1830292.
     echo "====> Removing offers"
-
-    set +e
     remove_controller_offers "${name}"
-    set_verbosity
-
     echo "====> Removed offers"
-
 
     output="${TEST_DIR}/${name}-destroy-controller.txt"
 
     echo "====> Destroying juju ($(green "${name}"))"
-    echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % 2>&1 | add_date >"${output}"
-    CHK=$(cat "${output}" | grep -i "ERROR" || true)
+    echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+    CHK=$(cat "${OUT}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues\\n"
         cat "${output}"
@@ -252,6 +245,8 @@ destroy_controller() {
     fi
     sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
     echo "====> Destroyed juju ($(green "${name}"))"
+
+    set_verbosity
 }
 
 # cleanup_jujus is used to destroy all the known controllers the test suite
@@ -266,6 +261,7 @@ cleanup_jujus() {
         done < "${TEST_DIR}/jujus"
         rm -f "${TEST_DIR}/jujus"
     fi
+    echo "====> Completed cleaning up jujus"
 }
 
 introspect_controller() {

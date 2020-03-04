@@ -65,9 +65,9 @@ check() {
     if [ -z "${OUT}" ]; then
         echo "" 1>&2
         # shellcheck disable=SC2059
-        printf "Expected: ${want}\n" 1>&2
+        printf "$(red \"Expected\"): ${want}\n"  1>&2
         # shellcheck disable=SC2059
-        printf "Recieved: ${got}\n" 1>&2
+        printf "$(red \"Recieved\"): ${got}\n" 1>&2
         echo "" 1>&2
         exit 1
     fi
