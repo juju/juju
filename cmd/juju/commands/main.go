@@ -118,7 +118,7 @@ func (m main) Run(args []string) int {
 	}
 
 	if newInstall {
-		ctx.Infof("\nSince Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
+		ctx.Verbosef("\nSince Juju %v is being run for the first time, downloading latest cloud information.\n", jujuversion.Current.Major)
 		updateCmd := cloud.NewUpdatePublicCloudsCommand()
 		if err := updateCmd.Run(ctx); err != nil {
 			cmd.WriteError(ctx.Stderr, err)
@@ -181,7 +181,7 @@ If you want to use Juju {{.OldJujuVersion}}, run 'juju' commands as '{{.OldJujuC
 		"OldJujuVersion":     ver,
 		"OldJujuCommand":     juju1xCmdName,
 	})
-	ctx.Infof(buf.String())
+	ctx.Verbosef(buf.String())
 	return newInstall
 }
 

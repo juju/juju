@@ -229,7 +229,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 		}.Run([]string{"juju", "version"})
 	}
 
-	stdout, stderr := gitjujutesting.CaptureOutput(c, f)
+	stdout, _ := gitjujutesting.CaptureOutput(c, f)
 
 	select {
 	case args := <-argChan:
@@ -239,14 +239,8 @@ func (s *MainSuite) TestFirstRun2xFrom1xOnUbuntu(c *gc.C) {
 	}
 
 	c.Check(code, gc.Equals, 0)
-	c.Check(string(stderr), gc.Equals, fmt.Sprintf(`
-Welcome to Juju %s. 
-    See https://jujucharms.com/docs/stable/introducing-2 for more details.
-
-If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
-   See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
-
-Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
+	// Since we have not asked for a verbose output the message will be in the log.
+	c.Check(c.GetTestLog(), jc.Contains, fmt.Sprintf("Welcome to Juju %s. \n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
 }
 
