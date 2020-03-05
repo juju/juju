@@ -16,6 +16,7 @@ type Settings struct {
 	relationTag string
 	unitTag     string
 	settings    params.Settings
+	dirty       bool
 }
 
 func newSettings(st *State, relationTag, unitTag string, settings params.Settings) *Settings {
@@ -45,6 +46,7 @@ func (s *Settings) Map() params.Settings {
 // Set sets key to value.
 func (s *Settings) Set(key, value string) {
 	s.settings[key] = value
+	s.dirty = true
 }
 
 // Delete removes key.
@@ -52,6 +54,7 @@ func (s *Settings) Delete(key string) {
 	// Keys are only marked as deleted, because we need to report them
 	// back to the server for deletion on Write().
 	s.settings[key] = ""
+	s.dirty = true
 }
 
 // FinalResult returns a params.Settings with the final updates applied.
@@ -63,4 +66,8 @@ func (s *Settings) FinalResult() params.Settings {
 		settingsCopy[k] = v
 	}
 	return settingsCopy
+}
+
+func (s *Settings) IsDirty() bool {
+	return s.dirty
 }

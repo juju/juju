@@ -95,7 +95,7 @@ func (ctx *ContextRelation) ApplicationSettings() (jujuc.Settings, error) {
 // WriteSettings persists all changes made to the relation settings (unit and application)
 func (ctx *ContextRelation) WriteSettings() error {
 	var appSettings params.Settings
-	if ctx.applicationSettings != nil {
+	if ctx.applicationSettings != nil && ctx.applicationSettings.IsDirty() {
 		appSettings = ctx.applicationSettings.FinalResult()
 	}
 	var unitSettings params.Settings

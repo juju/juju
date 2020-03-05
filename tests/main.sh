@@ -34,6 +34,7 @@ TEST_NAMES="static_analysis \
             controller \
             deploy \
             machine \
+            relations \
             smoke"
 
 # Show test suites, can be used to test if a test suite is available or not.
