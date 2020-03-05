@@ -751,12 +751,12 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 		}
 		gen := deployment.GetGeneration()
 		result.Generation = &gen
-		message, ssStatus, err := k.getDeploymentStatus(deployment)
+		message, deployStatus, err := k.getDeploymentStatus(deployment)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
 		}
 		result.Status = status.StatusInfo{
-			Status:  ssStatus,
+			Status:  deployStatus,
 			Message: message,
 		}
 		return &result, nil
@@ -774,12 +774,12 @@ func (k *kubernetesClient) GetService(appName string, includeClusterIP bool) (*c
 
 		gen := ds.GetGeneration()
 		result.Generation = &gen
-		message, ssStatus, err := k.getDaemonSetStatus(ds)
+		message, dsStatus, err := k.getDaemonSetStatus(ds)
 		if err != nil {
 			return nil, errors.Annotatef(err, "getting status for %s", ss.Name)
 		}
 		result.Status = status.StatusInfo{
-			Status:  ssStatus,
+			Status:  dsStatus,
 			Message: message,
 		}
 	}
