@@ -165,30 +165,6 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	}
 }
 
-func (s *RelationGetSuite) TestRelationGetAppSettings(c *gc.C) {
-	hctx, rinfo := s.newHookContext(1, "m/0", "mysql")
-	rinfo.rels[1].SetLocalApplicationSettings(jujuctesting.Settings{"local": "true"})
-	rinfo.rels[1].SetRemoteApplicationSettings(jujuctesting.Settings{"remote": "true"})
-
-	// As u/0 (leader) read the application databag for u
-	com, err := jujuc.NewCommand(hctx, cmdString("relation-get"))
-	c.Assert(err, jc.ErrorIsNil)
-	ctx := cmdtesting.Context(c)
-	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--app", "-", "u"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Check(bufferString(ctx.Stdout), gc.Matches, `local: "true"\s*`)
-
-	// As u/0 (leader) read the application databag for mysql
-	com, err = jujuc.NewCommand(hctx, cmdString("relation-get"))
-	c.Assert(err, jc.ErrorIsNil)
-	ctx = cmdtesting.Context(c)
-	code = cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--app", "-", "mysql"})
-	c.Check(code, gc.Equals, 0)
-	c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Check(bufferString(ctx.Stdout), gc.Matches, `remote: "true"\s*`)
-}
-
 var relationGetFormatTests = []struct {
 	summary string
 	relid   int
