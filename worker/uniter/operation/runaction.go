@@ -103,13 +103,14 @@ func (ra *runAction) Execute(state State) (*State, error) {
 		}
 	}()
 
-	err := ra.runner.RunAction(ra.name)
+	handlerType, err := ra.runner.RunAction(ra.name)
 	close(done)
 	<-wait
+
 	if err != nil {
 		// This indicates an actual error -- an action merely failing should
 		// be handled inside the Runner, and returned as nil.
-		return nil, errors.Annotatef(err, "running action %q", ra.name)
+		return nil, errors.Annotatef(err, "action %q (via %s) failed", ra.name, handlerType)
 	}
 	return stateChange{
 		Kind:     RunAction,
