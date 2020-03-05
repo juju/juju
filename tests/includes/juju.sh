@@ -233,20 +233,24 @@ destroy_controller() {
     remove_controller_offers "${name}"
     echo "====> Removed offers"
 
+    set_verbosity
+
     output="${TEST_DIR}/${name}-destroy-controller.txt"
 
     echo "====> Destroying juju ($(green "${name}"))"
     echo "${name}" | xargs -I % juju destroy-controller --destroy-all-models -y % >"${output}" 2>&1
+
+    set +e
     CHK=$(cat "${output}" | grep -i "ERROR" || true)
     if [ -n "${CHK}" ]; then
         printf "\\nFound some issues\\n"
         cat "${output}"
         exit 1
     fi
+    set_verbosity
+
     sed -i "/^${name}$/d" "${TEST_DIR}/jujus"
     echo "====> Destroyed juju ($(green "${name}"))"
-
-    set_verbosity
 }
 
 # cleanup_jujus is used to destroy all the known controllers the test suite
@@ -259,7 +263,7 @@ cleanup_jujus() {
         while read -r juju_name; do
             destroy_controller "${juju_name}"
         done < "${TEST_DIR}/jujus"
-        rm -f "${TEST_DIR}/jujus"
+        rm -f "${TEST_DIR}/jujus" || true
     fi
     echo "====> Completed cleaning up jujus"
 }

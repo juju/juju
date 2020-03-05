@@ -62,7 +62,7 @@ run_deploy_trusted_bundle() {
 
     bundle=./tests/suites/deploy/bundles/trusted_bundle.yaml
     OUT=$(juju deploy ${bundle} 2>&1 || true)
-    echo "${OUT}" | check "FAIL!!: repeat the deploy command with the --trust argument"
+    echo "${OUT}" | check "repeat the deploy command with the --trust argument"
 
     juju deploy --trust ${bundle}
 
