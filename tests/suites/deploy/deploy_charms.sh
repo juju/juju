@@ -1,14 +1,14 @@
 run_deploy_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy.txt"
+    file="${TEST_DIR}/test-deploy-charm.txt"
 
-    ensure "test-deploy" "${file}"
+    ensure "test-deploy-charm" "${file}"
 
     juju deploy cs:~jameinel/ubuntu-lite-7
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-    destroy_model "test-deploy"
+    destroy_model "test-deploy-charm"
 }
 
 run_deploy_lxd_profile_charm() {
