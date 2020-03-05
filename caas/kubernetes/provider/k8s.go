@@ -91,6 +91,19 @@ const (
 
 	// JujuRunServerSocketPort is the port used by juju run callbacks.
 	JujuRunServerSocketPort = 30666
+
+	// A set of constants defining history limits for certain k8s deployment
+	// types.
+	// TODO We may want to make these confiurable in the future
+	// DaemonsetRevisionHistoryLimit is the number of old history states to
+	// retain to allow rollbacks
+	DaemonsetRevisionHistoryLimit int32 = 0
+	// DeploymentRevisionHistoryLimit is the number of old ReplicaSets to retain
+	// to allow rollback
+	DeploymentRevisionHistoryLimit int32 = 0
+	// StatefulsetRevisionHistoryLimit is the maximum number of revisions that
+	// will be maintained in the StatefulSet's revision history
+	StatefulsetRevisionHistoryLimit int32 = 0
 )
 
 var (
@@ -1599,13 +1612,6 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
-// getRevisionHistoryLimit returns the number of replicaset history records to keep.
-func getRevisionHistoryLimit() *int32 {
-	// We don't want to keep any replicaset history.
-	var i int32 = 0
-	return &i
-}
-
 func (k *kubernetesClient) configureDaemonSet(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
@@ -1632,7 +1638,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: k.getDaemonSetLabels(appName),
 			},
-			RevisionHistoryLimit: getRevisionHistoryLimit(),
+			RevisionHistoryLimit: int32Ptr(DaemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
@@ -1670,7 +1676,7 @@ func (k *kubernetesClient) configureDeployment(
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
 			Replicas:             replicas,
-			RevisionHistoryLimit: getRevisionHistoryLimit(),
+			RevisionHistoryLimit: int32Ptr(DeploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
 			},
