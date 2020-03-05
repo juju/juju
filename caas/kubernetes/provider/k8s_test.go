@@ -10,6 +10,7 @@ import (
 	"github.com/golang/mock/gomock"
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
+	"github.com/juju/juju/core/network"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
@@ -53,6 +54,10 @@ var _ = gc.Suite(&K8sSuite{})
 
 func float64Ptr(f float64) *float64 {
 	return &f
+}
+
+func intPtr(i int) *int {
+	return &i
 }
 
 func int32Ptr(i int32) *int32 {
@@ -1963,6 +1968,283 @@ func (s *K8sBrokerSuite) TestVersion(c *gc.C) {
 	ver, err := s.broker.Version()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(ver, gc.DeepEquals, &version.Number{Major: 1, Minor: 15})
+}
+
+func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	gomock.InOrder(
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+			Return(&core.ServiceList{Items: []core.Service{}}, nil),
+
+		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+
+	caasSvc, err := s.broker.GetService("app-name", false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(caasSvc, gc.DeepEquals, &caas.Service{})
+}
+
+func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Service, assertCalls ...*gomock.Call) {
+	svc := core.Service{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+				"a":                  "b",
+			}},
+		Spec: core.ServiceSpec{
+			Selector: map[string]string{"juju-app": "app-name"},
+			Type:     core.ServiceTypeLoadBalancer,
+			Ports: []core.ServicePort{
+				{Port: 80, TargetPort: intstr.FromInt(80), Protocol: "TCP"},
+				{Port: 8080, Protocol: "TCP", Name: "fred"},
+			},
+			LoadBalancerIP: "10.0.0.1",
+			ExternalName:   "ext-name",
+		},
+	}
+	svc.SetUID("uid-xxxxx")
+
+	gomock.InOrder(
+		append([]*gomock.Call{
+			s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+				Return(&core.ServiceList{Items: []core.Service{svc}}, nil),
+
+			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
+				Return(nil, s.k8sNotFoundError()),
+		}, assertCalls...)...,
+	)
+
+	caasSvc, err := s.broker.GetService("app-name", false)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(caasSvc, gc.DeepEquals, expectedSvcResult)
+}
+
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundNoWorkload(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+	s.assertGetService(c,
+		&caas.Service{
+			Id: "uid-xxxxx",
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("10.0.0.1", network.ScopePublic),
+			},
+		},
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+	)
+}
+
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithStatefulSet(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.Service = &specs.ServiceSpec{
+		ScalePolicy: "serial",
+	}
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+
+	numUnits := int32(2)
+	workload := &appsv1.StatefulSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju-app-uuid":      "appuuid",
+				"juju.io/controller": testing.ControllerTag.Id(),
+			},
+		},
+		Spec: appsv1.StatefulSetSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					Labels: map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+					},
+				},
+				Spec: podSpec,
+			},
+			PodManagementPolicy: apps.PodManagementPolicyType("OrderedReady"),
+			ServiceName:         "app-name-endpoints",
+		},
+	}
+	workload.SetGeneration(1)
+
+	s.assertGetService(c,
+		&caas.Service{
+			Id: "uid-xxxxx",
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("10.0.0.1", network.ScopePublic),
+			},
+			Scale:      intPtr(2),
+			Generation: int64Ptr(1),
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+		},
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(workload, nil),
+		s.mockEvents.EXPECT().List(
+			listOptionsFieldSelectorMatcher("involvedObject.name=app-name,involvedObject.kind=StatefulSet"),
+		).Return(&core.EventList{}, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDeployment(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.Service = &specs.ServiceSpec{
+		ScalePolicy: "serial",
+	}
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+
+	numUnits := int32(2)
+	workload := &appsv1.Deployment{
+		ObjectMeta: v1.ObjectMeta{
+			Name:   "app-name",
+			Labels: map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{
+				"juju.io/controller": testing.ControllerTag.Id(),
+				"fred":               "mary",
+			}},
+		Spec: appsv1.DeploymentSpec{
+			Replicas: &numUnits,
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels: map[string]string{
+						"juju-app": "app-name",
+					},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"fred":               "mary",
+						"juju.io/controller": testing.ControllerTag.Id(),
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+	}
+	workload.SetGeneration(1)
+
+	s.assertGetService(c,
+		&caas.Service{
+			Id: "uid-xxxxx",
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("10.0.0.1", network.ScopePublic),
+			},
+			Scale:      intPtr(2),
+			Generation: int64Ptr(1),
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+		},
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(workload, nil),
+		s.mockEvents.EXPECT().List(
+			listOptionsFieldSelectorMatcher("involvedObject.name=app-name,involvedObject.kind=Deployment"),
+		).Return(&core.EventList{}, nil),
+	)
+}
+
+func (s *K8sBrokerSuite) TestGetServiceSvcFoundWithDaemonSet(c *gc.C) {
+	ctrl := s.setupController(c)
+	defer ctrl.Finish()
+
+	basicPodSpec := getBasicPodspec()
+	basicPodSpec.Service = &specs.ServiceSpec{
+		ScalePolicy: "serial",
+	}
+	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", basicPodSpec, "operator/image-path")
+	c.Assert(err, jc.ErrorIsNil)
+	podSpec := provider.PodSpec(workloadSpec)
+
+	workload := &appsv1.DaemonSet{
+		ObjectMeta: v1.ObjectMeta{
+			Name:        "app-name",
+			Labels:      map[string]string{"juju-app": "app-name"},
+			Annotations: map[string]string{"juju.io/controller": testing.ControllerTag.Id()}},
+		Spec: appsv1.DaemonSetSpec{
+			Selector: &v1.LabelSelector{
+				MatchLabels: map[string]string{"juju-app": "app-name"},
+			},
+			Template: core.PodTemplateSpec{
+				ObjectMeta: v1.ObjectMeta{
+					GenerateName: "app-name-",
+					Labels:       map[string]string{"juju-app": "app-name"},
+					Annotations: map[string]string{
+						"apparmor.security.beta.kubernetes.io/pod": "runtime/default",
+						"seccomp.security.beta.kubernetes.io/pod":  "docker/default",
+						"juju.io/controller":                       testing.ControllerTag.Id(),
+					},
+				},
+				Spec: podSpec,
+			},
+		},
+		Status: appsv1.DaemonSetStatus{
+			DesiredNumberScheduled: 2,
+			NumberReady:            2,
+		},
+	}
+	workload.SetGeneration(1)
+
+	s.assertGetService(c,
+		&caas.Service{
+			Id: "uid-xxxxx",
+			Addresses: network.ProviderAddresses{
+				network.NewScopedProviderAddress("10.0.0.1", network.ScopePublic),
+			},
+			Scale:      intPtr(2),
+			Generation: int64Ptr(1),
+			Status: status.StatusInfo{
+				Status: status.Active,
+			},
+		},
+		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDeployments.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(nil, s.k8sNotFoundError()),
+		s.mockDaemonSets.EXPECT().Get("app-name", v1.GetOptions{}).
+			Return(workload, nil),
+		s.mockEvents.EXPECT().List(
+			listOptionsFieldSelectorMatcher("involvedObject.name=app-name,involvedObject.kind=DaemonSet"),
+		).Return(&core.EventList{}, nil),
+	)
 }
 
 func (s *K8sBrokerSuite) TestEnsureServiceWithConfigMapAndSecretsUpdate(c *gc.C) {
