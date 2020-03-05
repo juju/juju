@@ -539,6 +539,9 @@ type statusContext struct {
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
 func (context *statusContext) fetchMachines(st Backend) error {
+	if context.model.Type() == state.ModelTypeCAAS {
+		return nil
+	}
 	context.machines = make(map[string][]*state.Machine)
 	context.allMachines = make(map[string]*state.Machine)
 
@@ -549,24 +552,23 @@ func (context *statusContext) fetchMachines(st Backend) error {
 	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
 		context.allMachines[m.Id()] = m
-		parentId, ok := m.ParentId()
+		_, ok := m.ParentId()
 		if !ok {
 			// Only top level host machines go directly into the machine map.
 			context.machines[m.Id()] = []*state.Machine{m}
 		} else {
 			topParentId := state.TopParentId(m.Id())
-			machines, ok := context.machines[topParentId]
-			if !ok {
-				panic(fmt.Errorf("unexpected machine id %q", parentId))
-			}
-			machines = append(machines, m)
-			context.machines[topParentId] = machines
+			machines := context.machines[topParentId]
+			context.machines[topParentId] = append(machines, m)
 		}
 	}
 	return nil
 }
 
 func (context *statusContext) fetchOpenPorts(st Backend) error {
+	if context.model.Type() == state.ModelTypeCAAS {
+		return nil
+	}
 	context.openPorts = make(map[string]*state.Ports)
 	allOpenPorts, err := context.model.AllPorts()
 	if err != nil {
@@ -1376,7 +1378,17 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 		result.PublicAddress = context.unitPublicAddress(unit)
 
 		if ports := context.openPorts[context.unitMachineID(unit)]; ports != nil {
+			var corePorts []network.PortRange
 			for _, port := range ports.PortsForUnit(unit.Name()) {
+				corePorts = append(corePorts, network.PortRange{
+					Protocol: port.Protocol,
+					FromPort: port.FromPort,
+					ToPort:   port.ToPort,
+				})
+			}
+			network.SortPortRanges(corePorts)
+
+			for _, port := range corePorts {
 				result.OpenedPorts = append(result.OpenedPorts, port.String())
 			}
 		}
