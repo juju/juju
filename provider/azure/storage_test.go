@@ -253,7 +253,6 @@ func (s *storageSuite) TestCreateVolumes(c *gc.C) {
 			"foo": to.StringPtr("bar"),
 		}
 		return &compute.Disk{
-			Name:     to.StringPtr(name),
 			Location: to.StringPtr("westus"),
 			Tags:     tags,
 			Sku: &compute.DiskSku{
@@ -334,7 +333,6 @@ func (s *storageSuite) TestCreateVolumesWithInvalidCredential(c *gc.C) {
 			"foo": to.StringPtr("bar"),
 		}
 		return &compute.Disk{
-			Name:     to.StringPtr(name),
 			Location: to.StringPtr("westus"),
 			Tags:     tags,
 			DiskProperties: &compute.DiskProperties{
@@ -494,8 +492,14 @@ func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
 		Caching:      compute.CachingTypesReadWrite,
 		CreateOption: compute.DiskCreateOptionTypesEmpty,
 	}}
-	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[1], &virtualMachines[0])
+	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &machine0DataDisks,
+			},
+		},
+		Tags: map[string]*string{},
+	})
 
 	machine1DataDisks = append(machine1DataDisks, compute.DataDisk{
 		Lun:        to.Int32Ptr(1),
@@ -508,7 +512,14 @@ func (s *storageSuite) TestCreateVolumesLegacy(c *gc.C) {
 		Caching:      compute.CachingTypesReadWrite,
 		CreateOption: compute.DiskCreateOptionTypesEmpty,
 	})
-	assertRequestBody(c, s.requests[3], &virtualMachines[1])
+	assertRequestBody(c, s.requests[3], &compute.VirtualMachine{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &machine1DataDisks,
+			},
+		},
+		Tags: map[string]*string{},
+	})
 }
 
 func (s *storageSuite) TestListVolumes(c *gc.C) {
@@ -520,7 +531,7 @@ func (s *storageSuite) TestListVolumes(c *gc.C) {
 	}, {
 		Name: to.StringPtr("volume-1"),
 	}}
-	volumeSender := azuretesting.NewSenderWithValue(&compute.DiskList{
+	volumeSender := azuretesting.NewSenderWithValue(compute.DiskList{
 		Value: &disks,
 	})
 	volumeSender.PathPattern = `.*/Microsoft\.Compute/disks`
@@ -892,8 +903,14 @@ func (s *storageSuite) testAttachVolumes(c *gc.C, legacy bool) {
 		CreateOption: compute.DiskCreateOptionTypesAttach,
 	}}
 
-	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[1], &virtualMachines[0])
+	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &machine0DataDisks,
+			},
+		},
+		Tags: map[string]*string{},
+	})
 }
 
 func (s *storageSuite) TestDetachVolumes(c *gc.C) {
@@ -978,12 +995,17 @@ func (s *storageSuite) testDetachVolumes(c *gc.C, legacy bool) {
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
 	c.Assert(s.requests[2].Method, gc.Equals, "GET") // update machine-0 - future.Results call
 
-	machine0DataDisks = []compute.DataDisk{
-		machine0DataDisks[0],
-		machine0DataDisks[2],
-	}
-	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[1], &virtualMachines[0])
+	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &[]compute.DataDisk{
+					machine0DataDisks[0],
+					machine0DataDisks[2],
+				},
+			},
+		},
+		Tags: map[string]*string{},
+	})
 }
 
 func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
@@ -1043,7 +1065,12 @@ func (s *storageSuite) TestDetachVolumesFinal(c *gc.C) {
 	c.Assert(s.requests[1].Method, gc.Equals, "PUT") // update machine-0
 	c.Assert(s.requests[2].Method, gc.Equals, "GET") // update machine-0 future.Results call
 
-	machine0DataDisks = []compute.DataDisk{}
-	virtualMachines[0].StorageProfile.DataDisks = &machine0DataDisks
-	assertRequestBody(c, s.requests[1], &virtualMachines[0])
+	assertRequestBody(c, s.requests[1], &compute.VirtualMachine{
+		VirtualMachineProperties: &compute.VirtualMachineProperties{
+			StorageProfile: &compute.StorageProfile{
+				DataDisks: &[]compute.DataDisk{},
+			},
+		},
+		Tags: map[string]*string{},
+	})
 }

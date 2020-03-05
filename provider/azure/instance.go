@@ -227,11 +227,8 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 		return errorutils.HandleCredentialError(errors.Annotate(err, "querying network security group"), ctx)
 	}
 
-	var securityRules []network.SecurityRule
-	if nsg.SecurityRules != nil {
-		securityRules = *nsg.SecurityRules
-	} else {
-		nsg.SecurityRules = &securityRules
+	if nsg.SecurityRules == nil {
+		nsg.SecurityRules = new([]network.SecurityRule)
 	}
 
 	// Create rules one at a time; this is necessary to avoid trampling
@@ -246,7 +243,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 
 		// Check if the rule already exists; OpenPorts must be idempotent.
 		var found bool
-		for _, rule := range securityRules {
+		for _, rule := range *nsg.SecurityRules {
 			if to.String(rule.Name) == ruleName {
 				found = true
 				break
@@ -302,7 +299,7 @@ func (inst *azureInstance) OpenPorts(ctx context.ProviderCallContext, machineId 
 		if err != nil {
 			return errorutils.HandleCredentialError(errors.Annotatef(err, "creating security rule for %q", ruleName), ctx)
 		}
-		securityRules = append(securityRules, securityRule)
+		*nsg.SecurityRules = append(*nsg.SecurityRules, securityRule)
 	}
 	return nil
 }

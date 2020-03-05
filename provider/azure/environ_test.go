@@ -1877,7 +1877,7 @@ func makeProvidersResult() resources.ProviderListResult {
 }
 
 func makeResourcesResult() resources.ListResult {
-	theResources := []resources.GenericResource{{
+	theResources := []resources.GenericResourceExpanded{{
 		ID:       to.StringPtr("/subscriptions/foo/resourcegroups/bar/providers/Beck.Replica/liars/scissor/boxing-day-blues"),
 		Name:     to.StringPtr("boxing-day-blues"),
 		Type:     to.StringPtr("Beck.Replica/liars/scissor"),

@@ -4,13 +4,14 @@
 package azuretesting
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"regexp"
 	"sync"
 
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/mocks"
 	"github.com/juju/loggo"
 )
@@ -47,7 +48,7 @@ func (s *MockSender) Do(req *http.Request) (*http.Response, error) {
 // to JSON and sets it as the content. This function will panic if marshalling
 // fails.
 func NewSenderWithValue(v interface{}) *MockSender {
-	content, err := json.Marshal(v)
+	content, err := JsonMarshalRaw(v, reflect.TypeOf(date.Date{}), reflect.TypeOf(date.Time{}))
 	if err != nil {
 		panic(err)
 	}
