@@ -66,9 +66,9 @@ version: 3
 
 func (s *typesSuite) TestValidateServiceSpec(c *gc.C) {
 	spec := specs.ServiceSpec{
-		ScalePolicy: "foo",
+		ScalePolicy: "bar",
 	}
-	c.Assert(spec.Validate(), gc.ErrorMatches, `foo not supported`)
+	c.Assert(spec.Validate(), gc.ErrorMatches, `scale policy "bar" not supported`)
 
 	spec = specs.ServiceSpec{
 		ScalePolicy: "parallel",

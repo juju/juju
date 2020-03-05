@@ -1113,6 +1113,12 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
+	if params.Deployment.DeploymentType != caas.DeploymentStateful {
+		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
+			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s applications", caas.DeploymentStateful))
+		}
+	}
+
 	hasService := !params.PodSpec.OmitServiceFrontend && !params.Deployment.ServiceType.IsOmit()
 	if hasService {
 		var ports []core.ContainerPort
@@ -1593,6 +1599,13 @@ func podAnnotations(annotations k8sannotations.Annotation) k8sannotations.Annota
 		Add("seccomp.security.beta.kubernetes.io/pod", "docker/default")
 }
 
+// getRevisionHistoryLimit returns the number of replicaset history records to keep.
+func getRevisionHistoryLimit() *int32 {
+	// We don't want to keep any replicaset history.
+	var i int32 = 0
+	return &i
+}
+
 func (k *kubernetesClient) configureDaemonSet(
 	appName, deploymentName string,
 	annotations k8sannotations.Annotation,
@@ -1609,7 +1622,6 @@ func (k *kubernetesClient) configureDaemonSet(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return cleanUp, errors.Trace(err)
 	}
-
 	daemonSet := &apps.DaemonSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
@@ -1620,6 +1632,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: k.getDaemonSetLabels(appName),
 			},
+			RevisionHistoryLimit: getRevisionHistoryLimit(),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
@@ -1649,7 +1662,6 @@ func (k *kubernetesClient) configureDeployment(
 	if err := k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgName); err != nil {
 		return errors.Trace(err)
 	}
-
 	deployment := &apps.Deployment{
 		ObjectMeta: v1.ObjectMeta{
 			Name:        deploymentName,
@@ -1657,7 +1669,8 @@ func (k *kubernetesClient) configureDeployment(
 			Annotations: annotations.ToMap()},
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
-			Replicas: replicas,
+			Replicas:             replicas,
+			RevisionHistoryLimit: getRevisionHistoryLimit(),
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
 			},
@@ -1695,9 +1708,9 @@ func (k *kubernetesClient) deleteDeployment(name string) error {
 }
 
 func getPodManagementPolicy(svc *specs.ServiceSpec) (out apps.PodManagementPolicyType) {
-	// default to "Parallel".
+	// Default to "Parallel".
 	out = apps.ParallelPodManagement
-	if svc == nil {
+	if svc == nil || svc.ScalePolicy == "" {
 		return out
 	}
 

@@ -139,7 +139,7 @@ func (spt ScalePolicyType) Validate() error {
 			return nil
 		}
 	}
-	return errors.NotSupportedf("%v", spt)
+	return errors.NotSupportedf("scale policy %q", spt)
 }
 
 const (
@@ -152,7 +152,7 @@ const (
 	// scale up and strictly decreasing order on scale down, progressing only when
 	// the previous pod is ready or terminated. At most one pod will be changed
 	// at any time.
-	SerialScale = "serial"
+	SerialScale ScalePolicyType = "serial"
 )
 
 var supportedPolicies = []ScalePolicyType{

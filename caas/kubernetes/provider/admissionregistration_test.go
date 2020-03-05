@@ -54,6 +54,7 @@ func (s *K8sBrokerSuite) assertMutatingWebhookConfigurations(c *gc.C, cfgs map[s
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
+			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"juju-app": "app-name"},
@@ -276,6 +277,7 @@ func (s *K8sBrokerSuite) assertValidatingWebhookConfigurations(c *gc.C, cfgs map
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string{"juju-app": "app-name"},
 			},
+			RevisionHistoryLimit: int32Ptr(0),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{"juju-app": "app-name"},
