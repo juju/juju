@@ -288,10 +288,10 @@ func (s *Suite) TestAdoptIAASResources(c *gc.C) {
 	defer st.Close()
 
 	env := mockEnv{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(modelSt *state.State) (environs.Environ, error) {
-		c.Assert(modelSt.ModelUUID(), gc.Equals, st.ModelUUID())
+	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
+		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &env, nil
-	}, func(modelSt *state.State) (caas.Broker, error) {
+	}, func(model stateenvirons.Model) (caas.Broker, error) {
 		return nil, errors.New("should not be called")
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -317,10 +317,10 @@ func (s *Suite) TestAdoptCAASResources(c *gc.C) {
 	defer st.Close()
 
 	broker := mockBroker{Stub: &testing.Stub{}}
-	api, err := s.newAPI(func(modelSt *state.State) (environs.Environ, error) {
+	api, err := s.newAPI(func(model stateenvirons.Model) (environs.Environ, error) {
 		return nil, errors.New("should not be called")
-	}, func(modelSt *state.State) (caas.Broker, error) {
-		c.Assert(modelSt.ModelUUID(), gc.Equals, st.ModelUUID())
+	}, func(model stateenvirons.Model) (caas.Broker, error) {
+		c.Assert(model.ModelTag().Id(), gc.Equals, st.ModelUUID())
 		return &broker, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)
@@ -431,9 +431,9 @@ func (s *Suite) mustNewAPI(c *gc.C) *migrationtarget.API {
 }
 
 func (s *Suite) mustNewAPIWithModel(c *gc.C, env environs.Environ, broker caas.Broker) *migrationtarget.API {
-	api, err := s.newAPI(func(*state.State) (environs.Environ, error) {
+	api, err := s.newAPI(func(stateenvirons.Model) (environs.Environ, error) {
 		return env, nil
-	}, func(*state.State) (caas.Broker, error) {
+	}, func(stateenvirons.Model) (caas.Broker, error) {
 		return broker, nil
 	})
 	c.Assert(err, jc.ErrorIsNil)

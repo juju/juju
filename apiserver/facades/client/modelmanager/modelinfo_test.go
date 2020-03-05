@@ -109,6 +109,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		controllerUUID: s.st.controllerUUID,
 		isController:   false,
 		life:           state.Dying,
+		cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		status: status.StatusInfo{
 			Status: status.Destroying,
 			Since:  &time.Time{},
@@ -190,6 +194,7 @@ func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
+		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -265,6 +270,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
+		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -279,6 +285,7 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
+		{"Type", nil},
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},
@@ -1037,6 +1044,8 @@ type mockModel struct {
 	migrationStatus     state.MigrationMode
 	controllerUUID      string
 	isController        bool
+	cloud               cloud.Cloud
+	cred                state.Credential
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -1075,6 +1084,11 @@ func (m *mockModel) Cloud() string {
 	return "some-cloud"
 }
 
+func (m *mockModel) CloudValue() (cloud.Cloud, error) {
+	m.MethodCall(m, "CloudValue")
+	return m.cloud, nil
+}
+
 func (m *mockModel) CloudRegion() string {
 	m.MethodCall(m, "CloudRegion")
 	return "some-region"
@@ -1083,6 +1097,11 @@ func (m *mockModel) CloudRegion() string {
 func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
 	m.MethodCall(m, "CloudCredential")
 	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
+}
+
+func (m *mockModel) CloudCredentialValue() (state.Credential, bool, error) {
+	m.MethodCall(m, "CloudCredentialValue")
+	return m.cred, true, nil
 }
 
 func (m *mockModel) Users() ([]permission.UserAccess, error) {

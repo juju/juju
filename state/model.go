@@ -589,6 +589,11 @@ func (m *Model) Cloud() string {
 	return m.doc.Cloud
 }
 
+// CloudValue returns the cloud to which the model is deployed.
+func (m *Model) CloudValue() (jujucloud.Cloud, error) {
+	return m.st.Cloud(m.Cloud())
+}
+
 // CloudRegion returns the name of the cloud region to which the model is deployed.
 func (m *Model) CloudRegion() string {
 	return m.doc.CloudRegion
@@ -601,6 +606,17 @@ func (m *Model) CloudCredential() (names.CloudCredentialTag, bool) {
 		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
 	}
 	return names.CloudCredentialTag{}, false
+}
+
+// CloudCredentialValue returns the cloud credential used for managing the
+// model's cloud resources, and a boolean indicating whether a credential is set.
+func (m *Model) CloudCredentialValue() (Credential, bool, error) {
+	tag, ok := m.CloudCredential()
+	if !ok {
+		return Credential{}, false, nil
+	}
+	cred, err := m.st.CloudCredential(tag)
+	return cred, true, err
 }
 
 // MigrationMode returns whether the model is active or being migrated.

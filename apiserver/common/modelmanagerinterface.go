@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"gopkg.in/juju/names.v3"
 
+	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
@@ -91,7 +92,9 @@ type Model interface {
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
 	Cloud() string
+	CloudValue() (cloud.Cloud, error)
 	CloudCredential() (names.CloudCredentialTag, bool)
+	CloudCredentialValue() (state.Credential, bool, error)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error

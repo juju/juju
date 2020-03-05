@@ -186,7 +186,7 @@ func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
@@ -289,6 +289,13 @@ func NewModelManagerAPI(
 		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newEnviron := common.EnvironFuncForModel(model, configGetter)
+
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
@@ -296,7 +303,7 @@ func NewModelManagerAPI(
 		getBroker:      getBroker,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
+		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
 		model:          m,

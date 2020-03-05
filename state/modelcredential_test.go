@@ -40,6 +40,9 @@ func (s *ModelCredentialSuite) TestInvalidateModelCredentialNone(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	_, exists := m.CloudCredential()
 	c.Assert(exists, jc.IsFalse)
+	_, exists, err = m.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(exists, jc.IsFalse)
 
 	reason := "special invalidation"
 	err = s.State.InvalidateModelCredential(reason)
@@ -113,6 +116,12 @@ func (s *ModelCredentialSuite) TestSetCloudCredentialNoUpdate(c *gc.C) {
 	credentialTag, credentialSet := m.CloudCredential()
 	c.Assert(credentialTag, gc.DeepEquals, tag)
 	c.Assert(credentialSet, jc.IsTrue)
+	cred, credentialSet, err := m.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentialSet, jc.IsTrue)
+	stateCred, err := s.State.CloudCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred, jc.DeepEquals, stateCred)
 }
 
 func (s *ModelCredentialSuite) TestSetCloudCredentialInvalidCredentialContent(c *gc.C) {
@@ -132,6 +141,9 @@ func (s *ModelCredentialSuite) TestSetCloudCredentialInvalidCredentialContent(c 
 	credentialTag, credentialSet := m.CloudCredential()
 	// Make sure no credential is set.
 	c.Assert(credentialTag, gc.DeepEquals, names.CloudCredentialTag{})
+	c.Assert(credentialSet, jc.IsFalse)
+	_, credentialSet, err = m.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentialSet, jc.IsFalse)
 }
 
@@ -155,6 +167,9 @@ func (s *ModelCredentialSuite) TestSetCloudCredentialInvalidCredentialForModel(c
 	credentialTag, credentialSet := m.CloudCredential()
 	// Make sure no credential is set.
 	c.Assert(credentialTag, gc.DeepEquals, names.CloudCredentialTag{})
+	c.Assert(credentialSet, jc.IsFalse)
+	_, credentialSet, err = m.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(credentialSet, jc.IsFalse)
 }
 
@@ -204,6 +219,9 @@ func (s *ModelCredentialSuite) assertSetCloudCredential(c *gc.C, tag names.Cloud
 	// Make sure no credential is set.
 	c.Assert(credentialTag, gc.DeepEquals, names.CloudCredentialTag{})
 	c.Assert(credentialSet, jc.IsFalse)
+	_, credentialSet, err = m.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentialSet, jc.IsFalse)
 
 	err = s.State.UpdateCloudCredential(tag, credential)
 	c.Assert(err, jc.ErrorIsNil)
@@ -216,6 +234,12 @@ func (s *ModelCredentialSuite) assertSetCloudCredential(c *gc.C, tag names.Cloud
 	credentialTag, credentialSet = m.CloudCredential()
 	c.Assert(credentialTag, gc.DeepEquals, tag)
 	c.Assert(credentialSet, jc.IsTrue)
+	cred, credentialSet, err := m.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentialSet, jc.IsTrue)
+	stateCred, err := s.State.CloudCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred, jc.DeepEquals, stateCred)
 	return m
 }
 

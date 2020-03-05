@@ -239,9 +239,9 @@ func (api *API) AdoptResources(args params.AdoptResourcesArgs) error {
 
 	var ra environs.ResourceAdopter
 	if m.Type() == state.ModelTypeCAAS {
-		ra, err = api.getCAASBroker(st.State)
+		ra, err = api.getCAASBroker(m)
 	} else {
-		ra, err = api.getEnviron(st.State)
+		ra, err = api.getEnviron(m)
 	}
 	if err != nil {
 		return errors.Trace(err)

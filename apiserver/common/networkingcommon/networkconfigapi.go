@@ -198,7 +198,6 @@ func (api *NetworkConfigAPI) getOneMachineProviderNetworkConfig(m *state.Machine
 	}
 	netEnviron, err := NetworkingEnvironFromModelConfig(
 		stateenvirons.EnvironConfigGetter{
-			State: api.st,
 			Model: model,
 		},
 	)

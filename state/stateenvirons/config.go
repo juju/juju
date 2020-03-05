@@ -10,17 +10,25 @@ import (
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/cloud"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 )
 
+// Model exposes the methods needed for an EnvironConfigGetter.
+type Model interface {
+	ModelTag() names.ModelTag
+	ControllerUUID() string
+	Type() state.ModelType
+	CloudValue() (cloud.Cloud, error)
+	CloudRegion() string
+	CloudCredentialValue() (state.Credential, bool, error)
+	Config() (*config.Config, error)
+}
+
 // EnvironConfigGetter implements environs.EnvironConfigGetter
-// in terms of a *state.State.
-// TODO - CAAS(externalreality): Once cloud methods are migrated
-// to model EnvironConfigGetter will no longer need to contain
-// both state and model but only model.
+// in terms of a Model.
 type EnvironConfigGetter struct {
-	*state.State
-	*state.Model
+	Model
 
 	// NewContainerBroker is a func that returns a caas container broker
 	// for the relevant model.
@@ -33,11 +41,7 @@ func (g EnvironConfigGetter) CloudAPIVersion(spec environs.CloudSpec) (string, e
 	if g.Model.Type() == state.ModelTypeIAAS {
 		return "", nil
 	}
-	cfg, err := g.ModelConfig()
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	ctrlCfg, err := g.ControllerConfig()
+	cfg, err := g.Config()
 	if err != nil {
 		return "", errors.Trace(err)
 	}
@@ -46,7 +50,7 @@ func (g EnvironConfigGetter) CloudAPIVersion(spec environs.CloudSpec) (string, e
 		newBroker = caas.New
 	}
 	broker, err := newBroker(environs.OpenParams{
-		ControllerUUID: ctrlCfg.ControllerUUID(),
+		ControllerUUID: g.Model.ControllerUUID(),
 		Cloud:          spec,
 		Config:         cfg,
 	})
@@ -56,87 +60,81 @@ func (g EnvironConfigGetter) CloudAPIVersion(spec environs.CloudSpec) (string, e
 	return broker.APIVersion()
 }
 
+// ModelConfig implements environs.EnvironConfigGetter.
+func (g EnvironConfigGetter) ModelConfig() (*config.Config, error) {
+	return g.Config()
+}
+
 // CloudSpec implements environs.EnvironConfigGetter.
 func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
-	cloudName := g.Model.Cloud()
+	cloud, err := g.Model.CloudValue()
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
 	regionName := g.Model.CloudRegion()
-	credentialTag, _ := g.Model.CloudCredential()
-	return CloudSpec(g.State, cloudName, regionName, credentialTag)
+	credentialValue, ok, err := g.Model.CloudCredentialValue()
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
+	var credential *state.Credential
+	if ok {
+		credential = &credentialValue
+	}
+	return CloudSpec(cloud, regionName, credential)
 }
 
 // CloudSpec returns an environs.CloudSpec from a *state.State,
 // given the cloud, region and credential names.
 func CloudSpec(
-	accessor state.CloudAccessor,
-	cloudName, regionName string,
-	credentialTag names.CloudCredentialTag,
+	modelCloud cloud.Cloud,
+	regionName string,
+	credential *state.Credential,
 ) (environs.CloudSpec, error) {
-	modelCloud, err := accessor.Cloud(cloudName)
-	if err != nil {
-		return environs.CloudSpec{}, errors.Trace(err)
-	}
-
-	var credential *cloud.Credential
-	if credentialTag != (names.CloudCredentialTag{}) {
-		credentialValue, err := accessor.CloudCredential(credentialTag)
-		if err != nil {
-			return environs.CloudSpec{}, errors.Trace(err)
-		}
-		cloudCredential := cloud.NewNamedCredential(credentialValue.Name,
-			cloud.AuthType(credentialValue.AuthType),
-			credentialValue.Attributes,
-			credentialValue.Revoked,
+	var cloudCredential *cloud.Credential
+	if credential != nil {
+		cloudCredentialValue := cloud.NewNamedCredential(credential.Name,
+			cloud.AuthType(credential.AuthType),
+			credential.Attributes,
+			credential.Revoked,
 		)
-		credential = &cloudCredential
+		cloudCredential = &cloudCredentialValue
 	}
 
-	return environs.MakeCloudSpec(modelCloud, regionName, credential)
+	return environs.MakeCloudSpec(modelCloud, regionName, cloudCredential)
 }
 
 // NewEnvironFunc defines the type of a function that, given a state.State,
 // returns a new Environ.
-type NewEnvironFunc func(*state.State) (environs.Environ, error)
+type NewEnvironFunc func(Model) (environs.Environ, error)
 
 // GetNewEnvironFunc returns a NewEnvironFunc, that constructs Environs
 // using the given environs.NewEnvironFunc.
 func GetNewEnvironFunc(newEnviron environs.NewEnvironFunc) NewEnvironFunc {
-	return func(st *state.State) (environs.Environ, error) {
-		m, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		g := EnvironConfigGetter{State: st, Model: m}
+	return func(m Model) (environs.Environ, error) {
+		g := EnvironConfigGetter{Model: m}
 		return environs.GetEnviron(g, newEnviron)
 	}
 }
 
 // NewCAASBrokerFunc defines the type of a function that, given a state.State,
 // returns a new CAAS broker.
-type NewCAASBrokerFunc func(*state.State) (caas.Broker, error)
+type NewCAASBrokerFunc func(Model) (caas.Broker, error)
 
 // GetNewCAASBrokerFunc returns a NewCAASBrokerFunc, that constructs CAAS brokers
 // using the given caas.NewContainerBrokerFunc.
 func GetNewCAASBrokerFunc(newBroker caas.NewContainerBrokerFunc) NewCAASBrokerFunc {
-	return func(st *state.State) (caas.Broker, error) {
-		m, err := st.Model()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		g := EnvironConfigGetter{State: st, Model: m}
+	return func(m Model) (caas.Broker, error) {
+		g := EnvironConfigGetter{Model: m}
 		cloudSpec, err := g.CloudSpec()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
-		cfg, err := g.ModelConfig()
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
-		ctrlCfg, err := g.ControllerConfig()
+		cfg, err := g.Config()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 		return newBroker(environs.OpenParams{
-			ControllerUUID: ctrlCfg.ControllerUUID(),
+			ControllerUUID: m.ControllerUUID(),
 			Cloud:          cloudSpec,
 			Config:         cfg,
 		})

@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
 
@@ -27,10 +28,20 @@ func (g cloudEnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
-	cloudName := model.Cloud()
+	cloud, err := model.CloudValue()
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
 	regionName := g.region
-	credentialTag, _ := model.CloudCredential()
-	return stateenvirons.CloudSpec(g.Backend, cloudName, regionName, credentialTag)
+	credentialValue, ok, err := model.CloudCredentialValue()
+	if err != nil {
+		return environs.CloudSpec{}, errors.Trace(err)
+	}
+	var credential *state.Credential
+	if ok {
+		credential = &credentialValue
+	}
+	return stateenvirons.CloudSpec(cloud, regionName, credential)
 }
 
 // InstanceTypes returns instance type information for the cloud and region

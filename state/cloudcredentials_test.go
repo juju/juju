@@ -239,6 +239,9 @@ func (s *CloudCredentialsSuite) TestRemoveModelsCredential(c *gc.C) {
 	defer helper.Release()
 	_, isSet := aModel.CloudCredential()
 	c.Assert(isSet, jc.IsFalse)
+	_, isSet, err = aModel.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(isSet, jc.IsFalse)
 }
 
 func (s *CloudCredentialsSuite) TestRemoveModelsCredentialConcurrentModelDelete(c *gc.C) {
@@ -267,6 +270,9 @@ func (s *CloudCredentialsSuite) TestRemoveModelsCredentialConcurrentModelDelete(
 	_, isSet := aModel.CloudCredential()
 	// Since the model was marked 'dead' in the middle of 1st transaction attempt,
 	// and 2nd attempt would not have picked it up, the model credential would not actually be cleared.
+	c.Assert(isSet, jc.IsTrue)
+	_, isSet, err = aModel.CloudCredentialValue()
+	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(isSet, jc.IsTrue)
 	c.Assert(c.GetTestLog(), jc.Contains, "creating operations to remove models credential, attempt 1")
 }

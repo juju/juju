@@ -1659,11 +1659,12 @@ func (s *ModelCloudValidationSuite) TestNewModelDifferentCloud(c *gc.C) {
 	controller, owner := s.initializeState(c, []cloud.Region{{Name: "some-region"}}, []cloud.AuthType{cloud.EmptyAuthType}, nil)
 	defer controller.Close()
 	st := controller.SystemState()
-	err := st.AddCloud(cloud.Cloud{
+	aCloud := cloud.Cloud{
 		Name:      "another",
 		Type:      "dummy",
 		AuthTypes: cloud.AuthTypes{"empty", "userpass"},
-	}, owner.Name())
+	}
+	err := st.AddCloud(aCloud, owner.Name())
 	c.Assert(err, jc.ErrorIsNil)
 	cfg, _ := createTestModelConfig(c, st.ModelUUID())
 	cfg, err = cfg.Apply(map[string]interface{}{"name": "whatever"})
@@ -1678,6 +1679,9 @@ func (s *ModelCloudValidationSuite) TestNewModelDifferentCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
 	c.Assert(m.Cloud(), gc.Equals, "another")
+	cloudValue, err := m.CloudValue()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudValue, jc.DeepEquals, aCloud)
 }
 
 func (s *ModelCloudValidationSuite) TestNewModelUnknownCloudRegion(c *gc.C) {
