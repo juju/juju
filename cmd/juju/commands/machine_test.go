@@ -25,7 +25,7 @@ var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) RunCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	context := cmdtesting.Context(c)
-	juju := NewJujuCommand(context)
+	juju := NewJujuCommand(context, "")
 	if err := cmdtesting.InitCommand(juju, args); err != nil {
 		return context, err
 	}

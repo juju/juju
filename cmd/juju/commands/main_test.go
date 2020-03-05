@@ -6,6 +6,7 @@ package commands
 import (
 	"bytes"
 	"fmt"
+	jujucloud "github.com/juju/juju/cloud"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -246,7 +247,7 @@ Welcome to Juju %s.
 If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
    See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 
-Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n", jujuversion.Current))
+Since Juju 2 is being run for the first time, downloaded latest public cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -285,7 +286,45 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	assertNoArgs(c, argChan)
 
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
+Since Juju 2 is being run for the first time, downloaded latest public cloud information.`[1:]+"\n")
+	checkVersionOutput(c, string(stdout))
+}
+
+func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntuQuiet(c *gc.C) {
+	// Code should only run on ubuntu series, so pretend to be something else.
+	s.PatchValue(&series.MustHostSeries, func() string { return "win8" })
+
+	argChan := make(chan []string, 1)
+
+	// we shouldn't actually be running anything, but if we do, this will
+	// provide some consistent results.
+	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
+		Stdout: "1.25.0-trusty-amd64",
+		Args:   argChan,
+	})
+	stub := &gitjujutesting.Stub{}
+	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
+		return &stubCommand{stub: stub}
+	})
+
+	// remove the new juju-home and create a fake old juju home.
+	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
+	c.Assert(err, jc.ErrorIsNil)
+
+	makeValidOldHome(c)
+
+	var code int
+	stdout, stderr := gitjujutesting.CaptureOutput(c, func() {
+		code = main{
+			execCommand: execCommand,
+		}.Run([]string{"juju", "version", "--quiet"})
+	})
+
+	c.Assert(code, gc.Equals, 0)
+
+	assertNoArgs(c, argChan)
+
+	c.Check(string(stderr), gc.Equals, "")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -358,22 +397,23 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloading latest cloud information.`[1:]+"\n")
+Since Juju 2 is being run for the first time, downloaded latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
-func (s *MainSuite) assertRunCommandUpdateCloud(c *gc.C, expectedCall string) {
+func (s *MainSuite) assertRunUpdateCloud(c *gc.C, expectedCalled bool) {
 	argChan := make(chan []string, 1)
 	execCommand := s.GetExecCommand(gitjujutesting.PatchExecConfig{
 		Stdout: "1.25.0-trusty-amd64",
 		Args:   argChan,
 	})
 
-	stub := &gitjujutesting.Stub{}
-	s.PatchValue(&cloud.NewUpdatePublicCloudsCommand, func() cmd.Command {
-		return &stubCommand{stub: stub}
-
-	})
+	called := false
+	s.PatchValue(&cloud.FetchAndMaybeUpdatePublicClouds,
+		func(access cloud.PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+			called = true
+			return nil, "", nil
+		})
 	var code int
 	gitjujutesting.CaptureOutput(c, func() {
 		code = main{
@@ -381,18 +421,18 @@ func (s *MainSuite) assertRunCommandUpdateCloud(c *gc.C, expectedCall string) {
 		}.Run([]string{"juju", "version"})
 	})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stub.Calls()[0].FuncName, gc.Equals, expectedCall)
+	c.Assert(called, gc.Equals, expectedCalled)
 }
 
 func (s *MainSuite) TestFirstRunUpdateCloud(c *gc.C) {
 	// remove the juju-home.
 	err := os.RemoveAll(osenv.JujuXDGDataHomeDir())
 	c.Assert(err, jc.ErrorIsNil)
-	s.assertRunCommandUpdateCloud(c, "Run")
+	s.assertRunUpdateCloud(c, true)
 }
 
 func (s *MainSuite) TestRunNoUpdateCloud(c *gc.C) {
-	s.assertRunCommandUpdateCloud(c, "Info")
+	s.assertRunUpdateCloud(c, false)
 }
 
 func makeValidOldHome(c *gc.C) {
