@@ -17,42 +17,48 @@ jobs:
       # temporary fix
       # see https://github.com/actions/setup-go/issues/14
       run: |
-        echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-        echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
       shell: bash
 
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
       with:
         path: src/github.com/juju/juju
 
     - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
       run: |
         make dep
       shell: bash
 
     - name: Install Dependencies
+      working-directory: src/github.com/juju/juju
       run: |
         go get -u github.com/client9/misspell/cmd/misspell
         go get -u github.com/tsenart/deadcode
         go get -u golang.org/x/lint/golint
 
     - name: "Static Analysis: Copyright"
+      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_copyright make static-analysis
       shell: bash
 
     - name: "Static Analysis: Shell Check"
+      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_shell make static-analysis
       shell: bash
 
     - name: "Static Analysis: Go Check"
+      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_go make static-analysis
       shell: bash
 
     - name: "Static Analysis: Python Check"
+      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
       shell: bash
@@ -72,21 +78,23 @@ jobs:
       # temporary fix
       # see https://github.com/actions/setup-go/issues/14
       run: |
-        echo "##[set-env name=GOPATH;]$(dirname $GITHUB_WORKSPACE)"
-        echo "##[add-path]$(dirname $GITHUB_WORKSPACE)/bin"
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
       shell: bash
 
     - name: Checkout
-      uses: actions/checkout@v1
+      uses: actions/checkout@v2
       with:
         path: src/github.com/juju/juju
 
     - name: Install Vendor Dependencies
+      working-directory: src/github.com/juju/juju
       run: |
         make dep
       shell: bash
 
     - name: Schema Check
+      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_schema make static-analysis
       shell: bash
