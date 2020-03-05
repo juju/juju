@@ -58,6 +58,7 @@ jobs:
       shell: bash
 
     - name: "Static Analysis: Python Check"
+      working-directory: src/github.com/juju/juju
       run: |
         STATIC_ANALYSIS_JOB=test_static_analysis_python make static-analysis
       shell: bash
