@@ -325,17 +325,8 @@ func (runner *runner) RunAction(actionName string) error {
 		rMode = runOnRemote
 	}
 
-	_, err := runner.runCharmHookWithLocation(actionName, runner.getFunctionDir(), rMode)
+	_, err := runner.runCharmHookWithLocation(actionName, "actions", rMode)
 	return err
-}
-
-func (runner *runner) getFunctionDir() string {
-	charmDir := runner.paths.GetCharmDir()
-	dir := filepath.Join(charmDir, "functions")
-	if _, err := os.Stat(dir); !os.IsNotExist(err) {
-		return "functions"
-	}
-	return "actions"
 }
 
 // RunHook exists to satisfy the Runner interface.
