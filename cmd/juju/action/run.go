@@ -37,7 +37,7 @@ var nameRule = charm.GetActionNameRule()
 func NewRunCommand() cmd.Command {
 	return modelcmd.Wrap(&runCommand{
 		logMessageHandler: func(ctx *cmd.Context, msg string) {
-			fmt.Fprintln(ctx.Stderr, msg)
+			ctx.Infof(msg)
 		},
 	})
 }
@@ -244,7 +244,7 @@ func (c *runCommand) Run(ctx *cmd.Context) error {
 			ctx.Infof("Check task status with 'juju show-task %s'", actionTag.Id())
 		} else {
 			ctx.Infof("Scheduled operation %s with %d tasks", operationId, numTasks)
-			cmd.FormatYaml(ctx.Stderr, info)
+			cmd.FormatYaml(ctx.Stdout, info)
 			ctx.Infof("Check operation status with 'juju show-operation %s'", operationId)
 			ctx.Infof("Check task status with 'juju show-task <id>'")
 		}
@@ -294,13 +294,13 @@ func (c *runCommand) waitForTasks(ctx *cmd.Context, tasks []enqueuedAction, info
 			waitForWatcher()
 			return errors.Trace(err)
 		}
-		fmt.Fprintf(ctx.Stderr, "Waiting for task %v...\n", tag.Id())
+		ctx.Infof("Waiting for task %v...\n", tag.Id())
 		actionResult, err := GetActionResult(c.api, tag.Id(), wait, false)
 		if i == 0 {
 			waitForWatcher()
 			if haveLogs {
 				// Make the logs a bit separate in the output.
-				fmt.Fprintln(ctx.Stderr, "")
+				ctx.Infof("\n")
 			}
 		}
 		if err != nil {
