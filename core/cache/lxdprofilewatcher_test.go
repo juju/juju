@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/core/cache"
 	"github.com/juju/juju/core/lxdprofile"
+	"github.com/juju/juju/core/status"
 )
 
 type lxdProfileWatcherSuite struct {
@@ -143,22 +144,29 @@ func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProf
 
 func (s *lxdProfileWatcherSuite) TestMachineLXDProfileWatcherSubordinateWithProfileUpdateUnit(c *gc.C) {
 	defer workertest.CleanKill(c, s.assertStartOneMachineWatcher(c))
+
 	// Add a new subordinate unit with a profile of a new application.
 	s.newUnitForMachineLXDProfileWatcherSubProfile(c, s.machine0.Id(), unitChange.Name)
 	s.assertChangeValidateMetrics(c, s.wc0.AssertOneChange, 0, 1, 1)
 
-	unitChange := cache.UnitChange{
+	// Add a new subordinate.
+	subordinate := cache.UnitChange{
 		ModelUUID:   "model-uuid",
 		Name:        "name-me/0",
 		Application: "name-me",
 		Series:      "bionic",
-		MachineId:   s.machine0.Id(),
 		Principal:   unitChange.Name,
 		Subordinate: true,
 	}
+	s.model.UpdateUnit(subordinate, s.Manager)
 
-	// New subordinate unit.
-	s.model.UpdateUnit(unitChange, s.Manager)
+	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 1, 2)
+
+	// A subordinate status change should cause no notification.
+	subordinate.AgentStatus = status.StatusInfo{
+		Status: "sweet-as-bro",
+	}
+
 	s.assertChangeValidateMetrics(c, s.wc0.AssertNoChange, 0, 1, 2)
 }
 

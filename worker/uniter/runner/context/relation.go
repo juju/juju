@@ -105,7 +105,7 @@ func (ctx *ContextRelation) WriteSettings() error {
 
 // FinalSettings returns the changes made to the relation settings (unit and application)
 func (ctx *ContextRelation) FinalSettings() (unitSettings, appSettings params.Settings) {
-	if ctx.applicationSettings != nil {
+	if ctx.applicationSettings != nil && ctx.applicationSettings.IsDirty() {
 		appSettings = ctx.applicationSettings.FinalResult()
 	}
 	if ctx.settings != nil {

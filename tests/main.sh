@@ -36,6 +36,7 @@ TEST_NAMES="static_analysis \
             deploy \
             hook_tools \
             machine \
+            relations \
             smoke \
             model"
 
