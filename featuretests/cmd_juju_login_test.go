@@ -34,7 +34,7 @@ func (s *cmdLoginSuite) run(c *gc.C, stdin io.Reader, args ...string) *cmd.Conte
 	if stdin != nil {
 		context.Stdin = stdin
 	}
-	command := commands.NewJujuCommand(context)
+	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stdout: %q; stderr: %q", context.Stdout, context.Stderr))

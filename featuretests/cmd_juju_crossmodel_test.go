@@ -427,7 +427,7 @@ func (s *crossmodelSuite) runJujuCommndWithStdin(c *gc.C, stdin io.Reader, args 
 	if stdin != nil {
 		context.Stdin = stdin
 	}
-	command := commands.NewJujuCommand(context)
+	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	loggo.RemoveWriter("warning") // remove logger added by main command
 	err := command.Run(context)

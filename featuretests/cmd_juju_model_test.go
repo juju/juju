@@ -36,7 +36,7 @@ func (s *cmdModelSuite) SetUpTest(c *gc.C) {
 
 func (s *cmdModelSuite) run(c *gc.C, args ...string) *cmd.Context {
 	context := cmdtesting.Context(c)
-	jujuCmd := commands.NewJujuCommand(context)
+	jujuCmd := commands.NewJujuCommand(context, "")
 	err := cmdtesting.InitCommand(jujuCmd, args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuCmd.Run(context)

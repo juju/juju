@@ -247,7 +247,7 @@ Welcome to Juju %s.
 If you want to use Juju 1.25.0, run 'juju' commands as 'juju-1'. For example, 'juju-1 bootstrap'.
    See https://jujucharms.com/docs/stable/juju-coexist for installation details. 
 
-Since Juju 2 is being run for the first time, downloaded latest public cloud information.`[1:]+"\n", jujuversion.Current))
+Since Juju 2 is being run for the first time, downloaded the latest public cloud information.`[1:]+"\n", jujuversion.Current))
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -286,7 +286,7 @@ func (s *MainSuite) TestFirstRun2xFrom1xNotUbuntu(c *gc.C) {
 	assertNoArgs(c, argChan)
 
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloaded latest public cloud information.`[1:]+"\n")
+Since Juju 2 is being run for the first time, downloaded the latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 
@@ -397,7 +397,7 @@ func (s *MainSuite) TestNoWarnWithNo1xOr2xData(c *gc.C) {
 
 	assertNoArgs(c, argChan)
 	c.Check(string(stderr), gc.Equals, `
-Since Juju 2 is being run for the first time, downloaded latest public cloud information.`[1:]+"\n")
+Since Juju 2 is being run for the first time, downloaded the latest public cloud information.`[1:]+"\n")
 	checkVersionOutput(c, string(stdout))
 }
 

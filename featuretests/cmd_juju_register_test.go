@@ -110,7 +110,7 @@ func run(c *gc.C, stdio io.ReadWriter, args ...string) *cmd.Context {
 	} else {
 		context = cmdtesting.Context(c)
 	}
-	command := commands.NewJujuCommand(context)
+	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
 	c.Assert(err, jc.ErrorIsNil, gc.Commentf("stderr: %q", context.Stderr))

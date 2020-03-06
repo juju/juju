@@ -89,7 +89,7 @@ func runCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	// two commands in the same test.
 	loggo.ResetWriters()
 	ctx := cmdtesting.Context(c)
-	command := jujucmd.NewJujuCommand(ctx)
+	command := jujucmd.NewJujuCommand(ctx, "")
 	return cmdtesting.RunCommand(c, command, args...)
 }
 

@@ -92,7 +92,10 @@ type PublicCloudsAccessDetails struct {
 // PublicCloudsAccess contains information about
 // where to find published public clouds details.
 func PublicCloudsAccess() PublicCloudsAccessDetails {
-	return PublicCloudsAccessDetails{keys.JujuPublicKey, "https://streams.canonical.com/juju/public-clouds.syaml"}
+	return PublicCloudsAccessDetails{
+		publicSigningKey: keys.JujuPublicKey,
+		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
+	}
 }
 
 // Init populates the command with the args from the command line.
@@ -139,9 +142,17 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
 	var returnedErr error
 	publishedClouds, msg, err := FetchAndMaybeUpdatePublicClouds(
-		PublicCloudsAccessDetails{c.publicSigningKey, c.publicCloudURL},
+		PublicCloudsAccessDetails{
+			publicSigningKey: c.publicSigningKey,
+			publicCloudURL:   c.publicCloudURL,
+		},
 		c.Client)
 	if err != nil {
+		// Since FetchAndMaybeUpdatePublicClouds retrieves public clouds
+		// as well as updates client copy of the clouds, it is
+		// possible that the returned error is related to clouds retrieval.
+		// If there are no public clouds returned, we can assume that the
+		// retrieval itself was unsuccessful and abort further processing.
 		if len(publishedClouds) == 0 {
 			return errors.Trace(err)
 		}
@@ -164,8 +175,11 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 // and updates client copy of public clouds if desired.
 // This call returns discovered public clouds and a user-facing message
 // whether they are different with what was known prior to the call.
+// Since this call can also update a client copy of clouds, it is possible that the public
+// clouds have been retrieved but the client update fail. In this case, we still
+// return public clouds as well as the client error.
 var FetchAndMaybeUpdatePublicClouds = func(access PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
-	msg := ""
+	var msg string
 	publishedClouds, err := PublishedPublicClouds(access.publicCloudURL, access.publicSigningKey)
 	if err != nil {
 		return nil, msg, errors.Trace(err)

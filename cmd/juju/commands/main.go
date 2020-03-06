@@ -124,7 +124,7 @@ func (m main) Run(args []string) int {
 		if jujuMsg != "" {
 			jujuMsg += "\n"
 		}
-		jujuMsg += fmt.Sprintf("Since Juju %v is being run for the first time, downloaded latest public cloud information.\n", jujuversion.Current.Major)
+		jujuMsg += fmt.Sprintf("Since Juju %v is being run for the first time, downloaded the latest public cloud information.\n", jujuversion.Current.Major)
 	}
 
 	for i := range x {
@@ -158,7 +158,6 @@ func installProxy() error {
 }
 
 func (m main) maybeWarnJuju1x() (newInstall bool, jujuMsg string) {
-	jujuMsg = ""
 	newInstall = !juju2xConfigDataExists()
 	if !shouldWarnJuju1x() {
 		return

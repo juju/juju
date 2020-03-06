@@ -220,7 +220,7 @@ controller-credentials:
 
 func (s *CmdCredentialSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	context := cmdtesting.Context(c)
-	command := commands.NewJujuCommand(context)
+	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	err := command.Run(context)
 	loggo.RemoveWriter("warning")
