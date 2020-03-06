@@ -52,7 +52,7 @@ func (s *cmdCurrentControllerSuite) writeStoreFiles(c *gc.C) {
 
 func (s *cmdCurrentControllerSuite) run(c *gc.C, args ...string) (*cmd.Context, error) {
 	context := cmdtesting.Context(c)
-	command := commands.NewJujuCommand(context)
+	command := commands.NewJujuCommand(context, "")
 	err := cmdtesting.InitCommand(command, args)
 	if err != nil {
 		return context, err

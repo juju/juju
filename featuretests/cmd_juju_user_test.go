@@ -31,7 +31,7 @@ func (s *UserSuite) RunUserCommand(c *gc.C, stdin string, args ...string) (*cmd.
 	if stdin != "" {
 		context.Stdin = strings.NewReader(stdin)
 	}
-	jujuCmd := commands.NewJujuCommand(context)
+	jujuCmd := commands.NewJujuCommand(context, "")
 	err := cmdtesting.InitCommand(jujuCmd, args)
 	c.Assert(err, jc.ErrorIsNil)
 	err = jujuCmd.Run(context)

@@ -64,12 +64,13 @@ var NewUpdatePublicCloudsCommand = func() cmd.Command {
 
 func newUpdatePublicCloudsCommand() cmd.Command {
 	store := jujuclient.NewFileClientStore()
+	access := PublicCloudsAccess()
 	c := &updatePublicCloudsCommand{
 		OptionalControllerCommand: modelcmd.OptionalControllerCommand{
 			Store: store,
 		},
-		publicSigningKey: keys.JujuPublicKey,
-		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
+		publicSigningKey: access.publicSigningKey,
+		publicCloudURL:   access.publicCloudURL,
 	}
 	c.addCloudAPIFunc = c.cloudAPI
 	return modelcmd.WrapBase(c)
@@ -81,6 +82,20 @@ func (c *updatePublicCloudsCommand) Info() *cmd.Info {
 		Purpose: "Updates public cloud information available to Juju.",
 		Doc:     updatePublicCloudsDoc,
 	})
+}
+
+type PublicCloudsAccessDetails struct {
+	publicSigningKey string
+	publicCloudURL   string
+}
+
+// PublicCloudsAccess contains information about
+// where to find published public clouds details.
+func PublicCloudsAccess() PublicCloudsAccessDetails {
+	return PublicCloudsAccessDetails{
+		publicSigningKey: keys.JujuPublicKey,
+		publicCloudURL:   "https://streams.canonical.com/juju/public-clouds.syaml",
+	}
 }
 
 // Init populates the command with the args from the command line.
@@ -125,16 +140,27 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 		return errors.Trace(err)
 	}
 	fmt.Fprint(ctxt.Stderr, "Fetching latest public cloud list...\n")
-	publishedClouds, err := PublishedPublicClouds(c.publicCloudURL, c.publicSigningKey)
-	if err != nil {
-		return errors.Trace(err)
-	}
 	var returnedErr error
-	if c.Client {
-		if err := c.updateClientCopy(ctxt, publishedClouds); err != nil {
-			ctxt.Infof("ERROR %v", err)
-			returnedErr = cmd.ErrSilent
+	publishedClouds, msg, err := FetchAndMaybeUpdatePublicClouds(
+		PublicCloudsAccessDetails{
+			publicSigningKey: c.publicSigningKey,
+			publicCloudURL:   c.publicCloudURL,
+		},
+		c.Client)
+	if err != nil {
+		// Since FetchAndMaybeUpdatePublicClouds retrieves public clouds
+		// as well as updates client copy of the clouds, it is
+		// possible that the returned error is related to clouds retrieval.
+		// If there are no public clouds returned, we can assume that the
+		// retrieval itself was unsuccessful and abort further processing.
+		if len(publishedClouds) == 0 {
+			return errors.Trace(err)
 		}
+		ctxt.Infof("ERROR %v", err)
+		returnedErr = cmd.ErrSilent
+	}
+	if msg != "" {
+		ctxt.Infof(msg)
 	}
 	if c.ControllerName != "" {
 		if err := c.updateControllerCopy(ctxt, publishedClouds); err != nil {
@@ -145,26 +171,45 @@ func (c *updatePublicCloudsCommand) Run(ctxt *cmd.Context) error {
 	return returnedErr
 }
 
-func (c *updatePublicCloudsCommand) updateClientCopy(ctxt *cmd.Context, publishedClouds map[string]jujucloud.Cloud) error {
+// FetchAndMaybeUpdatePublicClouds gets published public clouds information
+// and updates client copy of public clouds if desired.
+// This call returns discovered public clouds and a user-facing message
+// whether they are different with what was known prior to the call.
+// Since this call can also update a client copy of clouds, it is possible that the public
+// clouds have been retrieved but the client update fail. In this case, we still
+// return public clouds as well as the client error.
+var FetchAndMaybeUpdatePublicClouds = func(access PublicCloudsAccessDetails, updateClient bool) (map[string]jujucloud.Cloud, string, error) {
+	var msg string
+	publishedClouds, err := PublishedPublicClouds(access.publicCloudURL, access.publicSigningKey)
+	if err != nil {
+		return nil, msg, errors.Trace(err)
+	}
+	if updateClient {
+		if msg, err = updateClientCopy(publishedClouds); err != nil {
+			return publishedClouds, msg, err
+		}
+	}
+	return publishedClouds, msg, nil
+}
+
+func updateClientCopy(publishedClouds map[string]jujucloud.Cloud) (string, error) {
 	currentPublicClouds, _, err := jujucloud.PublicCloudMetadata(jujucloud.JujuPublicCloudsPath())
 	if err != nil {
-		return errors.Annotate(err, "invalid local public cloud data")
+		return "", errors.Annotate(err, "invalid local public cloud data")
 	}
 	sameCloudInfo, err := jujucloud.IsSameCloudMetadata(publishedClouds, currentPublicClouds)
 	if err != nil {
 		// Should never happen.
-		return err
+		return "", err
 	}
 	if sameCloudInfo {
-		fmt.Fprintln(ctxt.Stderr, "List of public clouds on this client is up to date, see `juju clouds --client`.")
-		return nil
+		return "List of public clouds on this client is up to date, see `juju clouds --client`.\n", nil
 	}
 	if err := jujucloud.WritePublicCloudMetadata(publishedClouds); err != nil {
-		return errors.Annotate(err, "error writing new local public cloud data")
+		return "", errors.Annotate(err, "error writing new local public cloud data")
 	}
 	updateDetails := diffClouds(publishedClouds, currentPublicClouds)
-	fmt.Fprintln(ctxt.Stderr, fmt.Sprintf("Updated list of public clouds on this client, %s", updateDetails))
-	return nil
+	return fmt.Sprintf("Updated list of public clouds on this client, %s\n", updateDetails), nil
 }
 
 func (c *updatePublicCloudsCommand) updateControllerCopy(ctxt *cmd.Context, publishedClouds map[string]jujucloud.Cloud) error {

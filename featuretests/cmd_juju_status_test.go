@@ -59,7 +59,7 @@ func (s *StatusSuite) setupMultipleRelationsBetweenApplications(c *gc.C) {
 
 func (s *StatusSuite) run(c *gc.C, args ...string) *cmd.Context {
 	context := cmdtesting.Context(c)
-	command := commands.NewJujuCommand(context)
+	command := commands.NewJujuCommand(context, "")
 	c.Assert(cmdtesting.InitCommand(command, args), jc.ErrorIsNil)
 	c.Assert(command.Run(context), jc.ErrorIsNil)
 	loggo.RemoveWriter("warning")
