@@ -1,14 +1,14 @@
 run_deploy_charm() {
     echo
 
-    file="${TEST_DIR}/test-deploy.txt"
+    file="${TEST_DIR}/test-deploy-charm.txt"
 
-    ensure "test-deploy" "${file}"
+    ensure "test-deploy-charm" "${file}"
 
     juju deploy cs:~jameinel/ubuntu-lite-7
     wait_for "ubuntu-lite" "$(idle_condition "ubuntu-lite")"
 
-    destroy_model "test-deploy"
+    destroy_model "test-deploy-charm"
 }
 
 run_deploy_lxd_profile_charm() {
@@ -21,7 +21,7 @@ run_deploy_lxd_profile_charm() {
     juju deploy cs:~juju-qa/bionic/lxd-profile-without-devices-5
     wait_for "lxd-profile" "$(idle_condition "lxd-profile")"
 
-    juju status --format=json | jq ".machines | .[\"0\"] | .[\"lxd-profiles\"] | keys[0]" | grep -q "juju-test-deploy-lxd-profile-lxd-profile"
+    juju status --format=json | jq ".machines | .[\"0\"] | .[\"lxd-profiles\"] | keys[0]" | check "juju-test-deploy-lxd-profile-lxd-profile"
 
     destroy_model "test-deploy-lxd-profile"
 }
@@ -47,24 +47,24 @@ run_deploy_local_lxd_profile_charm() {
     machine_0="$(machine_path 0)"
     wait_for "${lxd_profile_sub_name}" "${machine_0}"
 
-    juju status --format=json | jq "${machine_0}" | grep -q "${lxd_profile_name}"
-    juju status --format=json | jq "${machine_0}" | grep -q "${lxd_profile_sub_name}"
+    juju status --format=json | jq "${machine_0}" | check "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_0}" | check "${lxd_profile_sub_name}"
 
     juju add-unit "lxd-profile"
 
     machine_1="$(machine_path 1)"
     wait_for "${lxd_profile_sub_name}" "${machine_1}"
 
-    juju status --format=json | jq "${machine_1}" | grep -q "${lxd_profile_name}"
-    juju status --format=json | jq "${machine_1}" | grep -q "${lxd_profile_sub_name}"
+    juju status --format=json | jq "${machine_1}" | check "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_1}" | check "${lxd_profile_sub_name}"
 
     juju add-unit "lxd-profile" --to lxd
 
     machine_2="$(machine_container_path 2 2/lxd/0)"
     wait_for "${lxd_profile_sub_name}" "${machine_2}"
 
-    juju status --format=json | jq "${machine_2}" | grep -q "${lxd_profile_name}"
-    juju status --format=json | jq "${machine_2}" | grep -q "${lxd_profile_sub_name}"
+    juju status --format=json | jq "${machine_2}" | check "${lxd_profile_name}"
+    juju status --format=json | jq "${machine_2}" | check "${lxd_profile_sub_name}"
 
     destroy_model "test-deploy-local-lxd-profile"
 }
