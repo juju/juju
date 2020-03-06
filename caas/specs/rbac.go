@@ -7,52 +7,52 @@ import (
 	"github.com/juju/errors"
 )
 
-// PolicyRule defines rule spec for creating a role or cluster role.
+// PolicyRule defines a rule policy for a role or cluster role.
 type PolicyRule struct {
-	Verbs           []string `yaml:"verbs"`
-	APIGroups       []string `yaml:"apiGroups,omitempty"`
-	Resources       []string `yaml:"resources,omitempty"`
-	ResourceNames   []string `yaml:"resourceNames,omitempty"`
-	NonResourceURLs []string `yaml:"nonResourceURLs,omitempty"`
+	Verbs           []string `json:"verbs" yaml:"verbs"`
+	APIGroups       []string `json:"apiGroups,omitempty" yaml:"apiGroups,omitempty"`
+	Resources       []string `json:"resources,omitempty" yaml:"resources,omitempty"`
+	ResourceNames   []string `json:"resourceNames,omitempty" yaml:"resourceNames,omitempty"`
+	NonResourceURLs []string `json:"nonResourceURLs,omitempty" yaml:"nonResourceURLs,omitempty"`
 }
 
-// RBACSpec defines RBAC related spec.
-type RBACSpec struct {
+// PrimeRBACSpec defines RBAC related spec.
+type PrimeRBACSpec struct {
 	AutomountServiceAccountToken *bool        `yaml:"automountServiceAccountToken,omitempty"`
 	Global                       bool         `yaml:"global,omitempty"`
 	Rules                        []PolicyRule `yaml:"rules,omitempty"`
 }
 
 // Validate returns an error if the spec is not valid.
-func (rs RBACSpec) Validate() error {
+func (rs PrimeRBACSpec) Validate() error {
 	if len(rs.Rules) == 0 {
 		return errors.NewNotValid(nil, "rules is required")
 	}
 	return nil
 }
 
-// ServiceAccountSpec defines spec for referencing or creating a service account.
-type ServiceAccountSpec struct {
-	name     string
-	RBACSpec `yaml:",inline"`
+// PrimeServiceAccountSpec defines spec for referencing or creating RBAC resource for the application.
+type PrimeServiceAccountSpec struct {
+	name          string
+	PrimeRBACSpec `yaml:",inline"`
 }
 
 // GetName returns the service accout name.
-func (sa ServiceAccountSpec) GetName() string {
+func (sa PrimeServiceAccountSpec) GetName() string {
 	return sa.name
 }
 
 // GetSpec returns the RBAC spec.
-func (sa ServiceAccountSpec) GetSpec() RBACSpec {
-	return sa.RBACSpec
+func (sa PrimeServiceAccountSpec) GetSpec() PrimeRBACSpec {
+	return sa.PrimeRBACSpec
 }
 
 // SetName sets the service accout name.
-func (sa *ServiceAccountSpec) SetName(name string) {
+func (sa *PrimeServiceAccountSpec) SetName(name string) {
 	sa.name = name
 }
 
 // Validate returns an error if the spec is not valid.
-func (sa ServiceAccountSpec) Validate() error {
-	return errors.Trace(sa.RBACSpec.Validate())
+func (sa PrimeServiceAccountSpec) Validate() error {
+	return errors.Trace(sa.PrimeRBACSpec.Validate())
 }

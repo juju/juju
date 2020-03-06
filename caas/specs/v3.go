@@ -11,7 +11,7 @@ import (
 // a pod on the CAAS substrate for version 3.
 type PodSpecV3 struct {
 	podSpecBase    `json:",inline" yaml:",inline"`
-	ServiceAccount *ServiceAccountSpec `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty"`
+	ServiceAccount *PrimeServiceAccountSpec `json:"serviceAccount,omitempty" yaml:"serviceAccount,omitempty"`
 }
 
 // Version3 defines the version number for pod spec version 3.

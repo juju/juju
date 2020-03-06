@@ -309,16 +309,20 @@ kubernetesResources:
 foo: bar
 `[1:]
 
-	sa1 := &specs.ServiceAccountSpec{}
-	sa1.AutomountServiceAccountToken = boolPtr(true)
-	sa1.Global = true
-	sa1.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	sa1 := &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Global:                       true,
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
+
 	getExpectedPodSpecBase := func() *specs.PodSpec {
 		pSpecs := &specs.PodSpec{ServiceAccount: sa1}
 		pSpecs.Service = &specs.ServiceSpec{
@@ -443,26 +447,36 @@ echo "do some stuff here for gitlab-init container"
 			},
 		}
 
-		sa2 := k8sspecs.K8sServiceAccountSpec{
-			Name: "k8sServiceAccount1",
-		}
-		sa2.Global = true
-		sa2.AutomountServiceAccountToken = boolPtr(true)
-		sa2.Rules = []specs.PolicyRule{
-			{
-				APIGroups: []string{""},
-				Resources: []string{"pods"},
-				Verbs:     []string{"get", "watch", "list"},
+		rbacResources := k8sspecs.K8sRBACResources{
+			ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+				{
+					Name:                         "k8sServiceAccount1",
+					AutomountServiceAccountToken: boolPtr(true),
+					Roles:                        []string{"k8sServiceAccount1"},
+				},
 			},
-			{
-				NonResourceURLs: []string{"/healthz", "/healthz/*"},
-				Verbs:           []string{"get", "post"},
-			},
-			{
-				APIGroups:     []string{"rbac.authorization.k8s.io"},
-				Resources:     []string{"clusterroles"},
-				Verbs:         []string{"bind"},
-				ResourceNames: []string{"admin", "edit", "view"},
+			ServiceAccountRoles: []k8sspecs.RoleSpec{
+				{
+					Name:   "k8sServiceAccount1",
+					Global: true,
+					Rules: []specs.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"pods"},
+							Verbs:     []string{"get", "watch", "list"},
+						},
+						{
+							NonResourceURLs: []string{"/healthz", "/healthz/*"},
+							Verbs:           []string{"get", "post"},
+						},
+						{
+							APIGroups:     []string{"rbac.authorization.k8s.io"},
+							Resources:     []string{"clusterroles"},
+							Verbs:         []string{"bind"},
+							ResourceNames: []string{"admin", "edit", "view"},
+						},
+					},
+				},
 			},
 		}
 
@@ -559,9 +573,7 @@ echo "do some stuff here for gitlab-init container"
 
 		pSpecs.ProviderPod = &k8sspecs.K8sPodSpec{
 			KubernetesResources: &k8sspecs.KubernetesResources{
-				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
-					sa2,
-				},
+				K8sRBACResources: rbacResources,
 				Pod: &k8sspecs.PodSpec{
 					ActiveDeadlineSeconds:         int64Ptr(10),
 					RestartPolicy:                 core.RestartPolicyOnFailure,
