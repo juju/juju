@@ -26,17 +26,24 @@ import (
 
 //go:generate mockgen -package mocks -destination mocks/crd_getter_mock.go github.com/juju/juju/caas/kubernetes/provider CRDGetterInterface
 
-func (k *kubernetesClient) getCRDLabels(appName string) map[string]string {
+func (k *kubernetesClient) getAPIExtensionLabelsGlobal(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
 		labelModel:       k.namespace,
 	}
 }
 
-func (k *kubernetesClient) getCRLabels(appName string) map[string]string {
+func (k *kubernetesClient) getAPIExtensionLabelsNamespaced(appName string) map[string]string {
 	return map[string]string{
 		labelApplication: appName,
 	}
+}
+
+func (k *kubernetesClient) getCRLabels(appName string, scope apiextensionsv1beta1.ResourceScope) map[string]string {
+	if isCRDScopeNamespaced(scope) {
+		return k.getAPIExtensionLabelsNamespaced(appName)
+	}
+	return k.getAPIExtensionLabelsGlobal(appName)
 }
 
 // ensureCustomResourceDefinitions creates or updates a custom resource definition resource.
@@ -49,8 +56,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 		crd := &apiextensionsv1beta1.CustomResourceDefinition{
 			ObjectMeta: v1.ObjectMeta{
 				Name:        name,
-				Namespace:   k.namespace,
-				Labels:      k.getCRDLabels(appName),
+				Labels:      k.getAPIExtensionLabelsGlobal(appName),
 				Annotations: annotations,
 			},
 			Spec: spec,
@@ -66,7 +72,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinitions(
 }
 
 func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1beta1.CustomResourceDefinition) (out *apiextensionsv1beta1.CustomResourceDefinition, cleanUps []func(), err error) {
-	api := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions()
+	api := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions()
 	logger.Debugf("creating custom resource definition %q", crd.GetName())
 	if out, err = api.Create(crd); err == nil {
 		cleanUps = append(cleanUps, func() { k.deleteCustomResourceDefinition(out.GetName(), out.GetUID()) })
@@ -89,7 +95,7 @@ func (k *kubernetesClient) ensureCustomResourceDefinition(crd *apiextensionsv1be
 }
 
 func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types.UID) error {
-	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, newPreconditionDeleteOptions(uid))
+	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().Delete(name, newPreconditionDeleteOptions(uid))
 	if k8serrors.IsNotFound(err) {
 		return nil
 	}
@@ -97,18 +103,36 @@ func (k *kubernetesClient) deleteCustomResourceDefinition(name string, uid types
 }
 
 func (k *kubernetesClient) getCustomResourceDefinition(name string) (*apiextensionsv1beta1.CustomResourceDefinition, error) {
-	crd, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{})
+	crd, err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().Get(name, v1.GetOptions{})
 	if k8serrors.IsNotFound(err) {
 		return nil, errors.NotFoundf("custom resource definition %q", name)
 	}
 	return crd, errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteCustomResourceDefinitions(appName string) error {
-	err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().DeleteCollection(&v1.DeleteOptions{
+func (k *kubernetesClient) listCustomResourceDefinitions(labels map[string]string) ([]apiextensionsv1beta1.CustomResourceDefinition, error) {
+	listOps := v1.ListOptions{
+		LabelSelector: labelsToSelector(labels),
+	}
+	list, err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().List(listOps)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(list.Items) == 0 {
+		return nil, errors.NotFoundf("custom resource definitions with labels %v", labels)
+	}
+	return list.Items, nil
+}
+
+func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
+	return errors.Trace(k.deleteCustomResourceDefinitions(k.getAPIExtensionLabelsGlobal(appName)))
+}
+
+func (k *kubernetesClient) deleteCustomResourceDefinitions(labels map[string]string) error {
+	err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelsToSelector(k.getCRDLabels(appName)),
+		LabelSelector: labelsToSelector(labels),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil
@@ -116,12 +140,25 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(appName string) error
 	return errors.Trace(err)
 }
 
-func (k *kubernetesClient) deleteCustomResources(appName string) error {
-	crds, err := k.extendedCient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{})
+func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
+	labelsGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) map[string]string {
+		return k.getCRLabels(appName, crd.Spec.Scope)
+	}
+	return k.deleteCustomResources(labelsGetter)
+}
+
+func (k *kubernetesClient) deleteCustomResources(labelsGetter func(apiextensionsv1beta1.CustomResourceDefinition) map[string]string) error {
+	crds, err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{
+		// CRDs might be provisioned by another application/charm from a different model.
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}
 	for _, crd := range crds.Items {
+		labels := labelsGetter(crd)
+		if len(labels) == 0 {
+			continue
+		}
 		for _, version := range crd.Spec.Versions {
 			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
 			if err != nil {
@@ -130,7 +167,7 @@ func (k *kubernetesClient) deleteCustomResources(appName string) error {
 			err = crdClient.DeleteCollection(&v1.DeleteOptions{
 				PropagationPolicy: &defaultPropagationPolicy,
 			}, v1.ListOptions{
-				LabelSelector: labelsToSelector(k.getCRLabels(appName)),
+				LabelSelector: labelsToSelector(labels),
 			})
 			if err != nil && !k8serrors.IsNotFound(err) {
 				return errors.Trace(err)
@@ -138,6 +175,38 @@ func (k *kubernetesClient) deleteCustomResources(appName string) error {
 		}
 	}
 	return nil
+}
+
+func (k *kubernetesClient) listCustomResources(labelsGetter func(apiextensionsv1beta1.CustomResourceDefinition) map[string]string) (out []unstructured.Unstructured, err error) {
+	crds, err := k.extendedClient().ApiextensionsV1beta1().CustomResourceDefinitions().List(v1.ListOptions{
+		// CRDs might be provisioned by another application/charm from a different model.
+	})
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	for _, crd := range crds.Items {
+		labels := labelsGetter(crd)
+		if len(labels) == 0 {
+			continue
+		}
+		for _, version := range crd.Spec.Versions {
+			crdClient, err := k.getCustomResourceDefinitionClient(&crd, version.Name)
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			list, err := crdClient.List(v1.ListOptions{
+				LabelSelector: labelsToSelector(labels),
+			})
+			if err != nil && !k8serrors.IsNotFound(err) {
+				return nil, errors.Trace(err)
+			}
+			out = append(out, list.Items...)
+		}
+	}
+	if len(out) == 0 {
+		return nil, errors.NewNotFound(nil, "no custom resource found")
+	}
+	return out, nil
 }
 
 type apiVersionGetter interface {
@@ -170,7 +239,7 @@ func (k *kubernetesClient) ensureCustomResources(
 			if err != nil {
 				return cleanUps, errors.Trace(err)
 			}
-			crSpec.SetLabels(k.getCRLabels(appName))
+			crSpec.SetLabels(k.getCRLabels(appName, crd.Spec.Scope))
 			crSpec.SetAnnotations(
 				k8sannotations.New(crSpec.GetAnnotations()).
 					Merge(k8sannotations.New(annotations)).
@@ -280,12 +349,13 @@ func (k *kubernetesClient) getCRDsForCRs(
 		clk jujuclock.Clock,
 	) {
 		var crd *apiextensionsv1beta1.CustomResourceDefinition
-		err := retry.Call(retry.CallArgs{
+		var err error
+		err = retry.Call(retry.CallArgs{
 			Attempts: 8,
 			Delay:    1 * time.Second,
 			Clock:    clk,
 			Stop:     ctx.Done(),
-			Func: func() (err error) {
+			Func: func() error {
 				crd, err = getter.Get(name)
 				return errors.Trace(err)
 			},
@@ -332,6 +402,10 @@ func (k *kubernetesClient) getCRDsForCRs(
 	return out, nil
 }
 
+func isCRDScopeNamespaced(scope apiextensionsv1beta1.ResourceScope) bool {
+	return scope == apiextensionsv1beta1.NamespaceScoped
+}
+
 func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv1beta1.CustomResourceDefinition, version string) (dynamic.ResourceInterface, error) {
 	if version == "" {
 		return nil, errors.NotValidf("empty version for custom resource definition %q", crd.GetName())
@@ -362,7 +436,7 @@ func (k *kubernetesClient) getCustomResourceDefinitionClient(crd *apiextensionsv
 			Resource: crd.Spec.Names.Plural,
 		},
 	)
-	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped {
+	if !isCRDScopeNamespaced(crd.Spec.Scope) {
 		return client, nil
 	}
 	return client.Namespace(k.namespace), nil

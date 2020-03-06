@@ -5,6 +5,7 @@ package provider
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"fmt"
 	"io"
@@ -56,7 +57,7 @@ import (
 	"github.com/juju/juju/core/watcher"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/context"
+	envcontext "github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/tags"
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/provider"
@@ -258,7 +259,7 @@ func purifyResource(resource resourcePurifier) {
 	resource.SetResourceVersion("")
 }
 
-func (k *kubernetesClient) extendedCient() apiextensionsclientset.Interface {
+func (k *kubernetesClient) extendedClient() apiextensionsclientset.Interface {
 	k.lock.Lock()
 	defer k.lock.Unlock()
 	client := k.apiextensionsClientUnlocked
@@ -346,7 +347,7 @@ Please bootstrap again and choose a different controller name.`, controllerName)
 }
 
 // Create implements environs.BootstrapEnviron.
-func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreateParams) error {
+func (k *kubernetesClient) Create(envcontext.ProviderCallContext, environs.CreateParams) error {
 	// must raise errors.AlreadyExistsf if it's already exist.
 	return k.createNamespace(k.namespace)
 }
@@ -354,7 +355,7 @@ func (k *kubernetesClient) Create(context.ProviderCallContext, environs.CreatePa
 // Bootstrap deploys controller with mongoDB together into k8s cluster.
 func (k *kubernetesClient) Bootstrap(
 	ctx environs.BootstrapContext,
-	callCtx context.ProviderCallContext,
+	callCtx envcontext.ProviderCallContext,
 	args environs.BootstrapParams,
 ) (*environs.BootstrapResult, error) {
 
@@ -437,7 +438,7 @@ please choose a different hosted model name then try again.`, hostedModelName),
 }
 
 // DestroyController implements the Environ interface.
-func (k *kubernetesClient) DestroyController(ctx context.ProviderCallContext, controllerUUID string) error {
+func (k *kubernetesClient) DestroyController(ctx envcontext.ProviderCallContext, controllerUUID string) error {
 	// ensures all annnotations are set correctly, then we will accurately find the controller namespace to destroy it.
 	k.annotations.Merge(
 		k8sannotations.New(nil).
@@ -453,49 +454,41 @@ func (*kubernetesClient) Provider() caas.ContainerEnvironProvider {
 }
 
 // Destroy is part of the Broker interface.
-func (k *kubernetesClient) Destroy(callbacks context.ProviderCallContext) (err error) {
+func (k *kubernetesClient) Destroy(callbacks envcontext.ProviderCallContext) (err error) {
 	defer func() {
 		if err != nil && k8serrors.ReasonForError(err) == v1.StatusReasonUnknown {
 			logger.Warningf("k8s cluster is not accessible: %v", err)
 			err = nil
 		}
 	}()
-	watcher, err := k.WatchNamespace()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	defer watcher.Kill()
 
-	if err := k.deleteNamespace(); err != nil {
-		return errors.Annotate(err, "deleting model namespace")
-	}
+	errChan := make(chan error, 1)
+	done := make(chan struct{})
 
-	// Delete any storage classes created as part of this model.
-	// Storage classes live outside the namespace so need to be deleted separately.
-	modelSelector := fmt.Sprintf("%s==%s", labelModel, k.namespace)
-	err = k.client().StorageV1().StorageClasses().DeleteCollection(&v1.DeleteOptions{
-		PropagationPolicy: &defaultPropagationPolicy,
-	}, v1.ListOptions{
-		LabelSelector: modelSelector,
-	})
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return errors.Annotate(err, "deleting model storage classes")
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go k.deleteClusterScopeResourcesModelTeardown(ctx, &wg, errChan)
+	wg.Add(1)
+	go k.deleteNamespaceModelTeardown(ctx, &wg, errChan)
+
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
 	for {
 		select {
 		case <-callbacks.Dying():
 			return nil
-		case <-watcher.Changes():
-			// ensure namespace has been deleted - notfound error expected.
-			_, err := k.GetNamespace(k.namespace)
-			if errors.IsNotFound(err) {
-				// namespace ha been deleted.
-				return nil
-			}
+		case err = <-errChan:
 			if err != nil {
 				return errors.Trace(err)
 			}
-			logger.Debugf("namespace %q is still been terminating", k.namespace)
+		case <-done:
+			return nil
 		}
 	}
 }
@@ -826,17 +819,17 @@ func (k *kubernetesClient) DeleteService(appName string) (err error) {
 		return errors.Trace(err)
 	}
 	// Order matters: delete custom resources first then custom resource definitions.
-	if err := k.deleteCustomResources(appName); err != nil {
+	if err := k.deleteCustomResourcesForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteCustomResourceDefinitions(appName); err != nil {
+	if err := k.deleteCustomResourceDefinitionsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
 
-	if err := k.deleteMutatingWebhookConfigurations(appName); err != nil {
+	if err := k.deleteMutatingWebhookConfigurationsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteValidatingWebhookConfigurations(appName); err != nil {
+	if err := k.deleteValidatingWebhookConfigurationsForApp(appName); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -1507,7 +1500,6 @@ func (k *kubernetesClient) fileSetToVolume(
 				Name: refName,
 			},
 			DefaultMode: fileSet.ConfigMap.DefaultMode,
-			Optional:    fileSet.ConfigMap.Optional,
 			Items:       fileRefsToVolItems(fileSet.ConfigMap.Files),
 		}
 	} else if fileSet.Secret != nil {
@@ -1528,7 +1520,6 @@ func (k *kubernetesClient) fileSetToVolume(
 		vol.Secret = &core.SecretVolumeSource{
 			SecretName:  refName,
 			DefaultMode: fileSet.Secret.DefaultMode,
-			Optional:    fileSet.Secret.Optional,
 			Items:       fileRefsToVolItems(fileSet.Secret.Files),
 		}
 	} else {

@@ -101,7 +101,6 @@ containers:
         configMap:
           name: log-config
           defaultMode: 511
-          optional: true
           files:
             - key: log_level
               path: log_level
@@ -111,7 +110,6 @@ containers:
         secret:
           name: mysecret2
           defaultMode: 511
-          optional: true
           files:
             - key: password
               path: my-group/my-password
@@ -436,7 +434,6 @@ echo "do some stuff here for gitlab container"
 							ConfigMap: &specs.ResourceRefVol{
 								Name:        "log-config",
 								DefaultMode: int32Ptr(511),
-								Optional:    boolPtr(true),
 								Files: []specs.FileRef{
 									{
 										Key:  "log_level",
@@ -454,7 +451,6 @@ echo "do some stuff here for gitlab container"
 							Secret: &specs.ResourceRefVol{
 								Name:        "mysecret2",
 								DefaultMode: int32Ptr(511),
-								Optional:    boolPtr(true),
 								Files: []specs.FileRef{
 									{
 										Key:  "password",

@@ -191,7 +191,6 @@ type ResourceRefVol struct {
 	Name        string    `json:"name" yaml:"name"`
 	Files       []FileRef `json:"files,omitempty" yaml:"files,omitempty"`
 	DefaultMode *int32    `json:"defaultMode,omitempty" yaml:"defaultMode,omitempty"`
-	Optional    *bool     `json:"optional,omitempty" yaml:"optional,omitempty"`
 }
 
 // Validate validates ResourceRefVol.

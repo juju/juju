@@ -4,6 +4,9 @@
 package provider
 
 import (
+	"context"
+	"sync"
+
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	core "k8s.io/api/core/v1"
@@ -132,6 +135,14 @@ func (k *kubernetesClient) ConfigurePodFiles(
 	cfgMapName configMapNameFunc,
 ) error {
 	return k.configurePodFiles(appName, annotations, workloadSpec, containers, cfgMapName)
+}
+
+func (k *kubernetesClient) DeleteClusterScopeResourcesModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
+	k.deleteClusterScopeResourcesModelTeardown(ctx, wg, errChan)
+}
+
+func (k *kubernetesClient) DeleteNamespaceModelTeardown(ctx context.Context, wg *sync.WaitGroup, errChan chan<- error) {
+	k.deleteNamespaceModelTeardown(ctx, wg, errChan)
 }
 
 func StorageProvider(k8sClient kubernetes.Interface, namespace string) storage.Provider {
