@@ -74,7 +74,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *listCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:    "actions",
-		Args:    "<application name>",
+		Args:    "<application>",
 		Purpose: "List actions defined for an application.",
 		Doc:     listDoc,
 		Aliases: []string{"list-actions"},

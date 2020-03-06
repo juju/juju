@@ -42,11 +42,11 @@ func (s *ShowSuite) TestInit(c *gc.C) {
 	}{{
 		should:      "fail with missing application name",
 		args:        []string{},
-		expectedErr: "no application name specified",
+		expectedErr: "no application specified",
 	}, {
 		should:      "fail with missing action name",
 		args:        []string{validApplicationId},
-		expectedErr: "no action name specified",
+		expectedErr: "no action specified",
 	}, {
 		should:      "fail with invalid application name",
 		args:        []string{invalidApplicationId, "doIt"},

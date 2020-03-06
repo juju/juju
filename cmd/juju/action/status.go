@@ -44,7 +44,7 @@ func (c *statusCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *statusCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "show-action-status",
-		Args:    "[<action ID>|<action ID prefix>]",
+		Args:    "[<action>|<action-id-prefix>]",
 		Purpose: "Show results of all actions filtered by optional ID prefix.",
 		Doc:     statusDoc,
 	})

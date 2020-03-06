@@ -110,8 +110,8 @@ func (c *showOutputCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *showOutputCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:    "show-action-output",
-		Args:    "<action ID>",
-		Purpose: "Show results of an action by ID.",
+		Args:    "<action>",
+		Purpose: "Show results of an action.",
 		Doc:     showOutputDoc,
 	})
 	if !c.compat {

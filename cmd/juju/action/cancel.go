@@ -44,14 +44,14 @@ func (c *cancelCommand) Info() *cmd.Info {
 	if featureflag.Enabled(feature.JujuV3) {
 		info = &cmd.Info{
 			Name:    "cancel-task",
-			Args:    "<<task ID | task ID prefix>...>",
+			Args:    "(<task-id>|<task-id-prefix>) [...]",
 			Purpose: "Cancel pending or running tasks.",
 			Doc:     cancelDoc,
 		}
 	} else {
 		info = &cmd.Info{
 			Name:    "cancel-action",
-			Args:    "<<action ID | action ID prefix>...>",
+			Args:    "(<action-id>|<action-id-prefix>) [...]",
 			Purpose: "Cancel pending or running actions.",
 			Doc:     strings.Replace(cancelDoc, "task", "action", -1),
 			Aliases: []string{"cancel-task"},

@@ -139,7 +139,7 @@ func (c *runCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *runCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "run",
-		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
+		Args:    "<unit> [<unit> ...] <action-name> [<key>=<value> [<key>[.<key> ...]=<value>]]",
 		Purpose: "Run a action on a specified unit.",
 		Doc:     runDoc,
 	})
