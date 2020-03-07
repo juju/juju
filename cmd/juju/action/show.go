@@ -47,9 +47,9 @@ func NewShowCommand() cmd.Command {
 func (c *showCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
-		return errors.New("no application name specified")
+		return errors.New("no application specified")
 	case 1:
-		return errors.New("no action name specified")
+		return errors.New("no action specified")
 	case 2:
 		appName := args[0]
 		if !names.IsValidApplication(appName) {
@@ -66,7 +66,7 @@ func (c *showCommand) Init(args []string) error {
 func (c *showCommand) Info() *cmd.Info {
 	info := jujucmd.Info(&cmd.Info{
 		Name:    "show-action",
-		Args:    "<application name> <action name>",
+		Args:    "<application> <action>",
 		Purpose: "Shows detailed information about an action.",
 		Doc:     showActionDoc,
 	})

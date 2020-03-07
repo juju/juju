@@ -71,8 +71,8 @@ func (c *showOperationCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *showOperationCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "show-operation",
-		Args:    "<operation ID>",
-		Purpose: "Show results of an operation by ID.",
+		Args:    "<operation-id>",
+		Purpose: "Show results of an operation.",
 		Doc:     showOperationDoc,
 	})
 }

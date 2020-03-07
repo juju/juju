@@ -88,7 +88,7 @@ func (c *runActionCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *runActionCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
 		Name:    "run-action",
-		Args:    "<unit> [<unit> ...] <action name> [key.key.key...=value]",
+		Args:    "<unit> [<unit> ...] <action> [<key>=<value> [<key>[.<key> ...]=<value>]]",
 		Purpose: "Queue an action for execution.",
 		Doc:     runActionDoc,
 	})
