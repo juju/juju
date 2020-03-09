@@ -130,8 +130,6 @@ func NewEnvironWorker(config Config) (worker.Worker, error) {
 // polls their instance for addition or removal changes.
 func NewContainerWorker(config Config) (worker.Worker, error) {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
-		// Should we be returning a no-op worker of some sort?
-		return nil, errors.NotValidf("Tag of kind %q", config.Tag.Kind())
 		config.Logger.Infof("cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
 		return nil, dependency.ErrUninstall
 	}
@@ -159,7 +157,6 @@ func newWorker(config Config) (*mutaterWorker, error) {
 		logger:                     config.Logger,
 		facade:                     config.Facade,
 		broker:                     config.Broker,
-		machineTag:                 config.Tag.(names.MachineTag),
 		machineWatcher:             watcher,
 		getRequiredLXDProfilesFunc: config.GetRequiredLXDProfiles,
 		getRequiredContextFunc:     config.GetRequiredContext,
@@ -182,7 +179,6 @@ type mutaterWorker struct {
 
 	logger                     Logger
 	broker                     environs.LXDProfiler
-	machineTag                 names.MachineTag
 	facade                     InstanceMutaterAPI
 	machineWatcher             watcher.StringsWatcher
 	getRequiredLXDProfilesFunc RequiredLXDProfilesFunc
