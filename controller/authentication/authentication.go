@@ -45,10 +45,9 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	}
 	var stateInfo *mongo.MongoInfo
 	stateAddresses, err := st.StateAddresses()
-	if err != nil {
-		// no state addresses to be found, this can happen if we are on a K8s model.
-		return nil, errors.Annotate(err, "could not read state addresses")
-	} else {
+	// We may not have stateAddresses (we don't on K8s), but the common case is that we don't need them
+	//  (we only need them for controller machines).
+	if err == nil {
 		stateInfo = &mongo.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  stateAddresses,
