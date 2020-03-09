@@ -189,7 +189,8 @@ check-deps:
 
 # CAAS related targets
 DOCKER_USERNAME            ?= jujusolutions
-JUJUD_STAGING_DIR          ?= /tmp/jujud-operator
+DOCKER_STAGING_DIR         ?= ${GOPATH}/tmp
+JUJUD_STAGING_DIR          ?= ${DOCKER_STAGING_DIR}/jujud-operator
 JUJUD_BIN_DIR              ?= ${GOPATH}/bin
 OPERATOR_IMAGE_BUILD_SRC   ?= true
 # By default the image tag is the full version number, including the build number.
@@ -208,7 +209,7 @@ endif
 
 operator-image: operator-check-build
 	rm -rf ${JUJUD_STAGING_DIR}
-	mkdir ${JUJUD_STAGING_DIR}
+	mkdir -p ${JUJUD_STAGING_DIR}
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}
@@ -233,8 +234,8 @@ check-k8s-model:
 
 local-operator-update: check-k8s-model operator-image
 	$(eval kubeworkers != juju status -m ${JUJU_K8S_MODEL} kubernetes-worker --format json | jq -c '.machines | keys' | tr  -c '[:digit:]' ' ' 2>&1)
-	docker save ${OPERATOR_IMAGE_PATH} | gzip > /tmp/jujud-operator-image.tar.gz
-	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} /tmp/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
+	docker save ${OPERATOR_IMAGE_PATH} | gzip > ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz
+	$(foreach wm,$(kubeworkers), juju scp -m ${JUJU_K8S_MODEL} ${DOCKER_STAGING_DIR}/jujud-operator-image.tar.gz $(wm):/tmp/jujud-operator-image.tar.gz ; )
 	$(foreach wm,$(kubeworkers), juju ssh -m ${JUJU_K8S_MODEL} $(wm) -- "zcat /tmp/jujud-operator-image.tar.gz | docker load" ; )
 
 STATIC_ANALYSIS_JOB ?= 
