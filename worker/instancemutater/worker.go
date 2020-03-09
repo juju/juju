@@ -131,6 +131,7 @@ func NewEnvironWorker(config Config) (worker.Worker, error) {
 func NewContainerWorker(config Config) (worker.Worker, error) {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
 		// Should we be returning a no-op worker of some sort?
+		return nil, errors.NotValidf("Tag of kind %q", config.Tag.Kind())
 		config.Logger.Infof("cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
 		return nil, dependency.ErrUninstall
 	}
