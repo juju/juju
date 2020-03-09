@@ -555,7 +555,8 @@ echo "do some stuff here for gitlab-init container"
 			},
 			ServiceAccountRoles: []k8sspecs.RoleSpec{
 				{
-					Name: "k8sRole",
+					Name:   "k8sRole",
+					Global: false,
 					Rules: []specs.PolicyRule{
 						{
 							APIGroups: []string{""},

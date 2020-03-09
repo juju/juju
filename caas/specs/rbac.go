@@ -42,11 +42,6 @@ func (sa PrimeServiceAccountSpec) GetName() string {
 	return sa.name
 }
 
-// GetSpec returns the RBAC spec.
-func (sa PrimeServiceAccountSpec) GetSpec() PrimeRBACSpec {
-	return sa.PrimeRBACSpec
-}
-
 // SetName sets the service accout name.
 func (sa *PrimeServiceAccountSpec) SetName(name string) {
 	sa.name = name
