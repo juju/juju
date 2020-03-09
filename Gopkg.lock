@@ -1227,16 +1227,17 @@
   version = "v0.18.0"
 
 [[projects]]
-  digest = "1:53c4b75f22ea7757dea07eae380ea42de547ae6865a5e3b41866754a8a8219c9"
+  digest = "1:26df9d3abe9f6470c2706b7d2f7660fb3e9ce44e894b1db19be1f094531d6bb4"
   name = "golang.org/x/crypto"
   packages = [
     "acme",
     "acme/autocert",
+    "blake2b",
     "cast5",
+    "chacha20",
     "curve25519",
     "ed25519",
     "ed25519/internal/edwards25519",
-    "internal/chacha20",
     "internal/subtle",
     "nacl/box",
     "nacl/secretbox",
@@ -1255,7 +1256,7 @@
     "ssh/terminal",
   ]
   pruneopts = ""
-  revision = "f027049dab0ad238e394a753dba2d14753473a04"
+  revision = "69ecbb4d6d5dab05e49161c6e77ea40a030884e1"
 
 [[projects]]
   digest = "1:40dd5a4f1e82c4d3dc3de550a96152f6a8937bcfcb20c7ee34685f8764e1bda5"
@@ -1301,6 +1302,7 @@
   digest = "1:2e1aadff5bda52e267975408bf6b5e90135fc643829c9e4e964ff82c3826a1dd"
   name = "golang.org/x/sys"
   packages = [
+    "cpu",
     "unix",
     "windows",
     "windows/registry",
