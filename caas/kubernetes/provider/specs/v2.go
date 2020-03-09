@@ -167,16 +167,6 @@ func (ksa K8sServiceAccountSpecV2) toLatest() K8sRBACResources {
 	}
 }
 
-// // GetName returns the service accout name.
-// func (sa K8sServiceAccountSpecV2) GetName() string {
-// 	return sa.Name
-// }
-
-// // GetSpec returns the RBAC spec.
-// func (sa K8sServiceAccountSpecV2) GetSpec() specs.RBACSpec {
-// 	return sa.RBACSpecV2
-// }
-
 // Validate returns an error if the spec is not valid.
 func (ksa K8sServiceAccountSpecV2) Validate() error {
 	if ksa.Name == "" {

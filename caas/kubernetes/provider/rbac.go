@@ -13,9 +13,10 @@ import (
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
+	k8sspecs "github.com/juju/juju/caas/kubernetes/provider/specs"
 	"github.com/juju/juju/caas/specs"
 )
 
@@ -42,124 +43,107 @@ func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
 	return out
 }
 
-type nameGetter interface {
-	GetName() string
-}
-
-func getBindingName(sa nameGetter, cR nameGetter) string {
+func getBindingName(sa, cR k8sspecs.NameGetter) string {
 	return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
 }
 
-type serviceAccountSpecGetter interface {
-	GetName() string
-	GetSpec() specs.RBACSpec
-}
-
 func (k *kubernetesClient) ensureServiceAccountForApp(
-	appName string, annotations map[string]string, rbacDefinition serviceAccountSpecGetter,
+	appName string, annotations map[string]string, rbacDefinition k8sspecs.K8sRBACSpecConverter,
 ) (cleanups []func(), err error) {
 
-	rbacStackName := rbacDefinition.GetName()
-	caasSpec := rbacDefinition.GetSpec()
-	saSpec := &core.ServiceAccount{
-		ObjectMeta: v1.ObjectMeta{
-			Name:        rbacStackName,
+	// prefixNameSpace := func(name string) string {
+	// 	return fmt.Sprintf("%s-%s", k.namespace, name)
+	// }
+
+	getSAMeta := func(name string) v1.ObjectMeta {
+		return v1.ObjectMeta{
+			Name:        name,
 			Namespace:   k.namespace,
 			Labels:      k.getRBACLabels(appName, false),
 			Annotations: annotations,
-		},
-		AutomountServiceAccountToken: caasSpec.AutomountServiceAccountToken,
-	}
-	// ensure service account;
-	sa, saCleanups, err := k.ensureServiceAccount(saSpec)
-	cleanups = append(cleanups, saCleanups...)
-	if err != nil {
-		return cleanups, errors.Trace(err)
-	}
-
-	if len(caasSpec.Rules) > 0 {
-		if !caasSpec.Global {
-			// ensure Role.
-			r, rCleanups, err := k.ensureRole(&rbacv1.Role{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        rbacStackName,
-					Namespace:   k.namespace,
-					Labels:      k.getRBACLabels(appName, false),
-					Annotations: annotations,
-				},
-				Rules: toK8sRules(caasSpec.Rules),
-			})
-			cleanups = append(cleanups, rCleanups...)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
-
-			// ensure RoleBindings for Role.
-			_, rBCleanups, err := k.ensureRoleBinding(&rbacv1.RoleBinding{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        rbacStackName,
-					Namespace:   k.namespace,
-					Labels:      k.getRBACLabels(appName, false),
-					Annotations: annotations,
-				},
-				RoleRef: rbacv1.RoleRef{
-					Name: r.GetName(),
-					Kind: "Role",
-				},
-				Subjects: []rbacv1.Subject{
-					{
-						Kind:      rbacv1.ServiceAccountKind,
-						Name:      sa.GetName(),
-						Namespace: sa.GetNamespace(),
-					},
-				},
-			})
-			cleanups = append(cleanups, rBCleanups...)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
-		} else {
-			// ensure ClusterRole.
-			rbacStackName = fmt.Sprintf("%s-%s", k.namespace, rbacStackName)
-			cR, cRCleanups, err := k.ensureClusterRole(&rbacv1.ClusterRole{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        rbacStackName,
-					Namespace:   k.namespace,
-					Labels:      k.getRBACLabels(appName, true),
-					Annotations: annotations,
-				},
-				Rules: toK8sRules(caasSpec.Rules),
-			})
-			cleanups = append(cleanups, cRCleanups...)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
-			// ensure ClusterRoleBindings for ClusterRole.
-			_, cRBCleanups, err := k.ensureClusterRoleBinding(&rbacv1.ClusterRoleBinding{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        rbacStackName,
-					Namespace:   k.namespace,
-					Labels:      k.getRBACLabels(appName, true),
-					Annotations: annotations,
-				},
-				RoleRef: rbacv1.RoleRef{
-					Name: cR.GetName(),
-					Kind: "ClusterRole",
-				},
-				Subjects: []rbacv1.Subject{
-					{
-						Kind:      rbacv1.ServiceAccountKind,
-						Name:      sa.GetName(),
-						Namespace: sa.GetNamespace(),
-					},
-				},
-			})
-			cleanups = append(cleanups, cRBCleanups...)
-			if err != nil {
-				return cleanups, errors.Trace(err)
-			}
 		}
 	}
+	getRoleMeta := func(name string) v1.ObjectMeta {
+		return v1.ObjectMeta{
+			Name:        name,
+			Namespace:   k.namespace,
+			Labels:      k.getRBACLabels(appName, false),
+			Annotations: annotations,
+		}
+	}
+	getClusterRoleMeta := func(name string) v1.ObjectMeta {
+		return v1.ObjectMeta{
+			// TODO: can't prefix namespace anymore because SA reference the Cluster Roles by name.!!!!!!!!
+			// Name:        prefixNameSpace(name),
+			Name:        name,
+			Namespace:   k.namespace,
+			Labels:      k.getRBACLabels(appName, true),
+			Annotations: annotations,
+		}
+	}
+	getBindingMeta := func(sa, role k8sspecs.NameGetter) v1.ObjectMeta {
+		return v1.ObjectMeta{
+			Name:        getBindingName(sa, role),
+			Namespace:   k.namespace,
+			Labels:      k.getRBACLabels(appName, false),
+			Annotations: annotations,
+		}
+	}
+	getClusterBindingMeta := func(sa, clusterRole k8sspecs.NameGetter) v1.ObjectMeta {
+		return v1.ObjectMeta{
+			Name:        getBindingName(sa, clusterRole),
+			Namespace:   k.namespace,
+			Labels:      k.getRBACLabels(appName, true),
+			Annotations: annotations,
+		}
+	}
+
+	serviceAccounts, roles, clusterroles, roleBindings, clusterRoleBindings := rbacDefinition.ToK8s(
+		getSAMeta,
+		getRoleMeta,
+		getClusterRoleMeta,
+		getBindingMeta,
+		getClusterBindingMeta,
+	)
+
+	for _, spec := range serviceAccounts {
+		_, sacleanups, err := k.ensureServiceAccount(&spec)
+		cleanups = append(cleanups, sacleanups...)
+		if err != nil {
+			return cleanups, errors.Trace(err)
+		}
+	}
+
+	for _, spec := range roles {
+		_, rCleanups, err := k.ensureRole(&spec)
+		cleanups = append(cleanups, rCleanups...)
+		if err != nil {
+			return cleanups, errors.Trace(err)
+		}
+	}
+	for _, spec := range roleBindings {
+		_, rbCleanups, err := k.ensureRoleBinding(&spec)
+		cleanups = append(cleanups, rbCleanups...)
+		if err != nil {
+			return cleanups, errors.Trace(err)
+		}
+	}
+
+	for _, spec := range clusterroles {
+		_, cRCleanups, err := k.ensureClusterRole(&spec)
+		cleanups = append(cleanups, cRCleanups...)
+		if err != nil {
+			return cleanups, errors.Trace(err)
+		}
+	}
+	for _, spec := range clusterRoleBindings {
+		_, crbCleanups, err := k.ensureClusterRoleBinding(&spec)
+		cleanups = append(cleanups, crbCleanups...)
+		if err != nil {
+			return cleanups, errors.Trace(err)
+		}
+	}
+
 	return cleanups, nil
 }
 

@@ -2492,7 +2492,7 @@ type workloadSpec struct {
 
 	Secrets                         []k8sspecs.Secret
 	ConfigMaps                      map[string]specs.ConfigMap
-	ServiceAccounts                 []serviceAccountSpecGetter
+	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
 	CustomResourceDefinitions       map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
 	CustomResources                 map[string][]unstructured.Unstructured
 	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook
@@ -2554,9 +2554,13 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 	spec.Service = podSpec.Service
 	spec.ConfigMaps = podSpec.ConfigMaps
 	if podSpec.ServiceAccount != nil {
-		// use application name for the service account if RBAC was requested.
+		// Use application name for the prime service account name.
 		podSpec.ServiceAccount.SetName(appName)
-		spec.ServiceAccounts = append(spec.ServiceAccounts, podSpec.ServiceAccount)
+		primeSA, err := k8sspecs.PrimeServiceAccountToK8sRBACResources(*podSpec.ServiceAccount)
+		if err != nil {
+			return nil, errors.Annotatef(err, "converting prime service account for app %q", appName)
+		}
+		spec.ServiceAccounts = append(spec.ServiceAccounts, primeSA)
 	}
 	if podSpec.ProviderPod != nil {
 		pSpec, ok := podSpec.ProviderPod.(*k8sspecs.K8sPodSpec)
@@ -2581,9 +2585,7 @@ func prepareWorkloadSpec(appName, deploymentName string, podSpec *specs.PodSpec,
 				spec.Pod.DNSPolicy = k8sResources.Pod.DNSPolicy
 				spec.Pod.HostNetwork = k8sResources.Pod.HostNetwork
 			}
-			for _, ksa := range k8sResources.ServiceAccounts {
-				spec.ServiceAccounts = append(spec.ServiceAccounts, &ksa)
-			}
+			spec.ServiceAccounts = append(spec.ServiceAccounts, &k8sResources.K8sRBACResources)
 		}
 		if podSpec.ServiceAccount != nil {
 			spec.Pod.ServiceAccountName = podSpec.ServiceAccount.GetName()

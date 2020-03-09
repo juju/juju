@@ -105,8 +105,18 @@ func (s *K8sSuite) TestPushUniqVolume(c *gc.C) {
 
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
-	sa := &specs.ServiceAccountSpec{}
-	sa.AutomountServiceAccountToken = boolPtr(true)
+	sa := &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
+		},
+	}
 
 	podSpec := specs.PodSpec{
 		ServiceAccount: sa,
@@ -213,8 +223,18 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
 func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 
-	sa := &specs.ServiceAccountSpec{}
-	sa.AutomountServiceAccountToken = boolPtr(true)
+	sa := &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
+		},
+	}
 
 	podSpec := specs.PodSpec{
 		ServiceAccount: sa,
@@ -2724,13 +2744,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.ServiceAccountSpec{}
-	podSpec.ServiceAccount.AutomountServiceAccountToken = boolPtr(true)
-	podSpec.ServiceAccount.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
 
@@ -2822,7 +2845,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name:      "app-name-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -2889,13 +2912,16 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.ServiceAccountSpec{}
-	podSpec.ServiceAccount.AutomountServiceAccountToken = boolPtr(true)
-	podSpec.ServiceAccount.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
 
@@ -2987,7 +3013,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name:      "app-name-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3023,9 +3049,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
-		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{}).Return(rb, nil),
-		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Delete("app-name-app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
@@ -3076,14 +3102,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.ServiceAccountSpec{}
-	podSpec.ServiceAccount.Global = true
-	podSpec.ServiceAccount.AutomountServiceAccountToken = boolPtr(true)
-	podSpec.ServiceAccount.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Global:                       true,
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
 
@@ -3157,7 +3186,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 	cr := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3175,7 +3204,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-app-name",
+			Name:      "app-name-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3184,7 +3213,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "test-app-name",
+			Name: "app-name",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
@@ -3242,14 +3271,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.ServiceAccountSpec{}
-	podSpec.ServiceAccount.Global = true
-	podSpec.ServiceAccount.AutomountServiceAccountToken = boolPtr(true)
-	podSpec.ServiceAccount.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			Global:                       true,
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
 
@@ -3323,7 +3355,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 	cr := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3341,7 +3373,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-app-name",
+			Name:      "app-name-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3350,7 +3382,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "test-app-name",
+			Name: "app-name",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
@@ -3377,9 +3409,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockClusterRoles.EXPECT().Update(cr).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("test-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
-		s.mockClusterRoleBindings.EXPECT().Get("test-app-name", v1.GetOptions{}).Return(crb, nil),
-		s.mockClusterRoleBindings.EXPECT().Get("test-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Delete("app-name-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
+		s.mockClusterRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(crb, nil),
+		s.mockClusterRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
@@ -3430,31 +3462,41 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.ServiceAccountSpec{}
-	podSpec.ServiceAccount.AutomountServiceAccountToken = boolPtr(true)
-	podSpec.ServiceAccount.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
 
-	k8sSASpec := k8sspecs.K8sServiceAccountSpec{
-		Name: "k8sRBAC1",
-	}
-	k8sSASpec.AutomountServiceAccountToken = boolPtr(true)
-	k8sSASpec.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
-		},
-	}
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
-				k8sSASpec,
+			K8sRBACResources: k8sspecs.K8sRBACResources{
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					{
+						Name:                         "sa2",
+						AutomountServiceAccountToken: boolPtr(true),
+						Roles:                        []string{"role2"},
+					},
+				},
+				ServiceAccountRoles: []k8sspecs.RoleSpec{
+					{
+						Name: "role2",
+						Rules: []specs.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -3547,7 +3589,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb1 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name:      "app-name-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3570,7 +3612,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 	svcAccount2 := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "k8sRBAC1",
+			Name:      "sa2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3582,7 +3624,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	role2 := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "k8sRBAC1",
+			Name:      "role2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3600,7 +3642,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb2 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "k8sRBAC1",
+			Name:      "sa2-role2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3609,13 +3651,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "k8sRBAC1",
+			Name: "role2",
 			Kind: "Role",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "k8sRBAC1",
+				Name:      "sa2",
 				Namespace: "test",
 			},
 		},
@@ -3675,42 +3717,52 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.ServiceAccountSpec{}
-	podSpec.ServiceAccount.AutomountServiceAccountToken = boolPtr(true)
-	podSpec.ServiceAccount.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
+	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
 		},
 	}
 
-	k8sSASpec := k8sspecs.K8sServiceAccountSpec{
-		Name: "k8sRBAC1",
-	}
-	k8sSASpec.Global = true
-	k8sSASpec.AutomountServiceAccountToken = boolPtr(true)
-	k8sSASpec.Rules = []specs.PolicyRule{
-		{
-			APIGroups: []string{""},
-			Resources: []string{"pods"},
-			Verbs:     []string{"get", "watch", "list"},
-		},
-		{
-			NonResourceURLs: []string{"/healthz", "/healthz/*"},
-			Verbs:           []string{"get", "post"},
-		},
-		{
-			APIGroups:     []string{"rbac.authorization.k8s.io"},
-			Resources:     []string{"clusterroles"},
-			Verbs:         []string{"bind"},
-			ResourceNames: []string{"admin", "edit", "view"},
-		},
-	}
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
-			ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
-				k8sSASpec,
+			K8sRBACResources: k8sspecs.K8sRBACResources{
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					{
+						Name:                         "sa2",
+						Roles:                        []string{"cluster-role2"},
+						AutomountServiceAccountToken: boolPtr(true),
+					},
+				},
+				ServiceAccountRoles: []k8sspecs.RoleSpec{
+					{
+						Name:   "cluster-role2",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
+							},
+							{
+								NonResourceURLs: []string{"/healthz", "/healthz/*"},
+								Verbs:           []string{"get", "post"},
+							},
+							{
+								APIGroups:     []string{"rbac.authorization.k8s.io"},
+								Resources:     []string{"clusterroles"},
+								Verbs:         []string{"bind"},
+								ResourceNames: []string{"admin", "edit", "view"},
+							},
+						},
+					},
+				},
 			},
 		},
 	}
@@ -3804,7 +3856,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb1 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name:      "app-name-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3827,7 +3879,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 	svcAccount2 := &core.ServiceAccount{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "k8sRBAC1",
+			Name:      "sa2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3839,7 +3891,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	clusterrole2 := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-k8sRBAC1",
+			Name:      "cluster-role2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3867,7 +3919,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	crb2 := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-k8sRBAC1",
+			Name:      "sa2-cluster-role2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3876,13 +3928,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "test-k8sRBAC1",
+			Name: "cluster-role2",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
 			{
 				Kind:      rbacv1.ServiceAccountKind,
-				Name:      "k8sRBAC1",
+				Name:      "sa2",
 				Namespace: "test",
 			},
 		},
