@@ -88,7 +88,7 @@ func CheckForGraphError(r autorest.Responder) autorest.Responder {
 			defer resp.Body.Close()
 			b, err := ioutil.ReadAll(resp.Body)
 			if err != nil {
-				return err
+				return errors.Trace(err)
 			}
 			resp.Body = ioutil.NopCloser(bytes.NewReader(b))
 
@@ -108,20 +108,20 @@ func CheckForGraphError(r autorest.Responder) autorest.Responder {
 // GraphError is a go error that wraps the graphrbac.GraphError reponse
 // type, which doesn't implement the error interface.
 type GraphError struct {
-	ge graphrbac.GraphError
+	graphrbac.GraphError
 }
 
 // Code returns the code from the GraphError.
 func (e *GraphError) Code() string {
-	return *e.ge.Code
+	return *e.GraphError.Code
 }
 
 // Message returns the message from the GraphError.
 func (e *GraphError) Message() string {
-	if e.ge.OdataError == nil || e.ge.ErrorMessage == nil || e.ge.Message == nil {
+	if e.GraphError.OdataError == nil || e.GraphError.ErrorMessage == nil || e.GraphError.Message == nil {
 		return ""
 	}
-	return *e.ge.Message
+	return *e.GraphError.Message
 }
 
 // Error implements the error interface.

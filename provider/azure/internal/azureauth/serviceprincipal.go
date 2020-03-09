@@ -374,9 +374,7 @@ func (c *ServicePrincipalCreator) createRoleAssignment(sdkCtx context.Context, p
 	if err != nil {
 		return errors.Annotate(err, "listing role definitions")
 	}
-	logger.Debugf("%+v", result)
 	ownerRoles := result.Values()
-	logger.Debugf("%+v", ownerRoles)
 	if len(ownerRoles) == 0 {
 		return errors.NotFoundf("Owner role definition")
 	}
