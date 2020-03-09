@@ -591,6 +591,10 @@ func (task *provisionerTask) constructInstanceConfig(
 		if err != nil {
 			return nil, err
 		}
+		if stateInfo == nil {
+			return nil, errors.Errorf("Job needs state, but stateInfo is nil: jobs %v for %v",
+				instanceConfig.Jobs, machine.Tag().String())
+		}
 		instanceConfig.Controller = &instancecfg.ControllerConfig{
 			PublicImageSigningKey: publicKey,
 			MongoInfo:             stateInfo,
