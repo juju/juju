@@ -19,7 +19,6 @@ import (
 )
 
 type Backend interface {
-	//state.CloudAccessor
 	network.SpaceLookup
 
 	Machine(string) (Machine, error)
@@ -37,8 +36,8 @@ type Pool interface {
 type Model interface {
 	Name() string
 	UUID() string
-	CloudValue() (cloud.Cloud, error)
-	CloudCredentialValue() (state.Credential, bool, error)
+	Cloud() (cloud.Cloud, error)
+	CloudCredential() (state.Credential, bool, error)
 	CloudRegion() string
 	Config() (*config.Config, error)
 }

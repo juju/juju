@@ -51,7 +51,7 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloud, err := p.st.Cloud(model.Cloud())
+	cloud, err := p.st.Cloud(model.CloudName())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud")
 	}

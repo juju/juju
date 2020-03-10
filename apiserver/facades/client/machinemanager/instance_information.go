@@ -32,12 +32,12 @@ func instanceTypes(mm *MachineManagerAPI,
 	}
 
 	cloudSpec := func() (environs.CloudSpec, error) {
-		cloud, err := model.CloudValue()
+		cloud, err := model.Cloud()
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}
 		regionName := model.CloudRegion()
-		credentialValue, ok, err := model.CloudCredentialValue()
+		credentialValue, ok, err := model.CloudCredential()
 		if err != nil {
 			return environs.CloudSpec{}, errors.Trace(err)
 		}

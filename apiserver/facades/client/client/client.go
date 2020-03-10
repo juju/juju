@@ -554,7 +554,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 	info := params.ModelInfo{
 		DefaultSeries:  config.PreferredSeries(conf),
-		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
+		CloudTag:       names.NewCloudTag(model.CloudName()).String(),
 		CloudRegion:    model.CloudRegion(),
 		ProviderType:   conf.Type(),
 		Name:           conf.Name(),
@@ -568,7 +568,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if agentVersion, exists := conf.AgentVersion(); exists {
 		info.AgentVersion = &agentVersion
 	}
-	if tag, ok := model.CloudCredential(); ok {
+	if tag, ok := model.CloudCredentialTag(); ok {
 		info.CloudCredentialTag = tag.String()
 	}
 	info.SLA = &params.ModelSLAInfo{

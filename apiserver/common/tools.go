@@ -57,8 +57,22 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc, newEnviron NewEnvironFunc) *ToolsGetter {
-	return &ToolsGetter{newEnviron, f, c, s, t, getCanRead}
+func NewToolsGetter(
+	f state.EntityFinder,
+	c environs.EnvironConfigGetter,
+	s ToolsStorageGetter,
+	t ToolsURLGetter,
+	getCanRead GetAuthFunc,
+	newEnviron NewEnvironFunc,
+) *ToolsGetter {
+	return &ToolsGetter{
+		newEnviron:         newEnviron,
+		entityFinder:       f,
+		configGetter:       c,
+		toolsStorageGetter: s,
+		urlGetter:          t,
+		getCanRead:         getCanRead,
+	}
 }
 
 // Tools finds the tools necessary for the given agents.

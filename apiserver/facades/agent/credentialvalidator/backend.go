@@ -45,7 +45,7 @@ func (b *backend) ModelUsesCredential(tag names.CloudCredentialTag) (bool, error
 	if err != nil {
 		return false, errors.Trace(err)
 	}
-	modelCredentialTag, exists := m.CloudCredential()
+	modelCredentialTag, exists := m.CloudCredentialTag()
 	return exists && tag == modelCredentialTag, nil
 }
 
@@ -56,12 +56,12 @@ func (b *backend) ModelCredential() (*ModelCredential, error) {
 		return nil, errors.Trace(err)
 	}
 
-	modelCredentialTag, exists := m.CloudCredential()
+	modelCredentialTag, exists := m.CloudCredentialTag()
 	result := &ModelCredential{Model: m.ModelTag(), Exists: exists}
 	if !exists {
 		// A model credential is not set, we must check if the model
 		// is on the cloud that requires a credential.
-		supportsEmptyAuth, err := b.cloudSupportsNoAuth(m.Cloud())
+		supportsEmptyAuth, err := b.cloudSupportsNoAuth(m.CloudName())
 		if err != nil {
 			return nil, errors.Trace(err)
 		}

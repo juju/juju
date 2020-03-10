@@ -38,7 +38,7 @@ func (s *BackendSuite) TestModelUsesCredential(c *gc.C) {
 	uses, err := s.backend.ModelUsesCredential(s.state.aModel.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uses, jc.IsTrue)
-	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential")
+	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag")
 }
 
 func (s *BackendSuite) TestModelUsesCredentialUnset(c *gc.C) {
@@ -46,14 +46,14 @@ func (s *BackendSuite) TestModelUsesCredentialUnset(c *gc.C) {
 	uses, err := s.backend.ModelUsesCredential(s.state.aModel.credentialTag)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uses, jc.IsFalse)
-	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential")
+	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag")
 }
 
 func (s *BackendSuite) TestModelUsesCredentialWrongCredential(c *gc.C) {
 	uses, err := s.backend.ModelUsesCredential(names.NewCloudCredentialTag("foo/bob/two"))
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(uses, jc.IsFalse)
-	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential")
+	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag")
 }
 
 func (s *BackendSuite) TestModelCredentialUnsetNotSupported(c *gc.C) {
@@ -65,7 +65,7 @@ func (s *BackendSuite) TestModelCredentialUnsetNotSupported(c *gc.C) {
 		Credential: names.CloudCredentialTag{},
 		Valid:      false,
 	})
-	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential", "ModelTag", "Cloud", "Cloud")
+	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag", "ModelTag", "Cloud", "Cloud")
 }
 
 func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
@@ -78,7 +78,7 @@ func (s *BackendSuite) TestModelCredentialUnsetSupported(c *gc.C) {
 		Credential: names.CloudCredentialTag{},
 		Valid:      true,
 	})
-	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential", "ModelTag", "Cloud", "Cloud")
+	s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag", "ModelTag", "Cloud", "Cloud")
 }
 
 func (s *BackendSuite) TestModelCredentialSetButCloudCredentialNotFound(c *gc.C) {
@@ -90,7 +90,7 @@ func (s *BackendSuite) TestModelCredentialSetButCloudCredentialNotFound(c *gc.C)
 			Credential: s.state.aModel.credentialTag,
 			Valid:      expected,
 		})
-		s.state.CheckCallNames(c, "Model", "mockModel.CloudCredential", "ModelTag", "mockState.CloudCredential")
+		s.state.CheckCallNames(c, "Model", "mockModel.CloudCredentialTag", "ModelTag", "mockState.CloudCredentialTag")
 		s.state.ResetCalls()
 	}
 
@@ -145,7 +145,7 @@ func (b *mockState) Model() (credentialvalidator.ModelAccessor, error) {
 }
 
 func (b *mockState) CloudCredential(tag names.CloudCredentialTag) (state.Credential, error) {
-	b.AddCall("mockState.CloudCredential", tag)
+	b.AddCall("mockState.CloudCredentialTag", tag)
 	if err := b.NextErr(); err != nil {
 		return state.Credential{}, err
 	}
@@ -181,8 +181,8 @@ type mockModel struct {
 	cloud string
 }
 
-func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
-	m.MethodCall(m, "mockModel.CloudCredential")
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	m.MethodCall(m, "mockModel.CloudCredentialTag")
 	return m.credentialTag, m.credentialSet
 }
 
@@ -191,7 +191,7 @@ func (m *mockModel) ModelTag() names.ModelTag {
 	return m.modelTag
 }
 
-func (m *mockModel) Cloud() string {
+func (m *mockModel) CloudName() string {
 	m.MethodCall(m, "Cloud")
 	return m.cloud
 }

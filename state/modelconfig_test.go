@@ -442,7 +442,7 @@ func (s *ModelConfigSourceSuite) TestModelConfigDefaults(c *gc.C) {
 		Value: "dummy-proxy"}}
 	expectedValues["no-proxy"] = ds
 
-	sources, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	sources, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(sources, jc.DeepEquals, expectedValues)
 }
@@ -462,7 +462,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaults(c *gc.C) {
 	err = s.State.UpdateModelConfigDefaultValues(attrs, []string{"http-proxy", "https-proxy"}, nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -503,7 +503,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	err = s.State.UpdateModelConfigDefaultValues(attrs, nil, rspec)
 	c.Assert(err, jc.ErrorIsNil)
 
-	cfg, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues := make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -535,7 +535,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigRegionDefaults(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	// and check again
-	cfg, err = s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	cfg, err = s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedValues = make(config.ModelDefaultAttributes)
 	for attr, val := range config.ConfigDefaults() {
@@ -572,7 +572,7 @@ func (s *ModelConfigSourceSuite) TestUpdateModelConfigDefaultValuesUnknownRegion
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Then check config.
-	cfg, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	cfg, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cfg["no-proxy"], jc.DeepEquals, config.AttributeDefaultValues{
 		Default:    "127.0.0.1,localhost,::1",

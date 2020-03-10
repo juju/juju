@@ -168,7 +168,7 @@ special         -        -
 
 func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 	s.run(c, "model-defaults", "special=known")
-	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
@@ -177,7 +177,7 @@ func (s *cmdModelSuite) TestModelDefaultsSet(c *gc.C) {
 
 func (s *cmdModelSuite) TestModelDefaultsSetCloud(c *gc.C) {
 	s.run(c, "model-defaults", "dummy", "special=known")
-	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
@@ -187,7 +187,7 @@ func (s *cmdModelSuite) TestModelDefaultsSetCloud(c *gc.C) {
 
 func (s *cmdModelSuite) TestModelDefaultsSetRegion(c *gc.C) {
 	s.run(c, "model-defaults", "dummy/dummy-region", "special=known")
-	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	value, found := defaults["special"]
 	c.Assert(found, jc.IsTrue)
@@ -200,7 +200,7 @@ func (s *cmdModelSuite) TestModelDefaultsReset(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "--reset", "special")
-	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)
@@ -211,7 +211,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetCloud(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy", "--reset", "special")
-	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)
@@ -222,7 +222,7 @@ func (s *cmdModelSuite) TestModelDefaultsResetRegion(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.run(c, "model-defaults", "dummy-region", "--reset", "special")
-	defaults, err := s.State.ModelConfigDefaultValues(s.Model.Cloud())
+	defaults, err := s.State.ModelConfigDefaultValues(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	_, found := defaults["special"]
 	c.Assert(found, jc.IsFalse)

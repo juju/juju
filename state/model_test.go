@@ -1678,8 +1678,8 @@ func (s *ModelCloudValidationSuite) TestNewModelDifferentCloud(c *gc.C) {
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	defer newSt.Close()
-	c.Assert(m.Cloud(), gc.Equals, "another")
-	cloudValue, err := m.CloudValue()
+	c.Assert(m.CloudName(), gc.Equals, "another")
+	cloudValue, err := m.Cloud()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudValue, jc.DeepEquals, aCloud)
 }

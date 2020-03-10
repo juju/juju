@@ -28,12 +28,12 @@ func (g cloudEnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
-	cloud, err := model.CloudValue()
+	cloud, err := model.Cloud()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
 	regionName := g.region
-	credentialValue, ok, err := model.CloudCredentialValue()
+	credentialValue, ok, err := model.CloudCredential()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
@@ -82,8 +82,8 @@ func instanceTypes(api *CloudAPI,
 			result[i] = params.InstanceTypesResult{Error: common.ServerError(err)}
 			continue
 		}
-		if m.Cloud() != cloudTag.Id() {
-			result[i] = params.InstanceTypesResult{Error: common.ServerError(errors.NotValidf("asking %s cloud information to %s cloud", cloudTag.Id(), m.Cloud()))}
+		if m.CloudName() != cloudTag.Id() {
+			result[i] = params.InstanceTypesResult{Error: common.ServerError(errors.NotValidf("asking %s cloud information to %s cloud", cloudTag.Id(), m.CloudName()))}
 			continue
 		}
 

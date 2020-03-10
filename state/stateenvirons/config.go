@@ -19,9 +19,9 @@ type Model interface {
 	ModelTag() names.ModelTag
 	ControllerUUID() string
 	Type() state.ModelType
-	CloudValue() (cloud.Cloud, error)
+	Cloud() (cloud.Cloud, error)
 	CloudRegion() string
-	CloudCredentialValue() (state.Credential, bool, error)
+	CloudCredential() (state.Credential, bool, error)
 	Config() (*config.Config, error)
 }
 
@@ -67,12 +67,12 @@ func (g EnvironConfigGetter) ModelConfig() (*config.Config, error) {
 
 // CloudSpec implements environs.EnvironConfigGetter.
 func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
-	cloud, err := g.Model.CloudValue()
+	cloud, err := g.Model.Cloud()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
 	regionName := g.Model.CloudRegion()
-	credentialValue, ok, err := g.Model.CloudCredentialValue()
+	credentialValue, ok, err := g.Model.CloudCredential()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}

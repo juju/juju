@@ -1527,7 +1527,7 @@ type mockModel struct {
 	cfg                *config.Config
 }
 
-func (m *mockModel) Cloud() string {
+func (m *mockModel) CloudName() string {
 	return m.cloud
 }
 
@@ -1535,15 +1535,15 @@ func (m *mockModel) CloudRegion() string {
 	return m.cloudRegion
 }
 
-func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return m.cloudCredentialTag, true
 }
 
-func (m *mockModel) CloudValue() (cloud.Cloud, error) {
+func (m *mockModel) Cloud() (cloud.Cloud, error) {
 	return m.cloudValue, nil
 }
 
-func (m *mockModel) CloudCredentialValue() (state.Credential, bool, error) {
+func (m *mockModel) CloudCredential() (state.Credential, bool, error) {
 	return state.Credential{}, false, nil
 }
 

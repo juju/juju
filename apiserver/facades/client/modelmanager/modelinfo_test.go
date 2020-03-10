@@ -293,9 +293,9 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"UUID", nil},
 		{"Owner", nil},
 		{"Life", nil},
-		{"Cloud", nil},
+		{"CloudName", nil},
 		{"CloudRegion", nil},
-		{"CloudCredential", nil},
+		{"CloudCredentialTag", nil},
 		{"SLALevel", nil},
 		{"SLAOwner", nil},
 		{"Life", nil},
@@ -1079,12 +1079,12 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
-func (m *mockModel) Cloud() string {
-	m.MethodCall(m, "Cloud")
+func (m *mockModel) CloudName() string {
+	m.MethodCall(m, "CloudName")
 	return "some-cloud"
 }
 
-func (m *mockModel) CloudValue() (cloud.Cloud, error) {
+func (m *mockModel) Cloud() (cloud.Cloud, error) {
 	m.MethodCall(m, "CloudValue")
 	return m.cloud, nil
 }
@@ -1094,13 +1094,13 @@ func (m *mockModel) CloudRegion() string {
 	return "some-region"
 }
 
-func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
-	m.MethodCall(m, "CloudCredential")
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	m.MethodCall(m, "CloudCredentialTag")
 	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
 }
 
-func (m *mockModel) CloudCredentialValue() (state.Credential, bool, error) {
-	m.MethodCall(m, "CloudCredentialValue")
+func (m *mockModel) CloudCredential() (state.Credential, bool, error) {
+	m.MethodCall(m, "CloudCredential")
 	return m.cred, true, nil
 }
 
@@ -1173,7 +1173,7 @@ func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapE
 }
 
 func (m *mockModel) getModelDetails() state.ModelSummary {
-	cred, _ := m.CloudCredential()
+	cred, _ := m.CloudCredentialTag()
 	return state.ModelSummary{
 		Name:               m.Name(),
 		UUID:               m.UUID(),
@@ -1183,7 +1183,7 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 		ControllerUUID:     m.ControllerUUID(),
 		SLALevel:           m.SLALevel(),
 		SLAOwner:           m.SLAOwner(),
-		CloudTag:           m.Cloud(),
+		CloudTag:           m.CloudName(),
 		CloudRegion:        m.CloudRegion(),
 		CloudCredentialTag: cred.String(),
 	}

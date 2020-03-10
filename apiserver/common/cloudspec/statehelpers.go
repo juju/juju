@@ -108,7 +108,7 @@ func MakeCloudSpecCredentialContentWatcherForModel(st *state.State) func(names.M
 		if tag.Id() != st.ModelUUID() {
 			return nil, errors.New("cannot get cloud spec credential content for this model")
 		}
-		credentialTag, exists := m.CloudCredential()
+		credentialTag, exists := m.CloudCredentialTag()
 		if !exists {
 			return nil, nil
 		}

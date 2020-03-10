@@ -91,10 +91,10 @@ type Model interface {
 	ModelTag() names.ModelTag
 	Owner() names.UserTag
 	Status() (status.StatusInfo, error)
-	Cloud() string
-	CloudValue() (cloud.Cloud, error)
-	CloudCredential() (names.CloudCredentialTag, bool)
-	CloudCredentialValue() (state.Credential, bool, error)
+	CloudName() string
+	Cloud() (cloud.Cloud, error)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
+	CloudCredential() (state.Credential, bool, error)
 	CloudRegion() string
 	Users() ([]permission.UserAccess, error)
 	Destroy(state.DestroyModelParams) error
