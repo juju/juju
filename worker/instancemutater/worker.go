@@ -97,7 +97,7 @@ func (config Config) Validate() error {
 			// machine anyway. This is a hack for bug #1866623
 			return errors.NotValidf("Tag of kind %v", config.Tag.Kind())
 		}
-		config.Logger.Warningf("asked to start an instance mutator with Tag of kind %q", config.Tag.Kind())
+		config.Logger.Debugf("asked to start an instance mutator with Tag of kind %q", config.Tag.Kind())
 	}
 	if config.GetMachineWatcher == nil {
 		return errors.NotValidf("nil GetMachineWatcher")
@@ -130,7 +130,7 @@ func NewEnvironWorker(config Config) (worker.Worker, error) {
 // polls their instance for addition or removal changes.
 func NewContainerWorker(config Config) (worker.Worker, error) {
 	if _, ok := config.Tag.(names.MachineTag); !ok {
-		config.Logger.Infof("cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
+		config.Logger.Warningf("cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
 		return nil, dependency.ErrUninstall
 	}
 	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
