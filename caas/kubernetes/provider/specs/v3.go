@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
-	"github.com/kr/pretty"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	rbacv1 "k8s.io/api/rbac/v1"
@@ -123,6 +122,7 @@ func (ks K8sRBACResources) Validate() error {
 		roleNames.Add(r.Name)
 	}
 	saNames := set.NewStrings()
+	referencedRoles := set.NewStrings()
 	for _, sa := range ks.ServiceAccounts {
 		if err := sa.Validate(); err != nil {
 			return errors.Trace(err)
@@ -135,7 +135,14 @@ func (ks K8sRBACResources) Validate() error {
 			if !roleNames.Contains(rName) {
 				return errors.NewNotValid(nil, fmt.Sprintf("service account %q references an unknown role %q", sa.Name, rName))
 			}
+			referencedRoles.Add(rName)
 		}
+	}
+	if unusedRoles := roleNames.Difference(referencedRoles); unusedRoles.Size() > 0 {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"roles %q are not referenced by any service account",
+			strings.Join(unusedRoles.SortedValues(), ","),
+		))
 	}
 	return nil
 }
@@ -250,11 +257,6 @@ func (ks K8sRBACResources) ToK8s(
 			}
 		}
 	}
-	logger.Criticalf("serviceAccounts -> %s", pretty.Sprint(serviceAccounts))
-	logger.Criticalf("roles -> %s", pretty.Sprint(roles))
-	logger.Criticalf("roleBindings -> %s", pretty.Sprint(roleBindings))
-	logger.Criticalf("clusterRoles -> %s", pretty.Sprint(clusterroles))
-	logger.Criticalf("clusterRoleBindings -> %s", pretty.Sprint(clusterRoleBindings))
 	return
 }
 

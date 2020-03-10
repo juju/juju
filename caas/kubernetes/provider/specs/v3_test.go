@@ -5,12 +5,14 @@ package specs_test
 
 import (
 	"encoding/base64"
+	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	admissionregistration "k8s.io/api/admissionregistration/v1beta1"
 	core "k8s.io/api/core/v1"
 	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -1037,6 +1039,446 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+}
+
+func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {
+	primeSA := specs.PrimeServiceAccountSpec{
+		PrimeRBACSpec: specs.PrimeRBACSpec{
+			AutomountServiceAccountToken: boolPtr(true),
+			Global:                       true,
+			Rules: []specs.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
+		},
+	}
+	c.Assert(primeSA.Validate(), jc.ErrorIsNil)
+	primeSA.SetName("test-app-rbac")
+	c.Assert(primeSA.Validate(), jc.ErrorIsNil)
+
+	sa, err := k8sspecs.PrimeServiceAccountToK8sRBACResources(primeSA)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(sa.Validate(), jc.ErrorIsNil)
+	c.Assert(sa, gc.DeepEquals, &k8sspecs.K8sRBACResources{
+		ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+			{
+				Name:                         "test-app-rbac",
+				AutomountServiceAccountToken: boolPtr(true),
+				Roles:                        []string{"test-app-rbac"},
+			},
+		},
+		ServiceAccountRoles: []k8sspecs.RoleSpec{
+			{
+				Name:   "test-app-rbac",
+				Global: true,
+				Rules: []specs.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+						Verbs:     []string{"get", "watch", "list"},
+					},
+				},
+			},
+		},
+	})
+}
+
+type tcK8sRBACResources struct {
+	Spec   k8sspecs.K8sRBACResources
+	ErrStr string
+}
+
+func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
+	for i, tc := range []tcK8sRBACResources{
+		{
+			Spec: k8sspecs.K8sRBACResources{
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					{
+						Name:                         "sa2",
+						Roles:                        []string{"cluster-role2"},
+						AutomountServiceAccountToken: boolPtr(true),
+					},
+				},
+				ServiceAccountRoles: []k8sspecs.RoleSpec{
+					{
+						Name:   "cluster-role2",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
+							},
+						},
+					},
+					{
+						Name:   "cluster-role2",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								NonResourceURLs: []string{"/healthz", "/healthz/*"},
+								Verbs:           []string{"get", "post"},
+							},
+						},
+					},
+				},
+			},
+			ErrStr: `duplicated role name "cluster-role2" not valid`,
+		},
+		{
+			Spec: k8sspecs.K8sRBACResources{
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					{
+						Name:                         "sa2",
+						Roles:                        []string{"cluster-role2"},
+						AutomountServiceAccountToken: boolPtr(true),
+					},
+					{
+						Name:                         "sa2",
+						Roles:                        []string{"cluster-role2"},
+						AutomountServiceAccountToken: boolPtr(true),
+					},
+				},
+				ServiceAccountRoles: []k8sspecs.RoleSpec{
+					{
+						Name:   "cluster-role2",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
+							},
+						},
+					},
+				},
+			},
+			ErrStr: `duplicated service account name "sa2" not valid`,
+		},
+		{
+			Spec: k8sspecs.K8sRBACResources{
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					{
+						Name:                         "sa2",
+						Roles:                        []string{"cluster-role2"},
+						AutomountServiceAccountToken: boolPtr(true),
+					},
+				},
+				ServiceAccountRoles: []k8sspecs.RoleSpec{},
+			},
+			ErrStr: `service account "sa2" references an unknown role "cluster-role2"`,
+		},
+		{
+			Spec: k8sspecs.K8sRBACResources{
+				ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+					{
+						Name:                         "sa2",
+						Roles:                        []string{"cluster-role2"},
+						AutomountServiceAccountToken: boolPtr(true),
+					},
+				},
+				ServiceAccountRoles: []k8sspecs.RoleSpec{
+					{
+						Name:   "cluster-role2",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								NonResourceURLs: []string{"/healthz", "/healthz/*"},
+								Verbs:           []string{"get", "post"},
+							},
+						},
+					},
+					{
+						Name:   "cluster-role3-not-used",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
+							},
+						},
+					},
+					{
+						Name:   "cluster-role4-not-used",
+						Global: true,
+						Rules: []specs.PolicyRule{
+							{
+								APIGroups: []string{""},
+								Resources: []string{"pods"},
+								Verbs:     []string{"get", "watch", "list"},
+							},
+						},
+					},
+				},
+			},
+			ErrStr: `roles "cluster-role3-not-used,cluster-role4-not-used" are not referenced by any service account`,
+		},
+	} {
+		c.Logf("checking K8sRBACResources Validate %d", i)
+		c.Check(tc.Spec.Validate(), gc.ErrorMatches, tc.ErrStr)
+	}
+}
+
+func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
+	namespace := "test"
+	annotations := map[string]string{
+		"fred":               "mary",
+		"juju.io/controller": testing.ControllerTag.Id(),
+	}
+	prefixNameSpace := func(name string) string {
+		return fmt.Sprintf("%s-%s", namespace, name)
+	}
+	getBindingName := func(sa, cR k8sspecs.NameGetter) string {
+		return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
+	}
+	getSAMeta := func(name string) metav1.ObjectMeta {
+		return metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      map[string]string{"juju-app": "app-name"},
+			Annotations: annotations,
+		}
+	}
+	getRoleMeta := func(name string) metav1.ObjectMeta {
+		return metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Labels:      map[string]string{"juju-app": "app-name"},
+			Annotations: annotations,
+		}
+	}
+	getClusterRoleMeta := func(name string) metav1.ObjectMeta {
+		return metav1.ObjectMeta{
+			Name:        prefixNameSpace(name),
+			Namespace:   namespace,
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": namespace},
+			Annotations: annotations,
+		}
+	}
+	getBindingMeta := func(sa, role k8sspecs.NameGetter) metav1.ObjectMeta {
+		return metav1.ObjectMeta{
+			Name:        getBindingName(sa, role),
+			Namespace:   namespace,
+			Labels:      map[string]string{"juju-app": "app-name"},
+			Annotations: annotations,
+		}
+	}
+	getClusterBindingMeta := func(sa, clusterRole k8sspecs.NameGetter) metav1.ObjectMeta {
+		return metav1.ObjectMeta{
+			Name:        getBindingName(sa, clusterRole),
+			Namespace:   namespace,
+			Labels:      map[string]string{"juju-app": "app-name", "juju-model": namespace},
+			Annotations: annotations,
+		}
+	}
+
+	rbacResource := k8sspecs.K8sRBACResources{
+		ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
+			{
+				Name:                         "sa1",
+				Roles:                        []string{"role1", "cluster-role2"},
+				AutomountServiceAccountToken: boolPtr(true),
+			},
+			{
+				Name:  "sa2",
+				Roles: []string{"cluster-role2", "cluster-role3"},
+			},
+		},
+		ServiceAccountRoles: []k8sspecs.RoleSpec{
+			{
+				Name: "role1",
+				Rules: []specs.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+						Verbs:     []string{"get", "watch", "list"},
+					},
+				},
+			},
+			{
+				Name:   "cluster-role2",
+				Global: true,
+				Rules: []specs.PolicyRule{
+					{
+						NonResourceURLs: []string{"/healthz", "/healthz/*"},
+						Verbs:           []string{"get", "post"},
+					},
+				},
+			},
+			{
+				Name:   "cluster-role3",
+				Global: true,
+				Rules: []specs.PolicyRule{
+					{
+						APIGroups:     []string{"rbac.authorization.k8s.io"},
+						Resources:     []string{"clusterroles"},
+						Verbs:         []string{"bind"},
+						ResourceNames: []string{"admin", "edit", "view"},
+					},
+				},
+			},
+		},
+	}
+	c.Assert(rbacResource.Validate(), jc.ErrorIsNil)
+	serviceAccounts, roles, clusterroles, roleBindings, clusterRoleBindings := rbacResource.ToK8s(
+		getSAMeta,
+		getRoleMeta,
+		getClusterRoleMeta,
+		getBindingMeta,
+		getClusterBindingMeta,
+	)
+	c.Assert(serviceAccounts, gc.DeepEquals, []core.ServiceAccount{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "sa1",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name"},
+				Annotations: annotations,
+			},
+			AutomountServiceAccountToken: boolPtr(true),
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "sa2",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name"},
+				Annotations: annotations,
+			},
+		},
+	})
+	c.Assert(roles, gc.DeepEquals, []rbacv1.Role{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "role1",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name"},
+				Annotations: annotations,
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups: []string{""},
+					Resources: []string{"pods"},
+					Verbs:     []string{"get", "watch", "list"},
+				},
+			},
+		},
+	})
+	c.Assert(clusterroles, gc.DeepEquals, []rbacv1.ClusterRole{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-cluster-role2",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+				Annotations: annotations,
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					NonResourceURLs: []string{"/healthz", "/healthz/*"},
+					Verbs:           []string{"get", "post"},
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "test-cluster-role3",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+				Annotations: annotations,
+			},
+			Rules: []rbacv1.PolicyRule{
+				{
+					APIGroups:     []string{"rbac.authorization.k8s.io"},
+					Resources:     []string{"clusterroles"},
+					Verbs:         []string{"bind"},
+					ResourceNames: []string{"admin", "edit", "view"},
+				},
+			},
+		},
+	})
+	c.Assert(roleBindings, gc.DeepEquals, []rbacv1.RoleBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "sa1-role1",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name"},
+				Annotations: annotations,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: "role1",
+				Kind: "Role",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      "sa1",
+					Namespace: "test",
+				},
+			},
+		},
+	})
+	c.Assert(clusterRoleBindings, gc.DeepEquals, []rbacv1.ClusterRoleBinding{
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "sa1-test-cluster-role2",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+				Annotations: annotations,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: "test-cluster-role2",
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      "sa1",
+					Namespace: "test",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "sa2-test-cluster-role2",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+				Annotations: annotations,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: "test-cluster-role2",
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      "sa2",
+					Namespace: "test",
+				},
+			},
+		},
+		{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        "sa2-test-cluster-role3",
+				Namespace:   "test",
+				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
+				Annotations: annotations,
+			},
+			RoleRef: rbacv1.RoleRef{
+				Name: "test-cluster-role3",
+				Kind: "ClusterRole",
+			},
+			Subjects: []rbacv1.Subject{
+				{
+					Kind:      rbacv1.ServiceAccountKind,
+					Name:      "sa2",
+					Namespace: "test",
+				},
+			},
+		},
+	})
 }
 
 func (s *v3SpecsSuite) TestUnknownFieldError(c *gc.C) {
