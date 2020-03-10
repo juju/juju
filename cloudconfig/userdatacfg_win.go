@@ -58,6 +58,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 
 	renderer := w.conf.ShellRenderer()
 	dataDir := renderer.FromSlash(w.icfg.DataDir)
+	transientDataDir := renderer.FromSlash(w.icfg.TransientDataDir)
 	baseDir := renderer.FromSlash(filepath.Dir(tmpDir))
 	binDir := renderer.Join(baseDir, "bin")
 
@@ -74,6 +75,7 @@ func (w *windowsConfigure) ConfigureBasic() error {
 		fmt.Sprintf(`mkdir -Force "%s"`, renderer.FromSlash(baseDir)),
 		fmt.Sprintf(`mkdir %s`, renderer.FromSlash(tmpDir)),
 		fmt.Sprintf(`mkdir "%s"`, binDir),
+		fmt.Sprintf(`mkdir "%s"`, transientDataDir),
 		fmt.Sprintf(`mkdir "%s\locks"`, renderer.FromSlash(dataDir)),
 		`setx /m PATH "$env:PATH;C:\Juju\bin\"`,
 		// This is necessary for setACLs to work

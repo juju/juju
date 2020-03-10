@@ -77,6 +77,10 @@ type InstanceConfig struct {
 	// identical versions and hashes, but may have different URLs.
 	tools coretools.List
 
+	// TransientDataDir holds the directory that juju can use to write
+	// transient files that get purged after a system reboot.
+	TransientDataDir string
+
 	// DataDir holds the directory that juju state will be put in the new
 	// instance.
 	DataDir string
@@ -463,9 +467,10 @@ func (cfg *InstanceConfig) AgentConfig(
 	}
 	configParams := agent.AgentConfigParams{
 		Paths: agent.Paths{
-			DataDir:         cfg.DataDir,
-			LogDir:          cfg.LogDir,
-			MetricsSpoolDir: cfg.MetricsSpoolDir,
+			DataDir:          cfg.DataDir,
+			TransientDataDir: cfg.TransientDataDir,
+			LogDir:           cfg.LogDir,
+			MetricsSpoolDir:  cfg.MetricsSpoolDir,
 		},
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
