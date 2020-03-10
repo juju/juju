@@ -79,7 +79,7 @@ func (config ModelManifoldConfig) newWorker(environ environs.Environ, apiCaller 
 
 	w, err := config.NewWorker(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot start machine instancemutater worker")
+		return nil, errors.Annotate(err, "cannot start model instance-mutater worker")
 	}
 	return w, nil
 }
