@@ -140,7 +140,7 @@ func (ks K8sRBACResources) Validate() error {
 	return nil
 }
 
-// NameGetter defines method to get name from the resource.
+// NameGetter defines method to get the name from the resource.
 type NameGetter interface {
 	GetName() string
 }
@@ -180,16 +180,17 @@ func (ks K8sRBACResources) ToK8s(
 ) {
 	bindingInfo := map[string][]core.ServiceAccount{}
 	appendSA := func(roleName string, sa core.ServiceAccount) {
-		if _, ok := bindingInfo[roleName]; !ok {
+		svcAccounts, ok := bindingInfo[roleName]
+		if !ok {
 			bindingInfo[roleName] = []core.ServiceAccount{sa}
 			return
 		}
-		for _, v := range bindingInfo[roleName] {
+		for _, v := range svcAccounts {
 			if reflect.DeepEqual(v, sa) {
 				return
 			}
 		}
-		bindingInfo[roleName] = append(bindingInfo[roleName], sa)
+		bindingInfo[roleName] = append(svcAccounts, sa)
 	}
 	for _, spec := range ks.ServiceAccounts {
 		sa := core.ServiceAccount{
@@ -197,18 +198,19 @@ func (ks K8sRBACResources) ToK8s(
 			AutomountServiceAccountToken: spec.AutomountServiceAccountToken,
 		}
 		serviceAccounts = append(serviceAccounts, sa)
-		for _, r := range spec.Roles {
-			appendSA(r, sa)
+		for _, rName := range spec.Roles {
+			appendSA(rName, sa)
 		}
 	}
 	for _, spec := range ks.ServiceAccountRoles {
+		svcAccountsToBind := bindingInfo[spec.Name]
 		if spec.Global {
 			cR := rbacv1.ClusterRole{
 				ObjectMeta: getClusterRoleMeta(spec.Name),
 				Rules:      toK8sRules(spec.Rules),
 			}
 			clusterroles = append(clusterroles, cR)
-			for _, sa := range bindingInfo[cR.GetName()] {
+			for _, sa := range svcAccountsToBind {
 				clusterRoleBindings = append(clusterRoleBindings, rbacv1.ClusterRoleBinding{
 					ObjectMeta: getClusterBindingMeta(&sa, &cR),
 					RoleRef: rbacv1.RoleRef{
@@ -230,7 +232,7 @@ func (ks K8sRBACResources) ToK8s(
 				Rules:      toK8sRules(spec.Rules),
 			}
 			roles = append(roles, r)
-			for _, sa := range bindingInfo[r.GetName()] {
+			for _, sa := range svcAccountsToBind {
 				roleBindings = append(roleBindings, rbacv1.RoleBinding{
 					ObjectMeta: getBindingMeta(&sa, &r),
 					RoleRef: rbacv1.RoleRef{

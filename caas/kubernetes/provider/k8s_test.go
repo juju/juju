@@ -3186,7 +3186,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 	cr := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name:      "test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3204,7 +3204,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 	}
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name-test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3213,7 +3213,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "app-name",
+			Name: "test-app-name",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
@@ -3355,7 +3355,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 	cr := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name",
+			Name:      "test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3373,7 +3373,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 	}
 	crb := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name-test-app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3382,7 +3382,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "app-name",
+			Name: "test-app-name",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
@@ -3409,9 +3409,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockClusterRoles.EXPECT().Update(cr).Return(cr, nil),
 		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
-		s.mockClusterRoleBindings.EXPECT().Delete("app-name-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
-		s.mockClusterRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(crb, nil),
-		s.mockClusterRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockClusterRoleBindings.EXPECT().Delete("app-name-test-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
+		s.mockClusterRoleBindings.EXPECT().Get("app-name-test-app-name", v1.GetOptions{}).Return(crb, nil),
+		s.mockClusterRoleBindings.EXPECT().Get("app-name-test-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
@@ -3891,7 +3891,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	clusterrole2 := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "cluster-role2",
+			Name:      "test-cluster-role2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3919,7 +3919,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	crb2 := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "sa2-cluster-role2",
+			Name:      "sa2-test-cluster-role2",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -3928,7 +3928,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "cluster-role2",
+			Name: "test-cluster-role2",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{

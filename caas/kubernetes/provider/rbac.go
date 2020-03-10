@@ -43,17 +43,16 @@ func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
 	return out
 }
 
-func getBindingName(sa, cR k8sspecs.NameGetter) string {
-	return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
-}
-
 func (k *kubernetesClient) ensureServiceAccountForApp(
 	appName string, annotations map[string]string, rbacDefinition k8sspecs.K8sRBACSpecConverter,
 ) (cleanups []func(), err error) {
 
-	// prefixNameSpace := func(name string) string {
-	// 	return fmt.Sprintf("%s-%s", k.namespace, name)
-	// }
+	prefixNameSpace := func(name string) string {
+		return fmt.Sprintf("%s-%s", k.namespace, name)
+	}
+	getBindingName := func(sa, cR k8sspecs.NameGetter) string {
+		return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
+	}
 
 	getSAMeta := func(name string) v1.ObjectMeta {
 		return v1.ObjectMeta{
@@ -73,9 +72,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	}
 	getClusterRoleMeta := func(name string) v1.ObjectMeta {
 		return v1.ObjectMeta{
-			// TODO: can't prefix namespace anymore because SA reference the Cluster Roles by name.!!!!!!!!
-			// Name:        prefixNameSpace(name),
-			Name:        name,
+			Name:        prefixNameSpace(name),
 			Namespace:   k.namespace,
 			Labels:      k.getRBACLabels(appName, true),
 			Annotations: annotations,
