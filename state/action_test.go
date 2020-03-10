@@ -589,8 +589,13 @@ func (s *ActionSuite) TestFindActionTagsById(c *gc.C) {
 	tags, err := s.model.FindActionTagsById("1")
 	c.Assert(err, jc.ErrorIsNil)
 
-	c.Assert(len(tags), gc.Equals, 1)
+	c.Assert(tags, gc.HasLen, 1)
 	c.Assert(tags[0].Id(), gc.Equals, "1")
+
+	// Test match all.
+	tags, err = s.model.FindActionTagsById("")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(tags, gc.HasLen, 4)
 }
 
 func (s *ActionSuite) TestFindActionTagsByLegacyId(c *gc.C) {
