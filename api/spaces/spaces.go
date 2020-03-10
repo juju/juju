@@ -14,7 +14,7 @@ import (
 
 const spacesFacade = "Spaces"
 
-// API provides access to the InstancePoller API facade.
+// API provides access to the Spaces API facade.
 type API struct {
 	base.ClientFacade
 	facade base.FacadeCaller
