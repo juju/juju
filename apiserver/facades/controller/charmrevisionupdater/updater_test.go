@@ -183,11 +183,11 @@ func (s *charmVersionSuite) TestJujuMetadataHeaderIsSent(c *gc.C) {
 
 	model, err := s.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cloud, err := s.State.Cloud(model.Cloud())
+	cloud, err := s.State.Cloud(model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	expectedHeader := []string{
 		"arch=amd64", // This is the architecture of the deployed applications.
-		"cloud=" + model.Cloud(),
+		"cloud=" + model.CloudName(),
 		"cloud_region=" + model.CloudRegion(),
 		"controller_uuid=" + s.State.ControllerUUID(),
 		"controller_version=" + version.Current.String(),

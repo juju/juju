@@ -18,7 +18,7 @@ type Pool interface {
 }
 
 type Model interface {
-	Cloud() string
+	CloudName() string
 	EnvironVersion() int
 	SetEnvironVersion(int) error
 }

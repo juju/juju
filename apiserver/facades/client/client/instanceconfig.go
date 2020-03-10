@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/cloudconfig/instancecfg"
 	"github.com/juju/juju/controller/authentication"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
@@ -54,8 +55,11 @@ func InstanceConfig(st *state.State, machineId, nonce, dataDir string) (*instanc
 		return nil, errors.New("no agent version set in model configuration")
 	}
 	urlGetter := common.NewToolsURLGetter(model.UUID(), st)
-	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	newEnviron := func() (environs.BootstrapEnviron, error) {
+		return environs.GetEnviron(configGetter, environs.New)
+	}
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	findToolsResult, err := toolsFinder.FindTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,

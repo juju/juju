@@ -584,9 +584,14 @@ func (m *Model) Type() ModelType {
 	return m.doc.Type
 }
 
-// Cloud returns the name of the cloud to which the model is deployed.
-func (m *Model) Cloud() string {
+// CloudName returns the name of the cloud to which the model is deployed.
+func (m *Model) CloudName() string {
 	return m.doc.Cloud
+}
+
+// Cloud returns the cloud to which the model is deployed.
+func (m *Model) Cloud() (jujucloud.Cloud, error) {
+	return m.st.Cloud(m.CloudName())
 }
 
 // CloudRegion returns the name of the cloud region to which the model is deployed.
@@ -594,13 +599,24 @@ func (m *Model) CloudRegion() string {
 	return m.doc.CloudRegion
 }
 
-// CloudCredential returns the tag of the cloud credential used for managing the
+// CloudCredentialTag returns the tag of the cloud credential used for managing the
 // model's cloud resources, and a boolean indicating whether a credential is set.
-func (m *Model) CloudCredential() (names.CloudCredentialTag, bool) {
+func (m *Model) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	if names.IsValidCloudCredential(m.doc.CloudCredential) {
 		return names.NewCloudCredentialTag(m.doc.CloudCredential), true
 	}
 	return names.CloudCredentialTag{}, false
+}
+
+// CloudCredential returns the cloud credential used for managing the
+// model's cloud resources, and a boolean indicating whether a credential is set.
+func (m *Model) CloudCredential() (Credential, bool, error) {
+	tag, ok := m.CloudCredentialTag()
+	if !ok {
+		return Credential{}, false, nil
+	}
+	cred, err := m.st.CloudCredential(tag)
+	return cred, true, err
 }
 
 // MigrationMode returns whether the model is active or being migrated.
@@ -646,7 +662,7 @@ func modelStatusInvalidCredential() status.StatusInfo {
 // Status returns the status of the model.
 func (m *Model) Status() (status.StatusInfo, error) {
 	// If model credential is invalid, model is suspended.
-	if credentialTag, hasCredential := m.CloudCredential(); hasCredential {
+	if credentialTag, hasCredential := m.CloudCredentialTag(); hasCredential {
 		credential, err := m.st.CloudCredential(credentialTag)
 		if err != nil {
 			return status.StatusInfo{}, errors.Annotatef(err, "could not get model credential %v", credentialTag.Id())

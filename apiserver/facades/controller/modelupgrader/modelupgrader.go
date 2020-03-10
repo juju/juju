@@ -137,7 +137,7 @@ func (f *Facade) modelTargetEnvironVersion(arg params.Entity) (int, error) {
 		return -1, errors.Trace(err)
 	}
 	defer release()
-	cloud, err := f.backend.Cloud(model.Cloud())
+	cloud, err := f.backend.Cloud(model.CloudName())
 	if err != nil {
 		return -1, errors.Trace(err)
 	}

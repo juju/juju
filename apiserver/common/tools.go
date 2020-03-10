@@ -47,6 +47,7 @@ type ToolsStorageGetter interface {
 // ToolsGetter implements a common Tools method for use by various
 // facades.
 type ToolsGetter struct {
+	newEnviron         NewEnvironFunc
 	entityFinder       state.EntityFinder
 	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
@@ -56,8 +57,22 @@ type ToolsGetter struct {
 
 // NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
-func NewToolsGetter(f state.EntityFinder, c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter, getCanRead GetAuthFunc) *ToolsGetter {
-	return &ToolsGetter{f, c, s, t, getCanRead}
+func NewToolsGetter(
+	f state.EntityFinder,
+	c environs.EnvironConfigGetter,
+	s ToolsStorageGetter,
+	t ToolsURLGetter,
+	getCanRead GetAuthFunc,
+	newEnviron NewEnvironFunc,
+) *ToolsGetter {
+	return &ToolsGetter{
+		newEnviron:         newEnviron,
+		entityFinder:       f,
+		configGetter:       c,
+		toolsStorageGetter: s,
+		urlGetter:          t,
+		getCanRead:         getCanRead,
+	}
 }
 
 // Tools finds the tools necessary for the given agents.
@@ -127,7 +142,7 @@ func (t *ToolsGetter) oneAgentTools(canRead AuthFunc, tag names.Tag, agentVersio
 	if err != nil {
 		return nil, err
 	}
-	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter)
+	toolsFinder := NewToolsFinder(t.configGetter, t.toolsStorageGetter, t.urlGetter, t.newEnviron)
 	list, err := toolsFinder.findTools(params.FindToolsParams{
 		Number:       agentVersion,
 		MajorVersion: -1,
@@ -197,12 +212,16 @@ type ToolsFinder struct {
 	configGetter       environs.EnvironConfigGetter
 	toolsStorageGetter ToolsStorageGetter
 	urlGetter          ToolsURLGetter
+	newEnviron         NewEnvironFunc
 }
 
 // NewToolsFinder returns a new ToolsFinder, returning tools
 // with their URLs pointing at the API server.
-func NewToolsFinder(c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter) *ToolsFinder {
-	return &ToolsFinder{c, s, t}
+func NewToolsFinder(
+	c environs.EnvironConfigGetter, s ToolsStorageGetter, t ToolsURLGetter,
+	newEnviron NewEnvironFunc,
+) *ToolsFinder {
+	return &ToolsFinder{c, s, t, newEnviron}
 }
 
 // FindTools returns a List containing all tools matching the given parameters.
@@ -256,7 +275,7 @@ func (f *ToolsFinder) findMatchingTools(args params.FindToolsParams) (coretools.
 
 	// Look for tools in simplestreams too, but don't replace
 	// any versions found in storage.
-	env, err := environs.GetEnviron(f.configGetter, environs.New)
+	env, err := f.newEnviron()
 	if err != nil {
 		return nil, err
 	}

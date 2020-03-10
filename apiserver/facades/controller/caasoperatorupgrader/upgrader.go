@@ -27,7 +27,11 @@ type API struct {
 // NewStateCAASOperatorUpgraderAPI provides the signature required for facade registration.
 func NewStateCAASOperatorUpgraderAPI(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}

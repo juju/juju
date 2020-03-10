@@ -186,7 +186,7 @@ func NewFacadeV8(ctx facade.Context) (*ModelManagerAPI, error) {
 		return nil, errors.Trace(err)
 	}
 
-	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 
 	ctrlModel, err := ctlrSt.Model()
 	if err != nil {
@@ -289,6 +289,13 @@ func NewModelManagerAPI(
 		return nil, errors.Trace(err)
 	}
 	urlGetter := common.NewToolsURLGetter(st.ModelUUID(), st)
+
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	newEnviron := common.EnvironFuncForModel(model, configGetter)
+
 	return &ModelManagerAPI{
 		ModelStatusAPI: common.NewModelStatusAPI(st, authorizer, apiUser),
 		state:          st,
@@ -296,7 +303,7 @@ func NewModelManagerAPI(
 		getBroker:      getBroker,
 		check:          common.NewBlockChecker(st),
 		authorizer:     authorizer,
-		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter),
+		toolsFinder:    common.NewToolsFinder(configGetter, st, urlGetter, newEnviron),
 		apiUser:        apiUser,
 		isAdmin:        isAdmin,
 		model:          m,
@@ -418,9 +425,9 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 			return result, errors.Trace(err)
 		}
 	} else {
-		cloudTag = names.NewCloudTag(controllerModel.Cloud())
+		cloudTag = names.NewCloudTag(controllerModel.CloudName())
 	}
-	if cloudRegionName == "" && cloudTag.Id() == controllerModel.Cloud() {
+	if cloudRegionName == "" && cloudTag.Id() == controllerModel.CloudName() {
 		cloudRegionName = controllerModel.CloudRegion()
 	}
 
@@ -480,7 +487,7 @@ func (m *ModelManagerAPI) CreateModel(args params.ModelCreateArgs) (params.Model
 		}
 	} else {
 		if ownerTag == controllerModel.Owner() {
-			cloudCredentialTag, _ = controllerModel.CloudCredential()
+			cloudCredentialTag, _ = controllerModel.CloudCredentialTag()
 		} else {
 			// TODO(axw) check if the user has one and only one
 			// cloud credential, and if so, use it? For now, we
@@ -1111,11 +1118,11 @@ func (m *ModelManagerAPI) getModelInfo(tag names.ModelTag) (params.ModelInfo, er
 		IsController:   st.IsController(),
 		OwnerTag:       model.Owner().String(),
 		Life:           params.Life(model.Life().String()),
-		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
+		CloudTag:       names.NewCloudTag(model.CloudName()).String(),
 		CloudRegion:    model.CloudRegion(),
 	}
 
-	if cloudCredentialTag, ok := model.CloudCredential(); ok {
+	if cloudCredentialTag, ok := model.CloudCredentialTag(); ok {
 		info.CloudCredentialTag = cloudCredentialTag.String()
 	}
 
@@ -1404,7 +1411,7 @@ func (m *ModelManagerAPIV5) ModelDefaults() (params.ModelDefaultsResult, error) 
 	if !m.isAdmin {
 		return result, common.ErrPerm
 	}
-	return m.modelDefaults(m.model.Cloud()), nil
+	return m.modelDefaults(m.model.CloudName()), nil
 }
 
 func (m *ModelManagerAPI) modelDefaults(cloud string) params.ModelDefaultsResult {

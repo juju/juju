@@ -432,7 +432,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	}
 	info.Name = m.Name()
 	info.Type = string(m.Type())
-	info.CloudTag = names.NewCloudTag(m.Cloud()).String()
+	info.CloudTag = names.NewCloudTag(m.CloudName()).String()
 	info.CloudRegion = m.CloudRegion()
 
 	cfg, err := m.Config()
