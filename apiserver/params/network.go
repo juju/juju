@@ -933,7 +933,7 @@ type CreateSpaceParamsV4 struct {
 	ProviderId string   `json:"provider-id,omitempty"`
 }
 
-// CreateSpacesParams olds the arguments of the AddSpaces API call.
+// CreateSpacesParams holds the arguments of the AddSpaces API call.
 type CreateSpacesParams struct {
 	Spaces []CreateSpaceParams `json:"spaces"`
 }
@@ -945,6 +945,55 @@ type CreateSpaceParams struct {
 	SpaceTag   string   `json:"space-tag"`
 	Public     bool     `json:"public"`
 	ProviderId string   `json:"provider-id,omitempty"`
+}
+
+// MoveSubnetsParam contains the information required to
+// move a collection of subnets into a space.
+type MoveSubnetsParam struct {
+	// SubnetTags identifies the subnets to move.
+	SubnetTags []string `json:"subnets"`
+
+	// SpaceTag identifies the space that the subnets will move to.
+	SpaceTag string `json:"space-tag"`
+
+	// Force, when true, moves the subnets despite existing constraints that
+	// might be violated by such a topology change.
+	Force bool `json:"force"`
+}
+
+// MoveSubnetsParams contains the arguments of MoveSubnets API call.
+type MoveSubnetsParams struct {
+	Args []MoveSubnetsParam `json:"args"`
+}
+
+// MovedSubnet represents the prior state of a relocated subnet.
+type MovedSubnet struct {
+	// SubnetTag identifies the subnet that was moved.
+	SubnetTag string `json:"subnet"`
+
+	// OldSpaceTag identifies the space that the subnet was in before being
+	// successfully moved.
+	OldSpaceTag string `json:"old-space"`
+}
+
+// MoveSubnetsResult contains the result of moving
+// a collection of subnets into a new space.
+type MoveSubnetsResult struct {
+	// MovedSubnets contains the prior state of relocated subnets.
+	MovedSubnets []MovedSubnet `json:"moved-subnets,omitempty"`
+
+	// NewSpaceTag identifies the space that the the subnets were moved to.
+	// It is intended to facilitate from/to confirmation messages without
+	// clients needing to match up parameters with results.
+	NewSpaceTag string `json:"new-space"`
+
+	// Error will be non-nil if the subnets could not be moved.
+	Error *Error `json:"error,omitempty"`
+}
+
+// MoveSubnetResults contains the results of a call to MoveSubnets.
+type MoveSubnetsResults struct {
+	Results []MoveSubnetsResult `json:"results"`
 }
 
 // ListSpacesResults holds the list of all available spaces.
