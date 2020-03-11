@@ -1248,28 +1248,28 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 			Annotations: annotations,
 		}
 	}
-	getRoleClusterRoleName := func(name string, index int) string {
-		if name != "" {
-			return name
+	getRoleClusterRoleName := func(roleName, serviceAccountName string, index int) string {
+		if roleName != "" {
+			return roleName
 		}
-		name = appName
+		roleName = fmt.Sprintf("%s-%s", appName, serviceAccountName)
 		if index == 0 {
-			return name
+			return roleName
 		}
-		return fmt.Sprintf("%s%d", name, index)
+		return fmt.Sprintf("%s%d", roleName, index)
 	}
-	getRoleMeta := func(name string, index int) metav1.ObjectMeta {
+	getRoleMeta := func(roleName, serviceAccountName string, index int) metav1.ObjectMeta {
 		return metav1.ObjectMeta{
-			Name:        getRoleClusterRoleName(name, index),
+			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index),
 			Namespace:   namespace,
 			Labels:      map[string]string{"juju-app": appName},
 			Annotations: annotations,
 		}
 	}
-	getClusterRoleMeta := func(name string, index int) metav1.ObjectMeta {
-		name = getRoleClusterRoleName(name, index)
+	getClusterRoleMeta := func(roleName, serviceAccountName string, index int) metav1.ObjectMeta {
+		roleName = getRoleClusterRoleName(roleName, serviceAccountName, index)
 		return metav1.ObjectMeta{
-			Name:        prefixNameSpace(name),
+			Name:        prefixNameSpace(roleName),
 			Namespace:   namespace,
 			Labels:      map[string]string{"juju-app": appName, "juju-model": namespace},
 			Annotations: annotations,
@@ -1335,7 +1335,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 				},
 			},
 			{
-				Name: "sa2",
+				Name: "sa-foo",
 				ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
 					Roles: []specs.Role{
 						{
@@ -1401,7 +1401,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "sa2",
+				Name:        "sa-foo",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name"},
 				Annotations: annotations,
@@ -1426,7 +1426,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "app-name",
+				Name:        "app-name-sa-foo",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name"},
 				Annotations: annotations,
@@ -1441,7 +1441,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "app-name1",
+				Name:        "app-name-sa-foo1",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name"},
 				Annotations: annotations,
@@ -1488,7 +1488,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test-app-name2",
+				Name:        "test-app-name-sa-foo2",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 				Annotations: annotations,
@@ -1502,7 +1502,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "test-app-name3",
+				Name:        "test-app-name-sa-foo3",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 				Annotations: annotations,
@@ -1539,38 +1539,38 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "sa2-app-name",
+				Name:        "sa-foo-app-name-sa-foo",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name"},
 				Annotations: annotations,
 			},
 			RoleRef: rbacv1.RoleRef{
-				Name: "app-name",
+				Name: "app-name-sa-foo",
 				Kind: "Role",
 			},
 			Subjects: []rbacv1.Subject{
 				{
 					Kind:      rbacv1.ServiceAccountKind,
-					Name:      "sa2",
+					Name:      "sa-foo",
 					Namespace: "test",
 				},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "sa2-app-name1",
+				Name:        "sa-foo-app-name-sa-foo1",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name"},
 				Annotations: annotations,
 			},
 			RoleRef: rbacv1.RoleRef{
-				Name: "app-name1",
+				Name: "app-name-sa-foo1",
 				Kind: "Role",
 			},
 			Subjects: []rbacv1.Subject{
 				{
 					Kind:      rbacv1.ServiceAccountKind,
-					Name:      "sa2",
+					Name:      "sa-foo",
 					Namespace: "test",
 				},
 			},
@@ -1617,38 +1617,38 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesToK8s(c *gc.C) {
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "sa2-test-app-name2",
+				Name:        "sa-foo-test-app-name-sa-foo2",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 				Annotations: annotations,
 			},
 			RoleRef: rbacv1.RoleRef{
-				Name: "test-app-name2",
+				Name: "test-app-name-sa-foo2",
 				Kind: "ClusterRole",
 			},
 			Subjects: []rbacv1.Subject{
 				{
 					Kind:      rbacv1.ServiceAccountKind,
-					Name:      "sa2",
+					Name:      "sa-foo",
 					Namespace: "test",
 				},
 			},
 		},
 		{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:        "sa2-test-app-name3",
+				Name:        "sa-foo-test-app-name-sa-foo3",
 				Namespace:   "test",
 				Labels:      map[string]string{"juju-app": "app-name", "juju-model": "test"},
 				Annotations: annotations,
 			},
 			RoleRef: rbacv1.RoleRef{
-				Name: "test-app-name3",
+				Name: "test-app-name-sa-foo3",
 				Kind: "ClusterRole",
 			},
 			Subjects: []rbacv1.Subject{
 				{
 					Kind:      rbacv1.ServiceAccountKind,
-					Name:      "sa2",
+					Name:      "sa-foo",
 					Namespace: "test",
 				},
 			},

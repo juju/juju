@@ -108,15 +108,11 @@ func (ks K8sRBACResources) Validate() error {
 			}
 			roleNames.Add(r.Name)
 		}
-		if roleNames.Size() == 0 {
-			// all good.
-			logger.Criticalf("all roles do not have a name")
-		} else if len(sa.Roles) == roleNames.Size() {
-			// all good.
-			logger.Criticalf("all roles have a name")
-		} else {
-			return errors.NewNotValid(nil, fmt.Sprintf("either all or none of the roles of the service account %q should be set a name", sa.Name))
+		if roleNames.Size() == 0 || len(sa.Roles) == roleNames.Size() {
+			// All good.
+			continue
 		}
+		return errors.NewNotValid(nil, fmt.Sprintf("either all or none of the roles of the service account %q should be set a name", sa.Name))
 	}
 	return nil
 }
@@ -130,7 +126,7 @@ type NameGetter interface {
 type ServiceAccountMetaGetter func(rawName string) v1.ObjectMeta
 
 // RoleMetaGetter generates ObjectMeta for roles, cluster roles.
-type RoleMetaGetter func(rawName string, index int) v1.ObjectMeta
+type RoleMetaGetter func(roleName, serviceAccountName string, index int) v1.ObjectMeta
 
 // BindingMetaGetter generates ObjectMeta for role bindings, cluster role bindings.
 type BindingMetaGetter func(sa, roleOrClusterRole NameGetter) v1.ObjectMeta
@@ -169,7 +165,7 @@ func (ks K8sRBACResources) ToK8s(
 		for i, r := range spec.Roles {
 			if r.Global {
 				cR := rbacv1.ClusterRole{
-					ObjectMeta: getClusterRoleMeta(r.Name, i),
+					ObjectMeta: getClusterRoleMeta(r.Name, sa.GetName(), i),
 					Rules:      toK8sRules(r.Rules),
 				}
 				clusterroles = append(clusterroles, cR)
@@ -189,7 +185,7 @@ func (ks K8sRBACResources) ToK8s(
 				})
 			} else {
 				r := rbacv1.Role{
-					ObjectMeta: getRoleMeta(r.Name, i),
+					ObjectMeta: getRoleMeta(r.Name, sa.GetName(), i),
 					Rules:      toK8sRules(r.Rules),
 				}
 				roles = append(roles, r)

@@ -61,28 +61,28 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			Annotations: annotations,
 		}
 	}
-	getRoleClusterRoleName := func(name string, index int) string {
-		if name != "" {
-			return name
+	getRoleClusterRoleName := func(roleName, serviceAccountName string, index int) string {
+		if roleName != "" {
+			return roleName
 		}
-		name = appName
+		roleName = fmt.Sprintf("%s-%s", appName, serviceAccountName)
 		if index == 0 {
-			return name
+			return roleName
 		}
-		return fmt.Sprintf("%s%d", name, index)
+		return fmt.Sprintf("%s%d", roleName, index)
 	}
-	getRoleMeta := func(name string, index int) v1.ObjectMeta {
+	getRoleMeta := func(roleName, serviceAccountName string, index int) v1.ObjectMeta {
 		return v1.ObjectMeta{
-			Name:        getRoleClusterRoleName(name, index),
+			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index),
 			Namespace:   k.namespace,
 			Labels:      k.getRBACLabels(appName, false),
 			Annotations: annotations,
 		}
 	}
-	getClusterRoleMeta := func(name string, index int) v1.ObjectMeta {
-		name = getRoleClusterRoleName(name, index)
+	getClusterRoleMeta := func(roleName, serviceAccountName string, index int) v1.ObjectMeta {
+		roleName = getRoleClusterRoleName(roleName, serviceAccountName, index)
 		return v1.ObjectMeta{
-			Name:        prefixNameSpace(name),
+			Name:        prefixNameSpace(roleName),
 			Namespace:   k.namespace,
 			Labels:      k.getRBACLabels(appName, true),
 			Annotations: annotations,
