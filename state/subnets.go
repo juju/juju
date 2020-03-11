@@ -457,37 +457,67 @@ func (st *State) uniqueSubnet(cidr, providerID string) (bool, error) {
 	return count == 0, nil
 }
 
-// Subnet returns the subnet specified by the id.
+// Subnet returns the subnet identified by the input ID,
+// or an error if it is not found.
 func (st *State) Subnet(id string) (*Subnet, error) {
-	return st.subnet(bson.M{"subnet-id": id}, id)
+	subnets, err := st.subnets(bson.M{"subnet-id": id})
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving subnet with ID %q", id)
+	}
+	if len(subnets) == 0 {
+		return nil, errors.NotFoundf("subnet %q", id)
+	}
+	return subnets[0], nil
 }
 
-// TODO (hml) 2019-08-06
-// This will need to be updated or removed once cidrs
-// are no longer unique identifiers of juju subnets.
-//
-// SubnetByCIDR returns the subnet specified by the CIDR.
+// SubnetByCIDR returns a unique subnet matching the input CIDR.
+// If no unique match is achieved, an error is returned.
+// TODO (manadart 2020-03-11): As of this date, CIDR remains a unique
+// identifier for a subnet due to how we constrain provider networking
+// implementations. When this changes, callers relying on this method to return
+// a unique match will need attention.
+// Usage of this method should probably be phased out.
 func (st *State) SubnetByCIDR(cidr string) (*Subnet, error) {
-	return st.subnet(bson.M{"cidr": cidr}, cidr)
+	subnets, err := st.subnets(bson.M{"cidr": cidr})
+	if err != nil {
+		return nil, errors.Annotatef(err, "retrieving subnet with CIDR %q", cidr)
+	}
+	if len(subnets) == 0 {
+		return nil, errors.NotFoundf("subnet %q", cidr)
+	}
+	if len(subnets) > 1 {
+		return nil, errors.Errorf("multiple subnets matching %q", cidr)
+	}
+	return subnets[0], nil
 }
 
-func (st *State) subnet(exp bson.M, thing string) (*Subnet, error) {
-	subnets, closer := st.db().GetCollection(subnetsC)
+// SubnetsByCIDR returns the subnets matching the input CIDR.
+func (st *State) SubnetsByCIDR(cidr string) ([]*Subnet, error) {
+	subnets, err := st.subnets(bson.M{"cidr": cidr})
+	return subnets, errors.Annotatef(err, "retrieving subnets with CIDR %q", cidr)
+}
+
+func (st *State) subnets(exp bson.M) ([]*Subnet, error) {
+	col, closer := st.db().GetCollection(subnetsC)
 	defer closer()
 
-	var doc subnetDoc
-	err := subnets.Find(exp).One(&doc)
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("subnet %q", thing)
-	}
+	var docs []subnetDoc
+	err := col.Find(exp).All(&docs)
 	if err != nil {
-		return nil, errors.Annotatef(err, "cannot get subnet %q", thing)
+		return nil, errors.Trace(err)
 	}
-	subnet := &Subnet{st: st, doc: doc}
-	if err := subnet.setSpace(subnets); err != nil {
-		return nil, err
+	if len(docs) == 0 {
+		return nil, nil
 	}
-	return subnet, nil
+
+	subnets := make([]*Subnet, len(docs))
+	for i, doc := range docs {
+		subnets[i] = &Subnet{st: st, doc: doc}
+		if err := subnets[i].setSpace(col); err != nil {
+			return nil, errors.Trace(err)
+		}
+	}
+	return subnets, nil
 }
 
 // AllSubnets returns all known subnets in the model.
