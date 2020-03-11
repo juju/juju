@@ -8,10 +8,6 @@ import (
 	"github.com/juju/juju/core/network"
 )
 
-// -----
-// Parameters field types.
-// -----
-
 // Subnet describes a single subnet within a network.
 type Subnet struct {
 	// CIDR of the subnet in IPv4 or IPv6 notation.
@@ -691,10 +687,6 @@ type MachinePorts struct {
 	SubnetTag  string `json:"subnet-tag"`
 }
 
-// -----
-// API request / response types.
-// -----
-
 // PortsResults holds the bulk operation result of an API call
 // that returns a slice of Port.
 type PortsResults struct {
@@ -1085,7 +1077,23 @@ type FanConfigEntry struct {
 	Overlay  string `json:"overlay"`
 }
 
-// FanConfigResult holds configuration for all fans in a model
+// FanConfigResult holds configuration for all fans in a model.
 type FanConfigResult struct {
 	Fans []FanConfigEntry `json:"fans"`
+}
+
+// CIDRParams contains a slice of subnet CIDRs used for querying subnets.
+type CIDRParams struct {
+	CIDRS []string `json:"cidrs"`
+}
+
+// SubnetsResult contains a collection of subnets or an error.
+type SubnetsResult struct {
+	Subnets []Subnet `json:"subnets,omitempty"`
+	Error   *Error   `json:"error,omitempty"`
+}
+
+// SubnetsResults contains a collection of subnets results.
+type SubnetsResults struct {
+	Results []SubnetsResult `json:"results"`
 }
