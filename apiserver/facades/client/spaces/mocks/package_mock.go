@@ -248,6 +248,21 @@ func (mr *MockBackingMockRecorder) SubnetByCIDR(arg0 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetByCIDR", reflect.TypeOf((*MockBacking)(nil).SubnetByCIDR), arg0)
 }
 
+// SubnetsByCIDR mocks base method
+func (m *MockBacking) SubnetsByCIDR(arg0 string) ([]networkingcommon.BackingSubnet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubnetsByCIDR", arg0)
+	ret0, _ := ret[0].([]networkingcommon.BackingSubnet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SubnetsByCIDR indicates an expected call of SubnetsByCIDR
+func (mr *MockBackingMockRecorder) SubnetsByCIDR(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetsByCIDR", reflect.TypeOf((*MockBacking)(nil).SubnetsByCIDR), arg0)
+}
+
 // MockBlockChecker is a mock of BlockChecker interface
 type MockBlockChecker struct {
 	ctrl     *gomock.Controller

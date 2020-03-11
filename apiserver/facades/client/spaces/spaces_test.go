@@ -51,7 +51,7 @@ type SpaceTestMockSuite struct {
 
 var _ = gc.Suite(&SpaceTestMockSuite{})
 
-func (s *SpaceTestMockSuite) TearDownTest(c *gc.C) {
+func (s *SpaceTestMockSuite) TearDownTest(_ *gc.C) {
 	s.api = nil
 }
 
@@ -469,6 +469,43 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
 }
 
+func (s *SpaceTestMockSuite) TestSubnetsByCIDR(c *gc.C) {
+	ctrl, unreg := s.setupSpacesAPI(c, true, true)
+	defer ctrl.Finish()
+	defer unreg()
+
+	cidrs := []string{"10.10.10.0/24", "10.10.20.0/24", "not-a-cidr"}
+
+	subnet := networkcommonmocks.NewMockBackingSubnet(ctrl)
+	sExp := subnet.EXPECT()
+	sExp.CIDR().Return("10.10.20.0/24")
+	sExp.SpaceName().Return("space")
+	sExp.VLANTag().Return(0)
+	sExp.ProviderId().Return(network.Id("0"))
+	sExp.ProviderNetworkId().Return(network.Id("1"))
+	sExp.AvailabilityZones().Return([]string{"bar", "bam"})
+	sExp.Status().Return("in-use")
+	sExp.Life().Return(life.Value("alive"))
+
+	bExp := s.mockBacking.EXPECT()
+	gomock.InOrder(
+		bExp.SubnetsByCIDR(cidrs[0]).Return(nil, errors.New("bad-mongo")),
+		bExp.SubnetsByCIDR(cidrs[1]).Return([]networkingcommon.BackingSubnet{subnet}, nil),
+		// No call for cidrs[2]; the input is invalidated.
+	)
+
+	arg := params.CIDRParams{CIDRS: cidrs}
+	res, err := s.api.SubnetsByCIDR(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	results := res.Results
+	c.Assert(results, gc.HasLen, 3)
+
+	c.Check(results[0].Error.Message, gc.Equals, "bad-mongo")
+	c.Check(results[1].Subnets, gc.HasLen, 1)
+	c.Check(results[2].Error.Message, gc.Equals, `CIDR "not-a-cidr" not valid`)
+}
+
 func (s *SpaceTestMockSuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
 	model := "42c4f770-86ed-4fcc-8e39-697063d082bc:e"
 	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
@@ -529,13 +566,13 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 	s.mockAuthorizer.EXPECT().AuthClient().Return(true)
 
 	s.mockBacking.EXPECT().ModelTag().Return(names.NewModelTag("123"))
-	s.mockBacking.EXPECT().ModelConfig().Return(nil, nil)
+	s.mockBacking.EXPECT().ModelConfig().Return(nil, nil).AnyTimes()
 
 	mockNetworkEnviron := environmocks.NewMockNetworkingEnviron(ctrl)
 	mockNetworkEnviron.EXPECT().SupportsSpaces(gomock.Any()).Return(supportSpaces, nil).AnyTimes()
 	mockNetworkEnviron.EXPECT().SupportsProviderSpaces(gomock.Any()).Return(isProviderSpaces, nil).AnyTimes()
 	mockProvider := environmocks.NewMockCloudEnvironProvider(ctrl)
-	mockProvider.EXPECT().Open(gomock.Any()).Return(mockNetworkEnviron, nil)
+	mockProvider.EXPECT().Open(gomock.Any()).Return(mockNetworkEnviron, nil).AnyTimes()
 
 	unreg := environs.RegisterProvider("mock-provider", mockProvider)
 
@@ -547,7 +584,7 @@ func (s *SpaceTestMockSuite) setupSpacesAPI(c *gc.C, supportSpaces bool, isProvi
 		StorageEndpoint:  "storage-endpoint",
 	}
 
-	s.mockBacking.EXPECT().CloudSpec().Return(cloudspec, nil)
+	s.mockBacking.EXPECT().CloudSpec().Return(cloudspec, nil).AnyTimes()
 
 	var err error
 	s.api, err = spaces.NewAPIWithBacking(s.mockBacking, s.mockBlockChecker, s.mockCloudCallContext, s.mockResource, s.mockAuthorizer, s.mockOpFactory)
@@ -631,7 +668,7 @@ func (sb *stubBacking) IsController() bool {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) ConstraintsBySpaceName(name string) ([]spaces.Constraints, error) {
+func (sb *stubBacking) ConstraintsBySpaceName(_ string) ([]spaces.Constraints, error) {
 	panic("should not be called")
 }
 
@@ -643,7 +680,7 @@ func (sb *stubBacking) ControllerConfig() (controller.Config, error) {
 	panic("should not be called")
 }
 
-func (sb *stubBacking) SpaceByName(name string) (networkingcommon.BackingSpace, error) {
+func (sb *stubBacking) SpaceByName(_ string) (networkingcommon.BackingSpace, error) {
 	panic("should not be called")
 }
 
@@ -652,6 +689,10 @@ func (sb *stubBacking) AllEndpointBindings() ([]spaces.ApplicationEndpointBindin
 }
 
 func (sb *stubBacking) AllMachines() ([]spaces.Machine, error) {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
 	panic("should not be called")
 }
 
@@ -1176,7 +1217,7 @@ func (s *SpacesSuite) TestSuppportsSpacesEnvironNewError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "getting environ: boom")
 }
 
-func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
+func (s *SpacesSuite) TestSupportsSpacesWithoutNetworking(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(
 		c,
 		apiservertesting.StubEnvironName,
@@ -1188,7 +1229,7 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutNetworking(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
+func (s *SpacesSuite) TestSupportsSpacesWithoutSpaces(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(
 		c,
 		apiservertesting.StubNetworkingEnvironName,
@@ -1207,7 +1248,7 @@ func (s *SpacesSuite) TestSuppportsSpacesWithoutSpaces(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotSupported)
 }
 
-func (s *SpacesSuite) TestSuppportsSpaces(c *gc.C) {
+func (s *SpacesSuite) TestSupportsSpaces(c *gc.C) {
 	err := spaces.SupportsSpaces(&stubBacking{apiservertesting.BackingInstance}, context.NewCloudCallContext())
 	c.Assert(err, jc.ErrorIsNil)
 }
