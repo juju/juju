@@ -273,6 +273,63 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
+// AllInstanceData retrieves all instance data in the model
+// and provides a way to query hardware characteristics and
+// charm profiles by machine.
+func (m *Model) AllInstanceData() (*ModelInstanceData, error) {
+	coll, closer := m.st.db().GetCollection(instanceDataC)
+	defer closer()
+
+	var docs []instanceData
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all instance data for model")
+	}
+	all := &ModelInstanceData{
+		data: make(map[string]instanceData),
+	}
+	for _, doc := range docs {
+		all.data[doc.MachineId] = doc
+	}
+	return all, nil
+}
+
+// ModelInstanceData represents all the instance data for a model
+// keyed on machine ID.
+type ModelInstanceData struct {
+	data map[string]instanceData
+}
+
+// HardwareCharacteristics returns the hardware characteristics of the
+// machine. If it isn't found in the map, a nil is returned.
+func (d *ModelInstanceData) HardwareCharacteristics(machineID string) *instance.HardwareCharacteristics {
+	instData, found := d.data[machineID]
+	if !found {
+		return nil
+	}
+	return hardwareCharacteristics(instData)
+}
+
+// CharmProfiles returns the names of the profiles that are defined for
+// the machine. If the machine isn't found in the map, a nil is returned.
+func (d *ModelInstanceData) CharmProfiles(machineID string) []string {
+	instData, found := d.data[machineID]
+	if !found {
+		return nil
+	}
+	return instData.CharmProfiles
+}
+
+// InstanceNames returns both the provider instance id and the user
+// friendly name. If the machine isn't found, empty strings are returned.
+func (d *ModelInstanceData) InstanceNames(machineID string) (instance.Id, string) {
+	instData, found := d.data[machineID]
+	if !found {
+		return "", ""
+	}
+	return instData.InstanceId, instData.DisplayName
+}
+
 // Tag returns a tag identifying the machine. The String method provides a
 // string representation that is safe to use as a file name. The returned name
 // will be different from other Tag values returned by any other entities
