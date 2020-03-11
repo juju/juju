@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
+	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/mocks"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 
-	"github.com/juju/juju/provider/azure/internal/ad"
 	"github.com/juju/juju/provider/azure/internal/azureauth"
 	"github.com/juju/juju/provider/azure/internal/azuretesting"
 )
@@ -57,10 +57,11 @@ func tokenSender() autorest.Sender {
 }
 
 func passwordCredentialsListSender() autorest.Sender {
-	return azuretesting.NewSenderWithValue(ad.PasswordCredentialsListResult{
-		Value: []ad.PasswordCredential{{
-			KeyId: "password-credential-key-id",
-		}},
+	v := []graphrbac.PasswordCredential{{
+		KeyID: to.StringPtr("password-credential-key-id"),
+	}}
+	return azuretesting.NewSenderWithValue(graphrbac.PasswordCredentialListResult{
+		Value: &v,
 	})
 }
 
@@ -71,15 +72,15 @@ func updatePasswordCredentialsSender() autorest.Sender {
 }
 
 func currentUserSender() autorest.Sender {
-	return azuretesting.NewSenderWithValue(ad.AADObject{
-		DisplayName: "Foo Bar",
+	return azuretesting.NewSenderWithValue(graphrbac.User{
+		DisplayName: to.StringPtr("Foo Bar"),
 	})
 }
 
 func createServicePrincipalSender() autorest.Sender {
-	return azuretesting.NewSenderWithValue(ad.ServicePrincipal{
-		ApplicationID: "cbb548f1-5039-4836-af0b-727e8571f6a9",
-		ObjectID:      "sp-object-id",
+	return azuretesting.NewSenderWithValue(graphrbac.ServicePrincipal{
+		AppID:    to.StringPtr("cbb548f1-5039-4836-af0b-727e8571f6a9"),
+		ObjectID: to.StringPtr("sp-object-id"),
 	})
 }
 
@@ -112,10 +113,10 @@ func createServicePrincipalNotReferenceSender() autorest.Sender {
 }
 
 func servicePrincipalListSender() autorest.Sender {
-	return azuretesting.NewSenderWithValue(ad.ServicePrincipalListResult{
-		Value: []ad.ServicePrincipal{{
-			ApplicationID: "cbb548f1-5039-4836-af0b-727e8571f6a9",
-			ObjectID:      "sp-object-id",
+	return azuretesting.NewSenderWithValue(graphrbac.ServicePrincipalListResult{
+		Value: &[]graphrbac.ServicePrincipal{{
+			AppID:    to.StringPtr("cbb548f1-5039-4836-af0b-727e8571f6a9"),
+			ObjectID: to.StringPtr("sp-object-id"),
 		}},
 	})
 }
@@ -226,25 +227,30 @@ Authenticated as "Foo Bar".
 	// The service principal creation includes the password. Check that the
 	// password returned from the function is the same as the one set in the
 	// request.
-	var params ad.ServicePrincipalCreateParameters
+	var params graphrbac.ServicePrincipalCreateParameters
 	err = json.NewDecoder(requests[6].Body).Decode(&params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(params.PasswordCredentials, gc.HasLen, 1)
-	assertPasswordCredential(c, params.PasswordCredentials[0])
+	c.Assert((*params.PasswordCredentials), gc.HasLen, 1)
+	assertPasswordCredential(c, (*params.PasswordCredentials)[0])
 }
 
-func assertPasswordCredential(c *gc.C, cred ad.PasswordCredential) {
-	startDate := cred.StartDate
-	endDate := cred.EndDate
+func assertPasswordCredential(c *gc.C, cred graphrbac.PasswordCredential) {
+	var startDate, endDate time.Time
+	if cred.StartDate != nil {
+		startDate = cred.StartDate.Time
+	}
+	if cred.EndDate != nil {
+		endDate = cred.EndDate.Time
+	}
 	c.Assert(startDate, gc.Equals, clockStartTime())
 	c.Assert(endDate.Sub(startDate), gc.Equals, 365*24*time.Hour)
 
-	cred.StartDate = time.Time{}
-	cred.EndDate = time.Time{}
-	c.Assert(cred, jc.DeepEquals, ad.PasswordCredential{
-		CustomKeyIdentifier: []byte("juju-20160919"),
-		KeyId:               "44444444-4444-4444-4444-444444444444",
-		Value:               "33333333-3333-3333-3333-333333333333",
+	cred.StartDate = nil
+	cred.EndDate = nil
+	c.Assert(cred, jc.DeepEquals, graphrbac.PasswordCredential{
+		CustomKeyIdentifier: to.ByteSlicePtr([]byte("juju-20160919")),
+		KeyID:               to.StringPtr("44444444-4444-4444-4444-444444444444"),
+		Value:               to.StringPtr("33333333-3333-3333-3333-333333333333"),
 	})
 }
 
@@ -338,16 +344,14 @@ func (s *InteractiveSuite) testInteractiveServicePrincipalAlreadyExists(c *gc.C,
 	// Make sure that we don't wipe existing password credentials, and that
 	// the new password credential matches the one returned from the
 	// function.
-	var params ad.PasswordCredentialsUpdateParameters
+	var params graphrbac.PasswordCredentialsUpdateParameters
 	err = json.NewDecoder(requests[9].Body).Decode(&params)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(params.Value, gc.HasLen, 2)
-	c.Assert(params.Value[0], jc.DeepEquals, ad.PasswordCredential{
-		KeyId:     "password-credential-key-id",
-		StartDate: time.Time{}.UTC(),
-		EndDate:   time.Time{}.UTC(),
+	c.Assert((*params.Value), gc.HasLen, 2)
+	c.Assert((*params.Value)[0], jc.DeepEquals, graphrbac.PasswordCredential{
+		KeyID: to.StringPtr("password-credential-key-id"),
 	})
-	assertPasswordCredential(c, params.Value[1])
+	assertPasswordCredential(c, (*params.Value)[1])
 }
 
 func (s *InteractiveSuite) TestInteractiveServicePrincipalApplicationNotExist(c *gc.C) {

@@ -191,11 +191,7 @@
 
 [[constraint]]
   name = "github.com/Azure/azure-sdk-for-go"
-  revision = "9699bdefa481d47c5c7638a1cc05d87ce53601fd"
-
-[[override]]
-  name = "github.com/Azure/go-autorest"
-  revision = "528b76fd0ebec0682f3e3da7c808cd472b999615"
+  revision = "090dc0ee4d8d2d60e2a9525774d967a4111a2b0c"
 
 [[override]]
   name = "github.com/ajstarks/svgo"

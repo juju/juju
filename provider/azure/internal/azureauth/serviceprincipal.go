@@ -12,9 +12,11 @@ import (
 	"time"
 
 	"github.com/Azure/azure-sdk-for-go/services/authorization/mgmt/2015-07-01/authorization"
+	"github.com/Azure/azure-sdk-for-go/services/graphrbac/1.6/graphrbac"
 	"github.com/Azure/azure-sdk-for-go/services/resources/mgmt/2016-06-01/subscriptions"
 	"github.com/Azure/go-autorest/autorest"
 	"github.com/Azure/go-autorest/autorest/adal"
+	"github.com/Azure/go-autorest/autorest/date"
 	"github.com/Azure/go-autorest/autorest/to"
 	"github.com/juju/clock"
 	"github.com/juju/errors"
@@ -22,7 +24,6 @@ import (
 	"github.com/juju/retry"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/provider/azure/internal/ad"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
 	"github.com/juju/juju/provider/azure/internal/useragent"
@@ -75,16 +76,11 @@ type ServicePrincipalParams struct {
 	TenantId string
 }
 
-func (p ServicePrincipalParams) directoryClient(sender autorest.Sender, requestInspector autorest.PrepareDecorator) ad.ManagementClient {
-	baseURL := p.GraphEndpoint
-	if !strings.HasSuffix(baseURL, "/") {
-		baseURL += "/"
-	}
-	baseURL += p.TenantId
-	directoryClient := ad.NewManagementClient(baseURL)
+func (p ServicePrincipalParams) directoryClient(sender autorest.Sender, requestInspector autorest.PrepareDecorator) graphrbac.BaseClient {
+	directoryClient := graphrbac.NewWithBaseURI(p.GraphEndpoint, p.TenantId)
 	directoryClient.Authorizer = p.GraphAuthorizer
 	directoryClient.Sender = sender
-	setClientInspectors(&directoryClient.Client, requestInspector, "azure.directory")
+	setClientInspectors(&directoryClient.Client, requestInspector, errorutils.CheckForGraphError, "azure.directory")
 	return directoryClient
 }
 
@@ -93,17 +89,26 @@ func (p ServicePrincipalParams) authorizationClient(sender autorest.Sender, requ
 	useragent.UpdateClient(&authorizationClient.Client)
 	authorizationClient.Authorizer = p.ResourceManagerAuthorizer
 	authorizationClient.Sender = sender
-	setClientInspectors(&authorizationClient.Client, requestInspector, "azure.authorization")
+	setClientInspectors(&authorizationClient.Client, requestInspector, nil, "azure.authorization")
 	return authorizationClient
 }
 
 func setClientInspectors(
 	client *autorest.Client,
 	requestInspector autorest.PrepareDecorator,
+	responseInspector autorest.RespondDecorator,
 	loggingModule string,
 ) {
 	logger := loggo.GetLogger(loggingModule)
 	client.ResponseInspector = tracing.RespondDecorator(logger)
+	if responseInspector != nil {
+		tracer := client.ResponseInspector
+		client.ResponseInspector = func(r autorest.Responder) autorest.Responder {
+			r = tracer(r)
+			r = responseInspector(r)
+			return r
+		}
+	}
 	client.RequestInspector = tracing.PrepareDecorator(logger)
 	if requestInspector != nil {
 		tracer := client.RequestInspector
@@ -134,7 +139,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	}
 	useragent.UpdateClient(&subscriptionsClient.Client)
 	subscriptionsClient.Sender = c.Sender
-	setClientInspectors(&subscriptionsClient.Client, c.RequestInspector, "azure.subscriptions")
+	setClientInspectors(&subscriptionsClient.Client, c.RequestInspector, nil, "azure.subscriptions")
 
 	oauthConfig, tenantId, err := OAuthConfig(
 		sdkCtx,
@@ -149,7 +154,7 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	client := autorest.NewClientWithUserAgent("")
 	useragent.UpdateClient(&client)
 	client.Sender = c.Sender
-	setClientInspectors(&client, c.RequestInspector, "azure.autorest")
+	setClientInspectors(&client, c.RequestInspector, nil, "azure.autorest")
 
 	// Perform the interactive authentication. The user will be prompted to
 	// open a URL and input a device code, after which they will have to
@@ -197,18 +202,18 @@ func (c *ServicePrincipalCreator) InteractiveCreate(sdkCtx context.Context, stde
 	params.ResourceManagerAuthorizer = autorest.NewBearerAuthorizer(armSpt)
 	params.TenantId = tenantId
 
-	userObject, err := ad.UsersClient{params.directoryClient(c.Sender, c.RequestInspector)}.GetCurrentUser()
+	userObject, err := graphrbac.SignedInUserClient{params.directoryClient(c.Sender, c.RequestInspector)}.Get(sdkCtx)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	fmt.Fprintf(stderr, "Authenticated as %q.\n", userObject.DisplayName)
+	fmt.Fprintf(stderr, "Authenticated as %q.\n", to.String(userObject.DisplayName))
 
 	return c.Create(sdkCtx, params)
 }
 
 // Create creates a new service principal using the values specified in params.
 func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServicePrincipalParams) (appid, password string, _ error) {
-	servicePrincipalObjectId, password, err := c.createOrUpdateServicePrincipal(params)
+	servicePrincipalObjectId, password, err := c.createOrUpdateServicePrincipal(sdkCtx, params)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -218,7 +223,7 @@ func (c *ServicePrincipalCreator) Create(sdkCtx context.Context, params ServiceP
 	return jujuApplicationId, password, nil
 }
 
-func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(params ServicePrincipalParams) (servicePrincipalObjectId, password string, _ error) {
+func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(sdkCtx context.Context, params ServicePrincipalParams) (servicePrincipalObjectId, password string, _ error) {
 	passwordCredential, err := c.preparePasswordCredential()
 	if err != nil {
 		return "", "", errors.Annotate(err, "preparing password credential")
@@ -231,28 +236,29 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(params ServiceP
 	// service principal; thus, we retry until it exists. The
 	// error checking is based on the logic in azure-cli's
 	// create_service_principal_for_rbac.
-	client := ad.ServicePrincipalsClient{params.directoryClient(c.Sender, c.RequestInspector)}
-	var servicePrincipal ad.ServicePrincipal
+	client := graphrbac.ServicePrincipalsClient{params.directoryClient(c.Sender, c.RequestInspector)}
+	var servicePrincipal graphrbac.ServicePrincipal
 	createServicePrincipal := func() error {
 		var err error
+		creds := []graphrbac.PasswordCredential{passwordCredential}
 		servicePrincipal, err = client.Create(
-			ad.ServicePrincipalCreateParameters{
-				ApplicationID:       jujuApplicationId,
-				AccountEnabled:      true,
-				PasswordCredentials: []ad.PasswordCredential{passwordCredential},
+			sdkCtx,
+			graphrbac.ServicePrincipalCreateParameters{
+				AppID:               to.StringPtr(jujuApplicationId),
+				AccountEnabled:      to.BoolPtr(true),
+				PasswordCredentials: &creds,
 			},
-			nil, // abort
 		)
 		return err
 	}
 	retryArgs := retry.CallArgs{
 		Func: createServicePrincipal,
 		IsFatalError: func(err error) bool {
-			serviceErr, ok := errorutils.ServiceError(err)
-			if ok && (strings.Contains(serviceErr.Message, " does not reference ") ||
-				strings.Contains(serviceErr.Message, " does not exist ")) {
-				// The application doesn't exist yet, retry later.
-				return false
+			if ge := errorutils.AsGraphError(err); ge != nil {
+				if strings.Contains(ge.Message(), " does not reference ") || strings.Contains(ge.Message(), " does not exist ") {
+					// The application doesn't exist yet, retry later.
+					return false
+				}
 			}
 			return true
 		},
@@ -269,82 +275,94 @@ func (c *ServicePrincipalCreator) createOrUpdateServicePrincipal(params ServiceP
 	} else {
 		// The service principal was created successfully, with the
 		// requested password credential.
-		return servicePrincipal.ObjectID, passwordCredential.Value, nil
+		return to.String(servicePrincipal.ObjectID), to.String(passwordCredential.Value), nil
 	}
 
 	// The service principal already exists, so we need to query
 	// its object ID, and fetch the existing password credentials
 	// to update.
-	servicePrincipal, err = getServicePrincipal(client)
+	servicePrincipal, err = getServicePrincipal(sdkCtx, client)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 	if err := addServicePrincipalPasswordCredential(
-		client, servicePrincipal.ObjectID,
+		sdkCtx,
+		client,
+		to.String(servicePrincipal.ObjectID),
 		passwordCredential,
 	); err != nil {
 		return "", "", errors.Annotate(err, "updating password credentials")
 	}
-	return servicePrincipal.ObjectID, passwordCredential.Value, nil
+	return to.String(servicePrincipal.ObjectID), to.String(passwordCredential.Value), nil
 }
 
 func isMultipleObjectsWithSameKeyValueErr(err error) bool {
-	if err, ok := errorutils.ServiceError(err); ok {
-		return err.Code == "Request_MultipleObjectsWithSameKeyValue"
+	if ge := errorutils.AsGraphError(err); ge != nil {
+		return ge.Code() == "Request_MultipleObjectsWithSameKeyValue"
 	}
 	return false
 }
 
-func (c *ServicePrincipalCreator) preparePasswordCredential() (ad.PasswordCredential, error) {
+func (c *ServicePrincipalCreator) preparePasswordCredential() (graphrbac.PasswordCredential, error) {
 	password, err := c.newUUID()
 	if err != nil {
-		return ad.PasswordCredential{}, errors.Annotate(err, "generating password")
+		return graphrbac.PasswordCredential{}, errors.Annotate(err, "generating password")
 	}
 	passwordKeyUUID, err := c.newUUID()
 	if err != nil {
-		return ad.PasswordCredential{}, errors.Annotate(err, "generating password key ID")
+		return graphrbac.PasswordCredential{}, errors.Annotate(err, "generating password key ID")
 	}
 	startDate := c.clock().Now().UTC()
 	endDate := startDate.Add(passwordExpiryDuration)
-	return ad.PasswordCredential{
-		CustomKeyIdentifier: []byte("juju-" + startDate.Format("20060102")),
-		KeyId:               passwordKeyUUID.String(),
-		Value:               password.String(),
-		StartDate:           startDate,
-		EndDate:             endDate,
+	return graphrbac.PasswordCredential{
+		CustomKeyIdentifier: to.ByteSlicePtr([]byte("juju-" + startDate.Format("20060102"))),
+		KeyID:               to.StringPtr(passwordKeyUUID.String()),
+		Value:               to.StringPtr(password.String()),
+		StartDate:           &date.Time{startDate},
+		EndDate:             &date.Time{endDate},
 	}, nil
 }
 
 func addServicePrincipalPasswordCredential(
-	client ad.ServicePrincipalsClient,
+	sdkCtx context.Context,
+	client graphrbac.ServicePrincipalsClient,
 	servicePrincipalObjectId string,
-	passwordCredential ad.PasswordCredential,
+	passwordCredential graphrbac.PasswordCredential,
 ) error {
-	existing, err := client.ListPasswordCredentials(servicePrincipalObjectId)
+	existing, err := client.ListPasswordCredentials(sdkCtx, servicePrincipalObjectId)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	passwordCredentials := append(existing.Value, passwordCredential)
+	var existingValues []graphrbac.PasswordCredential
+	if existing.Value != nil {
+		existingValues = *existing.Value
+	}
+	passwordCredentials := append(existingValues, passwordCredential)
 	_, err = client.UpdatePasswordCredentials(
+		sdkCtx,
 		servicePrincipalObjectId,
-		ad.PasswordCredentialsUpdateParameters{passwordCredentials},
+		graphrbac.PasswordCredentialsUpdateParameters{&passwordCredentials},
 	)
 	return errors.Trace(err)
 }
 
-func getServicePrincipal(client ad.ServicePrincipalsClient) (ad.ServicePrincipal, error) {
+func getServicePrincipal(sdkCtx context.Context, client graphrbac.ServicePrincipalsClient) (graphrbac.ServicePrincipal, error) {
 	// TODO(axw) filter by Service Principal Name (SPN).
 	// It works without that, but the response is noisy.
-	result, err := client.List("")
+	it, err := client.ListComplete(sdkCtx, "")
 	if err != nil {
-		return ad.ServicePrincipal{}, errors.Annotate(err, "listing service principals")
+		return graphrbac.ServicePrincipal{}, errors.Annotate(err, "listing service principals")
 	}
-	for _, sp := range result.Value {
-		if sp.ApplicationID == jujuApplicationId {
+	for it.NotDone() {
+		sp := it.Value()
+		if to.String(sp.AppID) == jujuApplicationId {
 			return sp, nil
 		}
+		if err := it.NextWithContext(sdkCtx); err != nil {
+			return graphrbac.ServicePrincipal{}, errors.Annotate(err, "listing service principals")
+		}
 	}
-	return ad.ServicePrincipal{}, errors.NotFoundf("service principal")
+	return graphrbac.ServicePrincipal{}, errors.NotFoundf("service principal")
 }
 
 func (c *ServicePrincipalCreator) createRoleAssignment(sdkCtx context.Context, params ServicePrincipalParams, servicePrincipalObjectId string) error {

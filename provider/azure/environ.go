@@ -42,7 +42,6 @@ import (
 
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/provider/azure/internal/armtemplates"
-	internalazureresources "github.com/juju/juju/provider/azure/internal/azureresources"
 	internalazurestorage "github.com/juju/juju/provider/azure/internal/azurestorage"
 	"github.com/juju/juju/provider/azure/internal/errorutils"
 	"github.com/juju/juju/provider/azure/internal/tracing"
@@ -1461,7 +1460,7 @@ func (env *azureEnviron) AdoptResources(ctx context.ProviderCallContext, control
 		err := env.updateResourceControllerTag(
 			ctx,
 			sdkCtx,
-			internalazureresources.ResourcesClient{&resourceClient},
+			resourceClient,
 			resource, controllerUUID, apiVersion,
 		)
 		if err != nil {
@@ -1502,8 +1501,8 @@ func (env *azureEnviron) updateGroupControllerTag(ctx context.ProviderCallContex
 func (env *azureEnviron) updateResourceControllerTag(
 	ctx context.ProviderCallContext,
 	sdkCtx stdcontext.Context,
-	client internalazureresources.ResourcesClient,
-	stubResource resources.GenericResource,
+	client resources.Client,
+	stubResource resources.GenericResourceExpanded,
 	controllerUUID string,
 	apiVersion string,
 ) error {
@@ -1525,8 +1524,8 @@ func (env *azureEnviron) updateResourceControllerTag(
 	_, err = client.CreateOrUpdateByID(
 		sdkCtx,
 		to.String(stubResource.ID),
-		resource,
 		apiVersion,
+		resource,
 	)
 	return errorutils.HandleCredentialError(errors.Annotatef(err, "updating controller for %q", to.String(resource.Name)), ctx)
 }
@@ -1911,7 +1910,7 @@ func (env *azureEnviron) getStorageAccountLocked() (*storage.Account, error) {
 		return *env.storageAccount, nil
 	}
 	client := storage.AccountsClient{env.storage}
-	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName)
+	account, err := client.GetProperties(stdcontext.Background(), env.resourceGroup, env.storageAccountName, storage.AccountExpandGeoReplicationStats)
 	if err != nil {
 		if isNotFoundResult(account.Response) {
 			// Remember that the account was not found
