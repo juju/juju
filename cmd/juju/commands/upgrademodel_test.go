@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/apiserver/facades/client/client"
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/docker"
@@ -86,6 +87,7 @@ var _ = gc.Suite(&UpgradeJujuSuite{})
 type upgradeTest struct {
 	about          string
 	available      []string
+	streams        []string
 	currentVersion string
 	agentVersion   string
 
@@ -170,7 +172,7 @@ var upgradeJujuTests = []upgradeTest{{
 	available:      []string{"3.3.0-quantal-amd64"},
 	currentVersion: "3.0.2-quantal-amd64",
 	agentVersion:   "2.8.2",
-	expectErr:      "no compatible agent binaries available",
+	expectErr:      "no compatible agent versions available",
 }, {
 	about:          "latest supported stable, when client is dev, explicit upload",
 	available:      []string{"2.1-dev1-quantal-amd64", "2.1.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
@@ -210,35 +212,35 @@ var upgradeJujuTests = []upgradeTest{{
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no agent binaries available",
+	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching major version",
 	available:      []string{"4.2.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching agent binaries available",
+	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching minor version",
 	available:      []string{"3.4.0-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching agent binaries available",
+	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching patch version",
 	available:      []string{"3.2.5-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching agent binaries available",
+	expectErr:      "no matching agent versions available",
 }, {
 	about:          "specified version, no matching build version",
 	available:      []string{"3.2.0.2-quantal-amd64"},
 	currentVersion: "3.0.0-quantal-amd64",
 	agentVersion:   "3.0.0",
 	args:           []string{"--agent-version", "3.2.0"},
-	expectErr:      "no matching agent binaries available",
+	expectErr:      "no matching agent versions available",
 }, {
 	about:          "incompatible version (minor != 0)",
 	available:      []string{"3.2.0-quantal-amd64"},
@@ -1025,6 +1027,12 @@ func (a *fakeUpgradeJujuAPI) reset() {
 	a.findToolsCalled = false
 }
 
+func (a *fakeUpgradeJujuAPI) ControllerConfig() (controller.Config, error) {
+	return map[string]interface{}{
+		"caas-image-repo": "image-repo",
+	}, nil
+}
+
 func (a *fakeUpgradeJujuAPI) ModelConfig() (map[string]interface{}, error) {
 	return map[string]interface{}{
 		"uuid": a.st.ControllerModelUUID(),
@@ -1149,31 +1157,42 @@ var _ = gc.Suite(&UpgradeCAASModelSuite{})
 var upgradeCAASModelTests = []upgradeTest{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0",
+	agentVersion:   "1.0.0",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "invalid --agent-version value",
 	currentVersion: "1.0.0",
+	agentVersion:   "1.0.0",
 	args:           []string{"--agent-version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "latest supported stable release",
 	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1-dev1"},
+	streams:        []string{"2.1.0-quantal-amd64", "2.1.2-quantal-amd64", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest supported stable release increments by one minor version number",
 	available:      []string{"1.21.3", "1.22.1"},
+	streams:        []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14",
 	expectVersion:  "1.21.3",
 }, {
 	about:          "latest supported stable release from custom version",
-	available:      []string{"1.21.3", "1.22.1"},
+	available:      []string{"1.21.4", "1.21.3", "1.22.1"},
+	streams:        []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14.1",
 	expectVersion:  "1.21.3",
+}, {
+	about:          "fallback to released if streams not available",
+	available:      []string{"1.21.3", "1.21.4", "1.22-beta1"},
+	currentVersion: "1.21.3",
+	agentVersion:   "1.21.3",
+	expectVersion:  "1.21.4",
 }}
 
 func (s *UpgradeCAASModelSuite) upgradeModelCommand(minUpgradeVers map[int]version.Number) cmd.Command {
@@ -1205,6 +1224,8 @@ func (s *UpgradeCAASModelSuite) assertUpgradeTests(c *gc.C, tests []upgradeTest,
 			ModelUUID: coretesting.ModelTag.Id(),
 		})
 		c.Assert(err, jc.ErrorIsNil)
+
+		s.setUpEnvAndTools(c, test.currentVersion+"-quantal-amd64", test.agentVersion, test.streams)
 
 		// Set up apparent CLI version and initialize the command.
 		current := version.MustParse(test.currentVersion)
