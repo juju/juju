@@ -694,6 +694,7 @@ $jujuCreds = New-Object System.Management.Automation.PSCredential ($juju_user, $
 mkdir -Force "C:\Juju"
 mkdir C:\Juju\tmp
 mkdir "C:\Juju\bin"
+mkdir "C:\Juju\lib\juju-transient"
 mkdir "C:\Juju\lib\juju\locks"
 setx /m PATH "$env:PATH;C:\Juju\bin\"
 $adminsGroup = (New-Object System.Security.Principal.SecurityIdentifier("S-1-5-32-544")).Translate([System.Security.Principal.NTAccount])
@@ -730,6 +731,7 @@ Set-Content 'C:/Juju/lib/juju/agents/machine-10/agent.conf' @"
 # format 2.0
 tag: machine-10
 datadir: C:/Juju/lib/juju
+transient-datadir: C:/Juju/lib/juju-transient
 logdir: C:/Juju/log/juju
 metricsspooldir: C:/Juju/lib/juju/metricspool
 nonce: FAKE_NONCE

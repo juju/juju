@@ -10,7 +10,7 @@ import (
 	params "github.com/juju/juju/apiserver/params"
 	network "github.com/juju/juju/core/network"
 	network0 "github.com/juju/juju/network"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -68,7 +68,7 @@ func (mr *MockStateMockRecorder) ContainerManagerConfig(arg0 interface{}) *gomoc
 }
 
 // GetContainerInterfaceInfo mocks base method
-func (m *MockState) GetContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
+func (m *MockState) GetContainerInterfaceInfo(arg0 names.MachineTag) ([]network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerInterfaceInfo", arg0)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
@@ -83,7 +83,7 @@ func (mr *MockStateMockRecorder) GetContainerInterfaceInfo(arg0 interface{}) *go
 }
 
 // GetContainerProfileInfo mocks base method
-func (m *MockState) GetContainerProfileInfo(arg0 names_v3.MachineTag) ([]*provisioner.LXDProfileResult, error) {
+func (m *MockState) GetContainerProfileInfo(arg0 names.MachineTag) ([]*provisioner.LXDProfileResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerProfileInfo", arg0)
 	ret0, _ := ret[0].([]*provisioner.LXDProfileResult)
@@ -98,7 +98,7 @@ func (mr *MockStateMockRecorder) GetContainerProfileInfo(arg0 interface{}) *gomo
 }
 
 // HostChangesForContainer mocks base method
-func (m *MockState) HostChangesForContainer(arg0 names_v3.MachineTag) ([]network0.DeviceToBridge, int, error) {
+func (m *MockState) HostChangesForContainer(arg0 names.MachineTag) ([]network0.DeviceToBridge, int, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HostChangesForContainer", arg0)
 	ret0, _ := ret[0].([]network0.DeviceToBridge)
@@ -114,7 +114,7 @@ func (mr *MockStateMockRecorder) HostChangesForContainer(arg0 interface{}) *gomo
 }
 
 // Machines mocks base method
-func (m *MockState) Machines(arg0 ...names_v3.MachineTag) ([]provisioner.MachineResult, error) {
+func (m *MockState) Machines(arg0 ...names.MachineTag) ([]provisioner.MachineResult, error) {
 	m.ctrl.T.Helper()
 	varargs := []interface{}{}
 	for _, a := range arg0 {
@@ -133,7 +133,7 @@ func (mr *MockStateMockRecorder) Machines(arg0 ...interface{}) *gomock.Call {
 }
 
 // PrepareContainerInterfaceInfo mocks base method
-func (m *MockState) PrepareContainerInterfaceInfo(arg0 names_v3.MachineTag) ([]network.InterfaceInfo, error) {
+func (m *MockState) PrepareContainerInterfaceInfo(arg0 names.MachineTag) ([]network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "PrepareContainerInterfaceInfo", arg0)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
@@ -148,7 +148,7 @@ func (mr *MockStateMockRecorder) PrepareContainerInterfaceInfo(arg0 interface{})
 }
 
 // ReleaseContainerAddresses mocks base method
-func (m *MockState) ReleaseContainerAddresses(arg0 names_v3.MachineTag) error {
+func (m *MockState) ReleaseContainerAddresses(arg0 names.MachineTag) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReleaseContainerAddresses", arg0)
 	ret0, _ := ret[0].(error)
@@ -162,7 +162,7 @@ func (mr *MockStateMockRecorder) ReleaseContainerAddresses(arg0 interface{}) *go
 }
 
 // SetHostMachineNetworkConfig mocks base method
-func (m *MockState) SetHostMachineNetworkConfig(arg0 names_v3.MachineTag, arg1 []params.NetworkConfig) error {
+func (m *MockState) SetHostMachineNetworkConfig(arg0 names.MachineTag, arg1 []params.NetworkConfig) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetHostMachineNetworkConfig", arg0, arg1)
 	ret0, _ := ret[0].(error)

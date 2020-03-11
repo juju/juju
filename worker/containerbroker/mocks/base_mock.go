@@ -8,8 +8,8 @@ import (
 	context "context"
 	gomock "github.com/golang/mock/gomock"
 	base "github.com/juju/juju/api/base"
-	httprequest_v1 "gopkg.in/httprequest.v1"
-	names_v3 "gopkg.in/juju/names.v3"
+	httprequest "gopkg.in/httprequest.v1"
+	names "gopkg.in/juju/names.v3"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
@@ -125,10 +125,10 @@ func (mr *MockAPICallerMockRecorder) Context() *gomock.Call {
 }
 
 // HTTPClient mocks base method
-func (m *MockAPICaller) HTTPClient() (*httprequest_v1.Client, error) {
+func (m *MockAPICaller) HTTPClient() (*httprequest.Client, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HTTPClient")
-	ret0, _ := ret[0].(*httprequest_v1.Client)
+	ret0, _ := ret[0].(*httprequest.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -140,10 +140,10 @@ func (mr *MockAPICallerMockRecorder) HTTPClient() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockAPICaller) ModelTag() (names_v3.ModelTag, bool) {
+func (m *MockAPICaller) ModelTag() (names.ModelTag, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

@@ -5,12 +5,11 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	instancemutater "github.com/juju/juju/api/instancemutater"
 	watcher "github.com/juju/juju/core/watcher"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
+	reflect "reflect"
 )
 
 // MockInstanceMutaterAPI is a mock of InstanceMutaterAPI interface
@@ -37,7 +36,7 @@ func (m *MockInstanceMutaterAPI) EXPECT() *MockInstanceMutaterAPIMockRecorder {
 }
 
 // Machine mocks base method
-func (m *MockInstanceMutaterAPI) Machine(arg0 names_v3.MachineTag) (instancemutater.MutaterMachine, error) {
+func (m *MockInstanceMutaterAPI) Machine(arg0 names.MachineTag) (instancemutater.MutaterMachine, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Machine", arg0)
 	ret0, _ := ret[0].(instancemutater.MutaterMachine)

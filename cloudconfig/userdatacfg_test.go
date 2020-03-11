@@ -69,6 +69,10 @@ func jujuDataDir(series string) string {
 	return must(paths.DataDir(series))
 }
 
+func jujuTransientDataDir(series string) string {
+	return must(paths.TransientDataDir(series))
+}
+
 func cloudInitOutputLog(logDir string) string {
 	return path.Join(logDir, "cloud-init-output.log")
 }
@@ -215,6 +219,7 @@ func (cfg *testInstanceConfig) setSeries(series string, build int) *testInstance
 	}
 	cfg.Series = series
 	cfg.DataDir = jujuDataDir(series)
+	cfg.TransientDataDir = jujuTransientDataDir(series)
 	cfg.LogDir = jujuLogDir(series)
 	cfg.CloudInitOutputLog = cloudInitOutputLog(series)
 	return cfg

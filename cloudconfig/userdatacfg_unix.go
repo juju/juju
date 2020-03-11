@@ -83,6 +83,9 @@ rm -rf /var/lib/juju/db/*
 
 echo "removing /var/lib/juju/raft/*"
 rm -rf /var/lib/juju/raft/*
+
+echo "removing /var/run/juju/*"
+rm -rf /var/run/juju/*
 `
 )
 

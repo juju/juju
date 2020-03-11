@@ -29,6 +29,7 @@ var _ formatter = formatter_2_0{}
 type format_2_0Serialization struct {
 	Tag               string             `yaml:"tag,omitempty"`
 	DataDir           string             `yaml:"datadir,omitempty"`
+	TransientDataDir  string             `yaml:"transient-datadir,omitempty"`
 	LogDir            string             `yaml:"logdir,omitempty"`
 	MetricsSpoolDir   string             `yaml:"metricsspooldir,omitempty"`
 	Nonce             string             `yaml:"nonce,omitempty"`
@@ -91,9 +92,10 @@ func (formatter_2_0) unmarshal(data []byte) (*configInternal, error) {
 	config := &configInternal{
 		tag: tag,
 		paths: NewPathsWithDefaults(Paths{
-			DataDir:         format.DataDir,
-			LogDir:          format.LogDir,
-			MetricsSpoolDir: format.MetricsSpoolDir,
+			DataDir:          format.DataDir,
+			TransientDataDir: format.TransientDataDir,
+			LogDir:           format.LogDir,
+			MetricsSpoolDir:  format.MetricsSpoolDir,
 		}),
 		jobs:              format.Jobs,
 		upgradedToVersion: *format.UpgradedToVersion,
@@ -163,6 +165,7 @@ func (formatter_2_0) marshal(config *configInternal) ([]byte, error) {
 	format := &format_2_0Serialization{
 		Tag:               config.tag.String(),
 		DataDir:           config.paths.DataDir,
+		TransientDataDir:  config.paths.TransientDataDir,
 		LogDir:            config.paths.LogDir,
 		MetricsSpoolDir:   config.paths.MetricsSpoolDir,
 		Jobs:              config.jobs,

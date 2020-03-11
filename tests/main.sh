@@ -34,6 +34,7 @@ TEST_NAMES="static_analysis \
             cli \
             controller \
             deploy \
+            hooks \
             hook_tools \
             machine \
             relations \

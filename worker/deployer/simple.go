@@ -21,11 +21,18 @@ import (
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	jujuversion "github.com/juju/juju/version"
+	"github.com/juju/juju/worker/common/reboot"
 )
 
 // APICalls defines the interface to the API that the simple context needs.
 type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
+}
+
+// RebootMonitorStatePurger is implemented by types that can clean up the
+// internal reboot-tracking state for a particular entity.
+type RebootMonitorStatePurger interface {
+	PurgeState(tag names.Tag) error
 }
 
 // SimpleContext is a Context that manages unit deployments on the local system.
@@ -44,6 +51,10 @@ type SimpleContext struct {
 
 	// listServices is a surrogate for service.ListServices.
 	listServices func() ([]string, error)
+
+	// rebootMonitorStatePurger allows the deployer to clean up the
+	// internal reboot tracking state when a unit gets removed.
+	rebootMonitorStatePurger RebootMonitorStatePurger
 }
 
 var _ Context = (*SimpleContext)(nil)
@@ -79,6 +90,7 @@ func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 		listServices: func() ([]string, error) {
 			return service.ListServices()
 		},
+		rebootMonitorStatePurger: reboot.NewMonitor(agentConfig.TransientDataDir()),
 	}
 }
 
@@ -219,6 +231,15 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := os.RemoveAll(agentDir); err != nil {
 		return errors.Trace(err)
 	}
+
+	// Ensure that the reboot monitor flag files for the unit are also
+	// cleaned up. This not really important if the machine is about to
+	// be recycled but it must be done for manual machines as the flag files
+	// will linger around until a reboot occurs.
+	if err = ctx.rebootMonitorStatePurger.PurgeState(tag); err != nil {
+		return errors.Trace(err)
+	}
+
 	// TODO(dfc) should take a Tag
 	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	return os.Remove(toolsDir)

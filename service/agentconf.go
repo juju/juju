@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"os"
 	"path"
-	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -125,40 +124,7 @@ func (s *systemdServiceManager) WriteServiceFiles() error {
 
 // FindAgents finds all the agents available on the machine.
 func (s *systemdServiceManager) FindAgents(dataDir string) (string, []string, []string, error) {
-	var (
-		machineAgent  string
-		unitAgents    []string
-		errAgentNames []string
-	)
-
-	agentDir := filepath.Join(dataDir, "agents")
-	dir, err := os.Open(agentDir)
-	if err != nil {
-		return "", nil, nil, errors.Annotate(err, "opening agents dir")
-	}
-	defer func() { _ = dir.Close() }()
-
-	entries, err := dir.Readdir(-1)
-	if err != nil {
-		return "", nil, nil, errors.Annotate(err, "reading agents dir")
-	}
-	for _, info := range entries {
-		name := info.Name()
-		tag, err := names.ParseTag(name)
-		if err != nil {
-			continue
-		}
-		switch tag.Kind() {
-		case names.MachineTagKind:
-			machineAgent = name
-		case names.UnitTagKind:
-			unitAgents = append(unitAgents, name)
-		default:
-			errAgentNames = append(errAgentNames, name)
-			logger.Infof("%s is not of type Machine nor Unit, ignoring", name)
-		}
-	}
-	return machineAgent, unitAgents, errAgentNames, nil
+	return FindAgents(dataDir)
 }
 
 // WriteSystemdAgents creates systemd files and symlinks for the input machine

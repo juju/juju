@@ -52,7 +52,8 @@ idle_subordinate_condition() {
     unit_index=${4:-0}
     parent_index=${5:-0}
 
-    echo ".applications | select(.[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | keys[$app_index]"
+    # Print the *subordinate* name if it has an idle status in parent application
+    echo ".applications | select(.[\"$parent\"] | .units | .[\"$parent/$parent_index\"] | .subordinates | .[\"$name/$unit_index\"] | .[\"juju-status\"] | .current == \"idle\") | \"$name\""
 }
 
 active_condition() {

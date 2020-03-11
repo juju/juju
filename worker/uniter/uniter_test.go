@@ -356,6 +356,21 @@ func (s *UniterSuite) TestUniterStartHook(c *gc.C) {
 			},
 			waitHooks{"start"},
 			verifyRunning{},
+		), ut(
+			"start hook after reboot",
+			quickStart{},
+			stopUniter{},
+			startUniter{
+				rebootQuerier: fakeRebootQuerier{
+					rebootDetected: true,
+				},
+			},
+			// Since the unit has already been started before and
+			// a reboot was detected, we expect the uniter to
+			// queue a start hook to notify the charms about the
+			// reboot.
+			waitHooks{"start"},
+			verifyRunning{},
 		),
 	})
 }

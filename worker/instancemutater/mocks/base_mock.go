@@ -6,14 +6,13 @@ package mocks
 
 import (
 	context "context"
+	gomock "github.com/golang/mock/gomock"
+	base "github.com/juju/juju/api/base"
+	httprequest "gopkg.in/httprequest.v1"
+	names "gopkg.in/juju/names.v3"
 	http "net/http"
 	url "net/url"
 	reflect "reflect"
-
-	gomock "github.com/golang/mock/gomock"
-	base "github.com/juju/juju/api/base"
-	httprequest_v1 "gopkg.in/httprequest.v1"
-	names_v3 "gopkg.in/juju/names.v3"
 )
 
 // MockAPICaller is a mock of APICaller interface
@@ -55,6 +54,7 @@ func (mr *MockAPICallerMockRecorder) APICall(arg0, arg1, arg2, arg3, arg4, arg5 
 
 // BakeryClient mocks base method
 func (m *MockAPICaller) BakeryClient() base.MacaroonDischarger {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "BakeryClient")
 	ret0, _ := ret[0].(base.MacaroonDischarger)
 	return ret0
@@ -112,6 +112,7 @@ func (mr *MockAPICallerMockRecorder) ConnectStream(arg0, arg1 interface{}) *gomo
 
 // Context mocks base method
 func (m *MockAPICaller) Context() context.Context {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Context")
 	ret0, _ := ret[0].(context.Context)
 	return ret0
@@ -119,13 +120,15 @@ func (m *MockAPICaller) Context() context.Context {
 
 // Context indicates an expected call of Context
 func (mr *MockAPICallerMockRecorder) Context() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Context", reflect.TypeOf((*MockAPICaller)(nil).Context))
 }
 
 // HTTPClient mocks base method
-func (m *MockAPICaller) HTTPClient() (*httprequest_v1.Client, error) {
+func (m *MockAPICaller) HTTPClient() (*httprequest.Client, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HTTPClient")
-	ret0, _ := ret[0].(*httprequest_v1.Client)
+	ret0, _ := ret[0].(*httprequest.Client)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -137,10 +140,10 @@ func (mr *MockAPICallerMockRecorder) HTTPClient() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockAPICaller) ModelTag() (names_v3.ModelTag, bool) {
+func (m *MockAPICaller) ModelTag() (names.ModelTag, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

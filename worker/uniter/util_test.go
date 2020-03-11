@@ -462,6 +462,15 @@ type startUniter struct {
 	unitTag              string
 	newExecutorFunc      uniter.NewOperationExecutorFunc
 	translateResolverErr func(error) error
+	rebootQuerier        uniter.RebootQuerier
+}
+
+type fakeRebootQuerier struct {
+	rebootDetected bool
+}
+
+func (q fakeRebootQuerier) Query(names.Tag) (bool, error) {
+	return q.rebootDetected, nil
 }
 
 func (s startUniter) step(c *gc.C, ctx *context) {
@@ -473,6 +482,9 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	}
 	if ctx.api == nil {
 		panic("API connection not established")
+	}
+	if s.rebootQuerier == nil {
+		s.rebootQuerier = fakeRebootQuerier{}
 	}
 	tag, err := names.ParseUnitTag(s.unitTag)
 	if err != nil {
@@ -500,7 +512,8 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 		// TODO(axw) 2015-11-02 #1512191
 		// update tests that rely on timing to advance clock
 		// appropriately.
-		Clock: clock.WallClock,
+		Clock:         clock.WallClock,
+		RebootQuerier: s.rebootQuerier,
 	}
 	ctx.uniter, err = uniter.NewUniter(&uniterParams)
 	c.Assert(err, jc.ErrorIsNil)

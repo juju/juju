@@ -69,6 +69,7 @@ func (s *SimpleContextSuite) TestDeployRecall(c *gc.C) {
 	s.assertUpstartCount(c, 1)
 	s.checkUnitInstalled(c, "foo/123", "some-password")
 
+	c.Assert(s.monitorStatePurger.purgeCallCount, gc.Equals, 0, gc.Commentf("unexpected call to monitor state purger"))
 	err = mgr0.RecallUnit("foo/123")
 	c.Assert(err, jc.ErrorIsNil)
 	units, err = mgr0.DeployedUnits()
@@ -76,6 +77,8 @@ func (s *SimpleContextSuite) TestDeployRecall(c *gc.C) {
 	c.Assert(units, gc.HasLen, 0)
 	s.assertUpstartCount(c, 0)
 	s.checkUnitRemoved(c, "foo/123")
+
+	c.Assert(s.monitorStatePurger.purgeCallCount, gc.Equals, 1, gc.Commentf("expected single call to monitor state purger after unit recall"))
 }
 
 func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
@@ -151,7 +154,8 @@ type SimpleToolsFixture struct {
 	origPath string
 	binDir   string
 
-	data *svctesting.FakeServiceData
+	data               *svctesting.FakeServiceData
+	monitorStatePurger *fakeMonitorStatePurger
 }
 
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
@@ -186,6 +190,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 	fix.makeBin(c, "stop", "cp $(which stopped-status) $(which status)")
 
 	fix.data = svctesting.NewFakeServiceData()
+	fix.monitorStatePurger = new(fakeMonitorStatePurger)
 }
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
@@ -204,12 +209,12 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
 	config := agentConfig(names.NewMachineTag("99"), fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.logDir, fix.data)
+	return deployer.NewTestSimpleContext(config, fix.logDir, fix.data, fix.monitorStatePurger)
 }
 
 func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Tag) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
-	return deployer.NewTestSimpleContext(config, fix.logDir, fix.data)
+	return deployer.NewTestSimpleContext(config, fix.logDir, fix.data, fix.monitorStatePurger)
 }
 
 func (fix *SimpleToolsFixture) paths(tag names.Tag) (agentDir, toolsDir string) {
@@ -360,4 +365,13 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+type fakeMonitorStatePurger struct {
+	purgeCallCount int
+}
+
+func (p *fakeMonitorStatePurger) PurgeState(names.Tag) error {
+	p.purgeCallCount++
+	return nil
 }
