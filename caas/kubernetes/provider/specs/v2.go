@@ -117,8 +117,10 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	}
 	pSpec.Service = p.caaSSpecV2.Service
 	pSpec.ConfigMaps = p.caaSSpecV2.ConfigMaps
-	pSpec.ServiceAccount = p.caaSSpecV2.ServiceAccount
 
+	if p.caaSSpecV2.ServiceAccount != nil {
+		pSpec.ServiceAccount = p.caaSSpecV2.ServiceAccount.ToLatest()
+	}
 	if p.K8sPodSpecV2.KubernetesResources != nil {
 		pSpec.ProviderPod = &K8sPodSpec{
 			KubernetesResources: p.K8sPodSpecV2.KubernetesResources.toLatest(),
@@ -146,24 +148,23 @@ func (p *K8sPodSpecV2) Validate() error {
 
 // K8sServiceAccountSpecV2 defines spec for referencing or creating a service account for version 2.
 type K8sServiceAccountSpecV2 struct {
-	Name             string `json:"name" yaml:"name"`
-	specs.RBACSpecV2 `json:",inline" yaml:",inline"`
+	Name                       string `json:"name" yaml:"name"`
+	specs.ServiceAccountSpecV2 `json:",inline" yaml:",inline"`
 }
 
 func (ksa K8sServiceAccountSpecV2) toLatest() K8sRBACResources {
-	role := RoleSpec{
-		Name:   ksa.Name,
-		Global: ksa.Global,
-		Rules:  ksa.Rules,
-	}
-	sa := K8sServiceAccountSpec{
-		Name:                         ksa.Name,
-		AutomountServiceAccountToken: ksa.AutomountServiceAccountToken,
-		Roles:                        []string{role.Name},
-	}
+	o := ksa.ServiceAccountSpecV2.ToLatest()
+	o.SetName(ksa.Name)
 	return K8sRBACResources{
-		ServiceAccounts:     []K8sServiceAccountSpec{sa},
-		ServiceAccountRoles: []RoleSpec{role},
+		ServiceAccounts: []K8sServiceAccountSpec{
+			{
+				Name: o.GetName(),
+				ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
+					AutomountServiceAccountToken: o.AutomountServiceAccountToken,
+					Roles:                        o.Roles,
+				},
+			},
+		},
 	}
 }
 
@@ -172,7 +173,7 @@ func (ksa K8sServiceAccountSpecV2) Validate() error {
 	if ksa.Name == "" {
 		return errors.New("service account name is missing")
 	}
-	return errors.Trace(ksa.RBACSpecV2.Validate())
+	return errors.Trace(ksa.ServiceAccountSpecV2.Validate())
 }
 
 // K8sIngressSpec defines spec for creating or updating an ingress resource.
@@ -229,7 +230,6 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 	for _, sa := range krs.ServiceAccounts {
 		rbacSources := sa.toLatest()
 		out.ServiceAccounts = append(out.ServiceAccounts, rbacSources.ServiceAccounts...)
-		out.ServiceAccountRoles = append(out.ServiceAccountRoles, rbacSources.ServiceAccountRoles...)
 	}
 	return out
 }

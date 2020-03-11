@@ -53,7 +53,6 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 	getBindingName := func(sa, cR k8sspecs.NameGetter) string {
 		return fmt.Sprintf("%s-%s", sa.GetName(), cR.GetName())
 	}
-
 	getSAMeta := func(name string) v1.ObjectMeta {
 		return v1.ObjectMeta{
 			Name:        name,
@@ -62,15 +61,26 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 			Annotations: annotations,
 		}
 	}
-	getRoleMeta := func(name string) v1.ObjectMeta {
+	getRoleClusterRoleName := func(name string, index int) string {
+		if name != "" {
+			return name
+		}
+		name = appName
+		if index == 0 {
+			return name
+		}
+		return fmt.Sprintf("%s%d", name, index)
+	}
+	getRoleMeta := func(name string, index int) v1.ObjectMeta {
 		return v1.ObjectMeta{
-			Name:        name,
+			Name:        getRoleClusterRoleName(name, index),
 			Namespace:   k.namespace,
 			Labels:      k.getRBACLabels(appName, false),
 			Annotations: annotations,
 		}
 	}
-	getClusterRoleMeta := func(name string) v1.ObjectMeta {
+	getClusterRoleMeta := func(name string, index int) v1.ObjectMeta {
+		name = getRoleClusterRoleName(name, index)
 		return v1.ObjectMeta{
 			Name:        prefixNameSpace(name),
 			Namespace:   k.namespace,

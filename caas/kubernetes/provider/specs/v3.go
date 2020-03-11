@@ -5,7 +5,6 @@ package specs
 
 import (
 	"fmt"
-	"reflect"
 	"strings"
 
 	"github.com/juju/collections/set"
@@ -52,29 +51,10 @@ func (p podSpecV3) ToLatest() *specs.PodSpec {
 	return pSpec
 }
 
-// RoleSpec defines a spec for creating a role or cluster role.
-type RoleSpec struct {
-	Name   string             `json:"name" yaml:"name"`
-	Global bool               `json:"global" yaml:"global"`
-	Rules  []specs.PolicyRule `json:"rules" yaml:"rules"`
-}
-
-// Validate returns an error if the spec is not valid.
-func (rs RoleSpec) Validate() error {
-	if rs.Name == "" {
-		return errors.New("spec name is missing")
-	}
-	if len(rs.Rules) == 0 {
-		return errors.NewNotValid(nil, "rules is required")
-	}
-	return nil
-}
-
 // K8sServiceAccountSpec defines spec for referencing or creating additional RBAC resources.
 type K8sServiceAccountSpec struct {
-	Name                         string   `json:"name" yaml:"name"`
-	AutomountServiceAccountToken *bool    `yaml:"automountServiceAccountToken,omitempty"`
-	Roles                        []string `json:"roles" yaml:"roles"`
+	Name                       string `json:"name" yaml:"name"`
+	specs.ServiceAccountSpecV3 `json:",inline" yaml:",inline"`
 }
 
 // Validate returns an error if the spec is not valid.
@@ -82,24 +62,21 @@ func (sa K8sServiceAccountSpec) Validate() error {
 	if sa.Name == "" {
 		return errors.New("name is missing")
 	}
-	return nil
+	return errors.Trace(sa.ServiceAccountSpecV3.Validate())
 }
 
 // K8sRBACResources defines a spec for creating RBAC resources.
 type K8sRBACResources struct {
 	K8sRBACSpecConverter
-	ServiceAccounts     []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
-	ServiceAccountRoles []RoleSpec              `json:"serviceAccountRoles,omitempty" yaml:"serviceAccountRoles,omitempty"`
+	ServiceAccounts []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
 }
 
 // K8sRBACSpecConverter has a method to convert modelled RBAC spec to k8s spec.
 type K8sRBACSpecConverter interface {
 	ToK8s(
-		getSaMeta,
-		getRoleMeta,
-		getClusterRoleMeta MetaGetter,
-		getBindingMeta,
-		getClusterBindingMeta BindingMetaGetter,
+		getSaMeta ServiceAccountMetaGetter,
+		getRoleMeta, getClusterRoleMeta RoleMetaGetter,
+		getBindingMeta, getClusterBindingMeta BindingMetaGetter,
 	) (
 		[]core.ServiceAccount,
 		[]rbacv1.Role,
@@ -111,18 +88,7 @@ type K8sRBACSpecConverter interface {
 
 // Validate is defined on ProviderPod.
 func (ks K8sRBACResources) Validate() error {
-	roleNames := set.NewStrings()
-	for _, r := range ks.ServiceAccountRoles {
-		if err := r.Validate(); err != nil {
-			return errors.Trace(err)
-		}
-		if roleNames.Contains(r.Name) {
-			return errors.NotValidf("duplicated role name %q", r.Name)
-		}
-		roleNames.Add(r.Name)
-	}
 	saNames := set.NewStrings()
-	referencedRoles := set.NewStrings()
 	for _, sa := range ks.ServiceAccounts {
 		if err := sa.Validate(); err != nil {
 			return errors.Trace(err)
@@ -131,18 +97,26 @@ func (ks K8sRBACResources) Validate() error {
 			return errors.NotValidf("duplicated service account name %q", sa.Name)
 		}
 		saNames.Add(sa.Name)
-		for _, rName := range sa.Roles {
-			if !roleNames.Contains(rName) {
-				return errors.NewNotValid(nil, fmt.Sprintf("service account %q references an unknown role %q", sa.Name, rName))
+
+		roleNames := set.NewStrings()
+		for _, r := range sa.Roles {
+			if r.Name == "" {
+				continue
 			}
-			referencedRoles.Add(rName)
+			if roleNames.Contains(r.Name) {
+				return errors.NotValidf("duplicated role name %q", r.Name)
+			}
+			roleNames.Add(r.Name)
 		}
-	}
-	if unusedRoles := roleNames.Difference(referencedRoles); unusedRoles.Size() > 0 {
-		return errors.NewNotValid(nil, fmt.Sprintf(
-			"roles %q are not referenced by any service account",
-			strings.Join(unusedRoles.SortedValues(), ","),
-		))
+		if roleNames.Size() == 0 {
+			// all good.
+			logger.Criticalf("all roles do not have a name")
+		} else if len(sa.Roles) == roleNames.Size() {
+			// all good.
+			logger.Criticalf("all roles have a name")
+		} else {
+			return errors.NewNotValid(nil, fmt.Sprintf("either all or none of the roles of the service account %q should be set a name", sa.Name))
+		}
 	}
 	return nil
 }
@@ -152,8 +126,11 @@ type NameGetter interface {
 	GetName() string
 }
 
-// MetaGetter generates ObjectMeta for service accounts, roles, cluster roles.
-type MetaGetter func(rawName string) v1.ObjectMeta
+// ServiceAccountMetaGetter generates ObjectMeta for service accounts.
+type ServiceAccountMetaGetter func(rawName string) v1.ObjectMeta
+
+// RoleMetaGetter generates ObjectMeta for roles, cluster roles.
+type RoleMetaGetter func(rawName string, index int) v1.ObjectMeta
 
 // BindingMetaGetter generates ObjectMeta for role bindings, cluster role bindings.
 type BindingMetaGetter func(sa, roleOrClusterRole NameGetter) v1.ObjectMeta
@@ -173,11 +150,9 @@ func toK8sRules(rules []specs.PolicyRule) (out []rbacv1.PolicyRule) {
 
 // ToK8s converts modelled RBAC specs to k8s specs.
 func (ks K8sRBACResources) ToK8s(
-	getSaMeta,
-	getRoleMeta,
-	getClusterRoleMeta MetaGetter,
-	getBindingMeta,
-	getClusterBindingMeta BindingMetaGetter,
+	getSaMeta ServiceAccountMetaGetter,
+	getRoleMeta, getClusterRoleMeta RoleMetaGetter,
+	getBindingMeta, getClusterBindingMeta BindingMetaGetter,
 ) (
 	serviceAccounts []core.ServiceAccount,
 	roles []rbacv1.Role,
@@ -185,39 +160,19 @@ func (ks K8sRBACResources) ToK8s(
 	roleBindings []rbacv1.RoleBinding,
 	clusterRoleBindings []rbacv1.ClusterRoleBinding,
 ) {
-	bindingInfo := map[string][]core.ServiceAccount{}
-	appendSA := func(roleName string, sa core.ServiceAccount) {
-		svcAccounts, ok := bindingInfo[roleName]
-		if !ok {
-			bindingInfo[roleName] = []core.ServiceAccount{sa}
-			return
-		}
-		for _, v := range svcAccounts {
-			if reflect.DeepEqual(v, sa) {
-				return
-			}
-		}
-		bindingInfo[roleName] = append(svcAccounts, sa)
-	}
 	for _, spec := range ks.ServiceAccounts {
 		sa := core.ServiceAccount{
 			ObjectMeta:                   getSaMeta(spec.Name),
 			AutomountServiceAccountToken: spec.AutomountServiceAccountToken,
 		}
 		serviceAccounts = append(serviceAccounts, sa)
-		for _, rName := range spec.Roles {
-			appendSA(rName, sa)
-		}
-	}
-	for _, spec := range ks.ServiceAccountRoles {
-		svcAccountsToBind := bindingInfo[spec.Name]
-		if spec.Global {
-			cR := rbacv1.ClusterRole{
-				ObjectMeta: getClusterRoleMeta(spec.Name),
-				Rules:      toK8sRules(spec.Rules),
-			}
-			clusterroles = append(clusterroles, cR)
-			for _, sa := range svcAccountsToBind {
+		for i, r := range spec.Roles {
+			if r.Global {
+				cR := rbacv1.ClusterRole{
+					ObjectMeta: getClusterRoleMeta(r.Name, i),
+					Rules:      toK8sRules(r.Rules),
+				}
+				clusterroles = append(clusterroles, cR)
 				clusterRoleBindings = append(clusterRoleBindings, rbacv1.ClusterRoleBinding{
 					ObjectMeta: getClusterBindingMeta(&sa, &cR),
 					RoleRef: rbacv1.RoleRef{
@@ -232,14 +187,12 @@ func (ks K8sRBACResources) ToK8s(
 						},
 					},
 				})
-			}
-		} else {
-			r := rbacv1.Role{
-				ObjectMeta: getRoleMeta(spec.Name),
-				Rules:      toK8sRules(spec.Rules),
-			}
-			roles = append(roles, r)
-			for _, sa := range svcAccountsToBind {
+			} else {
+				r := rbacv1.Role{
+					ObjectMeta: getRoleMeta(r.Name, i),
+					Rules:      toK8sRules(r.Rules),
+				}
+				roles = append(roles, r)
 				roleBindings = append(roleBindings, rbacv1.RoleBinding{
 					ObjectMeta: getBindingMeta(&sa, &r),
 					RoleRef: rbacv1.RoleRef{
@@ -261,20 +214,14 @@ func (ks K8sRBACResources) ToK8s(
 }
 
 // PrimeServiceAccountToK8sRBACResources converts PrimeServiceAccount to K8sRBACResources.
-func PrimeServiceAccountToK8sRBACResources(spec specs.PrimeServiceAccountSpec) (*K8sRBACResources, error) {
-	role := RoleSpec{
-		Name:   spec.GetName(),
-		Global: spec.Global,
-		Rules:  spec.Rules,
-	}
-	sa := K8sServiceAccountSpec{
-		Name:                         spec.GetName(),
-		AutomountServiceAccountToken: spec.AutomountServiceAccountToken,
-		Roles:                        []string{role.Name},
-	}
+func PrimeServiceAccountToK8sRBACResources(spec specs.PrimeServiceAccountSpecV3) (*K8sRBACResources, error) {
 	out := &K8sRBACResources{
-		ServiceAccounts:     []K8sServiceAccountSpec{sa},
-		ServiceAccountRoles: []RoleSpec{role},
+		ServiceAccounts: []K8sServiceAccountSpec{
+			{
+				Name:                 spec.GetName(),
+				ServiceAccountSpecV3: spec.ServiceAccountSpecV3,
+			},
+		},
 	}
 	if err := out.Validate(); err != nil {
 		return nil, errors.Trace(err)

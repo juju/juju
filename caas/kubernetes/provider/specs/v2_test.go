@@ -309,15 +309,19 @@ kubernetesResources:
 foo: bar
 `[1:]
 
-	sa1 := &specs.PrimeServiceAccountSpec{
-		PrimeRBACSpec: specs.PrimeRBACSpec{
+	sa1 := &specs.PrimeServiceAccountSpecV3{
+		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
 			AutomountServiceAccountToken: boolPtr(true),
-			Global:                       true,
-			Rules: []specs.PolicyRule{
+			Roles: []specs.Role{
 				{
-					APIGroups: []string{""},
-					Resources: []string{"pods"},
-					Verbs:     []string{"get", "watch", "list"},
+					Global: true,
+					Rules: []specs.PolicyRule{
+						{
+							APIGroups: []string{""},
+							Resources: []string{"pods"},
+							Verbs:     []string{"get", "watch", "list"},
+						},
+					},
 				},
 			},
 		},
@@ -450,30 +454,31 @@ echo "do some stuff here for gitlab-init container"
 		rbacResources := k8sspecs.K8sRBACResources{
 			ServiceAccounts: []k8sspecs.K8sServiceAccountSpec{
 				{
-					Name:                         "k8sServiceAccount1",
-					AutomountServiceAccountToken: boolPtr(true),
-					Roles:                        []string{"k8sServiceAccount1"},
-				},
-			},
-			ServiceAccountRoles: []k8sspecs.RoleSpec{
-				{
-					Name:   "k8sServiceAccount1",
-					Global: true,
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-						{
-							NonResourceURLs: []string{"/healthz", "/healthz/*"},
-							Verbs:           []string{"get", "post"},
-						},
-						{
-							APIGroups:     []string{"rbac.authorization.k8s.io"},
-							Resources:     []string{"clusterroles"},
-							Verbs:         []string{"bind"},
-							ResourceNames: []string{"admin", "edit", "view"},
+					Name: "k8sServiceAccount1",
+					ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
+						AutomountServiceAccountToken: boolPtr(true),
+						Roles: []specs.Role{
+							{
+								Name:   "k8sServiceAccount1",
+								Global: true,
+								Rules: []specs.PolicyRule{
+									{
+										APIGroups: []string{""},
+										Resources: []string{"pods"},
+										Verbs:     []string{"get", "watch", "list"},
+									},
+									{
+										NonResourceURLs: []string{"/healthz", "/healthz/*"},
+										Verbs:           []string{"get", "post"},
+									},
+									{
+										APIGroups:     []string{"rbac.authorization.k8s.io"},
+										Resources:     []string{"clusterroles"},
+										Verbs:         []string{"bind"},
+										ResourceNames: []string{"admin", "edit", "view"},
+									},
+								},
+							},
 						},
 					},
 				},
