@@ -3,5 +3,11 @@ cd $JUJU_CHARM_DIR
 pwd
 mv dispatch "$(action-get filename)"
 ls -la
+
+# state operations are part of testing for the commit hook tool
+state-get
+state-delete one
+state-delete three
+
 action-set result-map.time-completed="$(date)" result-map.message="dispatch is now called $(action-get filename)"
 action-set outcome="success"

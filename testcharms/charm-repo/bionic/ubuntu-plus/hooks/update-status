@@ -2,3 +2,14 @@
 name=`echo $JUJU_HOOK_NAME`
 status-set active "Hello from $name, $(uptime | grep -oe 'average: .*' | sed -e 's/average:/load:/')"
 juju-log -l INFO "Hello from $name."
+
+# From here down are part of commit hook tool testing:
+
+# one = two should always be in the unitstates collection
+state-set one=two
+commit
+# three = found should only be in the unitstates collection
+# if dispatch is available to run
+state-set three=four
+
+$JUJU_CHARM_DIR/dispatch
