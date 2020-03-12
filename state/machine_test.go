@@ -772,6 +772,12 @@ func (s *MachineSuite) TestMachineSetProvisionedStoresAndInstanceNamesReturnsDis
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(string(iid), gc.Equals, "umbrella/0")
 	c.Assert(iname, gc.Equals, "snowflake")
+
+	all, err := s.Model.AllInstanceData()
+	c.Assert(err, jc.ErrorIsNil)
+	iid, iname = all.InstanceNames(s.machine.Id())
+	c.Assert(string(iid), gc.Equals, "umbrella/0")
+	c.Assert(iname, gc.Equals, "snowflake")
 }
 
 func (s *MachineSuite) TestMachineInstanceNamesReturnsIsNotProvisionedWhenNotProvisioned(c *gc.C) {
@@ -803,6 +809,30 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *gc.C) 
 	md, err = s.machine.HardwareCharacteristics()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(*md, gc.DeepEquals, *expected)
+
+	all, err := s.Model.AllInstanceData()
+	c.Assert(err, jc.ErrorIsNil)
+	md = all.HardwareCharacteristics(s.machine.Id())
+	c.Assert(*md, gc.DeepEquals, *expected)
+}
+
+func (s *MachineSuite) TestMachineCharmProfiles(c *gc.C) {
+	hwc := &instance.HardwareCharacteristics{}
+	err := s.machine.SetProvisioned("umbrella/0", "", "fake_nonce", hwc)
+	c.Assert(err, jc.ErrorIsNil)
+
+	profiles := []string{"secure", "magic"}
+	err = s.machine.SetCharmProfiles(profiles)
+	c.Assert(err, jc.ErrorIsNil)
+
+	saved, err := s.machine.CharmProfiles()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(saved, jc.SameContents, profiles)
+
+	all, err := s.Model.AllInstanceData()
+	c.Assert(err, jc.ErrorIsNil)
+	saved = all.CharmProfiles(s.machine.Id())
+	c.Assert(saved, jc.SameContents, profiles)
 }
 
 func (s *MachineSuite) TestMachineAvailabilityZone(c *gc.C) {
@@ -1586,6 +1616,11 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 	mcons, err = machine.Constraints()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(mcons, gc.DeepEquals, cons1)
+
+	all, err := s.Model.AllConstraints()
+	c.Assert(err, jc.ErrorIsNil)
+	cons := all.Machine(machine.Id())
+	c.Assert(cons, gc.DeepEquals, cons1)
 }
 
 func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {

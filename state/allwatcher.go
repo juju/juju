@@ -1759,11 +1759,6 @@ func (ctx *allWatcherContext) loadOpenedPorts() error {
 	return nil
 }
 
-type constraintsWithID struct {
-	DocID  string         `bson:"_id"`
-	Nested constraintsDoc `bson:",inline"`
-}
-
 func (ctx *allWatcherContext) loadConstraints() error {
 	col, closer := ctx.state.db().GetCollection(constraintsC)
 	defer closer()

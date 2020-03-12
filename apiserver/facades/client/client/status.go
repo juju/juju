@@ -501,7 +501,9 @@ type statusContext struct {
 	machines map[string][]*state.Machine
 	// allMachines: machine id -> machine
 	// The machine in this map is the same machine in the machines map.
-	allMachines map[string]*state.Machine
+	allMachines    map[string]*state.Machine
+	allInstances   *state.ModelInstanceData
+	allConstraints *state.ModelConstraints
 
 	// controllerNodes: node id -> controller node
 	controllerNodes map[string]state.ControllerNode
@@ -562,6 +564,16 @@ func (context *statusContext) fetchMachines(st Backend) error {
 			context.machines[topParentId] = append(machines, m)
 		}
 	}
+
+	context.allInstances, err = context.model.AllInstanceData()
+	if err != nil {
+		return err
+	}
+	context.allConstraints, err = context.model.AllConstraints()
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -923,7 +935,7 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 	linkLayerDevices := c.linkLayerDevices[machineID]
 
 	var err error
-	status.Id = machine.Id()
+	status.Id = machineID
 	agentStatus := c.processMachine(machine)
 	status.AgentStatus = agentStatus
 
@@ -935,17 +947,16 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 		status.HasVote = node.HasVote()
 	}
 
-	// Fetch the machine instance information
+	// Fetch the machine instance status information
 	sInstInfo, err := c.status.MachineInstance(machineID)
 	populateStatusFromStatusInfoAndErr(&status.InstanceStatus, sInstInfo, err)
 
-	// Fetch the machine modification information
+	// Fetch the machine modification status information
 	sModInfo, err := c.status.MachineModification(machineID)
 	populateStatusFromStatusInfoAndErr(&status.ModificationStatus, sModInfo, err)
 
-	// TODO: fetch all instance data for machines in one go.
-	instid, displayName, err := machine.InstanceNames()
-	if err == nil {
+	instid, displayName := c.allInstances.InstanceNames(machineID)
+	if instid != "" {
 		status.InstanceId = instid
 		status.DisplayName = displayName
 		addr, err := machine.PublicAddress()
@@ -1014,35 +1025,21 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 		}
 		logger.Tracef("NetworkInterfaces: %+v", status.NetworkInterfaces)
 	} else {
-		if errors.IsNotProvisioned(err) {
-			status.InstanceId = "pending"
-		} else {
-			status.InstanceId = "error"
-		}
+		status.InstanceId = "pending"
 	}
-	// TODO: preload all constraints.
-	constraints, err := machine.Constraints()
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			status.Constraints = "error"
-		}
-	} else {
-		status.Constraints = constraints.String()
-	}
-	// TODO: preload all hardware characteristics.
-	hc, err := machine.HardwareCharacteristics()
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			status.Hardware = "error"
-		}
-	} else {
+
+	constraints := c.allConstraints.Machine(machineID)
+	status.Constraints = constraints.String()
+
+	hc := c.allInstances.HardwareCharacteristics(machineID)
+	if hc != nil {
 		status.Hardware = hc.String()
 	}
 	status.Containers = make(map[string]params.MachineStatus)
 
 	lxdProfiles := make(map[string]params.LXDProfile)
-	charmProfiles, err := machine.CharmProfiles()
-	if err == nil {
+	charmProfiles := c.allInstances.CharmProfiles(machineID)
+	if charmProfiles != nil {
 		for _, v := range charmProfiles {
 			if profile, ok := appStatusInfo.lxdProfiles[v]; ok {
 				lxdProfiles[v] = params.LXDProfile{
@@ -1052,8 +1049,6 @@ func (c *statusContext) makeMachineStatus(machine *state.Machine, appStatusInfo 
 				}
 			}
 		}
-	} else {
-		logger.Tracef("error fetching lxd profiles for %s: %q", machine.String(), err.Error())
 	}
 	status.LXDProfiles = lxdProfiles
 
