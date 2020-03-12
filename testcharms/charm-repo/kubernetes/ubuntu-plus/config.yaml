@@ -1,0 +1,5 @@
+options:
+  mysql_port:
+    type: string
+    description: 'The mysql port'
+    default: '3306'

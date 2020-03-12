@@ -1,0 +1,20 @@
+"env":
+  "description": "Print the juju environment variables available to actions."
+"hello":
+  "description": "Hello World."
+  "params":
+    "who":
+      "type": "string"
+      "description": "The person to say hello to."
+"no-dispatch":
+  "description": "Move dispatch file to new name."
+  "params":
+    "filename":
+      "type": "string"
+      "description": "New location for dispatch file."
+"dispatch":
+  "description": "Move filename to dispatch."
+  "params":
+    "filename":
+      "type": "string"
+      "description": "Filename of old dispatch file."

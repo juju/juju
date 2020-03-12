@@ -66,11 +66,11 @@ func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	// Test "tmux has-session" failure. The error
 	// message is the output of tmux has-session.
-	os.Setenv("EXIT_CODE", "1")
+	_ = os.Setenv("EXIT_CODE", "1")
 	session, err := s.ctx.FindSession()
 	c.Assert(session, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("tmux has-session -t "+s.ctx.Unit+"\n"))
-	os.Setenv("EXIT_CODE", "")
+	_ = os.Setenv("EXIT_CODE", "")
 
 	// tmux session exists, but missing debug-hooks file: error.
 	session, err = s.ctx.FindSession()
@@ -125,7 +125,7 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	s.PatchValue(&waitClientExit, func(*ServerSession) {
 		flockAcquired <- struct{}{}
 	})
-	err = session.RunHook("myhook", s.tmpdir, os.Environ())
+	err = session.RunHook("myhook", s.tmpdir, os.Environ(), "myhook")
 	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
 	waitForFlock()
 
@@ -141,13 +141,17 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 		flockAcquired <- struct{}{}
 	})
 	go func() { ch <- true }() // asynchronously release the flock
-	err = session.RunHook("myhook", s.tmpdir, os.Environ())
+	err = session.RunHook("myhook", s.tmpdir, os.Environ(), "myhook")
 	waitForFlock()
 	c.Assert(clientExited, jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "signal: [kK]illed")
 }
 
 func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
+	const hookName = "myhook"
+	// JUJU_HOOK_NAME is written in context.HookVars and not part of
+	// what's being tested here.
+	s.PatchEnvironment("JUJU_HOOK_NAME", hookName)
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, jc.ErrorIsNil)
 	var output bytes.Buffer
@@ -161,10 +165,9 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	})
 	defer close(flockRequestCh)
 
-	const hookName = "myhook"
 	runHookCh := make(chan error)
 	go func() {
-		runHookCh <- session.RunHook(hookName, s.tmpdir, os.Environ())
+		runHookCh <- session.RunHook(hookName, s.tmpdir, os.Environ(), hookName)
 	}()
 
 	flockCh := make(chan struct{})
@@ -180,7 +183,7 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	if err != nil {
 		c.Fatalf("Failed to open $TMPDIR: %s", err)
 	}
-	defer tmpdir.Close()
+	defer func() { _ = tmpdir.Close() }()
 	entries, err := tmpdir.Readdir(-1)
 	if err != nil {
 		c.Fatalf("Failed to read $TMPDIR: %s", err)
@@ -238,6 +241,5 @@ func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookN
 	c.Assert(err, jc.ErrorIsNil)
 	contents := string(data)
 	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_UNIT_NAME=%q", s.ctx.Unit))
-	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_HOOK_NAME=%q", hookName))
 	c.Assert(contents, jc.Contains, fmt.Sprintf(`PS1="%s:%s %% "`, s.ctx.Unit, hookName))
 }

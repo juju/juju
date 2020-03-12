@@ -73,15 +73,17 @@ var _ = gc.Suite(&RunHookSuite{})
 const lineBufferSize = 4096
 
 var runHookTests = []struct {
-	summary string
-	relid   int
-	remote  string
-	spec    hookSpec
-	err     string
+	summary  string
+	relid    int
+	remote   string
+	spec     hookSpec
+	err      string
+	hookType runner.HookHandlerType
 }{
 	{
-		summary: "missing hook is not an error",
-		relid:   -1,
+		summary:  "missing hook is not an error",
+		relid:    -1,
+		hookType: runner.InvalidHookHandler,
 	}, {
 		summary: "report error indicated by hook's exit status",
 		relid:   -1,
@@ -89,7 +91,8 @@ var runHookTests = []struct {
 			perm: 0700,
 			code: 99,
 		},
-		err: "exit status 99",
+		err:      "exit status 99",
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "report error with invalid script",
 		relid:   -1,
@@ -98,7 +101,8 @@ var runHookTests = []struct {
 			code:           2,
 			missingShebang: true,
 		},
-		err: "fork/exec.*: exec format error",
+		err:      "fork/exec.*: exec format error",
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "output logging",
 		relid:   -1,
@@ -107,6 +111,7 @@ var runHookTests = []struct {
 			stdout: "stdout",
 			stderr: "stderr",
 		},
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "output logging with background process",
 		relid:   -1,
@@ -115,6 +120,7 @@ var runHookTests = []struct {
 			stdout:     "stdout",
 			background: "not printed",
 		},
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "long line split",
 		relid:   -1,
@@ -122,12 +128,13 @@ var runHookTests = []struct {
 			perm:   0700,
 			stdout: strings.Repeat("a", lineBufferSize+10),
 		},
+		hookType: runner.ExplicitHookHandler,
 	},
 }
 
 func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	for i, t := range runHookTests {
-		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
+		c.Logf("\ntest %d of %d: %s; perm %v", i, len(runHookTests)+1, t.summary, t.spec.perm)
 		ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 		c.Assert(err, jc.ErrorIsNil)
 
@@ -143,7 +150,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			hookExists = true
 		}
 		t0 := time.Now()
-		err = rnr.RunHook("something-happened")
+		hookType, err := rnr.RunHook("something-happened")
 		if t.err == "" && hookExists {
 			c.Assert(err, jc.ErrorIsNil)
 		} else if !hookExists {
@@ -154,7 +161,26 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		if t.spec.background != "" && time.Now().Sub(t0) > 5*time.Second {
 			c.Errorf("background process holding up hook execution")
 		}
+		c.Assert(hookType, gc.Equals, t.hookType)
 	}
+}
+
+func (s *RunHookSuite) TestRunHookDispatchingHookHandler(c *gc.C) {
+	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
+	c.Assert(err, jc.ErrorIsNil)
+
+	paths := runnertesting.NewRealPaths(c)
+	rnr := runner.NewRunner(ctx, paths, nil)
+	spec := hookSpec{
+		name: "dispatch",
+		perm: 0700,
+	}
+	c.Logf("makeCharm %#v", spec)
+	makeCharm(c, spec, paths.GetCharmDir())
+
+	hookType, err := rnr.RunHook("something-happened")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(hookType, gc.Equals, runner.DispatchingHookHandler)
 }
 
 type MockContext struct {
@@ -248,7 +274,7 @@ func (s *RunMockContextSuite) TestRunHookFlushSuccess(c *gc.C) {
 		name: hookName,
 		perm: 0700,
 	}, s.paths.GetCharmDir())
-	actualErr := runner.NewRunner(ctx, s.paths, nil).RunHook("something-happened")
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunHook("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.IsNil)
@@ -266,7 +292,7 @@ func (s *RunMockContextSuite) TestRunHookFlushFailure(c *gc.C) {
 		perm: 0700,
 		code: 123,
 	}, s.paths.GetCharmDir())
-	actualErr := runner.NewRunner(ctx, s.paths, nil).RunHook("something-happened")
+	_, actualErr := runner.NewRunner(ctx, s.paths, nil).RunHook("something-happened")
 	c.Assert(actualErr, gc.Equals, expectErr)
 	c.Assert(ctx.flushBadge, gc.Equals, "something-happened")
 	c.Assert(ctx.flushFailure, gc.ErrorMatches, "exit status 123")

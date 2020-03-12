@@ -1,0 +1,5 @@
+repo: "https://github.com/juju/juju.git"
+maintainer: "juju-qa@lists.canonical.com"
+includes:
+  - "layer:caas-base"
+  - "layer:docker-resource"
