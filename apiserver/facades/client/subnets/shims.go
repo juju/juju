@@ -67,6 +67,24 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
+// SubnetsByCIDR wraps each result of a call to state.SubnetsByCIDR
+// in a subnet shim and returns the result.
+func (s *stateShim) SubnetsByCIDR(cidr string) ([]networkingcommon.BackingSubnet, error) {
+	subnets, err := s.State.SubnetsByCIDR(cidr)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	if len(subnets) == 0 {
+		return nil, nil
+	}
+
+	result := make([]networkingcommon.BackingSubnet, len(subnets))
+	for i, subnet := range subnets {
+		result[i] = networkingcommon.NewSubnetShim(subnet)
+	}
+	return result, nil
+}
+
 func (s *stateShim) AvailabilityZones() ([]providercommon.AvailabilityZone, error) {
 	// TODO (hml) 2019-09-13
 	// now available... include.

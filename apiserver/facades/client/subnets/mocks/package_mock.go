@@ -10,7 +10,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	common "github.com/juju/juju/provider/common"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -128,10 +128,10 @@ func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockBacking) ModelTag() names_v3.ModelTag {
+func (m *MockBacking) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 
@@ -168,4 +168,19 @@ func (m *MockBacking) SubnetByCIDR(arg0 string) (networkingcommon.BackingSubnet,
 func (mr *MockBackingMockRecorder) SubnetByCIDR(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetByCIDR", reflect.TypeOf((*MockBacking)(nil).SubnetByCIDR), arg0)
+}
+
+// SubnetsByCIDR mocks base method
+func (m *MockBacking) SubnetsByCIDR(arg0 string) ([]networkingcommon.BackingSubnet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubnetsByCIDR", arg0)
+	ret0, _ := ret[0].([]networkingcommon.BackingSubnet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SubnetsByCIDR indicates an expected call of SubnetsByCIDR
+func (mr *MockBackingMockRecorder) SubnetsByCIDR(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubnetsByCIDR", reflect.TypeOf((*MockBacking)(nil).SubnetsByCIDR), arg0)
 }

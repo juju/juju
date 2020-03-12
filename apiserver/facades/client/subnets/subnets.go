@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/context"
@@ -43,7 +44,11 @@ type Backing interface {
 	// AllSubnets returns all backing subnets.
 	AllSubnets() ([]networkingcommon.BackingSubnet, error)
 
+	// SubnetByCIDR returns a unique subnet based on the input CIDR.
 	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
+
+	// SubnetsByCIDR returns any subnets with the input CIDR.
+	SubnetsByCIDR(cidr string) ([]networkingcommon.BackingSubnet, error)
 
 	// AllSpaces returns all known Juju network spaces.
 	AllSpaces() ([]networkingcommon.BackingSpace, error)
@@ -54,10 +59,15 @@ type Backing interface {
 
 // APIv2 provides the subnets API facade for versions < 3.
 type APIv2 struct {
+	*APIv3
+}
+
+// APIv3 provides the subnets API facade for versions 3.
+type APIv3 struct {
 	*API
 }
 
-// API provides the subnets API facade for version 3.
+// API provides the subnets API facade for version 4.
 type API struct {
 	backing    Backing
 	resources  facade.Resources
@@ -67,21 +77,30 @@ type API struct {
 
 // NewAPIv2 is a wrapper that creates a V2 subnets API.
 func NewAPIv2(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv2, error) {
-	api, err := NewAPI(st, res, auth)
+	api, err := NewAPIv3(st, res, auth)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
 	return &APIv2{api}, nil
 }
 
-// NewAPI creates a new Subnets API server-side facade with a
-// state.State backing.
-func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
-	stateshim, err := NewStateShim(st)
+// NewAPIv3 is a wrapper that creates a V3 subnets API.
+func NewAPIv3(st *state.State, res facade.Resources, auth facade.Authorizer) (*APIv3, error) {
+	api, err := NewAPI(st, res, auth)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return newAPIWithBacking(stateshim, state.CallContext(st), res, auth)
+	return &APIv3{api}, nil
+}
+
+// NewAPI creates a new Subnets API server-side facade with a
+// state.State backing.
+func NewAPI(st *state.State, res facade.Resources, auth facade.Authorizer) (*API, error) {
+	stateShim, err := NewStateShim(st)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return newAPIWithBacking(stateShim, state.CallContext(st), res, auth)
 }
 
 func (api *API) checkCanRead() error {
@@ -132,7 +151,10 @@ func (api *API) AllZones() (params.ZoneResults, error) {
 }
 
 // AllSpaces returns the tags of all network spaces known to Juju.
-func (api *API) AllSpaces() (params.SpaceResults, error) {
+// This is not recruited by any Juju client code and should not actually exist.
+// It is preserved for versions 3 and below of the facade,
+// but blanked for later versions to ensure it is not used.
+func (api *APIv3) AllSpaces() (params.SpaceResults, error) {
 	if err := api.checkCanRead(); err != nil {
 		return params.SpaceResults{}, err
 	}
@@ -146,13 +168,15 @@ func (api *API) AllSpaces() (params.SpaceResults, error) {
 
 	results.Results = make([]params.SpaceResult, len(spaces))
 	for i, space := range spaces {
-		// TODO(dimitern): Add a Tag() a method and use it here. Too
-		// early to do it now as it will just complicate the tests.
 		tag := names.NewSpaceTag(space.Name())
 		results.Results[i].Tag = tag.String()
 	}
 	return results, nil
 }
+
+// AllSpaces does not belong on this API facade.
+// If you need it, use the spaces facade.
+func (api *API) AllSpaces(_, _ struct{}) {}
 
 // AddSubnets adds existing subnets to Juju.
 func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, error) {
@@ -162,8 +186,8 @@ func (api *API) AddSubnets(args params.AddSubnetsParams) (params.ErrorResults, e
 	return api.addSubnets(args)
 }
 
-// AddSubnets adds existing subnets to Juju.  Args are converted to
-// the new form for compatibility
+// AddSubnets adds existing subnets to Juju.
+// Args are converted to the new form for compatibility.
 func (api *APIv2) AddSubnets(args params.AddSubnetsParamsV2) (params.ErrorResults, error) {
 	if err := api.checkCanWrite(); err != nil {
 		return params.ErrorResults{}, err
@@ -239,6 +263,37 @@ func (api *API) ListSubnets(args params.SubnetsFilters) (results params.ListSubn
 		results.Results = append(results.Results, networkingcommon.BackingSubnetToParamsSubnet(subnet))
 	}
 	return results, nil
+}
+
+// SubnetsByCIDR returns the collection of subnets matching each CIDR in the input.
+func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, error) {
+	result := params.SubnetsResults{}
+
+	if err := api.checkCanRead(); err != nil {
+		return result, err
+	}
+
+	results := make([]params.SubnetsResult, len(arg.CIDRS))
+	for i, cidr := range arg.CIDRS {
+		if !network.IsValidCidr(cidr) {
+			results[i].Error = common.ServerError(errors.NotValidf("CIDR %q", cidr))
+			continue
+		}
+
+		subnets, err := api.backing.SubnetsByCIDR(cidr)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		subnetResults := make([]params.SubnetV2, len(subnets))
+		for j, subnet := range subnets {
+			subnetResults[j] = networkingcommon.BackingSubnetToParamsSubnetV2(subnet)
+		}
+		results[i].Subnets = subnetResults
+	}
+	result.Results = results
+	return result, nil
 }
 
 func convertToAddSubnetsParams(old params.AddSubnetsParamsV2) (params.AddSubnetsParams, int, error) {
