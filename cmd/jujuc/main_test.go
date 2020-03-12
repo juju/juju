@@ -23,7 +23,6 @@ import (
 	gc "gopkg.in/check.v1"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
 	coretesting "github.com/juju/juju/testing"
@@ -47,12 +46,12 @@ var flagRunMain = flag.Bool("run-main", false, "Run the application's main funct
 // tool itself.
 func TestRunMain(t *stdtesting.T) {
 	if *flagRunMain {
-		MainWrapper(flag.Args())
+		os.Exit(Main(flag.Args()))
 	}
 }
 
 func checkMessage(c *gc.C, msg string, cmd ...string) {
-	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", names.Jujud}, cmd...)
+	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", names.Jujuc}, cmd...)
 	c.Logf("check %#v", args)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
@@ -62,45 +61,10 @@ func checkMessage(c *gc.C, msg string, cmd ...string) {
 	c.Assert(lines[len(lines)-2], jc.Contains, msg)
 }
 
-func (s *MainSuite) TestParseErrors(c *gc.C) {
-	// Check all the obvious parse errors
-	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
-	msgf := "option provided but not defined: --cheese"
-	checkMessage(c, msgf, "--cheese", "cavitate")
-
-	cmds := []string{"bootstrap-state", "unit", "machine"}
-	for _, cmd := range cmds {
-		checkMessage(c, msgf, cmd, "--cheese")
-	}
-
-	msga := `unrecognized args: ["toastie"]`
-	checkMessage(c, msga,
-		"bootstrap-state",
-		"bootstrap-params-file",
-		"toastie")
-	checkMessage(c, msga, "unit",
-		"--unit-name", "un/0",
-		"toastie")
-	checkMessage(c, msga, "machine",
-		"--machine-id", "42",
-		"toastie")
-	checkMessage(c, msga, "caasoperator",
-		"--application-name", "app",
-		"toastie")
-}
-
 var expectedProviders = []string{
 	"ec2",
 	"maas",
 	"openstack",
-}
-
-func (s *MainSuite) TestProvidersAreRegistered(c *gc.C) {
-	// check that all the expected providers are registered
-	for _, name := range expectedProviders {
-		_, err := environs.Provider(name)
-		c.Assert(err, jc.ErrorIsNil)
-	}
 }
 
 type RemoteCommand struct {
