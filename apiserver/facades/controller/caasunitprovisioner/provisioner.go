@@ -1023,7 +1023,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	// side and so any previously attached filesystems become orphaned and need to
 	// be cleaned up.
 	appName := app.Name()
-	if err := a.cleaupOrphanedFilesystems(processedFilesystemIds); err != nil {
+	if err := a.cleanupOrphanedFilesystems(processedFilesystemIds); err != nil {
 		return errors.Annotatef(err, "deleting orphaned filesystems for %v", appName)
 	}
 
@@ -1036,7 +1036,7 @@ func (a *Facade) updateStateUnits(app Application, unitInfo *updateStateUnitPara
 	return errors.Annotatef(err, "updating filesystem information for %v", appName)
 }
 
-func (a *Facade) cleaupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
+func (a *Facade) cleanupOrphanedFilesystems(processedFilesystemIds set.Strings) error {
 	// TODO(caas) - record unit id on the filesystem so we can query by unit
 	allFilesystems, err := a.storage.AllFilesystems()
 	if err != nil {

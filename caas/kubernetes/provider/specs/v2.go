@@ -117,9 +117,14 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 	}
 	pSpec.Service = p.caaSSpecV2.Service
 	pSpec.ConfigMaps = p.caaSSpecV2.ConfigMaps
-	pSpec.ServiceAccount = p.caaSSpecV2.ServiceAccount
-	pSpec.ProviderPod = &K8sPodSpec{
-		KubernetesResources: p.K8sPodSpecV2.KubernetesResources,
+
+	if p.caaSSpecV2.ServiceAccount != nil {
+		pSpec.ServiceAccount = p.caaSSpecV2.ServiceAccount.ToLatest()
+	}
+	if p.K8sPodSpecV2.KubernetesResources != nil {
+		pSpec.ProviderPod = &K8sPodSpec{
+			KubernetesResources: p.K8sPodSpecV2.KubernetesResources.toLatest(),
+		}
 	}
 	return pSpec
 }
@@ -128,7 +133,7 @@ func (p podSpecV2) ToLatest() *specs.PodSpec {
 // attributes we expose for charms to set.
 type K8sPodSpecV2 struct {
 	// k8s resources.
-	KubernetesResources *KubernetesResources `json:"kubernetesResources,omitempty" yaml:"kubernetesResources,omitempty"`
+	KubernetesResources *KubernetesResourcesV2 `json:"kubernetesResources,omitempty" yaml:"kubernetesResources,omitempty"`
 }
 
 // Validate is defined on ProviderPod.
@@ -141,28 +146,34 @@ func (p *K8sPodSpecV2) Validate() error {
 	return nil
 }
 
-// K8sServiceAccountSpec defines spec for referencing or creating a service account.
-type K8sServiceAccountSpec struct {
-	Name           string `json:"name" yaml:"name"`
-	specs.RBACSpec `json:",inline" yaml:",inline"`
+// K8sServiceAccountSpecV2 defines spec for referencing or creating a service account for version 2.
+type K8sServiceAccountSpecV2 struct {
+	Name                       string `json:"name" yaml:"name"`
+	specs.ServiceAccountSpecV2 `json:",inline" yaml:",inline"`
 }
 
-// GetName returns the service accout name.
-func (sa K8sServiceAccountSpec) GetName() string {
-	return sa.Name
-}
-
-// GetSpec returns the RBAC spec.
-func (sa K8sServiceAccountSpec) GetSpec() specs.RBACSpec {
-	return sa.RBACSpec
+func (ksa K8sServiceAccountSpecV2) toLatest() K8sRBACResources {
+	o := ksa.ServiceAccountSpecV2.ToLatest()
+	o.SetName(ksa.Name)
+	return K8sRBACResources{
+		ServiceAccounts: []K8sServiceAccountSpec{
+			{
+				Name: o.GetName(),
+				ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
+					AutomountServiceAccountToken: o.AutomountServiceAccountToken,
+					Roles:                        o.Roles,
+				},
+			},
+		},
+	}
 }
 
 // Validate returns an error if the spec is not valid.
-func (sa K8sServiceAccountSpec) Validate() error {
-	if sa.Name == "" {
+func (ksa K8sServiceAccountSpecV2) Validate() error {
+	if ksa.Name == "" {
 		return errors.New("service account name is missing")
 	}
-	return errors.Trace(sa.RBACSpec.Validate())
+	return errors.Trace(ksa.ServiceAccountSpecV2.Validate())
 }
 
 // K8sIngressSpec defines spec for creating or updating an ingress resource.
@@ -181,8 +192,8 @@ func (ing K8sIngressSpec) Validate() error {
 	return nil
 }
 
-// KubernetesResources is the k8s related resources.
-type KubernetesResources struct {
+// KubernetesResourcesV2 is the k8s related resources for version 2.
+type KubernetesResourcesV2 struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
 
 	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
@@ -192,11 +203,11 @@ type KubernetesResources struct {
 	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
 	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
 
-	ServiceAccounts  []K8sServiceAccountSpec `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
-	IngressResources []K8sIngressSpec        `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
+	ServiceAccounts  []K8sServiceAccountSpecV2 `json:"serviceAccounts,omitempty" yaml:"serviceAccounts,omitempty"`
+	IngressResources []K8sIngressSpec          `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
 
-func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
+func validateCustomResourceDefinitionV2(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
 	if crd.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Scope != apiextensionsv1beta1.ClusterScoped {
 		return errors.NewNotSupported(nil,
 			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
@@ -206,8 +217,25 @@ func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.Cust
 	return nil
 }
 
+func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
+	out := &KubernetesResources{
+		Pod:                             krs.Pod,
+		Secrets:                         krs.Secrets,
+		CustomResourceDefinitions:       krs.CustomResourceDefinitions,
+		CustomResources:                 krs.CustomResources,
+		MutatingWebhookConfigurations:   krs.MutatingWebhookConfigurations,
+		ValidatingWebhookConfigurations: krs.ValidatingWebhookConfigurations,
+		IngressResources:                krs.IngressResources,
+	}
+	for _, sa := range krs.ServiceAccounts {
+		rbacSources := sa.toLatest()
+		out.ServiceAccounts = append(out.ServiceAccounts, rbacSources.ServiceAccounts...)
+	}
+	return out
+}
+
 // Validate is defined on ProviderPod.
-func (krs *KubernetesResources) Validate() error {
+func (krs *KubernetesResourcesV2) Validate() error {
 	for k, crd := range krs.CustomResourceDefinitions {
 		if err := validateCustomResourceDefinition(k, crd); err != nil {
 			return errors.Trace(err)
