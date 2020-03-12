@@ -7,8 +7,6 @@
 package main
 
 import (
-	"os"
-
 	"github.com/juju/utils/featureflag"
 
 	"github.com/juju/juju/juju/osenv"
@@ -16,8 +14,4 @@ import (
 
 func init() {
 	featureflag.SetFlagsFromEnvironment(osenv.JujuFeatureFlagEnvKey)
-}
-
-func main() {
-	MainWrapper(os.Args)
 }

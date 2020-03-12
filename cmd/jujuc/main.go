@@ -4,20 +4,37 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"io/ioutil"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/juju/sockets"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
 
+func init() {
+	rand.Seed(time.Now().UTC().UnixNano())
+}
+
+// TODO: This becomes jujucDoc describing the hook tools
+var jujucDoc = `
+The jujuc command forwards invocations over RPC for execution by the
+juju unit agent. When used in this way, it expects to be called via a symlink
+named for the desired remote command, and expects JUJU_AGENT_SOCKET_ADDRESS and
+JUJU_CONTEXT_ID be set in its model.
+`
 
 const (
 	// exit_err is the value that is returned when the user has run juju in an invalid way.
@@ -25,24 +42,6 @@ const (
 	// exit_panic is the value that is returned when we exit due to an unhandled panic.
 	exit_panic = 3
 )
-
-
-// copied from github.com/juju/juju/worker/uniter/runner/jujuc/server.go
-
-type Request struct {
-    ContextId   string
-    Dir         string
-    CommandName string
-    Args        []string
-
-    // StdinSet indicates whether or not the client supplied stdin. This is
-    // necessary as Stdin will be nil if the client supplied stdin but it
-    // is empty.
-    StdinSet bool
-    Stdin    []byte
-
-    Token string
-}
 
 func getenv(name string) (string, error) {
 	value := os.Getenv(name)
@@ -76,8 +75,55 @@ func getSocket() (sockets.Socket, error) {
 		return sockets.Socket{}, err
 	}
 
-        return socket, nil
+	// If we are not connecting over tcp, no need for TLS.
+	if socket.Network != "tcp" {
+		return socket, nil
+	}
+
+	caCertFile, err := getenv("JUJU_AGENT_CA_CERT")
+	if err != nil {
+		return sockets.Socket{}, err
+	}
+	caCert, err := ioutil.ReadFile(caCertFile)
+	if err != nil {
+		return sockets.Socket{}, errors.Annotatef(err, "reading %s", caCertFile)
+	}
+	rootCAs := x509.NewCertPool()
+	if ok := rootCAs.AppendCertsFromPEM(caCert); ok == false {
+		return sockets.Socket{}, errors.Errorf("invalid ca certificate")
+	}
+
+	unitName, err := getenv("JUJU_UNIT_NAME")
+	if err != nil {
+		return sockets.Socket{}, err
+	}
+	application, err := names.UnitApplication(unitName)
+	if err != nil {
+		return sockets.Socket{}, errors.Trace(err)
+	}
+	socket.TLSConfig = &tls.Config{
+		RootCAs:    rootCAs,
+		ServerName: application,
+	}
+	return socket, nil
 }
+
+type Request struct {
+	ContextId   string
+	Dir         string
+	CommandName string
+	Args        []string
+
+	// StdinSet indicates whether or not the client supplied stdin. This is
+	// necessary as Stdin will be nil if the client supplied stdin but it
+	// is empty.
+	StdinSet bool
+	Stdin    []byte
+
+	Token string
+}
+
+var ErrNoStdinStr = "hook tool requires stdin, none supplied"
 
 // hookToolMain uses JUJU_CONTEXT_ID and JUJU_AGENT_SOCKET_ADDRESS to ask a running unit agent
 // to execute a Command on our behalf. Individual commands should be exposed
@@ -110,6 +156,15 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	defer client.Close()
 	var resp exec.ExecResponse
 	err = client.Call("Jujuc.Main", req, &resp)
+	if err != nil && err.Error() == ErrNoStdinStr {
+		req.Stdin, err = ioutil.ReadAll(os.Stdin)
+		if err != nil {
+			err = errors.Annotate(err, "cannot read stdin")
+			return
+		}
+		req.StdinSet = true
+		err = client.Call("Jujuc.Main", req, &resp)
+	}
 	if err != nil {
 		return
 	}
@@ -118,11 +173,8 @@ func hookToolMain(commandName string, ctx *cmd.Context, args []string) (code int
 	return resp.Code, nil
 }
 
-// MainWrapper exists to preserve test functionality.
-// On windows we need to catch the return code from main for
-// service functionality purposes, but on unix we can just os.Exit
-func MainWrapper(args []string) {
-	os.Exit(Main(args))
+func main() {
+	os.Exit(Main(os.Args))
 }
 
 // Main is not redundant with main(), because it provides an entry point
@@ -145,7 +197,7 @@ func Main(args []string) int {
 
 	var code int
 	commandName := filepath.Base(args[0])
-        code, err = hookToolMain(commandName, ctx, args)
+	code, err = hookToolMain(commandName, ctx, args)
 	if err != nil {
 		cmd.WriteError(ctx.Stderr, err)
 	}

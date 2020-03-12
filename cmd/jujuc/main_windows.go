@@ -5,15 +5,8 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/juju/utils/featureflag"
-	"golang.org/x/sys/windows/svc"
 
-	"github.com/juju/juju/cmd/service"
-	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/osenv"
 )
 
@@ -29,8 +22,4 @@ func init() {
 	} else {
 		featureflag.SetFlagsFromRegistry(osenv.JujuRegistryKey, osenv.JujuFeatureFlagEnvKey)
 	}
-}
-
-func main() {
-    MainWrapper(os.Args)
 }
