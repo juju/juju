@@ -54,8 +54,8 @@ type Role struct {
 }
 
 // Validate returns an error if the spec is not valid.
-func (rs Role) Validate() error {
-	if len(rs.Rules) == 0 {
+func (r Role) Validate() error {
+	if len(r.Rules) == 0 {
 		return errors.NewNotValid(nil, "rules is required")
 	}
 	return nil
@@ -103,5 +103,11 @@ func (psa *PrimeServiceAccountSpecV3) SetName(name string) {
 
 // Validate returns an error if the spec is not valid.
 func (psa PrimeServiceAccountSpecV3) Validate() error {
-	return errors.Trace(psa.ServiceAccountSpecV3.Validate())
+	if err := psa.ServiceAccountSpecV3.Validate(); err != nil {
+		return errors.Trace(err)
+	}
+	if len(psa.Roles) > 1 {
+		return errors.NewNotValid(nil, "the prime service can only have one role or cluster role")
+	}
+	return nil
 }
