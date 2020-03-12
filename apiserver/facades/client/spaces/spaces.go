@@ -469,9 +469,9 @@ func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, err
 			continue
 		}
 
-		subnetResults := make([]params.Subnet, len(subnets))
+		subnetResults := make([]params.SubnetV2, len(subnets))
 		for j, subnet := range subnets {
-			subnetResults[j] = networkingcommon.BackingSubnetToParamsSubnet(subnet)
+			subnetResults[j] = networkingcommon.BackingSubnetToParamsSubnetV2(subnet)
 		}
 		results[i].Subnets = subnetResults
 	}

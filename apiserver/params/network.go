@@ -49,6 +49,15 @@ type Subnet struct {
 	Status string `json:"status,omitempty"`
 }
 
+// SubnetV2 is used by versions of spaces/subnets APIs that must include
+// subnet ID in payloads.
+type SubnetV2 struct {
+	Subnet
+
+	// ID uniquely identifies the subnet.
+	ID string `json:"id,omitempty"`
+}
+
 // NetworkRoute describes a special route that should be added for a given
 // network interface.
 type NetworkRoute struct {
@@ -1089,8 +1098,8 @@ type CIDRParams struct {
 
 // SubnetsResult contains a collection of subnets or an error.
 type SubnetsResult struct {
-	Subnets []Subnet `json:"subnets,omitempty"`
-	Error   *Error   `json:"error,omitempty"`
+	Subnets []SubnetV2 `json:"subnets,omitempty"`
+	Error   *Error     `json:"error,omitempty"`
 }
 
 // SubnetsResults contains a collection of subnets results.

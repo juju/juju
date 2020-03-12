@@ -478,6 +478,7 @@ func (s *SpaceTestMockSuite) TestSubnetsByCIDR(c *gc.C) {
 
 	subnet := networkcommonmocks.NewMockBackingSubnet(ctrl)
 	sExp := subnet.EXPECT()
+	sExp.ID().Return("1")
 	sExp.CIDR().Return("10.10.20.0/24")
 	sExp.SpaceName().Return("space")
 	sExp.VLANTag().Return(0)
