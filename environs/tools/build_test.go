@@ -242,7 +242,7 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 		c.Assert(err, jc.ErrorIsNil)
 	}
 
-	// Mock out args[0] so that copyExistingJujud can find our fake
+	// Mock out args[0] so that copyExistingJujus can find our fake
 	// binary. Tricky - we need to copy the test binary into the
 	// directory so patching out exec can work.
 	oldArg0 := os.Args[0]
@@ -281,7 +281,7 @@ func (b *buildSuite) TestBundleToolsIncludesVersionFile(c *gc.C) {
 	unpackDir := filepath.Join(dir, "tools", "1.2.3-quantal-arm64")
 	// downloaded-tools.txt is added by UnpackTools.
 	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
-		"downloaded-tools.txt", "jujud", "jujud-versions.yaml"})
+		"downloaded-tools.txt", "jujuc", "jujud", "jujud-versions.yaml"})
 }
 
 func listDir(c *gc.C, dir string) []string {
@@ -402,7 +402,7 @@ func (b *buildSuite) TestBundleToolsFindsVersionFileInFallbackLocation(c *gc.C) 
 	unpackDir := filepath.Join(dir, "tools", "1.2.3-quantal-arm64")
 	// downloaded-tools.txt is added by UnpackTools.
 	c.Assert(listDir(c, unpackDir), gc.DeepEquals, []string{
-		"downloaded-tools.txt", "jujud", "jujud-versions.yaml"})
+		"downloaded-tools.txt", "jujuc", "jujud", "jujud-versions.yaml"})
 }
 
 func (b *buildSuite) TestBundleToolsUsesAdjacentVersionFirst(c *gc.C) {
