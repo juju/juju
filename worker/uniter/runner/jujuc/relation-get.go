@@ -163,46 +163,22 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var settings params.Settings
-	if c.UnitOrAppName == c.ctx.UnitName() {
-		var node Settings
-		var err error
-		if c.Application {
-			node, err = r.ApplicationSettings()
-		} else {
-			node, err = r.Settings()
-		}
-		if err != nil {
-			return err
-		}
-		settings = node.Map()
-	} else {
-		var err error
-		if c.Application {
-			// Check if the unit tries to access the remote app's
-			// databag or it tries to access the databag for its
-			// own application.
-			localAppName, pErr := names.UnitApplication(c.ctx.UnitName())
-			if pErr != nil {
-				return pErr
-			}
 
-			if c.UnitOrAppName == localAppName {
-				appSettings, readErr := r.ApplicationSettings()
-				if readErr != nil {
-					return readErr
-				}
-				settings = appSettings.Map()
-			} else {
-				settings, err = r.ReadApplicationSettings(c.UnitOrAppName)
-			}
-		} else {
-			settings, err = r.ReadSettings(c.UnitOrAppName)
-		}
-		if err != nil {
-			return err
-		}
+	settingsReaderFn := c.readLocalUnitOrAppSettings
+
+	getFromController, err := c.mustReadSettingsFromController()
+	if err != nil {
+		return errors.Trace(err)
 	}
+	if getFromController {
+		settingsReaderFn = c.readRemoteUnitOrAppSettings
+	}
+
+	settings, err := settingsReaderFn(r)
+	if err != nil {
+		return err
+	}
+
 	if c.Key == "" {
 		return c.out.Write(ctx, settings)
 	}
@@ -210,4 +186,54 @@ func (c *RelationGetCommand) Run(ctx *cmd.Context) error {
 		return c.out.Write(ctx, value)
 	}
 	return c.out.Write(ctx, nil)
+}
+
+func (c *RelationGetCommand) mustReadSettingsFromController() (bool, error) {
+	localUnitName := c.ctx.UnitName()
+	if c.UnitOrAppName == localUnitName {
+		return false, nil
+	}
+
+	localAppName, _ := names.UnitApplication(c.ctx.UnitName())
+	if c.UnitOrAppName == localAppName {
+		isLeader, err := c.ctx.IsLeader()
+		if err != nil {
+			return false, errors.Annotate(err, "cannot determine leadership status")
+		}
+
+		// If we are the leader for the requested app, read from local
+		// uniter context
+		if isLeader {
+			return false, nil
+		}
+	}
+
+	// Delegate the read to the controller
+	return true, nil
+}
+
+func (c *RelationGetCommand) readLocalUnitOrAppSettings(r ContextRelation) (params.Settings, error) {
+	var (
+		node Settings
+		err  error
+	)
+
+	if c.Application {
+		node, err = r.ApplicationSettings()
+	} else {
+		node, err = r.Settings()
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return node.Map(), nil
+}
+
+func (c *RelationGetCommand) readRemoteUnitOrAppSettings(r ContextRelation) (params.Settings, error) {
+	if !c.Application {
+		return r.ReadSettings(c.UnitOrAppName)
+	}
+
+	return r.ReadApplicationSettings(c.UnitOrAppName)
 }

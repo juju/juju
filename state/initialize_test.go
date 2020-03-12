@@ -199,10 +199,16 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	// Check that the model's cloud and credential names are as
 	// expected, and the owner's cloud credentials are initialised.
-	c.Assert(model.Cloud(), gc.Equals, "dummy")
-	credentialTag, ok := model.CloudCredential()
+	c.Assert(model.CloudName(), gc.Equals, "dummy")
+	credentialTag, ok := model.CloudCredentialTag()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(credentialTag, gc.Equals, userPassCredentialTag)
+	cred, credentialSet, err := model.CloudCredential()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(credentialSet, jc.IsTrue)
+	stateCred, err := s.State.CloudCredential(credentialTag)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cred, jc.DeepEquals, stateCred)
 	cloudCredentials, err := s.State.CloudCredentials(model.Owner(), "dummy")
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(cloudCredentials, jc.DeepEquals, map[string]state.Credential{

@@ -98,7 +98,7 @@ func (s *regionsSuite) setupControllerData(c *gc.C) cmd.Command {
 
 func (s *regionsSuite) TestListRegions(c *gc.C) {
 	aCommand := s.setupControllerData(c)
-	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "-c", "mycontroller", "--client", "--format", "yaml")
+	ctx, err := cmdtesting.RunCommand(c, aCommand, "kloud", "--format", "yaml")
 	c.Assert(err, jc.ErrorIsNil)
 	out := cmdtesting.Stdout(ctx)
 	c.Assert(out, jc.DeepEquals, `

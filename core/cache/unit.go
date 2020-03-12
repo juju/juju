@@ -6,12 +6,11 @@ package cache
 import (
 	"fmt"
 
-	"github.com/juju/juju/core/life"
-
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/settings"
 )
@@ -155,33 +154,30 @@ func (u *Unit) WatchConfigSettings() (*CharmConfigWatcher, error) {
 }
 
 func (u *Unit) setDetails(details UnitChange) {
+	var newSubordinate bool
+
 	// If this is the first receipt of details, set the removal message.
 	if u.removalMessage == nil {
 		u.removalMessage = RemoveUnit{
 			ModelUUID: details.ModelUUID,
 			Name:      details.Name,
 		}
+
+		newSubordinate = details.Subordinate
 	}
 
 	u.setStale(false)
 
-	machineChange := u.details.MachineId != details.MachineId
+	landingOnMachine := u.details.MachineId != details.MachineId
 	u.details = details
 	toPublish := u.copy()
-	if machineChange || u.details.Subordinate {
-		// TODO thumper: check this, it looks like we are publishing too often.
-		//
-		// We do publish too often with subordinates.  However the
-		// watcher in this case, MachineLXDProfileWatcher, can do
-		// a more detailed check so it doesn't notify too often.
-		//
-		// Without checking for a subordinate here, we will
-		// not apply an lxd profile to existing containers if
-		// needed. We need a clean way to Publish when a
-		// subordinate unit is created.  For pricipal units,
-		// ensure the machineID is set.
+
+	// Publish a unit addition event if a unit gets a machine ID for the first
+	// time, or if this is a subordinate that was not previously in the cache.
+	if landingOnMachine || newSubordinate {
 		u.model.hub.Publish(modelUnitAdd, toPublish)
 	}
+
 	// Publish change event for those that may be waiting.
 	u.model.hub.Publish(unitChangeTopic(details.Name), &toPublish)
 }

@@ -34,6 +34,7 @@ type SSHMachine interface {
 }
 
 type backend struct {
+	*state.State
 	stateenvirons.EnvironConfigGetter
 }
 

@@ -869,7 +869,9 @@ func (s *CleanupSuite) assertCleanupCAASEntityWithStorage(c *gc.C, deleteOp func
 	defer st.Close()
 	sb, err := state.NewStorageBackend(st)
 	c.Assert(err, jc.ErrorIsNil)
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+	model, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	s.policy = testing.MockPolicy{

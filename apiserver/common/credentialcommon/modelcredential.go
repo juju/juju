@@ -24,7 +24,7 @@ func ValidateExistingModelCredential(backend PersistentBackend, callCtx context.
 		return params.ErrorResults{}, errors.Trace(err)
 	}
 
-	credentialTag, isSet := model.CloudCredential()
+	credentialTag, isSet := model.CloudCredentialTag()
 	if !isSet {
 		return params.ErrorResults{}, nil
 	}
@@ -180,7 +180,7 @@ func buildOpenParams(backend PersistentBackend, credentialTag names.CloudCredent
 		return fail(errors.Trace(err))
 	}
 
-	modelCloud, err := backend.Cloud(model.Cloud())
+	modelCloud, err := backend.Cloud(model.CloudName())
 	if err != nil {
 		return fail(errors.Trace(err))
 	}

@@ -149,7 +149,7 @@ clouds:
 	c.Assert(result[0].Error.Error(), gc.DeepEquals, "credential \"newcred\" not found")
 
 	// Check model references original credential.
-	originalCredentialTag, set := s.Model.CloudCredential()
+	originalCredentialTag, set := s.Model.CloudCredentialTag()
 	c.Assert(set, jc.IsTrue)
 	c.Assert(originalCredentialTag.String(), jc.DeepEquals, "cloudcred-dummy_admin_cred")
 
@@ -178,7 +178,7 @@ Changed cloud credential on model "controller" to "newcred".
 	// Check model reference was updated to a new credential.
 	err = s.Model.Refresh()
 	c.Assert(err, jc.ErrorIsNil)
-	updatedCredentialTag, set := s.Model.CloudCredential()
+	updatedCredentialTag, set := s.Model.CloudCredentialTag()
 	c.Assert(set, jc.IsTrue)
 	c.Assert(updatedCredentialTag.String(), jc.DeepEquals, "cloudcred-dummy_admin_newcred")
 

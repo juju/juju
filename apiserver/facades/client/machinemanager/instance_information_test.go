@@ -146,7 +146,7 @@ type mockModel struct {
 	machinemanager.Model
 }
 
-func (mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
+func (mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return names.NewCloudCredentialTag("foo/bob/bar"), true
 }
 
@@ -158,7 +158,7 @@ func (*mockModel) Config() (*config.Config, error) {
 	return config.New(config.UseDefaults, dummy.SampleConfig())
 }
 
-func (*mockModel) Cloud() string {
+func (*mockModel) CloudName() string {
 	return "a-cloud"
 }
 

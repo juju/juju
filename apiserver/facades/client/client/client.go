@@ -30,7 +30,6 @@ import (
 	"github.com/juju/juju/environs/context"
 	"github.com/juju/juju/environs/manual/sshprovisioner"
 	"github.com/juju/juju/environs/manual/winrmprovisioner"
-
 	"github.com/juju/juju/permission"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
@@ -69,7 +68,7 @@ type Client struct {
 	*modelconfig.ModelConfigAPIV1
 
 	api         *API
-	newEnviron  func() (environs.BootstrapEnviron, error)
+	newEnviron  common.NewEnvironFunc
 	check       *common.BlockChecker
 	callContext context.ProviderCallContext
 }
@@ -151,25 +150,14 @@ func newFacade(ctx facade.Context) (*Client, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
-
-	var newEnviron func() (environs.BootstrapEnviron, error)
-	if model.Type() == state.ModelTypeCAAS {
-		newEnviron = func() (environs.BootstrapEnviron, error) {
-			f := stateenvirons.GetNewCAASBrokerFunc(caas.New)
-			return f(st)
-		}
-	} else {
-		newEnviron = func() (environs.BootstrapEnviron, error) {
-			return environs.GetEnviron(configGetter, environs.New)
-		}
-	}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
+	newEnviron := common.EnvironFuncForModel(model, configGetter)
 
 	modelUUID := model.UUID()
 
 	urlGetter := common.NewToolsURLGetter(modelUUID, st)
 	statusSetter := common.NewStatusSetter(st, common.AuthAlways())
-	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter)
+	toolsFinder := common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
 	blockChecker := common.NewBlockChecker(st)
 	backend := modelconfig.NewStateBackend(model)
 	// The modelConfigAPI exposed here is V1.
@@ -215,7 +203,7 @@ func NewClient(
 	presence facade.Presence,
 	statusSetter *common.StatusSetter,
 	toolsFinder *common.ToolsFinder,
-	newEnviron func() (environs.BootstrapEnviron, error),
+	newEnviron common.NewEnvironFunc,
 	blockChecker *common.BlockChecker,
 	callCtx context.ProviderCallContext,
 	leadershipReader leadership.Reader,
@@ -566,7 +554,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 
 	info := params.ModelInfo{
 		DefaultSeries:  config.PreferredSeries(conf),
-		CloudTag:       names.NewCloudTag(model.Cloud()).String(),
+		CloudTag:       names.NewCloudTag(model.CloudName()).String(),
 		CloudRegion:    model.CloudRegion(),
 		ProviderType:   conf.Type(),
 		Name:           conf.Name(),
@@ -580,7 +568,7 @@ func (c *Client) ModelInfo() (params.ModelInfo, error) {
 	if agentVersion, exists := conf.AgentVersion(); exists {
 		info.AgentVersion = &agentVersion
 	}
-	if tag, ok := model.CloudCredential(); ok {
+	if tag, ok := model.CloudCredentialTag(); ok {
 		info.CloudCredentialTag = tag.String()
 	}
 	info.SLA = &params.ModelSLAInfo{

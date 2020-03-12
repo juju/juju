@@ -22,7 +22,7 @@ func (st *State) InvalidateModelCredential(reason string) error {
 		return errors.Trace(err)
 	}
 
-	tag, exists := m.CloudCredential()
+	tag, exists := m.CloudCredentialTag()
 	if !exists {
 		// Model is on the cloud that does not require auth - nothing to do.
 		return nil
@@ -66,9 +66,9 @@ func (st *State) suspendCredentialModels(tag names.CloudCredentialTag) error {
 
 // ValidateCloudCredential validates new cloud credential for this model.
 func (m *Model) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
-	aCloud, err := m.st.Cloud(m.Cloud())
+	aCloud, err := m.st.Cloud(m.CloudName())
 	if err != nil {
-		return errors.Annotatef(err, "getting cloud %q", m.Cloud())
+		return errors.Annotatef(err, "getting cloud %q", m.CloudName())
 	}
 
 	err = validateCredentialForCloud(aCloud, tag, convertCloudCredentialToState(tag, credential))
@@ -88,9 +88,9 @@ func (m *Model) SetCloudCredential(tag names.CloudCredentialTag) (bool, error) {
 		return false, errors.Annotatef(err, "getting model status %q", m.UUID())
 	}
 	revert := modelStatus.Status == status.Suspended
-	aCloud, err := m.st.Cloud(m.Cloud())
+	aCloud, err := m.st.Cloud(m.CloudName())
 	if err != nil {
-		return false, errors.Annotatef(err, "getting cloud %q", m.Cloud())
+		return false, errors.Annotatef(err, "getting cloud %q", m.CloudName())
 	}
 	updating := true
 	buildTxn := func(attempt int) ([]txn.Op, error) {

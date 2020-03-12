@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/juju/cloud"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common/storagecommon"
@@ -18,7 +19,6 @@ import (
 )
 
 type Backend interface {
-	state.CloudAccessor
 	network.SpaceLookup
 
 	Machine(string) (Machine, error)
@@ -36,8 +36,8 @@ type Pool interface {
 type Model interface {
 	Name() string
 	UUID() string
-	Cloud() string
-	CloudCredential() (names.CloudCredentialTag, bool)
+	Cloud() (cloud.Cloud, error)
+	CloudCredential() (state.Credential, bool, error)
 	CloudRegion() string
 	Config() (*config.Config, error)
 }

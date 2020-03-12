@@ -101,6 +101,128 @@ func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
 	c.Assert(unit.Leader, jc.IsTrue)
 }
 
+func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Machine: machine,
+	})
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker := s.State.TrackQueries()
+
+	client := s.APIState.Client()
+	_, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryCount := tracker.ReadCount()
+
+	// Add several more units of the same application to the
+	// same machine. We do this because we want to isolate to
+	// status handling to just additional units, not additional machines
+	// or applications.
+	app, err := unit.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 5; i++ {
+		s.Factory.MakeUnit(c, &factory.UnitParams{
+			Application: app,
+			Machine:     machine,
+		})
+	}
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker.Reset()
+
+	_, err = client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The number of queries should be the same.
+	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
+		gc.Commentf("if the query count is not the same, there has been a regression "+
+			"in the processing of units, please fix it"))
+}
+
+func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
+	machine := s.addMachine(c)
+	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")
+	s.createSpaceAndSubnetWithProviderID(c, "private", "10.20.0.0/24", "prov-ffff")
+	s.createSpaceAndSubnetWithProviderID(c, "dmz", "10.30.0.0/24", "prov-abcd")
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker := s.State.TrackQueries()
+
+	client := s.APIState.Client()
+	_, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryCount := tracker.ReadCount()
+
+	// Add a bunch of interfaces to the machine.
+	s.createNICWithIP(c, machine, "eth0", "10.0.0.11/24")
+	s.createNICWithIP(c, machine, "eth1", "10.20.0.42/24")
+	s.createNICWithIP(c, machine, "eth2", "10.30.0.99/24")
+
+	err = machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:        "eth1",
+			ConfigMethod:      state.StaticAddress,
+			ProviderNetworkID: "vpc-abcd",
+			ProviderSubnetID:  "prov-ffff",
+			CIDRAddress:       "10.20.0.42/24",
+		},
+		state.LinkLayerDeviceAddress{
+			DeviceName:        "eth2",
+			ConfigMethod:      state.StaticAddress,
+			ProviderNetworkID: "vpc-abcd",
+			ProviderSubnetID:  "prov-abcd",
+			CIDRAddress:       "10.30.0.99/24",
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker.Reset()
+
+	_, err = client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The number of queries should be the same.
+	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
+		gc.Commentf("if the query count is not the same, there has been a regression "+
+			"in the way the addresses are processed"))
+}
+
+func (s *statusSuite) createSpaceAndSubnetWithProviderID(c *gc.C, spaceName, CIDR, providerSubnetID string) {
+	space, err := s.State.AddSpace(spaceName, network.Id(spaceName), nil, true)
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = s.State.AddSubnet(network.SubnetInfo{
+		CIDR:       CIDR,
+		SpaceID:    space.Id(),
+		ProviderId: network.Id(providerSubnetID),
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *statusSuite) createNICWithIP(c *gc.C, machine *state.Machine, deviceName, cidrAddress string) {
+	err := machine.SetLinkLayerDevices(
+		state.LinkLayerDeviceArgs{
+			Name:       deviceName,
+			Type:       network.EthernetDevice,
+			ParentName: "",
+			IsUp:       true,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+	err = machine.SetDevicesAddresses(
+		state.LinkLayerDeviceAddress{
+			DeviceName:   deviceName,
+			CIDRAddress:  cidrAddress,
+			ConfigMethod: state.StaticAddress,
+		},
+	)
+	c.Assert(err, jc.ErrorIsNil)
+}
+
 var _ = gc.Suite(&statusUnitTestSuite{})
 
 type statusUnitTestSuite struct {

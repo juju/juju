@@ -2808,7 +2808,7 @@ func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	err = model.SetDead()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloud, err := s.State.Cloud(model.Cloud())
+	cloud, err := s.State.Cloud(model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	refCount, err := state.CloudModelRefCount(st, cloud.Name)
 	c.Assert(err, jc.ErrorIsNil)
@@ -2817,7 +2817,7 @@ func (s *StateSuite) TestRemoveModel(c *gc.C) {
 	err = st.RemoveDyingModel()
 	c.Assert(err, jc.ErrorIsNil)
 
-	cloud, err = s.State.Cloud(model.Cloud())
+	cloud, err = s.State.Cloud(model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = state.CloudModelRefCount(st, cloud.Name)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -3143,7 +3143,7 @@ func (s *StateSuite) TestWatchCloudSpecChanges(c *gc.C) {
 	// Initially we get one change notification
 	wc.AssertOneChange()
 
-	cloud, err := s.State.Cloud(s.Model.Cloud())
+	cloud, err := s.State.Cloud(s.Model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 
 	// Multiple changes will only result in a single change notification

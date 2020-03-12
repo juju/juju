@@ -40,9 +40,9 @@ func (p environStatePolicy) Prechecker() (environs.InstancePrechecker, error) {
 		return nil, errors.Trace(err)
 	}
 	if model.Type() == state.ModelTypeIAAS {
-		return p.getEnviron(p.st)
+		return p.getEnviron(model)
 	}
-	return p.getBroker(p.st)
+	return p.getBroker(model)
 }
 
 // ConfigValidator implements state.Policy.
@@ -51,7 +51,7 @@ func (p environStatePolicy) ConfigValidator() (config.Validator, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	cloud, err := p.st.Cloud(model.Cloud())
+	cloud, err := p.st.Cloud(model.CloudName())
 	if err != nil {
 		return nil, errors.Annotate(err, "getting cloud")
 	}
@@ -82,13 +82,13 @@ func (p environStatePolicy) ConstraintsValidator(ctx context.ProviderCallContext
 	}
 
 	if model.Type() == state.ModelTypeIAAS {
-		env, err := p.getEnviron(p.st)
+		env, err := p.getEnviron(model)
 		if err != nil {
 			return nil, err
 		}
 		return env.ConstraintsValidator(ctx)
 	}
-	broker, err := p.getBroker(p.st)
+	broker, err := p.getBroker(model)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -105,7 +105,7 @@ func (p environStatePolicy) InstanceDistributor() (context.Distributor, error) {
 		// Only IAAS models support machines, hence distribution.
 		return nil, errors.NotImplementedf("InstanceDistributor")
 	}
-	env, err := p.getEnviron(p.st)
+	env, err := p.getEnviron(model)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +133,11 @@ func NewStorageProviderRegistryForModel(
 ) (_ storage.ProviderRegistry, err error) {
 	var reg storage.ProviderRegistry
 	if model.Type() == state.ModelTypeIAAS {
-		if reg, err = newEnv(model.State()); err != nil {
+		if reg, err = newEnv(model); err != nil {
 			return nil, errors.Trace(err)
 		}
 	} else {
-		if reg, err = newBroker(model.State()); err != nil {
+		if reg, err = newBroker(model); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}

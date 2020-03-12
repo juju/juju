@@ -4,6 +4,8 @@
 package cache
 
 import (
+	"sync"
+
 	"github.com/juju/loggo"
 	"github.com/prometheus/client_golang/prometheus"
 )
@@ -181,6 +183,10 @@ type Collector struct {
 	applications *prometheus.GaugeVec
 	units        *prometheus.GaugeVec
 	users        *prometheus.GaugeVec
+
+	// Since the collector resets the GuageVecs and iterates the model cache,
+	// we need to ensure that we don't have overlapping collect calls.
+	mu sync.Mutex
 }
 
 // NewMetricsCollector returns a new Collector.
@@ -261,6 +267,9 @@ func (c *Collector) Describe(ch chan<- *prometheus.Desc) {
 
 // Collect is part of the prometheus.Collector interface.
 func (c *Collector) Collect(ch chan<- prometheus.Metric) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
 	timer := prometheus.NewTimer(prometheus.ObserverFunc(c.scrapeDuration.Set))
 	defer c.scrapeDuration.Collect(ch)
 	defer timer.ObserveDuration()
