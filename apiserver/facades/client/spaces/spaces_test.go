@@ -469,44 +469,6 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) 
 	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
 }
 
-func (s *SpaceTestMockSuite) TestSubnetsByCIDR(c *gc.C) {
-	ctrl, unreg := s.setupSpacesAPI(c, true, true)
-	defer ctrl.Finish()
-	defer unreg()
-
-	cidrs := []string{"10.10.10.0/24", "10.10.20.0/24", "not-a-cidr"}
-
-	subnet := networkcommonmocks.NewMockBackingSubnet(ctrl)
-	sExp := subnet.EXPECT()
-	sExp.ID().Return("1")
-	sExp.CIDR().Return("10.10.20.0/24")
-	sExp.SpaceName().Return("space")
-	sExp.VLANTag().Return(0)
-	sExp.ProviderId().Return(network.Id("0"))
-	sExp.ProviderNetworkId().Return(network.Id("1"))
-	sExp.AvailabilityZones().Return([]string{"bar", "bam"})
-	sExp.Status().Return("in-use")
-	sExp.Life().Return(life.Value("alive"))
-
-	bExp := s.mockBacking.EXPECT()
-	gomock.InOrder(
-		bExp.SubnetsByCIDR(cidrs[0]).Return(nil, errors.New("bad-mongo")),
-		bExp.SubnetsByCIDR(cidrs[1]).Return([]networkingcommon.BackingSubnet{subnet}, nil),
-		// No call for cidrs[2]; the input is invalidated.
-	)
-
-	arg := params.CIDRParams{CIDRS: cidrs}
-	res, err := s.api.SubnetsByCIDR(arg)
-	c.Assert(err, jc.ErrorIsNil)
-
-	results := res.Results
-	c.Assert(results, gc.HasLen, 3)
-
-	c.Check(results[0].Error.Message, gc.Equals, "bad-mongo")
-	c.Check(results[1].Subnets, gc.HasLen, 1)
-	c.Check(results[2].Error.Message, gc.Equals, `CIDR "not-a-cidr" not valid`)
-}
-
 func (s *SpaceTestMockSuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
 	model := "42c4f770-86ed-4fcc-8e39-697063d082bc:e"
 	machine := "42c4f770-86ed-4fcc-8e39-697063d082bc:m#0"
@@ -690,10 +652,6 @@ func (sb *stubBacking) AllEndpointBindings() ([]spaces.ApplicationEndpointBindin
 }
 
 func (sb *stubBacking) AllMachines() ([]spaces.Machine, error) {
-	panic("should not be called")
-}
-
-func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
 	panic("should not be called")
 }
 

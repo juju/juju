@@ -61,9 +61,6 @@ type Backing interface {
 	// SubnetByCIDR returns a unique subnet based on the input CIDR.
 	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
 
-	// SubnetsByCIDR returns any subnets with the input CIDR.
-	SubnetsByCIDR(cidr string) ([]networkingcommon.BackingSubnet, error)
-
 	// AddSpace creates a space.
 	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
 
@@ -442,41 +439,6 @@ func (api *API) ReloadSpaces() error {
 		return errors.Trace(err)
 	}
 	return errors.Trace(api.backing.ReloadSpaces(env))
-}
-
-// SubnetsByCIDR returns the collection of subnets matching each CIDR in the input.
-func (api *API) SubnetsByCIDR(arg params.CIDRParams) (params.SubnetsResults, error) {
-	result := params.SubnetsResults{}
-
-	canRead, err := api.auth.HasPermission(permission.ReadAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return result, errors.Trace(err)
-	}
-	if !canRead {
-		return result, common.ServerError(common.ErrPerm)
-	}
-
-	results := make([]params.SubnetsResult, len(arg.CIDRS))
-	for i, cidr := range arg.CIDRS {
-		if !network.IsValidCidr(cidr) {
-			results[i].Error = common.ServerError(errors.NotValidf("CIDR %q", cidr))
-			continue
-		}
-
-		subnets, err := api.backing.SubnetsByCIDR(cidr)
-		if err != nil {
-			results[i].Error = common.ServerError(err)
-			continue
-		}
-
-		subnetResults := make([]params.SubnetV2, len(subnets))
-		for j, subnet := range subnets {
-			subnetResults[j] = networkingcommon.BackingSubnetToParamsSubnetV2(subnet)
-		}
-		results[i].Subnets = subnetResults
-	}
-	result.Results = results
-	return result, nil
 }
 
 // checkSupportsSpaces checks if the environment implements NetworkingEnviron
