@@ -209,6 +209,7 @@ endif
 operator-image: operator-check-build
 	rm -rf ${JUJUD_STAGING_DIR}
 	mkdir -p ${JUJUD_STAGING_DIR}
+	cp ${JUJUD_BIN_DIR}/jujuc ${JUJUD_STAGING_DIR}
 	cp ${JUJUD_BIN_DIR}/jujud ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-dockerfile ${JUJUD_STAGING_DIR}
 	cp caas/jujud-operator-requirements.txt ${JUJUD_STAGING_DIR}

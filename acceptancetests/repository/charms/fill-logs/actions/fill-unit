@@ -25,17 +25,17 @@ getPage() {
 }
 
 CURRENTSIZE=0
-EXPECTED=$(function-get megs)
-function-log "start to fill $EXPECTED Mi log."
+EXPECTED=$(action-get megs)
+action-log "start to fill $EXPECTED Mi log."
 EXPECTED=$((EXPECTED*1024*1024))
 
 page=$(getPage)
 pageSize=$(getStrLen ''"$page"'')
 
 while [[ "$CURRENTSIZE" -lt "$EXPECTED" ]]; do
-    function-log "writing $pageSize bytes"
+    action-log "writing $pageSize bytes"
     juju-log ''"$page"''
     let CURRENTSIZE+="$pageSize"
 done
 
-function-log "filled $CURRENTSIZE bytes log."
+action-log "filled $CURRENTSIZE bytes log."

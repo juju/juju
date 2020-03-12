@@ -204,14 +204,15 @@ func copyExistingJujus(dir string) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	target = filepath.Join(dir, names.Jujuc)
-	if os.Stat(target); os.IsNotExist(err) {
-		logger.Infof("jujuc not found at %s not including", target)
+	jujucLocation := filepath.Join(jujuDir, names.Jujuc)
+	jujucTarget := filepath.Join(dir, names.Jujuc)
+	if os.Stat(jujucLocation); os.IsNotExist(err) {
+		logger.Infof("jujuc not found at %s not including", jujucLocation)
 	} else if err != nil {
 		return errors.Trace(err)
 	} else {
-		logger.Infof("target jujuc: %v", target)
-		err = copyFileWithMode(jujudLocation, target, info.Mode())
+		logger.Infof("target jujuc: %v", jujucTarget)
+		err = copyFileWithMode(jujucLocation, jujucTarget, info.Mode())
 		if err != nil {
 			return errors.Trace(err)
 		}

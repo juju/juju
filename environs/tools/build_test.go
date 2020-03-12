@@ -235,6 +235,8 @@ func (b *buildSuite) setUpFakeBinaries(c *gc.C, versionFile string) string {
 	dir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(dir, "juju"), []byte("some data"), 0755)
 	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(filepath.Join(dir, "jujuc"), []byte(fakeBinary), 0755)
+	c.Assert(err, jc.ErrorIsNil)
 	err = ioutil.WriteFile(filepath.Join(dir, "jujud"), []byte(fakeBinary), 0755)
 	c.Assert(err, jc.ErrorIsNil)
 	if versionFile != "" {
