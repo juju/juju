@@ -33,11 +33,13 @@ func lookPath(hook string) (string, error) {
 	return hookFile, nil
 }
 
-// searchHook will search, in order, hooks suffixed with extensions
+// discoverHookScript will return the name of the script to run for a hook.
+// For windows search, in order, hooks suffixed with extensions
 // in windowsSuffixOrder. As windows cares about extensions to determine
 // how to execute a file, we will allow several suffixes, with powershell
-// being default.
-func searchHook(charmDir, hook string) (string, error) {
+// being default.  For non windows machines, verify a file exists with the
+//same name as the hook.  Both verify the script is executable.
+func discoverHookScript(charmDir, hook string) (string, error) {
 	hookFile := filepath.Join(charmDir, hook)
 	if jujuos.HostOS() != jujuos.Windows {
 		// we are not running on windows,

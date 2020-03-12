@@ -9,7 +9,7 @@ import (
 
 var (
 	MergeWindowsEnvironment = mergeWindowsEnvironment
-	SearchHook              = searchHook
+	SearchHook              = discoverHookScript
 	HookCommand             = hookCommand
 	LookPath                = lookPath
 )

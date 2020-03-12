@@ -44,14 +44,14 @@ const (
 
 // HookHandlerType is used to indicate the type of script used for handling a
 // particular hook type.
-type HookHandlerType uint8
+type HookHandlerType string
 
 // String implements fmt.Stringer for HookHandlerType.
 func (t HookHandlerType) String() string {
 	switch t {
-	case LegacyHookHander:
-		return "legacy, bespoke hook script"
-	case DispatchingHookHander:
+	case ExplicitHookHandler:
+		return "explicit, bespoke hook script"
+	case DispatchingHookHandler:
 		return "hook dispatching script: " + hookDispatcherScript
 	default:
 		return "unknown/invalid hook handler"
@@ -59,16 +59,16 @@ func (t HookHandlerType) String() string {
 }
 
 const (
-	InvalidHookHandler HookHandlerType = iota
+	InvalidHookHandler = HookHandlerType("invalid")
 
-	// LegacyHookHandler indicates that a bespoke, per-hook script was
+	// ExplicitHookHandler indicates that a bespoke, per-hook script was
 	// used for handling a particular hook.
-	LegacyHookHander
+	ExplicitHookHandler = HookHandlerType("explicit")
 
-	// DispatchingHookHander indicates the use of a specialized script that
+	// DispatchingHookHandler indicates the use of a specialized script that
 	// acts as a dispatcher for all types of hooks. This functionality has
 	// been introduced with the operator framework changes.
-	DispatchingHookHander
+	DispatchingHookHandler = HookHandlerType("dispatch")
 
 	hookDispatcherScript = "dispatch"
 )
@@ -379,7 +379,7 @@ func (runner *runner) runCharmHookWithLocation(hookName, charmLocation string, r
 	debugctx := debug.NewHooksContext(runner.context.UnitName())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		// Note: hookScript might be relative but the debug session only requires its name
-		hookHandlerType, hookScript, _ := runner.getHook(hookName, runner.paths.GetCharmDir(), charmLocation)
+		hookHandlerType, hookScript, _ := runner.discoverHookHandler(hookName, runner.paths.GetCharmDir(), charmLocation)
 		logger.Infof("executing %s via debug-hooks; %s", hookName, hookHandlerType)
 		return hookHandlerType, session.RunHook(hookName, runner.paths.GetCharmDir(), env, filepath.Base(hookScript))
 	}
@@ -438,7 +438,7 @@ func (runner *runner) runCharmProcessOnRemote(hookName string, env []string, cha
 	// the presence of the hook dispatcher script and report that in its
 	// response payload. As this requires several changes to other packages,
 	// we will assume for now that we are always using the legacy hook scripts.
-	hookHandlerType := LegacyHookHander
+	hookHandlerType := ExplicitHookHandler
 
 	var cancel <-chan struct{}
 	outReader, outWriter, err := os.Pipe()
@@ -508,7 +508,7 @@ func (runner *runner) runCharmProcessOnRemote(hookName string, env []string, cha
 
 func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, charmLocation string) (HookHandlerType, error) {
 	charmDir := runner.paths.GetCharmDir()
-	hookHandlerType, hook, err := runner.getHook(hookName, charmDir, charmLocation)
+	hookHandlerType, hook, err := runner.discoverHookHandler(hookName, charmDir, charmLocation)
 	if err != nil {
 		return InvalidHookHandler, err
 	}
@@ -619,18 +619,19 @@ func (runner *runner) runCharmProcessOnLocal(hookName string, env []string, char
 	return hookHandlerType, errors.Trace(exitErr)
 }
 
-// getHook checks to see if the dispatch hook exists, if not, check for the
-// given hookName.
-func (runner *runner) getHook(hookName, charmDir, charmLocation string) (HookHandlerType, string, error) {
-	hook, err := searchHook(charmDir, hookDispatcherScript)
+// discoverHookHandler checks to see if the dispatch script exists, if not,
+// check for the given hookName.  Based on what is discovered, return the
+// HookHandlerType and the actual script to be run.
+func (runner *runner) discoverHookHandler(hookName, charmDir, charmLocation string) (HookHandlerType, string, error) {
+	hook, err := discoverHookScript(charmDir, hookDispatcherScript)
 	if err == nil {
-		return DispatchingHookHander, hook, nil
+		return DispatchingHookHandler, hook, nil
 	}
 	if !charmrunner.IsMissingHookError(err) {
 		return InvalidHookHandler, "", err
 	}
-	if hook, err = searchHook(charmDir, filepath.Join(charmLocation, hookName)); err == nil {
-		return LegacyHookHander, hook, err
+	if hook, err = discoverHookScript(charmDir, filepath.Join(charmLocation, hookName)); err == nil {
+		return ExplicitHookHandler, hook, err
 	}
 	return InvalidHookHandler, hook, err
 }

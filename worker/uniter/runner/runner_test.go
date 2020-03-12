@@ -92,7 +92,7 @@ var runHookTests = []struct {
 			code: 99,
 		},
 		err:      "exit status 99",
-		hookType: runner.LegacyHookHander,
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "report error with invalid script",
 		relid:   -1,
@@ -102,7 +102,7 @@ var runHookTests = []struct {
 			missingShebang: true,
 		},
 		err:      "fork/exec.*: exec format error",
-		hookType: runner.LegacyHookHander,
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "output logging",
 		relid:   -1,
@@ -111,7 +111,7 @@ var runHookTests = []struct {
 			stdout: "stdout",
 			stderr: "stderr",
 		},
-		hookType: runner.LegacyHookHander,
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "output logging with background process",
 		relid:   -1,
@@ -120,7 +120,7 @@ var runHookTests = []struct {
 			stdout:     "stdout",
 			background: "not printed",
 		},
-		hookType: runner.LegacyHookHander,
+		hookType: runner.ExplicitHookHandler,
 	}, {
 		summary: "long line split",
 		relid:   -1,
@@ -128,7 +128,7 @@ var runHookTests = []struct {
 			perm:   0700,
 			stdout: strings.Repeat("a", lineBufferSize+10),
 		},
-		hookType: runner.LegacyHookHander,
+		hookType: runner.ExplicitHookHandler,
 	},
 }
 
@@ -165,7 +165,7 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	}
 }
 
-func (s *RunHookSuite) TestRunHookDispatchingHookHander(c *gc.C) {
+func (s *RunHookSuite) TestRunHookDispatchingHookHandler(c *gc.C) {
 	ctx, err := s.contextFactory.HookContext(hook.Info{Kind: hooks.ConfigChanged})
 	c.Assert(err, jc.ErrorIsNil)
 
@@ -180,7 +180,7 @@ func (s *RunHookSuite) TestRunHookDispatchingHookHander(c *gc.C) {
 
 	hookType, err := rnr.RunHook("something-happened")
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(hookType, gc.Equals, runner.DispatchingHookHander)
+	c.Assert(hookType, gc.Equals, runner.DispatchingHookHandler)
 }
 
 type MockContext struct {

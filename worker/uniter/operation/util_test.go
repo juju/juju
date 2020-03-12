@@ -428,7 +428,7 @@ func (r *MockRunner) RunCommands(commands string) (*utilexec.ExecResponse, error
 
 func (r *MockRunner) RunHook(hookName string) (runner.HookHandlerType, error) {
 	r.Context().(*MockContext).setStatusCalled = r.MockRunHook.setStatusCalled
-	return runner.LegacyHookHander, r.MockRunHook.Call(hookName)
+	return runner.ExplicitHookHandler, r.MockRunHook.Call(hookName)
 }
 
 type MockActionWaitRunner struct {
