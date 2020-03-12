@@ -43,7 +43,10 @@ func (s *StorageStateSuiteBase) SetUpTest(c *gc.C) {
 	if s.series == "kubernetes" {
 		s.st = s.Factory.MakeCAASModel(c, nil)
 		s.AddCleanup(func(_ *gc.C) { s.st.Close() })
-		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.st)
+		var err error
+		s.Model, err = s.st.Model()
+		c.Assert(err, jc.ErrorIsNil)
+		broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.Model)
 		c.Assert(err, jc.ErrorIsNil)
 		registry = stateenvirons.NewStorageProviderRegistry(broker)
 	} else {

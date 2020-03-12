@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"go/format"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -23,6 +24,7 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -40,7 +42,9 @@ func Main() (int, error) {
 	}
 
 	var outfilename string
+	var typeFilename string
 	flag.StringVar(&outfilename, "o", "-", "Name of a file to write the output to")
+	flag.StringVar(&typeFilename, "type-file", "", "Name of the file containing instance type data")
 	flag.Parse()
 
 	var infilename string
@@ -113,15 +117,31 @@ var allInstanceTypes = map[string][]instances.InstanceType{
     Mem:        {{.Mem}},
     VirtType:   &{{.VirtType}},
     Cost:       {{.Cost}},
-    {{if .Deprecated}}Deprecated: true,{{end}}
+    {{if .Deprecated}}// {{.DeprecatedReason}}
+    Deprecated: true,{{end}}
   },
 {{end}}{{end}}
 },
 {{end}}
 }`))
 
+	var types *TypeDoc
+	if typeFilename != "" {
+		fmt.Fprintln(os.Stderr, "Reading types", typeFilename)
+		data, err := ioutil.ReadFile(typeFilename)
+		if err != nil {
+			return -1, err
+		}
+		doc := TypeDoc{}
+		err = yaml.Unmarshal(data, &doc)
+		if err != nil {
+			return -1, err
+		}
+		types = &doc
+	}
+
 	fmt.Fprintln(os.Stderr, "Processing", infilename)
-	instanceTypes, meta, err := process(fin)
+	instanceTypes, meta, err := process(fin, types)
 	if err != nil {
 		return -1, err
 	}
@@ -152,7 +172,7 @@ var allInstanceTypes = map[string][]instances.InstanceType{
 	return 0, nil
 }
 
-func process(in io.Reader) (map[string][]instanceType, metadata, error) {
+func process(in io.Reader, types *TypeDoc) (map[string][]instanceType, metadata, error) {
 	var index indexFile
 	if err := json.NewDecoder(in).Decode(&index); err != nil {
 		return nil, metadata{}, err
@@ -203,7 +223,8 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 		if productInfo.ProcessorArchitecture == "32-bit or 64-bit" {
 			arches = "both"
 		}
-		if productInfo.PhysicalProcessor == "AWS Graviton Processor" {
+		switch productInfo.PhysicalProcessor {
+		case "AWS Graviton Processor", "AWS Graviton2 Processor":
 			// a1 instances
 			arches = "arm64"
 		}
@@ -241,6 +262,7 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 		}
 		if strings.ToLower(productInfo.CurrentGeneration) == "no" {
 			instanceType.Deprecated = true
+			instanceType.DeprecatedReason = "Not current generation"
 		}
 
 		// Get cost information. We only support on-demand.
@@ -263,16 +285,69 @@ func process(in io.Reader) (map[string][]instanceType, metadata, error) {
 		region, ok := locationToRegion(productInfo.Location)
 		if !ok {
 			return nil, metadata{}, errors.Errorf("unknown location %q", productInfo.Location)
+		} else if region == ignoreRegion {
+			continue
 		}
 		if !supported(region, instanceType.Name) {
 			continue
+		}
+
+		if !isFullySupportedInRegion(region, instanceType.Name, types) {
+			// Mark as deprecated to remove from auto selection.
+			instanceType.Deprecated = true
+			instanceType.DeprecatedReason = "Not supported in all availability zones"
 		}
 
 		regionInstanceTypes := instanceTypes[region]
 		regionInstanceTypes = append(regionInstanceTypes, instanceType)
 		instanceTypes[region] = regionInstanceTypes
 	}
+
+	// Generate a test region for unit testing.
+	testRegion := []instanceType{}
+	testRegionTypes := set.NewStrings()
+	for _, instances := range instanceTypes {
+		for _, instance := range instances {
+			if testRegionTypes.Contains(instance.Name) {
+				continue
+			}
+			testRegionTypes.Add(instance.Name)
+			instance.SKU = "Test SKU"
+			if instance.DeprecatedReason == "Not supported in all availability zones" {
+				instance.Deprecated = false
+				instance.DeprecatedReason = ""
+			}
+			testRegion = append(testRegion, instance)
+		}
+	}
+	instanceTypes["test"] = testRegion
+
 	return instanceTypes, meta, nil
+}
+
+func isFullySupportedInRegion(regionID string, instanceTypeID string, types *TypeDoc) bool {
+	if types == nil {
+		return true
+	}
+
+	region, ok := types.Regions[regionID]
+	if !ok || len(region.AvailabilityZones) == 0 {
+		// Ignore regions that we have no data on.
+		return true
+	}
+
+	for _, az := range region.AvailabilityZones {
+		if len(az.InstanceTypes) == 0 {
+			// Ignore AZs that we have no data on.
+			continue
+		}
+		instanceTypes := set.NewStrings(az.InstanceTypes...)
+		if !instanceTypes.Contains(instanceTypeID) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // It appears that instances sometimes show up in the offer list which aren't
@@ -338,12 +413,17 @@ func parseMem(s string) (uint64, error) {
 	return utils.ParseSize(s)
 }
 
+const ignoreRegion = "<ignore-region>"
+
 func locationToRegion(loc string) (string, bool) {
 	regions := map[string]string{
-		"US East (N. Virginia)":      "us-east-1",
-		"US East (Ohio)":             "us-east-2",
-		"US West (N. California)":    "us-west-1",
-		"US West (Oregon)":           "us-west-2",
+		"US East (N. Virginia)":   "us-east-1",
+		"US East (Ohio)":          "us-east-2",
+		"US West (N. California)": "us-west-1",
+		"US West (Oregon)":        "us-west-2",
+		// LA is a local zone, we currently don't support them.
+		// It is a AZ in us-west-2, but for pricing it is a seperate region.
+		"US West (Los Angeles)":      ignoreRegion,
 		"Canada (Central)":           "ca-central-1",
 		"EU (Frankfurt)":             "eu-central-1",
 		"EU (Ireland)":               "eu-west-1",
@@ -433,14 +513,15 @@ type pricingDetails struct {
 }
 
 type instanceType struct {
-	Name       string
-	Arches     string // amd64|both
-	CpuCores   uint64
-	Mem        uint64
-	Cost       uint64 // paravirtual|hvm
-	VirtType   string
-	CpuPower   uint64
-	Deprecated bool // i.e. not current generation
+	Name             string
+	Arches           string // amd64|both
+	CpuCores         uint64
+	Mem              uint64
+	Cost             uint64 // paravirtual|hvm
+	VirtType         string
+	CpuPower         uint64
+	Deprecated       bool // i.e. not current generation
+	DeprecatedReason string
 
 	// extended information, for comments
 	SKU            string
@@ -454,4 +535,16 @@ func main() {
 		log.Fatal(err)
 	}
 	os.Exit(rc)
+}
+
+type TypeDoc struct {
+	Regions map[string]Region `yaml:"regions"`
+}
+
+type Region struct {
+	AvailabilityZones map[string]AvailabilityZone `yaml:"availability-zones"`
+}
+
+type AvailabilityZone struct {
+	InstanceTypes []string `yaml:"instance-types"`
 }

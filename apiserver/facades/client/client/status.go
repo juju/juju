@@ -205,8 +205,11 @@ func (c *Client) FullStatus(args params.StatusParams) (params.FullStatus, error)
 			return noStatus, errors.Annotate(err, "could not fetch application offers")
 		}
 	}
-	if context.machines, err = fetchMachines(c.api.stateAccessor, nil); err != nil {
+	if err = context.fetchMachines(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch machines")
+	}
+	if err = context.fetchOpenPorts(c.api.stateAccessor); err != nil {
+		return noStatus, errors.Annotate(err, "could not fetch open ports")
 	}
 	if context.controllerNodes, err = fetchControllerNodes(c.api.stateAccessor); err != nil {
 		return noStatus, errors.Annotate(err, "could not fetch controller nodes")
@@ -429,7 +432,7 @@ func (c *Client) modelStatus() (params.ModelStatusInfo, error) {
 	}
 	info.Name = m.Name()
 	info.Type = string(m.Type())
-	info.CloudTag = names.NewCloudTag(m.Cloud()).String()
+	info.CloudTag = names.NewCloudTag(m.CloudName()).String()
 	info.CloudRegion = m.CloudRegion()
 
 	cfg, err := m.Config()
@@ -496,6 +499,9 @@ type statusContext struct {
 	// machines: top-level machine id -> list of machines nested in
 	// this machine.
 	machines map[string][]*state.Machine
+	// allMachines: machine id -> machine
+	// The machine in this map is the same machine in the machines map.
+	allMachines map[string]*state.Machine
 
 	// controllerNodes: node id -> controller node
 	controllerNodes map[string]state.ControllerNode
@@ -512,6 +518,9 @@ type statusContext struct {
 	// remote applications: application name -> application
 	consumerRemoteApplications map[string]*state.RemoteApplication
 
+	// open ports: map machine ID -> Ports
+	openPorts map[string]*state.Ports
+
 	// offers: offer name -> offer
 	offers map[string]offerStatus
 
@@ -521,8 +530,6 @@ type statusContext struct {
 	allAppsUnitsCharmBindings applicationStatusInfo
 	relations                 map[string][]*state.Relation
 	relationsById             map[int]*state.Relation
-	units                     map[string]map[string]*state.Unit
-	latestCharms              map[charm.URL]*state.Charm
 	leaders                   map[string]string
 	branches                  map[string]cache.Branch
 }
@@ -531,32 +538,50 @@ type statusContext struct {
 // machine and machines[1..n] are any containers (including nested ones).
 //
 // If machineIds is non-nil, only machines whose IDs are in the set are returned.
-func fetchMachines(st Backend, machineIds set.Strings) (map[string][]*state.Machine, error) {
-	v := make(map[string][]*state.Machine)
+func (context *statusContext) fetchMachines(st Backend) error {
+	if context.model.Type() == state.ModelTypeCAAS {
+		return nil
+	}
+	context.machines = make(map[string][]*state.Machine)
+	context.allMachines = make(map[string]*state.Machine)
+
 	machines, err := st.AllMachines()
 	if err != nil {
-		return nil, err
+		return err
 	}
 	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
-		if machineIds != nil && !machineIds.Contains(m.Id()) {
-			continue
-		}
-		parentId, ok := m.ParentId()
+		context.allMachines[m.Id()] = m
+		_, ok := m.ParentId()
 		if !ok {
 			// Only top level host machines go directly into the machine map.
-			v[m.Id()] = []*state.Machine{m}
+			context.machines[m.Id()] = []*state.Machine{m}
 		} else {
 			topParentId := state.TopParentId(m.Id())
-			machines, ok := v[topParentId]
-			if !ok {
-				panic(fmt.Errorf("unexpected machine id %q", parentId))
-			}
-			machines = append(machines, m)
-			v[topParentId] = machines
+			machines := context.machines[topParentId]
+			context.machines[topParentId] = append(machines, m)
 		}
 	}
-	return v, nil
+	return nil
+}
+
+func (context *statusContext) fetchOpenPorts(st Backend) error {
+	if context.model.Type() == state.ModelTypeCAAS {
+		return nil
+	}
+	context.openPorts = make(map[string]*state.Ports)
+	allOpenPorts, err := context.model.AllPorts()
+	if err != nil {
+		return err
+	}
+	// We are only looking for the open ports on the "" subnet.
+	for _, openPorts := range allOpenPorts {
+		if openPorts.SubnetID() != "" {
+			continue
+		}
+		context.openPorts[openPorts.MachineID()] = openPorts
+	}
+	return nil
 }
 
 // fetchControllerNodes returns a map from node id to controller node.
@@ -580,7 +605,7 @@ func fetchControllerNodes(st Backend) (map[string]state.ControllerNode, error) {
 // so we want all or none.
 func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string]map[string]set.Strings, map[string][]*state.LinkLayerDevice, error) {
 	ipAddresses := make(map[string][]*state.Address)
-	spaces := make(map[string]map[string]set.Strings)
+	spacesPerMachine := make(map[string]map[string]set.Strings)
 	subnets, err := st.AllSubnets()
 	if err != nil {
 		return nil, nil, nil, err
@@ -588,6 +613,11 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 	subnetsByCIDR := make(map[string]*state.Subnet)
 	for _, subnet := range subnets {
 		subnetsByCIDR[subnet.CIDR()] = subnet
+	}
+
+	spaceIDToSpaceName, err := st.SpaceNamesByID()
+	if err != nil {
+		return nil, nil, nil, err
 	}
 	// For every machine, track what devices have addresses so we can filter linklayerdevices later
 	devicesWithAddresses := make(map[string]set.Strings)
@@ -602,11 +632,15 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		machineID := ipAddr.MachineID()
 		ipAddresses[machineID] = append(ipAddresses[machineID], ipAddr)
 		if subnet, ok := subnetsByCIDR[ipAddr.SubnetCIDR()]; ok {
-			if spaceName := subnet.SpaceName(); spaceName != "" {
-				devices, ok := spaces[machineID]
+			spaceName, found := spaceIDToSpaceName[subnet.SpaceID()]
+			if !found {
+				spaceName = network.AlphaSpaceName
+			}
+			if spaceName != "" {
+				devices, ok := spacesPerMachine[machineID]
 				if !ok {
 					devices = make(map[string]set.Strings)
-					spaces[machineID] = devices
+					spacesPerMachine[machineID] = devices
 				}
 				deviceName := ipAddr.DeviceName()
 				spacesSet, ok := devices[deviceName]
@@ -648,7 +682,7 @@ func fetchNetworkInterfaces(st Backend) (map[string][]*state.Address, map[string
 		linkLayerDevices[machineID] = append(linkLayerDevices[machineID], llDev)
 	}
 
-	return ipAddresses, spaces, linkLayerDevices, nil
+	return ipAddresses, spacesPerMachine, linkLayerDevices, nil
 }
 
 // fetchAllApplicationsAndUnits returns a map from application name to application,
@@ -1313,32 +1347,67 @@ func (context *statusContext) processUnits(units map[string]*state.Unit, applica
 	return unitsMap
 }
 
+func (context *statusContext) unitMachineID(unit *state.Unit) string {
+	// This should never happen, but guarding against segfaults if for
+	// some reason the unit isn't in the context.
+	if unit == nil {
+		return ""
+	}
+	principal, isSubordinate := unit.PrincipalName()
+	if isSubordinate {
+		return context.unitMachineID(context.unitByName(principal))
+	}
+	// machineID will be empty if not currently assigned.
+	machineID, _ := unit.AssignedMachineId()
+	return machineID
+}
+
+func (context *statusContext) unitPublicAddress(unit *state.Unit) string {
+	machine := context.allMachines[context.unitMachineID(unit)]
+	if machine == nil {
+		return ""
+	}
+	// We don't care if the machine doesn't have an address yet.
+	addr, _ := machine.PublicAddress()
+	return addr.Value
+}
+
 func (context *statusContext) processUnit(unit *state.Unit, applicationCharm string, expectWorkload bool) params.UnitStatus {
 	var result params.UnitStatus
-	if unit.ShouldBeAssigned() {
-		addr, err := unit.PublicAddress()
-		if err != nil {
-			// Usually this indicates that no addresses have been set on the
-			// machine yet.
-			addr = network.SpaceAddress{}
-			logger.Debugf("error fetching public address: %v", err)
+	if context.model.Type() == state.ModelTypeIAAS {
+		result.PublicAddress = context.unitPublicAddress(unit)
+
+		if ports := context.openPorts[context.unitMachineID(unit)]; ports != nil {
+			var corePorts []network.PortRange
+			for _, port := range ports.PortsForUnit(unit.Name()) {
+				corePorts = append(corePorts, network.PortRange{
+					Protocol: port.Protocol,
+					FromPort: port.FromPort,
+					ToPort:   port.ToPort,
+				})
+			}
+			network.SortPortRanges(corePorts)
+
+			for _, port := range corePorts {
+				result.OpenedPorts = append(result.OpenedPorts, port.String())
+			}
 		}
-		result.PublicAddress = addr.Value
 	} else {
 		// For CAAS units we want to provide the container address.
+		// TODO: preload all the container info.
 		container, err := unit.ContainerInfo()
 		if err == nil {
-			addr := container.Address()
-			if addr != nil {
+			if addr := container.Address(); addr != nil {
 				result.Address = addr.Value
 			}
+			result.ProviderId = container.ProviderId()
+			if len(result.OpenedPorts) == 0 {
+				result.OpenedPorts = container.Ports()
+			}
+
 		} else {
-			logger.Debugf("error fetching container address: %v", err)
+			logger.Tracef("container info not yet available for unit: %v", err)
 		}
-	}
-	unitPorts, _ := unit.OpenedPorts()
-	for _, port := range unitPorts {
-		result.OpenedPorts = append(result.OpenedPorts, port.String())
 	}
 	if unit.IsPrincipal() {
 		result.Machine, _ = unit.AssignedMachineId()
@@ -1368,20 +1437,6 @@ func (context *statusContext) processUnit(unit *state.Unit, applicationCharm str
 	}
 	if leader := context.leaders[unit.ApplicationName()]; leader == unit.Name() {
 		result.Leader = true
-	}
-	containerInfo, err := unit.ContainerInfo()
-	if err != nil && !errors.IsNotFound(err) {
-		logger.Debugf("error fetching container info: %v", err)
-	} else if err == nil {
-		result.ProviderId = containerInfo.ProviderId()
-		addr := containerInfo.Address()
-		if addr != nil {
-			result.Address = addr.Value
-		}
-
-		if len(result.OpenedPorts) == 0 {
-			result.OpenedPorts = containerInfo.Ports()
-		}
 	}
 	return result
 }

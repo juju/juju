@@ -167,7 +167,7 @@ func (st *State) UpdateModelConfigDefaultValues(attrs map[string]interface{}, re
 		if err != nil {
 			return errors.Trace(err)
 		}
-		key = cloudGlobalKey(model.Cloud())
+		key = cloudGlobalKey(model.CloudName())
 	}
 	settings, err := readSettings(st.db(), globalSettingsC, key)
 	if err != nil {
@@ -463,7 +463,7 @@ func (st *State) regionSpec() (*environs.CloudRegionSpec, error) {
 		return nil, errors.Trace(err)
 	}
 	rspec := &environs.CloudRegionSpec{
-		Cloud:  model.Cloud(),
+		Cloud:  model.CloudName(),
 		Region: model.CloudRegion(),
 	}
 	return rspec, nil

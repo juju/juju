@@ -12,9 +12,21 @@ run() {
   DESC=$(echo "${1}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
 
   echo -n "===> [   ] Running: ${DESC}"
+
   START_TIME=$(date +%s)
-  $CMD "$@"
+  set_test_verbosity
+  $CMD "$@" > "${TEST_DIR}/${TEST_CURRENT}.log" 2>&1
+  case "${VERBOSE}" in
+  2)
+      cat "${TEST_DIR}/${TEST_CURRENT}.log"
+      ;;
+  3)
+      cat "${TEST_DIR}/${TEST_CURRENT}.log"
+      ;;
+  esac
+  set_verbosity
   END_TIME=$(date +%s)
+
   echo "\r===> [ $(green "✔") ] Success: ${DESC} ($((END_TIME-START_TIME))s)"
 }
 

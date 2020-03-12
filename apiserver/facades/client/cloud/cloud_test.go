@@ -101,9 +101,9 @@ func newModelBackend(c *gc.C, aCloud cloud.Cloud, uuid string) *mockModelBackend
 			uuid:        coretesting.ModelTag.Id(),
 			cloud:       "dummy",
 			cloudRegion: "nether",
+			cloudValue:  aCloud,
 			cfg:         coretesting.ModelConfig(c),
 		},
-		cloud: aCloud,
 	}
 }
 
@@ -1522,11 +1522,12 @@ type mockModel struct {
 	uuid               string
 	cloud              string
 	cloudRegion        string
+	cloudValue         cloud.Cloud
 	cloudCredentialTag names.CloudCredentialTag
 	cfg                *config.Config
 }
 
-func (m *mockModel) Cloud() string {
+func (m *mockModel) CloudName() string {
 	return m.cloud
 }
 
@@ -1534,8 +1535,16 @@ func (m *mockModel) CloudRegion() string {
 	return m.cloudRegion
 }
 
-func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return m.cloudCredentialTag, true
+}
+
+func (m *mockModel) Cloud() (cloud.Cloud, error) {
+	return m.cloudValue, nil
+}
+
+func (m *mockModel) CloudCredential() (state.Credential, bool, error) {
+	return state.Credential{}, false, nil
 }
 
 func (m *mockModel) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
@@ -1582,7 +1591,6 @@ func (m *mockPooledModel) Release() bool {
 type mockModelBackend struct {
 	uuid  string
 	model *mockModel
-	cloud cloud.Cloud
 }
 
 func (m *mockModelBackend) Model() (credentialcommon.Model, error) {
@@ -1590,7 +1598,7 @@ func (m *mockModelBackend) Model() (credentialcommon.Model, error) {
 }
 
 func (m *mockModelBackend) Cloud(name string) (cloud.Cloud, error) {
-	return m.cloud, nil
+	return m.model.cloudValue, nil
 }
 
 func (m *mockModelBackend) AllMachines() ([]credentialcommon.Machine, error) {

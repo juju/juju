@@ -1,7 +1,0 @@
-#!/bin/bash
-
-# Make sure we access snap binaries first (i.e. juju-metadata lp:1759013)
-export PATH=$SNAP/bin:$SNAP/usr/bin:/snap/bin:$PATH
-
-exec $SNAP/bin/juju "$@"
-

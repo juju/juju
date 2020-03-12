@@ -893,7 +893,7 @@ func (m *fakeModel) MigrationMode() state.MigrationMode {
 	return m.migrationMode
 }
 
-func (m *fakeModel) CloudCredential() (names.CloudCredentialTag, bool) {
+func (m *fakeModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	if names.IsValidCloudCredential(m.credential) {
 		return names.NewCloudCredentialTag(m.credential), true
 	}

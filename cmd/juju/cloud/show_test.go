@@ -179,7 +179,7 @@ func (s *showSuite) TestShowControllerAndLocalCloud(c *gc.C) {
 		func() (cloud.ShowCloudAPI, error) {
 			return s.api, nil
 		})
-	ctx, err := cmdtesting.RunCommand(c, command, "aws-china", "-c", "mycontroller", "--client")
+	ctx, err := cmdtesting.RunCommand(c, command, "aws-china")
 	c.Assert(err, jc.ErrorIsNil)
 	s.api.CheckCallNames(c, "Cloud", "Close")
 	c.Assert(command.ControllerName, gc.Equals, "mycontroller")
