@@ -105,25 +105,8 @@ func (s *K8sSuite) TestPushUniqVolume(c *gc.C) {
 
 func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
-	sa := &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
-
 	podSpec := specs.PodSpec{
-		ServiceAccount: sa,
+		ServiceAccount: primeServiceAccount,
 	}
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -227,25 +210,8 @@ func (s *K8sSuite) TestPrepareWorkloadSpecNoConfigConfig(c *gc.C) {
 
 func (s *K8sSuite) TestPrepareWorkloadSpecWithEnvAndEnvFrom(c *gc.C) {
 
-	sa := &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
-
 	podSpec := specs.PodSpec{
-		ServiceAccount: sa,
+		ServiceAccount: primeServiceAccount,
 	}
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -615,6 +581,23 @@ var basicHeadlessServiceArg = &core.Service{
 		Type:                     "ClusterIP",
 		ClusterIP:                "None",
 		PublishNotReadyAddresses: true,
+	},
+}
+
+var primeServiceAccount = &specs.PrimeServiceAccountSpecV3{
+	ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
+		AutomountServiceAccountToken: boolPtr(true),
+		Roles: []specs.Role{
+			{
+				Rules: []specs.PolicyRule{
+					{
+						APIGroups: []string{""},
+						Resources: []string{"pods"},
+						Verbs:     []string{"get", "watch", "list"},
+					},
+				},
+			},
+		},
 	},
 }
 
@@ -2752,22 +2735,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
+	podSpec.ServiceAccount = primeServiceAccount
 
 	numUnits := int32(2)
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
@@ -2857,7 +2825,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -2924,22 +2892,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
+	podSpec.ServiceAccount = primeServiceAccount
 
 	numUnits := int32(2)
 	workloadSpec, err := provider.PrepareWorkloadSpec("app-name", "app-name", podSpec, "operator/image-path")
@@ -3029,7 +2982,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 	}
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3065,9 +3018,9 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
 		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
-		s.mockRoleBindings.EXPECT().Delete("app-name-app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
-		s.mockRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(rb, nil),
-		s.mockRoleBindings.EXPECT().Get("app-name-app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
+		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
+		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{}).Return(rb, nil),
+		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
 		s.mockStatefulSets.EXPECT().Get("app-name", v1.GetOptions{}).
@@ -3486,22 +3439,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
+	podSpec.ServiceAccount = primeServiceAccount
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
@@ -3619,7 +3557,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb1 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -3747,22 +3685,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
+	podSpec.ServiceAccount = primeServiceAccount
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
@@ -3891,7 +3814,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb1 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -4029,22 +3952,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	defer ctrl.Finish()
 
 	podSpec := getBasicPodspec()
-	podSpec.ServiceAccount = &specs.PrimeServiceAccountSpecV3{
-		ServiceAccountSpecV3: specs.ServiceAccountSpecV3{
-			AutomountServiceAccountToken: boolPtr(true),
-			Roles: []specs.Role{
-				{
-					Rules: []specs.PolicyRule{
-						{
-							APIGroups: []string{""},
-							Resources: []string{"pods"},
-							Verbs:     []string{"get", "watch", "list"},
-						},
-					},
-				},
-			},
-		},
-	}
+	podSpec.ServiceAccount = primeServiceAccount
 
 	podSpec.ProviderPod = &k8sspecs.K8sPodSpec{
 		KubernetesResources: &k8sspecs.KubernetesResources{
@@ -4181,7 +4089,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb1 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-app-name",
+			Name:      "app-name",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -4216,7 +4124,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	clusterrole2 := &rbacv1.ClusterRole{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-app-name-sa-foo",
+			Name:      "test-sa-foo",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -4244,7 +4152,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	role2 := &rbacv1.Role{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "app-name-sa-foo1",
+			Name:      "sa-foo1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -4262,7 +4170,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	crb2 := &rbacv1.ClusterRoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "sa-foo-test-app-name-sa-foo",
+			Name:      "sa-foo-test-sa-foo",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name", "juju-model": "test"},
 			Annotations: map[string]string{
@@ -4271,7 +4179,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "test-app-name-sa-foo",
+			Name: "test-sa-foo",
 			Kind: "ClusterRole",
 		},
 		Subjects: []rbacv1.Subject{
@@ -4284,7 +4192,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 	}
 	rb2 := &rbacv1.RoleBinding{
 		ObjectMeta: v1.ObjectMeta{
-			Name:      "sa-foo-app-name-sa-foo1",
+			Name:      "sa-foo-sa-foo1",
 			Namespace: "test",
 			Labels:    map[string]string{"juju-app": "app-name"},
 			Annotations: map[string]string{
@@ -4293,7 +4201,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 			},
 		},
 		RoleRef: rbacv1.RoleRef{
-			Name: "app-name-sa-foo1",
+			Name: "sa-foo1",
 			Kind: "Role",
 		},
 		Subjects: []rbacv1.Subject{

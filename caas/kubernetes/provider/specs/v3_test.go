@@ -1219,7 +1219,7 @@ func (s *v3SpecsSuite) TestK8sRBACResourcesValidate(c *gc.C) {
 					},
 				},
 			},
-			ErrStr: `either all or none of the roles of the service account "sa2" should be set a name`,
+			ErrStr: `either all or none of the roles of the service account "sa2" should have a name set`,
 		},
 	} {
 		c.Logf("checking K8sRBACResources Validate %d", i)

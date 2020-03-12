@@ -112,7 +112,7 @@ func (ks K8sRBACResources) Validate() error {
 			// All good.
 			continue
 		}
-		return errors.NewNotValid(nil, fmt.Sprintf("either all or none of the roles of the service account %q should be set a name", sa.Name))
+		return errors.NewNotValid(nil, fmt.Sprintf("either all or none of the roles of the service account %q should have a name set", sa.Name))
 	}
 	return nil
 }
