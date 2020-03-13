@@ -36,7 +36,7 @@ func NewFacade(ctx facade.Context) (*Facade, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	return internalFacade(&backend{stateenvirons.EnvironConfigGetter{State: st, Model: m}}, ctx.Auth(), state.CallContext(st))
+	return internalFacade(&backend{st, stateenvirons.EnvironConfigGetter{Model: m}}, ctx.Auth(), state.CallContext(st))
 }
 
 func internalFacade(backend Backend, auth facade.Authorizer, callCtx context.ProviderCallContext) (*Facade, error) {

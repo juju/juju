@@ -181,6 +181,11 @@ func extractPortsIDParts(globalKey string) ([]string, error) {
 	return nil, errors.NotValidf("ports document key %q", globalKey)
 }
 
+// MachineID returns the machine ID associated with this ports document.
+func (p *Ports) MachineID() string {
+	return p.doc.MachineID
+}
+
 // SubnetID returns the subnet ID associated with this ports document.
 func (p *Ports) SubnetID() string {
 	return p.doc.SubnetID
@@ -296,6 +301,24 @@ func (m *Machine) OpenedPorts(subnetID string) (*Ports, error) {
 		return nil, errors.Trace(err)
 	}
 	return ports, nil
+}
+
+// AllPorts returns all opened ports for this machine (on all
+// networks).
+func (m *Model) AllPorts() ([]*Ports, error) {
+	openedPorts, closer := m.st.db().GetCollection(openedPortsC)
+	defer closer()
+
+	docs := []portsDoc{}
+	err := openedPorts.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	results := make([]*Ports, len(docs))
+	for i, doc := range docs {
+		results[i] = &Ports{st: m.st, doc: doc}
+	}
+	return results, nil
 }
 
 // AllPorts returns all opened ports for this machine (on all

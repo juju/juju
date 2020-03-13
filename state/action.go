@@ -626,7 +626,8 @@ func (m *Model) ActionByTag(tag names.ActionTag) (Action, error) {
 
 // FindActionTagsById finds Actions with ids that either
 // share the supplied prefix (for deprecated UUIDs), or match
-// the supplied id (for newer id integers).
+// the supplied id (for newer id integers). If passed an empty string
+// match all Actions.
 // It returns a list of corresponding ActionTags.
 func (m *Model) FindActionTagsById(idValue string) ([]names.ActionTag, error) {
 	actionLogger.Tracef("FindActionTagsById() %q", idValue)
@@ -646,7 +647,11 @@ func (m *Model) FindActionTagsById(idValue string) ([]names.ActionTag, error) {
 	newIdsSupported := IsNewActionIDSupported(agentVersion)
 	maybeOldId := strings.ContainsAny(idValue, "-abcdef")
 	var filter bson.D
-	if !newIdsSupported || maybeOldId {
+	if idValue == "" {
+		// Match all when passed an empty id prefix for
+		// legacy behaviour.
+		filter = nil
+	} else if !newIdsSupported || maybeOldId {
 		filter = bson.D{{
 			"_id", bson.D{{"$regex", "^" + matchValue}},
 		}}

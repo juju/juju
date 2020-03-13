@@ -1859,7 +1859,7 @@ func UpdateInheritedControllerConfig(pool *StatePool) error {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	key := cloudGlobalKey(model.Cloud())
+	key := cloudGlobalKey(model.CloudName())
 
 	var ops []txn.Op
 	coll, closer := st.db().GetRawCollection(globalSettingsC)
@@ -1939,7 +1939,7 @@ func updateKubernetesStorageConfig(st *State) error {
 		// longer have settings to update.
 		return nil
 	}
-	cred, ok := model.CloudCredential()
+	cred, ok := model.CloudCredentialTag()
 	if !ok {
 		return nil
 	}
@@ -1948,13 +1948,13 @@ func updateKubernetesStorageConfig(st *State) error {
 		return errors.Trace(err)
 	}
 
-	defaults, err := st.controllerInheritedConfig(model.Cloud())()
+	defaults, err := st.controllerInheritedConfig(model.CloudName())()
 	if err != nil {
 		return errors.Annotate(err, "getting cloud config")
 	}
 	operatorStorage, haveDefaultOperatorStorage := defaults[k8s.OperatorStorageKey]
 	if !haveDefaultOperatorStorage {
-		cloudSpec, err := cloudSpec(st, model.Cloud(), model.CloudRegion(), cred)
+		cloudSpec, err := cloudSpec(st, model.CloudName(), model.CloudRegion(), cred)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1970,7 +1970,7 @@ func updateKubernetesStorageConfig(st *State) error {
 			return nil
 		}
 		operatorStorage = metadata.NominatedStorageClass.Name
-		err = st.updateConfigDefaults(model.Cloud(), cloud.Attrs{
+		err = st.updateConfigDefaults(model.CloudName(), cloud.Attrs{
 			k8s.OperatorStorageKey: operatorStorage,
 			k8s.WorkloadStorageKey: operatorStorage, // use same storage for both
 		}, nil)

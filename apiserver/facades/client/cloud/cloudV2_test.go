@@ -102,12 +102,12 @@ func (s *cloudSuiteV2) SetUpTest(c *gc.C) {
 				cloud:       "dummy",
 				cloudRegion: "nether",
 				cfg:         coretesting.ModelConfig(c),
-			},
-			cloud: cloud.Cloud{
-				Name:      "dummy",
-				Type:      "dummy",
-				AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
-				Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+				cloudValue: cloud.Cloud{
+					Name:      "dummy",
+					Type:      "dummy",
+					AuthTypes: []cloud.AuthType{cloud.EmptyAuthType, cloud.UserPassAuthType},
+					Regions:   []cloud.Region{{Name: "nether", Endpoint: "endpoint"}},
+				},
 			},
 		}
 	}

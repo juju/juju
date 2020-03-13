@@ -451,6 +451,115 @@ func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroup(c *gc.C)
 	workertest.CleanKill(c, task)
 }
 
+func (s *ProvisionerTaskSuite) TestZoneConstraintsWithDistributionGroupRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
+
+	// For the call to start instance, we expect the same zone constraints to
+	// be present, but we also expect that the zone in start instance params
+	// was selected from the constraints, based on a machine from the same
+	// distribution group already being in one of the zones.
+	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az1", "az2")
+	azConstraintsAndDerivedZone.addMatch("availability zone: az1", func(p environs.StartInstanceParams) bool {
+		return p.AvailabilityZone == "az2"
+	})
+
+	// Use satisfaction of this call as the synchronisation point.
+	failedErr := errors.Errorf("oh no")
+	started := make(chan struct{})
+	gomock.InOrder(
+		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil),
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(nil, failedErr),
+		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil),
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+			Instance: &testInstance{id: "instance-1"},
+		}, nil).Do(func(_ ...interface{}) {
+			go func() { started <- struct{}{} }()
+		}),
+	)
+
+	// Another machine from the same distribution group is already in az1,
+	// so we expect the machine to be created in az2.
+	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
+		names.NewMachineTag("0"): {"az1"},
+	})
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az1,az2",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{{Machine: m0, Status: params.StatusResult{}}}
+	s.sendMachineErrorRetryChange(c)
+	s.sendMachineErrorRetryChange(c)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no matching call to StartInstance")
+	}
+
+	workertest.CleanKill(c, task)
+}
+
+func (s *ProvisionerTaskSuite) TestZoneRestrictiveConstraintsWithDistributionGroupRetry(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	broker := s.setUpZonedEnviron(ctrl)
+	azConstraints := newAZConstraintStartInstanceParamsMatcher("az2")
+
+	// For the call to start instance, we expect the same zone constraints to
+	// be present, but we also expect that the zone in start instance params
+	// was selected from the constraints, based on a machine from the same
+	// distribution group already being in one of the zones.
+	azConstraintsAndDerivedZone := newAZConstraintStartInstanceParamsMatcher("az2")
+	azConstraintsAndDerivedZone.addMatch("availability zone: az2", func(p environs.StartInstanceParams) bool {
+		return p.AvailabilityZone == "az2"
+	})
+
+	// Use satisfaction of this call as the synchronisation point.
+	failedErr := errors.Errorf("oh no")
+	started := make(chan struct{})
+	gomock.InOrder(
+		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil),
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(nil, failedErr),
+		broker.EXPECT().DeriveAvailabilityZones(s.callCtx, azConstraints).Return([]string{}, nil),
+		broker.EXPECT().StartInstance(s.callCtx, azConstraints).Return(&environs.StartInstanceResult{
+			Instance: &testInstance{id: "instance-2"},
+		}, nil).Do(func(_ ...interface{}) {
+			go func() { started <- struct{}{} }()
+		}),
+	)
+
+	// Another machine from the same distribution group is already in az1,
+	// so we expect the machine to be created in az2.
+	task := s.newProvisionerTaskWithBroker(c, broker, map[names.MachineTag][]string{
+		names.NewMachineTag("0"): {"az2"},
+		names.NewMachineTag("1"): {"az3"},
+	})
+
+	m0 := &testMachine{
+		id:          "0",
+		constraints: "zones=az2",
+	}
+	s.machineStatusResults = []apiprovisioner.MachineStatusResult{
+		{Machine: m0, Status: params.StatusResult{}},
+	}
+	s.sendMachineErrorRetryChange(c)
+	s.sendMachineErrorRetryChange(c)
+
+	select {
+	case <-started:
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("no matching call to StartInstance")
+	}
+
+	workertest.CleanKill(c, task)
+}
+
 func (s *ProvisionerTaskSuite) TestPopulateAZMachinesErrorWorkerStopped(c *gc.C) {
 	ctrl := gomock.NewController(c)
 	defer ctrl.Finish()

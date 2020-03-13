@@ -36,8 +36,8 @@ type PersistentBackend interface {
 
 // Model defines model methods needed for the check.
 type Model interface {
-	// Cloud returns the name of the cloud to which the model is deployed.
-	Cloud() string
+	// CloudName returns the name of the cloud to which the model is deployed.
+	CloudName() string
 
 	// CloudRegion returns the name of the cloud region to which the model is deployed.
 	CloudRegion() string
@@ -51,9 +51,9 @@ type Model interface {
 	// Type returns the type of the model.
 	Type() state.ModelType
 
-	// CloudCredential returns the tag of the cloud credential used for managing the
+	// CloudCredentialTag returns the tag of the cloud credential used for managing the
 	// model's cloud resources, and a boolean indicating whether a credential is set.
-	CloudCredential() (names.CloudCredentialTag, bool)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 }
 
 // Machine defines machine methods needed for the check.

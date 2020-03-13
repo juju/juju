@@ -1967,7 +1967,7 @@ func (model *Model) WatchForModelConfigChanges() NotifyWatcher {
 // WatchCloudSpecChanges returns a NotifyWatcher waiting for the cloud
 // to change for the model.
 func (model *Model) WatchCloudSpecChanges() NotifyWatcher {
-	return newEntityWatcher(model.st, cloudsC, model.Cloud())
+	return newEntityWatcher(model.st, cloudsC, model.CloudName())
 }
 
 // WatchModelEntityReferences returns a NotifyWatcher waiting for the Model

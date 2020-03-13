@@ -10,6 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
 	worker "gopkg.in/juju/worker.v1"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/base"
@@ -279,6 +280,30 @@ func (s *modelManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 	c.Assert(result, gc.Equals, s.worker)
 }
 
+func (s *modelManifoldSuite) TestNewWorkerFromK8sController(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.behaviourContext()
+	s.behaviorK8sController()
+
+	config := instancemutater.ModelManifoldConfig{
+		EnvironName:   "foobar",
+		APICallerName: "baz",
+		AgentName:     "moon",
+		Logger:        s.logger,
+		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+			return s.worker, nil
+		},
+		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
+			return s.api
+		},
+	}
+	manifold := instancemutater.ModelManifold(config)
+	result, err := manifold.Start(s.context)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.Equals, s.worker)
+}
+
 func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -299,7 +324,7 @@ func (s *modelManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	}
 	manifold := instancemutater.ModelManifold(config)
 	_, err := manifold.Start(s.context)
-	c.Assert(err, gc.ErrorMatches, "cannot start machine instancemutater worker: errored")
+	c.Assert(err, gc.ErrorMatches, "cannot start model instance-mutater worker: errored")
 }
 
 func (s *modelManifoldSuite) TestConfigValidatesForMissingWorker(c *gc.C) {
@@ -350,6 +375,14 @@ func (s *modelManifoldSuite) behaviourAgent() {
 
 	cExp := s.agentConfig.EXPECT()
 	cExp.Tag().Return(names.MachineTag{})
+}
+
+func (s *modelManifoldSuite) behaviorK8sController() {
+	aExp := s.agent.EXPECT()
+	aExp.CurrentConfig().Return(s.agentConfig)
+
+	cExp := s.agentConfig.EXPECT()
+	cExp.Tag().Return(names.ControllerAgentTag{})
 }
 
 type environShim struct {
@@ -618,6 +651,30 @@ func (s *machineManifoldSuite) TestNewWorkerIsCalled(c *gc.C) {
 	c.Assert(result, gc.Equals, s.worker)
 }
 
+func (s *machineManifoldSuite) TestNewWorkerIsRejectedForK8sController(c *gc.C) {
+	defer s.setup(c).Finish()
+
+	s.behaviourContext()
+	s.behaviorK8sController()
+
+	config := instancemutater.MachineManifoldConfig{
+		BrokerName:    "foobar",
+		APICallerName: "baz",
+		AgentName:     "moon",
+		Logger:        s.logger,
+		NewWorker: func(cfg instancemutater.Config) (worker.Worker, error) {
+			return s.worker, nil
+		},
+		NewClient: func(base.APICaller) instancemutater.InstanceMutaterAPI {
+			return s.api
+		},
+	}
+	manifold := instancemutater.MachineManifold(config)
+	result, err := manifold.Start(s.context)
+	c.Assert(err, gc.Equals, dependency.ErrUninstall)
+	c.Assert(result, gc.IsNil)
+}
+
 func (s *machineManifoldSuite) TestNewWorkerReturnsError(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -689,6 +746,17 @@ func (s *machineManifoldSuite) behaviourAgent() {
 
 	cExp := s.agentConfig.EXPECT()
 	cExp.Tag().Return(names.MachineTag{})
+}
+
+func (s *machineManifoldSuite) behaviorK8sController() {
+	aExp := s.agent.EXPECT()
+	aExp.CurrentConfig().Return(s.agentConfig)
+
+	cExp := s.agentConfig.EXPECT()
+	cExp.Tag().Return(names.ControllerAgentTag{})
+
+	lExp := s.logger.EXPECT()
+	lExp.Warningf(gomock.Any(), "controller")
 }
 
 type brokerShim struct {

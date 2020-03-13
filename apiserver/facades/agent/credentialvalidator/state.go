@@ -12,9 +12,9 @@ import (
 
 // ModelAccessor exposes Model methods needed by credential validator.
 type ModelAccessor interface {
-	CloudCredential() (names.CloudCredentialTag, bool)
+	CloudCredentialTag() (names.CloudCredentialTag, bool)
 	ModelTag() names.ModelTag
-	Cloud() string
+	CloudName() string
 	WatchModelCredential() state.NotifyWatcher
 }
 

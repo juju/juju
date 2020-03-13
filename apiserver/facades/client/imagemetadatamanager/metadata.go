@@ -59,8 +59,12 @@ func NewAPI(
 	resources facade.Resources,
 	authorizer facade.Authorizer,
 ) (*API, error) {
+	model, err := st.Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	newEnviron := func() (environs.Environ, error) {
-		return stateenvirons.GetNewEnvironFunc(environs.New)(st)
+		return stateenvirons.GetNewEnvironFunc(environs.New)(model)
 	}
 	return createAPI(getState(st), newEnviron, resources, authorizer)
 }

@@ -62,6 +62,7 @@ func (s *ControllerAddressesSuite) SetUpTest(c *gc.C) {
 		},
 	})
 	c.Logf("machine addresses: %#v", machine.Addresses())
+	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
 func (s *ControllerAddressesSuite) TestControllerModel(c *gc.C) {

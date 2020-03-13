@@ -173,8 +173,12 @@ func (h *toolsDownloadHandler) fetchAndCacheTools(
 ) (binarystorage.Metadata, io.ReadCloser, error) {
 	md := binarystorage.Metadata{Version: v.String()}
 
+	model, err := st.Model()
+	if err != nil {
+		return md, nil, err
+	}
 	newEnviron := stateenvirons.GetNewEnvironFunc(environs.New)
-	env, err := newEnviron(st)
+	env, err := newEnviron(model)
 	if err != nil {
 		return md, nil, err
 	}

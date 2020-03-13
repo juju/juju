@@ -483,7 +483,7 @@ func (api *CloudAPIV4) DefaultCloud() (params.StringResult, error) {
 		return params.StringResult{}, err
 	}
 	return params.StringResult{
-		Result: names.NewCloudTag(controllerModel.Cloud()).String(),
+		Result: names.NewCloudTag(controllerModel.CloudName()).String(),
 	}, nil
 }
 

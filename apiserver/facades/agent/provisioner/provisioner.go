@@ -113,12 +113,12 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	configGetter := stateenvirons.EnvironConfigGetter{State: st, Model: model}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: model}
 	isCaasModel := model.Type() == state.ModelTypeCAAS
 
 	var env storage.ProviderRegistry
 	if isCaasModel {
-		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+		env, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	} else {
 		env, err = environs.GetEnviron(configGetter, environs.New)
 	}
@@ -156,9 +156,13 @@ func NewProvisionerAPI(st *state.State, resources facade.Resources, authorizer f
 	if isCaasModel {
 		return api, nil
 	}
+
+	newEnviron := func() (environs.BootstrapEnviron, error) {
+		return environs.GetEnviron(configGetter, environs.New)
+	}
 	api.InstanceIdGetter = common.NewInstanceIdGetter(st, getAuthFunc)
-	api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter)
-	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner)
+	api.ToolsFinder = common.NewToolsFinder(configGetter, st, urlGetter, newEnviron)
+	api.ToolsGetter = common.NewToolsGetter(st, configGetter, st, urlGetter, getAuthOwner, newEnviron)
 	return api, nil
 }
 

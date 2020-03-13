@@ -131,8 +131,8 @@ func (s *ModelUpgraderSuite) TestModelTargetEnvironVersion(c *gc.C) {
 		{"GetModel", []interface{}{modelTag1.Id()}},
 		{"GetModel", []interface{}{modelTag2.Id()}},
 	})
-	s.pool.models[modelTag1.Id()].CheckCallNames(c, "Cloud")
-	s.pool.models[modelTag2.Id()].CheckCallNames(c, "Cloud")
+	s.pool.models[modelTag1.Id()].CheckCallNames(c, "CloudName")
+	s.pool.models[modelTag2.Id()].CheckCallNames(c, "CloudName")
 	s.providers.CheckCalls(c, []testing.StubCall{
 		{"Provider", []interface{}{"foo-provider"}},
 		{"Provider", []interface{}{"bar-provider"}},
@@ -219,8 +219,8 @@ type mockModel struct {
 	v     int
 }
 
-func (m *mockModel) Cloud() string {
-	m.MethodCall(m, "Cloud")
+func (m *mockModel) CloudName() string {
+	m.MethodCall(m, "CloudName")
 	m.PopNoErr()
 	return m.cloud
 }

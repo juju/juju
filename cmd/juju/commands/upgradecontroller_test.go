@@ -241,34 +241,45 @@ var _ = gc.Suite(&UpgradeCAASControllerSuite{})
 var upgradeCAASControllerTests = []upgradeTest{{
 	about:          "unwanted extra argument",
 	currentVersion: "1.0.0",
+	agentVersion:   "1.0.0",
 	args:           []string{"foo"},
 	expectInitErr:  "unrecognized args:.*",
 }, {
 	about:          "invalid --agent-version value",
 	currentVersion: "1.0.0",
+	agentVersion:   "1.0.0",
 	args:           []string{"--agent-version", "invalid-version"},
 	expectInitErr:  "invalid version .*",
 }, {
 	about:          "latest supported stable release",
 	available:      []string{"2.1.0", "2.1.2", "2.1.3", "2.1-dev1"},
+	streams:        []string{"2.1.0-quantal-amd64", "2.1.2-quantal-amd64", "2.1.3-quantal-amd64", "2.1-dev1-quantal-amd64"},
 	currentVersion: "2.0.0",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.1.3",
 }, {
 	about:          "latest supported stable release increments by one minor version number",
 	available:      []string{"1.21.3", "1.22.1"},
+	streams:        []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14",
 	expectVersion:  "1.21.3",
 }, {
 	about:          "latest supported stable release from custom version",
 	available:      []string{"1.21.3", "1.22.1"},
+	streams:        []string{"1.21.3-quantal-amd64", "1.22.1-quantal-amd64"},
 	currentVersion: "1.22.1",
 	agentVersion:   "1.20.14.1",
 	expectVersion:  "1.21.3",
+}, {
+	about:          "fallback to released if streams not available",
+	available:      []string{"1.21.3", "1.21.4", "1.22-beta1"},
+	currentVersion: "1.21.3",
+	agentVersion:   "1.21.3",
+	expectVersion:  "1.21.4",
 }}
 
-func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(minUpgradeVers map[int]version.Number) cmd.Command {
+func (s *UpgradeCAASControllerSuite) upgradeControllerCommand(_ map[int]version.Number) cmd.Command {
 	cmd := &upgradeControllerCommand{}
 	cmd.SetClientStore(s.ControllerStore)
 	return modelcmd.WrapController(cmd)
@@ -305,6 +316,8 @@ func (s *UpgradeCAASControllerSuite) assertUpgradeTests(c *gc.C, tests []upgrade
 			ModelUUID: coretesting.ModelTag.Id(),
 		})
 		c.Assert(err, jc.ErrorIsNil)
+
+		s.setUpEnvAndTools(c, test.currentVersion+"-quantal-amd64", test.agentVersion, test.streams)
 
 		// Set up apparent CLI version and initialize the command.
 		current := version.MustParse(test.currentVersion)

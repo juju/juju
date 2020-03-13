@@ -217,7 +217,7 @@ func newFacadeBase(ctx facade.Context) (*APIBase, error) {
 		caasBroker         caas.Broker
 	)
 	if facadeModel.Type() == state.ModelTypeCAAS {
-		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+		caasBroker, err = stateenvirons.GetNewCAASBrokerFunc(caas.New)(facadeModel)
 		if err != nil {
 			return nil, errors.Annotate(err, "getting caas client")
 		}

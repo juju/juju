@@ -110,6 +110,10 @@ func (s *modelInfoSuite) SetUpTest(c *gc.C) {
 		controllerUUID: s.st.controllerUUID,
 		isController:   false,
 		life:           state.Dying,
+		cloud: cloud.Cloud{
+			Type:      "dummy",
+			AuthTypes: []cloud.AuthType{cloud.EmptyAuthType},
+		},
 		status: status.StatusInfo{
 			Status: status.Destroying,
 			Since:  &time.Time{},
@@ -191,6 +195,7 @@ func (s *modelInfoSuite) TestModelInfoV7(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
+		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -267,6 +272,7 @@ func (s *modelInfoSuite) TestModelInfo(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
+		{"Model", nil},
 		{"GetBackend", []interface{}{s.st.model.cfg.UUID()}},
 		{"Model", nil},
 		{"IsController", nil},
@@ -282,6 +288,7 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 	c.Assert(got, jc.DeepEquals, expected)
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
+		{"Type", nil},
 		{"Name", nil},
 		{"Type", nil},
 		{"UUID", nil},
@@ -289,9 +296,9 @@ func (s *modelInfoSuite) assertModelInfo(c *gc.C, got, expected params.ModelInfo
 		{"UUID", nil},
 		{"Owner", nil},
 		{"Life", nil},
-		{"Cloud", nil},
+		{"CloudName", nil},
 		{"CloudRegion", nil},
-		{"CloudCredential", nil},
+		{"CloudCredentialTag", nil},
 		{"SLALevel", nil},
 		{"SLAOwner", nil},
 		{"Life", nil},
@@ -1045,6 +1052,8 @@ type mockModel struct {
 	migrationStatus     state.MigrationMode
 	controllerUUID      string
 	isController        bool
+	cloud               cloud.Cloud
+	cred                state.Credential
 	setCloudCredentialF func(tag names.CloudCredentialTag) (bool, error)
 }
 
@@ -1078,9 +1087,14 @@ func (m *mockModel) Status() (status.StatusInfo, error) {
 	return m.status, m.NextErr()
 }
 
-func (m *mockModel) Cloud() string {
-	m.MethodCall(m, "Cloud")
+func (m *mockModel) CloudName() string {
+	m.MethodCall(m, "CloudName")
 	return "some-cloud"
+}
+
+func (m *mockModel) Cloud() (cloud.Cloud, error) {
+	m.MethodCall(m, "CloudValue")
+	return m.cloud, nil
 }
 
 func (m *mockModel) CloudRegion() string {
@@ -1088,9 +1102,14 @@ func (m *mockModel) CloudRegion() string {
 	return "some-region"
 }
 
-func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
-	m.MethodCall(m, "CloudCredential")
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
+	m.MethodCall(m, "CloudCredentialTag")
 	return names.NewCloudCredentialTag("some-cloud/bob/some-credential"), true
+}
+
+func (m *mockModel) CloudCredential() (state.Credential, bool, error) {
+	m.MethodCall(m, "CloudCredential")
+	return m.cred, true, nil
 }
 
 func (m *mockModel) Users() ([]permission.UserAccess, error) {
@@ -1162,7 +1181,7 @@ func (m *mockModel) AutoConfigureContainerNetworking(environ environs.BootstrapE
 }
 
 func (m *mockModel) getModelDetails() state.ModelSummary {
-	cred, _ := m.CloudCredential()
+	cred, _ := m.CloudCredentialTag()
 	return state.ModelSummary{
 		Name:               m.Name(),
 		UUID:               m.UUID(),
@@ -1172,7 +1191,7 @@ func (m *mockModel) getModelDetails() state.ModelSummary {
 		ControllerUUID:     m.ControllerUUID(),
 		SLALevel:           m.SLALevel(),
 		SLAOwner:           m.SLAOwner(),
-		CloudTag:           m.Cloud(),
+		CloudTag:           m.CloudName(),
 		CloudRegion:        m.CloudRegion(),
 		CloudCredentialTag: cred.String(),
 	}

@@ -262,6 +262,7 @@ func (s *modelManagerSuite) TestCreateModelArgs(c *gc.C) {
 	s.st.CheckCallNames(c,
 		"ControllerTag",
 		"ModelUUID",
+		"Model",
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
@@ -434,6 +435,7 @@ func (s *modelManagerSuite) TestCreateCAASModelArgs(c *gc.C) {
 	s.caasSt.CheckCallNames(c,
 		"ControllerTag",
 		"ModelUUID",
+		"Model",
 		"ControllerTag",
 		"Cloud",
 		"CloudCredential",
@@ -748,6 +750,7 @@ func (s *modelManagerSuite) TestDumpModelMissingModel(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
+		{"Model", nil},
 		{"GetBackend", []interface{}{tag.Id()}},
 	})
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -806,6 +809,7 @@ func (s *modelManagerSuite) TestDumpModelsDBMissingModel(c *gc.C) {
 	s.st.CheckCalls(c, []gitjujutesting.StubCall{
 		{"ControllerTag", nil},
 		{"ModelUUID", nil},
+		{"Model", nil},
 		{"ModelTag", nil},
 		{"GetBackend", []interface{}{tag.Id()}},
 	})
@@ -870,6 +874,7 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 	s.st.CheckCallNames(c,
 		"ControllerTag",
 		"ModelUUID",
+		"Model",
 		"GetBackend",
 		"Model",
 		"GetBlockForType",
@@ -883,6 +888,7 @@ func (s *modelManagerSuite) TestDestroyModelsV3(c *gc.C) {
 	destroyStorage := true
 	s.st.model.CheckCalls(c, []gitjujutesting.StubCall{
 		{"UUID", nil},
+		{"Type", nil},
 		{"Status", nil},
 		{"Destroy", []interface{}{state.DestroyModelParams{
 			DestroyStorage: &destroyStorage,
@@ -922,7 +928,7 @@ func (s *modelManagerStateSuite) setAPIUser(c *gc.C, user names.UserTag) {
 	modelmanager, err := modelmanager.NewModelManagerAPI(
 		common.NewModelManagerBackend(s.Model, s.StatePool),
 		common.NewModelManagerBackend(s.Model, s.StatePool),
-		stateenvirons.EnvironConfigGetter{State: s.State, Model: s.Model},
+		stateenvirons.EnvironConfigGetter{Model: s.Model},
 		nil,
 		s.authoriser,
 		s.Model,
@@ -1873,7 +1879,7 @@ func (s *modelManagerSuite) TestChangeModelCredentialGetModelFail(c *gc.C) {
 
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(results.Results[0].Error, gc.ErrorMatches, `getting model`)
-	s.st.CheckCallNames(c, "ControllerTag", "ModelUUID", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
+	s.st.CheckCallNames(c, "ControllerTag", "ModelUUID", "Model", "ModelTag", "GetBlockForType", "ControllerTag", "GetModel")
 }
 
 func (s *modelManagerSuite) TestChangeModelCredentialNotUpdated(c *gc.C) {

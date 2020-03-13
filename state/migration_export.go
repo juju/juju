@@ -125,7 +125,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 
 	args := description.ModelArgs{
 		Type:               string(dbModel.Type()),
-		Cloud:              dbModel.Cloud(),
+		Cloud:              dbModel.CloudName(),
 		CloudRegion:        dbModel.CloudRegion(),
 		Owner:              dbModel.Owner(),
 		Config:             modelConfig.Settings,
@@ -134,7 +134,7 @@ func (st *State) exportImpl(cfg ExportConfig) (description.Model, error) {
 		Blocks:             blocks,
 	}
 	export.model = description.NewModel(args)
-	if credsTag, credsSet := dbModel.CloudCredential(); credsSet && !cfg.SkipCredentials {
+	if credsTag, credsSet := dbModel.CloudCredentialTag(); credsSet && !cfg.SkipCredentials {
 		creds, err := st.CloudCredential(credsTag)
 		if err != nil {
 			return nil, errors.Trace(err)

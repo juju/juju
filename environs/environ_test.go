@@ -19,7 +19,7 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) TestGetEnvironment(c *gc.C) {
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.Model)
 	c.Assert(err, jc.ErrorIsNil)
 	config, err := s.Model.ModelConfig()
 	c.Assert(err, jc.ErrorIsNil)

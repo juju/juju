@@ -98,11 +98,11 @@ func (s *CharmSuite) SetUpTest(c *gc.C) {
 	}
 	model, err := s.jcSuite.State.Model()
 	c.Assert(err, jc.ErrorIsNil)
-	cloud, err := s.jcSuite.State.Cloud(model.Cloud())
+	cloud, err := s.jcSuite.State.Cloud(model.CloudName())
 	c.Assert(err, jc.ErrorIsNil)
 	headers := []string{
 		"arch=amd64", // This is the architecture of the deployed applications.
-		"cloud=" + model.Cloud(),
+		"cloud=" + model.CloudName(),
 		"cloud_region=" + model.CloudRegion(),
 		"controller_uuid=" + s.jcSuite.State.ControllerUUID(),
 		"controller_version=" + version.Current.String(),
