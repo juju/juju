@@ -58,7 +58,7 @@ type Backing interface {
 	// ModelTag returns the tag of this model.
 	ModelTag() names.ModelTag
 
-	// SubnetByCIDR returns a subnet based on the input CIDR.
+	// SubnetByCIDR returns a unique subnet based on the input CIDR.
 	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
 
 	// AddSpace creates a space.

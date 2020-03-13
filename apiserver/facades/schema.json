@@ -34378,7 +34378,7 @@
     },
     {
         "Name": "Subnets",
-        "Version": 3,
+        "Version": 4,
         "Schema": {
             "type": "object",
             "properties": {
@@ -34390,14 +34390,6 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ErrorResults"
-                        }
-                    }
-                },
-                "AllSpaces": {
-                    "type": "object",
-                    "properties": {
-                        "Result": {
-                            "$ref": "#/definitions/SpaceResults"
                         }
                     }
                 },
@@ -34417,6 +34409,17 @@
                         },
                         "Result": {
                             "$ref": "#/definitions/ListSubnetsResults"
+                        }
+                    }
+                },
+                "SubnetsByCIDR": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/CIDRParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/SubnetsResults"
                         }
                     }
                 }
@@ -34465,6 +34468,21 @@
                     "additionalProperties": false,
                     "required": [
                         "subnets"
+                    ]
+                },
+                "CIDRParams": {
+                    "type": "object",
+                    "properties": {
+                        "cidrs": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidrs"
                     ]
                 },
                 "Error": {
@@ -34531,36 +34549,6 @@
                         "results"
                     ]
                 },
-                "SpaceResult": {
-                    "type": "object",
-                    "properties": {
-                        "error": {
-                            "$ref": "#/definitions/Error"
-                        },
-                        "tag": {
-                            "type": "string"
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "tag"
-                    ]
-                },
-                "SpaceResults": {
-                    "type": "object",
-                    "properties": {
-                        "results": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/SpaceResult"
-                            }
-                        }
-                    },
-                    "additionalProperties": false,
-                    "required": [
-                        "results"
-                    ]
-                },
                 "Subnet": {
                     "type": "object",
                     "properties": {
@@ -34604,6 +34592,56 @@
                         "zones"
                     ]
                 },
+                "SubnetV2": {
+                    "type": "object",
+                    "properties": {
+                        "Subnet": {
+                            "$ref": "#/definitions/Subnet"
+                        },
+                        "cidr": {
+                            "type": "string"
+                        },
+                        "id": {
+                            "type": "string"
+                        },
+                        "life": {
+                            "type": "string"
+                        },
+                        "provider-id": {
+                            "type": "string"
+                        },
+                        "provider-network-id": {
+                            "type": "string"
+                        },
+                        "provider-space-id": {
+                            "type": "string"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "status": {
+                            "type": "string"
+                        },
+                        "vlan-tag": {
+                            "type": "integer"
+                        },
+                        "zones": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "cidr",
+                        "vlan-tag",
+                        "life",
+                        "space-tag",
+                        "zones",
+                        "Subnet"
+                    ]
+                },
                 "SubnetsFilters": {
                     "type": "object",
                     "properties": {
@@ -34615,6 +34653,36 @@
                         }
                     },
                     "additionalProperties": false
+                },
+                "SubnetsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "subnets": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SubnetV2"
+                            }
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "SubnetsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/SubnetsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
                 },
                 "ZoneResult": {
                     "type": "object",

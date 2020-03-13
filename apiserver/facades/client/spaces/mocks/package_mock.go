@@ -15,7 +15,7 @@ import (
 	environs "github.com/juju/juju/environs"
 	config "github.com/juju/juju/environs/config"
 	state "github.com/juju/juju/state"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
 	txn "gopkg.in/mgo.v2/txn"
 	reflect "reflect"
 )
@@ -191,10 +191,10 @@ func (mr *MockBackingMockRecorder) ModelConfig() *gomock.Call {
 }
 
 // ModelTag mocks base method
-func (m *MockBacking) ModelTag() names_v3.ModelTag {
+func (m *MockBacking) ModelTag() names.ModelTag {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ModelTag")
-	ret0, _ := ret[0].(names_v3.ModelTag)
+	ret0, _ := ret[0].(names.ModelTag)
 	return ret0
 }
 

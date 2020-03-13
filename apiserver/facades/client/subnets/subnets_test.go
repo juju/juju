@@ -20,14 +20,16 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	apiservertesting "github.com/juju/juju/apiserver/testing"
 	"github.com/juju/juju/core/instance"
+	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/environs/context"
 	providercommon "github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
 
-// This suite shows the new mocking suite. While below shows the old suite we want to migrate from.
-type SubnetTestMockSuite struct {
+// SubnetSuite uses mocks for testing.
+// All future facade tests should be added to this suite.
+type SubnetSuite struct {
 	mockBacking          *mocks.MockBacking
 	mockResource         *facademocks.MockResources
 	mockCloudCallContext *context.CloudCallContext
@@ -36,31 +38,50 @@ type SubnetTestMockSuite struct {
 	api *subnets.API
 }
 
-var _ = gc.Suite(&SubnetTestMockSuite{})
+var _ = gc.Suite(&SubnetSuite{})
 
-func (s *SubnetTestMockSuite) TearDownTest(c *gc.C) {
+func (s *SubnetSuite) TearDownTest(c *gc.C) {
 	s.api = nil
 }
 
-func (s *SubnetTestMockSuite) TestAllSpaces(c *gc.C) {
+func (s *SubnetSuite) TestSubnetsByCIDR(c *gc.C) {
 	ctrl := s.setupSubnetsAPI(c)
 	defer ctrl.Finish()
-	tag := names.NewSpaceTag("myspace")
 
-	spacesMock := networkcommonmocks.NewMockBackingSpace(ctrl)
-	spacesMock.EXPECT().Name().Return(tag.Id())
+	cidrs := []string{"10.10.10.0/24", "10.10.20.0/24", "not-a-cidr"}
 
-	s.mockBacking.EXPECT().AllSpaces().Return([]networkingcommon.BackingSpace{spacesMock}, nil)
+	subnet := networkcommonmocks.NewMockBackingSubnet(ctrl)
+	sExp := subnet.EXPECT()
+	sExp.ID().Return("1")
+	sExp.CIDR().Return("10.10.20.0/24")
+	sExp.SpaceName().Return("space")
+	sExp.VLANTag().Return(0)
+	sExp.ProviderId().Return(network.Id("0"))
+	sExp.ProviderNetworkId().Return(network.Id("1"))
+	sExp.AvailabilityZones().Return([]string{"bar", "bam"})
+	sExp.Status().Return("in-use")
+	sExp.Life().Return(life.Value("alive"))
 
-	spaces, err := s.api.AllSpaces()
+	bExp := s.mockBacking.EXPECT()
+	gomock.InOrder(
+		bExp.SubnetsByCIDR(cidrs[0]).Return(nil, errors.New("bad-mongo")),
+		bExp.SubnetsByCIDR(cidrs[1]).Return([]networkingcommon.BackingSubnet{subnet}, nil),
+		// No call for cidrs[2]; the input is invalidated.
+	)
+
+	arg := params.CIDRParams{CIDRS: cidrs}
+	res, err := s.api.SubnetsByCIDR(arg)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(spaces.Results, gc.HasLen, 1)
-	c.Assert(spaces.Results[0].Tag, gc.Equals, tag.String())
-	c.Assert(spaces.Results[0].Error, gc.IsNil)
 
+	results := res.Results
+	c.Assert(results, gc.HasLen, 3)
+
+	c.Check(results[0].Error.Message, gc.Equals, "bad-mongo")
+	c.Check(results[1].Subnets, gc.HasLen, 1)
+	c.Check(results[2].Error.Message, gc.Equals, `CIDR "not-a-cidr" not valid`)
 }
 
-func (s *SubnetTestMockSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
+func (s *SubnetSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 	s.mockResource = facademocks.NewMockResources(ctrl)
 	s.mockCloudCallContext = context.NewCloudCallContext()
@@ -78,6 +99,10 @@ func (s *SubnetTestMockSuite) setupSubnetsAPI(c *gc.C) *gomock.Controller {
 	return ctrl
 }
 
+// SubnetsSuite is the old testing suite based on testing stubs.
+// This should be phased out in favour of mock-based tests.
+// The testing network infrastructure should also be removed as soon as can be
+// managed.
 type SubnetsSuite struct {
 	coretesting.BaseSuite
 	apiservertesting.StubNetwork
@@ -91,6 +116,10 @@ type SubnetsSuite struct {
 
 type stubBacking struct {
 	*apiservertesting.StubBacking
+}
+
+func (sb *stubBacking) SubnetsByCIDR(_ string) ([]networkingcommon.BackingSubnet, error) {
+	panic("should not be called")
 }
 
 var _ = gc.Suite(&SubnetsSuite{})
@@ -356,9 +385,15 @@ func (s *SubnetsSuite) TestAllSpacesNoExistingSuccess(c *gc.C) {
 }
 
 func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiservertesting.SetUpFlag) {
-	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubZonedEnvironName, apiservertesting.WithZones, withBackingSpaces, apiservertesting.WithSubnets)
+	apiservertesting.BackingInstance.SetUp(c,
+		apiservertesting.StubZonedEnvironName,
+		apiservertesting.WithZones,
+		withBackingSpaces,
+		apiservertesting.WithSubnets,
+	)
 
-	results, err := s.facade.AllSpaces()
+	api := &subnets.APIv3{API: s.facade}
+	results, err := api.AllSpaces()
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertAllSpacesResult(c, results, apiservertesting.BackingInstance.Spaces)
 
@@ -370,7 +405,8 @@ func (s *SubnetsSuite) testAllSpacesSuccess(c *gc.C, withBackingSpaces apiserver
 func (s *SubnetsSuite) TestAllSpacesFailure(c *gc.C) {
 	apiservertesting.SharedStub.SetErrors(errors.NotFoundf("boom"))
 
-	results, err := s.facade.AllSpaces()
+	api := &subnets.APIv3{API: s.facade}
+	results, err := api.AllSpaces()
 	c.Assert(err, gc.ErrorMatches, "boom not found")
 	// Verify the cause is not obscured.
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
@@ -569,7 +605,7 @@ func (s *SubnetsSuite) TestAddSubnetAPI(c *gc.C) {
 func (s *SubnetsSuite) TestAddSubnetAPIv2(c *gc.C) {
 	apiservertesting.BackingInstance.SetUp(c, apiservertesting.StubNetworkingEnvironName,
 		apiservertesting.WithZones, apiservertesting.WithSpaces, apiservertesting.WithSubnets)
-	apiV2 := &subnets.APIv2{s.facade}
+	apiV2 := &subnets.APIv2{APIv3: &subnets.APIv3{API: s.facade}}
 	results, err := apiV2.AddSubnets(params.AddSubnetsParamsV2{
 		Subnets: []params.AddSubnetParamsV2{
 			{
