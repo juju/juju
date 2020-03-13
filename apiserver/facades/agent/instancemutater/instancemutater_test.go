@@ -5,14 +5,14 @@ package instancemutater_test
 
 import (
 	"fmt"
-	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v6"
 	"time"
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	coretesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
+	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common"
@@ -66,7 +66,7 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewInstanceMutaterAPIForTest(s.state, s.model, s.resources, s.authorizer, s.machineFunc)
+	facade, err := instancemutater.NewTestAPI(s.state, s.model, s.resources, s.authorizer, s.machineFunc)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -257,6 +257,10 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Contr
 	return ctrl
 }
 
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmShimNilInnerProfile(c *gc.C) {
+	c.Assert(instancemutater.NewEmptyCharmShim().LXDProfile(), gc.DeepEquals, lxdprofile.Profile{})
+}
+
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -267,7 +271,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 		Entity:  s.entity,
 		Lifer:   s.lifer,
 	})
-	s.expectInstanceId(instance.Id("0"))
+	s.expectInstanceId("0")
 	s.expectUnits(1)
 	s.expectCharmProfiles()
 	s.expectProfileExtraction(c)
@@ -313,7 +317,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 		Entity:  s.entity,
 		Lifer:   s.lifer,
 	})
-	s.expectInstanceId(instance.Id("0"))
+	s.expectInstanceId("0")
 	s.expectUnits(2)
 	s.expectCharmProfiles()
 	s.expectProfileExtraction(c)
