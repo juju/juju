@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2013 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.
