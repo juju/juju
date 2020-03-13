@@ -256,7 +256,7 @@ type stubRunner struct {
 	ran  chan struct{}
 }
 
-func (r *stubRunner) RunHook(code, info string, abort <-chan struct{}) error {
+func (r *stubRunner) RunHook(code, info string, abort <-chan struct{}) {
 	r.stub.MethodCall(r, "RunHook", code, info)
 	if r.ran != nil {
 		select {
@@ -265,7 +265,6 @@ func (r *stubRunner) RunHook(code, info string, abort <-chan struct{}) error {
 			panic("timed out signaling hook run")
 		}
 	}
-	return r.stub.NextErr()
 }
 
 type fakemachinelock struct {

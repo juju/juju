@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	jworker "github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/fortress"
 	"github.com/juju/juju/worker/metrics/spool"
 	"github.com/juju/juju/worker/uniter"
@@ -256,7 +257,7 @@ type hookRunner struct {
 func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 	h.m.Lock()
 	defer h.m.Unlock()
-	logger.Tracef("recording metrics")
+	logger.Debugf("recording metrics")
 
 	ctx := newHookContext(h.unitTag, recorder)
 	err := ctx.addJujuUnitsMetric()
@@ -265,9 +266,17 @@ func (h *hookRunner) do(recorder spool.MetricRecorder) error {
 	}
 
 	r := runner.NewRunner(ctx, h.paths, nil)
-	_, err = r.RunHook(string(hooks.CollectMetrics))
-	if err != nil {
-		return errors.Annotatef(err, "error running 'collect-metrics' hook")
+	handlerType, err := r.RunHook(string(hooks.CollectMetrics))
+	switch {
+	case charmrunner.IsMissingHookError(errors.Cause(err)):
+		fallthrough
+	case err == nil && handlerType == runner.InvalidHookHandler:
+		logger.Debugf("skipped %q hook (missing)", hooks.CollectMetrics)
+	case err != nil:
+		return errors.Annotatef(err, "error running %q hook", hooks.CollectMetrics)
+	default:
+		logger.Debugf("ran %q hook (via %s)", hooks.CollectMetrics, handlerType)
 	}
+
 	return nil
 }

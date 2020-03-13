@@ -11,13 +11,14 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/core/machinelock"
+	"github.com/juju/juju/worker/common/charmrunner"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/runner"
 )
 
 // HookRunner implements the functionality necessary to run a meter-status-changed hook.
 type HookRunner interface {
-	RunHook(string, string, <-chan struct{}) error
+	RunHook(string, string, <-chan struct{})
 }
 
 // hookRunner implements functionality for running a hook.
@@ -52,7 +53,7 @@ func (w *hookRunner) acquireExecutionLock(action string, interrupt <-chan struct
 	return releaser, nil
 }
 
-func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runErr error) {
+func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) {
 	unitTag := w.tag
 	ctx := NewLimitedContext(unitTag.String())
 	ctx.SetEnvVars(map[string]string{
@@ -63,9 +64,18 @@ func (w *hookRunner) RunHook(code, info string, interrupt <-chan struct{}) (runE
 	r := runner.NewRunner(ctx, paths, nil)
 	releaser, err := w.acquireExecutionLock(string(hooks.MeterStatusChanged), interrupt)
 	if err != nil {
-		return errors.Annotate(err, "failed to acquire machine lock")
+		logger.Errorf("failed to acquire machine lock: %v", err)
+		return
 	}
 	defer releaser()
-	_, err = r.RunHook(string(hooks.MeterStatusChanged))
-	return err
+	handlerType, err := r.RunHook(string(hooks.MeterStatusChanged))
+	cause := errors.Cause(err)
+	switch {
+	case charmrunner.IsMissingHookError(cause):
+		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
+	case err != nil:
+		logger.Errorf("error running %q: %v", hooks.MeterStatusChanged, err)
+	default:
+		logger.Infof("ran %q hook (via %s)", hooks.MeterStatusChanged, handlerType)
+	}
 }
