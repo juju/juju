@@ -86,7 +86,7 @@ type k8sPodSpecLegacy struct {
 // Validate is defined on ProviderPod.
 func (ksl *k8sPodSpecLegacy) Validate() error {
 	for k, crd := range ksl.CustomResourceDefinitions {
-		if err := validateCustomResourceDefinition(k, crd); err != nil {
+		if err := validateCustomResourceDefinitionV2(k, crd); err != nil {
 			return errors.Trace(err)
 		}
 	}
@@ -147,7 +147,7 @@ func (p podSpecLegacy) ToLatest() *specs.PodSpec {
 	if !iPodSpec.IsEmpty() || p.k8sPodSpecLegacy.CustomResourceDefinitions != nil {
 		pSpec.ProviderPod = &K8sPodSpec{
 			KubernetesResources: &KubernetesResources{
-				CustomResourceDefinitions: p.k8sPodSpecLegacy.CustomResourceDefinitions,
+				CustomResourceDefinitions: customResourceDefinitionsToLatest(p.k8sPodSpecLegacy.CustomResourceDefinitions),
 				Pod:                       iPodSpec,
 			},
 		}

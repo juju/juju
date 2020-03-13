@@ -72,7 +72,7 @@ containers:
       attr: foo=bar; name["fred"]="blogs";
       foo: bar
       brackets: '["hello", "world"]'
-      restricted: 'yes'
+      restricted: "yes"
       switch: on
       special: p@ssword's
       my-resource-limit:
@@ -119,16 +119,16 @@ containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
-    - containerPort: 8080
-      protocol: TCP
+      - containerPort: 8080
+        protocol: TCP
   - name: secret-image-user
     imageDetails:
-        imagePath: staging.registry.org/testing/testing-image@sha256:deed-beef
-        username: docker-registry
-        password: hunter2
+      imagePath: staging.registry.org/testing/testing-image@sha256:deed-beef
+      username: docker-registry
+      password: hunter2
   - name: just-image-details
     imageDetails:
-        imagePath: testing/no-secrets-needed@sha256:deed-beef
+      imagePath: testing/no-secrets-needed@sha256:deed-beef
   - name: gitlab-init
     image: gitlab-init/latest
     imagePullPolicy: Always
@@ -142,15 +142,15 @@ containers:
     args: ["doIt", "--debug"]
     workingDir: "/path/to/here"
     ports:
-    - containerPort: 80
-      name: fred
-      protocol: TCP
-    - containerPort: 443
-      name: mary
+      - containerPort: 80
+        name: fred
+        protocol: TCP
+      - containerPort: 443
+        name: mary
     envConfig:
       brackets: '["hello", "world"]'
       foo: bar
-      restricted: 'yes'
+      restricted: "yes"
       switch: on
       special: p@ssword's
 configMaps:
@@ -164,40 +164,40 @@ service:
 serviceAccount:
   automountServiceAccountToken: true
   roles:
-  - global: true
-    rules:
-    - apiGroups: [""]
-      resources: ["pods"]
-      verbs: ["get", "watch", "list"]
+    - global: true
+      rules:
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "watch", "list"]
 kubernetesResources:
   serviceAccounts:
-  - name: k8sServiceAccount1
-    automountServiceAccountToken: true
-    roles:
-    - name: k8sRole
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
-      - nonResourceURLs: ["/healthz", "/healthz/*"] # '*' in a nonResourceURL is a suffix glob match
-        verbs: ["get", "post"]
-      - apiGroups: ["rbac.authorization.k8s.io"]
-        resources: ["clusterroles"]
-        verbs: ["bind"]
-        resourceNames: ["admin","edit","view"]
-    - name: k8sClusterRole
-      global: true
-      rules:
-      - apiGroups: [""]
-        resources: ["pods"]
-        verbs: ["get", "watch", "list"]
+    - name: k8sServiceAccount1
+      automountServiceAccountToken: true
+      roles:
+        - name: k8sRole
+          rules:
+            - apiGroups: [""]
+              resources: ["pods"]
+              verbs: ["get", "watch", "list"]
+            - nonResourceURLs: ["/healthz", "/healthz/*"] # '*' in a nonResourceURL is a suffix glob match
+              verbs: ["get", "post"]
+            - apiGroups: ["rbac.authorization.k8s.io"]
+              resources: ["clusterroles"]
+              verbs: ["bind"]
+              resourceNames: ["admin", "edit", "view"]
+        - name: k8sClusterRole
+          global: true
+          rules:
+            - apiGroups: [""]
+              resources: ["pods"]
+              verbs: ["get", "watch", "list"]
   pod:
     restartPolicy: OnFailure
     activeDeadlineSeconds: 10
     terminationGracePeriodSeconds: 20
     securityContext:
       runAsNonRoot: true
-      supplementalGroups: [1,2]
+      supplementalGroups: [1, 2]
     readinessGates:
       - conditionType: PodScheduled
     dnsPolicy: ClusterFirstWithHostNet
@@ -206,62 +206,63 @@ kubernetesResources:
     - name: build-robot-secret
       type: Opaque
       stringData:
-          config.yaml: |-
-              apiUrl: "https://my.api.com/api/v1"
-              username: fred
-              password: shhhh
+        config.yaml: |-
+          apiUrl: "https://my.api.com/api/v1"
+          username: fred
+          password: shhhh
     - name: another-build-robot-secret
       type: Opaque
       data:
-          username: YWRtaW4=
-          password: MWYyZDFlMmU2N2Rm
+        username: YWRtaW4=
+        password: MWYyZDFlMmU2N2Rm
   customResourceDefinitions:
-    tfjobs.kubeflow.org:
-      group: kubeflow.org
-      scope: Cluster
-      names:
-        kind: TFJob
-        singular: tfjob
-        plural: tfjobs
-      version: v1
-      versions:
-      - name: v1
-        served: true
-        storage: true
-      - name: v1beta2
-        served: true
-        storage: false
-      conversion:
-        strategy: None
-      preserveUnknownFields: false
-      additionalPrinterColumns:
-      - name: Worker
-        type: integer
-        description: Worker attribute.
-        jsonPath: .spec.tfReplicaSpecs.Worker
-      validation:
-        openAPIV3Schema:
-          properties:
-            spec:
-              properties:
-                tfReplicaSpecs:
-                  properties:
-                    Worker:
-                      properties:
-                        replicas:
-                          type: integer
-                          minimum: 1
-                    PS:
-                      properties:
-                        replicas:
-                          type: integer
-                          minimum: 1
-                    Chief:
-                      properties:
-                        replicas:
-                          type: integer
-                          minimum: 1
-                          maximum: 1
+    - name: tfjobs.kubeflow.org
+      spec:
+        group: kubeflow.org
+        scope: Cluster
+        names:
+          kind: TFJob
+          singular: tfjob
+          plural: tfjobs
+        version: v1
+        versions:
+          - name: v1
+            served: true
+            storage: true
+          - name: v1beta2
+            served: true
+            storage: false
+        conversion:
+          strategy: None
+        preserveUnknownFields: false
+        additionalPrinterColumns:
+          - name: Worker
+            type: integer
+            description: Worker attribute.
+            jsonPath: .spec.tfReplicaSpecs.Worker
+        validation:
+          openAPIV3Schema:
+            properties:
+              spec:
+                properties:
+                  tfReplicaSpecs:
+                    properties:
+                      Worker:
+                        properties:
+                          replicas:
+                            type: integer
+                            minimum: 1
+                      PS:
+                        properties:
+                          replicas:
+                            type: integer
+                            minimum: 1
+                      Chief:
+                        properties:
+                          replicas:
+                            type: integer
+                            minimum: 1
+                            maximum: 1
   customResources:
     tfjobs.kubeflow.org:
       - apiVersion: "kubeflow.org/v1"
@@ -294,12 +295,12 @@ kubernetesResources:
         nginx.ingress.kubernetes.io/rewrite-target: /
       spec:
         rules:
-        - http:
-            paths:
-            - path: /testpath
-              backend:
-                serviceName: test
-                servicePort: 80
+          - http:
+              paths:
+                - path: /testpath
+                  backend:
+                    serviceName: test
+                    servicePort: 80
   mutatingWebhookConfigurations:
     example-mutatingwebhookconfiguration:
       - name: "example.mutatingwebhookconfiguration.com"
@@ -312,27 +313,27 @@ kubernetesResources:
           caBundle: "YXBwbGVz"
         namespaceSelector:
           matchExpressions:
-          - key: production
-            operator: DoesNotExist
+            - key: production
+              operator: DoesNotExist
         rules:
-        - apiGroups:
-          - ""
-          apiVersions:
-          - v1
-          operations:
-          - CREATE
-          - UPDATE
-          resources:
-          - pods
+          - apiGroups:
+              - ""
+            apiVersions:
+              - v1
+            operations:
+              - CREATE
+              - UPDATE
+            resources:
+              - pods
   validatingWebhookConfigurations:
     pod-policy.example.com:
       - name: "pod-policy.example.com"
         rules:
-        - apiGroups:   [""]
-          apiVersions: ["v1"]
-          operations:  ["CREATE"]
-          resources:   ["pods"]
-          scope:       "Namespaced"
+          - apiGroups: [""]
+            apiVersions: ["v1"]
+            operations: ["CREATE"]
+            resources: ["pods"]
+            scope: "Namespaced"
         clientConfig:
           service:
             namespace: "example-namespace"
@@ -341,6 +342,7 @@ kubernetesResources:
         admissionReviewVersions: ["v1", "v1beta1"]
         sideEffects: None
         timeoutSeconds: 5
+
 `[1:]
 
 	expectedFileContent := `
@@ -720,60 +722,63 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-					"tfjobs.kubeflow.org": {
-						Group:   "kubeflow.org",
-						Version: "v1",
-						Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
-							{Name: "v1", Served: true, Storage: true},
-							{Name: "v1beta2", Served: true, Storage: false},
-						},
-						Scope:                 "Cluster",
-						PreserveUnknownFields: boolPtr(false),
-						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-							Kind:     "TFJob",
-							Plural:   "tfjobs",
-							Singular: "tfjob",
-						},
-						Conversion: &apiextensionsv1beta1.CustomResourceConversion{
-							Strategy: apiextensionsv1beta1.NoneConverter,
-						},
-						AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
-							{
-								Name:        "Worker",
-								Type:        "integer",
-								Description: "Worker attribute.",
-								JSONPath:    ".spec.tfReplicaSpecs.Worker",
+				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
+					{
+						Name: "tfjobs.kubeflow.org",
+						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+							Group:   "kubeflow.org",
+							Version: "v1",
+							Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+								{Name: "v1", Served: true, Storage: true},
+								{Name: "v1beta2", Served: true, Storage: false},
 							},
-						},
-						Validation: &apiextensionsv1beta1.CustomResourceValidation{
-							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"spec": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"tfReplicaSpecs": {
-												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"PS": {
-														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-															"replicas": {
-																Type: "integer", Minimum: float64Ptr(1),
+							Scope:                 "Cluster",
+							PreserveUnknownFields: boolPtr(false),
+							Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+								Kind:     "TFJob",
+								Plural:   "tfjobs",
+								Singular: "tfjob",
+							},
+							Conversion: &apiextensionsv1beta1.CustomResourceConversion{
+								Strategy: apiextensionsv1beta1.NoneConverter,
+							},
+							AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+								{
+									Name:        "Worker",
+									Type:        "integer",
+									Description: "Worker attribute.",
+									JSONPath:    ".spec.tfReplicaSpecs.Worker",
+								},
+							},
+							Validation: &apiextensionsv1beta1.CustomResourceValidation{
+								OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"spec": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"tfReplicaSpecs": {
+													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+														"PS": {
+															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																"replicas": {
+																	Type: "integer", Minimum: float64Ptr(1),
+																},
 															},
 														},
-													},
-													"Chief": {
-														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-															"replicas": {
-																Type:    "integer",
-																Minimum: float64Ptr(1),
-																Maximum: float64Ptr(1),
+														"Chief": {
+															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																"replicas": {
+																	Type:    "integer",
+																	Minimum: float64Ptr(1),
+																	Maximum: float64Ptr(1),
+																},
 															},
 														},
-													},
-													"Worker": {
-														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-															"replicas": {
-																Type:    "integer",
-																Minimum: float64Ptr(1),
+														"Worker": {
+															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																"replicas": {
+																	Type:    "integer",
+																	Minimum: float64Ptr(1),
+																},
 															},
 														},
 													},
@@ -941,39 +946,40 @@ containers:
   - name: gitlab-helper
     image: gitlab-helper/latest
     ports:
-    - containerPort: 8080
-      protocol: TCP
+      - containerPort: 8080
+        protocol: TCP
 kubernetesResources:
   customResourceDefinitions:
-    tfjobs.kubeflow.org:
-      group: kubeflow.org
-      version: v1alpha2
-      scope: invalid-scope
-      names:
-        plural: "tfjobs"
-        singular: "tfjob"
-        kind: TFJob
-      validation:
-        openAPIV3Schema:
-          properties:
-            tfReplicaSpecs:
-              properties:
-                Worker:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                PS:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                Chief:
-                  properties:
-                    replicas:
-                      type: integer
-                      minimum: 1
-                      maximum: 1
+    - name: tfjobs.kubeflow.org
+      spec:
+        group: kubeflow.org
+        version: v1alpha2
+        scope: invalid-scope
+        names:
+          plural: "tfjobs"
+          singular: "tfjob"
+          kind: TFJob
+        validation:
+          openAPIV3Schema:
+            properties:
+              tfReplicaSpecs:
+                properties:
+                  Worker:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                  PS:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                  Chief:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                        maximum: 1
 `[1:]
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
