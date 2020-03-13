@@ -2129,27 +2129,25 @@ func (e *Environ) terminateInstances(ctx context.ProviderCallContext, ids []inst
 }
 
 func (e *Environ) terminateInstanceNetworkPorts(id instance.Id) error {
-	filter := neutron.NewFilter()
-	filter.Set("device_id", string(id))
-
-	client := e.neutron()
-	instancePorts, err := client.ListPortsV2(filter)
+	novaClient := e.nova()
+	osInterfaces, err := novaClient.ListOSInterfaces(string(id))
 	if err != nil {
 		return errors.Trace(err)
 	}
 
+	client := e.neutron()
+
 	// Unfortunately we're unable to bulk delete these ports, so we have to go
 	// over them, one by one.
 	var errs []error
-	for _, port := range instancePorts {
-		// Ensure we have the ports we want.
-		if port.DeviceId != string(id) {
+	for _, osInterface := range osInterfaces {
+		if osInterface.PortID == "" {
 			continue
 		}
 
 		// Delete a port. If we encounter an error add it to the list of errors
 		// and continue until we've exhausted all the ports to delete.
-		if err := client.DeletePortV2(port.Id); err != nil {
+		if err := client.DeletePortV2(osInterface.PortID); err != nil {
 			errs = append(errs, err)
 			continue
 		}
