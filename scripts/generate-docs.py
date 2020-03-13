@@ -1,4 +1,11 @@
-#!/usr/bin/env python
+#!/bin/sh
+"""":
+python  -c "" 2>/dev/null && exec python  $0 ${1+"$@"}
+python3 -c "" 2>/dev/null && exec python3 $0 ${1+"$@"}
+python2 -c "" 2>/dev/null && exec python2 $0 ${1+"$@"}
+echo "Could not find a python interpreter."
+exit 1
+"""
 
 # Copyright 2013 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.
