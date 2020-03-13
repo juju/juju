@@ -68,8 +68,8 @@ type Config struct {
 	// OperatorInfo contains serving information such as Certs and PrivateKeys.
 	OperatorInfo caas.OperatorInfo
 
-	// ExecClient is used for initilizing units.
-	ExecClient exec.Executor
+	// NewExecClient for initilizing units.
+	NewExecClient func() (exec.Executor, error)
 
 	// InitializeUnit with the charm and configuration.
 	InitializeUnit InitializeUnitFunc
@@ -91,8 +91,8 @@ func (config Config) Validate() error {
 	if config.DataDir == "" {
 		return errors.NotValidf("missing DataDir")
 	}
-	if config.ExecClient == nil {
-		return errors.NotValidf("missing ExecClient")
+	if config.NewExecClient == nil {
+		return errors.NotValidf("missing NewExecClient")
 	}
 	if config.InitializeUnit == nil {
 		return errors.NotValidf("missing InitializeUnit")
@@ -134,9 +134,14 @@ func (w *caasUnitInitWorker) Wait() error {
 }
 
 func (w *caasUnitInitWorker) loop() error {
+	execClient, err := w.config.NewExecClient()
+	if err != nil {
+		return errors.Annotatef(err, "failed to create ExecClient")
+	}
+
 	containerStartWatcher, err := w.config.ContainerStartWatcher.WatchContainerStart(w.config.Application, caas.InitContainerName)
 	if err != nil {
-		return errors.Trace(err)
+		return errors.Annotatef(err, "failed to create container start watcher")
 	}
 	if err := w.catacomb.Add(containerStartWatcher); err != nil {
 		return errors.Trace(err)
@@ -157,7 +162,7 @@ func (w *caasUnitInitWorker) loop() error {
 					UnitProviderIDFunc: w.config.UnitProviderIDFunc,
 					Paths:              w.config.Paths,
 					OperatorInfo:       w.config.OperatorInfo,
-					ExecClient:         w.config.ExecClient,
+					ExecClient:         execClient,
 					WriteFile:          ioutil.WriteFile,
 					TempDir:            ioutil.TempDir,
 				}
