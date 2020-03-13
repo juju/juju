@@ -80,7 +80,6 @@ func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 
 type StateSuite struct {
 	ConnSuite
-	model *state.Model
 }
 
 var _ = gc.Suite(&StateSuite{})
@@ -94,9 +93,6 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 		return validator, nil
 	}
 
-	model, err := s.State.Model()
-	c.Assert(err, jc.ErrorIsNil)
-	s.model = model
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
 }
 
@@ -957,7 +953,7 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesmodelDying(c *gc.C) {
-	err := s.model.Destroy(state.DestroyModelParams{})
+	err := s.Model.Destroy(state.DestroyModelParams{})
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -968,15 +964,15 @@ func (s *StateSuite) TestAddMachinesmodelDyingAfterInitial(c *gc.C) {
 	// Check that machines cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(s.model.Life(), gc.Equals, state.Alive)
-		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
+		c.Assert(s.Model.Life(), gc.Equals, state.Alive)
+		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, `cannot add a new machine: model "testmodel" is no longer alive`)
 }
 
 func (s *StateSuite) TestAddMachinesmodelMigrating(c *gc.C) {
-	err := s.model.SetMigrationMode(state.MigrationModeExporting)
+	err := s.Model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	// Check that machines cannot be added if the model is initially Dying.
 	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1706,7 +1702,7 @@ func (s *StateSuite) TestAddApplicationModelDying(c *gc.C) {
 func (s *StateSuite) TestAddApplicationModelMigrating(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	// Check that applications cannot be added if the model is initially Dying.
-	err := s.model.SetMigrationMode(state.MigrationModeExporting)
+	err := s.Model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 	_, err = s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is being migrated`)
@@ -1760,8 +1756,8 @@ func (s *StateSuite) TestAddApplicationModelDyingAfterInitial(c *gc.C) {
 	// Check that applications cannot be added if the model is initially
 	// Alive but set to Dying immediately before the transaction is run.
 	defer state.SetBeforeHooks(c, s.State, func() {
-		c.Assert(s.model.Life(), gc.Equals, state.Alive)
-		c.Assert(s.model.Destroy(state.DestroyModelParams{}), gc.IsNil)
+		c.Assert(s.Model.Life(), gc.Equals, state.Alive)
+		c.Assert(s.Model.Destroy(state.DestroyModelParams{}), gc.IsNil)
 	}).Check()
 	_, err := s.State.AddApplication(state.AddApplicationArgs{Name: "s1", Charm: charm})
 	c.Assert(err, gc.ErrorMatches, `cannot add application "s1": model "testmodel" is no longer alive`)
@@ -2230,7 +2226,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 
 func (s *StateSuite) TestWatchModelsBulkEvents(c *gc.C) {
 	// Alive model...
-	alive := s.model
+	alive := s.Model
 
 	// Dying model...
 	st1 := s.Factory.MakeModel(c, nil)
@@ -2753,7 +2749,7 @@ func (s *StateSuite) insertFakeModelDocs(c *gc.C, st *state.State) string {
 		})
 	c.Assert(err, jc.ErrorIsNil)
 
-	return state.UserModelNameIndex(s.model.Owner().Id(), s.model.Name())
+	return state.UserModelNameIndex(s.Model.Owner().Id(), s.Model.Name())
 }
 
 type checkUserModelNameArgs struct {
@@ -2918,7 +2914,7 @@ func (s *StateSuite) TestRemoveImportingModelDocsImporting(c *gc.C) {
 	err = m.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.model.SetMigrationMode(state.MigrationModeImporting)
+	err = s.Model.SetMigrationMode(state.MigrationModeImporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = st.RemoveImportingModelDocs()
@@ -2971,7 +2967,7 @@ func (s *StateSuite) TestRemoveExportingModelDocsExporting(c *gc.C) {
 	err = st.RemoveExportingModelDocs()
 	c.Assert(err, jc.ErrorIsNil)
 
-	err = s.model.SetMigrationMode(state.MigrationModeExporting)
+	err = s.Model.SetMigrationMode(state.MigrationModeExporting)
 	c.Assert(err, jc.ErrorIsNil)
 
 	err = s.State.RemoveExportingModelDocs()
@@ -3102,7 +3098,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, jc.ErrorIsNil)
 	s.WaitForModelWatchersIdle(c, s.Model.UUID())
-	w := s.model.WatchForModelConfigChanges()
+	w := s.Model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -3128,7 +3124,7 @@ func (s *StateSuite) TestWatchForModelConfigChanges(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
-	w := s.model.WatchForModelConfigChanges()
+	w := s.Model.WatchForModelConfigChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -3136,7 +3132,7 @@ func (s *StateSuite) TestWatchForModelConfigControllerChanges(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchCloudSpecChanges(c *gc.C) {
-	w := s.model.WatchCloudSpecChanges()
+	w := s.Model.WatchCloudSpecChanges()
 	defer statetesting.AssertStop(c, w)
 
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
@@ -3342,7 +3338,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 
 	findEntityTests = append([]findEntityTest{}, findEntityTests...)
 	findEntityTests = append(findEntityTests, findEntityTest{
-		tag: names.NewModelTag(s.model.UUID()),
+		tag: names.NewModelTag(s.Model.UUID()),
 	})
 
 	for i, test := range findEntityTests {
@@ -3358,7 +3354,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// TODO(axw) 2013-12-04 #1257587
 				// We *should* only be able to get the entity with its tag, but
 				// for backwards-compatibility we accept any non-UUID tag.
-				c.Assert(e.Tag(), gc.Equals, s.model.Tag())
+				c.Assert(e.Tag(), gc.Equals, s.Model.Tag())
 			} else if kind == names.UserTagKind {
 				// Test the fully qualified username rather than the tag structure itself.
 				expected := test.tag.(names.UserTag).Id()
@@ -3411,7 +3407,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	f, err := u.AddAction("snapshot", nil)
 	c.Assert(err, jc.ErrorIsNil)
 
-	action, err := s.model.Action(f.Id())
+	action, err := s.Model.Action(f.Id())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(action.Id()))
 	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, action.Tag())
@@ -3429,10 +3425,10 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseModelTag(c *gc.C) {
-	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, s.model.Tag())
+	coll, id, err := state.ConvertTagToCollectionNameAndId(s.State, s.Model.Tag())
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(coll, gc.Equals, "models")
-	c.Assert(id, gc.Equals, s.model.UUID())
+	c.Assert(id, gc.Equals, s.Model.UUID())
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -4356,70 +4352,6 @@ func (s *StateSuite) TestAPIHostPortsForAgentsNoDocument(c *gc.C) {
 	gotHostPorts, err := s.State.APIHostPortsForAgents()
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
-}
-
-func (s *StateSuite) TestWatchAPIHostPortsForClients(c *gc.C) {
-	w := s.State.WatchAPIHostPortsForClients()
-	defer statetesting.AssertStop(c, w)
-
-	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	err := s.State.SetAPIHostPorts([]network.SpaceHostPorts{network.NewSpaceHostPorts(99, "0.1.2.3")})
-	c.Assert(err, jc.ErrorIsNil)
-
-	wc.AssertOneChange()
-
-	// Stop, check closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
-}
-
-func (s *StateSuite) TestWatchAPIHostPortsForAgents(c *gc.C) {
-	sp, err := s.State.AddSpace("mgmt01", "", nil, false)
-	c.Assert(err, jc.ErrorIsNil)
-
-	s.SetJujuManagementSpace(c, "mgmt01")
-
-	w := s.State.WatchAPIHostPortsForAgents()
-	defer statetesting.AssertStop(c, w)
-
-	// Initial event.
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
-	wc.AssertOneChange()
-
-	mgmtHP := network.SpaceHostPort{
-		SpaceAddress: network.SpaceAddress{
-			MachineAddress: network.MachineAddress{
-				Value: "0.4.8.16",
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
-			},
-			SpaceID: sp.Id(),
-		},
-		NetPort: 2,
-	}
-
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{mgmtHP}})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertOneChange()
-
-	// This should cause no change to APIHostPortsForAgents.
-	// We expect only one watcher notification.
-	err = s.State.SetAPIHostPorts([]network.SpaceHostPorts{{
-		mgmtHP,
-		network.SpaceHostPort{
-			SpaceAddress: network.NewScopedSpaceAddress("0.1.2.3", network.ScopeCloudLocal),
-			NetPort:      99,
-		},
-	}})
-	c.Assert(err, jc.ErrorIsNil)
-	wc.AssertNoChange()
-
-	// Stop, check closed.
-	statetesting.AssertStop(c, w)
-	wc.AssertClosed()
 }
 
 func (s *StateSuite) TestNowToTheSecond(c *gc.C) {
