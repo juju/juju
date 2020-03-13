@@ -130,7 +130,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsModelTeardown(
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	selector = mergeSelectors(selector, jujuCRDSelectorForModelTearDown)
+	selector = mergeSelectors(selector, labelSelectorGlobalResourcesLifecycleForModelTearDown)
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
 		k.deleteCustomResourceDefinitions, func(selector k8slabels.Selector) error {
 			_, err := k.listCustomResourceDefinitions(selector)

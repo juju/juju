@@ -17,7 +17,6 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
 
@@ -34,7 +33,7 @@ func operatorLabels(appName string) map[string]string {
 }
 
 func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {
-	selector := k8slabels.SelectorFromSet(operatorLabels(appName))
+	selector := labelSetToSelector(operatorLabels(appName))
 	if err := k.deleteRoleBindings(selector); err != nil {
 		return errors.Trace(err)
 	}

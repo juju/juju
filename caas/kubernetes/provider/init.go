@@ -12,11 +12,17 @@ import (
 
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
 
-var k8sCloudCheckers map[string][]k8slabels.Selector
-var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
-var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
-var jujuCRDSelectorForApplicationRemoval k8slabels.Selector
-var jujuCRDSelectorForModelTearDown k8slabels.Selector
+var (
+	k8sCloudCheckers             map[string][]k8slabels.Selector
+	jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
+	jujuPreferredOperatorStorage map[string]caas.PreferredStorage
+
+	// labelSelectorGlobalResourcesLifecycleForApplicationRemoval is the label selector for removing global resources for application removal.
+	labelSelectorGlobalResourcesLifecycleForApplicationRemoval k8slabels.Selector
+
+	// labelSelectorGlobalResourcesLifecycleForModelTearDown is the label selector for removing global resources for model teardown.
+	labelSelectorGlobalResourcesLifecycleForModelTearDown k8slabels.Selector
+)
 
 func init() {
 	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
@@ -64,19 +70,17 @@ func init() {
 	// TODO - support regional storage for GCE etc
 	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
 
-	// jujuCRDSelectorForApplicationRemoval is the label selector for removing CRDs for application removal.
-	jujuCRDSelectorForApplicationRemoval = newLabelRequirements(
+	labelSelectorGlobalResourcesLifecycleForApplicationRemoval = newLabelRequirements(
 		requirementParams{
-			labelCRDLifeCycleKey, selection.NotIn, []string{
-				labelCRDLifeCycleValueModel,
-				labelCRDLifeCycleValuePersistent,
+			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
+				labelGlobalResourceLifeCycleValueModel,
+				labelGlobalResourceLifeCycleValuePersistent,
 			}},
 	)
-	// jujuCRDSelectorForModelTearDown is the label selector for removing CRDs for model teardown.
-	jujuCRDSelectorForModelTearDown = newLabelRequirements(
+	labelSelectorGlobalResourcesLifecycleForModelTearDown = newLabelRequirements(
 		requirementParams{
-			labelCRDLifeCycleKey, selection.NotIn, []string{
-				labelCRDLifeCycleValuePersistent,
+			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
+				labelGlobalResourceLifeCycleValuePersistent,
 			}},
 	)
 }

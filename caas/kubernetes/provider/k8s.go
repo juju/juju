@@ -72,10 +72,10 @@ const (
 	labelApplicationUUID = "juju-app-uuid"
 	labelModel           = "juju-model"
 
-	// labelCRDLifeCycleKey defines the label key for lifecycle of the CRD resources.
-	labelCRDLifeCycleKey             = "juju-crd-lifecycle"
-	labelCRDLifeCycleValueModel      = "model"
-	labelCRDLifeCycleValuePersistent = "persistent"
+	// labelGlobalResourceLifeCycleKey defines the label key for lifecycle of the CRD resources.
+	labelGlobalResourceLifeCycleKey             = "juju-global-resource-lifecycle"
+	labelGlobalResourceLifeCycleValueModel      = "model"
+	labelGlobalResourceLifeCycleValuePersistent = "persistent"
 
 	gpuAffinityNodeSelectorKey = "gpu"
 

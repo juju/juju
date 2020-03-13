@@ -56,7 +56,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfiguration(cfg *admissionregi
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listMutatingWebhookConfigurations(k8slabels.SelectorFromSet(cfg.GetLabels()))
+	_, err = k.listMutatingWebhookConfigurations(labelSetToSelector(cfg.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cfg.Name is already used for an existing MutatingWebhookConfiguration.
@@ -137,7 +137,7 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurations(selector k8slabel
 }
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurationsForApp(appName string) error {
-	selector := k8slabels.SelectorFromSet(k.getAdmissionControllerLabels(appName))
+	selector := labelSetToSelector(k.getAdmissionControllerLabels(appName))
 	return errors.Trace(k.deleteMutatingWebhookConfigurations(selector))
 }
 
@@ -174,7 +174,7 @@ func (k *kubernetesClient) ensureValidatingWebhookConfiguration(cfg *admissionre
 	if !errors.IsAlreadyExists(err) {
 		return cleanUp, errors.Trace(err)
 	}
-	_, err = k.listValidatingWebhookConfigurations(k8slabels.SelectorFromSet(cfg.GetLabels()))
+	_, err = k.listValidatingWebhookConfigurations(labelSetToSelector(cfg.GetLabels()))
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// cfg.Name is already used for an existing ValidatingWebhookConfiguration.
@@ -255,6 +255,6 @@ func (k *kubernetesClient) deleteValidatingWebhookConfigurations(selector k8slab
 }
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurationsForApp(appName string) error {
-	selector := k8slabels.SelectorFromSet(k.getAdmissionControllerLabels(appName))
+	selector := labelSetToSelector(k.getAdmissionControllerLabels(appName))
 	return errors.Trace(k.deleteValidatingWebhookConfigurations(selector))
 }

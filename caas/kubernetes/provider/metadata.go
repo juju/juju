@@ -41,13 +41,22 @@ func labelSetToRequirements(labels k8slabels.Set) (out []k8slabels.Requirement) 
 	return out
 }
 
+func labelSetToSelector(labels k8slabels.Set) k8slabels.Selector {
+	s := k8slabels.NewSelector()
+	for k, v := range labels {
+		r, _ := k8slabels.NewRequirement(k, selection.DoubleEquals, []string{v})
+		s = s.Add(*r)
+	}
+	return s
+}
+
 func mergeSelectors(selectors ...k8slabels.Selector) k8slabels.Selector {
 	s := k8slabels.NewSelector()
 	for _, v := range selectors {
 		if !v.Empty() {
 			rs, selectable := v.Requirements()
 			if selectable {
-				s.Add(rs...)
+				s = s.Add(rs...)
 			} else {
 				logger.Criticalf("%v is not selectable", v)
 			}

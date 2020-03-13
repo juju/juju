@@ -127,7 +127,7 @@ func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Sele
 }
 
 func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
-	selector := jujuCRDSelectorForApplicationRemoval.DeepCopySelector().Add(
+	selector := labelSelectorGlobalResourcesLifecycleForApplicationRemoval.DeepCopySelector().Add(
 		labelSetToRequirements(k.getAPIExtensionLabelsGlobal(appName))...,
 	)
 	return errors.Trace(k.deleteCustomResourceDefinitions(selector))
@@ -147,7 +147,7 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 
 func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
 	selectorGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
-		return k8slabels.SelectorFromSet(k.getCRLabels(appName, crd.Spec.Scope))
+		return labelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope))
 	}
 	return k.deleteCustomResources(selectorGetter)
 }
