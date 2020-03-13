@@ -72,7 +72,7 @@ func (s *iaasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.State)
+	env, err := stateenvirons.GetNewEnvironFunc(environs.New)(s.Model)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(env)
 	pm := poolmanager.New(state.NewStateSettings(s.State), registry)
@@ -104,7 +104,7 @@ func (s *caasProvisionerSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.State)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(s.Model)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	pm := poolmanager.New(state.NewStateSettings(s.State), registry)

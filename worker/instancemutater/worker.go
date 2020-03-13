@@ -10,6 +10,7 @@ import (
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/catacomb"
+	"gopkg.in/juju/worker.v1/dependency"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/api/instancemutater"
@@ -90,7 +91,13 @@ func (config Config) Validate() error {
 		return errors.NotValidf("nil Tag")
 	}
 	if _, ok := config.Tag.(names.MachineTag); !ok {
-		return errors.NotValidf("Tag")
+		if config.Tag.Kind() != names.ControllerAgentTagKind {
+			// On K8s controllers, the controller agent has a ControllerAgentTagKind not a MachineKind
+			// However, we shouldn't be running the InstanceMutater worker to track the state on the Controller
+			// machine anyway. This is a hack for bug #1866623
+			return errors.NotValidf("Tag of kind %v", config.Tag.Kind())
+		}
+		config.Logger.Debugf("asked to start an instance mutator with Tag of kind %q", config.Tag.Kind())
 	}
 	if config.GetMachineWatcher == nil {
 		return errors.NotValidf("nil GetMachineWatcher")
@@ -122,6 +129,10 @@ func NewEnvironWorker(config Config) (worker.Worker, error) {
 // the containers in the state for this machine agent and
 // polls their instance for addition or removal changes.
 func NewContainerWorker(config Config) (worker.Worker, error) {
+	if _, ok := config.Tag.(names.MachineTag); !ok {
+		config.Logger.Warningf("cannot start a ContainerWorker on a %q, not restarting", config.Tag.Kind())
+		return nil, dependency.ErrUninstall
+	}
 	m, err := config.Facade.Machine(config.Tag.(names.MachineTag))
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -146,7 +157,6 @@ func newWorker(config Config) (*mutaterWorker, error) {
 		logger:                     config.Logger,
 		facade:                     config.Facade,
 		broker:                     config.Broker,
-		machineTag:                 config.Tag.(names.MachineTag),
 		machineWatcher:             watcher,
 		getRequiredLXDProfilesFunc: config.GetRequiredLXDProfiles,
 		getRequiredContextFunc:     config.GetRequiredContext,
@@ -169,7 +179,6 @@ type mutaterWorker struct {
 
 	logger                     Logger
 	broker                     environs.LXDProfiler
-	machineTag                 names.MachineTag
 	facade                     InstanceMutaterAPI
 	machineWatcher             watcher.StringsWatcher
 	getRequiredLXDProfilesFunc RequiredLXDProfilesFunc

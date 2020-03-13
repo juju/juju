@@ -154,11 +154,11 @@ func retrieveLatestCharmInfo(st *state.State) ([]latestCharmInfo, error) {
 		"model_uuid":         model.UUID(),
 		"controller_uuid":    st.ControllerUUID(),
 		"controller_version": version.Current.String(),
-		"cloud":              model.Cloud(),
+		"cloud":              model.CloudName(),
 		"cloud_region":       model.CloudRegion(),
 		"is_controller":      strconv.FormatBool(model.IsControllerModel()),
 	}
-	cloud, err := st.Cloud(model.Cloud())
+	cloud, err := st.Cloud(model.CloudName())
 	if err != nil {
 		metadata["provider"] = "unknown"
 	} else {

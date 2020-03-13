@@ -20,7 +20,7 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 		return nil, errors.Trace(err)
 	}
 	return &stateShim{
-		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{State: st, Model: m},
+		EnvironConfigGetter: stateenvirons.EnvironConfigGetter{Model: m},
 		State:               st,
 		model:               m,
 	}, nil

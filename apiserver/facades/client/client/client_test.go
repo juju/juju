@@ -86,7 +86,7 @@ func (s *serverSuite) authClientForState(c *gc.C, st *state.State, auth facade.A
 	c.Assert(err, jc.ErrorIsNil)
 
 	s.newEnviron = func() (environs.BootstrapEnviron, error) {
-		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{State: st, Model: m}, environs.New)
+		return environs.GetEnviron(stateenvirons.EnvironConfigGetter{Model: m}, environs.New)
 	}
 	client.SetNewEnviron(apiserverClient, func() (environs.BootstrapEnviron, error) {
 		return s.newEnviron()

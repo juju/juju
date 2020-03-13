@@ -54,6 +54,34 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.portsWithoutSubnet, gc.NotNil)
 }
 
+func (s *PortsDocSuite) openPorts(c *gc.C, ports *state.Ports, unitname string) {
+	err := ports.OpenPorts(state.PortRange{
+		FromPort: 100,
+		ToPort:   200,
+		UnitName: unitname,
+		Protocol: "TCP",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+}
+
+func (s *PortsDocSuite) TestModelAllPorts(c *gc.C) {
+	s.openPorts(c, s.portsOnSubnet, s.unit1.Name())
+	s.openPorts(c, s.portsWithoutSubnet, s.unit1.Name())
+
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{Series: "quantal"})
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{Application: s.application, Machine: machine})
+	ports, err := state.GetOrCreatePorts(s.State, machine.Id(), s.subnet.ID())
+	c.Assert(err, jc.ErrorIsNil)
+	s.openPorts(c, ports, unit.Name())
+	ports, err = state.GetOrCreatePorts(s.State, machine.Id(), "")
+	c.Assert(err, jc.ErrorIsNil)
+	s.openPorts(c, ports, unit.Name())
+
+	allPorts, err := s.Model.AllPorts()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(allPorts, gc.HasLen, 4)
+}
+
 func (s *PortsDocSuite) TestCreatePortsWithSubnet(c *gc.C) {
 	s.testCreatePortsWithSubnetID(c, s.subnet.ID())
 }
@@ -72,7 +100,8 @@ func (s *PortsDocSuite) testCreatePortsWithSubnetID(c *gc.C, subnetID string) {
 
 	ports, err = state.GetPorts(s.State, s.machine.Id(), subnetID)
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(ports, gc.NotNil)
+	c.Assert(ports.MachineID(), gc.Equals, s.machine.Id())
+	c.Assert(ports.SubnetID(), gc.Equals, subnetID)
 
 	c.Assert(ports.PortsForUnit(s.unit1.Name()), gc.HasLen, 1)
 }

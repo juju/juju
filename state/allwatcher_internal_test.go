@@ -85,7 +85,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 	c.Assert(err, jc.ErrorIsNil)
 	modelStatus, err := model.Status()
 	c.Assert(err, jc.ErrorIsNil)
-	credential, _ := model.CloudCredential()
+	credential, _ := model.CloudCredentialTag()
 	add(&multiwatcher.ModelInfo{
 		ModelUUID:       model.UUID(),
 		Name:            model.Name(),
@@ -93,7 +93,7 @@ func (s *allWatcherBaseSuite) setUpScenario(c *gc.C, st *State, units int) (enti
 		Owner:           model.Owner().Id(),
 		ControllerUUID:  model.ControllerUUID(),
 		IsController:    model.IsControllerModel(),
-		Cloud:           model.Cloud(),
+		Cloud:           model.CloudName(),
 		CloudRegion:     model.CloudRegion(),
 		CloudCredential: credential.Id(),
 		Config:          modelCfg.AllAttrs(),
@@ -1084,7 +1084,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			cons := constraints.MustParse("mem=4G")
 			err = st.SetModelConstraints(cons)
 			c.Assert(err, jc.ErrorIsNil)
-			credential, _ := model.CloudCredential()
+			credential, _ := model.CloudCredentialTag()
 
 			return changeTestCase{
 				about: "model is added if it's in backing but not in Store",
@@ -1100,7 +1100,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Owner:           model.Owner().Id(),
 						ControllerUUID:  model.ControllerUUID(),
 						IsController:    model.IsControllerModel(),
-						Cloud:           model.Cloud(),
+						Cloud:           model.CloudName(),
 						CloudRegion:     model.CloudRegion(),
 						CloudCredential: credential.Id(),
 						Config:          cfg.AllAttrs(),
@@ -1127,7 +1127,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 			c.Assert(err, jc.ErrorIsNil)
 			status, err := model.Status()
 			c.Assert(err, jc.ErrorIsNil)
-			credential, _ := model.CloudCredential()
+			credential, _ := model.CloudCredentialTag()
 			return changeTestCase{
 				about: "model is updated if it's in backing and in Store",
 				initialContents: []multiwatcher.EntityInfo{
@@ -1165,7 +1165,7 @@ func (s *allModelWatcherStateSuite) TestChangeModels(c *gc.C) {
 						Owner:           model.Owner().Id(),
 						ControllerUUID:  model.ControllerUUID(),
 						IsController:    model.IsControllerModel(),
-						Cloud:           model.Cloud(),
+						Cloud:           model.CloudName(),
 						CloudRegion:     model.CloudRegion(),
 						CloudCredential: credential.Id(),
 						Config:          cfg.AllAttrs(),
@@ -1278,7 +1278,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 		func(c *gc.C, st *State) changeTestCase {
 			model, err := st.Model()
 			c.Assert(err, jc.ErrorIsNil)
-			credential, _ := model.CloudCredential()
+			credential, _ := model.CloudCredentialTag()
 
 			return changeTestCase{
 				about: "model update keeps permissions",
@@ -1302,7 +1302,7 @@ func testChangePermissions(c *gc.C, runChangeTests func(*gc.C, []changeTestFunc)
 					Owner:           model.Owner().Id(),
 					ControllerUUID:  testing.ControllerTag.Id(),
 					IsController:    model.IsControllerModel(),
-					Cloud:           model.Cloud(),
+					Cloud:           model.CloudName(),
 					CloudRegion:     model.CloudRegion(),
 					CloudCredential: credential.Id(),
 					SLA:             multiwatcher.ModelSLAInfo{Level: "unsupported"},

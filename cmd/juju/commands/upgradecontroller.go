@@ -5,14 +5,18 @@ package commands
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/api/modelconfig"
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/cloudconfig/podcfg"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/modelcmd"
@@ -23,6 +27,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
+	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
@@ -64,7 +69,7 @@ type upgradeControllerCommand struct {
 	modelcmd.ControllerCommandBase
 	baseUpgradeCommand
 
-	upgradeJujuAPI upgradeJujuAPI
+	upgradeJujuAPI jujuClientAPI
 	rawArgs        []string
 }
 
@@ -81,7 +86,7 @@ func (c *upgradeControllerCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.baseUpgradeCommand.SetFlags(f)
 }
 
-func (c *upgradeControllerCommand) getUpgradeJujuAPI() (upgradeJujuAPI, error) {
+func (c *upgradeControllerCommand) getUpgradeJujuAPI() (jujuClientAPI, error) {
 	if c.upgradeJujuAPI != nil {
 		return c.upgradeJujuAPI, nil
 	}
@@ -144,6 +149,46 @@ func (c *upgradeControllerCommand) Run(ctx *cmd.Context) (err error) {
 	return c.upgradeIAASController(ctx, fullControllerModelName)
 }
 
+// fetchStreamsVersions returns simplestreams agent metadata
+// for the specified stream. timeout ensures we don't block forever.
+func fetchStreamsVersions(
+	client toolsAPI, majorVersion int, stream string, timeout time.Duration,
+) (tools.List, error) {
+	// Use a go routine so we can timeout.
+	result := make(chan tools.List, 1)
+	errChan := make(chan error, 1)
+	go func() {
+		findResult, err := client.FindTools(majorVersion, -1, "", "", stream)
+		if err == nil {
+			if findResult.Error != nil {
+				err = findResult.Error
+				// We need to deal with older controllers.
+				if strings.HasSuffix(findResult.Error.Message, "not valid") {
+					err = errors.NotValidf("finding stream data for this model")
+				}
+			}
+		}
+		if err != nil {
+			errChan <- err
+		} else {
+			result <- findResult.List
+		}
+	}()
+
+	for {
+		select {
+		case <-time.After(timeout):
+			return nil, nil
+		case err := <-errChan:
+			return nil, err
+		case resultList := <-result:
+			return resultList, nil
+		}
+	}
+}
+
+const caasStreamsTimeout = 20 * time.Second
+
 func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error {
 	if c.BuildAgent {
 		return errors.NotSupportedf("--build-agent for k8s controller upgrades")
@@ -197,10 +242,9 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 		return err
 	}
 
-	c.upgradeMessage = "upgrade to this version by running\n    juju upgrade-controller"
-	context, err := initCAASVersions(controllerCfg, c.Version, currentAgentVersion, warnCompat)
-	if err != nil {
-		return err
+	context, versionsErr := c.initVersions(client, controllerCfg, cfg, currentAgentVersion, warnCompat, caasStreamsTimeout, c.initCAASVersions)
+	if versionsErr != nil && !params.IsCodeNotFound(versionsErr) {
+		return versionsErr
 	}
 
 	if err := context.maybeChoosePackagedAgent(); err != nil {
@@ -217,6 +261,7 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
 	}
 	if c.DryRun {
+		c.upgradeMessage = "upgrade to this version by running\n    juju upgrade-controller"
 		fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
 		return nil
 	}
@@ -227,50 +272,43 @@ func (c *upgradeControllerCommand) upgradeCAASController(ctx *cmd.Context) error
 // agent and client versions, and the list of currently available operator images, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func initCAASVersions(
-	controllerCfg controller.Config, desiredVersion, agentVersion version.Number, filterOnPrior bool,
-) (*upgradeContext, error) {
-	if desiredVersion == agentVersion {
-		return nil, errUpToDate
-	}
-
-	filterVersion := jujuversion.Current
-	if desiredVersion != version.Zero {
-		filterVersion = desiredVersion
-	} else if filterOnPrior {
-		filterVersion.Major--
-	}
-	logger.Debugf("searching for agent images with major: %d", filterVersion.Major)
+func (c *baseUpgradeCommand) initCAASVersions(
+	controllerCfg controller.Config, majorVersion int, streamsAgents tools.List,
+) (tools.Versions, error) {
+	logger.Debugf("searching for agent images with major: %d", majorVersion)
 	imagePath := podcfg.GetJujuOCIImagePath(controllerCfg, version.Zero, 0)
 	availableTags, err := docker.ListOperatorImages(imagePath)
 	if err != nil {
 		return nil, err
 	}
+	streamsVersions := set.NewStrings()
+	for _, a := range streamsAgents {
+		streamsVersions.Add(a.Version.Number.String())
+	}
 	logger.Debugf("found available tags: %v", availableTags)
 	var matchingTags tools.Versions
 	for _, t := range availableTags {
 		vers := t.AgentVersion()
-		if filterVersion.Major != -1 && vers.Major != filterVersion.Major {
+		if majorVersion != -1 && vers.Major != majorVersion {
 			continue
+		}
+		// Only include a docker image if we've published simple streams
+		// metadata for that version.
+		vers.Build = 0
+		if streamsVersions.Size() > 0 {
+			if !streamsVersions.Contains(vers.String()) {
+				continue
+			}
+		} else {
+			// Fallback for when we can't query the streams versions.
+			// Ignore tagged (non-release) versions if agent stream is released.
+			if (c.AgentStream == "" || c.AgentStream == envtools.ReleasedStream) && vers.Tag != "" {
+				continue
+			}
 		}
 		matchingTags = append(matchingTags, t)
 	}
-
-	logger.Debugf("found matching tags: %v", matchingTags)
-	if len(matchingTags) == 0 {
-		// No images found, so if we are not asking for a major upgrade,
-		// pretend there is no more recent version available.
-		if desiredVersion == version.Zero && agentVersion.Major == filterVersion.Major {
-			return nil, errUpToDate
-		}
-		return nil, err
-	}
-	return &upgradeContext{
-		agent:          agentVersion,
-		client:         jujuversion.Current,
-		chosen:         desiredVersion,
-		packagedAgents: matchingTags,
-	}, nil
+	return matchingTags, nil
 }
 
 func (c *upgradeControllerCommand) upgradeIAASController(ctx *cmd.Context, controllerModel string) error {

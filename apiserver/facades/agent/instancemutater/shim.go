@@ -90,6 +90,9 @@ type charmShim struct {
 
 func (s *charmShim) LXDProfile() lxdprofile.Profile {
 	profile := s.Charm.LXDProfile()
+	if profile == nil {
+		return lxdprofile.Profile{}
+	}
 	return lxdprofile.Profile{
 		Config:      profile.Config,
 		Description: profile.Description,

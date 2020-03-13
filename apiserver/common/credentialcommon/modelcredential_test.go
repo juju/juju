@@ -565,7 +565,7 @@ type mockModel struct {
 	cloudCredentialFunc    func() (names.CloudCredentialTag, bool)
 }
 
-func (m *mockModel) Cloud() string {
+func (m *mockModel) CloudName() string {
 	return m.cloudFunc()
 }
 
@@ -581,7 +581,7 @@ func (m *mockModel) Type() state.ModelType {
 	return m.modelType
 }
 
-func (m *mockModel) CloudCredential() (names.CloudCredentialTag, bool) {
+func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
 	return m.cloudCredentialFunc()
 }
 

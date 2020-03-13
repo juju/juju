@@ -188,3 +188,41 @@ func writeConstraints(mb modelBackend, id string, cons constraints.Value) error 
 	}
 	return nil
 }
+
+// AllConstraints retrieves all the constraints in the model
+// and provides a way to query based on machine or application.
+func (m *Model) AllConstraints() (*ModelConstraints, error) {
+	coll, closer := m.st.db().GetCollection(constraintsC)
+	defer closer()
+
+	var docs []constraintsDoc
+	err := coll.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all constraints for model")
+	}
+	all := &ModelConstraints{
+		data: make(map[string]constraintsDoc),
+	}
+	for _, doc := range docs {
+		all.data[m.localID(doc.DocID)] = doc
+	}
+	return all, nil
+}
+
+// ModelConstraints represents all the contraints in  a model
+// keyed on global key.
+type ModelConstraints struct {
+	data map[string]constraintsDoc
+}
+
+// Machine returns the constraints for the specified machine.
+func (c *ModelConstraints) Machine(machineID string) constraints.Value {
+	doc, found := c.data[machineGlobalKey(machineID)]
+	if !found {
+		return constraints.Value{}
+	}
+	return doc.value()
+}
+
+// TODO: add methods for Model and Application constraints checks
+// if desired. Not currently used in status calls.

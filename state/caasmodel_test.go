@@ -122,7 +122,7 @@ func (s *CAASModelSuite) TestDestroyModel(c *gc.C) {
 
 func (s *CAASModelSuite) TestDestroyModelDestroyStorage(c *gc.C) {
 	model, st := s.newCAASModel(c)
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(st)
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	c.Assert(err, jc.ErrorIsNil)
 	registry := stateenvirons.NewStorageProviderRegistry(broker)
 	s.policy = testing.MockPolicy{

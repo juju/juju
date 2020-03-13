@@ -5,6 +5,7 @@ package instancemutater
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
 	worker "gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/dependency"
 
@@ -78,7 +79,7 @@ func (config ModelManifoldConfig) newWorker(environ environs.Environ, apiCaller 
 
 	w, err := config.NewWorker(cfg)
 	if err != nil {
-		return nil, errors.Annotate(err, "cannot start machine instancemutater worker")
+		return nil, errors.Annotate(err, "cannot start model instance-mutater worker")
 	}
 	return w, nil
 }
@@ -180,14 +181,19 @@ func (config MachineManifoldConfig) newWorker(instanceBroker environs.InstanceBr
 		config.Logger.Debugf("Uninstalling worker because the broker is not a LXDProfiler %T", instanceBroker)
 		return nil, dependency.ErrUninstall
 	}
-	facade := config.NewClient(apiCaller)
 	agentConfig := agent.CurrentConfig()
+	tag := agentConfig.Tag()
+	if _, ok := tag.(names.MachineTag); !ok {
+		config.Logger.Warningf("cannot start a ContainerWorker on a %q, not starting", tag.Kind())
+		return nil, dependency.ErrUninstall
+	}
+	facade := config.NewClient(apiCaller)
 	cfg := Config{
 		Logger:      config.Logger,
 		Facade:      facade,
 		Broker:      broker,
 		AgentConfig: agentConfig,
-		Tag:         agentConfig.Tag(),
+		Tag:         tag,
 	}
 
 	w, err := config.NewWorker(cfg)

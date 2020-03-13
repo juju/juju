@@ -101,6 +101,75 @@ func (s *statusSuite) TestFullStatusUnitLeadership(c *gc.C) {
 	c.Assert(unit.Leader, jc.IsTrue)
 }
 
+func (s *statusSuite) TestFullStatusUnitScaling(c *gc.C) {
+	machine := s.Factory.MakeMachine(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
+		Machine: machine,
+	})
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker := s.State.TrackQueries()
+
+	client := s.APIState.Client()
+	_, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryCount := tracker.ReadCount()
+
+	// Add several more units of the same application to the
+	// same machine. We do this because we want to isolate to
+	// status handling to just additional units, not additional machines
+	// or applications.
+	app, err := unit.Application()
+	c.Assert(err, jc.ErrorIsNil)
+	for i := 0; i < 5; i++ {
+		s.Factory.MakeUnit(c, &factory.UnitParams{
+			Application: app,
+			Machine:     machine,
+		})
+	}
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker.Reset()
+
+	_, err = client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The number of queries should be the same.
+	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
+		gc.Commentf("if the query count is not the same, there has been a regression "+
+			"in the processing of units, please fix it"))
+}
+
+func (s *statusSuite) TestFullStatusMachineScaling(c *gc.C) {
+	s.Factory.MakeMachine(c, nil)
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker := s.State.TrackQueries()
+
+	client := s.APIState.Client()
+	_, err := client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	queryCount := tracker.ReadCount()
+
+	// Add several more machines to the model.
+	for i := 0; i < 5; i++ {
+		s.Factory.MakeMachine(c, nil)
+	}
+
+	s.WaitForModelWatchersIdle(c, s.State.ModelUUID())
+	tracker.Reset()
+
+	_, err = client.Status(nil)
+	c.Assert(err, jc.ErrorIsNil)
+
+	// The number of queries should be the same.
+	c.Check(tracker.ReadCount(), gc.Equals, queryCount,
+		gc.Commentf("if the query count is not the same, there has been a regression "+
+			"in the processing of machines, please fix it"))
+}
+
 func (s *statusSuite) TestFullStatusInterfaceScaling(c *gc.C) {
 	machine := s.addMachine(c)
 	s.createSpaceAndSubnetWithProviderID(c, "public", "10.0.0.0/24", "prov-0000")

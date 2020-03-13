@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
@@ -362,91 +363,28 @@ func (c *upgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err != nil {
 		return errors.Trace(err)
 	}
-	if modelType == model.CAAS {
-		return c.upgradeCAASModel(ctx)
-	}
-	return c.upgradeIAASModel(ctx)
-}
-
-func (c *upgradeJujuCommand) upgradeCAASModel(ctx *cmd.Context) (err error) {
-	if c.BuildAgent {
-		return errors.NotSupportedf("--build-agent for k8s model upgrades")
-	}
-	client, err := c.getJujuClientAPI()
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	modelConfigClient, err := c.getModelConfigAPI()
-	if err != nil {
-		return err
-	}
-	defer modelConfigClient.Close()
-	controllerAPI, err := c.getControllerAPI()
-	if err != nil {
-		return err
-	}
-	defer controllerAPI.Close()
-
-	defer func() {
-		if err == errUpToDate {
-			ctx.Infof(err.Error())
-			err = nil
+	// The default available agents come directly from streams metadata.
+	availableAgents := func(controllerCfg controller.Config, majorVersion int, streamsVersions coretools.List) (coretools.Versions, error) {
+		agents := make(coretools.Versions, len(streamsVersions))
+		for i, t := range streamsVersions {
+			agents[i] = t
 		}
-	}()
-
-	// Determine the version to upgrade to.
-	attrs, err := modelConfigClient.ModelGet()
-	if err != nil {
-		return err
+		return agents, nil
 	}
-	cfg, err := config.New(config.NoDefaults, attrs)
-	if err != nil {
-		return err
+	implicitAgentUploadAllowed := true
+	fetchToolsTimeout := 10 * time.Minute
+	if modelType == model.CAAS {
+		if c.BuildAgent {
+			return errors.NotSupportedf("--build-agent for k8s model upgrades")
+		}
+		implicitAgentUploadAllowed = false
+		fetchToolsTimeout = caasStreamsTimeout
+		availableAgents = c.initCAASVersions
 	}
-
-	currentAgentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		// Can't happen. In theory.
-		return errors.New("incomplete model configuration")
-	}
-
-	warnCompat, err := c.precheck(ctx, currentAgentVersion)
-	if err != nil {
-		return err
-	}
-
-	controllerCfg, err := controllerAPI.ControllerConfig()
-	if err != nil {
-		return err
-	}
-
-	context, err := initCAASVersions(controllerCfg, c.Version, currentAgentVersion, warnCompat)
-	if err != nil {
-		return err
-	}
-
-	if err := context.maybeChoosePackagedAgent(); err != nil {
-		ctx.Verbosef("%v", err)
-		return err
-	}
-
-	if err := context.validate(); err != nil {
-		return err
-	}
-	ctx.Verbosef("available agent images:\n%s", formatVersions(context.packagedAgents))
-	fmt.Fprintf(ctx.Stderr, "best version:\n    %v\n", context.chosen)
-	if warnCompat {
-		fmt.Fprintf(ctx.Stderr, "version %s incompatible with this client (%s)\n", context.chosen, jujuversion.Current)
-	}
-	if c.DryRun {
-		fmt.Fprintf(ctx.Stderr, "%s\n", c.upgradeMessage)
-		return nil
-	}
-	return c.notifyControllerUpgrade(ctx, client, context)
+	return c.upgradeModel(ctx, implicitAgentUploadAllowed, fetchToolsTimeout, availableAgents)
 }
 
-func (c *upgradeJujuCommand) upgradeIAASModel(ctx *cmd.Context) (err error) {
+func (c *upgradeJujuCommand) upgradeModel(ctx *cmd.Context, implicitUploadAllowed bool, fetchTimeout time.Duration, availableAgents availableAgentsFunc) (err error) {
 
 	client, err := c.getJujuClientAPI()
 	if err != nil {
@@ -490,6 +428,10 @@ func (c *upgradeJujuCommand) upgradeIAASModel(ctx *cmd.Context) (err error) {
 		// that is, modelUUID == controllerUUID
 		return errors.Errorf("--build-agent can only be used with the controller model")
 	}
+	controllerCfg, err := controllerClient.ControllerConfig()
+	if err != nil {
+		return err
+	}
 
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
@@ -502,23 +444,41 @@ func (c *upgradeJujuCommand) upgradeIAASModel(ctx *cmd.Context) (err error) {
 		return err
 	}
 
-	context, tryImplicit, err := c.initVersions(client, cfg, agentVersion, warnCompat)
-	if err != nil {
-		return err
+	context, versionsErr := c.initVersions(client, controllerCfg, cfg, agentVersion, warnCompat, fetchTimeout, availableAgents)
+	if versionsErr != nil {
+		return versionsErr
 	}
+	tryImplicit := implicitUploadAllowed && len(context.packagedAgents) == 0
 
 	// Look for any packaged binaries but only if we haven't been asked to build an agent.
 	var packagedAgentErr error
+	uploadLocalBinary := false
 	if !c.BuildAgent {
+		if tryImplicit {
+			if tryImplicit, err = tryImplicitUpload(agentVersion); err != nil {
+				return err
+			}
+		}
+		if !tryImplicit && len(context.packagedAgents) == 0 {
+			// No tools found and we shouldn't upload any, so if we are not asking for a
+			// major upgrade, pretend there is no more recent version available.
+			filterVersion := jujuversion.Current
+			if warnCompat {
+				filterVersion.Major--
+			}
+			if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
+				return errUpToDate
+			}
+		}
 		if packagedAgentErr = context.maybeChoosePackagedAgent(); packagedAgentErr != nil {
 			ctx.Verbosef("%v", packagedAgentErr)
 		}
+		uploadLocalBinary = isControllerModel && packagedAgentErr != nil && tryImplicit
 	}
 
 	// If there's no packaged binaries, or we're running a custom build
 	// or the user has asked for a new agent to be built, upload a local
 	// jujud binary if possible.
-	uploadLocalBinary := isControllerModel && packagedAgentErr != nil && tryImplicit
 	if !warnCompat && (uploadLocalBinary || c.BuildAgent) {
 		if err := context.uploadTools(client, c.BuildAgent, agentVersion, c.DryRun); err != nil {
 			return block.ProcessBlockedError(err, block.BlockChange)
@@ -622,15 +582,21 @@ func (c *baseUpgradeCommand) confirmResetPreviousUpgrade(ctx *cmd.Context) (bool
 	return answer == "y" || answer == "yes", nil
 }
 
+// availableAgentsFunc defines a function that returns the
+// available agent versions for the given simple streams agent metadata.
+type availableAgentsFunc func(controllerCfg controller.Config, majorVersion int, streamVersions coretools.List) (coretools.Versions, error)
+
 // initVersions collects state relevant to an upgrade decision. The returned
 // agent and client versions, and the list of currently available tools, will
 // always be accurate; the chosen version, and the flag indicating development
 // mode, may remain blank until uploadTools or validate is called.
-func (c *upgradeJujuCommand) initVersions(
-	client toolsAPI, cfg *config.Config, agentVersion version.Number, filterOnPrior bool,
-) (*upgradeContext, bool, error) {
+func (c *baseUpgradeCommand) initVersions(
+	client toolsAPI, controllerCfg controller.Config, cfg *config.Config,
+	agentVersion version.Number, filterOnPrior bool, timeout time.Duration,
+	availableAgents availableAgentsFunc,
+) (*upgradeContext, error) {
 	if c.Version == agentVersion {
-		return nil, false, errUpToDate
+		return nil, errUpToDate
 	}
 	filterVersion := jujuversion.Current
 	if c.Version != version.Zero {
@@ -641,32 +607,14 @@ func (c *upgradeJujuCommand) initVersions(
 		// the current client version.
 		filterVersion.Major--
 	}
-	tryImplicitUpload, err := tryImplicitUpload(agentVersion)
-	if err != nil {
-		return nil, false, err
-	}
 	logger.Debugf("searching for %q agent binaries with major: %d", c.AgentStream, filterVersion.Major)
-	findResult, err := client.FindTools(filterVersion.Major, -1, "", "", c.AgentStream)
+	streamVersions, err := fetchStreamsVersions(client, filterVersion.Major, c.AgentStream, timeout)
+	if err != nil && !params.IsCodeNotFound(err) {
+		return nil, errors.Trace(err)
+	}
+	agents, err := availableAgents(controllerCfg, filterVersion.Major, streamVersions)
 	if err != nil {
-		return nil, false, err
-	}
-	err = findResult.Error
-	if findResult.Error != nil {
-		if !params.IsCodeNotFound(err) {
-			return nil, false, err
-		}
-		if !tryImplicitUpload && !c.BuildAgent {
-			// No tools found and we shouldn't upload any, so if we are not asking for a
-			// major upgrade, pretend there is no more recent version available.
-			if c.Version == version.Zero && agentVersion.Major == filterVersion.Major {
-				return nil, false, errUpToDate
-			}
-			return nil, tryImplicitUpload, err
-		}
-	}
-	agents := make(coretools.Versions, len(findResult.List))
-	for i, t := range findResult.List {
-		agents[i] = t
+		return nil, errors.Trace(err)
 	}
 	return &upgradeContext{
 		agent:          agentVersion,
@@ -674,7 +622,7 @@ func (c *upgradeJujuCommand) initVersions(
 		chosen:         c.Version,
 		packagedAgents: agents,
 		config:         cfg,
-	}, tryImplicitUpload, nil
+	}, nil
 }
 
 // upgradeContext holds the version information for making upgrade decisions.
@@ -790,7 +738,7 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 				context.chosen = newestCurrent
 			} else {
 				if context.agent.Major != context.client.Major {
-					return errors.New("no compatible agent binaries available")
+					return errors.New("no compatible agent versions available")
 				} else {
 					return errors.New("no more recent supported versions available")
 				}
@@ -800,7 +748,7 @@ func (context *upgradeContext) maybeChoosePackagedAgent() (err error) {
 		// If not completely specified already, pick a single tools version.
 		filter := coretools.Filter{Number: context.chosen}
 		if context.packagedAgents, err = context.packagedAgents.Match(filter); err != nil {
-			return err
+			return errors.Wrap(err, errors.New("no matching agent versions available"))
 		}
 		context.chosen, context.packagedAgents = context.packagedAgents.Newest()
 	}

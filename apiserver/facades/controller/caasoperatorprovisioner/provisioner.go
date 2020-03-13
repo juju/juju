@@ -44,7 +44,11 @@ func NewStateCAASOperatorProvisionerAPI(ctx facade.Context) (*API, error) {
 	authorizer := ctx.Auth()
 	resources := ctx.Resources()
 
-	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(ctx.State())
+	model, err := ctx.State().Model()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	broker, err := stateenvirons.GetNewCAASBrokerFunc(caas.New)(model)
 	if err != nil {
 		return nil, errors.Annotate(err, "getting caas client")
 	}

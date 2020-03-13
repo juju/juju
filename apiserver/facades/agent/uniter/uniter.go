@@ -3190,7 +3190,7 @@ func (u *UniterAPIV10) CloudAPIVersion(_, _ struct{}) {}
 func (u *UniterAPI) CloudAPIVersion() (params.StringResult, error) {
 	result := params.StringResult{}
 
-	configGetter := stateenvirons.EnvironConfigGetter{State: u.st, Model: u.m, NewContainerBroker: u.containerBrokerFunc}
+	configGetter := stateenvirons.EnvironConfigGetter{Model: u.m, NewContainerBroker: u.containerBrokerFunc}
 	spec, err := configGetter.CloudSpec()
 	if err != nil {
 		return result, common.ServerError(err)

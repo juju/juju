@@ -31,10 +31,6 @@ type AuthenticationProvider interface {
 // NewAPIAuthenticator gets the state and api info once from the
 // provisioner API.
 func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, error) {
-	stateAddresses, err := st.StateAddresses()
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	apiAddresses, err := st.APIAddresses()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -47,11 +43,17 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	stateInfo := &mongo.MongoInfo{
-		Info: mongo.Info{
-			Addrs:  stateAddresses,
-			CACert: caCert,
-		},
+	var stateInfo *mongo.MongoInfo
+	stateAddresses, err := st.StateAddresses()
+	// We may not have stateAddresses (we don't on K8s), but the common case is that we don't need them
+	//  (we only need them for controller machines).
+	if err == nil {
+		stateInfo = &mongo.MongoInfo{
+			Info: mongo.Info{
+				Addrs:  stateAddresses,
+				CACert: caCert,
+			},
+		}
 	}
 	apiInfo := &api.Info{
 		Addrs:    apiAddresses,
