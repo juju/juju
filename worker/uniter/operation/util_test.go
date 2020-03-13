@@ -418,8 +418,8 @@ func (r *MockRunner) Context() runner.Context {
 	return r.context
 }
 
-func (r *MockRunner) RunAction(actionName string) error {
-	return r.MockRunAction.Call(actionName)
+func (r *MockRunner) RunAction(actionName string) (runner.HookHandlerType, error) {
+	return runner.ExplicitHookHandler, r.MockRunAction.Call(actionName)
 }
 
 func (r *MockRunner) RunCommands(commands string) (*utilexec.ExecResponse, error) {
@@ -444,9 +444,9 @@ func (r *MockActionWaitRunner) Context() runner.Context {
 	return r.context
 }
 
-func (r *MockActionWaitRunner) RunAction(actionName string) error {
+func (r *MockActionWaitRunner) RunAction(actionName string) (runner.HookHandlerType, error) {
 	r.actionName = actionName
-	return <-r.actionChan
+	return runner.ExplicitHookHandler, <-r.actionChan
 }
 
 func NewDeployCallbacks() *DeployCallbacks {
