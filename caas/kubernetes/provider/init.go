@@ -15,6 +15,8 @@ const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
 var k8sCloudCheckers map[string][]k8slabels.Selector
 var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
 var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
+var jujuCRDSelectorForApplicationRemoval k8slabels.Selector
+var jujuCRDSelectorForModelTearDown k8slabels.Selector
 
 func init() {
 	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
@@ -61,6 +63,22 @@ func init() {
 	// provision storage for operators.
 	// TODO - support regional storage for GCE etc
 	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
+
+	// jujuCRDSelectorForApplicationRemoval is the label selector for removing CRDs for application removal.
+	jujuCRDSelectorForApplicationRemoval = newLabelRequirements(
+		requirementParams{
+			labelCRDLifeCycleKey, selection.NotIn, []string{
+				labelCRDLifeCycleValueModel,
+				labelCRDLifeCycleValuePersistent,
+			}},
+	)
+	// jujuCRDSelectorForModelTearDown is the label selector for removing CRDs for model teardown.
+	jujuCRDSelectorForModelTearDown = newLabelRequirements(
+		requirementParams{
+			labelCRDLifeCycleKey, selection.NotIn, []string{
+				labelCRDLifeCycleValuePersistent,
+			}},
+	)
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
