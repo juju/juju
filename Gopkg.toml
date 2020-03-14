@@ -460,7 +460,7 @@
 
 [[constraint]]
   name = "golang.org/x/crypto"
-  revision = "f027049dab0ad238e394a753dba2d14753473a04"
+  revision = "69ecbb4d6d5dab05e49161c6e77ea40a030884e1"
 
 [[constraint]]
   name = "golang.org/x/net"
