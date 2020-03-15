@@ -161,8 +161,8 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	config.Logger = nil
 	c.Assert(config.ContainerStartWatcher, gc.NotNil)
 	config.ContainerStartWatcher = nil
-	c.Assert(config.ExecClient, gc.NotNil)
-	config.ExecClient = nil
+	c.Assert(config.NewExecClient, gc.NotNil)
+	config.NewExecClient = nil
 	c.Assert(config.InitializeUnit, gc.NotNil)
 	config.InitializeUnit = nil
 	c.Assert(config.Paths.ToolsDir, gc.Not(gc.Equals), "")

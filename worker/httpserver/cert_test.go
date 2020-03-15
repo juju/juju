@@ -183,7 +183,7 @@ func (s *certSuite) TestAutocertNameMismatch(c *gc.C) {
 	// Check that we logged the mismatch.
 	c.Assert(entries, jc.LogMatches, jc.SimpleMessages{{
 		loggo.ERROR,
-		`.*cannot get autocert certificate for "somewhere.else": acme/autocert: host not configured`,
+		`.*cannot get autocert certificate for "somewhere.else": acme/autocert: host "somewhere.else" not configured in HostWhitelist`,
 	}})
 }
 
