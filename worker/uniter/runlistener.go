@@ -300,10 +300,12 @@ func (c *ChannelCommandRunner) RunCommands(args RunCommandsArgs) (results *exec.
 	// response is received before the uniter resumes operation, and
 	// potentially aborts. This prevents a race when rebooting.
 	responseChan := make(chan responseInfo)
-	responseFunc := func(response *exec.ExecResponse, err error) {
+	responseFunc := func(response *exec.ExecResponse, err error) bool {
 		select {
 		case <-c.config.Abort:
+			return false
 		case responseChan <- responseInfo{response, err}:
+			return true
 		}
 	}
 

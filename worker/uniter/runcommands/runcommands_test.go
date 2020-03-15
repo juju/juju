@@ -70,7 +70,7 @@ func (s *runcommandsSuite) TestRunCommands(c *gc.C) {
 	}
 	id := s.commands.AddCommand(operation.CommandArgs{
 		Commands: "echo foxtrot",
-	}, func(*exec.ExecResponse, error) {})
+	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
 	c.Assert(err, jc.ErrorIsNil)
@@ -97,7 +97,7 @@ func (s *runcommandsSuite) TestRunCommandsCallbacks(c *gc.C) {
 
 	id := s.commands.AddCommand(operation.CommandArgs{
 		Commands: "echo foxtrot",
-	}, func(*exec.ExecResponse, error) {})
+	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -143,7 +143,7 @@ func (s *runcommandsSuite) TestRunCommandsCommitErrorNoCompletedCallback(c *gc.C
 
 	id := s.commands.AddCommand(operation.CommandArgs{
 		Commands: "echo foxtrot",
-	}, func(*exec.ExecResponse, error) {})
+	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
@@ -178,8 +178,9 @@ func (s *runcommandsSuite) TestRunCommandsError(c *gc.C) {
 	var execErr error
 	id := s.commands.AddCommand(operation.CommandArgs{
 		Commands: "echo foxtrot",
-	}, func(_ *exec.ExecResponse, err error) {
+	}, func(_ *exec.ExecResponse, err error) bool {
 		execErr = err
+		return false
 	})
 	s.remoteState.Commands = []string{id}
 
@@ -195,6 +196,38 @@ func (s *runcommandsSuite) TestRunCommandsError(c *gc.C) {
 	c.Assert(execErr, gc.ErrorMatches, "executing commands: echo foxtrot")
 }
 
+func (s *runcommandsSuite) TestRunCommandsErrorConsumed(c *gc.C) {
+	localState := resolver.LocalState{
+		CharmURL: s.charmURL,
+		State: operation.State{
+			Kind: operation.Continue,
+		},
+	}
+	s.runCommands = func(commands string) (*exec.ExecResponse, error) {
+		return nil, errors.Errorf("executing commands: %s", commands)
+	}
+
+	var execErr error
+	id := s.commands.AddCommand(operation.CommandArgs{
+		Commands: "echo foxtrot",
+	}, func(_ *exec.ExecResponse, err error) bool {
+		execErr = err
+		return true
+	})
+	s.remoteState.Commands = []string{id}
+
+	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(op.String(), gc.Equals, "run commands (0)")
+
+	_, err = op.Prepare(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+
+	_, err = op.Execute(operation.State{})
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(execErr, gc.ErrorMatches, "executing commands: echo foxtrot")
+}
+
 func (s *runcommandsSuite) TestRunCommandsStatus(c *gc.C) {
 	localState := resolver.LocalState{
 		CharmURL: s.charmURL,
@@ -205,7 +238,7 @@ func (s *runcommandsSuite) TestRunCommandsStatus(c *gc.C) {
 
 	id := s.commands.AddCommand(operation.CommandArgs{
 		Commands: "echo foxtrot",
-	}, func(*exec.ExecResponse, error) {})
+	}, func(*exec.ExecResponse, error) bool { return false })
 	s.remoteState.Commands = []string{id}
 
 	op, err := s.resolver.NextOp(localState, s.remoteState, s.opFactory)
