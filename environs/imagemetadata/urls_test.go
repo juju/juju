@@ -70,3 +70,30 @@ func (s *URLsSuite) assertImageMetadataURLOfficialSource(c *gc.C, baseURL string
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(URL, gc.Equals, fmt.Sprintf("%s/%s", baseURL, "daily"))
 }
+
+func (s *URLsSuite) TestIsReleasedStream(c *gc.C) {
+	var tests = []struct {
+		in       string
+		expected bool
+	}{
+		{
+			in:       "released",
+			expected: true,
+		},
+		{
+			in:       "daily",
+			expected: false,
+		},
+		{
+			in:       "proposed",
+			expected: false,
+		},
+	}
+
+	for i, t := range tests {
+		c.Logf("Test %d:", i)
+
+		out := imagemetadata.IsReleasedStream(t.in)
+		c.Assert(out, gc.Equals, t.expected)
+	}
+}

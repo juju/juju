@@ -917,6 +917,24 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 		}
 	}
 
+	// Ensure we get the model config to analyse the model config for the
+	// overriding of force when supplying you're own series.
+	// Do this after trust checks, as we want to ensure we don't break that
+	// feature.
+	modelCfg, err := getModelConfig(spec.apiRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If the operator wants to deploy a charm for the latest LTS and has
+	// changed the image-stream from released to anything other than
+	// released, then we shouldn't require force for deploy.
+	force := c.Force
+	if common.ShouldImplyForce(modelCfg.AllAttrs()) {
+		logger.Tracef("overriding force as a consequence from model config")
+		force = true
+	}
+
 	for application, applicationSpec := range bundleData.Applications {
 		if applicationSpec.Plan != "" {
 			for _, step := range c.Steps {
@@ -931,7 +949,7 @@ Please repeat the deploy command with the --trust argument if you consent to tru
 					ApplicationName: application,
 					ApplicationPlan: applicationSpec.Plan,
 					ModelUUID:       spec.targetModelUUID,
-					Force:           c.Force,
+					Force:           force,
 				}
 
 				err = s.RunPre(spec.apiRoot, bakeryClient, spec.ctx, deployInfo)
@@ -1086,12 +1104,30 @@ func (c *DeployCommand) deployCharm(
 		return errors.New("API connection is controller-only (should never happen)")
 	}
 
+	// Ensure we get the model config to analyse the model config for the
+	// overriding of force when supplying you're own series.
+	// Do this after trust checks, as we want to ensure we don't break that
+	// feature.
+	modelCfg, err := getModelConfig(apiRoot)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
+	// If the operator wants to deploy a charm for the latest LTS and has
+	// changed the image-stream from released to anything other than
+	// released, then we shouldn't require force for deploy.
+	force := c.Force
+	if common.ShouldImplyForce(modelCfg.AllAttrs()) {
+		logger.Tracef("overriding force as a consequence from model config")
+		force = true
+	}
+
 	deployInfo := DeploymentInfo{
 		CharmID:         id,
 		ApplicationName: applicationName,
 		ModelUUID:       uuid,
 		CharmInfo:       charmInfo,
-		Force:           c.Force,
+		Force:           force,
 	}
 
 	for _, step := range c.Steps {
@@ -1393,11 +1429,20 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 			return nil, errors.Trace(err)
 		}
 
+		// If the operator wants to deploy a charm for the latest LTS and has
+		// changed the image-stream from released to anything other than
+		// released, then we shouldn't require force for deploy.
+		force := c.Force
+		if common.ShouldImplyForce(modelCfg.AllAttrs()) {
+			logger.Tracef("overriding force as a consequence from model config")
+			force = true
+		}
+
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
 			supportedSeries:     ch.Meta().Series,
 			supportedJujuSeries: supportedJujuSeries(),
-			force:               c.Force,
+			force:               force,
 			conf:                modelCfg,
 			fromBundle:          false,
 		}
@@ -1581,6 +1626,15 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			return errors.Trace(err)
 		}
 
+		// If the operator wants to deploy a charm for the latest LTS and has
+		// changed the image-stream from released to anything other than
+		// released, then we shouldn't require force for deploy.
+		force := c.Force
+		if common.ShouldImplyForce(modelCfg.AllAttrs()) {
+			logger.Tracef("overriding force as a consequence from model config")
+			force = true
+		}
+
 		// Charm or bundle has been supplied as a URL so we resolve and
 		// deploy using the store but pass in the channel command line
 		// argument so users can target a specific channel.
@@ -1602,7 +1656,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			seriesFlag:          c.Series,
 			supportedSeries:     supportedSeries,
 			supportedJujuSeries: supportedJujuSeries(),
-			force:               c.Force,
+			force:               force,
 			conf:                modelCfg,
 			fromBundle:          false,
 		}

@@ -20,7 +20,7 @@ func ImageMetadataURL(source, stream string) (string, error) {
 	// set up the correct path according to the images stream requested.
 	if ValidDefaultImageMetadataURL(source) {
 		cloudImagesPath := ReleasedImagesPath
-		if stream != "" && !ValidReleaseStream(stream) {
+		if stream != "" && !IsReleasedStream(stream) {
 			cloudImagesPath = stream
 		}
 		source = fmt.Sprintf("%s/%s", source, cloudImagesPath)
@@ -36,7 +36,7 @@ func ValidDefaultImageMetadataURL(source string) bool {
 	return source == UbuntuCloudImagesURL || source == JujuStreamsImagesURL
 }
 
-// ValidReleaseStream returns true if the stream is a released stream.
-func ValidReleaseStream(stream string) bool {
+// IsReleasedStream returns true if the stream is a released stream.
+func IsReleasedStream(stream string) bool {
 	return stream == ReleasedStream
 }
