@@ -45,10 +45,10 @@ Juju charms can access a series of built-in helpers called 'hook-tools'.
 These are useful for the charm to be able to inspect its running environment.
 Currently available charm hook tools are:
 
-    action-fail              set action/function fail status with message
-    action-get               get action/function parameters
-    action-log               record a progress message for the current action/function
-    action-set               set action/function results
+    action-fail              set action fail status with message
+    action-get               get action parameters
+    action-log               record a progress message for the current action
+    action-set               set action results
     add-metric               add metrics
     application-version-set  specify which version of the application is deployed
     close-port               ensure a port or range is always closed
@@ -58,13 +58,15 @@ Currently available charm hook tools are:
     is-leader                print application leadership status
     juju-log                 write a message to the juju log
     juju-reboot              Reboot the host machine
+    k8s-spec-get             get k8s spec information
+    k8s-spec-set             set k8s spec information
     leader-get               print application leadership settings
     leader-set               write application leadership settings
     network-get              get network config
     open-port                register a port or range to open
     opened-ports             lists all ports or ranges opened by the unit
-    pod-spec-get             get pod spec information
-    pod-spec-set             set pod spec information
+    pod-spec-get             get k8s spec information
+    pod-spec-set             set k8s spec information
     relation-get             get relation settings
     relation-ids             list all relation ids with the given relation name
     relation-list            list relation units
@@ -103,6 +105,8 @@ var expectedCommands = []string{
 	"is-leader",
 	"juju-log",
 	"juju-reboot",
+	"k8s-spec-get",
+	"k8s-spec-set",
 	"leader-get",
 	"leader-set",
 	"network-get",

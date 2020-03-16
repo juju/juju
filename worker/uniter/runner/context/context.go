@@ -739,7 +739,7 @@ func (ctx *HookContext) SetPodSpec(specYaml string) error {
 	return nil
 }
 
-// GetPodSpec returns the podspec for the unit's application.
+// GetPodSpec returns the k8s spec for the unit's application.
 // Implements jujuc.HookContext.ContextUnit, part of runner.Context.
 func (ctx *HookContext) GetPodSpec() (string, error) {
 	appName := ctx.unit.ApplicationName()

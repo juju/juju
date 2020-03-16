@@ -13,45 +13,46 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 )
 
-// PodSpecSetCommand implements the pod-spec-set command.
-type PodSpecSetCommand struct {
+// K8sSpecSetCommand implements the k8s-spec-set command.
+type K8sSpecSetCommand struct {
 	cmd.CommandBase
-	ctx Context
+	name string
+	ctx  Context
 
 	specFile     cmd.FileVar
 	k8sResources cmd.FileVar
 }
 
-// NewPodSpecSetCommand makes a pod-spec-set command.
-func NewPodSpecSetCommand(ctx Context) (cmd.Command, error) {
-	return &PodSpecSetCommand{ctx: ctx}, nil
+// NewK8sSpecSetCommand makes a k8s-spec-set command.
+func NewK8sSpecSetCommand(ctx Context, name string) (cmd.Command, error) {
+	return &K8sSpecSetCommand{ctx: ctx, name: name}, nil
 }
 
-func (c *PodSpecSetCommand) Info() *cmd.Info {
+func (c *K8sSpecSetCommand) Info() *cmd.Info {
 	doc := `
-Sets configuration data to use for a pod.
+Sets configuration data to use for k8s resources.
 The spec applies to all units for the application.
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    "pod-spec-set",
-		Args:    "--file <pod spec file> [--k8s-resources <k8s pod spec file>]",
-		Purpose: "set pod spec information",
+		Name:    c.name,
+		Args:    "--file <core spec file> [--k8s-resources <k8s spec file>]",
+		Purpose: "set k8s spec information",
 		Doc:     doc,
 	})
 }
 
-func (c *PodSpecSetCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *K8sSpecSetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.specFile.SetStdin()
 	c.specFile.Path = "-"
 	f.Var(&c.specFile, "file", "file containing pod spec")
 	f.Var(&c.k8sResources, "k8s-resources", "file containing k8s specific resources not yet modelled by Juju")
 }
 
-func (c *PodSpecSetCommand) Init(args []string) error {
+func (c *K8sSpecSetCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *PodSpecSetCommand) Run(ctx *cmd.Context) error {
+func (c *K8sSpecSetCommand) Run(ctx *cmd.Context) error {
 	specData, err := c.mergePodSpec(ctx)
 	if err != nil {
 		return errors.Trace(err)
@@ -59,7 +60,7 @@ func (c *PodSpecSetCommand) Run(ctx *cmd.Context) error {
 	return c.ctx.SetPodSpec(specData)
 }
 
-func (c *PodSpecSetCommand) mergePodSpec(ctx *cmd.Context) (string, error) {
+func (c *K8sSpecSetCommand) mergePodSpec(ctx *cmd.Context) (string, error) {
 	caasSpecData, err := c.handleSpecFile(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
@@ -82,18 +83,18 @@ func mergeFileContent(contents ...string) string {
 	return buffer.String()
 }
 
-func (c *PodSpecSetCommand) handleSpecFile(ctx *cmd.Context) (string, error) {
+func (c *K8sSpecSetCommand) handleSpecFile(ctx *cmd.Context) (string, error) {
 	specData, err := c.specFile.Read(ctx)
 	if err != nil {
 		return "", errors.Trace(err)
 	}
 	if len(specData) == 0 {
-		return "", errors.New("no pod spec specified: pipe pod spec to command, or specify a file with --file")
+		return "", errors.New("no k8s spec specified: pipe k8s spec to command, or specify a file with --file")
 	}
 	return string(specData), nil
 }
 
-func (c *PodSpecSetCommand) handleK8sResources(ctx *cmd.Context) (string, error) {
+func (c *K8sSpecSetCommand) handleK8sResources(ctx *cmd.Context) (string, error) {
 	if c.k8sResources.Path == "" {
 		return "", nil
 	}

@@ -61,15 +61,19 @@ var baseCommands = map[string]creator{
 	"status-set" + cmdSuffix:              NewStatusSetCommand,
 	"network-get" + cmdSuffix:             NewNetworkGetCommand,
 	"application-version-set" + cmdSuffix: NewApplicationVersionSetCommand,
-	"pod-spec-set" + cmdSuffix:            NewPodSpecSetCommand,
-	"pod-spec-get" + cmdSuffix:            NewPodSpecGetCommand,
-	"goal-state" + cmdSuffix:              NewGoalStateCommand,
-	"credential-get" + cmdSuffix:          NewCredentialGetCommand,
+	"k8s-spec-set" + cmdSuffix:            constructCommandCreator("k8s-spec-set", NewK8sSpecSetCommand),
+	"k8s-spec-get" + cmdSuffix:            constructCommandCreator("k8s-spec-get", NewK8sSpecGetCommand),
+	// "pod" variants are deprecated.
+	"pod-spec-set" + cmdSuffix: constructCommandCreator("pod-spec-set", NewK8sSpecSetCommand),
+	"pod-spec-get" + cmdSuffix: constructCommandCreator("pod-spec-get", NewK8sSpecGetCommand),
 
-	"action-get" + cmdSuffix:  constructCommandCreator("action-get", NewActionGetCommand),
-	"action-set" + cmdSuffix:  constructCommandCreator("action-set", NewActionSetCommand),
-	"action-fail" + cmdSuffix: constructCommandCreator("action-fail", NewActionFailCommand),
-	"action-log" + cmdSuffix:  constructCommandCreator("action-log", NewActionLogCommand),
+	"goal-state" + cmdSuffix:     NewGoalStateCommand,
+	"credential-get" + cmdSuffix: NewCredentialGetCommand,
+
+	"action-get" + cmdSuffix:  NewActionGetCommand,
+	"action-set" + cmdSuffix:  NewActionSetCommand,
+	"action-fail" + cmdSuffix: NewActionFailCommand,
+	"action-log" + cmdSuffix:  NewActionLogCommand,
 
 	"state-get" + cmdSuffix:    NewStateGetCommand,
 	"state-delete" + cmdSuffix: NewStateDeleteCommand,

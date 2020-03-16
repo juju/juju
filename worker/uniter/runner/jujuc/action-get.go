@@ -4,7 +4,6 @@
 package jujuc
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -17,7 +16,6 @@ import (
 type ActionGetCommand struct {
 	cmd.CommandBase
 	ctx      Context
-	name     string
 	keys     []string
 	response interface{}
 	out      cmd.Output
@@ -25,22 +23,22 @@ type ActionGetCommand struct {
 
 // NewActionGetCommand returns an ActionGetCommand for use with the given
 // context.
-func NewActionGetCommand(ctx Context, name string) (cmd.Command, error) {
-	return &ActionGetCommand{ctx: ctx, name: name}, nil
+func NewActionGetCommand(ctx Context) (cmd.Command, error) {
+	return &ActionGetCommand{ctx: ctx}, nil
 }
 
 // Info returns the content for --help.
 func (c *ActionGetCommand) Info() *cmd.Info {
 	doc := `
-%s will print the value of the parameter at the given key, serialized
-as YAML.  If multiple keys are passed, %s will recurse into the param
+action-get will print the value of the parameter at the given key, serialized
+as YAML.  If multiple keys are passed, action-get will recurse into the param
 map as needed.
 `
 	return jujucmd.Info(&cmd.Info{
-		Name:    c.name,
+		Name:    "action-get",
 		Args:    "[<key>[.<key>.<key>...]]",
-		Purpose: "get action/function parameters",
-		Doc:     fmt.Sprintf(doc, c.name, c.name),
+		Purpose: "get action parameters",
+		Doc:     doc,
 	})
 }
 
