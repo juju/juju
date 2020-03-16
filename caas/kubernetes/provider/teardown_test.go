@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardown(c *gc.C) {
+func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownSuccess(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
@@ -223,12 +223,12 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardown(c *gc.C) {
 	)
 
 	// timer +1.
-	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).AnyTimes().
+	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model==test"}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model==test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
@@ -447,7 +447,7 @@ func (s *K8sBrokerSuite) TestDeleteClusterScopeResourcesModelTeardownTimeout(c *
 
 	s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 		s.deleteOptions(v1.DeletePropagationForeground, ""),
-		v1.ListOptions{LabelSelector: "juju-model==test"},
+		v1.ListOptions{LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model==test"},
 	).Return(s.k8sNotFoundError())
 
 	s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(

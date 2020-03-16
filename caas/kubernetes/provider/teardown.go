@@ -110,7 +110,7 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 			// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
 			return selector
 		}
-		return nil
+		return k8slabels.NewSelector()
 	}
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
 		func(selector k8slabels.Selector) error {
