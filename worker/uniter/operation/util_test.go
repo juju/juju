@@ -456,11 +456,13 @@ func NewRunHookRunnerFactory(runErr error, contextOps ...func(*MockContext)) *Mo
 type MockSendResponse struct {
 	gotResponse **utilexec.ExecResponse
 	gotErr      *error
+	eatError    bool
 }
 
-func (mock *MockSendResponse) Call(response *utilexec.ExecResponse, err error) {
+func (mock *MockSendResponse) Call(response *utilexec.ExecResponse, err error) bool {
 	mock.gotResponse = &response
 	mock.gotErr = &err
+	return mock.eatError
 }
 
 var curl = corecharm.MustParseURL
