@@ -72,6 +72,38 @@ func (s *environSuite) TestCloudSpec(c *gc.C) {
 	})
 }
 
+func (s *environSuite) TestCloudSpecForModel(c *gc.C) {
+	owner := s.Factory.MakeUser(c, nil).UserTag()
+	emptyCredential := cloud.NewEmptyCredential()
+	tag := names.NewCloudCredentialTag("dummy/" + owner.Id() + "/empty-credential")
+	err := s.State.UpdateCloudCredential(tag, emptyCredential)
+	c.Assert(err, jc.ErrorIsNil)
+
+	st := s.Factory.MakeModel(c, &factory.ModelParams{
+		Name:            "foo",
+		CloudName:       "dummy",
+		CloudCredential: tag,
+		Owner:           owner,
+	})
+	defer st.Close()
+
+	m, err := st.Model()
+	c.Assert(err, jc.ErrorIsNil)
+
+	emptyCredential.Label = "empty-credential"
+	cloudSpec, err := stateenvirons.CloudSpecForModel(m)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cloudSpec, jc.DeepEquals, environs.CloudSpec{
+		Type:             "dummy",
+		Name:             "dummy",
+		Region:           "dummy-region",
+		Endpoint:         "dummy-endpoint",
+		IdentityEndpoint: "dummy-identity-endpoint",
+		StorageEndpoint:  "dummy-storage-endpoint",
+		Credential:       &emptyCredential,
+	})
+}
+
 func (s *environSuite) TestGetNewCAASBrokerFunc(c *gc.C) {
 	var calls int
 	var callArgs environs.OpenParams

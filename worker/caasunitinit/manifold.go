@@ -112,11 +112,6 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				return unit.ProviderID(), nil
 			}
 
-			execClient, err := config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
-			if err != nil {
-				return nil, errors.Trace(err)
-			}
-
 			cfg := Config{
 				Logger:                config.Logger,
 				Application:           applicationTag.Id(),
@@ -124,8 +119,10 @@ func Manifold(config ManifoldConfig) dependency.Manifold {
 				DataDir:               agentConfig.DataDir(),
 				ContainerStartWatcher: client,
 				UnitProviderIDFunc:    unitProviderID,
-				ExecClient:            execClient,
-				InitializeUnit:        InitializeUnit,
+				NewExecClient: func() (exec.Executor, error) {
+					return config.NewExecClient(os.Getenv(provider.OperatorNamespaceEnvName))
+				},
+				InitializeUnit: InitializeUnit,
 			}
 			cfg.Paths = caasoperator.NewPaths(cfg.DataDir, names.NewApplicationTag(cfg.Application))
 

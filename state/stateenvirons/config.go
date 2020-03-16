@@ -14,14 +14,18 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// Model exposes the methods needed for an EnvironConfigGetter.
-type Model interface {
-	ModelTag() names.ModelTag
-	ControllerUUID() string
-	Type() state.ModelType
+type baseModel interface {
 	Cloud() (cloud.Cloud, error)
 	CloudRegion() string
 	CloudCredential() (state.Credential, bool, error)
+}
+
+// Model exposes the methods needed for an EnvironConfigGetter.
+type Model interface {
+	baseModel
+	ModelTag() names.ModelTag
+	ControllerUUID() string
+	Type() state.ModelType
 	Config() (*config.Config, error)
 }
 
@@ -67,12 +71,17 @@ func (g EnvironConfigGetter) ModelConfig() (*config.Config, error) {
 
 // CloudSpec implements environs.EnvironConfigGetter.
 func (g EnvironConfigGetter) CloudSpec() (environs.CloudSpec, error) {
-	cloud, err := g.Model.Cloud()
+	return CloudSpecForModel(g.Model)
+}
+
+// CloudSpecForModel returns a CloudSpec for the specified model.
+func CloudSpecForModel(m baseModel) (environs.CloudSpec, error) {
+	cloud, err := m.Cloud()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}
-	regionName := g.Model.CloudRegion()
-	credentialValue, ok, err := g.Model.CloudCredential()
+	regionName := m.CloudRegion()
+	credentialValue, ok, err := m.CloudCredential()
 	if err != nil {
 		return environs.CloudSpec{}, errors.Trace(err)
 	}

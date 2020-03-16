@@ -15,6 +15,7 @@ import (
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/juju/worker.v1/workertest"
 
+	"github.com/juju/juju/caas/kubernetes/provider/exec"
 	"github.com/juju/juju/core/watcher/watchertest"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/caasoperator/mocks"
@@ -41,8 +42,10 @@ func (s *UnitInitWorkerSuite) TestWorker(c *gc.C) {
 
 	st := &testing.Stub{}
 	cfg := caasunitinit.Config{
-		Logger:     loggo.GetLogger("test"),
-		ExecClient: &mocks.MockExecutor{},
+		Logger: loggo.GetLogger("test"),
+		NewExecClient: func() (exec.Executor, error) {
+			return &mocks.MockExecutor{}, nil
+		},
 		UnitProviderIDFunc: func(unit names.UnitTag) (string, error) {
 			return "", errors.NotImplementedf("not required")
 		},
@@ -76,8 +79,10 @@ func (s *UnitInitWorkerSuite) TestUnitDeadGraceful(c *gc.C) {
 
 	st := &testing.Stub{}
 	cfg := caasunitinit.Config{
-		Logger:     loggo.GetLogger("test"),
-		ExecClient: &mocks.MockExecutor{},
+		Logger: loggo.GetLogger("test"),
+		NewExecClient: func() (exec.Executor, error) {
+			return &mocks.MockExecutor{}, nil
+		},
 		UnitProviderIDFunc: func(unit names.UnitTag) (string, error) {
 			return "", errors.NotImplementedf("not required")
 		},
@@ -111,8 +116,10 @@ func (s *UnitInitWorkerSuite) TestInitializeFailed(c *gc.C) {
 
 	st := &testing.Stub{}
 	cfg := caasunitinit.Config{
-		Logger:     loggo.GetLogger("test"),
-		ExecClient: &mocks.MockExecutor{},
+		Logger: loggo.GetLogger("test"),
+		NewExecClient: func() (exec.Executor, error) {
+			return &mocks.MockExecutor{}, nil
+		},
 		UnitProviderIDFunc: func(unit names.UnitTag) (string, error) {
 			return "", errors.NotImplementedf("not required")
 		},

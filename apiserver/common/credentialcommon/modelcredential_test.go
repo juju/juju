@@ -307,7 +307,7 @@ func (s *ModelCredentialSuite) TestValidateExistingModelCredentialErrorGettingMo
 
 func (s *ModelCredentialSuite) TestValidateExistingModelCredentialUnsetCloudCredential(c *gc.C) {
 	model := createTestModel()
-	model.cloudCredentialFunc = func() (names.CloudCredentialTag, bool) {
+	model.cloudCredentialTagFunc = func() (names.CloudCredentialTag, bool) {
 		return names.CloudCredentialTag{}, false
 	}
 
@@ -558,15 +558,15 @@ func (m *mockPersistedBackend) CloudCredential(tag names.CloudCredentialTag) (st
 
 type mockModel struct {
 	modelType              state.ModelType
-	cloudFunc              func() string
+	cloudNameFunc          func() string
 	cloudRegionFunc        func() string
 	configFunc             func() (*config.Config, error)
 	validateCredentialFunc func(tag names.CloudCredentialTag, credential cloud.Credential) error
-	cloudCredentialFunc    func() (names.CloudCredentialTag, bool)
+	cloudCredentialTagFunc func() (names.CloudCredentialTag, bool)
 }
 
 func (m *mockModel) CloudName() string {
-	return m.cloudFunc()
+	return m.cloudNameFunc()
 }
 
 func (m *mockModel) CloudRegion() string {
@@ -582,7 +582,7 @@ func (m *mockModel) Type() state.ModelType {
 }
 
 func (m *mockModel) CloudCredentialTag() (names.CloudCredentialTag, bool) {
-	return m.cloudCredentialFunc()
+	return m.cloudCredentialTagFunc()
 }
 
 func (m *mockModel) ValidateCloudCredential(tag names.CloudCredentialTag, credential cloud.Credential) error {
@@ -592,7 +592,7 @@ func (m *mockModel) ValidateCloudCredential(tag names.CloudCredentialTag, creden
 func createTestModel() *mockModel {
 	return &mockModel{
 		modelType:       state.ModelTypeIAAS,
-		cloudFunc:       func() string { return "nuage" },
+		cloudNameFunc:   func() string { return "nuage" },
 		cloudRegionFunc: func() string { return "nine" },
 		configFunc: func() (*config.Config, error) {
 			return nil, nil
@@ -600,7 +600,7 @@ func createTestModel() *mockModel {
 		validateCredentialFunc: func(tag names.CloudCredentialTag, credential cloud.Credential) error {
 			return nil
 		},
-		cloudCredentialFunc: func() (names.CloudCredentialTag, bool) {
+		cloudCredentialTagFunc: func() (names.CloudCredentialTag, bool) {
 			// return true here since, most of the time, we want to test when the cloud credential is set.
 			return names.CloudCredentialTag{}, true
 		},

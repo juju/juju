@@ -67,7 +67,7 @@ func (s *instanceMutaterAPISuite) setup(c *gc.C) *gomock.Controller {
 }
 
 func (s *instanceMutaterAPISuite) facadeAPIForScenario(c *gc.C) *instancemutater.InstanceMutaterAPI {
-	facade, err := instancemutater.NewInstanceMutaterAPIForTest(s.state, s.model, s.resources, s.authorizer, s.machineFunc)
+	facade, err := instancemutater.NewTestAPI(s.state, s.model, s.resources, s.authorizer, s.machineFunc)
 	c.Assert(err, gc.IsNil)
 	return facade
 }
@@ -258,6 +258,10 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) setup(c *gc.C) *gomock.Contr
 	return ctrl
 }
 
+func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmShimNilInnerProfile(c *gc.C) {
+	c.Assert(instancemutater.NewEmptyCharmShim().LXDProfile(), gc.DeepEquals, lxdprofile.Profile{})
+}
+
 func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc.C) {
 	defer s.setup(c).Finish()
 
@@ -268,7 +272,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfo(c *gc
 		Entity:  s.entity,
 		Lifer:   s.lifer,
 	})
-	s.expectInstanceId(instance.Id("0"))
+	s.expectInstanceId("0")
 	s.expectUnits(1)
 	s.expectCharmProfiles()
 	s.expectProfileExtraction(c)
@@ -314,7 +318,7 @@ func (s *InstanceMutaterAPICharmProfilingInfoSuite) TestCharmProfilingInfoWithNo
 		Entity:  s.entity,
 		Lifer:   s.lifer,
 	})
-	s.expectInstanceId(instance.Id("0"))
+	s.expectInstanceId("0")
 	s.expectUnits(2)
 	s.expectCharmProfiles()
 	s.expectProfileExtraction(c)
