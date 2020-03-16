@@ -16,7 +16,7 @@ type Unit struct {
 	Name           string
 	ConfigSettings charm.Settings
 	GoalState      application.GoalState
-	PodSpec        string
+	K8sSpec        string
 	CloudSpec      params.CloudSpec
 }
 
@@ -58,16 +58,16 @@ func (c *ContextUnit) SetPodSpec(specYaml string) error {
 	if err := c.stub.NextErr(); err != nil {
 		return errors.Trace(err)
 	}
-	c.info.PodSpec = specYaml
+	c.info.K8sSpec = specYaml
 	return nil
 }
 
 func (c *ContextUnit) GetPodSpec() (string, error) {
 	c.stub.AddCall("GetPodSpec")
 	if err := c.stub.NextErr(); err != nil {
-		return c.info.PodSpec, errors.Trace(err)
+		return c.info.K8sSpec, errors.Trace(err)
 	}
-	return c.info.PodSpec, nil
+	return c.info.K8sSpec, nil
 }
 
 func (c *ContextUnit) CloudSpec() (*params.CloudSpec, error) {

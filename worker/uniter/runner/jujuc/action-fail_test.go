@@ -59,7 +59,7 @@ func (s *ActionFailSuite) TestActionFail(c *gc.C) {
 	}{{
 		summary: "no parameters sets a default message",
 		command: []string{},
-		message: "action/function failed without reason given, check action/function for errors",
+		message: "action failed without reason given, check action for errors",
 		failed:  true,
 	}, {
 		summary: "a message sent is set as the failure reason",
@@ -108,12 +108,12 @@ func (s *ActionFailSuite) TestHelp(c *gc.C) {
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, `Usage: action-fail ["<failure message>"]
 
 Summary:
-set action/function fail status with message
+set action fail status with message
 
 Details:
-action-fail sets the fail state of the action/function with a given error message.  Using
+action-fail sets the fail state of the action with a given error message.  Using
 action-fail without a failure message will set a default message indicating a
-problem with the action/function.
+problem with the action.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

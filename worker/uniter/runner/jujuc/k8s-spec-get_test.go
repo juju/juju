@@ -12,59 +12,59 @@ import (
 	"github.com/juju/juju/worker/uniter/runner/jujuc"
 )
 
-type PodSpecGetSuite struct {
+type K8sSpecGetSuite struct {
 	ContextSuite
 }
 
-var _ = gc.Suite(&PodSpecGetSuite{})
+var _ = gc.Suite(&K8sSpecGetSuite{})
 
-var podSpecGetInitTests = []struct {
+var k8sSpecGetInitTests = []struct {
 	args []string
 	err  string
 }{
 	{[]string{"extra"}, `unrecognized args: \["extra"\]`},
 }
 
-func (s *PodSpecGetSuite) TestPodSpecGetInit(c *gc.C) {
-	for i, t := range podSpecGetInitTests {
+func (s *K8sSpecGetSuite) TestK8sSpecGetInit(c *gc.C) {
+	for i, t := range k8sSpecGetInitTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
-		com, err := jujuc.NewCommand(hctx, "pod-spec-get")
+		com, err := jujuc.NewCommand(hctx, "k8s-spec-get")
 		c.Assert(err, jc.ErrorIsNil)
 		cmdtesting.TestInit(c, jujuc.NewJujucCommandWrappedForTest(com), t.args, t.err)
 	}
 }
 
-func (s *PodSpecGetSuite) TestHelp(c *gc.C) {
+func (s *K8sSpecGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "pod-spec-get")
+	com, err := jujuc.NewCommand(hctx, "k8s-spec-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
 	expectedHelp := `
-Usage: pod-spec-get
+Usage: k8s-spec-get
 
 Summary:
-get pod spec information
+get k8s spec information
 
 Details:
-Gets configuration data used for a pod.
+Gets configuration data used to set up k8s resources.
 `[1:]
 
 	c.Assert(bufferString(ctx.Stdout), gc.Equals, expectedHelp)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-func (s *PodSpecGetSuite) TestPodSpecSet(c *gc.C) {
+func (s *K8sSpecGetSuite) TestK8sSpecSet(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
-	hctx.info.PodSpec = "podspec"
-	com, err := jujuc.NewCommand(hctx, "pod-spec-get")
+	hctx.info.K8sSpec = "k8sspec"
+	com, err := jujuc.NewCommand(hctx, "k8s-spec-get")
 	c.Assert(err, jc.ErrorIsNil)
 	ctx := cmdtesting.Context(c)
 
 	code := cmd.Main(jujuc.NewJujucCommandWrappedForTest(com), ctx, nil)
 	c.Check(code, gc.Equals, 0)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, "podspec")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "k8sspec")
 }
