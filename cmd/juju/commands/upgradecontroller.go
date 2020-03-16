@@ -175,15 +175,13 @@ func fetchStreamsVersions(
 		}
 	}()
 
-	for {
-		select {
-		case <-time.After(timeout):
-			return nil, nil
-		case err := <-errChan:
-			return nil, err
-		case resultList := <-result:
-			return resultList, nil
-		}
+	select {
+	case <-time.After(timeout):
+		return nil, nil
+	case err := <-errChan:
+		return nil, err
+	case resultList := <-result:
+		return resultList, nil
 	}
 }
 

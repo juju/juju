@@ -34,8 +34,14 @@ type SSHMachine interface {
 }
 
 type backend struct {
+	modelTag names.ModelTag
 	*state.State
 	stateenvirons.EnvironConfigGetter
+}
+
+// ModelTag() returns the model tag of the backend.
+func (b *backend) ModelTag() names.ModelTag {
+	return b.modelTag
 }
 
 // GetMachineForEntity takes a machine or unit tag (as a string) and
