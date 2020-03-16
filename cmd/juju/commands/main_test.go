@@ -6,7 +6,6 @@ package commands
 import (
 	"bytes"
 	"fmt"
-	jujucloud "github.com/juju/juju/cloud"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,6 +25,7 @@ import (
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"
 
+	jujucloud "github.com/juju/juju/cloud"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/application"
 	"github.com/juju/juju/cmd/juju/cloud"

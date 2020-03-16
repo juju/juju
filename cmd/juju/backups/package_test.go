@@ -6,8 +6,6 @@ package backups_test
 import (
 	"bytes"
 	"fmt"
-	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/juju/osenv"
 	"io"
 	"io/ioutil"
 	"os"
@@ -21,8 +19,10 @@ import (
 
 	apibackups "github.com/juju/juju/api/backups"
 	"github.com/juju/juju/apiserver/params"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/juju/backups"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/jujuclient"
 	"github.com/juju/juju/jujuclient/jujuclienttesting"
 	jujutesting "github.com/juju/juju/testing"
