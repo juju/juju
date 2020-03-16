@@ -93,7 +93,7 @@ var configTests = []configTest{
 		about:       "Streams",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"image-stream":           "released",
+			config.ImageStreamKey:    "released",
 			"agent-stream":           "released",
 			"container-image-stream": "daily",
 		}),
@@ -101,7 +101,7 @@ var configTests = []configTest{
 		about:       "Metadata URLs",
 		useDefaults: config.UseDefaults,
 		attrs: minimalConfigAttrs.Merge(testing.Attrs{
-			"image-metadata-url":           "image-url",
+			config.ImageMetadataURLKey:     "image-url",
 			"agent-metadata-url":           "agent-metadata-url-value",
 			"container-image-metadata-url": "container-image-metadata-url-value",
 		}),

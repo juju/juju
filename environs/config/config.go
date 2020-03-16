@@ -88,6 +88,12 @@ const (
 	// of OS image metadata for containers.
 	ContainerImageMetadataURLKey = "container-image-metadata-url"
 
+	// ImageStreamKey stores the key for this setting.
+	ImageStreamKey = "image-stream"
+
+	// ImageMetadataURLKey stores the key for this setting.
+	ImageMetadataURLKey = "image-metadata-url"
+
 	// Proxy behaviour has become something of an annoying thing to define
 	// well. These following four proxy variables are being kept to continue
 	// with the existing behaviour for those deployments that specify them.
@@ -463,8 +469,8 @@ var defaultConfigValues = map[string]interface{}{
 	BackupDirKey:                  "",
 
 	// Image and agent streams and URLs.
-	"image-stream":               "released",
-	"image-metadata-url":         "",
+	ImageStreamKey:               "released",
+	ImageMetadataURLKey:          "",
 	AgentStreamKey:               "released",
 	AgentMetadataURLKey:          "",
 	ContainerImageStreamKey:      "released",
@@ -1243,7 +1249,7 @@ func (c *Config) ProvisionerHarvestMode() HarvestMode {
 // used to identify which image ids to search
 // when starting an instance.
 func (c *Config) ImageStream() string {
-	v, _ := c.defined["image-stream"].(string)
+	v, _ := c.defined[ImageStreamKey].(string)
 	if v != "" {
 		return v
 	}
@@ -1518,8 +1524,8 @@ var alwaysOptional = schema.Defaults{
 	"cloudimg-base-url":           schema.Omit,
 	"enable-os-refresh-update":    schema.Omit,
 	"enable-os-upgrade":           schema.Omit,
-	"image-stream":                schema.Omit,
-	"image-metadata-url":          schema.Omit,
+	ImageStreamKey:                schema.Omit,
+	ImageMetadataURLKey:           schema.Omit,
 	AgentMetadataURLKey:           schema.Omit,
 	ContainerImageStreamKey:       schema.Omit,
 	ContainerImageMetadataURLKey:  schema.Omit,
@@ -1873,12 +1879,12 @@ global or per instance security groups.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"image-metadata-url": {
+	ImageMetadataURLKey: {
 		Description: "The URL at which the metadata used to locate OS image ids is located",
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,
 	},
-	"image-stream": {
+	ImageStreamKey: {
 		Description: `The simplestreams stream used to identify which image ids to search when starting an instance.`,
 		Type:        environschema.Tstring,
 		Group:       environschema.EnvironGroup,

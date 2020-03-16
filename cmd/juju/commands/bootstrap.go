@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/context"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/feature"
 	"github.com/juju/juju/juju"
@@ -421,7 +422,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 
 var supportedJujuSeries = func() set.Strings {
 	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruant with the Ubuntu release cycle for it's own series (not
+	// Juju is congruent with the Ubuntu release cycle for it's own series (not
 	// including centos and windows), so that should be reflected here.
 	//
 	// For non-LTS releases; they'll appear in juju/os as default available, but
@@ -683,6 +684,16 @@ to create a new model to deploy k8s workloads.
 		}
 	}()
 
+	// If the operator wants to test a new LTS and has changed the image-stream
+	// from released to anything other than daily, then we shouldn't require
+	// force for bootstrapping.
+	// If the operator hasn't suggested a bootstrapped series, then we want to
+	// honor the original force.
+	forceSeries := c.Force
+	if c.BootstrapSeries != "" && shouldOverrideSeriesForce(bootstrapCfg.bootstrapModel) {
+		forceSeries = true
+	}
+
 	bootstrapCtx := modelcmd.BootstrapContext(ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
 		ModelConfig:      bootstrapCfg.bootstrapModel,
@@ -727,7 +738,7 @@ to create a new model to deploy k8s workloads.
 			RetryDelay:     bootstrapCfg.bootstrap.BootstrapRetryDelay,
 			AddressesDelay: bootstrapCfg.bootstrap.BootstrapAddressesDelay,
 		},
-		Force: c.Force,
+		Force: forceSeries,
 	}
 
 	environ, err := bootstrapPrepareController(
@@ -1447,4 +1458,36 @@ func newStringIfNonEmpty(s string) *string {
 		return nil
 	}
 	return &s
+}
+
+// shouldOverrideSeriesForce attempts to work out if it's a requirement for
+// the operator to supply force.
+func shouldOverrideSeriesForce(bootstrapModel map[string]interface{}) bool {
+	imageStream, imageStreamFound := bootstrapModel[config.ImageStreamKey]
+	imageMetadataURL, imageMetadataURLFound := bootstrapModel[config.ImageMetadataURLKey]
+
+	// If we can't find the config image stream data with in the model, when we
+	// expect to always have it in the model, then we don't have any idea what
+	// is expected other than asking the operator to use --force.
+	if !imageStreamFound || !imageMetadataURLFound {
+		return false
+	}
+
+	// If the operator hasn't supplied the default image meta data url, we
+	// expect that they don't require force. In the instance that the value we
+	// get back from the model config isn't a string, then return asking for
+	// force.
+	if url, ok := imageMetadataURL.(string); !ok {
+		return false
+	} else if !imagemetadata.ValidDefaultImageMetadataURL(url) {
+		return true
+	}
+
+	// If the operator is passing a non-release image-stream, then they should
+	// be allowed to bootstrap without a force flag.
+	stream, ok := imageStream.(string)
+	if !ok {
+		return false
+	}
+	return !imagemetadata.ValidReleaseStream(stream)
 }
