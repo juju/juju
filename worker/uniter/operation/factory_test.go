@@ -103,7 +103,7 @@ func (s *FactorySuite) TestNewActionString(c *gc.C) {
 	c.Check(op.String(), gc.Equals, "run action "+someActionId)
 }
 
-func panicSendResponse(*utilexec.ExecResponse, error) {
+func panicSendResponse(*utilexec.ExecResponse, error) bool {
 	panic("don't call this")
 }
 

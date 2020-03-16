@@ -1,4 +1,18 @@
-#!/usr/bin/env python
+#!/bin/sh
+"""":
+python  -c "" 2>/dev/null && exec python  $0 ${1+"$@"}
+python3 -c "" 2>/dev/null && exec python3 $0 ${1+"$@"}
+python2 -c "" 2>/dev/null && exec python2 $0 ${1+"$@"}
+echo "Could not find a python interpreter."
+exit 1
+"""
+# The above will attempt to find a the best available python interpreter
+# available to run the docs. This a requirement because this is built on
+# multiple series and there is no standard python to install for each one.
+#
+# The code will first run as shell (sh), find the correct python interpreter
+# then run the same file as python, which will ignore the shell, because it's
+# seen as a python doc string.
 
 # Copyright 2013 Canonical Ltd.
 # Licensed under the AGPLv3, see LICENCE file for details.

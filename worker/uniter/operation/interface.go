@@ -144,7 +144,7 @@ type CommandArgs struct {
 
 // CommandResponseFunc is for marshalling command responses back to the source
 // of the original request.
-type CommandResponseFunc func(*utilexec.ExecResponse, error)
+type CommandResponseFunc func(*utilexec.ExecResponse, error) bool
 
 // Callbacks exposes all the uniter code that's required by the various operations.
 // It's far from cohesive, and fundamentally represents inappropriate coupling, so
