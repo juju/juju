@@ -472,7 +472,7 @@
 
 [[constraint]]
   name = "golang.org/x/sys"
-  revision = "0cf1ed9e522b7dbb416f080a5c8003de9b702bf4"
+  revision = "915c9c3d4ccf72b2ceac5e8303d722b16b699366"
 
 [[override]]
   name = "golang.org/x/text"
