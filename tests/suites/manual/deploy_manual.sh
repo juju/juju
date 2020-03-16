@@ -77,8 +77,8 @@ run_deploy_manual_lxd() {
 
         local address=""
 
-        attempts=0
-        while [ ${attempts} -lt 30 ]; do
+        attempt=0
+        while [ ${attempt} -lt 30 ]; do
             address=$(lxc list $1 --format json | \
                 jq --raw-output '.[0].state.network.eth0.addresses | map(select( .family == "inet")) | .[0].address')
 
@@ -100,12 +100,14 @@ run_deploy_manual_lxd() {
     for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
         ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
 
-        attempts=0
-        while [ ${attempts} -lt 10 ]; do
+        attempt=0
+        while [ ${attempt} -lt 10 ]; do
             OUT=$(ssh -T -n -i "${TEST_DIR}/${name}" \
-                -o StrictHostKeyChecking=no -o AddKeysToAgent=yes \
-                "ubuntu@${addr}.1" || true)
-            if echo "${OUT}" | grep -qv "Could not resolve hostname"; then
+                -o IdentitiesOnly=yes \
+                -o StrictHostKeyChecking=no \
+                -o AddKeysToAgent=yes \
+                "ubuntu@${addr}" 2>&1 || true)
+            if echo "${OUT}" | grep -q -v "Could not resolve hostname"; then
                 echo "Adding ssh key to ${addr}"
                 break
             fi
@@ -113,20 +115,30 @@ run_deploy_manual_lxd() {
             sleep 1
             attempt=$((attempt+1))
         done
+
+        if [ "${attempt}" -ge 10 ]; then
+            echo "Failed to add key to ${addr}"
+            exit 1
+        fi
     done
 
     cloud_name="cloud-${name}"
 
     CLOUD=$(cat <<EOF
-${cloud_name}:
-  type: manual
-  endpoint: "${addr_c}"
+clouds:
+  ${cloud_name}:
+    type: manual
+    endpoint: "ubuntu@${addr_c}"
 EOF
 )
 
     echo "${CLOUD}" > "${TEST_DIR}/cloud_name.yaml"
 
     juju add-cloud --client "${cloud_name}" "${TEST_DIR}/cloud_name.yaml" >"${TEST_DIR}/add-cloud.log" 2>&1
+
+    file="${TEST_DIR}/test-${name}.txt"
+
+    bootstrap "${cloud_name}" "test-${name}" "${file}"
 }
 
 test_deploy_manual() {
@@ -144,9 +156,11 @@ test_deploy_manual() {
         # currently, future tests should run on aws.
         case "${BOOTSTRAP_PROVIDER:-}" in
             "lxd")
+                export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_lxd"
                 ;;
             "localhost")
+                export BOOTSTRAP_PROVIDER="manual"
                 run "run_deploy_manual_lxd"
                 ;;
             *)
