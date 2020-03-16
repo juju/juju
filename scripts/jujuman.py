@@ -19,7 +19,7 @@ class JujuMan(object):
 
     def run_juju(self, *args):
         cmd = ['juju'] + list(args)
-        return subprocess.check_output(cmd).strip()
+        return subprocess.check_output(cmd).strip().decode('utf-8')
 
     def _version(self):
         juju_version = self.run_juju('version')
