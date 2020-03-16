@@ -33,10 +33,14 @@ func (c *K8sSpecSetCommand) Info() *cmd.Info {
 Sets configuration data to use for k8s resources.
 The spec applies to all units for the application.
 `
+	purpose := "set k8s spec information"
+	if c.name == "pod-spec-set" {
+		purpose += " (deprecated)"
+	}
 	return jujucmd.Info(&cmd.Info{
 		Name:    c.name,
 		Args:    "--file <core spec file> [--k8s-resources <k8s spec file>]",
-		Purpose: "set k8s spec information",
+		Purpose: purpose,
 		Doc:     doc,
 	})
 }

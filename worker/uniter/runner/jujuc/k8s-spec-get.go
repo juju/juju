@@ -28,9 +28,13 @@ func (c *K8sSpecGetCommand) Info() *cmd.Info {
 	doc := `
 Gets configuration data used to set up k8s resources.
 `
+	purpose := "get k8s spec information"
+	if c.name == "pod-spec-get" {
+		purpose += " (deprecated)"
+	}
 	return jujucmd.Info(&cmd.Info{
 		Name:    c.name,
-		Purpose: "get k8s spec information",
+		Purpose: purpose,
 		Doc:     doc,
 	})
 }

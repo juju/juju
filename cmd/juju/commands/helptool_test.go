@@ -65,8 +65,8 @@ Currently available charm hook tools are:
     network-get              get network config
     open-port                register a port or range to open
     opened-ports             lists all ports or ranges opened by the unit
-    pod-spec-get             get k8s spec information
-    pod-spec-set             set k8s spec information
+    pod-spec-get             get k8s spec information (deprecated)
+    pod-spec-set             set k8s spec information (deprecated)
     relation-get             get relation settings
     relation-ids             list all relation ids with the given relation name
     relation-list            list relation units
