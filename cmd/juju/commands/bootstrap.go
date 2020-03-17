@@ -10,6 +10,7 @@ import (
 	"path"
 	"sort"
 	"strings"
+	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
-	"github.com/juju/os/series"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -38,6 +38,7 @@ import (
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
 	"github.com/juju/juju/core/network"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -419,18 +420,21 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var supportedJujuSeries = func() set.Strings {
+var supportedJujuSeries = func(now time.Time) (set.Strings, error) {
 	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruant with the Ubuntu release cycle for it's own series (not
+	// Juju is congruent with the Ubuntu release cycle for it's own series (not
 	// including centos and windows), so that should be reflected here.
 	//
 	// For non-LTS releases; they'll appear in juju/os as default available, but
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
 	// the non-LTS should disapear if they're not in the release window for that
 	// series.
-	supportedJujuSeries := set.NewStrings(series.SupportedJujuControllerSeries()...)
-	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
-	return supportedJujuSeries.Union(esmSupportedJujuSeries)
+	source := series.NewDistroInfo(series.UbuntuDistroInfo)
+	supported := series.NewSupportedInfo(source, series.DefaultSeries())
+	if err := supported.Compile(now); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return set.NewStrings(supported.ControllerSeries()...), nil
 }
 
 var (
@@ -683,6 +687,12 @@ to create a new model to deploy k8s workloads.
 		}
 	}()
 
+	// Get the supported bootstrap series.
+	supportedBootstrapSeries, err := supportedJujuSeries(c.clock.Now())
+	if err != nil {
+		return errors.Annotate(err, "error reading supported bootstrap series")
+	}
+
 	bootstrapCtx := modelcmd.BootstrapContext(ctx)
 	bootstrapPrepareParams := bootstrap.PrepareParams{
 		ModelConfig:      bootstrapCfg.bootstrapModel,
@@ -704,7 +714,7 @@ to create a new model to deploy k8s workloads.
 	bootstrapParams := bootstrap.BootstrapParams{
 		ControllerName:            c.controllerName,
 		BootstrapSeries:           c.BootstrapSeries,
-		SupportedBootstrapSeries:  supportedJujuSeries(),
+		SupportedBootstrapSeries:  supportedBootstrapSeries,
 		BootstrapImage:            c.BootstrapImage,
 		Placement:                 c.Placement,
 		BuildAgent:                c.BuildAgent,

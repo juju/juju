@@ -4,6 +4,9 @@
 package application
 
 import (
+	"time"
+
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/romulus"
@@ -31,6 +34,7 @@ func NewDeployCommandForTest(newAPIRoot func() (DeployAPI, error), steps []Deplo
 	deployCmd := &DeployCommand{
 		Steps:      steps,
 		NewAPIRoot: newAPIRoot,
+		clock:      jujuclock.WallClock,
 	}
 	if newAPIRoot == nil {
 		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
@@ -84,6 +88,7 @@ func NewDeployCommandForTest2(charmstore charmstoreForDeploy, charmrepo *charmst
 			},
 			&ValidateLXDProfileCharm{},
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
@@ -316,8 +321,8 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 }
 
@@ -329,7 +334,7 @@ type JujuConnBaseSuite struct {
 
 func (s *JujuConnBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 }

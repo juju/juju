@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/bundlechanges"
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -172,6 +173,8 @@ type bundleHandler struct {
 	force  bool
 	trust  bool
 
+	clock jujuclock.Clock
+
 	// bundleDir is the path where the bundle file is located for local bundles.
 	bundleDir string
 	// changes holds the changes to be applied in order to deploy the bundle.
@@ -265,6 +268,9 @@ func makeBundleHandler(bundleData *charm.BundleData, spec bundleDeploySpec) *bun
 		applications.Add(name)
 	}
 	return &bundleHandler{
+		// TODO (stickupkid): pass this through from the constructor.
+		clock: jujuclock.WallClock,
+
 		dryRun:               spec.dryRun,
 		force:                spec.force,
 		trust:                spec.trust,
@@ -684,11 +690,17 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 	if len(supportedSeries) == 0 && chID.URL.Series != "" {
 		supportedSeries = []string{chID.URL.Series}
 	}
+
+	workloadSeries, err := supportedJujuSeries(h.clock.Now())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	selector := seriesSelector{
 		seriesFlag:          p.Series,
 		charmURLSeries:      chID.URL.Series,
 		supportedSeries:     supportedSeries,
-		supportedJujuSeries: supportedJujuSeries(),
+		supportedJujuSeries: workloadSeries,
 		conf:                h.modelConfig,
 		force:               h.force,
 		fromBundle:          true,

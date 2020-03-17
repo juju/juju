@@ -10,12 +10,12 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
@@ -47,6 +47,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -111,18 +112,21 @@ type SpacesAPI interface {
 	ListSpaces() ([]apiparams.Space, error)
 }
 
-var supportedJujuSeries = func() []string {
+var supportedJujuSeries = func(now time.Time) ([]string, error) {
 	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruant with the Ubuntu release cycle for it's own series (not
+	// Juju is congruent with the Ubuntu release cycle for it's own series (not
 	// including centos and windows), so that should be reflected here.
 	//
 	// For non-LTS releases; they'll appear in juju/os as default available, but
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
-	// the non-LTS should disapear if they're not in the release window for that
+	// the non-LTS should disappear if they're not in the release window for that
 	// series.
-	supportedJujuSeries := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
-	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
-	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
+	source := series.NewDistroInfo(series.UbuntuDistroInfo)
+	supported := series.NewSupportedInfo(source, series.DefaultSeries())
+	if err := supported.Compile(now); err != nil {
+		return nil, errors.Trace(err)
+	}
+	return supported.WorkloadSeries(), nil
 }
 
 // DeployAPI represents the methods of the API the deploy
@@ -290,6 +294,7 @@ func NewDeployCommand() modelcmd.ModelCommand {
 		&ValidateLXDProfileCharm{},
 	}
 	deployCmd := &DeployCommand{
+		clock: jujuclock.WallClock,
 		Steps: steps,
 	}
 	deployCmd.NewAPIRoot = func() (DeployAPI, error) {
@@ -344,6 +349,8 @@ func NewDeployCommand() modelcmd.ModelCommand {
 type DeployCommand struct {
 	modelcmd.ModelCommandBase
 	UnitCommandBase
+
+	clock jujuclock.Clock
 
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.
@@ -1247,8 +1254,13 @@ func (c *DeployCommand) validateCharmFlags() error {
 func (c *DeployCommand) validateCharmSeries(seriesName string) error {
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
+	workloadSeries, err := supportedJujuSeries(c.clock.Now())
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var found bool
-	for _, name := range supportedJujuSeries() {
+	for _, name := range workloadSeries {
 		if name == seriesName {
 			found = true
 			break
@@ -1384,6 +1396,10 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	// below) where it is handled properly. This is just an expedient to get
 	// the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
+	workloadSeries, err := supportedJujuSeries(c.clock.Now())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 
 	ch, err := charm.ReadCharm(c.CharmOrBundle)
 	seriesName := c.Series
@@ -1396,7 +1412,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
 			supportedSeries:     ch.Meta().Series,
-			supportedJujuSeries: supportedJujuSeries(),
+			supportedJujuSeries: workloadSeries,
 			force:               c.Force,
 			conf:                modelCfg,
 			fromBundle:          false,
@@ -1571,6 +1587,11 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		return nil, errors.Trace(err)
 	}
 
+	workloadSeries, err := supportedJujuSeries(c.clock.Now())
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		// resolver.resolve potentially updates the series of anything
 		// passed in. Store this for use in seriesSelector.
@@ -1601,7 +1622,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			charmURLSeries:      userRequestedSeries,
 			seriesFlag:          c.Series,
 			supportedSeries:     supportedSeries,
-			supportedJujuSeries: supportedJujuSeries(),
+			supportedJujuSeries: workloadSeries,
 			force:               c.Force,
 			conf:                modelCfg,
 			fromBundle:          false,

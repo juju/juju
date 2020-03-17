@@ -15,7 +15,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -163,8 +165,8 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
@@ -647,6 +649,7 @@ func (s *DeploySuite) TestDeployBundlesRequiringTrust(c *gc.C) {
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "aws-integrator-trust-single")
@@ -708,6 +711,7 @@ func (s *DeploySuite) TestDeployBundleWithOffers(c *gc.C) {
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "apache2-with-offers")
@@ -801,6 +805,7 @@ func (s *DeploySuite) TestDeployBundleWithSAAS(c *gc.C) {
 		NewConsumeDetailsAPI: func(url *charm.OfferURL) (ConsumeDetails, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	bundlePath := testcharms.RepoWithSeries("bionic").ClonedBundleDirPath(c.MkDir(), "wordpress-with-saas")
@@ -1175,7 +1180,9 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
-	command := DeployCommand{}
+	command := DeployCommand{
+		clock: jujuclock.WallClock,
+	}
 	flagSet := gnuflag.NewFlagSetWithFlagKnownAs(command.Info().Name, gnuflag.ContinueOnError, "option")
 	command.SetFlags(flagSet)
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
@@ -1219,8 +1226,8 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return supported.Values()
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return supported.Values(), nil
 	})
 
 	nonEMSSeries := supportedNotEMS.Values()[0]
@@ -1285,8 +1292,8 @@ type charmstoreSuite struct {
 func (s *charmstoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 
 	repo := jjcharmstore.NewRepository()
@@ -1689,8 +1696,8 @@ func (s *legacyCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 
 	// Initialize the charm cache dir.
@@ -1870,6 +1877,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentials(c *gc.C) {
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1915,6 +1923,7 @@ func (s *DeployCharmStoreSuite) TestAddMetricCredentialsDefaultPlan(c *gc.C) {
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1")
 	c.Assert(err, jc.ErrorIsNil)
@@ -1953,6 +1962,7 @@ func (s *DeployCharmStoreSuite) TestSetMetricCredentialsNotCalledForUnmeteredCha
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/dummy-1")
@@ -1999,6 +2009,7 @@ summary: summary
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String())
@@ -2042,6 +2053,7 @@ summary: summary
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), url.String(), "--plan", "someplan")
@@ -2118,6 +2130,7 @@ func (s *DeployCharmStoreSuite) TestDeployCharmsEndpointNotImplemented(c *gc.C) 
 		NewAPIRoot: func() (DeployAPI, error) {
 			return fakeAPI, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 	_, err := cmdtesting.RunCommand(c, modelcmd.Wrap(deploy), "cs:bionic/metered-1", "--plan", "someplan")
 
@@ -2190,8 +2203,8 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
