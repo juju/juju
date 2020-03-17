@@ -217,15 +217,15 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-operator==test"},
+			v1.ListOptions{LabelSelector: "juju-operator=test"},
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-operator==test"},
+			v1.ListOptions{LabelSelector: "juju-operator=test"},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-operator==test"},
+			v1.ListOptions{LabelSelector: "juju-operator=test"},
 		).Return(nil),
 
 		s.mockConfigMaps.EXPECT().Delete("test-operator-config", s.deleteOptions(v1.DeletePropagationForeground, "")).
@@ -236,7 +236,7 @@ func (s *K8sBrokerSuite) TestDeleteOperator(c *gc.C) {
 			Return(s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, "")).
 			Return(s.k8sNotFoundError()),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&core.PodList{Items: []core.Pod{{
 				Spec: core.PodSpec{
 					Containers: []core.Container{{
@@ -332,7 +332,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfig(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
@@ -446,7 +446,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorCreate(c *gc.C) {
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
@@ -565,14 +565,14 @@ func (s *K8sBrokerSuite) TestEnsureOperatorUpdate(c *gc.C) {
 
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("test-operator", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get("test-operator", v1.GetOptions{}).Return(rb, nil),
@@ -691,7 +691,7 @@ func (s *K8sBrokerSuite) TestEnsureOperatorNoAgentConfigMissingConfigMap(c *gc.C
 		// ensure RBAC resources.
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 
@@ -765,7 +765,7 @@ func (s *K8sBrokerSuite) TestOperator(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
 			Return(&ss, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&core.PodList{Items: []core.Pod{opPod}}, nil),
 		s.mockConfigMaps.EXPECT().Get("test-operator-config", v1.GetOptions{}).
 			Return(&cm, nil),
@@ -809,7 +809,7 @@ func (s *K8sBrokerSuite) TestOperatorNoPodFound(c *gc.C) {
 			Return(nil, s.k8sNotFoundError()),
 		s.mockStatefulSets.EXPECT().Get("test-operator", v1.GetOptions{}).
 			Return(&ss, nil),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator==test"}).
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-operator=test"}).
 			Return(&core.PodList{Items: []core.Pod{}}, nil),
 	)
 

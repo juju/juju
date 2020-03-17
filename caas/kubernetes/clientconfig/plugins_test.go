@@ -466,7 +466,7 @@ func (s *k8sRawClientSuite) TestRemoveJujuAdminServiceAccount(c *gc.C) {
 	ctrl := s.setupBroker(c)
 	defer ctrl.Finish()
 
-	labelSelector := fmt.Sprintf("juju-credential==%s", s.UID)
+	labelSelector := fmt.Sprintf("juju-credential=%s", s.UID)
 	gomock.InOrder(
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(metav1.DeletePropagationForeground),

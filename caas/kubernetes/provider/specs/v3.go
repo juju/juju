@@ -86,7 +86,7 @@ type K8sRBACSpecConverter interface {
 	)
 }
 
-// Validate is defined on ProviderPod.
+// Validate validates the spec.
 func (ks K8sRBACResources) Validate() error {
 	saNames := set.NewStrings()
 	for _, sa := range ks.ServiceAccounts {
@@ -225,13 +225,35 @@ func PrimeServiceAccountToK8sRBACResources(spec specs.PrimeServiceAccountSpecV3)
 	return out, nil
 }
 
+// K8sCustomResourceDefinitionSpec defines spec for creating or updating an CustomResourceDefinition resource.
+type K8sCustomResourceDefinitionSpec struct {
+	Name        string                                            `json:"name" yaml:"name"`
+	Labels      map[string]string                                 `json:"labels,omitempty" yaml:"labels,omitempty"`
+	Annotations map[string]string                                 `json:"annotations,omitempty" yaml:"annotations,omitempty"`
+	Spec        apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"spec" yaml:"spec"`
+}
+
+// Validate validates the spec.
+func (crd K8sCustomResourceDefinitionSpec) Validate() error {
+	if crd.Spec.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Spec.Scope != apiextensionsv1beta1.ClusterScoped {
+		return errors.NewNotSupported(nil,
+			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
+				crd.Name, crd.Spec.Scope, apiextensionsv1beta1.NamespaceScoped, apiextensionsv1beta1.ClusterScoped),
+		)
+	}
+	if err := validateLabels(crd.Labels); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
+}
+
 // KubernetesResources is the k8s related resources.
 type KubernetesResources struct {
 	Pod *PodSpec `json:"pod,omitempty" yaml:"pod,omitempty"`
 
-	Secrets                   []Secret                                                     `json:"secrets" yaml:"secrets"`
-	CustomResourceDefinitions map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec `json:"customResourceDefinitions,omitempty" yaml:"customResourceDefinitions,omitempty"`
-	CustomResources           map[string][]unstructured.Unstructured                       `json:"customResources,omitempty" yaml:"customResources,omitempty"`
+	Secrets                   []Secret                               `json:"secrets" yaml:"secrets"`
+	CustomResourceDefinitions []K8sCustomResourceDefinitionSpec      `json:"customResourceDefinitions" yaml:"customResourceDefinitions"`
+	CustomResources           map[string][]unstructured.Unstructured `json:"customResources,omitempty" yaml:"customResources,omitempty"`
 
 	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook   `json:"mutatingWebhookConfigurations,omitempty" yaml:"mutatingWebhookConfigurations,omitempty"`
 	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook `json:"validatingWebhookConfigurations,omitempty" yaml:"validatingWebhookConfigurations,omitempty"`
@@ -241,20 +263,10 @@ type KubernetesResources struct {
 	IngressResources []K8sIngressSpec `json:"ingressResources,omitempty" yaml:"ingressResources,omitempty"`
 }
 
-func validateCustomResourceDefinition(name string, crd apiextensionsv1beta1.CustomResourceDefinitionSpec) error {
-	if crd.Scope != apiextensionsv1beta1.NamespaceScoped && crd.Scope != apiextensionsv1beta1.ClusterScoped {
-		return errors.NewNotSupported(nil,
-			fmt.Sprintf("custom resource definition %q scope %q is not supported, please use %q or %q scope",
-				name, crd.Scope, apiextensionsv1beta1.NamespaceScoped, apiextensionsv1beta1.ClusterScoped),
-		)
-	}
-	return nil
-}
-
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResources) Validate() error {
-	for k, crd := range krs.CustomResourceDefinitions {
-		if err := validateCustomResourceDefinition(k, crd); err != nil {
+	for _, crd := range krs.CustomResourceDefinitions {
+		if err := crd.Validate(); err != nil {
 			return errors.Trace(err)
 		}
 	}

@@ -189,6 +189,9 @@ func (ing K8sIngressSpec) Validate() error {
 	if ing.Name == "" {
 		return errors.New("ingress name is missing")
 	}
+	if err := validateLabels(ing.Labels); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
@@ -221,7 +224,7 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 	out := &KubernetesResources{
 		Pod:                             krs.Pod,
 		Secrets:                         krs.Secrets,
-		CustomResourceDefinitions:       krs.CustomResourceDefinitions,
+		CustomResourceDefinitions:       customResourceDefinitionsToLatest(krs.CustomResourceDefinitions),
 		CustomResources:                 krs.CustomResources,
 		MutatingWebhookConfigurations:   krs.MutatingWebhookConfigurations,
 		ValidatingWebhookConfigurations: krs.ValidatingWebhookConfigurations,
@@ -234,10 +237,20 @@ func (krs *KubernetesResourcesV2) toLatest() *KubernetesResources {
 	return out
 }
 
+func customResourceDefinitionsToLatest(crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec) (out []K8sCustomResourceDefinitionSpec) {
+	for name, crd := range crds {
+		out = append(out, K8sCustomResourceDefinitionSpec{
+			Name: name,
+			Spec: crd,
+		})
+	}
+	return out
+}
+
 // Validate is defined on ProviderPod.
 func (krs *KubernetesResourcesV2) Validate() error {
 	for k, crd := range krs.CustomResourceDefinitions {
-		if err := validateCustomResourceDefinition(k, crd); err != nil {
+		if err := validateCustomResourceDefinitionV2(k, crd); err != nil {
 			return errors.Trace(err)
 		}
 	}

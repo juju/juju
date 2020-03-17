@@ -28,7 +28,6 @@ import (
 	core "k8s.io/api/core/v1"
 	"k8s.io/api/extensions/v1beta1"
 	k8sstorage "k8s.io/api/storage/v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -73,6 +72,11 @@ const (
 	labelApplicationUUID = "juju-app-uuid"
 	labelModel           = "juju-model"
 
+	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
+	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
+	labelResourceLifeCycleValueModel      = "model"
+	labelResourceLifeCycleValuePersistent = "persistent"
+
 	gpuAffinityNodeSelectorKey = "gpu"
 
 	annotationPrefix = "juju.io"
@@ -95,16 +99,17 @@ const (
 
 	// A set of constants defining history limits for certain k8s deployment
 	// types.
-	// TODO We may want to make these confiurable in the future
-	// DaemonsetRevisionHistoryLimit is the number of old history states to
+	// TODO We may want to make these configurable in the future.
+
+	// daemonsetRevisionHistoryLimit is the number of old history states to
 	// retain to allow rollbacks
-	DaemonsetRevisionHistoryLimit int32 = 0
-	// DeploymentRevisionHistoryLimit is the number of old ReplicaSets to retain
+	daemonsetRevisionHistoryLimit int32 = 0
+	// deploymentRevisionHistoryLimit is the number of old ReplicaSets to retain
 	// to allow rollback
-	DeploymentRevisionHistoryLimit int32 = 0
-	// StatefulsetRevisionHistoryLimit is the maximum number of revisions that
+	deploymentRevisionHistoryLimit int32 = 0
+	// statefulSetRevisionHistoryLimit is the maximum number of revisions that
 	// will be maintained in the StatefulSet's revision history
-	StatefulsetRevisionHistoryLimit int32 = 0
+	statefulSetRevisionHistoryLimit int32 = 0
 )
 
 var (
@@ -1629,7 +1634,7 @@ func (k *kubernetesClient) configureDaemonSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: k.getDaemonSetLabels(appName),
 			},
-			RevisionHistoryLimit: int32Ptr(DaemonsetRevisionHistoryLimit),
+			RevisionHistoryLimit: int32Ptr(daemonsetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					GenerateName: deploymentName + "-",
@@ -1667,7 +1672,7 @@ func (k *kubernetesClient) configureDeployment(
 		Spec: apps.DeploymentSpec{
 			// TODO(caas): DeploymentStrategy support.
 			Replicas:             replicas,
-			RevisionHistoryLimit: int32Ptr(DeploymentRevisionHistoryLimit),
+			RevisionHistoryLimit: int32Ptr(deploymentRevisionHistoryLimit),
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
 			},
@@ -1942,11 +1947,15 @@ func (k *kubernetesClient) UnexposeService(appName string) error {
 }
 
 func operatorSelector(appName string) string {
-	return fmt.Sprintf("%v==%v", labelOperator, appName)
+	return labelSetToSelector(map[string]string{
+		labelOperator: appName,
+	}).String()
 }
 
 func applicationSelector(appName string) string {
-	return fmt.Sprintf("%v==%v", labelApplication, appName)
+	return labelSetToSelector(map[string]string{
+		labelApplication: appName,
+	}).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
@@ -2484,7 +2493,7 @@ type workloadSpec struct {
 	Secrets                         []k8sspecs.Secret
 	ConfigMaps                      map[string]specs.ConfigMap
 	ServiceAccounts                 []k8sspecs.K8sRBACSpecConverter
-	CustomResourceDefinitions       map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec
+	CustomResourceDefinitions       []k8sspecs.K8sCustomResourceDefinitionSpec
 	CustomResources                 map[string][]unstructured.Unstructured
 	MutatingWebhookConfigurations   map[string][]admissionregistration.MutatingWebhook
 	ValidatingWebhookConfigurations map[string][]admissionregistration.ValidatingWebhook
@@ -2660,15 +2669,6 @@ func (k *kubernetesClient) deploymentName(appName string) string {
 		return "juju-" + appName
 	}
 	return appName
-}
-
-func labelsToSelector(labels map[string]string) string {
-	var selectors []string
-	for k, v := range labels {
-		selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
-	}
-	sort.Strings(selectors) // for tests.
-	return strings.Join(selectors, ",")
 }
 
 func newUIDPreconditions(uid k8stypes.UID) *v1.Preconditions {

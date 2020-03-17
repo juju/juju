@@ -33,6 +33,31 @@ func newLabelRequirements(rs ...requirementParams) k8slabels.Selector {
 	return s
 }
 
+func labelSetToRequirements(labels k8slabels.Set) []k8slabels.Requirement {
+	out, _ := k8slabels.SelectorFromValidatedSet(labels).Requirements()
+	return out
+}
+
+func labelSetToSelector(labels k8slabels.Set) k8slabels.Selector {
+	return k8slabels.SelectorFromValidatedSet(labels)
+}
+
+func mergeSelectors(selectors ...k8slabels.Selector) k8slabels.Selector {
+	s := k8slabels.NewSelector()
+	for _, v := range selectors {
+		if v.Empty() {
+			continue
+		}
+		rs, selectable := v.Requirements()
+		if selectable {
+			s = s.Add(rs...)
+		} else {
+			logger.Warningf("%v is not selectable", v)
+		}
+	}
+	return s
+}
+
 // requirementParams defines parameters used to create a k8s label requirement.
 type requirementParams struct {
 	key       string

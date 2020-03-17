@@ -11,6 +11,7 @@ import (
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/errors"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/core/watcher"
 )
@@ -21,6 +22,9 @@ func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.
 	labels := map[string]string{
 		labelModel: k.namespace,
 	}
+	selector := k8slabels.NewSelector().Add(
+		labelSetToRequirements(labels)...,
+	)
 
 	tasks := []teardownResources{
 		k.deleteClusterRoleBindingsModelTeardown,
@@ -35,13 +39,13 @@ func (k *kubernetesClient) deleteClusterScopeResourcesModelTeardown(ctx context.
 	defer subwg.Wait()
 
 	for _, f := range tasks {
-		go f(ctx, labels, k.clock, &subwg, errChan)
+		go f(ctx, selector, k.clock, &subwg, errChan)
 	}
 }
 
 type teardownResources func(
 	context.Context,
-	map[string]string,
+	k8slabels.Selector,
 	jujuclock.Clock,
 	*sync.WaitGroup,
 	chan<- error,
@@ -49,14 +53,14 @@ type teardownResources func(
 
 func (k *kubernetesClient) deleteClusterRoleBindingsModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		k.deleteClusterRoleBindings, func(labels map[string]string) error {
-			_, err := k.listClusterRoleBindings(labels)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		k.deleteClusterRoleBindings, func(selector k8slabels.Selector) error {
+			_, err := k.listClusterRoleBindings(selector)
 			return err
 		},
 	)
@@ -64,14 +68,14 @@ func (k *kubernetesClient) deleteClusterRoleBindingsModelTeardown(
 
 func (k *kubernetesClient) deleteClusterRolesModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		k.deleteClusterRoles, func(labels map[string]string) error {
-			_, err := k.listClusterRoles(labels)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		k.deleteClusterRoles, func(selector k8slabels.Selector) error {
+			_, err := k.listClusterRoles(selector)
 			return err
 		},
 	)
@@ -79,7 +83,7 @@ func (k *kubernetesClient) deleteClusterRolesModelTeardown(
 
 func (k *kubernetesClient) deleteClusterScopeAPIExtensionResourcesModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
@@ -90,30 +94,30 @@ func (k *kubernetesClient) deleteClusterScopeAPIExtensionResourcesModelTeardown(
 	subwg.Add(2)
 	defer subwg.Wait()
 	// Delete CRs first then CRDs.
-	k.deleteClusterScopeCustomResourcesModelTeardown(ctx, labels, clk, &subwg, errChan)
-	k.deleteCustomResourceDefinitionsModelTeardown(ctx, labels, clk, &subwg, errChan)
+	k.deleteClusterScopeCustomResourcesModelTeardown(ctx, selector, clk, &subwg, errChan)
+	k.deleteCustomResourceDefinitionsModelTeardown(ctx, selector, clk, &subwg, errChan)
 }
 
 func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	getLabels := func(crd apiextensionsv1beta1.CustomResourceDefinition) map[string]string {
+	getSelector := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
 		if !isCRDScopeNamespaced(crd.Spec.Scope) {
 			// We only delete cluster scope CRs here, namespaced CRs are deleted by namespace destroy process.
-			return labels
+			return selector
 		}
-		return nil
+		return k8slabels.NewSelector()
 	}
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		func(labels map[string]string) error {
-			return k.deleteCustomResources(getLabels)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		func(selector k8slabels.Selector) error {
+			return k.deleteCustomResources(getSelector)
 		},
-		func(labels map[string]string) error {
-			_, err := k.listCustomResources(getLabels)
+		func(selector k8slabels.Selector) error {
+			_, err := k.listCustomResources(getSelector)
 			return err
 		},
 	)
@@ -121,14 +125,15 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 
 func (k *kubernetesClient) deleteCustomResourceDefinitionsModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		k.deleteCustomResourceDefinitions, func(labels map[string]string) error {
-			_, err := k.listCustomResourceDefinitions(labels)
+	selector = mergeSelectors(selector, lifecycleModelTeardownSelector)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		k.deleteCustomResourceDefinitions, func(selector k8slabels.Selector) error {
+			_, err := k.listCustomResourceDefinitions(selector)
 			return err
 		},
 	)
@@ -136,14 +141,14 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsModelTeardown(
 
 func (k *kubernetesClient) deleteMutatingWebhookConfigurationsModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		k.deleteMutatingWebhookConfigurations, func(labels map[string]string) error {
-			_, err := k.listMutatingWebhookConfigurations(labels)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		k.deleteMutatingWebhookConfigurations, func(selector k8slabels.Selector) error {
+			_, err := k.listMutatingWebhookConfigurations(selector)
 			return err
 		},
 	)
@@ -151,38 +156,38 @@ func (k *kubernetesClient) deleteMutatingWebhookConfigurationsModelTeardown(
 
 func (k *kubernetesClient) deleteValidatingWebhookConfigurationsModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		k.deleteValidatingWebhookConfigurations, func(labels map[string]string) error {
-			_, err := k.listValidatingWebhookConfigurations(labels)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		k.deleteValidatingWebhookConfigurations, func(selector k8slabels.Selector) error {
+			_, err := k.listValidatingWebhookConfigurations(selector)
 			return err
 		},
 	)
 }
 func (k *kubernetesClient) deleteStorageClassesModelTeardown(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	ensureResourcesDeletedFunc(ctx, labels, clk, wg, errChan,
-		k.deleteStorageClasses, func(labels map[string]string) error {
-			_, err := k.listStorageClasses(labels)
+	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
+		k.deleteStorageClasses, func(selector k8slabels.Selector) error {
+			_, err := k.listStorageClasses(selector)
 			return err
 		},
 	)
 }
 
-type deleterChecker func(map[string]string) error
+type deleterChecker func(k8slabels.Selector) error
 
 func ensureResourcesDeletedFunc(
 	ctx context.Context,
-	labels map[string]string,
+	selector k8slabels.Selector,
 	clk jujuclock.Clock,
 	wg *sync.WaitGroup,
 	errChan chan<- error,
@@ -200,7 +205,7 @@ func ensureResourcesDeletedFunc(
 		}
 	}()
 
-	if err = deleter(labels); err != nil {
+	if err = deleter(selector); err != nil {
 		if errors.IsNotFound(err) {
 			err = nil
 		}
@@ -216,7 +221,7 @@ func ensureResourcesDeletedFunc(
 			err = errors.Trace(ctx.Err())
 			return
 		case <-ticker.Chan():
-			err = checker(labels)
+			err = checker(selector)
 			if errors.IsNotFound(err) {
 				// Deleted already.
 				err = nil

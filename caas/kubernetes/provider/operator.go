@@ -8,13 +8,6 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/juju/agent"
-	"github.com/juju/juju/caas"
-	k8sannotations "github.com/juju/juju/core/annotations"
-	"github.com/juju/juju/core/paths"
-	"github.com/juju/juju/core/status"
-	"github.com/juju/juju/core/watcher"
-
 	"github.com/juju/errors"
 	"github.com/juju/version"
 	"gopkg.in/juju/names.v3"
@@ -26,6 +19,13 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/informers"
+
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/caas"
+	k8sannotations "github.com/juju/juju/core/annotations"
+	"github.com/juju/juju/core/paths"
+	"github.com/juju/juju/core/status"
+	"github.com/juju/juju/core/watcher"
 )
 
 func operatorLabels(appName string) map[string]string {
@@ -33,14 +33,14 @@ func operatorLabels(appName string) map[string]string {
 }
 
 func (k *kubernetesClient) deleteOperatorRBACResources(appName string) error {
-	labels := operatorLabels(appName)
-	if err := k.deleteRoleBindings(labels); err != nil {
+	selector := labelSetToSelector(operatorLabels(appName))
+	if err := k.deleteRoleBindings(selector); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteRoles(labels); err != nil {
+	if err := k.deleteRoles(selector); err != nil {
 		return errors.Trace(err)
 	}
-	if err := k.deleteServiceAccounts(labels); err != nil {
+	if err := k.deleteServiceAccounts(selector); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

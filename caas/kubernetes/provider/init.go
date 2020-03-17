@@ -12,9 +12,17 @@ import (
 
 const volBindModeWaitFirstConsumer = "WaitForFirstConsumer"
 
-var k8sCloudCheckers map[string][]k8slabels.Selector
-var jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
-var jujuPreferredOperatorStorage map[string]caas.PreferredStorage
+var (
+	k8sCloudCheckers             map[string][]k8slabels.Selector
+	jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
+	jujuPreferredOperatorStorage map[string]caas.PreferredStorage
+
+	// lifecycleApplicationRemovalSelector is the label selector for removing global resources for application removal.
+	lifecycleApplicationRemovalSelector k8slabels.Selector
+
+	// LifecycleModelTeardownSelector is the label selector for removing global resources for model teardown.
+	lifecycleModelTeardownSelector k8slabels.Selector
+)
 
 func init() {
 	caas.RegisterContainerProvider(CAASProviderType, providerInstance)
@@ -61,6 +69,9 @@ func init() {
 	// provision storage for operators.
 	// TODO - support regional storage for GCE etc
 	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
+
+	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
+	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
@@ -106,4 +117,23 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 		},
 		// format - cloudType: requirements.
 	}
+}
+
+func compileLifecycleApplicationRemovalSelector() k8slabels.Selector {
+	return newLabelRequirements(
+		requirementParams{
+			labelResourceLifeCycleKey, selection.NotIn, []string{
+				labelResourceLifeCycleValueModel,
+				labelResourceLifeCycleValuePersistent,
+			}},
+	)
+}
+
+func compileLifecycleModelTeardownSelector() k8slabels.Selector {
+	return newLabelRequirements(
+		requirementParams{
+			labelResourceLifeCycleKey, selection.NotIn, []string{
+				labelResourceLifeCycleValuePersistent,
+			}},
+	)
 }

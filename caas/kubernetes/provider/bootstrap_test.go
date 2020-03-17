@@ -689,7 +689,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(svcNotProvisioned, nil),
 
 		// below calls are for GetService - 1st address no provisioned yet.
-		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test"}).
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
 			Return(&core.ServiceList{Items: []core.Service{*svcNotProvisioned}}, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -701,7 +701,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(nil, s.k8sNotFoundError()),
 
 		// below calls are for GetService - 2nd address is ready.
-		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test"}).
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
 			Return(&core.ServiceList{Items: []core.Service{*svcProvisioned}}, nil),
 		s.mockStatefulSets.EXPECT().Get("juju-operator-juju-controller-test", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
@@ -739,7 +739,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(emptyConfigMap, nil),
 		s.mockConfigMaps.EXPECT().Create(configMapWithBootstrapParamsAdded).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test"}).
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*emptyConfigMap}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapWithBootstrapParamsAdded).AnyTimes().
 			Return(configMapWithBootstrapParamsAdded, nil),
@@ -749,7 +749,7 @@ $JUJU_TOOLS_DIR/jujud machine --data-dir $JUJU_DATA_DIR --controller-id 0 --log-
 			Return(configMapWithBootstrapParamsAdded, nil),
 		s.mockConfigMaps.EXPECT().Create(configMapWithAgentConfAdded).AnyTimes().
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==juju-controller-test"}).
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=juju-controller-test"}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*configMapWithBootstrapParamsAdded}}, nil),
 		s.mockConfigMaps.EXPECT().Update(configMapWithAgentConfAdded).AnyTimes().
 			Return(configMapWithAgentConfAdded, nil),

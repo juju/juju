@@ -5,8 +5,6 @@ package clientconfig
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 	"time"
 
 	jujuclock "github.com/juju/clock"
@@ -16,6 +14,7 @@ import (
 	rbacv1 "k8s.io/api/rbac/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp" // load gcp auth plugin.
 	"k8s.io/client-go/rest"
@@ -154,19 +153,11 @@ type rbacDeleter interface {
 }
 
 func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
-	labelsToSelector := func(labels map[string]string) string {
-		var selectors []string
-		for k, v := range labels {
-			selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
-		}
-		sort.Strings(selectors) // for tests.
-		return strings.Join(selectors, ",")
-	}
 	propagationPolicy := metav1.DeletePropagationForeground
 	err := api.DeleteCollection(&metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}, metav1.ListOptions{
-		LabelSelector: labelsToSelector(labels),
+		LabelSelector: k8slabels.SelectorFromValidatedSet(labels).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

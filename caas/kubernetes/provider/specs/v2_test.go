@@ -613,60 +613,63 @@ password: shhhh`[1:],
 						},
 					},
 				},
-				CustomResourceDefinitions: map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-					"tfjobs.kubeflow.org": {
-						Group:   "kubeflow.org",
-						Version: "v1",
-						Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
-							{Name: "v1", Served: true, Storage: true},
-							{Name: "v1beta2", Served: true, Storage: false},
-						},
-						Scope:                 "Cluster",
-						PreserveUnknownFields: boolPtr(false),
-						Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-							Kind:     "TFJob",
-							Plural:   "tfjobs",
-							Singular: "tfjob",
-						},
-						Conversion: &apiextensionsv1beta1.CustomResourceConversion{
-							Strategy: apiextensionsv1beta1.NoneConverter,
-						},
-						AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
-							{
-								Name:        "Worker",
-								Type:        "integer",
-								Description: "Worker attribute.",
-								JSONPath:    ".spec.tfReplicaSpecs.Worker",
+				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
+					{
+						Name: "tfjobs.kubeflow.org",
+						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+							Group:   "kubeflow.org",
+							Version: "v1",
+							Versions: []apiextensionsv1beta1.CustomResourceDefinitionVersion{
+								{Name: "v1", Served: true, Storage: true},
+								{Name: "v1beta2", Served: true, Storage: false},
 							},
-						},
-						Validation: &apiextensionsv1beta1.CustomResourceValidation{
-							OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-									"spec": {
-										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-											"tfReplicaSpecs": {
-												Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-													"PS": {
-														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-															"replicas": {
-																Type: "integer", Minimum: float64Ptr(1),
+							Scope:                 "Cluster",
+							PreserveUnknownFields: boolPtr(false),
+							Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+								Kind:     "TFJob",
+								Plural:   "tfjobs",
+								Singular: "tfjob",
+							},
+							Conversion: &apiextensionsv1beta1.CustomResourceConversion{
+								Strategy: apiextensionsv1beta1.NoneConverter,
+							},
+							AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
+								{
+									Name:        "Worker",
+									Type:        "integer",
+									Description: "Worker attribute.",
+									JSONPath:    ".spec.tfReplicaSpecs.Worker",
+								},
+							},
+							Validation: &apiextensionsv1beta1.CustomResourceValidation{
+								OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+										"spec": {
+											Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+												"tfReplicaSpecs": {
+													Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+														"PS": {
+															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																"replicas": {
+																	Type: "integer", Minimum: float64Ptr(1),
+																},
 															},
 														},
-													},
-													"Chief": {
-														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-															"replicas": {
-																Type:    "integer",
-																Minimum: float64Ptr(1),
-																Maximum: float64Ptr(1),
+														"Chief": {
+															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																"replicas": {
+																	Type:    "integer",
+																	Minimum: float64Ptr(1),
+																	Maximum: float64Ptr(1),
+																},
 															},
 														},
-													},
-													"Worker": {
-														Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-															"replicas": {
-																Type:    "integer",
-																Minimum: float64Ptr(1),
+														"Worker": {
+															Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+																"replicas": {
+																	Type:    "integer",
+																	Minimum: float64Ptr(1),
+																},
 															},
 														},
 													},
@@ -929,6 +932,33 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+
+	specStr = version3Header + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  ingressResources:
+    - name: test-ingress
+      labels:
+        /foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
+`[1:]
+
+	_, err = k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
 }
 
 func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {

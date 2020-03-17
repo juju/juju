@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	core "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/validation"
 
 	"github.com/juju/juju/caas/specs"
 )
@@ -111,6 +112,18 @@ func (cs *k8sContainers) Validate() error {
 	for _, c := range cs.Containers {
 		if err := c.Validate(); err != nil {
 			return errors.Trace(err)
+		}
+	}
+	return nil
+}
+
+func validateLabels(labels map[string]string) error {
+	for k, v := range labels {
+		if errs := validation.IsQualifiedName(k); len(errs) != 0 {
+			return errors.NotValidf("label key %q: %s", k, strings.Join(errs, "; "))
+		}
+		if errs := validation.IsValidLabelValue(v); len(errs) != 0 {
+			return errors.NotValidf("label value: %q: at key: %q: %s", v, k, strings.Join(errs, "; "))
 		}
 	}
 	return nil

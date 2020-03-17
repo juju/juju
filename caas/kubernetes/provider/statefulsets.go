@@ -52,7 +52,7 @@ func (k *kubernetesClient) configureStatefulSet(
 		}
 	}
 
-	statefulset := &apps.StatefulSet{
+	statefulSet := &apps.StatefulSet{
 		ObjectMeta: v1.ObjectMeta{
 			Name:   deploymentName,
 			Labels: k.getStatefulSetLabels(appName),
@@ -65,7 +65,7 @@ func (k *kubernetesClient) configureStatefulSet(
 			Selector: &v1.LabelSelector{
 				MatchLabels: map[string]string{labelApplication: appName},
 			},
-			RevisionHistoryLimit: int32Ptr(StatefulsetRevisionHistoryLimit),
+			RevisionHistoryLimit: int32Ptr(statefulSetRevisionHistoryLimit),
 			Template: core.PodTemplateSpec{
 				ObjectMeta: v1.ObjectMeta{
 					Labels:      k.getStatefulSetLabels(appName),
@@ -84,11 +84,11 @@ func (k *kubernetesClient) configureStatefulSet(
 
 	// Create a new stateful set with the necessary storage config.
 	legacy := isLegacyName(deploymentName)
-	if err := k.configureStorage(&podSpec, &statefulset.Spec, appName, randPrefix, legacy, filesystems); err != nil {
+	if err := k.configureStorage(&podSpec, &statefulSet.Spec, appName, randPrefix, legacy, filesystems); err != nil {
 		return errors.Annotatef(err, "configuring storage for %s", appName)
 	}
-	statefulset.Spec.Template.Spec = podSpec
-	return k.ensureStatefulSet(statefulset, existingPodSpec)
+	statefulSet.Spec.Template.Spec = podSpec
+	return k.ensureStatefulSet(statefulSet, existingPodSpec)
 }
 
 func (k *kubernetesClient) ensureStatefulSet(spec *apps.StatefulSet, existingPodSpec core.PodSpec) error {

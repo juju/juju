@@ -27,7 +27,7 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
+func (s *K8sBrokerSuite) assertCustomerResourceDefinitions(c *gc.C, crds []k8sspecs.K8sCustomResourceDefinitionSpec, assertCalls ...*gomock.Call) {
 
 	basicPodSpec := getBasicPodspec()
 	basicPodSpec.ProviderPod = &k8sspecs.K8sPodSpec{
@@ -131,42 +131,45 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsCreate(c *gc.
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crds := map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-		"tfjobs.kubeflow.org": {
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Kind:     "TFJob",
-				Singular: "tfjob",
-				Plural:   "tfjobs",
-			},
-			Version: "v1alpha2",
-			Group:   "kubeflow.org",
-			Scope:   "Namespaced",
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
+	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
+		{
+			Name: "tfjobs.kubeflow.org",
+			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+					Kind:     "TFJob",
+					Singular: "tfjob",
+					Plural:   "tfjobs",
+				},
+				Version: "v1alpha2",
+				Group:   "kubeflow.org",
+				Scope:   "Namespaced",
+				Validation: &apiextensionsv1beta1.CustomResourceValidation{
+					OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"tfReplicaSpecs": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"Worker": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type:    "integer",
+												Minimum: float64Ptr(1),
+											},
 										},
 									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+									"PS": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type: "integer", Minimum: float64Ptr(1),
+											},
 										},
 									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+									"Chief": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type:    "integer",
+												Minimum: float64Ptr(1),
+												Maximum: float64Ptr(1),
+											},
 										},
 									},
 								},
@@ -240,42 +243,45 @@ func (s *K8sBrokerSuite) TestEnsureServiceCustomResourceDefinitionsUpdate(c *gc.
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	crds := map[string]apiextensionsv1beta1.CustomResourceDefinitionSpec{
-		"tfjobs.kubeflow.org": {
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Kind:     "TFJob",
-				Singular: "tfjob",
-				Plural:   "tfjobs",
-			},
-			Version: "v1alpha2",
-			Group:   "kubeflow.org",
-			Scope:   "Namespaced",
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"tfReplicaSpecs": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"Worker": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
+	crds := []k8sspecs.K8sCustomResourceDefinitionSpec{
+		{
+			Name: "tfjobs.kubeflow.org",
+			Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+				Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+					Kind:     "TFJob",
+					Singular: "tfjob",
+					Plural:   "tfjobs",
+				},
+				Version: "v1alpha2",
+				Group:   "kubeflow.org",
+				Scope:   "Namespaced",
+				Validation: &apiextensionsv1beta1.CustomResourceValidation{
+					OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"tfReplicaSpecs": {
+								Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+									"Worker": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type:    "integer",
+												Minimum: float64Ptr(1),
+											},
 										},
 									},
-								},
-								"PS": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type: "integer", Minimum: float64Ptr(1),
+									"PS": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type: "integer", Minimum: float64Ptr(1),
+											},
 										},
 									},
-								},
-								"Chief": {
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"replicas": {
-											Type:    "integer",
-											Minimum: float64Ptr(1),
-											Maximum: float64Ptr(1),
+									"Chief": {
+										Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+											"replicas": {
+												Type:    "integer",
+												Minimum: float64Ptr(1),
+												Maximum: float64Ptr(1),
+											},
 										},
 									},
 								},
