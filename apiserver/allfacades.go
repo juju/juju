@@ -238,7 +238,8 @@ func AllFacades() *facade.Registry {
 	reg("MachineManager", 6, machinemanager.NewFacadeV6) // DestroyMachinesWithParams gains maxWait.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
-	reg("Machiner", 2, machine.NewMachinerAPI)
+	reg("Machiner", 1, machine.NewMachinerAPIV1)
+	reg("Machiner", 2, machine.NewMachinerAPI) // Adds RecordAgentStartTime.
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacade)
 	reg("MetricsAdder", 2, metricsadder.NewMetricsAdderAPI)
