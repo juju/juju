@@ -151,7 +151,7 @@ func (s *WorkerSuite) TestExposedChange(c *gc.C) {
 	case <-time.After(coretesting.LongWait):
 		c.Fatal("timed out waiting for service to be exposed")
 	}
-	s.serviceExposer.CheckCallNames(c, "UnExposeService", "ExposeService")
+	s.serviceExposer.CheckCallNames(c, "UnexposeService", "ExposeService")
 	s.serviceExposer.CheckCall(c, 1, "ExposeService", "gitlab",
 		map[string]string{
 			"juju-controller-uuid": coretesting.ControllerTag.Id(),

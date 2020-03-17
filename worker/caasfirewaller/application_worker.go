@@ -132,7 +132,7 @@ func (w *applicationWorker) processApplicationChange() (err error) {
 		}
 		return nil
 	}
-	if err := w.serviceExposer.UnExposeService(w.application); err != nil {
+	if err := w.serviceExposer.UnexposeService(w.application); err != nil {
 		return errors.Trace(err)
 	}
 	return nil

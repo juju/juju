@@ -257,8 +257,8 @@ type ServiceGetterSetter interface {
 	// ExposeService sets up external access to the specified service.
 	ExposeService(appName string, resourceTags map[string]string, config application.ConfigAttributes) error
 
-	// UnExposeService removes external access to the specified service.
-	UnExposeService(appName string) error
+	// UnexposeService removes external access to the specified service.
+	UnexposeService(appName string) error
 
 	// GetService returns the service for the specified application.
 	GetService(appName string, includeClusterIP bool) (*Service, error)

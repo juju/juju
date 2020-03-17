@@ -41,9 +41,9 @@ var (
 	ProcessSecretData      = processSecretData
 	PushUniqVolume         = pushUniqVolume
 
-	CompileK8sCloudCheckers                                          = compileK8sCloudCheckers
-	CompleLabelSelectorGlobalResourcesLifecycleForApplicationRemoval = compleLabelSelectorGlobalResourcesLifecycleForApplicationRemoval
-	CompleLabelSelectorGlobalResourcesLifecycleForModelTearDown      = compleLabelSelectorGlobalResourcesLifecycleForModelTearDown
+	CompileK8sCloudCheckers                    = compileK8sCloudCheckers
+	CompileLifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector
+	CompileLifecycleModelTeardownSelector      = compileLifecycleModelTeardownSelector
 
 	LabelSetToRequirements = labelSetToRequirements
 	MergeSelectors         = mergeSelectors

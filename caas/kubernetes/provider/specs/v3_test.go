@@ -1031,7 +1031,7 @@ kubernetesResources:
 `[1:]
 
 	_, err = k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `invalid label key "/foo": prefix part must be non-empty not valid`)
+	c.Assert(err, gc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
 }
 
 func (s *v3SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
@@ -1120,7 +1120,7 @@ kubernetesResources:
 `[1:]
 
 	_, err = k8sspecs.ParsePodSpec(specStr)
-	c.Assert(err, gc.ErrorMatches, `invalid label key "/foo": prefix part must be non-empty not valid`)
+	c.Assert(err, gc.ErrorMatches, `label key "/foo": prefix part must be non-empty not valid`)
 }
 
 func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {

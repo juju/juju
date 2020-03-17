@@ -72,10 +72,10 @@ const (
 	labelApplicationUUID = "juju-app-uuid"
 	labelModel           = "juju-model"
 
-	// labelGlobalResourceLifeCycleKey defines the label key for lifecycle of the global resources.
-	labelGlobalResourceLifeCycleKey             = "juju-global-resource-lifecycle"
-	labelGlobalResourceLifeCycleValueModel      = "model"
-	labelGlobalResourceLifeCycleValuePersistent = "persistent"
+	// labelResourceLifeCycleKey defines the label key for lifecycle of the global resources.
+	labelResourceLifeCycleKey             = "juju-resource-lifecycle"
+	labelResourceLifeCycleValueModel      = "model"
+	labelResourceLifeCycleValuePersistent = "persistent"
 
 	gpuAffinityNodeSelectorKey = "gpu"
 
@@ -1939,8 +1939,8 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	return errors.Trace(err)
 }
 
-// UnExposeService removes external access to the specified service.
-func (k *kubernetesClient) UnExposeService(appName string) error {
+// UnexposeService removes external access to the specified service.
+func (k *kubernetesClient) UnexposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
 	deploymentName := k.deploymentName(appName)
 	return errors.Trace(k.deleteIngress(deploymentName, ""))

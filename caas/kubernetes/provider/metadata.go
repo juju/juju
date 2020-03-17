@@ -45,13 +45,14 @@ func labelSetToSelector(labels k8slabels.Set) k8slabels.Selector {
 func mergeSelectors(selectors ...k8slabels.Selector) k8slabels.Selector {
 	s := k8slabels.NewSelector()
 	for _, v := range selectors {
-		if !v.Empty() {
-			rs, selectable := v.Requirements()
-			if selectable {
-				s = s.Add(rs...)
-			} else {
-				logger.Warningf("%v is not selectable", v)
-			}
+		if v.Empty() {
+			continue
+		}
+		rs, selectable := v.Requirements()
+		if selectable {
+			s = s.Add(rs...)
+		} else {
+			logger.Warningf("%v is not selectable", v)
 		}
 	}
 	return s

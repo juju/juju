@@ -127,8 +127,9 @@ func (k *kubernetesClient) listCustomResourceDefinitions(selector k8slabels.Sele
 }
 
 func (k *kubernetesClient) deleteCustomResourceDefinitionsForApp(appName string) error {
-	selector := labelSelectorGlobalResourcesLifecycleForApplicationRemoval.DeepCopySelector().Add(
-		labelSetToRequirements(k.getAPIExtensionLabelsGlobal(appName))...,
+	selector := mergeSelectors(
+		labelSetToSelector(k.getAPIExtensionLabelsGlobal(appName)),
+		lifecycleApplicationRemovalSelector,
 	)
 	return errors.Trace(k.deleteCustomResourceDefinitions(selector))
 }

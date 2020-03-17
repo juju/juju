@@ -17,11 +17,11 @@ var (
 	jujuPreferredWorkloadStorage map[string]caas.PreferredStorage
 	jujuPreferredOperatorStorage map[string]caas.PreferredStorage
 
-	// labelSelectorGlobalResourcesLifecycleForApplicationRemoval is the label selector for removing global resources for application removal.
-	labelSelectorGlobalResourcesLifecycleForApplicationRemoval k8slabels.Selector
+	// lifecycleApplicationRemovalSelector is the label selector for removing global resources for application removal.
+	lifecycleApplicationRemovalSelector k8slabels.Selector
 
-	// labelSelectorGlobalResourcesLifecycleForModelTearDown is the label selector for removing global resources for model teardown.
-	labelSelectorGlobalResourcesLifecycleForModelTearDown k8slabels.Selector
+	// LifecycleModelTeardownSelector is the label selector for removing global resources for model teardown.
+	lifecycleModelTeardownSelector k8slabels.Selector
 )
 
 func init() {
@@ -70,8 +70,8 @@ func init() {
 	// TODO - support regional storage for GCE etc
 	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
 
-	labelSelectorGlobalResourcesLifecycleForApplicationRemoval = compleLabelSelectorGlobalResourcesLifecycleForApplicationRemoval()
-	labelSelectorGlobalResourcesLifecycleForModelTearDown = compleLabelSelectorGlobalResourcesLifecycleForModelTearDown()
+	lifecycleApplicationRemovalSelector = compileLifecycleApplicationRemovalSelector()
+	lifecycleModelTeardownSelector = compileLifecycleModelTeardownSelector()
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
@@ -119,21 +119,21 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 	}
 }
 
-func compleLabelSelectorGlobalResourcesLifecycleForApplicationRemoval() k8slabels.Selector {
+func compileLifecycleApplicationRemovalSelector() k8slabels.Selector {
 	return newLabelRequirements(
 		requirementParams{
-			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
-				labelGlobalResourceLifeCycleValueModel,
-				labelGlobalResourceLifeCycleValuePersistent,
+			labelResourceLifeCycleKey, selection.NotIn, []string{
+				labelResourceLifeCycleValueModel,
+				labelResourceLifeCycleValuePersistent,
 			}},
 	)
 }
 
-func compleLabelSelectorGlobalResourcesLifecycleForModelTearDown() k8slabels.Selector {
+func compileLifecycleModelTeardownSelector() k8slabels.Selector {
 	return newLabelRequirements(
 		requirementParams{
-			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
-				labelGlobalResourceLifeCycleValuePersistent,
+			labelResourceLifeCycleKey, selection.NotIn, []string{
+				labelResourceLifeCycleValuePersistent,
 			}},
 	)
 }

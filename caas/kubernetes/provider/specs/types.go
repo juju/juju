@@ -120,10 +120,10 @@ func (cs *k8sContainers) Validate() error {
 func validateLabels(labels map[string]string) error {
 	for k, v := range labels {
 		if errs := validation.IsQualifiedName(k); len(errs) != 0 {
-			return errors.NotValidf("invalid label key %q: %s", k, strings.Join(errs, "; "))
+			return errors.NotValidf("label key %q: %s", k, strings.Join(errs, "; "))
 		}
 		if errs := validation.IsValidLabelValue(v); len(errs) != 0 {
-			return errors.NotValidf("invalid label value: %q: at key: %q: %s", v, k, strings.Join(errs, "; "))
+			return errors.NotValidf("label value: %q: at key: %q: %s", v, k, strings.Join(errs, "; "))
 		}
 	}
 	return nil

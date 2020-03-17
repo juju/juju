@@ -1541,13 +1541,13 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 	// timer +1.
 	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{
-		LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model=test",
+		LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)",
 	}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model=test"},
+				v1.ListOptions{LabelSelector: "juju-model=test,juju-resource-lifecycle notin (persistent)"},
 			).Return(s.k8sNotFoundError()),
 		)
 
@@ -1855,7 +1855,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		// delete all custom resource definitions.
 		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app=test,juju-global-resource-lifecycle notin (model,persistent),juju-model=test"},
+			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test,juju-resource-lifecycle notin (model,persistent)"},
 		).Return(nil),
 
 		// delete all mutating webhook configurations.
