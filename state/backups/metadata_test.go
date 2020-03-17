@@ -5,11 +5,11 @@ package backups_test
 
 import (
 	"bytes"
-	"github.com/juju/errors"
 	"os"
 	"path/filepath"
 	"time" // Only used for time types and funcs, not Now().
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/version"
 	gc "gopkg.in/check.v1"

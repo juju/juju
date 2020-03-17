@@ -220,6 +220,7 @@ func AllFacades() *facade.Registry {
 	reg("InstanceMutater", 1, instancemutater.NewFacadeV1)
 	reg("InstanceMutater", 2, instancemutater.NewFacadeV2)
 
+	reg("InstancePoller", 3, instancepoller.NewFacadeV3)
 	reg("InstancePoller", 4, instancepoller.NewFacade)
 	reg("KeyManager", 1, keymanager.NewKeyManagerAPI)
 	reg("KeyUpdater", 1, keyupdater.NewKeyUpdaterAPI)
@@ -238,6 +239,7 @@ func AllFacades() *facade.Registry {
 	reg("MachineManager", 6, machinemanager.NewFacadeV6) // DestroyMachinesWithParams gains maxWait.
 
 	reg("MachineUndertaker", 1, machineundertaker.NewFacade)
+	reg("Machiner", 1, machine.NewMachinerAPIV1)
 	reg("Machiner", 2, machine.NewMachinerAPI)
 
 	reg("MeterStatus", 1, meterstatus.NewMeterStatusFacade)
