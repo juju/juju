@@ -1,3 +1,6 @@
+// Copyright 2020 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package series
 
 import (
@@ -69,6 +72,69 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 	sort.Strings(ctrlSeries)
 
 	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported", "updated"})
+}
+
+func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	now := clock.WallClock.Now()
+
+	mockDistroSource := NewMockDistroSource(ctrl)
+	mockDistroSource.EXPECT().Refresh().Return(nil)
+	mockDistroSource.EXPECT().SeriesInfo("supported").Return(DistroInfoSerie{
+		Released: now.AddDate(0, 0, 9),
+		EOL:      now.AddDate(0, 0, 10),
+	}, true)
+
+	preset := map[SeriesName]SeriesVersion{
+		"supported": {
+			WorkloadType:           ControllerWorkloadType,
+			Version:                "1.1.1",
+			Supported:              true,
+			IgnoreDistroInfoUpdate: true,
+		},
+	}
+
+	info := NewSupportedInfo(mockDistroSource, preset)
+	err := info.Compile(now)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlSeries := info.ControllerSeries()
+	sort.Strings(ctrlSeries)
+
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{"supported"})
+}
+
+func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
+	ctrl := gomock.NewController(c)
+	defer ctrl.Finish()
+
+	now := clock.WallClock.Now()
+
+	mockDistroSource := NewMockDistroSource(ctrl)
+	mockDistroSource.EXPECT().Refresh().Return(nil)
+	mockDistroSource.EXPECT().SeriesInfo("supported").Return(DistroInfoSerie{
+		Released: now.AddDate(0, 0, 9),
+		EOL:      now.AddDate(0, 0, 10),
+	}, true)
+
+	preset := map[SeriesName]SeriesVersion{
+		"supported": {
+			WorkloadType: ControllerWorkloadType,
+			Version:      "1.1.1",
+			Supported:    true,
+		},
+	}
+
+	info := NewSupportedInfo(mockDistroSource, preset)
+	err := info.Compile(now)
+	c.Assert(err, jc.ErrorIsNil)
+
+	ctrlSeries := info.ControllerSeries()
+	sort.Strings(ctrlSeries)
+
+	c.Assert(ctrlSeries, jc.DeepEquals, []string{})
 }
 
 func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {

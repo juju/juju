@@ -58,7 +58,18 @@ func (s *SupportedInfo) Compile(now time.Time) error {
 		}
 
 		current := version.Supported
-		supported := distroInfo.Supported(now)
+		supported := current
+
+		// To prevent the distro info from overriding the supported flag and to
+		// ensure that we keep the same Supported version as we have set as the
+		// default (see below). Using the IgnoreDistroInfoUpdate flag states that
+		// we want to keep the current value.
+		// Example: adding a new LTS and setting it to be supported will become
+		// false when reading in the distro information. Setting OverrideSupport
+		// to true, will force it to be the same value as the default.
+		if !version.IgnoreDistroInfoUpdate {
+			supported = distroInfo.Supported(now)
+		}
 
 		s.values[seriesName] = SeriesVersion{
 			WorkloadType:             version.WorkloadType,
@@ -66,7 +77,8 @@ func (s *SupportedInfo) Compile(now time.Time) error {
 			LTS:                      version.LTS,
 			Supported:                supported,
 			ESMSupported:             version.ESMSupported,
-			UpdatedByLocalDistroInfo: current != version.Supported,
+			IgnoreDistroInfoUpdate:   version.IgnoreDistroInfoUpdate,
+			UpdatedByLocalDistroInfo: current != supported,
 		}
 	}
 
@@ -144,6 +156,10 @@ type SeriesVersion struct {
 	// Extended security maintenance for customers, extends the supported bool
 	// for how Juju classifies the series.
 	ESMSupported bool
+
+	// IgnoreDistroInfoUpdate overrides the supported value to ensure that we
+	// can force supported series, by ignoring the distro info update.
+	IgnoreDistroInfoUpdate bool
 
 	// UpdatedByLocalDistroInfo indicates that the series version was created
 	// by the local distro-info information on the system.
@@ -266,10 +282,11 @@ var ubuntuSeries = map[SeriesName]SeriesVersion{
 		Supported:    true,
 	},
 	Focal: {
-		WorkloadType: ControllerWorkloadType,
-		Version:      "20.04",
-		LTS:          true,
-		Supported:    true,
+		WorkloadType:           ControllerWorkloadType,
+		Version:                "20.04",
+		LTS:                    true,
+		Supported:              true,
+		IgnoreDistroInfoUpdate: true,
 	},
 }
 
