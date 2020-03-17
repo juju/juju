@@ -189,6 +189,27 @@ func (c *Client) WatchAllModels() (*api.AllWatcher, error) {
 	return api.NewAllModelWatcher(c.facade.RawAPICaller(), &info.AllWatcherId), nil
 }
 
+// WatchModelSummaries returns a SummaryWatcher, from which you can request
+// the Next set of ModelAbstracts for all models the user can see.
+func (c *Client) WatchModelSummaries() (*SummaryWatcher, error) {
+	var info params.SummaryWatcherID
+	if err := c.facade.FacadeCall("WatchModelSummaries", nil, &info); err != nil {
+		return nil, err
+	}
+	return NewSummaryWatcher(c.facade.RawAPICaller(), &info.WatcherID), nil
+}
+
+// WatchAllModelSummaries returns a SummaryWatcher, from which you can request
+// the Next set of ModelAbstracts. This method is only valid for controller
+// superusers and returns abstracts for all models in the controller.
+func (c *Client) WatchAllModelSummaries() (*SummaryWatcher, error) {
+	var info params.SummaryWatcherID
+	if err := c.facade.FacadeCall("WatchAllModelSummaries", nil, &info); err != nil {
+		return nil, err
+	}
+	return NewSummaryWatcher(c.facade.RawAPICaller(), &info.WatcherID), nil
+}
+
 // GrantController grants a user access to the controller.
 func (c *Client) GrantController(user, access string) error {
 	return c.modifyControllerUser(params.GrantControllerAccess, user, access)
