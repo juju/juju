@@ -16,6 +16,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
+	osseries "github.com/juju/os/series"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
@@ -112,7 +113,7 @@ type SpacesAPI interface {
 	ListSpaces() ([]apiparams.Space, error)
 }
 
-var supportedJujuSeries = func(now time.Time) ([]string, error) {
+var supportedJujuSeries = func(now time.Time, deploySeries string, dailyImageStream bool) ([]string, error) {
 	// We support all of the juju series AND all the ESM supported series.
 	// Juju is congruent with the Ubuntu release cycle for it's own series (not
 	// including centos and windows), so that should be reflected here.
@@ -121,8 +122,13 @@ var supportedJujuSeries = func(now time.Time) ([]string, error) {
 	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
 	// the non-LTS should disappear if they're not in the release window for that
 	// series.
-	source := series.NewDistroInfo(series.UbuntuDistroInfo)
-	supported := series.NewSupportedInfo(source, series.DefaultSeries())
+	defaultSeries := series.DefaultSeries()
+	if deploySeries != "" && dailyImageStream {
+		series.SetSupported(defaultSeries, deploySeries)
+	}
+
+	source := osseries.NewDistroInfo(osseries.UbuntuDistroInfo)
+	supported := series.NewSupportedInfo(source, defaultSeries)
 	if err := supported.Compile(now); err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -1251,10 +1257,10 @@ func (c *DeployCommand) validateCharmFlags() error {
 	return nil
 }
 
-func (c *DeployCommand) validateCharmSeries(seriesName string) error {
+func (c *DeployCommand) validateCharmSeries(seriesName string, dailyImageStream bool) error {
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
-	workloadSeries, err := supportedJujuSeries(c.clock.Now())
+	workloadSeries, err := supportedJujuSeries(c.clock.Now(), seriesName, dailyImageStream)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -1311,16 +1317,22 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		return nil, nil
 	}
 
-	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name); err != nil {
-		return nil, errors.Trace(err)
-	}
+	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
+		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
+		dailyImageStream := isDailyImageStream(modelCfg.ImageStream())
 
-	return func(ctx *cmd.Context, api DeployAPI) error {
+		// Avoid deploying charm if it's not valid for the model.
+		if err := c.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, dailyImageStream); err != nil {
+			return errors.Trace(err)
+		}
+
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
-		charmInfo, err := api.CharmInfo(userCharmURL.String())
+		charmInfo, err := apiRoot.CharmInfo(userCharmURL.String())
 		if err != nil {
 			return err
 		}
@@ -1335,7 +1347,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 			(*macaroon.Macaroon)(nil),
 			userCharmURL.Series,
 			ctx,
-			api,
+			apiRoot,
 		))
 	}, nil
 }
@@ -1396,15 +1408,18 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	// below) where it is handled properly. This is just an expedient to get
 	// the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
-	workloadSeries, err := supportedJujuSeries(c.clock.Now())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	ch, err := charm.ReadCharm(c.CharmOrBundle)
 	seriesName := c.Series
+
+	var dailyImageStream bool
 	if err == nil {
 		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		dailyImageStream = isDailyImageStream(modelCfg.ImageStream())
+		workloadSeries, err := supportedJujuSeries(c.clock.Now(), c.Series, dailyImageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1452,7 +1467,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeriesWithName(seriesName, curl.Name); err != nil {
+	if err := c.validateCharmSeriesWithName(seriesName, curl.Name, dailyImageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
@@ -1587,17 +1602,18 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		return nil, errors.Trace(err)
 	}
 
-	workloadSeries, err := supportedJujuSeries(c.clock.Now())
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
 	return func(ctx *cmd.Context, apiRoot DeployAPI) error {
 		// resolver.resolve potentially updates the series of anything
 		// passed in. Store this for use in seriesSelector.
 		userRequestedSeries := userRequestedURL.Series
 
 		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
+		dailyImageStream := isDailyImageStream(modelCfg.ImageStream())
+		workloadSeries, err := supportedJujuSeries(c.clock.Now(), userRequestedSeries, dailyImageStream)
 		if err != nil {
 			return errors.Trace(err)
 		}
@@ -1634,7 +1650,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// Avoid deploying charm if it's not valid for the model.
 		// We check this first before possibly suggesting --force.
 		if err == nil {
-			if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name); err2 != nil {
+			if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, dailyImageStream); err2 != nil {
 				return errors.Trace(err2)
 			}
 		}
@@ -1670,7 +1686,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// what we deploy, we should converge the two so that both report identical
 		// values.
 		if curl != nil && series == "" {
-			if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name); err != nil {
+			if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, dailyImageStream); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1706,8 +1722,8 @@ func getPotentialSeriesName(series ...string) string {
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the
 // error return value to check for NotSupported error and returns a custom error
 // message if that's found.
-func (c *DeployCommand) validateCharmSeriesWithName(series, name string) error {
-	err := c.validateCharmSeries(series)
+func (c *DeployCommand) validateCharmSeriesWithName(series, name string, dailyImageStream bool) error {
+	err := c.validateCharmSeries(series, dailyImageStream)
 	return charmValidationError(series, name, errors.Trace(err))
 }
 
@@ -1789,4 +1805,8 @@ func (resolvedBundle) BasePath() string {
 // ResolveInclude implements charm.BundleDataSource.
 func (resolvedBundle) ResolveInclude(_ string) ([]byte, error) {
 	return nil, errors.NotSupportedf("remote bundle includes")
+}
+
+func isDailyImageStream(imageStream string) bool {
+	return imageStream == "daily"
 }

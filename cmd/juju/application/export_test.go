@@ -321,7 +321,7 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 }
@@ -334,7 +334,7 @@ type JujuConnBaseSuite struct {
 
 func (s *JujuConnBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/os/series"
 )
 
 // DistroSource is the source of the underlying distro source for supported
@@ -18,7 +19,7 @@ type DistroSource interface {
 	Refresh() error
 
 	// SeriesInfo returns the DistroInfoSerie for the series name.
-	SeriesInfo(seriesName string) (DistroInfoSerie, bool)
+	SeriesInfo(seriesName string) (series.DistroInfoSerie, bool)
 }
 
 // SupportedInfo represents all the supported info available.
@@ -179,6 +180,18 @@ func DefaultSeries() map[SeriesName]SeriesVersion {
 	return all
 }
 
+// SetSupported updates a series map based on the series name and sets it to
+// be supported.
+func SetSupported(series map[SeriesName]SeriesVersion, name string) bool {
+	if version, ok := series[SeriesName(name)]; ok {
+		version.Supported = true
+		version.IgnoreDistroInfoUpdate = true
+		series[SeriesName(name)] = version
+		return true
+	}
+	return false
+}
+
 // SeriesName represents a series name for distros
 type SeriesName string
 
@@ -282,11 +295,10 @@ var ubuntuSeries = map[SeriesName]SeriesVersion{
 		Supported:    true,
 	},
 	Focal: {
-		WorkloadType:           ControllerWorkloadType,
-		Version:                "20.04",
-		LTS:                    true,
-		Supported:              true,
-		IgnoreDistroInfoUpdate: true,
+		WorkloadType: ControllerWorkloadType,
+		Version:      "20.04",
+		LTS:          true,
+		Supported:    false,
 	},
 }
 

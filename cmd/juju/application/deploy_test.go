@@ -165,7 +165,7 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
@@ -1226,7 +1226,7 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return supported.Values(), nil
 	})
 
@@ -1292,7 +1292,7 @@ type charmstoreSuite struct {
 func (s *charmstoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 
@@ -1696,7 +1696,7 @@ func (s *legacyCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 
@@ -2203,7 +2203,7 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")

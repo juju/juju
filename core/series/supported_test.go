@@ -8,6 +8,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	"github.com/juju/clock"
+	series "github.com/juju/os/series"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -27,19 +28,19 @@ func (s *SupportedSuite) TestCompileForControllers(c *gc.C) {
 
 	mockDistroSource := NewMockDistroSource(ctrl)
 	mockDistroSource.EXPECT().Refresh().Return(nil)
-	mockDistroSource.EXPECT().SeriesInfo("supported").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("supported").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("updated").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("updated").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("not-updated").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("not-updated").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, 1),
 		EOL:      now.AddDate(0, 0, 2),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("ignored").Return(DistroInfoSerie{}, false)
+	mockDistroSource.EXPECT().SeriesInfo("ignored").Return(series.DistroInfoSerie{}, false)
 
 	preset := map[SeriesName]SeriesVersion{
 		"supported": {
@@ -82,7 +83,7 @@ func (s *SupportedSuite) TestCompileForControllersWithOverride(c *gc.C) {
 
 	mockDistroSource := NewMockDistroSource(ctrl)
 	mockDistroSource.EXPECT().Refresh().Return(nil)
-	mockDistroSource.EXPECT().SeriesInfo("supported").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("supported").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, 9),
 		EOL:      now.AddDate(0, 0, 10),
 	}, true)
@@ -114,7 +115,7 @@ func (s *SupportedSuite) TestCompileForControllersWithoutOverride(c *gc.C) {
 
 	mockDistroSource := NewMockDistroSource(ctrl)
 	mockDistroSource.EXPECT().Refresh().Return(nil)
-	mockDistroSource.EXPECT().SeriesInfo("supported").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("supported").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, 9),
 		EOL:      now.AddDate(0, 0, 10),
 	}, true)
@@ -145,32 +146,32 @@ func (s *SupportedSuite) TestCompileForWorkloads(c *gc.C) {
 
 	mockDistroSource := NewMockDistroSource(ctrl)
 	mockDistroSource.EXPECT().Refresh().Return(nil)
-	mockDistroSource.EXPECT().SeriesInfo("ctrl-supported").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("ctrl-supported").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("ctrl-updated").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("ctrl-updated").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("ctrl-not-updated").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("ctrl-not-updated").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, 1),
 		EOL:      now.AddDate(0, 0, 2),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("ctrl-ignored").Return(DistroInfoSerie{}, false)
-	mockDistroSource.EXPECT().SeriesInfo("work-supported").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("ctrl-ignored").Return(series.DistroInfoSerie{}, false)
+	mockDistroSource.EXPECT().SeriesInfo("work-supported").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("work-updated").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("work-updated").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, -1),
 		EOL:      now.AddDate(0, 0, 1),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("work-not-updated").Return(DistroInfoSerie{
+	mockDistroSource.EXPECT().SeriesInfo("work-not-updated").Return(series.DistroInfoSerie{
 		Released: now.AddDate(0, 0, 1),
 		EOL:      now.AddDate(0, 0, 2),
 	}, true)
-	mockDistroSource.EXPECT().SeriesInfo("work-ignored").Return(DistroInfoSerie{}, false)
+	mockDistroSource.EXPECT().SeriesInfo("work-ignored").Return(series.DistroInfoSerie{}, false)
 
 	preset := map[SeriesName]SeriesVersion{
 		"ctrl-supported": {

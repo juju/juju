@@ -6,6 +6,7 @@ package series
 
 import (
 	gomock "github.com/golang/mock/gomock"
+	series "github.com/juju/os/series"
 	reflect "reflect"
 )
 
@@ -47,10 +48,10 @@ func (mr *MockDistroSourceMockRecorder) Refresh() *gomock.Call {
 }
 
 // SeriesInfo mocks base method
-func (m *MockDistroSource) SeriesInfo(arg0 string) (DistroInfoSerie, bool) {
+func (m *MockDistroSource) SeriesInfo(arg0 string) (series.DistroInfoSerie, bool) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SeriesInfo", arg0)
-	ret0, _ := ret[0].(DistroInfoSerie)
+	ret0, _ := ret[0].(series.DistroInfoSerie)
 	ret1, _ := ret[1].(bool)
 	return ret0, ret1
 }

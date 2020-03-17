@@ -11,7 +11,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-//go:generate mockgen -package series -destination filesystem_mock_test.go github.com/juju/juju/core/series FileSystem
 //go:generate mockgen -package series -destination distrosource_mock_test.go github.com/juju/juju/core/series DistroSource
 
 func TestPackage(t *testing.T) {

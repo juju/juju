@@ -25,7 +25,7 @@ type UnexposeSuite struct {
 
 func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
