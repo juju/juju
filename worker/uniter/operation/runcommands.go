@@ -77,7 +77,10 @@ func (rc *runCommands) Execute(state State) (*State, error) {
 		rc.sendResponse(response, nil)
 		err = ErrNeedsReboot
 	default:
-		rc.sendResponse(response, err)
+		errorHandled := rc.sendResponse(response, err)
+		if errorHandled {
+			return nil, nil
+		}
 	}
 	return nil, err
 }
