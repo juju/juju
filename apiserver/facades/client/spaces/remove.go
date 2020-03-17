@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/state"
 )
 
@@ -63,37 +62,27 @@ func (sp *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
 // RemoveSpace removes a space.
 // Returns SpaceResults if entities/settings are found which makes the deletion not possible.
 func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.RemoveSpaceResults, error) {
-	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return params.RemoveSpaceResults{}, errors.Trace(err)
-	}
-	if !isAdmin {
-		return params.RemoveSpaceResults{}, common.ServerError(common.ErrPerm)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return params.RemoveSpaceResults{}, errors.Trace(err)
-	}
-	if err = api.checkSupportsProviderSpaces(); err != nil {
-		return params.RemoveSpaceResults{}, common.ServerError(errors.Trace(err))
+	result := params.RemoveSpaceResults{}
+
+	if err := api.ensureSpacesAreMutable(); err != nil {
+		return result, err
 	}
 
-	results := params.RemoveSpaceResults{
-		Results: make([]params.RemoveSpaceResult, len(spaceParams.SpaceParams)),
-	}
+	result.Results = make([]params.RemoveSpaceResult, len(spaceParams.SpaceParams))
 	for i, spaceParam := range spaceParams.SpaceParams {
 		spacesTag, err := names.ParseSpaceTag(spaceParam.Space.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
-		if !api.checkSpaceIsRemovable(i, spacesTag, &results, spaceParam.Force) {
+		if !api.checkSpaceIsRemovable(i, spacesTag, &result, spaceParam.Force) {
 			continue
 		}
 
 		operation, err := api.opFactory.NewRemoveSpaceModelOp(spacesTag.Id())
 		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
@@ -102,11 +91,11 @@ func (api *API) RemoveSpace(spaceParams params.RemoveSpaceParams) (params.Remove
 		}
 
 		if err = api.backing.ApplyOperation(operation); err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 	}
-	return results, nil
+	return result, nil
 }
 
 func (api *API) checkSpaceIsRemovable(

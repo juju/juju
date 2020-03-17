@@ -298,8 +298,8 @@ func (api *API) createOneSpace(args params.CreateSpaceParams) error {
 
 func convertOldSubnetTagToCIDR(subnetTags []string) ([]string, error) {
 	cidrs := make([]string, len(subnetTags))
-	// in lieu of keeping names.v2 around, split the expected
-	// string for the older api calls.  Format: subnet-<cidr>
+	// In lieu of keeping names.v2 around, split the expected
+	// string for the older api calls. Format: subnet-<CIDR>
 	for i, tag := range subnetTags {
 		split := strings.Split(tag, "-")
 		if len(split) != 2 || split[0] != "subnet" {
@@ -422,7 +422,7 @@ func (api *API) ShowSpace(entities params.Entities) (params.ShowSpaceResults, er
 // ReloadSpaces is not available via the V2 API.
 func (u *APIv2) ReloadSpaces(_, _ struct{}) {}
 
-// RefreshSpaces refreshes spaces from substrate
+// ReloadSpaces refreshes spaces from substrate
 func (api *API) ReloadSpaces() error {
 	canWrite, err := api.auth.HasPermission(permission.WriteAccess, api.backing.ModelTag())
 	if err != nil && !errors.IsNotFound(err) {
@@ -450,19 +450,6 @@ func (api *API) checkSupportsSpaces() error {
 	}
 	if !environs.SupportsSpaces(api.context, env) {
 		return errors.NotSupportedf("spaces")
-	}
-	return nil
-}
-
-// checkSupportsProviderSpaces checks if the environment implements
-// NetworkingEnviron and also if it supports provider spaces.
-func (api *API) checkSupportsProviderSpaces() error {
-	env, err := environs.GetEnviron(api.backing, environs.New)
-	if err != nil {
-		return errors.Annotate(err, "getting environ")
-	}
-	if environs.SupportsProviderSpaces(api.context, env) {
-		return errors.NotSupportedf("renaming provider-sourced spaces")
 	}
 	return nil
 }
@@ -500,4 +487,38 @@ func (api *API) applicationsBoundToSpace(spaceID string) ([]string, error) {
 		}
 	}
 	return applications.SortedValues(), nil
+}
+
+// ensureSpacesAreMutable checks that the current user
+// is allowed to edit the Space topology.
+func (api *API) ensureSpacesAreMutable() error {
+	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
+	if err != nil && !errors.IsNotFound(err) {
+		return errors.Trace(err)
+	}
+	if !isAdmin {
+		return common.ServerError(common.ErrPerm)
+	}
+	if err := api.check.ChangeAllowed(); err != nil {
+		return errors.Trace(err)
+	}
+	if err = api.ensureSpacesNotProviderSourced(); err != nil {
+		return common.ServerError(errors.Trace(err))
+	}
+	return nil
+}
+
+// ensureSpacesNotProviderSourced checks if the environment implements
+// NetworkingEnviron and also if it supports provider spaces.
+// An error is returned if it is the provider and not the Juju operator
+// that determines the space topology.
+func (api *API) ensureSpacesNotProviderSourced() error {
+	env, err := environs.GetEnviron(api.backing, environs.New)
+	if err != nil {
+		return errors.Annotate(err, "getting environ")
+	}
+	if environs.SupportsProviderSpaces(api.context, env) {
+		return errors.NotSupportedf("modifying provider-sourced spaces")
+	}
+	return nil
 }
