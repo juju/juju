@@ -4,6 +4,8 @@
 package provider_test
 
 import (
+	"strings"
+
 	"github.com/golang/mock/gomock"
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
@@ -12,6 +14,7 @@ import (
 	core "k8s.io/api/core/v1"
 	storagev1 "k8s.io/api/storage/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	"github.com/juju/juju/caas"
 	"github.com/juju/juju/caas/kubernetes/provider"
@@ -477,4 +480,27 @@ func (s *K8sMetadataSuite) TestCheckDefaultWorkloadStorageNonpreferred(c *gc.C) 
 	npse, ok := errors.Cause(err).(*caas.NonPreferredStorageError)
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(npse.Provisioner, gc.Equals, "microk8s.io/hostpath")
+}
+
+func (s *K8sMetadataSuite) TestLabelSetToRequirements(c *gc.C) {
+	labels := map[string]string{
+		"foo":  "bar",
+		"foo1": "bar1",
+	}
+	var out []string
+	for _, v := range provider.LabelSetToRequirements(labels) {
+		out = append(out, v.String())
+	}
+	c.Assert(strings.Join(out, ","), gc.DeepEquals, `foo=bar,foo1=bar1`)
+}
+
+func (s *K8sMetadataSuite) TestMergeSelectors(c *gc.C) {
+	selector1 := k8slabels.SelectorFromSet(map[string]string{"foo": "bar"})
+	selector2 := k8slabels.SelectorFromSet(map[string]string{"foo1": "bar1"})
+	c.Assert(provider.MergeSelectors(selector1, selector2), gc.DeepEquals,
+		k8slabels.SelectorFromSet(map[string]string{
+			"foo":  "bar",
+			"foo1": "bar1",
+		}),
+	)
 }

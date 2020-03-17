@@ -72,7 +72,7 @@ const (
 	labelApplicationUUID = "juju-app-uuid"
 	labelModel           = "juju-model"
 
-	// labelGlobalResourceLifeCycleKey defines the label key for lifecycle of the CRD resources.
+	// labelGlobalResourceLifeCycleKey defines the label key for lifecycle of the global resources.
 	labelGlobalResourceLifeCycleKey             = "juju-global-resource-lifecycle"
 	labelGlobalResourceLifeCycleValueModel      = "model"
 	labelGlobalResourceLifeCycleValuePersistent = "persistent"
@@ -1939,19 +1939,23 @@ func (k *kubernetesClient) ExposeService(appName string, resourceTags map[string
 	return errors.Trace(err)
 }
 
-// UnexposeService removes external access to the specified service.
-func (k *kubernetesClient) UnexposeService(appName string) error {
+// UnExposeService removes external access to the specified service.
+func (k *kubernetesClient) UnExposeService(appName string) error {
 	logger.Debugf("deleting ingress resource for %s", appName)
 	deploymentName := k.deploymentName(appName)
 	return errors.Trace(k.deleteIngress(deploymentName, ""))
 }
 
 func operatorSelector(appName string) string {
-	return fmt.Sprintf("%v==%v", labelOperator, appName)
+	return labelSetToSelector(map[string]string{
+		labelOperator: appName,
+	}).String()
 }
 
 func applicationSelector(appName string) string {
-	return fmt.Sprintf("%v==%v", labelApplication, appName)
+	return labelSetToSelector(map[string]string{
+		labelApplication: appName,
+	}).String()
 }
 
 // AnnotateUnit annotates the specified pod (name or uid) with a unit tag.
@@ -2665,15 +2669,6 @@ func (k *kubernetesClient) deploymentName(appName string) string {
 		return "juju-" + appName
 	}
 	return appName
-}
-
-func labelsToSelector(labels map[string]string) string {
-	var selectors []string
-	for k, v := range labels {
-		selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
-	}
-	sort.Strings(selectors) // for tests.
-	return strings.Join(selectors, ",")
 }
 
 func newUIDPreconditions(uid k8stypes.UID) *v1.Preconditions {

@@ -33,21 +33,13 @@ func newLabelRequirements(rs ...requirementParams) k8slabels.Selector {
 	return s
 }
 
-func labelSetToRequirements(labels k8slabels.Set) (out []k8slabels.Requirement) {
-	for k, v := range labels {
-		r, _ := k8slabels.NewRequirement(k, selection.DoubleEquals, []string{v})
-		out = append(out, *r)
-	}
+func labelSetToRequirements(labels k8slabels.Set) []k8slabels.Requirement {
+	out, _ := k8slabels.SelectorFromValidatedSet(labels).Requirements()
 	return out
 }
 
 func labelSetToSelector(labels k8slabels.Set) k8slabels.Selector {
-	s := k8slabels.NewSelector()
-	for k, v := range labels {
-		r, _ := k8slabels.NewRequirement(k, selection.DoubleEquals, []string{v})
-		s = s.Add(*r)
-	}
-	return s
+	return k8slabels.SelectorFromValidatedSet(labels)
 }
 
 func mergeSelectors(selectors ...k8slabels.Selector) k8slabels.Selector {

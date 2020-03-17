@@ -70,19 +70,8 @@ func init() {
 	// TODO - support regional storage for GCE etc
 	jujuPreferredOperatorStorage = jujuPreferredWorkloadStorage
 
-	labelSelectorGlobalResourcesLifecycleForApplicationRemoval = newLabelRequirements(
-		requirementParams{
-			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
-				labelGlobalResourceLifeCycleValueModel,
-				labelGlobalResourceLifeCycleValuePersistent,
-			}},
-	)
-	labelSelectorGlobalResourcesLifecycleForModelTearDown = newLabelRequirements(
-		requirementParams{
-			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
-				labelGlobalResourceLifeCycleValuePersistent,
-			}},
-	)
+	labelSelectorGlobalResourcesLifecycleForApplicationRemoval = compleLabelSelectorGlobalResourcesLifecycleForApplicationRemoval()
+	labelSelectorGlobalResourcesLifecycleForModelTearDown = compleLabelSelectorGlobalResourcesLifecycleForModelTearDown()
 }
 
 // compileK8sCloudCheckers compiles/validates the collection of
@@ -128,4 +117,23 @@ func compileK8sCloudCheckers() map[string][]k8slabels.Selector {
 		},
 		// format - cloudType: requirements.
 	}
+}
+
+func compleLabelSelectorGlobalResourcesLifecycleForApplicationRemoval() k8slabels.Selector {
+	return newLabelRequirements(
+		requirementParams{
+			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
+				labelGlobalResourceLifeCycleValueModel,
+				labelGlobalResourceLifeCycleValuePersistent,
+			}},
+	)
+}
+
+func compleLabelSelectorGlobalResourcesLifecycleForModelTearDown() k8slabels.Selector {
+	return newLabelRequirements(
+		requirementParams{
+			labelGlobalResourceLifeCycleKey, selection.NotIn, []string{
+				labelGlobalResourceLifeCycleValuePersistent,
+			}},
+	)
 }

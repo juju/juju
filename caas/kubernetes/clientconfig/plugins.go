@@ -154,7 +154,7 @@ type rbacDeleter interface {
 }
 
 func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
-	labelsToSelector := func(labels map[string]string) string {
+	labelSetToSelector := func(labels map[string]string) string {
 		var selectors []string
 		for k, v := range labels {
 			selectors = append(selectors, fmt.Sprintf("%v==%v", k, v))
@@ -166,7 +166,7 @@ func deleteRBACResource(api rbacDeleter, labels map[string]string) error {
 	err := api.DeleteCollection(&metav1.DeleteOptions{
 		PropagationPolicy: &propagationPolicy,
 	}, metav1.ListOptions{
-		LabelSelector: labelsToSelector(labels),
+		LabelSelector: labelSetToSelector(labels),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

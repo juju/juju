@@ -1457,29 +1457,29 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	s.k8sWatcherFn = newK8sWatcherFunc(namespaceWatcher)
 
 	// timer +1.
-	s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+	s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&rbacv1.ClusterRoleBindingList{}, nil).
 		After(
 			s.mockClusterRoleBindings.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+	s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&rbacv1.ClusterRoleList{}, nil).
 		After(
 			s.mockClusterRoles.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
 	s.mockNamespaceableResourceClient.EXPECT().List(
 		// list all custom resources for crd "v1alpha2".
-		v1.ListOptions{LabelSelector: "juju-model==test"},
+		v1.ListOptions{LabelSelector: "juju-model=test"},
 	).Return(&unstructured.UnstructuredList{}, nil).After(
 		s.mockDynamicClient.EXPECT().Resource(
 			schema.GroupVersionResource{
@@ -1491,7 +1491,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 	).After(
 		// list all custom resources for crd "v1".
 		s.mockNamespaceableResourceClient.EXPECT().List(
-			v1.ListOptions{LabelSelector: "juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-model=test"},
 		).Return(&unstructured.UnstructuredList{}, nil),
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1509,7 +1509,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		// delete all custom resources for crd "v1alpha2".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-model=test"},
 		).Return(nil),
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1523,7 +1523,7 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 		// delete all custom resources for crd "v1".
 		s.mockNamespaceableResourceClient.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-model=test"},
 		).Return(nil),
 	).After(
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1541,43 +1541,43 @@ func (s *K8sBrokerSuite) assertDestroy(c *gc.C, isController bool, destroyFunc f
 
 	// timer +1.
 	s.mockCustomResourceDefinition.EXPECT().List(v1.ListOptions{
-		LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model==test",
+		LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model=test",
 	}).AnyTimes().
 		Return(&apiextensionsv1beta1.CustomResourceDefinitionList{}, nil).
 		After(
 			s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-global-resource-lifecycle notin (persistent),juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockMutatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+	s.mockMutatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&admissionregistrationv1beta1.MutatingWebhookConfigurationList{}, nil).
 		After(
 			s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockValidatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+	s.mockValidatingWebhookConfiguration.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&admissionregistrationv1beta1.ValidatingWebhookConfigurationList{}, nil).
 		After(
 			s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(s.k8sNotFoundError()),
 		)
 
 	// timer +1.
-	s.mockStorageClass.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model==test"}).
+	s.mockStorageClass.EXPECT().List(v1.ListOptions{LabelSelector: "juju-model=test"}).
 		Return(&storagev1.StorageClassList{}, nil).
 		After(
 			s.mockStorageClass.EXPECT().DeleteCollection(
 				s.deleteOptions(v1.DeletePropagationForeground, ""),
-				v1.ListOptions{LabelSelector: "juju-model==test"},
+				v1.ListOptions{LabelSelector: "juju-model=test"},
 			).Return(nil),
 		)
 
@@ -1793,35 +1793,35 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		// delete secrets.
 		s.mockSecrets.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 
 		// delete configmaps.
 		s.mockConfigMaps.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 
 		// delete RBAC resources.
 		s.mockRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
 		).Return(nil),
 		s.mockRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 		s.mockClusterRoles.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
 		).Return(nil),
 		s.mockServiceAccounts.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 
 		// list cluster wide all custom resource definitions for deleting custom resources.
@@ -1837,7 +1837,7 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(s.mockNamespaceableResourceClient),
 		s.mockResourceClient.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 		// delete all custom resources for crd "v1alpha2".
 		s.mockDynamicClient.EXPECT().Resource(
@@ -1849,37 +1849,37 @@ func (s *K8sBrokerSuite) TestDeleteServiceForApplication(c *gc.C) {
 		).Return(s.mockNamespaceableResourceClient),
 		s.mockResourceClient.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 
 		// delete all custom resource definitions.
 		s.mockCustomResourceDefinition.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-global-resource-lifecycle notin (model,persistent),juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test,juju-global-resource-lifecycle notin (model,persistent),juju-model=test"},
 		).Return(nil),
 
 		// delete all mutating webhook configurations.
 		s.mockMutatingWebhookConfiguration.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
 		).Return(nil),
 
 		// delete all validating webhook configurations.
 		s.mockValidatingWebhookConfiguration.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test,juju-model==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test,juju-model=test"},
 		).Return(nil),
 
 		// delete all ingress resources.
 		s.mockIngressInterface.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 
 		// delete all daemon set resources.
 		s.mockDaemonSets.EXPECT().DeleteCollection(
 			s.deleteOptions(v1.DeletePropagationForeground, ""),
-			v1.ListOptions{LabelSelector: "juju-app==test"},
+			v1.ListOptions{LabelSelector: "juju-app=test"},
 		).Return(nil),
 	)
 
@@ -2266,7 +2266,7 @@ func (s *K8sBrokerSuite) TestGetServiceSvcNotFound(c *gc.C) {
 	defer ctrl.Finish()
 
 	gomock.InOrder(
-		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&core.ServiceList{Items: []core.Service{}}, nil),
 
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
@@ -2310,7 +2310,7 @@ func (s *K8sBrokerSuite) assertGetService(c *gc.C, expectedSvcResult *caas.Servi
 
 	gomock.InOrder(
 		append([]*gomock.Call{
-			s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+			s.mockServices.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 				Return(&core.ServiceList{Items: []core.Service{svc}}, nil),
 
 			s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
@@ -2694,7 +2694,7 @@ password: shhhh`[1:],
 		// ensure configmaps.
 		s.mockConfigMaps.EXPECT().Create(cm).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockConfigMaps.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&core.ConfigMapList{Items: []core.ConfigMap{*cm}}, nil),
 		s.mockConfigMaps.EXPECT().Update(cm).
 			Return(cm, nil),
@@ -2702,13 +2702,13 @@ password: shhhh`[1:],
 		// ensure secrets.
 		s.mockSecrets.EXPECT().Create(secrets1).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&core.SecretList{Items: []core.Secret{*secrets1}}, nil),
 		s.mockSecrets.EXPECT().Update(secrets1).
 			Return(secrets1, nil),
 		s.mockSecrets.EXPECT().Create(secrets2).
 			Return(nil, s.k8sAlreadyExistsError()),
-		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockSecrets.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&core.SecretList{Items: []core.Secret{*secrets2}}, nil),
 		s.mockSecrets.EXPECT().Update(secrets2).
 			Return(secrets2, nil),
@@ -3090,7 +3090,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleCreate(c *gc.
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb).Return(rb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
@@ -3247,14 +3247,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewRoleUpdate(c *gc.
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
 		s.mockRoles.EXPECT().Create(role).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleList{Items: []rbacv1.Role{*role}}, nil),
 		s.mockRoles.EXPECT().Update(role).Return(role, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{*rb}}, nil),
 		s.mockRoleBindings.EXPECT().Delete("app-name", s.deleteOptions(v1.DeletePropagationForeground, rbUID)).Return(nil),
 		s.mockRoleBindings.EXPECT().Get("app-name", v1.GetOptions{}).Return(rb, nil),
@@ -3442,7 +3442,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleCreate
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Create(cr).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
+		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb).Return(crb, nil),
 		s.mockSecrets.EXPECT().Create(secretArg).Return(secretArg, nil),
@@ -3615,14 +3615,14 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountNewClusterRoleUpdate
 		s.mockStatefulSets.EXPECT().Get("juju-operator-app-name", v1.GetOptions{}).
 			Return(nil, s.k8sNotFoundError()),
 		s.mockServiceAccounts.EXPECT().Create(svcAccount).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockServiceAccounts.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&core.ServiceAccountList{Items: []core.ServiceAccount{*svcAccount}}, nil),
 		s.mockServiceAccounts.EXPECT().Update(svcAccount).Return(svcAccount, nil),
 		s.mockClusterRoles.EXPECT().Create(cr).Return(nil, s.k8sAlreadyExistsError()),
-		s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
+		s.mockClusterRoles.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&rbacv1.ClusterRoleList{Items: []rbacv1.ClusterRole{*cr}}, nil),
 		s.mockClusterRoles.EXPECT().Update(cr).Return(cr, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
+		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{*crb}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Delete("app-name-test-app-name", s.deleteOptions(v1.DeletePropagationForeground, crbUID)).Return(nil),
 		s.mockClusterRoleBindings.EXPECT().Get("app-name-test-app-name", v1.GetOptions{}).Return(crb, nil),
@@ -3876,13 +3876,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount1).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(role1).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb1).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount2).Return(svcAccount2, nil),
 		s.mockRoles.EXPECT().Create(role2).Return(role2, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb2).Return(rb2, nil),
 
@@ -4143,13 +4143,13 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount1).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(role1).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb1).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount2).Return(svcAccount2, nil),
 		s.mockClusterRoles.EXPECT().Create(clusterrole2).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
+		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb2).Return(crb2, nil),
 
@@ -4458,17 +4458,17 @@ func (s *K8sBrokerSuite) TestEnsureServiceWithServiceAccountAndK8sServiceAccount
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount1).Return(svcAccount1, nil),
 		s.mockRoles.EXPECT().Create(role1).Return(role1, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb1).Return(rb1, nil),
 
 		s.mockServiceAccounts.EXPECT().Create(svcAccount2).Return(svcAccount2, nil),
 		s.mockRoles.EXPECT().Create(role2).Return(role2, nil),
-		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name"}).
+		s.mockRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name"}).
 			Return(&rbacv1.RoleBindingList{Items: []rbacv1.RoleBinding{}}, nil),
 		s.mockRoleBindings.EXPECT().Create(rb2).Return(rb2, nil),
 		s.mockClusterRoles.EXPECT().Create(clusterrole2).Return(clusterrole2, nil),
-		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==app-name,juju-model==test"}).
+		s.mockClusterRoleBindings.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=app-name,juju-model=test"}).
 			Return(&rbacv1.ClusterRoleBindingList{Items: []rbacv1.ClusterRoleBinding{}}, nil),
 		s.mockClusterRoleBindings.EXPECT().Create(crb2).Return(crb2, nil),
 
@@ -4875,7 +4875,7 @@ func (s *K8sBrokerSuite) TestEnsureServiceForDaemonSetWithDevicesAndConstraintsU
 		s.mockDaemonSets.EXPECT().Create(daemonSetArg).
 			Return(nil, s.k8sAlreadyExistsError()),
 		s.mockDaemonSets.EXPECT().List(v1.ListOptions{
-			LabelSelector: "juju-app==app-name",
+			LabelSelector: "juju-app=app-name",
 		}).Return(&appsv1.DaemonSetList{Items: []appsv1.DaemonSet{*daemonSetArg}}, nil),
 		s.mockDaemonSets.EXPECT().Update(daemonSetArg).
 			Return(daemonSetArg, nil),
@@ -5317,7 +5317,7 @@ func (s *K8sBrokerSuite) TestAnnotateUnitByUID(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().Get("uuid", v1.GetOptions{}).Return(nil, s.k8sNotFoundError()),
-		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app==appname"}).Return(podList, nil),
+		s.mockPods.EXPECT().List(v1.ListOptions{LabelSelector: "juju-app=appname"}).Return(podList, nil),
 		s.mockPods.EXPECT().Update(updatePod).Return(updatePod, nil),
 	)
 
@@ -5364,7 +5364,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStart(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(
-			listOptionsLabelSelectorMatcher("juju-app==test"),
+			listOptionsLabelSelectorMatcher("juju-app=test"),
 		).DoAndReturn(func(...interface{}) (*core.PodList, error) {
 			return podList, nil
 		}),
@@ -5452,7 +5452,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefault(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(
-			listOptionsLabelSelectorMatcher("juju-app==test"),
+			listOptionsLabelSelectorMatcher("juju-app=test"),
 		).Return(podList, nil),
 	)
 
@@ -5536,7 +5536,7 @@ func (s *K8sBrokerSuite) TestWatchContainerStartDefaultWaitForUnit(c *gc.C) {
 
 	gomock.InOrder(
 		s.mockPods.EXPECT().List(
-			listOptionsLabelSelectorMatcher("juju-app==test"),
+			listOptionsLabelSelectorMatcher("juju-app=test"),
 		).Return(podList, nil),
 	)
 

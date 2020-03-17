@@ -39,8 +39,8 @@ func (m *mockServiceExposer) ExposeService(appName string, resourceTags map[stri
 	return m.NextErr()
 }
 
-func (m *mockServiceExposer) UnexposeService(appName string) error {
-	m.MethodCall(m, "UnexposeService", appName)
+func (m *mockServiceExposer) UnExposeService(appName string) error {
+	m.MethodCall(m, "UnExposeService", appName)
 	m.unexposed <- struct{}{}
 	return m.NextErr()
 }

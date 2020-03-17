@@ -104,7 +104,7 @@ func (k *kubernetesClient) deleteIngress(name string, uid k8stypes.UID) error {
 
 func (k *kubernetesClient) listIngressResources(labels map[string]string) ([]v1beta1.Ingress, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: labelsToSelector(labels),
+		LabelSelector: labelSetToSelector(labels).String(),
 	}
 	ingList, err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).List(listOps)
 	if err != nil {
@@ -120,7 +120,7 @@ func (k *kubernetesClient) deleteIngressResources(appName string) error {
 	err := k.client().ExtensionsV1beta1().Ingresses(k.namespace).DeleteCollection(&v1.DeleteOptions{
 		PropagationPolicy: &defaultPropagationPolicy,
 	}, v1.ListOptions{
-		LabelSelector: labelsToSelector(k.getIngressLabels(appName)),
+		LabelSelector: labelSetToSelector(k.getIngressLabels(appName)).String(),
 	})
 	if k8serrors.IsNotFound(err) {
 		return nil

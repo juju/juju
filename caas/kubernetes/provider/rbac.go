@@ -253,7 +253,7 @@ func (k *kubernetesClient) deleteServiceAccounts(selector k8slabels.Selector) er
 
 func (k *kubernetesClient) listServiceAccount(labels map[string]string) ([]core.ServiceAccount, error) {
 	listOps := v1.ListOptions{
-		LabelSelector: labelsToSelector(labels),
+		LabelSelector: labelSetToSelector(labels).String(),
 	}
 	saList, err := k.client().CoreV1().ServiceAccounts(k.namespace).List(listOps)
 	if err != nil {

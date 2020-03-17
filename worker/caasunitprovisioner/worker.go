@@ -149,7 +149,7 @@ func (p *provisioner) loop() error {
 				appLife, err := p.config.LifeGetter.Life(appId)
 				if errors.IsNotFound(err) {
 					// Once an application is deleted, remove the k8s service and ingress resources.
-					if err := p.config.ServiceBroker.UnexposeService(appId); err != nil {
+					if err := p.config.ServiceBroker.UnExposeService(appId); err != nil {
 						return errors.Trace(err)
 					}
 					if err := p.config.ServiceBroker.DeleteService(appId); err != nil {

@@ -616,8 +616,8 @@ func (s *WorkerSuite) TestApplicationDeadRemovesService(c *gc.C) {
 		c.Fatal("timed out waiting for service to be deleted")
 	}
 
-	s.serviceBroker.CheckCallNames(c, "UnexposeService", "DeleteService")
-	s.serviceBroker.CheckCall(c, 0, "UnexposeService", "gitlab")
+	s.serviceBroker.CheckCallNames(c, "UnExposeService", "DeleteService")
+	s.serviceBroker.CheckCall(c, 0, "UnExposeService", "gitlab")
 	s.serviceBroker.CheckCall(c, 1, "DeleteService", "gitlab")
 }
 

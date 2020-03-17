@@ -25,6 +25,6 @@ type ServiceBroker interface {
 	EnsureService(appName string, statusCallback caas.StatusCallbackFunc, params *caas.ServiceParams, numUnits int, config application.ConfigAttributes) error
 	GetService(appName string, includeClusterIP bool) (*caas.Service, error)
 	DeleteService(appName string) error
-	UnexposeService(appName string) error
+	UnExposeService(appName string) error
 	WatchService(appName string) (watcher.NotifyWatcher, error)
 }
