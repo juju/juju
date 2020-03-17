@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"compress/gzip"
 	"encoding/json"
-	"github.com/juju/juju/state/backups"
 	"io"
 	"path"
 	"strings"
@@ -17,6 +16,8 @@ import (
 	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/version"
+
+	"github.com/juju/juju/state/backups"
 )
 
 // File represents a file during testing.
