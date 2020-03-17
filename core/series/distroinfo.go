@@ -188,10 +188,3 @@ func consumeRecord(headers []string, fields []string) (record, bool) {
 	// If the record is malformed then the validity of the record is not ok.
 	return result, !malformed
 }
-
-// defaultFileSystem implements the FileSystem for the DistroInfo.
-type defaultFileSystem struct{}
-
-func (defaultFileSystem) Open(path string) (*os.File, error) {
-	return os.Open(path)
-}
