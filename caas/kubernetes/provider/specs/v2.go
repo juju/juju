@@ -189,6 +189,9 @@ func (ing K8sIngressSpec) Validate() error {
 	if ing.Name == "" {
 		return errors.New("ingress name is missing")
 	}
+	if err := validateLabels(ing.Labels); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 

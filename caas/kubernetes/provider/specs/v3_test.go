@@ -984,6 +984,54 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `custom resource definition "tfjobs.kubeflow.org" scope "invalid-scope" is not supported, please use "Namespaced" or "Cluster" scope`)
+
+	specStr = version3Header + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+      - containerPort: 8080
+        protocol: TCP
+kubernetesResources:
+  customResourceDefinitions:
+    - name: tfjobs.kubeflow.org
+      annotations:
+        foo: bar
+      labels:
+        /foo: bar
+      spec:
+        group: kubeflow.org
+        version: v1alpha2
+        scope: Cluster
+        names:
+          plural: "tfjobs"
+          singular: "tfjob"
+          kind: TFJob
+        validation:
+          openAPIV3Schema:
+            properties:
+              tfReplicaSpecs:
+                properties:
+                  Worker:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                  PS:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                  Chief:
+                    properties:
+                      replicas:
+                        type: integer
+                        minimum: 1
+                        maximum: 1
+`[1:]
+
+	_, err = k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `invalid label key "/foo": prefix part must be non-empty not valid`)
 }
 
 func (s *v3SpecsSuite) TestValidateMutatingWebhookConfigurations(c *gc.C) {
@@ -1046,6 +1094,33 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+
+	specStr = version3Header + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  ingressResources:
+    - name: test-ingress
+      labels:
+        /foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
+`[1:]
+
+	_, err = k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `invalid label key "/foo": prefix part must be non-empty not valid`)
 }
 
 func (s *v3SpecsSuite) TestPrimeServiceAccountToK8sRBACResources(c *gc.C) {

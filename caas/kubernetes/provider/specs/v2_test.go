@@ -932,6 +932,33 @@ kubernetesResources:
 
 	_, err := k8sspecs.ParsePodSpec(specStr)
 	c.Assert(err, gc.ErrorMatches, `ingress name is missing`)
+
+	specStr = version3Header + `
+containers:
+  - name: gitlab-helper
+    image: gitlab-helper/latest
+    ports:
+    - containerPort: 8080
+      protocol: TCP
+kubernetesResources:
+  ingressResources:
+    - name: test-ingress
+      labels:
+        /foo: bar
+      annotations:
+        nginx.ingress.kubernetes.io/rewrite-target: /
+      spec:
+        rules:
+        - http:
+            paths:
+            - path: /testpath
+              backend:
+                serviceName: test
+                servicePort: 80
+`[1:]
+
+	_, err = k8sspecs.ParsePodSpec(specStr)
+	c.Assert(err, gc.ErrorMatches, `invalid label key "/foo": prefix part must be non-empty not valid`)
 }
 
 func (s *v2SpecsSuite) TestUnknownFieldError(c *gc.C) {

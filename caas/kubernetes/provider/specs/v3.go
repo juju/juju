@@ -241,6 +241,9 @@ func (crd K8sCustomResourceDefinitionSpec) Validate() error {
 				crd.Name, crd.Spec.Scope, apiextensionsv1beta1.NamespaceScoped, apiextensionsv1beta1.ClusterScoped),
 		)
 	}
+	if err := validateLabels(crd.Labels); err != nil {
+		return errors.Trace(err)
+	}
 	return nil
 }
 
