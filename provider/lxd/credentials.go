@@ -13,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/provider/lxd/lxdnames"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/lxc/lxd/shared"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 const (
