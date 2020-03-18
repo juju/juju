@@ -566,7 +566,7 @@ var _ = gc.Suite(&mockHookContextSuite{})
 
 type mockHookContextSuite struct {
 	mockUnit  *mocks.MockHookUnit
-	mockCache map[string]string
+	mockCache params.UnitStateResult
 }
 
 func (s *mockHookContextSuite) TestDeleteCacheValue(c *gc.C) {
@@ -579,12 +579,12 @@ func (s *mockHookContextSuite) TestDeleteCacheValue(c *gc.C) {
 
 	obtainedCache, err := hookContext.GetCache()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache)
+	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.State)
 }
 
 func (s *mockHookContextSuite) TestDeleteCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	err := hookContext.DeleteCacheValue("five")
@@ -598,12 +598,12 @@ func (s *mockHookContextSuite) TestGetCache(c *gc.C) {
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	obtainedCache, err := hookContext.GetCache()
 	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache)
+	c.Assert(obtainedCache, gc.DeepEquals, s.mockCache.State)
 }
 
 func (s *mockHookContextSuite) TestGetCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	_, err := hookContext.GetCache()
@@ -642,7 +642,7 @@ func (s *mockHookContextSuite) TestGetSingleCacheValueNotFound(c *gc.C) {
 
 func (s *mockHookContextSuite) TestGetSingleCacheValueStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	_, err := hookContext.GetSingleCacheValue("key")
@@ -658,7 +658,7 @@ func (s *mockHookContextSuite) TestSetCache(c *gc.C) {
 
 func (s *mockHookContextSuite) TestSetCacheEmptyStartState(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockUnit.EXPECT().State().Return(nil, nil)
+	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, nil)
 
 	s.testSetCache(c)
 }
@@ -676,7 +676,7 @@ func (s *mockHookContextSuite) testSetCache(c *gc.C) {
 
 func (s *mockHookContextSuite) TestSetCacheStateErr(c *gc.C) {
 	defer s.setupMocks(c).Finish()
-	s.mockUnit.EXPECT().State().Return(nil, errors.Errorf("testing an error"))
+	s.mockUnit.EXPECT().State().Return(params.UnitStateResult{}, errors.Errorf("testing an error"))
 
 	hookContext := context.NewMockUnitHookContext(s.mockUnit)
 	err := hookContext.SetCacheValue("five", "six")
@@ -714,7 +714,7 @@ func (s *mockHookContextSuite) TestSequentialFlushOfCacheValues(c *gc.C) {
 				Tag: "unit-wordpress-0",
 				SetUnitState: &params.SetUnitStateArg{
 					Tag: "unit-wordpress-0",
-					State: map[string]string{
+					State: &map[string]string{
 						"one":   "two",
 						"three": "four",
 						"lorem": "ipsum",
@@ -744,11 +744,12 @@ func (s *mockHookContextSuite) setupMocks(c *gc.C) *gomock.Controller {
 }
 
 func (s *mockHookContextSuite) expectStateValues() {
-	s.mockCache = map[string]string{
-		"one":   "two",
-		"three": "four",
-		"seven": "",
-	}
+	s.mockCache = params.UnitStateResult{
+		State: map[string]string{
+			"one":   "two",
+			"three": "four",
+			"seven": "",
+		}}
 	s.mockUnit.EXPECT().State().Return(s.mockCache, nil)
 }
 
