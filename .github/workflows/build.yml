@@ -1,0 +1,177 @@
+name: "Build"
+on: [push, pull_request]
+jobs:
+  linux-amd64:
+    name: linux-amd64
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.10
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1.10"
+      id: go
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+    - name: Build
+      working-directory: src/github.com/juju/juju
+      run: |
+        GOOS=linux GOARCH=amd64 make go-install
+  linux-arm64:
+    name: linux-arm64
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.10
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1.10"
+      id: go
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+    - name: Build
+      working-directory: src/github.com/juju/juju
+      run: |
+        GOOS=linux GOARCH=arm64 make go-install
+  linux-s390x:
+    name: linux-s390x
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.10
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1.10"
+      id: go
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+    - name: Build
+      working-directory: src/github.com/juju/juju
+      run: |
+        GOOS=linux GOARCH=s390x make go-install
+  linux-ppc64le:
+    name: linux-ppc64le
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.10
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1.10"
+      id: go
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+    - name: Build
+      working-directory: src/github.com/juju/juju
+      run: |
+        GOOS=linux GOARCH=ppc64le make go-install
+  windows-amd64:
+    name: windows-amd64
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.10
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1.10"
+      id: go
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+    - name: Build
+      working-directory: src/github.com/juju/juju
+      run: |
+        GOOS=windows GOARCH=amd64 make go-install
+  darwin-amd64:
+    name: darwin-amd64
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up Go 1.10
+      uses: actions/setup-go@v1
+      with:
+        go-version: "1.10"
+      id: go
+    - name: Set GOPATH
+      # temporary fix
+      # see https://github.com/actions/setup-go/issues/14
+      run: |
+        echo "##[set-env name=GOPATH;]$GITHUB_WORKSPACE"
+        echo "##[add-path]$GITHUB_WORKSPACE/bin"
+      shell: bash
+    - name: Checkout
+      uses: actions/checkout@v2
+      with:
+        path: src/github.com/juju/juju
+    - name: Install Vendor dependencies
+      working-directory: src/github.com/juju/juju
+      run: |
+        make dep
+      shell: bash
+    - name: Build
+      working-directory: src/github.com/juju/juju
+      run: |
+        GOOS=darwin GOARCH=amd64 go install github.com/juju/juju/cmd/juju
