@@ -217,8 +217,8 @@ type bootstrapTest struct {
 func (s *BootstrapSuite) patchVersionAndSeries(c *gc.C, hostSeries string) {
 	resetJujuXDGDataHome(c)
 	s.PatchValue(&series.MustHostSeries, func() string { return hostSeries })
-	s.PatchValue(&supportedJujuSeries, func() set.Strings {
-		return set.NewStrings(hostSeries).Union(defaultSupportedJujuSeries)
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return set.NewStrings(hostSeries).Union(defaultSupportedJujuSeries), nil
 	})
 	s.patchVersion(c)
 }
@@ -1312,8 +1312,8 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, ser string) {
 	// so we can test that an upload is forced.
 	s.PatchValue(&jujuversion.Current, version.MustParse(vers))
 	s.PatchValue(&series.MustHostSeries, func() string { return ser })
-	s.PatchValue(&supportedJujuSeries, func() set.Strings {
-		return set.NewStrings(ser).Union(defaultSupportedJujuSeries)
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return set.NewStrings(ser).Union(defaultSupportedJujuSeries), nil
 	})
 
 	// Create home with dummy provider and remove all

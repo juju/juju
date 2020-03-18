@@ -4,7 +4,10 @@
 package application
 
 import (
+	"time"
+
 	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -23,8 +26,8 @@ type UnexposeSuite struct {
 
 func (s *UnexposeSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = testing.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
