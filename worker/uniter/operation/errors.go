@@ -11,7 +11,9 @@ import (
 )
 
 var (
-	ErrNoStateFile            = errors.New("uniter state file does not exist")
+	// ErrNoSavedState is returned by StateOps if there is no saved state.  This is
+	// usually seen when a unit starts for the first time.
+	ErrNoSavedState           = errors.New("saved uniter state does not exist")
 	ErrSkipExecute            = errors.New("operation already executed")
 	ErrNeedsReboot            = errors.New("reboot request issued")
 	ErrHookFailed             = errors.New("hook failed")

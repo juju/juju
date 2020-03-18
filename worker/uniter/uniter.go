@@ -167,7 +167,8 @@ type UniterParams struct {
 	RebootQuerier RebootQuerier
 }
 
-type NewOperationExecutorFunc func(string, operation.State, func(string) (func(), error)) (operation.Executor, error)
+// NewOperationExecutorFunc is a func which returns an operations.Executor.
+type NewOperationExecutorFunc func(operation.ExecutorConfig) (operation.Executor, error)
 
 // ProviderIDGetter defines the API to get provider ID.
 type ProviderIDGetter interface {
@@ -672,7 +673,11 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 		}
 	}
 
-	operationExecutor, err := u.newOperationExecutor(u.paths.State.OperationsFile, initialState, u.acquireExecutionLock)
+	operationExecutor, err := u.newOperationExecutor(operation.ExecutorConfig{
+		StateReadWriter: u.unit,
+		InitialState:    initialState,
+		AcquireLock:     u.acquireExecutionLock,
+	})
 	if err != nil {
 		return errors.Trace(err)
 	}

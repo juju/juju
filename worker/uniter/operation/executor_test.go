@@ -4,24 +4,28 @@
 package operation_test
 
 import (
-	"path/filepath"
 	"time"
 
+	"github.com/golang/mock/gomock"
 	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	ft "github.com/juju/testing/filetesting"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6/hooks"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/operation/mocks"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
 
 type NewExecutorSuite struct {
 	testing.IsolationSuite
 	basePath string
+
+	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
 var _ = gc.Suite(&NewExecutorSuite{})
@@ -32,26 +36,53 @@ func failAcquireLock(_ string) (func(), error) {
 
 func (s *NewExecutorSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.basePath = c.MkDir()
 }
 
-func (s *NewExecutorSuite) path(path string) string {
-	return filepath.Join(s.basePath, path)
+func (s *NewExecutorSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
+	return ctlr
 }
 
-func (s *NewExecutorSuite) TestNewExecutorInvalidFile(c *gc.C) {
-	ft.File{"existing", "", 0666}.Create(c, s.basePath)
-	executor, err := operation.NewExecutor(s.path("existing"), operation.State{}, failAcquireLock)
+func (s *NewExecutorSuite) expectState(c *gc.C, st operation.State) {
+	data, err := yaml.Marshal(st)
+	c.Assert(err, jc.ErrorIsNil)
+	stStr := string(data)
+
+	mExp := s.mockStateRW.EXPECT()
+	mExp.State().Return(params.UnitStateResult{UniterState: stStr}, nil)
+}
+
+func (s *NewExecutorSuite) expectStateNil() {
+	mExp := s.mockStateRW.EXPECT()
+	mExp.State().Return(params.UnitStateResult{}, nil)
+}
+
+func (s *NewExecutorSuite) TestNewExecutorInvalidStateRead(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	initialState := operation.State{Step: operation.Queued}
+	s.expectState(c, initialState)
+	cfg := operation.ExecutorConfig{
+		StateReadWriter: s.mockStateRW,
+		InitialState:    initialState,
+		AcquireLock:     failAcquireLock,
+	}
+	executor, err := operation.NewExecutor(cfg)
 	c.Assert(executor, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: .*`)
+	c.Assert(err, gc.ErrorMatches, `validation of uniter state: invalid operation state: .*`)
 }
 
-func (s *NewExecutorSuite) TestNewExecutorNoFile(c *gc.C) {
-	initialState := operation.State{}
-	executor, err := operation.NewExecutor(s.path("missing"), initialState, failAcquireLock)
+func (s *NewExecutorSuite) TestNewExecutorNoInitialState(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	s.expectStateNil()
+	initialState := operation.State{Step: operation.Queued}
+	cfg := operation.ExecutorConfig{
+		StateReadWriter: s.mockStateRW,
+		InitialState:    initialState,
+		AcquireLock:     failAcquireLock}
+	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
-	ft.Removed{"missing"}.Check(c, s.basePath)
 }
 
 func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
@@ -59,12 +90,14 @@ func (s *NewExecutorSuite) TestNewExecutorValidFile(c *gc.C) {
 	// that "hook" will have to become "last-hook" to enable action execution
 	// during hook error states. If you do this, please leave at least one test
 	// with this form of the yaml in place.
-	ft.File{"existing", `
-started: true
-op: continue
-opstep: pending
-`[1:], 0666}.Create(c, s.basePath)
-	executor, err := operation.NewExecutor(s.path("existing"), operation.State{}, failAcquireLock)
+	defer s.setupMocks(c).Finish()
+	s.mockStateRW.EXPECT().State().Return(params.UnitStateResult{UniterState: "started: true\nop: continue\nopstep: pending\n"}, nil)
+	cfg := operation.ExecutorConfig{
+		StateReadWriter: s.mockStateRW,
+		InitialState:    operation.State{Step: operation.Queued},
+		AcquireLock:     failAcquireLock,
+	}
+	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 	c.Assert(executor.State(), gc.DeepEquals, operation.State{
 		Kind:    operation.Continue,
@@ -75,23 +108,88 @@ opstep: pending
 
 type ExecutorSuite struct {
 	testing.IsolationSuite
+	mockStateRW *mocks.MockUnitStateReadWriter
 }
 
 var _ = gc.Suite(&ExecutorSuite{})
 
-func assertWroteState(c *gc.C, path string, expect operation.State) {
-	actual, err := operation.NewStateFile(path).Read()
-	c.Assert(err, jc.ErrorIsNil)
-	c.Assert(*actual, gc.DeepEquals, expect)
+func (s *ExecutorSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
+	return ctlr
 }
 
-func newExecutor(c *gc.C, st *operation.State) (operation.Executor, string) {
-	path := filepath.Join(c.MkDir(), "state")
-	err := operation.NewStateFile(path).Write(st)
+func (s *ExecutorSuite) expectSetState(c *gc.C, st operation.State) {
+	data, err := yaml.Marshal(st)
 	c.Assert(err, jc.ErrorIsNil)
-	executor, err := operation.NewExecutor(path, operation.State{}, failAcquireLock)
+	strUniterState := string(data)
+
+	mExp := s.mockStateRW.EXPECT()
+	mExp.SetState(unitStateMatcher{c: c, expected: strUniterState}).Return(nil)
+}
+
+func (s *ExecutorSuite) expectState(c *gc.C, st operation.State) {
+	data, err := yaml.Marshal(st)
 	c.Assert(err, jc.ErrorIsNil)
-	return executor, path
+	strState := string(data)
+
+	mExp := s.mockStateRW.EXPECT()
+	mExp.State().Return(params.UnitStateResult{UniterState: strState}, nil)
+}
+
+func (s *ExecutorSuite) expectConfigChangedPendingOp(c *gc.C) operation.State {
+	op := operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	}
+	s.expectSetState(c, op)
+	return op
+}
+
+func (s *ExecutorSuite) expectConfigChangedDoneOp(c *gc.C) operation.State {
+	op := operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Done,
+		Hook: &hook.Info{Kind: hooks.ConfigChanged},
+	}
+	s.expectSetState(c, op)
+	return op
+}
+
+func (s *ExecutorSuite) expectStartQueuedOp(c *gc.C) operation.State {
+	op := operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Queued,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}
+	s.expectSetState(c, op)
+	return op
+}
+
+func (s *ExecutorSuite) expectStartPendingOp(c *gc.C) operation.State {
+	op := operation.State{
+		Kind: operation.RunHook,
+		Step: operation.Pending,
+		Hook: &hook.Info{Kind: hooks.Start},
+	}
+	s.expectSetState(c, op)
+	return op
+}
+
+func (s *ExecutorSuite) newExecutor(c *gc.C, st *operation.State) operation.Executor {
+	// ensure s.setupMocks called first.
+	c.Assert(s.mockStateRW, gc.NotNil)
+
+	s.expectState(c, *st)
+	cfg := operation.ExecutorConfig{
+		StateReadWriter: s.mockStateRW,
+		InitialState:    operation.State{Step: operation.Queued},
+		AcquireLock:     failAcquireLock,
+	}
+	executor, err := operation.NewExecutor(cfg)
+	c.Assert(err, jc.ErrorIsNil)
+	return executor
 }
 
 func justInstalledState() operation.State {
@@ -102,8 +200,9 @@ func justInstalledState() operation.State {
 }
 
 func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
+	defer s.setupMocks(c).Finish()
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
 
 	prepare := newStep(nil, nil)
 	execute := newStep(nil, nil)
@@ -120,29 +219,22 @@ func (s *ExecutorSuite) TestSucceedNoStateChanges(c *gc.C) {
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
 	c.Assert(execute.gotState, gc.DeepEquals, initialState)
 	c.Assert(commit.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
 
 func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
-	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	defer s.setupMocks(c).Finish()
 
-	prepare := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
-	}, nil)
-	execute := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Done,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
-	}, nil)
-	commit := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Queued,
-		Hook: &hook.Info{Kind: hooks.Start},
-	}, nil)
+	prepareOp := s.expectConfigChangedPendingOp(c)
+	executeOp := s.expectConfigChangedDoneOp(c)
+	commitOp := s.expectStartQueuedOp(c)
+
+	initialState := justInstalledState()
+	executor := s.newExecutor(c, &initialState)
+
+	prepare := newStep(&prepareOp, nil)
+	execute := newStep(&executeOp, nil)
+	commit := newStep(&commitOp, nil)
 	op := &mockOperation{
 		prepare: prepare,
 		execute: execute,
@@ -155,13 +247,14 @@ func (s *ExecutorSuite) TestSucceedWithStateChanges(c *gc.C) {
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
 	c.Assert(execute.gotState, gc.DeepEquals, *prepare.newState)
 	c.Assert(commit.gotState, gc.DeepEquals, *execute.newState)
-	assertWroteState(c, statePath, *commit.newState)
 	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
 }
 
 func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	initialState := justInstalledState()
-	executor, _ := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
 
 	remoteStateUpdated := make(chan struct{}, 1)
 	prepare := newStep(nil, nil)
@@ -196,18 +289,16 @@ func (s *ExecutorSuite) TestSucceedWithRemoteStateChanges(c *gc.C) {
 }
 
 func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
+	prepareOp := s.expectConfigChangedPendingOp(c)
+	commitOp := s.expectStartQueuedOp(c)
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
-	prepare := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.ConfigChanged},
-	}, operation.ErrSkipExecute)
-	commit := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Queued,
-		Hook: &hook.Info{Kind: hooks.Start},
-	}, nil)
+	executor := s.newExecutor(c, &initialState)
+
+	prepare := newStep(&prepareOp, operation.ErrSkipExecute)
+	commit := newStep(&commitOp, nil)
 	op := &mockOperation{
 		prepare: prepare,
 		commit:  commit,
@@ -218,13 +309,15 @@ func (s *ExecutorSuite) TestErrSkipExecute(c *gc.C) {
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
 	c.Assert(commit.gotState, gc.DeepEquals, *prepare.newState)
-	assertWroteState(c, statePath, *commit.newState)
 	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
 }
 
 func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
+
 	prepare := newStep(&operation.State{
 		Kind: operation.RunHook,
 		Step: operation.Pending,
@@ -236,14 +329,15 @@ func (s *ExecutorSuite) TestValidateStateChange(c *gc.C) {
 	err := executor.Run(op, nil)
 	c.Assert(err, gc.ErrorMatches, `preparing operation "mock operation": invalid operation state: missing hook info with Kind RunHook`)
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "missing hook info with Kind RunHook")
-
-	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
 
 func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
+
 	prepare := newStep(nil, errors.New("pow"))
 	op := &mockOperation{
 		prepare: prepare,
@@ -254,18 +348,17 @@ func (s *ExecutorSuite) TestFailPrepareNoStateChange(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "pow")
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
 
 func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	prepareOp := s.expectStartPendingOp(c)
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
-	prepare := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.Start},
-	}, errors.New("blam"))
+	executor := s.newExecutor(c, &initialState)
+
+	prepare := newStep(&prepareOp, errors.New("blam"))
 	op := &mockOperation{
 		prepare: prepare,
 	}
@@ -275,13 +368,15 @@ func (s *ExecutorSuite) TestFailPrepareWithStateChange(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "blam")
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, *prepare.newState)
 	c.Assert(executor.State(), gc.DeepEquals, *prepare.newState)
 }
 
 func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
+
 	prepare := newStep(nil, nil)
 	execute := newStep(nil, errors.New("splat"))
 	op := &mockOperation{
@@ -294,19 +389,18 @@ func (s *ExecutorSuite) TestFailExecuteNoStateChange(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "splat")
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
 
 func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+	executeOp := s.expectStartPendingOp(c)
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
+
 	prepare := newStep(nil, nil)
-	execute := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.Start},
-	}, errors.New("kerblooie"))
+	execute := newStep(&executeOp, errors.New("kerblooie"))
 	op := &mockOperation{
 		prepare: prepare,
 		execute: execute,
@@ -317,13 +411,14 @@ func (s *ExecutorSuite) TestFailExecuteWithStateChange(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "kerblooie")
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, *execute.newState)
 	c.Assert(executor.State(), gc.DeepEquals, *execute.newState)
 }
 
 func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	executor := s.newExecutor(c, &initialState)
 
 	prepare := newStep(nil, nil)
 	execute := newStep(nil, nil)
@@ -339,20 +434,19 @@ func (s *ExecutorSuite) TestFailCommitNoStateChange(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "whack")
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, initialState)
 	c.Assert(executor.State(), gc.DeepEquals, initialState)
 }
 
 func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
+	defer s.setupMocks(c).Finish()
+
 	initialState := justInstalledState()
-	executor, statePath := newExecutor(c, &initialState)
+	commitOp := s.expectStartPendingOp(c)
+
+	executor := s.newExecutor(c, &initialState)
 	prepare := newStep(nil, nil)
 	execute := newStep(nil, nil)
-	commit := newStep(&operation.State{
-		Kind: operation.RunHook,
-		Step: operation.Pending,
-		Hook: &hook.Info{Kind: hooks.Start},
-	}, errors.New("take that you bandit"))
+	commit := newStep(&commitOp, errors.New("take that you bandit"))
 	op := &mockOperation{
 		prepare: prepare,
 		execute: execute,
@@ -364,16 +458,19 @@ func (s *ExecutorSuite) TestFailCommitWithStateChange(c *gc.C) {
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "take that you bandit")
 
 	c.Assert(prepare.gotState, gc.DeepEquals, initialState)
-	assertWroteState(c, statePath, *commit.newState)
 	c.Assert(executor.State(), gc.DeepEquals, *commit.newState)
 }
 
 func (s *ExecutorSuite) initLockTest(c *gc.C, lockFunc func(string) (func(), error)) operation.Executor {
 	initialState := justInstalledState()
-	statePath := filepath.Join(c.MkDir(), "state")
-	err := operation.NewStateFile(statePath).Write(&initialState)
+	err := operation.NewStateOps(s.mockStateRW).Write(&initialState)
 	c.Assert(err, jc.ErrorIsNil)
-	executor, err := operation.NewExecutor(statePath, operation.State{}, lockFunc)
+	cfg := operation.ExecutorConfig{
+		StateReadWriter: s.mockStateRW,
+		InitialState:    operation.State{Step: operation.Queued},
+		AcquireLock:     lockFunc,
+	}
+	executor, err := operation.NewExecutor(cfg)
 	c.Assert(err, jc.ErrorIsNil)
 
 	return executor

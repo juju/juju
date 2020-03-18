@@ -4,21 +4,25 @@
 package operation_test
 
 import (
-	"path/filepath"
-
+	"github.com/golang/mock/gomock"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/hooks"
+	"gopkg.in/yaml.v2"
 
+	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/operation"
+	"github.com/juju/juju/worker/uniter/operation/mocks"
 )
 
-type StateFileSuite struct{}
+type StateOpsSuite struct {
+	mockStateRW *mocks.MockUnitStateReadWriter
+}
 
-var _ = gc.Suite(&StateFileSuite{})
+var _ = gc.Suite(&StateOpsSuite{})
 
 var stcurl = charm.MustParseURL("cs:quantal/application-name-123")
 var relhook = &hook.Info{
@@ -27,17 +31,20 @@ var relhook = &hook.Info{
 	RemoteApplication: "some-thing",
 }
 
-var stateTests = []struct {
+type stateTest struct {
 	description string
 	st          operation.State
 	err         string
-}{
+}
+
+var stateTests = []stateTest{
 	// Invalid op/step.
 	{
-		description: "unknown operation",
+		description: "unknown operation kind",
 		st:          operation.State{Kind: operation.Kind("bloviate")},
 		err:         `unknown operation "bloviate"`,
 	}, {
+		description: "unknown operation step",
 		st: operation.State{
 			Kind: operation.Continue,
 			Step: operation.Step("dudelike"),
@@ -72,6 +79,7 @@ var stateTests = []struct {
 		},
 		err: `unexpected action id`,
 	}, {
+		description: "install with charm url",
 		st: operation.State{
 			Kind:     operation.Install,
 			Step:     operation.Pending,
@@ -235,27 +243,87 @@ var stateTests = []struct {
 	},
 }
 
-func (s *StateFileSuite) TestStates(c *gc.C) {
+func (s *StateOpsSuite) TestStates(c *gc.C) {
 	for i, t := range stateTests {
 		c.Logf("test %d: %s", i, t.description)
-		path := filepath.Join(c.MkDir(), "uniter")
-		file := operation.NewStateFile(path)
-		_, err := file.Read()
-		c.Assert(err, gc.Equals, operation.ErrNoStateFile)
-
-		err = file.Write(&t.st)
-		if t.err == "" {
-			c.Assert(err, jc.ErrorIsNil)
-		} else {
-			c.Assert(err, gc.ErrorMatches, "invalid operation state: "+t.err)
-			err := utils.WriteYaml(path, &t.st)
-			c.Assert(err, jc.ErrorIsNil)
-			_, err = file.Read()
-			c.Assert(err, gc.ErrorMatches, `cannot read ".*": invalid operation state: `+t.err)
-			continue
-		}
-		st, err := file.Read()
-		c.Assert(err, jc.ErrorIsNil)
-		c.Assert(st, jc.DeepEquals, &t.st)
+		s.runTest(c, t)
 	}
+}
+
+func (s *StateOpsSuite) runTest(c *gc.C, t stateTest) {
+	defer s.setupMocks(c).Finish()
+	ops := operation.NewStateOps(s.mockStateRW)
+	_, err := ops.Read()
+	c.Assert(err, gc.Equals, operation.ErrNoSavedState)
+
+	if t.err == "" {
+		s.expectSetState(c, t.st, t.err)
+	}
+	err = ops.Write(&t.st)
+	if t.err == "" {
+		c.Assert(err, jc.ErrorIsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, "invalid operation state: "+t.err)
+		s.expectState(c, t.st)
+		_, err = ops.Read()
+		c.Assert(err, gc.ErrorMatches, `validation of uniter state: invalid operation state: `+t.err)
+		return
+	}
+	s.expectState(c, t.st)
+	st, err := ops.Read()
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(st, jc.DeepEquals, &t.st)
+}
+
+func (s *StateOpsSuite) setupMocks(c *gc.C) *gomock.Controller {
+	ctlr := gomock.NewController(c)
+	s.mockStateRW = mocks.NewMockUnitStateReadWriter(ctlr)
+
+	mExp := s.mockStateRW.EXPECT()
+	mExp.State().Return(params.UnitStateResult{}, nil)
+	return ctlr
+}
+
+func (s *StateOpsSuite) expectSetState(c *gc.C, st operation.State, errStr string) {
+	data, err := yaml.Marshal(st)
+	c.Assert(err, jc.ErrorIsNil)
+	strUniterState := string(data)
+	if errStr != "" {
+		err = errors.New(`validation of uniter state: invalid operation state: ` + errStr)
+	}
+
+	mExp := s.mockStateRW.EXPECT()
+	mExp.SetState(unitStateMatcher{c: c, expected: strUniterState}).Return(err)
+}
+
+func (s *StateOpsSuite) expectState(c *gc.C, st operation.State) {
+	data, err := yaml.Marshal(st)
+	c.Assert(err, jc.ErrorIsNil)
+	stStr := string(data)
+
+	mExp := s.mockStateRW.EXPECT()
+	mExp.State().Return(params.UnitStateResult{UniterState: stStr}, nil)
+}
+
+type unitStateMatcher struct {
+	c        *gc.C
+	expected string
+}
+
+func (m unitStateMatcher) Matches(x interface{}) bool {
+	obtained, ok := x.(params.SetUnitStateArg)
+	if !ok {
+		return false
+	}
+
+	if obtained.UniterState == nil || m.expected != *obtained.UniterState {
+		m.c.Fatalf("unitStateMatcher: expected (%s) obtained (%s)", m.expected, *obtained.UniterState)
+		return false
+	}
+
+	return true
+}
+
+func (m unitStateMatcher) String() string {
+	return "Match the contents of the UniterState pointer in params.SetUnitStateArg"
 }

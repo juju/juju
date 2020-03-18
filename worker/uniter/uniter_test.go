@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testcharms"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/operation"
 	"github.com/juju/juju/worker/uniter/remotestate"
 )
@@ -197,20 +198,7 @@ func (s *UniterSuite) TestUniterBootstrap(c *gc.C) {
 	})
 }
 
-type noopExecutor struct {
-	operation.Executor
-}
-
-func (m *noopExecutor) Run(op operation.Operation) error {
-	return errors.New("some error occurred")
-}
-
 func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
-	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func(string) (func(), error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
-		c.Assert(err, jc.ErrorIsNil)
-		return &mockExecutor{e}, nil
-	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"unit status and message at startup",
@@ -219,7 +207,7 @@ func (s *UniterSuite) TestUniterStartupStatus(c *gc.C) {
 			ensureStateWorker{},
 			createApplicationAndUnit{},
 			startUniter{
-				newExecutorFunc: executorFunc,
+				newExecutorFunc: executorFunc(c),
 			},
 			waitUnitAgent{
 				statusGetter: unitStatusGetter,
@@ -1952,17 +1940,12 @@ func (m *mockExecutor) Run(op operation.Operation, rs <-chan remotestate.Snapsho
 }
 
 func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
-	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func(string) (func(), error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
-		c.Assert(err, jc.ErrorIsNil)
-		return &mockExecutor{e}, nil
-	}
 	s.runUniterTests(c, []uniterTest{
 		ut(
 			"error running operations are reported",
 			createCharm{},
 			serveCharm{},
-			createUniter{executorFunc: executorFunc},
+			createUniter{executorFunc: executorFunc(c)},
 			waitUnitAgent{
 				status: status.Failed,
 				info:   "resolver loop error",
@@ -1973,11 +1956,6 @@ func (s *UniterSuite) TestOperationErrorReported(c *gc.C) {
 }
 
 func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
-	executorFunc := func(stateFilePath string, initialState operation.State, acquireLock func(string) (func(), error)) (operation.Executor, error) {
-		e, err := operation.NewExecutor(stateFilePath, initialState, acquireLock)
-		c.Assert(err, jc.ErrorIsNil)
-		return &mockExecutor{e}, nil
-	}
 	translateResolverErr := func(in error) error {
 		c.Check(errors.Cause(in), gc.Equals, mockExecutorErr)
 		return errors.New("some other error")
@@ -1988,7 +1966,7 @@ func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
 			createCharm{},
 			serveCharm{},
 			createUniter{
-				executorFunc:         executorFunc,
+				executorFunc:         executorFunc(c),
 				translateResolverErr: translateResolverErr,
 			},
 			waitUnitAgent{
@@ -1998,4 +1976,12 @@ func (s *UniterSuite) TestTranslateResolverError(c *gc.C) {
 			expectError{".*some other error.*"},
 		),
 	})
+}
+
+func executorFunc(c *gc.C) uniter.NewOperationExecutorFunc {
+	return func(cfg operation.ExecutorConfig) (operation.Executor, error) {
+		e, err := operation.NewExecutor(cfg)
+		c.Assert(err, jc.ErrorIsNil)
+		return &mockExecutor{e}, nil
+	}
 }
