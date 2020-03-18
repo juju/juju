@@ -50,7 +50,7 @@ func (s *ContextFactorySuite) SetUpTest(c *gc.C) {
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            s.uniter,
-		UnitTag:          s.unit.Tag().(names.UnitTag),
+		Unit:             s.apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
@@ -237,10 +237,13 @@ func (s *ContextFactorySuite) TestNewHookContextWithStorage(c *gc.C) {
 	st := s.OpenAPIAs(c, unit.Tag(), password)
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniter, gc.NotNil)
+	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            uniter,
-		UnitTag:          unit.Tag().(names.UnitTag),
+		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,
@@ -306,10 +309,13 @@ func (s *ContextFactorySuite) setupPodSpec(c *gc.C) (*state.State, context.Conte
 	c.Assert(err, jc.ErrorIsNil)
 	uniter, err := apiState.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniter, gc.NotNil)
+	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:   uniter,
-		UnitTag: unit.UnitTag(),
+		State: uniter,
+		Unit:  apiUnit,
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},
@@ -411,10 +417,13 @@ func (s *ContextFactorySuite) TestNewHookContextCAASModel(c *gc.C) {
 	c.Assert(err, jc.ErrorIsNil)
 	uniter, err := apiState.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(uniter, gc.NotNil)
+	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
-		State:   uniter,
-		UnitTag: unit.Tag().(names.UnitTag),
+		State: uniter,
+		Unit:  apiUnit,
 		Tracker: &runnertesting.FakeTracker{
 			AllowClaimLeader: true,
 		},

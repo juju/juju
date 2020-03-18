@@ -90,7 +90,7 @@ type contextFactory struct {
 // for the context factory.
 type FactoryConfig struct {
 	State            *uniter.State
-	UnitTag          names.UnitTag
+	Unit             *uniter.Unit
 	Tracker          leadership.Tracker
 	GetRelationInfos RelationsFunc
 	Storage          StorageContextAccessor
@@ -101,10 +101,6 @@ type FactoryConfig struct {
 // NewContextFactory returns a ContextFactory capable of creating execution contexts backed
 // by the supplied unit's supplied API connection.
 func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
-	unit, err := config.State.Unit(config.UnitTag)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	m, err := config.State.Model()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -114,17 +110,17 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 		zone       string
 	)
 	if m.ModelType == model.IAAS {
-		machineTag, err = unit.AssignedMachine()
+		machineTag, err = config.Unit.AssignedMachine()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 
-		zone, err = unit.AvailabilityZone()
+		zone, err = config.Unit.AvailabilityZone()
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
-	principal, ok, err := unit.PrincipalName()
+	principal, ok, err := config.Unit.PrincipalName()
 	if err != nil {
 		return nil, errors.Trace(err)
 	} else if !ok {
@@ -132,7 +128,7 @@ func NewContextFactory(config FactoryConfig) (ContextFactory, error) {
 	}
 
 	f := &contextFactory{
-		unit:             unit,
+		unit:             config.Unit,
 		state:            config.State,
 		tracker:          config.Tracker,
 		paths:            config.Paths,
