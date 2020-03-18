@@ -194,11 +194,13 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 	for name, nic := range nics {
 		checked = append(checked, name)
 
-		if !isValidNICType(nic) {
-			continue
+		// Versions of the LXD profile prior to 3.22 have the network name as
+		// "parent" under NIC entries in the "devices" list.
+		// Later versions have it under "network".
+		netName, ok := nic["network"]
+		if !ok {
+			netName = nic["parent"]
 		}
-
-		netName := nic["parent"]
 		if netName == "" {
 			continue
 		}
@@ -207,8 +209,17 @@ func (s *Server) verifyNICsWithAPI(nics map[string]device) error {
 		if err != nil {
 			return errors.Annotatef(err, "retrieving network %q", netName)
 		}
+
 		if err := verifyNoIPv6(net); err != nil {
 			ipV6ErrMsg = err
+			continue
+		}
+
+		// Versions of the LXD profile prior to 3.22 have a "nictype" member
+		// under NIC entries in the "devices" list.
+		// Later versions were observed to have this member absent,
+		// however this information is available from the actual network.
+		if !isValidNetworkType(net) && !isValidNICType(nic) {
 			continue
 		}
 
@@ -317,6 +328,10 @@ func verifyNoIPv6(net *api.Network) error {
 
 func isValidNICType(nic device) bool {
 	return nic["nictype"] == nicTypeBridged || nic["nictype"] == nicTypeMACVLAN
+}
+
+func isValidNetworkType(net *api.Network) bool {
+	return net.Type == nicTypeBridged || net.Type == nicTypeMACVLAN
 }
 
 const BridgeConfigFile = "/etc/default/lxd-bridge"
