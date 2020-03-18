@@ -8,6 +8,7 @@ import (
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/romulus"
 	gc "gopkg.in/check.v1"
@@ -321,7 +322,7 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 }
@@ -334,7 +335,7 @@ type JujuConnBaseSuite struct {
 
 func (s *JujuConnBaseSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 }

@@ -75,7 +75,7 @@ import (
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", testing.KubernetesSeriesName}
+var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", testing.KubernetesSeriesName)
 
 type DeploySuiteBase struct {
 	testing.RepoSuite
@@ -165,7 +165,7 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
@@ -1226,8 +1226,8 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
-		return supported.Values(), nil
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return supported, nil
 	})
 
 	nonEMSSeries := supportedNotEMS.Values()[0]
@@ -1292,7 +1292,7 @@ type charmstoreSuite struct {
 func (s *charmstoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 
@@ -1696,7 +1696,7 @@ func (s *legacyCharmStoreSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.ControllerConfigAttrs[controller.CharmStoreURL] = s.srv.URL
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 
@@ -2203,7 +2203,7 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func(time.Time, string, bool) ([]string, error) {
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
 		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")

@@ -691,8 +691,7 @@ func (h *bundleHandler) addApplication(change *bundlechanges.AddApplicationChang
 		supportedSeries = []string{chID.URL.Series}
 	}
 
-	dailyImageStream := isDailyImageStream(h.modelConfig.ImageStream())
-	workloadSeries, err := supportedJujuSeries(h.clock.Now(), p.Series, dailyImageStream)
+	workloadSeries, err := supportedJujuSeries(h.clock.Now(), p.Series, h.modelConfig.ImageStream())
 	if err != nil {
 		return errors.Trace(err)
 	}

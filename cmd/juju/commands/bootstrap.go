@@ -10,15 +10,12 @@ import (
 	"path"
 	"sort"
 	"strings"
-	"time"
 
 	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/naturalsort"
-	osseries "github.com/juju/os/series"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/featureflag"
@@ -421,28 +418,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 	return &bootstrapFuncs{}
 }
 
-var supportedJujuSeries = func(now time.Time, bootstrapSeries string, dailyImageStream bool) (set.Strings, error) {
-	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruent with the Ubuntu release cycle for it's own series (not
-	// including centos and windows), so that should be reflected here.
-	//
-	// For non-LTS releases; they'll appear in juju/os as default available, but
-	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
-	// the non-LTS should disapear if they're not in the release window for that
-	// series.
-	defaultSeries := series.DefaultSeries()
-	if bootstrapSeries != "" && dailyImageStream {
-		series.SetSupported(defaultSeries, bootstrapSeries)
-	}
-
-	source := osseries.NewDistroInfo(osseries.UbuntuDistroInfo)
-	supported := series.NewSupportedInfo(source, defaultSeries)
-	if err := supported.Compile(now); err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	return set.NewStrings(supported.ControllerSeries()...), nil
-}
+var supportedJujuSeries = series.ControllerSeries
 
 var (
 	bootstrapPrepareController = bootstrap.PrepareController
@@ -695,12 +671,12 @@ to create a new model to deploy k8s workloads.
 	}()
 
 	// Get the supported bootstrap series.
-	var dailyImageStream bool
-	if imageStream, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok && imageStream == "daily" {
-		dailyImageStream = true
+	var imageStream string
+	if cfg, ok := bootstrapCfg.bootstrapModel["image-stream"]; ok {
+		imageStream = cfg.(string)
 	}
 	now := c.clock.Now()
-	supportedBootstrapSeries, err := supportedJujuSeries(now, c.BootstrapSeries, dailyImageStream)
+	supportedBootstrapSeries, err := supportedJujuSeries(now, c.BootstrapSeries, imageStream)
 	if err != nil {
 		return errors.Annotate(err, "error reading supported bootstrap series")
 	}
