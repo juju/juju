@@ -34,6 +34,7 @@ func (m *MockLXCConfigReader) EXPECT() *MockLXCConfigReaderMockRecorder {
 
 // ReadCert mocks base method
 func (m *MockLXCConfigReader) ReadCert(arg0 string) ([]byte, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadCert", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].(error)
@@ -42,11 +43,13 @@ func (m *MockLXCConfigReader) ReadCert(arg0 string) ([]byte, error) {
 
 // ReadCert indicates an expected call of ReadCert
 func (mr *MockLXCConfigReaderMockRecorder) ReadCert(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadCert", reflect.TypeOf((*MockLXCConfigReader)(nil).ReadCert), arg0)
 }
 
 // ReadConfig mocks base method
 func (m *MockLXCConfigReader) ReadConfig(arg0 string) (LXCConfig, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadConfig", arg0)
 	ret0, _ := ret[0].(LXCConfig)
 	ret1, _ := ret[1].(error)
@@ -55,5 +58,6 @@ func (m *MockLXCConfigReader) ReadConfig(arg0 string) (LXCConfig, error) {
 
 // ReadConfig indicates an expected call of ReadConfig
 func (mr *MockLXCConfigReaderMockRecorder) ReadConfig(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadConfig", reflect.TypeOf((*MockLXCConfigReader)(nil).ReadConfig), arg0)
 }

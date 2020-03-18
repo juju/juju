@@ -956,7 +956,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:a452f9fca3583eb87f1d18d8a184ab818df034f13115c9dd9992d5653e9c70ac"
+  digest = "1:9f5f778932e8ad13128e382c5240de66a99041edd79ae3c7450fb0296eaad620"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -971,7 +971,7 @@
     "shared/version",
   ]
   pruneopts = ""
-  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
+  revision = "582edb00c72c6bedfa55c2191bbd395512cb0823"
 
 [[projects]]
   digest = "1:f95025d583786875a71183888acc9d0987fc96f12d4f5afab3d7558797ea1c5a"

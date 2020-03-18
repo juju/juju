@@ -35,6 +35,7 @@ func (m *MockCertificateReadWriter) EXPECT() *MockCertificateReadWriterMockRecor
 
 // Read mocks base method
 func (m *MockCertificateReadWriter) Read(arg0 string) ([]byte, []byte, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Read", arg0)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].([]byte)
@@ -44,11 +45,13 @@ func (m *MockCertificateReadWriter) Read(arg0 string) ([]byte, []byte, error) {
 
 // Read indicates an expected call of Read
 func (mr *MockCertificateReadWriterMockRecorder) Read(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Read", reflect.TypeOf((*MockCertificateReadWriter)(nil).Read), arg0)
 }
 
 // Write mocks base method
 func (m *MockCertificateReadWriter) Write(arg0 string, arg1, arg2 []byte) error {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Write", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
@@ -56,6 +59,7 @@ func (m *MockCertificateReadWriter) Write(arg0 string, arg1, arg2 []byte) error 
 
 // Write indicates an expected call of Write
 func (mr *MockCertificateReadWriterMockRecorder) Write(arg0, arg1, arg2 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Write", reflect.TypeOf((*MockCertificateReadWriter)(nil).Write), arg0, arg1, arg2)
 }
 
@@ -83,8 +87,9 @@ func (m *MockCertificateGenerator) EXPECT() *MockCertificateGeneratorMockRecorde
 }
 
 // Generate mocks base method
-func (m *MockCertificateGenerator) Generate(arg0 bool) ([]byte, []byte, error) {
-	ret := m.ctrl.Call(m, "Generate", arg0)
+func (m *MockCertificateGenerator) Generate(arg0, arg1 bool) ([]byte, []byte, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Generate", arg0, arg1)
 	ret0, _ := ret[0].([]byte)
 	ret1, _ := ret[1].([]byte)
 	ret2, _ := ret[2].(error)
@@ -92,8 +97,9 @@ func (m *MockCertificateGenerator) Generate(arg0 bool) ([]byte, []byte, error) {
 }
 
 // Generate indicates an expected call of Generate
-func (mr *MockCertificateGeneratorMockRecorder) Generate(arg0 interface{}) *gomock.Call {
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generate", reflect.TypeOf((*MockCertificateGenerator)(nil).Generate), arg0)
+func (mr *MockCertificateGeneratorMockRecorder) Generate(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Generate", reflect.TypeOf((*MockCertificateGenerator)(nil).Generate), arg0, arg1)
 }
 
 // MockNetLookup is a mock of NetLookup interface
@@ -121,6 +127,7 @@ func (m *MockNetLookup) EXPECT() *MockNetLookupMockRecorder {
 
 // InterfaceAddrs mocks base method
 func (m *MockNetLookup) InterfaceAddrs() ([]net.Addr, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InterfaceAddrs")
 	ret0, _ := ret[0].([]net.Addr)
 	ret1, _ := ret[1].(error)
@@ -129,11 +136,13 @@ func (m *MockNetLookup) InterfaceAddrs() ([]net.Addr, error) {
 
 // InterfaceAddrs indicates an expected call of InterfaceAddrs
 func (mr *MockNetLookupMockRecorder) InterfaceAddrs() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InterfaceAddrs", reflect.TypeOf((*MockNetLookup)(nil).InterfaceAddrs))
 }
 
 // LookupHost mocks base method
 func (m *MockNetLookup) LookupHost(arg0 string) ([]string, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "LookupHost", arg0)
 	ret0, _ := ret[0].([]string)
 	ret1, _ := ret[1].(error)
@@ -142,5 +151,6 @@ func (m *MockNetLookup) LookupHost(arg0 string) ([]string, error) {
 
 // LookupHost indicates an expected call of LookupHost
 func (mr *MockNetLookupMockRecorder) LookupHost(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LookupHost", reflect.TypeOf((*MockNetLookup)(nil).LookupHost), arg0)
 }
