@@ -8,11 +8,8 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/errors"
-	"gopkg.in/juju/charm.v6/hooks"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/tomb.v2"
-
-	"github.com/juju/juju/worker/common/charmrunner"
 )
 
 const (
@@ -134,14 +131,7 @@ func (w *isolatedStatusWorker) loop() error {
 
 func (w *isolatedStatusWorker) applyStatus(code, info string) {
 	logger.Tracef("applying meter status change: %q (%q)", code, info)
-	err := w.config.Runner.RunHook(code, info, w.tomb.Dying())
-	cause := errors.Cause(err)
-	switch {
-	case charmrunner.IsMissingHookError(cause):
-		logger.Infof("skipped %q hook (missing)", string(hooks.MeterStatusChanged))
-	case err != nil:
-		logger.Errorf("meter status worker encountered hook error: %v", err)
-	}
+	w.config.Runner.RunHook(code, info, w.tomb.Dying())
 }
 
 // Kill is part of the worker.Worker interface.
