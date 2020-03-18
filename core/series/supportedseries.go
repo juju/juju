@@ -19,7 +19,7 @@ const (
 	Daily = "daily"
 )
 
-// SupportedSeriesFunc describes an function that has comonality between
+// SupportedSeriesFunc describes a function that has commonality between
 // controller and workload types.
 type SupportedSeriesFunc = func(time.Time, string, string) (set.Strings, error)
 
