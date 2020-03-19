@@ -5,13 +5,45 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-	"gopkg.in/juju/names.v3"
 
 	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/stateenvirons"
 )
+
+// machineShim implements Machine.
+type machineShim struct {
+	*state.Machine
+}
+
+// AllAddresses implements Machine by wrapping each state.Address
+// reference in the Address indirection.
+func (m *machineShim) AllAddresses() ([]Address, error) {
+	addresses, err := m.Machine.AllAddresses()
+	if err != nil {
+		return nil, err
+	}
+	shimAddr := make([]Address, len(addresses))
+	for i, address := range addresses {
+		shimAddr[i] = address
+	}
+	return shimAddr, nil
+}
+
+// movingSubnet wraps a state.Subnet
+// reference so that it implements MovingSubnet.
+type movingSubnet struct {
+	*state.Subnet
+}
+
+// stateShim forwards and adapts state.State
+// methods to Backing methods.
+type stateShim struct {
+	stateenvirons.EnvironConfigGetter
+	*state.State
+	model *state.Model
+}
 
 // NewStateShim returns a new state shim.
 func NewStateShim(st *state.State) (*stateShim, error) {
@@ -24,18 +56,6 @@ func NewStateShim(st *state.State) (*stateShim, error) {
 		State:               st,
 		model:               m,
 	}, nil
-}
-
-// stateShim forwards and adapts state.State methods to Backing
-// method.
-type stateShim struct {
-	stateenvirons.EnvironConfigGetter
-	*state.State
-	model *state.Model
-}
-
-func (s *stateShim) ModelTag() names.ModelTag {
-	return s.model.ModelTag()
 }
 
 func (s *stateShim) AddSpace(name string, providerId network.Id, subnetIds []string, public bool) error {
@@ -74,7 +94,7 @@ func (s *stateShim) AllMachines() ([]Machine, error) {
 	}
 	all := make([]Machine, len(allStateMachines))
 	for i, m := range allStateMachines {
-		all[i] = m
+		all[i] = &machineShim{m}
 	}
 	return all, nil
 }
@@ -99,10 +119,34 @@ func (s *stateShim) SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, e
 	return networkingcommon.NewSubnetShim(result), nil
 }
 
+// MovingSubnet wraps state.Subnet so that it
+// returns the MovingSubnet indirection.
+func (s *stateShim) MovingSubnet(id string) (MovingSubnet, error) {
+	result, err := s.State.Subnet(id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return &movingSubnet{result}, nil
+}
+
+// AllConstraints returns all constraints in the model,
+// wrapped in the Constraints indirection.
+func (s *stateShim) AllConstraints() ([]Constraints, error) {
+	found, err := s.State.AllConstraints()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	cons := make([]Constraints, len(found))
+	for i, v := range found {
+		cons[i] = v
+	}
+	return cons, nil
+}
+
 func (s *stateShim) ConstraintsBySpaceName(spaceName string) ([]Constraints, error) {
 	found, err := s.State.ConstraintsBySpaceName(spaceName)
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	cons := make([]Constraints, len(found))
 	for i, v := range found {
