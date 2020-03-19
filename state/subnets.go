@@ -101,16 +101,6 @@ func (s *Subnet) EnsureDead() (err error) {
 	return onAbort(txnErr, subnetNotAliveErr)
 }
 
-func (s *Subnet) MoveSubnetOps(toSpaceID string) []txn.Op {
-	ops := []txn.Op{{
-		C:      subnetsC,
-		Id:     s.doc.DocID,
-		Update: bson.D{{"$set", bson.D{{"space-id", toSpaceID}}}},
-		Assert: isAliveDoc,
-	}}
-	return ops
-}
-
 // Remove removes a Dead subnet. If the subnet is not Dead or it is already
 // removed, an error is returned. On success, all IP addresses added to the
 // subnet are also removed.
@@ -182,6 +172,27 @@ func (s *Subnet) SpaceName() string {
 // network.AlphaSpaceId.
 func (s *Subnet) SpaceID() string {
 	return s.spaceID
+}
+
+// UpdateSpaceOps returns operations that will ensure that
+// the subnet is in the input space, provided the space exists.
+func (s *Subnet) UpdateSpaceOps(spaceID string) []txn.Op {
+	if s.spaceID == spaceID {
+		return nil
+	}
+	return []txn.Op{
+		{
+			C:      spacesC,
+			Id:     s.st.docID(spaceID),
+			Assert: txn.DocExists,
+		},
+		{
+			C:      subnetsC,
+			Id:     s.doc.DocID,
+			Update: bson.D{{"$set", bson.D{{"space-id", spaceID}}}},
+			Assert: isAliveDoc,
+		},
+	}
 }
 
 // ProviderNetworkId returns the provider id of the network containing

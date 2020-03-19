@@ -10,6 +10,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/names.v3"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/state"
@@ -418,4 +420,36 @@ func (s *SubnetSuite) TestUniqueAdditionAndRetrievalByCIDR(c *gc.C) {
 
 	_, err = s.State.SubnetByCIDR(cidr)
 	c.Check(err, gc.ErrorMatches, fmt.Sprintf("multiple subnets matching %q", cidr))
+}
+
+func (s *SubnetSuite) TestUpdateSpaceOps(c *gc.C) {
+	space, err := s.State.AddSpace("space-0", "0", []string{}, false)
+	c.Assert(err, jc.ErrorIsNil)
+
+	arg := network.SubnetInfo{
+		CIDR:              "10.10.10.0/24",
+		ProviderId:        "1",
+		ProviderNetworkId: "1",
+		SpaceID:           space.Id(),
+	}
+
+	sub, err := s.State.AddSubnet(arg)
+	c.Assert(err, jc.ErrorIsNil)
+
+	c.Check(sub.UpdateSpaceOps(space.Id()), gc.IsNil)
+
+	ops := sub.UpdateSpaceOps("666")
+	c.Assert(ops, gc.HasLen, 2)
+	for _, op := range ops {
+		if op.C == "spaces" {
+			c.Check(op.Id, gc.Equals, fmt.Sprintf("%s:666", s.State.ModelUUID()))
+			c.Check(op.Assert, gc.DeepEquals, txn.DocExists)
+		} else if op.C == "subnets" {
+			c.Check(op.Id, gc.Equals, fmt.Sprintf("%s:%s", s.State.ModelUUID(), sub.ID()))
+			c.Check(op.Update, gc.DeepEquals, bson.D{{"$set", bson.D{{"space-id", "666"}}}})
+			c.Check(op.Assert, gc.DeepEquals, bson.D{{"life", state.Alive}})
+		} else {
+			c.Fatalf("unexpected txn.Op collection: %q", op.C)
+		}
+	}
 }
