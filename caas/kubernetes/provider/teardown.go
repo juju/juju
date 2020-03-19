@@ -93,6 +93,8 @@ func (k *kubernetesClient) deleteClusterScopeAPIExtensionResourcesModelTeardown(
 	var subwg sync.WaitGroup
 	subwg.Add(2)
 	defer subwg.Wait()
+
+	selector = mergeSelectors(selector, lifecycleModelTeardownSelector)
 	// Delete CRs first then CRDs.
 	k.deleteClusterScopeCustomResourcesModelTeardown(ctx, selector, clk, &subwg, errChan)
 	k.deleteCustomResourceDefinitionsModelTeardown(ctx, selector, clk, &subwg, errChan)
@@ -113,10 +115,10 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 		return k8slabels.NewSelector()
 	}
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		func(selector k8slabels.Selector) error {
+		func(_ k8slabels.Selector) error {
 			return k.deleteCustomResources(getSelector)
 		},
-		func(selector k8slabels.Selector) error {
+		func(_ k8slabels.Selector) error {
 			_, err := k.listCustomResources(getSelector)
 			return err
 		},
@@ -130,7 +132,6 @@ func (k *kubernetesClient) deleteCustomResourceDefinitionsModelTeardown(
 	wg *sync.WaitGroup,
 	errChan chan<- error,
 ) {
-	selector = mergeSelectors(selector, lifecycleModelTeardownSelector)
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
 		k.deleteCustomResourceDefinitions, func(selector k8slabels.Selector) error {
 			_, err := k.listCustomResourceDefinitions(selector)

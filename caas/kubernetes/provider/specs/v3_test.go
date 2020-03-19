@@ -217,6 +217,9 @@ kubernetesResources:
         password: MWYyZDFlMmU2N2Rm
   customResourceDefinitions:
     - name: tfjobs.kubeflow.org
+      labels:
+        foo: bar
+        juju-global-resource-lifecycle: model
       spec:
         group: kubeflow.org
         scope: Cluster
@@ -269,6 +272,9 @@ kubernetesResources:
         kind: "TFJob"
         metadata:
           name: "dist-mnist-for-e2e-test"
+        labels:
+          foo: bar
+          juju-global-resource-lifecycle: model
         spec:
           tfReplicaSpecs:
             PS:
@@ -725,6 +731,10 @@ password: shhhh`[1:],
 				CustomResourceDefinitions: []k8sspecs.K8sCustomResourceDefinitionSpec{
 					{
 						Name: "tfjobs.kubeflow.org",
+						Labels: map[string]string{
+							"foo":                            "bar",
+							"juju-global-resource-lifecycle": "model",
+						},
 						Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 							Group:   "kubeflow.org",
 							Version: "v1",
@@ -798,6 +808,10 @@ password: shhhh`[1:],
 								"apiVersion": "kubeflow.org/v1",
 								"metadata": map[string]interface{}{
 									"name": "dist-mnist-for-e2e-test",
+								},
+								"labels": map[string]interface{}{
+									"foo":                            "bar",
+									"juju-global-resource-lifecycle": "model",
 								},
 								"kind": "TFJob",
 								"spec": map[string]interface{}{

@@ -148,7 +148,10 @@ func (k *kubernetesClient) deleteCustomResourceDefinitions(selector k8slabels.Se
 
 func (k *kubernetesClient) deleteCustomResourcesForApp(appName string) error {
 	selectorGetter := func(crd apiextensionsv1beta1.CustomResourceDefinition) k8slabels.Selector {
-		return labelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope))
+		return mergeSelectors(
+			labelSetToSelector(k.getCRLabels(appName, crd.Spec.Scope)),
+			lifecycleApplicationRemovalSelector,
+		)
 	}
 	return k.deleteCustomResources(selectorGetter)
 }
@@ -245,7 +248,9 @@ func (k *kubernetesClient) ensureCustomResources(
 			if err != nil {
 				return cleanUps, errors.Trace(err)
 			}
-			crSpec.SetLabels(k.getCRLabels(appName, crd.Spec.Scope))
+			crSpec.SetLabels(
+				k8slabels.Merge(crSpec.GetLabels(), k.getCRLabels(appName, crd.Spec.Scope)),
+			)
 			crSpec.SetAnnotations(
 				k8sannotations.New(crSpec.GetAnnotations()).
 					Merge(k8sannotations.New(annotations)).
