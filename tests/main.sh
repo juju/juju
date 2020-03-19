@@ -236,6 +236,7 @@ cleanup() {
 
     cleanup_jujus
     cleanup_funcs
+    cleanup_multipasses
 
     echo ""
     if [ "${TEST_RESULT}" != "success" ]; then

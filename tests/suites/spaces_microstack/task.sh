@@ -7,7 +7,16 @@ test_spaces_microstack() {
     set_verbosity
 
     echo "==> Checking for dependencies"
-    check_dependencies juju microstack
+    check_dependencies juju petname multipass
+
+    vm_name=$(petname)
+    vm_file="${TEST_DIR}/test-spaces-microstack_vm.txt"
+
+    launch_vm "${vm_name}" "${vm_file}" -c 8 -m 12G
+    mount_juju "${vm_name}"
+    setup_microstack "${vm_name}"
+
+    exit
 
     export OS_SERIES=bionic
     export OS_REGION=microstack
@@ -28,6 +37,28 @@ test_spaces_microstack() {
     test_add_space
 
     destroy_controller "test-spaces-microstack"
+}
+
+mount_juju() {
+    local name
+
+    name=${1}
+
+    mount_vm_dir "${name}" $(dirname $PWD) "/home/ubuntu/go/github.com/juju/juju"
+}
+
+setup_microstack() {
+    local name
+
+    name=${1}
+
+    desc="Install Microstack"
+    file="${TEST_DIR}/exec-install-microstack.txt"
+    vm_exec "${name}" "${desc}" "${file}" sudo snap install microstack --edge --devmode
+
+    desc="Init Microstack"
+    file="${TEST_DIR}/exec-init-microstack.txt"
+    vm_exec "${name}" "${desc}" "${file}" sudo microstack.init --auto
 }
 
 setup_image_metadata() {
