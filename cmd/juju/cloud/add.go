@@ -35,7 +35,7 @@ type PersonalCloudMetadataStore interface {
 }
 
 type CloudMetadataStore interface {
-	ParseCloudMetadataFile(path string) (map[string]jujucloud.Cloud, error)
+	ReadCloudData(path string) ([]byte, error)
 	ParseOneCloud(data []byte) (jujucloud.Cloud, error)
 	PublicCloudMetadata(searchPaths ...string) (result map[string]jujucloud.Cloud, fallbackUsed bool, _ error)
 	PersonalCloudMetadataStore
@@ -442,15 +442,15 @@ func cloudFromLocal(store jujuclient.CredentialGetter, cloudName string) (*jujuc
 }
 
 func (c *AddCloudCommand) readCloudFromFile(ctxt *cmd.Context) (*jujucloud.Cloud, error) {
-	r := &cloudFileReader{
-		cloudMetadataStore: c.cloudMetadataStore,
-		cloudName:          c.Cloud,
+	r := &CloudFileReader{
+		CloudMetadataStore: c.cloudMetadataStore,
+		CloudName:          c.Cloud,
 	}
-	newCloud, err := r.readCloudFromFile(c.CloudFile, ctxt)
+	newCloud, err := r.ReadCloudFromFile(c.CloudFile, ctxt)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	c.Cloud = r.cloudName
+	c.Cloud = r.CloudName
 	c.existsLocally = r.alreadyExists
 	return newCloud, nil
 }
@@ -704,14 +704,20 @@ func addLocalCloud(cloudMetadataStore PersonalCloudMetadataStore, newCloud jujuc
 	return cloudMetadataStore.WritePersonalCloudMetadata(personalClouds)
 }
 
-type cloudFileReader struct {
-	cloudMetadataStore CloudMetadataStore
-	cloudName          string
+// CloudFileReader defines a struct used to read a cloud definition from a file.
+type CloudFileReader struct {
+	CloudMetadataStore CloudMetadataStore
+	CloudName          string
 	alreadyExists      bool
 }
 
-func (p *cloudFileReader) readCloudFromFile(cloudFile string, ctxt *cmd.Context) (*jujucloud.Cloud, error) {
-	specifiedClouds, err := p.cloudMetadataStore.ParseCloudMetadataFile(cloudFile)
+// ReadCloudFromFile reads the cloud definition from the specified file.
+func (p *CloudFileReader) ReadCloudFromFile(cloudFile string, ctxt *cmd.Context) (*jujucloud.Cloud, error) {
+	data, err := p.CloudMetadataStore.ReadCloudData(cloudFile)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	specifiedClouds, err := jujucloud.ParseCloudMetadata(data)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
@@ -720,32 +726,28 @@ func (p *cloudFileReader) readCloudFromFile(cloudFile string, ctxt *cmd.Context)
 	}
 
 	var newCloud jujucloud.Cloud
-	if p.cloudName == "" {
+	if p.CloudName == "" {
 		if len(specifiedClouds) == 1 {
 			for k, v := range specifiedClouds {
 				newCloud = v
 				// User did not specify cloud name aka as a command argument,
 				// use what is in th file.
-				p.cloudName = k
+				p.CloudName = k
 			}
 		} else {
-			if p.cloudName == "" {
+			if p.CloudName == "" {
 				return nil, errors.Errorf("there is more than one cloud defined in file %q, specify a cloud name to select one", cloudFile)
 			}
 		}
 	} else {
 		var ok bool
-		newCloud, ok = specifiedClouds[p.cloudName]
+		newCloud, ok = specifiedClouds[p.CloudName]
 		if !ok {
-			return nil, errors.Errorf("cloud %q not found in file %q", p.cloudName, cloudFile)
+			return nil, errors.Errorf("cloud %q not found in file %q", p.CloudName, cloudFile)
 		}
 	}
 
 	// first validate cloud input
-	data, err := ioutil.ReadFile(cloudFile)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
 	if err = jujucloud.ValidateCloudSet(data); err != nil {
 		ctxt.Warningf(err.Error())
 	}
@@ -761,7 +763,7 @@ func (p *cloudFileReader) readCloudFromFile(cloudFile string, ctxt *cmd.Context)
 			return nil, errors.NotSupportedf("auth type %q", authType)
 		}
 	}
-	if err := p.verifyName(p.cloudName); err != nil {
+	if err := p.verifyName(p.CloudName); err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return nil, errors.Trace(err)
 		}
@@ -770,12 +772,12 @@ func (p *cloudFileReader) readCloudFromFile(cloudFile string, ctxt *cmd.Context)
 	return &newCloud, nil
 }
 
-func (p *cloudFileReader) verifyName(name string) error {
-	public, _, err := p.cloudMetadataStore.PublicCloudMetadata()
+func (p *CloudFileReader) verifyName(name string) error {
+	public, _, err := p.CloudMetadataStore.PublicCloudMetadata()
 	if err != nil {
 		return err
 	}
-	personal, err := p.cloudMetadataStore.PersonalCloudMetadata()
+	personal, err := p.CloudMetadataStore.PersonalCloudMetadata()
 	if err != nil {
 		return err
 	}

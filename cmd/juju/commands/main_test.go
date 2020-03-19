@@ -649,6 +649,7 @@ var commandNames = []string{
 	"unexpose",
 	"unregister",
 	"update-cloud",
+	"update-k8s",
 	"update-public-clouds",
 	"update-credential",
 	"update-credentials",

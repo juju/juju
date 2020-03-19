@@ -8,8 +8,10 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/caas/kubernetes/clientconfig"
+	"github.com/juju/juju/cloud"
 	jujucmdcloud "github.com/juju/juju/cmd/juju/cloud"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/jujuclient"
@@ -36,6 +38,36 @@ func NewAddCAASCommandForTest(
 		credentialUIDGetter:       func(credentialGetter, string, string) (string, error) { return "9baa5e46", nil },
 		getAllCloudDetails: func(jujuclient.CredentialGetter) (map[string]*jujucmdcloud.CloudDetails, error) {
 			return getAllCloudDetails()
+		},
+	}
+	return command
+}
+
+func NewUpdateCAASCommandForTest(
+	cloudMetadataStore CloudMetadataStore,
+	store jujuclient.ClientStore,
+	updateCloudAPIFunc func() (UpdateCloudAPI, error),
+	brokerGetter BrokerGetter,
+) cmd.Command {
+	command := &UpdateCAASCommand{
+		OptionalControllerCommand: modelcmd.OptionalControllerCommand{Store: store},
+		cloudMetadataStore:        cloudMetadataStore,
+		brokerGetter:              brokerGetter,
+		updateCloudAPIFunc:        updateCloudAPIFunc,
+		builtInCloudsFunc: func(cloudName string) (cloud.Cloud, *cloud.Credential, string, error) {
+			if cloudName != "microk8s" {
+				return cloud.Cloud{}, nil, "", errors.NotFoundf("cloud %q", cloudName)
+			}
+			return cloud.Cloud{
+					Name:      cloudName,
+					Type:      "kubernetes",
+					AuthTypes: cloud.AuthTypes{"certificate"},
+				},
+				&cloud.Credential{
+					Label: "test",
+				},
+				"default",
+				nil
 		},
 	}
 	return command

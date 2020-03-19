@@ -17,6 +17,7 @@ func (s *cloudSuite) TestValidateValidCloud(c *gc.C) {
               type: maas
               description: A mass cloud
               auth-types: [oauth1]
+              host-cloud-region: host/region
               endpoint: http://10.245.200.27/MAAS
               config:
                 default-series: trusty

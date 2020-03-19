@@ -128,15 +128,15 @@ func (c *updateCloudCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *updateCloudCommand) Run(ctxt *cmd.Context) error {
 	var newCloud *jujucloud.Cloud
 	if c.CloudFile != "" {
-		r := &cloudFileReader{
-			cloudMetadataStore: c.cloudMetadataStore,
-			cloudName:          c.Cloud,
+		r := &CloudFileReader{
+			CloudMetadataStore: c.cloudMetadataStore,
+			CloudName:          c.Cloud,
 		}
 		var err error
-		if newCloud, err = r.readCloudFromFile(c.CloudFile, ctxt); err != nil {
+		if newCloud, err = r.ReadCloudFromFile(c.CloudFile, ctxt); err != nil {
 			return errors.Annotatef(err, "could not read cloud definition from provided file")
 		}
-		c.Cloud = r.cloudName
+		c.Cloud = r.CloudName
 	}
 	if err := c.MaybePrompt(ctxt, fmt.Sprintf("update cloud %q on", c.Cloud)); err != nil {
 		return errors.Trace(err)
@@ -182,13 +182,6 @@ func (c *updateCloudCommand) isPublicCloud(cloudName string) bool {
 		}
 	}
 	return false
-}
-
-func (c *updateCloudCommand) updateLocalCache(ctxt *cmd.Context, newCloud *jujucloud.Cloud) error {
-	if err := addLocalCloud(c.cloudMetadataStore, *newCloud); err != nil {
-		return err
-	}
-	return nil
 }
 
 func (c *updateCloudCommand) updateControllerCacheFromLocalCache() error {
