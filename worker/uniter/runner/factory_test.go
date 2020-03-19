@@ -163,10 +163,13 @@ func (s *FactorySuite) TestNewHookRunnerWithStorage(c *gc.C) {
 	st := s.OpenAPIAs(c, unit.Tag(), password)
 	uniter, err := st.Uniter()
 	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(s.uniter, gc.NotNil)
+	apiUnit, err := uniter.Unit(unit.Tag().(names.UnitTag))
+	c.Assert(err, jc.ErrorIsNil)
 
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            uniter,
-		UnitTag:          unit.Tag().(names.UnitTag),
+		Unit:             apiUnit,
 		Tracker:          &runnertesting.FakeTracker{},
 		GetRelationInfos: s.getRelationInfos,
 		Storage:          s.storage,

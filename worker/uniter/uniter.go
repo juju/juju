@@ -618,7 +618,7 @@ func (u *Uniter) init(unitTag names.UnitTag) (err error) {
 	}
 	contextFactory, err := context.NewContextFactory(context.FactoryConfig{
 		State:            u.st,
-		UnitTag:          unitTag,
+		Unit:             u.unit,
 		Tracker:          u.leadershipTracker,
 		GetRelationInfos: u.relations.GetInfo,
 		Storage:          u.storage,
