@@ -407,7 +407,7 @@ func (s *managerSuite) TestNetworkDevicesFromConfigNoInputGetsProfileNICs(c *gc.
 	defer s.setup(c).Finish()
 	s.patch()
 
-	s.cSvr.EXPECT().GetProfile("default").Return(defaultProfileWithNIC(), lxdtesting.ETag, nil)
+	s.cSvr.EXPECT().GetProfile("default").Return(defaultLegacyProfileWithNIC(), lxdtesting.ETag, nil)
 
 	s.makeManager(c)
 	result, _, err := lxd.NetworkDevicesFromConfig(s.manager, &container.NetworkConfig{})

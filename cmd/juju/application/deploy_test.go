@@ -12,7 +12,9 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
 	"github.com/juju/cmd/cmdtesting"
 	"github.com/juju/collections/set"
@@ -65,7 +67,7 @@ import (
 // defaultSupportedJujuSeries is used to return canned information about what
 // juju supports in terms of the release cycle
 // see juju/os and documentation https://www.ubuntu.com/about/release-cycle
-var defaultSupportedJujuSeries = []string{"bionic", "xenial", "trusty", testing.KubernetesSeriesName}
+var defaultSupportedJujuSeries = set.NewStrings("bionic", "xenial", "trusty", testing.KubernetesSeriesName)
 
 type DeploySuiteBase struct {
 	testing.RepoSuite
@@ -129,8 +131,8 @@ func (s *DeploySuiteBase) runDeployWithOutput(c *gc.C, args ...string) (string, 
 
 func (s *DeploySuiteBase) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 	s.CmdBlockHelper = coretesting.NewCmdBlockHelper(s.APIState)
 	c.Assert(s.CmdBlockHelper, gc.NotNil)
@@ -955,8 +957,8 @@ type CAASDeploySuiteBase struct {
 
 func (s *CAASDeploySuiteBase) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)
@@ -993,6 +995,7 @@ func (s *CAASDeploySuiteBase) runDeploy(c *gc.C, fakeAPI *fakeDeployAPI, args ..
 		NewCharmRepo: func() (*charmStoreAdaptor, error) {
 			return fakeAPI.charmStoreAdaptor, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 	cmd.SetClientStore(s.Store)
 	return cmdtesting.RunCommand(c, modelcmd.Wrap(cmd), args...)
@@ -1323,7 +1326,9 @@ func (s *DeploySuite) TestDeployLocalWithTerms(c *gc.C) {
 }
 
 func (s *DeploySuite) TestDeployFlags(c *gc.C) {
-	command := DeployCommand{}
+	command := DeployCommand{
+		clock: jujuclock.WallClock,
+	}
 	flagSet := gnuflag.NewFlagSetWithFlagKnownAs(command.Info().Name, gnuflag.ContinueOnError, "option")
 	command.SetFlags(flagSet)
 	c.Assert(command.flagSet, jc.DeepEquals, flagSet)
@@ -1371,8 +1376,8 @@ func (s *DeploySuite) setupNonESMSeries(c *gc.C) (string, string) {
 	supportedNotEMS := supported.Difference(set.NewStrings(series.ESMSupportedJujuSeries()...))
 	c.Assert(supportedNotEMS.Size(), jc.GreaterThan, 0)
 
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return supported.Values()
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return supported, nil
 	})
 
 	nonEMSSeries := supportedNotEMS.Values()[0]
@@ -1948,8 +1953,8 @@ var _ = gc.Suite(&DeployUnitTestSuite{})
 
 func (s *DeployUnitTestSuite) SetUpTest(c *gc.C) {
 	s.IsolationSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 	cookiesFile := filepath.Join(c.MkDir(), ".go-cookies")
 	s.PatchEnvironment("JUJU_COOKIEFILE", cookiesFile)

@@ -13,8 +13,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/provider/lxd/lxdnames"
-
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/lxc/lxd/shared"
@@ -24,6 +22,7 @@ import (
 	"github.com/juju/juju/container/lxd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/provider/lxd/lxdnames"
 )
 
 const (
@@ -50,7 +49,7 @@ type CertificateReadWriter interface {
 type CertificateGenerator interface {
 	// Generate creates client or server certificate and key pair,
 	// returning them as byte arrays in memory.
-	Generate(client bool) (certPEM, keyPEM []byte, err error)
+	Generate(client bool, addHosts bool) (certPEM, keyPEM []byte, err error)
 }
 
 // NetLookup groups methods for looking up hosts and interface addresses.
@@ -248,7 +247,7 @@ func (p environProviderCredentials) readOrGenerateCert(logf func(string, ...inte
 	// No certs were found, so generate one and cache it in the
 	// Juju XDG_DATA dir. We cache the certificate so that we
 	// avoid uploading a new certificate each time we bootstrap.
-	certPEM, keyPEM, err = p.certGenerator.Generate(true)
+	certPEM, keyPEM, err = p.certGenerator.Generate(true, true)
 	if err != nil {
 		return nil, nil, errors.Trace(err)
 	}
@@ -570,8 +569,8 @@ func (certificateReadWriter) Write(path string, certPEM, keyPEM []byte) error {
 // certificate if it's not found on disk.
 type certificateGenerator struct{}
 
-func (certificateGenerator) Generate(client bool) (certPEM, keyPEM []byte, err error) {
-	return shared.GenerateMemCert(client)
+func (certificateGenerator) Generate(client bool, addHosts bool) (certPEM, keyPEM []byte, err error) {
+	return shared.GenerateMemCert(client, addHosts)
 }
 
 type netLookup struct{}
