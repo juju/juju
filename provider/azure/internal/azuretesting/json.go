@@ -99,9 +99,9 @@ var interfaceType = reflect.TypeOf((*interface{})(nil)).Elem()
 
 func (m rawValueMaker) rawMapValue(v reflect.Value) reflect.Value {
 	newV := reflect.MakeMap(reflect.MapOf(v.Type().Key(), interfaceType))
-	it := v.MapRange()
-	for it.Next() {
-		newV.SetMapIndex(it.Key(), m.rawValue(it.Value()))
+	for _, key := range v.MapKeys() {
+		value := v.MapIndex(key)
+		newV.SetMapIndex(key, m.rawValue(value))
 	}
 
 	return newV
