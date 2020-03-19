@@ -115,10 +115,10 @@ func (k *kubernetesClient) deleteClusterScopeCustomResourcesModelTeardown(
 		return k8slabels.NewSelector()
 	}
 	ensureResourcesDeletedFunc(ctx, selector, clk, wg, errChan,
-		func(selector k8slabels.Selector) error {
+		func(_ k8slabels.Selector) error {
 			return k.deleteCustomResources(getSelector)
 		},
-		func(selector k8slabels.Selector) error {
+		func(_ k8slabels.Selector) error {
 			_, err := k.listCustomResources(getSelector)
 			return err
 		},
