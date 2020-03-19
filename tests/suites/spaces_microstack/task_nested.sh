@@ -7,6 +7,7 @@ test_spaces_microstack_nested() {
     set_verbosity
 
     export PATH=${HOME}/go/bin:$PATH
+    export BOOTSTRAP_PROVIDER="microstack"
 
     echo "==> Checking for dependencies"
     check_dependencies juju microstack.openstack
@@ -21,7 +22,7 @@ test_spaces_microstack_nested() {
 
     file="${TEST_DIR}/test-spaces-microstack.txt"
 
-    bootstrap "test-spaces-microstack" "${file}" --bootstrap-series=$OS_SERIES \
+    bootstrap "test-spaces-microstack" "${file}" --bootstrap-series=${OS_SERIES} \
         --metadata-source="${TEST_DIR}"/simplestreams \
         --model-default network=test \
         --model-default external-network=external \
@@ -101,6 +102,10 @@ credentials:
             password: ${OS_PASSWORD}
             project-domain-name: ${OS_PROJECT_DOMAIN_NAME}
             user-domain-name: ${OS_USER_DOMAIN_NAME}
+            domain-name: ""
+            tenant-id: ""
+            tenant-name: ${OS_USERNAME}
+            version: "3"
 EOF
 )
     echo "${CREDS}" > "${TEST_DIR}"/creds.yaml
