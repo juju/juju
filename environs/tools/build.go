@@ -207,7 +207,7 @@ func copyExistingJujus(dir string) error {
 	jujucLocation := filepath.Join(jujuDir, names.Jujuc)
 	jujucTarget := filepath.Join(dir, names.Jujuc)
 	if os.Stat(jujucLocation); os.IsNotExist(err) {
-		logger.Infof("jujuc not found at %s not including", jujucLocation)
+		logger.Infof("jujuc not found at %s, not including", jujucLocation)
 	} else if err != nil {
 		return errors.Trace(err)
 	} else {
