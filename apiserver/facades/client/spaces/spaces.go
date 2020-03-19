@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/apiserver/facade"
 	"github.com/juju/juju/apiserver/params"
 	jujucontroller "github.com/juju/juju/controller"
+	"github.com/juju/juju/core/constraints"
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/environs"
@@ -34,14 +35,22 @@ type BlockChecker interface {
 	RemoveAllowed() error
 }
 
+// Address is an indirection for state.Address.
+type Address interface {
+	SubnetCIDR() string
+}
+
 // Machine defines the methods supported by a machine used in the space context.
 type Machine interface {
+	ApplicationNames() ([]string, error)
+	AllAddresses() ([]Address, error)
 	AllSpaces() (set.Strings, error)
 }
 
 // Constraints defines the methods supported by constraints used in the space context.
 type Constraints interface {
 	ID() string
+	Value() constraints.Value
 	ChangeSpaceNameOps(from, to string) []txn.Op
 }
 
@@ -60,6 +69,10 @@ type Backing interface {
 
 	// SubnetByCIDR returns a unique subnet based on the input CIDR.
 	SubnetByCIDR(cidr string) (networkingcommon.BackingSubnet, error)
+
+	// MovingSubnet returns the subnet for the input ID,
+	// suitable for moving to a new space.
+	MovingSubnet(id string) (MovingSubnet, error)
 
 	// AddSpace creates a space.
 	AddSpace(Name string, ProviderId network.Id, Subnets []string, Public bool) error
@@ -82,10 +95,13 @@ type Backing interface {
 	// ApplyOperation applies a given ModelOperation to the model.
 	ApplyOperation(state.ModelOperation) error
 
-	// ControllerConfig Returns the controller config.
+	// ControllerConfig returns the controller config.
 	ControllerConfig() (jujucontroller.Config, error)
 
-	// ConstraintsBySpaceName  Returns constraints found by spaceName.
+	// AllConstraints returns all constraints in the model.
+	AllConstraints() ([]Constraints, error)
+
+	// ConstraintsBySpaceName returns constraints found by spaceName.
 	ConstraintsBySpaceName(name string) ([]Constraints, error)
 
 	// IsController returns true if this state instance has the bootstrap

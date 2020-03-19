@@ -27,7 +27,7 @@ type spaceRemoveModelOp struct {
 }
 
 type Subnet interface {
-	MoveSubnetOps(spaceID string) []txn.Op
+	UpdateSpaceOps(spaceID string) []txn.Op
 }
 
 func (o *spaceRemoveModelOp) Done(err error) error {
@@ -41,20 +41,20 @@ func NewRemoveSpaceModelOp(space RemoveSpace, subnets []Subnet) *spaceRemoveMode
 	}
 }
 
-func (sp *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
+func (o *spaceRemoveModelOp) Build(attempt int) ([]txn.Op, error) {
 	var totalOps []txn.Op
 
 	if attempt > 0 {
-		if err := sp.space.Refresh(); err != nil {
+		if err := o.space.Refresh(); err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
-	for _, subnet := range sp.subnets {
-		totalOps = append(totalOps, subnet.MoveSubnetOps(network.AlphaSpaceId)...)
+	for _, subnet := range o.subnets {
+		totalOps = append(totalOps, subnet.UpdateSpaceOps(network.AlphaSpaceId)...)
 	}
 
-	removeOps := sp.space.RemoveSpaceOps()
+	removeOps := o.space.RemoveSpaceOps()
 	totalOps = append(totalOps, removeOps...)
 	return totalOps, nil
 }

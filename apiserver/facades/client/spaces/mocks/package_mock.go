@@ -10,6 +10,7 @@ import (
 	networkingcommon "github.com/juju/juju/apiserver/common/networkingcommon"
 	spaces "github.com/juju/juju/apiserver/facades/client/spaces"
 	controller "github.com/juju/juju/controller"
+	constraints "github.com/juju/juju/core/constraints"
 	network "github.com/juju/juju/core/network"
 	settings "github.com/juju/juju/core/settings"
 	environs "github.com/juju/juju/environs"
@@ -55,6 +56,21 @@ func (m *MockBacking) AddSpace(arg0 string, arg1 network.Id, arg2 []string, arg3
 func (mr *MockBackingMockRecorder) AddSpace(arg0, arg1, arg2, arg3 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AddSpace", reflect.TypeOf((*MockBacking)(nil).AddSpace), arg0, arg1, arg2, arg3)
+}
+
+// AllConstraints mocks base method
+func (m *MockBacking) AllConstraints() ([]spaces.Constraints, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllConstraints")
+	ret0, _ := ret[0].([]spaces.Constraints)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllConstraints indicates an expected call of AllConstraints
+func (mr *MockBackingMockRecorder) AllConstraints() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllConstraints", reflect.TypeOf((*MockBacking)(nil).AllConstraints))
 }
 
 // AllEndpointBindings mocks base method
@@ -204,6 +220,21 @@ func (mr *MockBackingMockRecorder) ModelTag() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelTag", reflect.TypeOf((*MockBacking)(nil).ModelTag))
 }
 
+// MovingSubnet mocks base method
+func (m *MockBacking) MovingSubnet(arg0 string) (spaces.MovingSubnet, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "MovingSubnet", arg0)
+	ret0, _ := ret[0].(spaces.MovingSubnet)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// MovingSubnet indicates an expected call of MovingSubnet
+func (mr *MockBackingMockRecorder) MovingSubnet(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MovingSubnet", reflect.TypeOf((*MockBacking)(nil).MovingSubnet), arg0)
+}
+
 // ReloadSpaces mocks base method
 func (m *MockBacking) ReloadSpaces(arg0 environs.BootstrapEnviron) error {
 	m.ctrl.T.Helper()
@@ -322,6 +353,21 @@ func (m *MockMachine) EXPECT() *MockMachineMockRecorder {
 	return m.recorder
 }
 
+// AllAddresses mocks base method
+func (m *MockMachine) AllAddresses() ([]spaces.Address, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AllAddresses")
+	ret0, _ := ret[0].([]spaces.Address)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AllAddresses indicates an expected call of AllAddresses
+func (mr *MockMachineMockRecorder) AllAddresses() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllAddresses", reflect.TypeOf((*MockMachine)(nil).AllAddresses))
+}
+
 // AllSpaces mocks base method
 func (m *MockMachine) AllSpaces() (set.Strings, error) {
 	m.ctrl.T.Helper()
@@ -335,6 +381,21 @@ func (m *MockMachine) AllSpaces() (set.Strings, error) {
 func (mr *MockMachineMockRecorder) AllSpaces() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AllSpaces", reflect.TypeOf((*MockMachine)(nil).AllSpaces))
+}
+
+// ApplicationNames mocks base method
+func (m *MockMachine) ApplicationNames() ([]string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplicationNames")
+	ret0, _ := ret[0].([]string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ApplicationNames indicates an expected call of ApplicationNames
+func (mr *MockMachineMockRecorder) ApplicationNames() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplicationNames", reflect.TypeOf((*MockMachine)(nil).ApplicationNames))
 }
 
 // MockRenameSpace is a mock of RenameSpace interface
@@ -530,6 +591,21 @@ func (m *MockOpFactory) EXPECT() *MockOpFactoryMockRecorder {
 	return m.recorder
 }
 
+// NewMoveSubnetsOp mocks base method
+func (m *MockOpFactory) NewMoveSubnetsOp(arg0 string, arg1 []spaces.MovingSubnet) (spaces.MoveSubnetsOp, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "NewMoveSubnetsOp", arg0, arg1)
+	ret0, _ := ret[0].(spaces.MoveSubnetsOp)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// NewMoveSubnetsOp indicates an expected call of NewMoveSubnetsOp
+func (mr *MockOpFactoryMockRecorder) NewMoveSubnetsOp(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewMoveSubnetsOp", reflect.TypeOf((*MockOpFactory)(nil).NewMoveSubnetsOp), arg0, arg1)
+}
+
 // NewRemoveSpaceModelOp mocks base method
 func (m *MockOpFactory) NewRemoveSpaceModelOp(arg0 string) (state.ModelOperation, error) {
 	m.ctrl.T.Helper()
@@ -634,18 +710,18 @@ func (m *MockSubnet) EXPECT() *MockSubnetMockRecorder {
 	return m.recorder
 }
 
-// MoveSubnetOps mocks base method
-func (m *MockSubnet) MoveSubnetOps(arg0 string) []txn.Op {
+// UpdateSpaceOps mocks base method
+func (m *MockSubnet) UpdateSpaceOps(arg0 string) []txn.Op {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "MoveSubnetOps", arg0)
+	ret := m.ctrl.Call(m, "UpdateSpaceOps", arg0)
 	ret0, _ := ret[0].([]txn.Op)
 	return ret0
 }
 
-// MoveSubnetOps indicates an expected call of MoveSubnetOps
-func (mr *MockSubnetMockRecorder) MoveSubnetOps(arg0 interface{}) *gomock.Call {
+// UpdateSpaceOps indicates an expected call of UpdateSpaceOps
+func (mr *MockSubnetMockRecorder) UpdateSpaceOps(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "MoveSubnetOps", reflect.TypeOf((*MockSubnet)(nil).MoveSubnetOps), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UpdateSpaceOps", reflect.TypeOf((*MockSubnet)(nil).UpdateSpaceOps), arg0)
 }
 
 // MockConstraints is a mock of Constraints interface
@@ -697,4 +773,18 @@ func (m *MockConstraints) ID() string {
 func (mr *MockConstraintsMockRecorder) ID() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ID", reflect.TypeOf((*MockConstraints)(nil).ID))
+}
+
+// Value mocks base method
+func (m *MockConstraints) Value() constraints.Value {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Value")
+	ret0, _ := ret[0].(constraints.Value)
+	return ret0
+}
+
+// Value indicates an expected call of Value
+func (mr *MockConstraintsMockRecorder) Value() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Value", reflect.TypeOf((*MockConstraints)(nil).Value))
 }
