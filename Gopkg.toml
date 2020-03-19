@@ -86,7 +86,7 @@
   name = "github.com/juju/naturalsort"
 
 [[constraint]]
-  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
+  revision = "ec2036930a9073141bb489423b4a5a7ff13a00c8"
   name = "github.com/juju/os"
 
 [[constraint]]
@@ -123,7 +123,7 @@
 
 [[constraint]]
   name = "github.com/lxc/lxd"
-  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
+  revision = "582edb00c72c6bedfa55c2191bbd395512cb0823"
 
 [[constraint]]
   name = "github.com/oracle/oci-go-sdk"

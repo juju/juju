@@ -122,7 +122,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToWriteOnError
 	path = filepath.Join(utils.Home(), ".config", "lxc")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 
-	deps.certGenerator.EXPECT().Generate(true).Return(nil, nil, errors.Errorf("bad"))
+	deps.certGenerator.EXPECT().Generate(true, true).Return(nil, nil, errors.Errorf("bad"))
 
 	_, err := deps.provider.DetectCredentials()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
@@ -141,7 +141,7 @@ func (s *credentialsSuite) TestDetectCredentialsGeneratesCertFailsToGetCertifica
 	path = filepath.Join(utils.Home(), ".config", "lxc")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
 
-	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+	deps.certGenerator.EXPECT().Generate(true, true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	_, err := deps.provider.DetectCredentials()
 	c.Assert(errors.Cause(err), gc.ErrorMatches, "bad")
@@ -269,7 +269,7 @@ func (s *credentialsSuite) TestRegisterCredentials(c *gc.C) {
 
 	path = filepath.Join(utils.Home(), ".config", "lxc")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+	deps.certGenerator.EXPECT().Generate(true, true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,
@@ -311,7 +311,7 @@ func (s *credentialsSuite) TestRegisterCredentialsWithAlternativeCloudName(c *gc
 
 	path = filepath.Join(utils.Home(), ".config", "lxc")
 	deps.certReadWriter.EXPECT().Read(path).Return(nil, nil, os.ErrNotExist)
-	deps.certGenerator.EXPECT().Generate(true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
+	deps.certGenerator.EXPECT().Generate(true, true).Return([]byte(coretesting.CACert), []byte(coretesting.CAKey), nil)
 
 	expected := cloud.NewCredential(
 		cloud.CertificateAuthType,

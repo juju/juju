@@ -608,14 +608,14 @@
   revision = "5b81707e882b8293e6cf77854b4cd49f29776e11"
 
 [[projects]]
-  digest = "1:bc9a619961b397e6195984f41348ee19186f218136b1f76a6fa90c77b46c4e5c"
+  digest = "1:15bd31d9d6bc4ee31ab5321cb25479aa4e96cf79025be039291c4b1592b377c6"
   name = "github.com/juju/os"
   packages = [
     ".",
     "series",
   ]
   pruneopts = ""
-  revision = "a3d14ebcfc135bea4a3e437176f2ddb50c6ffad4"
+  revision = "ec2036930a9073141bb489423b4a5a7ff13a00c8"
 
 [[projects]]
   digest = "1:294998b796d446415dd45401c62501b2ed97f215a3a25249ad5017848d223322"
@@ -878,7 +878,7 @@
   revision = "4fbf7632a2c6d3fbdb9931439bdbbeded02cbe36"
 
 [[projects]]
-  digest = "1:a452f9fca3583eb87f1d18d8a184ab818df034f13115c9dd9992d5653e9c70ac"
+  digest = "1:9f5f778932e8ad13128e382c5240de66a99041edd79ae3c7450fb0296eaad620"
   name = "github.com/lxc/lxd"
   packages = [
     "client",
@@ -893,7 +893,7 @@
     "shared/version",
   ]
   pruneopts = ""
-  revision = "3a5f63bc49591c4cb62268f210b07ff8e74b727d"
+  revision = "582edb00c72c6bedfa55c2191bbd395512cb0823"
 
 [[projects]]
   digest = "1:cfa7624647544ca72d17bd70a40cfd03ba928f37fac4c92d1915a8672628f751"

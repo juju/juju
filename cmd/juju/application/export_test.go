@@ -4,7 +4,11 @@
 package application
 
 import (
+	"time"
+
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	gc "gopkg.in/check.v1"
 	charmresource "gopkg.in/juju/charm.v6/resource"
@@ -43,6 +47,7 @@ func NewDeployCommandForTest(fakeApi *fakeDeployAPI) modelcmd.ModelCommand {
 		NewCharmRepo: func() (*charmStoreAdaptor, error) {
 			return fakeApi.charmStoreAdaptor, nil
 		},
+		clock: jujuclock.WallClock,
 	}
 	if fakeApi == nil {
 		deployCmd.NewAPIRoot = func() (DeployAPI, error) {
@@ -292,7 +297,7 @@ type RepoSuiteBaseSuite struct {
 
 func (s *RepoSuiteBaseSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.PatchValue(&supportedJujuSeries, func() []string {
-		return defaultSupportedJujuSeries
+	s.PatchValue(&supportedJujuSeries, func(time.Time, string, string) (set.Strings, error) {
+		return defaultSupportedJujuSeries, nil
 	})
 }

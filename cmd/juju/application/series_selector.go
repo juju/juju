@@ -6,6 +6,7 @@ package application
 import (
 	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/os/series"
 )
@@ -41,7 +42,7 @@ type seriesSelector struct {
 	// supportedSeries is the list of series the charm supports.
 	supportedSeries []string
 	// supportedJujuSeries is the list of series that juju supports.
-	supportedJujuSeries []string
+	supportedJujuSeries set.Strings
 	// force indicates the user explicitly wants to deploy to a requested
 	// series, regardless of whether the charm says it supports that series.
 	force bool
@@ -81,20 +82,12 @@ func (s seriesSelector) charmSeries() (selectedSeries string, err error) {
 		}
 	}
 
-	// Use the charm's perferred series, if it has one.  In a multi-series
-	// charm, go through and check the series list and drop the first series
-	// if they're no longer supported.
-	supported := make(map[string]struct{}, len(s.supportedJujuSeries))
-	for _, v := range s.supportedJujuSeries {
-		supported[v] = struct{}{}
-	}
-
 	// we want to preseve the order of the supported series from the charm
 	// metadata, so the order could be out of order ubuntu series order.
 	// i.e. precise, xenial, bionic, trusty
 	var supportedSeries []string
 	for _, charmSeries := range s.supportedSeries {
-		if _, ok := supported[charmSeries]; ok {
+		if s.supportedJujuSeries.Contains(charmSeries) {
 			supportedSeries = append(supportedSeries, charmSeries)
 		}
 	}
@@ -154,14 +147,7 @@ func (s seriesSelector) validateSeries(seriesName string) error {
 		return nil
 	}
 
-	var found bool
-	for _, supportedSeries := range s.supportedJujuSeries {
-		if seriesName == supportedSeries {
-			found = true
-			break
-		}
-	}
-	if !found {
+	if !s.supportedJujuSeries.Contains(seriesName) {
 		return errors.NotSupportedf("series: %s", seriesName)
 	}
 	return nil

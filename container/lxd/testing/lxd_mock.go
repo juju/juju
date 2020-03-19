@@ -7,7 +7,7 @@ package testing
 import (
 	gomock "github.com/golang/mock/gomock"
 	websocket "github.com/gorilla/websocket"
-	client "github.com/lxc/lxd/client"
+	lxd "github.com/lxc/lxd/client"
 	api "github.com/lxc/lxd/shared/api"
 	io "io"
 	http "net/http"
@@ -38,10 +38,10 @@ func (m *MockOperation) EXPECT() *MockOperationMockRecorder {
 }
 
 // AddHandler mocks base method
-func (m *MockOperation) AddHandler(arg0 func(api.Operation)) (*client.EventTarget, error) {
+func (m *MockOperation) AddHandler(arg0 func(api.Operation)) (*lxd.EventTarget, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddHandler", arg0)
-	ret0, _ := ret[0].(*client.EventTarget)
+	ret0, _ := ret[0].(*lxd.EventTarget)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -110,7 +110,7 @@ func (mr *MockOperationMockRecorder) Refresh() *gomock.Call {
 }
 
 // RemoveHandler mocks base method
-func (m *MockOperation) RemoveHandler(arg0 *client.EventTarget) error {
+func (m *MockOperation) RemoveHandler(arg0 *lxd.EventTarget) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RemoveHandler", arg0)
 	ret0, _ := ret[0].(error)
@@ -161,10 +161,10 @@ func (m *MockRemoteOperation) EXPECT() *MockRemoteOperationMockRecorder {
 }
 
 // AddHandler mocks base method
-func (m *MockRemoteOperation) AddHandler(arg0 func(api.Operation)) (*client.EventTarget, error) {
+func (m *MockRemoteOperation) AddHandler(arg0 func(api.Operation)) (*lxd.EventTarget, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AddHandler", arg0)
-	ret0, _ := ret[0].(*client.EventTarget)
+	ret0, _ := ret[0].(*lxd.EventTarget)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -241,11 +241,23 @@ func (m *MockServer) EXPECT() *MockServerMockRecorder {
 	return m.recorder
 }
 
+// Disconnect mocks base method
+func (m *MockServer) Disconnect() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Disconnect")
+}
+
+// Disconnect indicates an expected call of Disconnect
+func (mr *MockServerMockRecorder) Disconnect() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockServer)(nil).Disconnect))
+}
+
 // GetConnectionInfo mocks base method
-func (m *MockServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
+func (m *MockServer) GetConnectionInfo() (*lxd.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
-	ret0, _ := ret[0].(*client.ConnectionInfo)
+	ret0, _ := ret[0].(*lxd.ConnectionInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -294,11 +306,23 @@ func (m *MockImageServer) EXPECT() *MockImageServerMockRecorder {
 	return m.recorder
 }
 
+// Disconnect mocks base method
+func (m *MockImageServer) Disconnect() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Disconnect")
+}
+
+// Disconnect indicates an expected call of Disconnect
+func (mr *MockImageServerMockRecorder) Disconnect() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockImageServer)(nil).Disconnect))
+}
+
 // GetConnectionInfo mocks base method
-func (m *MockImageServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
+func (m *MockImageServer) GetConnectionInfo() (*lxd.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
-	ret0, _ := ret[0].(*client.ConnectionInfo)
+	ret0, _ := ret[0].(*lxd.ConnectionInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -356,6 +380,21 @@ func (mr *MockImageServerMockRecorder) GetImageAlias(arg0 interface{}) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImageAlias", reflect.TypeOf((*MockImageServer)(nil).GetImageAlias), arg0)
 }
 
+// GetImageAliasArchitectures mocks base method
+func (m *MockImageServer) GetImageAliasArchitectures(arg0, arg1 string) (map[string]*api.ImageAliasesEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImageAliasArchitectures", arg0, arg1)
+	ret0, _ := ret[0].(map[string]*api.ImageAliasesEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImageAliasArchitectures indicates an expected call of GetImageAliasArchitectures
+func (mr *MockImageServerMockRecorder) GetImageAliasArchitectures(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImageAliasArchitectures", reflect.TypeOf((*MockImageServer)(nil).GetImageAliasArchitectures), arg0, arg1)
+}
+
 // GetImageAliasNames mocks base method
 func (m *MockImageServer) GetImageAliasNames() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -403,10 +442,10 @@ func (mr *MockImageServerMockRecorder) GetImageAliases() *gomock.Call {
 }
 
 // GetImageFile mocks base method
-func (m *MockImageServer) GetImageFile(arg0 string, arg1 client.ImageFileRequest) (*client.ImageFileResponse, error) {
+func (m *MockImageServer) GetImageFile(arg0 string, arg1 lxd.ImageFileRequest) (*lxd.ImageFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetImageFile", arg0, arg1)
-	ret0, _ := ret[0].(*client.ImageFileResponse)
+	ret0, _ := ret[0].(*lxd.ImageFileResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -479,10 +518,10 @@ func (mr *MockImageServerMockRecorder) GetPrivateImage(arg0, arg1 interface{}) *
 }
 
 // GetPrivateImageFile mocks base method
-func (m *MockImageServer) GetPrivateImageFile(arg0, arg1 string, arg2 client.ImageFileRequest) (*client.ImageFileResponse, error) {
+func (m *MockImageServer) GetPrivateImageFile(arg0, arg1 string, arg2 lxd.ImageFileRequest) (*lxd.ImageFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPrivateImageFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*client.ImageFileResponse)
+	ret0, _ := ret[0].(*lxd.ImageFileResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -517,10 +556,10 @@ func (m *MockContainerServer) EXPECT() *MockContainerServerMockRecorder {
 }
 
 // ConsoleContainer mocks base method
-func (m *MockContainerServer) ConsoleContainer(arg0 string, arg1 api.ContainerConsolePost, arg2 *client.ContainerConsoleArgs) (client.Operation, error) {
+func (m *MockContainerServer) ConsoleContainer(arg0 string, arg1 api.ContainerConsolePost, arg2 *lxd.ContainerConsoleArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConsoleContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -532,10 +571,10 @@ func (mr *MockContainerServerMockRecorder) ConsoleContainer(arg0, arg1, arg2 int
 }
 
 // ConsoleInstance mocks base method
-func (m *MockContainerServer) ConsoleInstance(arg0 string, arg1 api.InstanceConsolePost, arg2 *client.InstanceConsoleArgs) (client.Operation, error) {
+func (m *MockContainerServer) ConsoleInstance(arg0 string, arg1 api.InstanceConsolePost, arg2 *lxd.InstanceConsoleArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ConsoleInstance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -547,10 +586,10 @@ func (mr *MockContainerServerMockRecorder) ConsoleInstance(arg0, arg1, arg2 inte
 }
 
 // CopyContainer mocks base method
-func (m *MockContainerServer) CopyContainer(arg0 client.InstanceServer, arg1 api.Container, arg2 *client.ContainerCopyArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CopyContainer(arg0 lxd.InstanceServer, arg1 api.Container, arg2 *lxd.ContainerCopyArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -562,10 +601,10 @@ func (mr *MockContainerServerMockRecorder) CopyContainer(arg0, arg1, arg2 interf
 }
 
 // CopyContainerSnapshot mocks base method
-func (m *MockContainerServer) CopyContainerSnapshot(arg0 client.InstanceServer, arg1 string, arg2 api.ContainerSnapshot, arg3 *client.ContainerSnapshotCopyArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CopyContainerSnapshot(arg0 lxd.InstanceServer, arg1 string, arg2 api.ContainerSnapshot, arg3 *lxd.ContainerSnapshotCopyArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyContainerSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -577,10 +616,10 @@ func (mr *MockContainerServerMockRecorder) CopyContainerSnapshot(arg0, arg1, arg
 }
 
 // CopyImage mocks base method
-func (m *MockContainerServer) CopyImage(arg0 client.ImageServer, arg1 api.Image, arg2 *client.ImageCopyArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CopyImage(arg0 lxd.ImageServer, arg1 api.Image, arg2 *lxd.ImageCopyArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyImage", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -592,10 +631,10 @@ func (mr *MockContainerServerMockRecorder) CopyImage(arg0, arg1, arg2 interface{
 }
 
 // CopyInstance mocks base method
-func (m *MockContainerServer) CopyInstance(arg0 client.InstanceServer, arg1 api.Instance, arg2 *client.InstanceCopyArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CopyInstance(arg0 lxd.InstanceServer, arg1 api.Instance, arg2 *lxd.InstanceCopyArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyInstance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -607,10 +646,10 @@ func (mr *MockContainerServerMockRecorder) CopyInstance(arg0, arg1, arg2 interfa
 }
 
 // CopyInstanceSnapshot mocks base method
-func (m *MockContainerServer) CopyInstanceSnapshot(arg0 client.InstanceServer, arg1 string, arg2 api.InstanceSnapshot, arg3 *client.InstanceSnapshotCopyArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CopyInstanceSnapshot(arg0 lxd.InstanceServer, arg1 string, arg2 api.InstanceSnapshot, arg3 *lxd.InstanceSnapshotCopyArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyInstanceSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -622,10 +661,10 @@ func (mr *MockContainerServerMockRecorder) CopyInstanceSnapshot(arg0, arg1, arg2
 }
 
 // CopyStoragePoolVolume mocks base method
-func (m *MockContainerServer) CopyStoragePoolVolume(arg0 string, arg1 client.InstanceServer, arg2 string, arg3 api.StorageVolume, arg4 *client.StoragePoolVolumeCopyArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CopyStoragePoolVolume(arg0 string, arg1 lxd.InstanceServer, arg2 string, arg3 api.StorageVolume, arg4 *lxd.StoragePoolVolumeCopyArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CopyStoragePoolVolume", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -651,10 +690,10 @@ func (mr *MockContainerServerMockRecorder) CreateCertificate(arg0 interface{}) *
 }
 
 // CreateContainer mocks base method
-func (m *MockContainerServer) CreateContainer(arg0 api.ContainersPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateContainer(arg0 api.ContainersPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainer", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -666,10 +705,10 @@ func (mr *MockContainerServerMockRecorder) CreateContainer(arg0 interface{}) *go
 }
 
 // CreateContainerBackup mocks base method
-func (m *MockContainerServer) CreateContainerBackup(arg0 string, arg1 api.ContainerBackupsPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateContainerBackup(arg0 string, arg1 api.ContainerBackupsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerBackup", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -681,7 +720,7 @@ func (mr *MockContainerServerMockRecorder) CreateContainerBackup(arg0, arg1 inte
 }
 
 // CreateContainerFile mocks base method
-func (m *MockContainerServer) CreateContainerFile(arg0, arg1 string, arg2 client.ContainerFileArgs) error {
+func (m *MockContainerServer) CreateContainerFile(arg0, arg1 string, arg2 lxd.ContainerFileArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -695,10 +734,10 @@ func (mr *MockContainerServerMockRecorder) CreateContainerFile(arg0, arg1, arg2 
 }
 
 // CreateContainerFromBackup mocks base method
-func (m *MockContainerServer) CreateContainerFromBackup(arg0 client.ContainerBackupArgs) (client.Operation, error) {
+func (m *MockContainerServer) CreateContainerFromBackup(arg0 lxd.ContainerBackupArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerFromBackup", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -710,10 +749,10 @@ func (mr *MockContainerServerMockRecorder) CreateContainerFromBackup(arg0 interf
 }
 
 // CreateContainerFromImage mocks base method
-func (m *MockContainerServer) CreateContainerFromImage(arg0 client.ImageServer, arg1 api.Image, arg2 api.ContainersPost) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CreateContainerFromImage(arg0 lxd.ImageServer, arg1 api.Image, arg2 api.ContainersPost) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerFromImage", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -725,10 +764,10 @@ func (mr *MockContainerServerMockRecorder) CreateContainerFromImage(arg0, arg1, 
 }
 
 // CreateContainerSnapshot mocks base method
-func (m *MockContainerServer) CreateContainerSnapshot(arg0 string, arg1 api.ContainerSnapshotsPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateContainerSnapshot(arg0 string, arg1 api.ContainerSnapshotsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateContainerSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -754,10 +793,10 @@ func (mr *MockContainerServerMockRecorder) CreateContainerTemplateFile(arg0, arg
 }
 
 // CreateImage mocks base method
-func (m *MockContainerServer) CreateImage(arg0 api.ImagesPost, arg1 *client.ImageCreateArgs) (client.Operation, error) {
+func (m *MockContainerServer) CreateImage(arg0 api.ImagesPost, arg1 *lxd.ImageCreateArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateImage", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -783,10 +822,10 @@ func (mr *MockContainerServerMockRecorder) CreateImageAlias(arg0 interface{}) *g
 }
 
 // CreateImageSecret mocks base method
-func (m *MockContainerServer) CreateImageSecret(arg0 string) (client.Operation, error) {
+func (m *MockContainerServer) CreateImageSecret(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateImageSecret", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -798,10 +837,10 @@ func (mr *MockContainerServerMockRecorder) CreateImageSecret(arg0 interface{}) *
 }
 
 // CreateInstance mocks base method
-func (m *MockContainerServer) CreateInstance(arg0 api.InstancesPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateInstance(arg0 api.InstancesPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstance", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -813,10 +852,10 @@ func (mr *MockContainerServerMockRecorder) CreateInstance(arg0 interface{}) *gom
 }
 
 // CreateInstanceBackup mocks base method
-func (m *MockContainerServer) CreateInstanceBackup(arg0 string, arg1 api.InstanceBackupsPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateInstanceBackup(arg0 string, arg1 api.InstanceBackupsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstanceBackup", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -828,7 +867,7 @@ func (mr *MockContainerServerMockRecorder) CreateInstanceBackup(arg0, arg1 inter
 }
 
 // CreateInstanceFile mocks base method
-func (m *MockContainerServer) CreateInstanceFile(arg0, arg1 string, arg2 client.InstanceFileArgs) error {
+func (m *MockContainerServer) CreateInstanceFile(arg0, arg1 string, arg2 lxd.InstanceFileArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstanceFile", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
@@ -842,10 +881,10 @@ func (mr *MockContainerServerMockRecorder) CreateInstanceFile(arg0, arg1, arg2 i
 }
 
 // CreateInstanceFromBackup mocks base method
-func (m *MockContainerServer) CreateInstanceFromBackup(arg0 client.InstanceBackupArgs) (client.Operation, error) {
+func (m *MockContainerServer) CreateInstanceFromBackup(arg0 lxd.InstanceBackupArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstanceFromBackup", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -857,10 +896,10 @@ func (mr *MockContainerServerMockRecorder) CreateInstanceFromBackup(arg0 interfa
 }
 
 // CreateInstanceFromImage mocks base method
-func (m *MockContainerServer) CreateInstanceFromImage(arg0 client.ImageServer, arg1 api.Image, arg2 api.InstancesPost) (client.RemoteOperation, error) {
+func (m *MockContainerServer) CreateInstanceFromImage(arg0 lxd.ImageServer, arg1 api.Image, arg2 api.InstancesPost) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstanceFromImage", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -872,10 +911,10 @@ func (mr *MockContainerServerMockRecorder) CreateInstanceFromImage(arg0, arg1, a
 }
 
 // CreateInstanceSnapshot mocks base method
-func (m *MockContainerServer) CreateInstanceSnapshot(arg0 string, arg1 api.InstanceSnapshotsPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateInstanceSnapshot(arg0 string, arg1 api.InstanceSnapshotsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateInstanceSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -971,10 +1010,10 @@ func (mr *MockContainerServerMockRecorder) CreateStoragePoolVolume(arg0, arg1 in
 }
 
 // CreateStoragePoolVolumeSnapshot mocks base method
-func (m *MockContainerServer) CreateStoragePoolVolumeSnapshot(arg0, arg1, arg2 string, arg3 api.StorageVolumeSnapshotsPost) (client.Operation, error) {
+func (m *MockContainerServer) CreateStoragePoolVolumeSnapshot(arg0, arg1, arg2 string, arg3 api.StorageVolumeSnapshotsPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CreateStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1014,10 +1053,10 @@ func (mr *MockContainerServerMockRecorder) DeleteClusterMember(arg0, arg1 interf
 }
 
 // DeleteContainer mocks base method
-func (m *MockContainerServer) DeleteContainer(arg0 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteContainer(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteContainer", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1029,10 +1068,10 @@ func (mr *MockContainerServerMockRecorder) DeleteContainer(arg0 interface{}) *go
 }
 
 // DeleteContainerBackup mocks base method
-func (m *MockContainerServer) DeleteContainerBackup(arg0, arg1 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteContainerBackup(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteContainerBackup", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1044,7 +1083,7 @@ func (mr *MockContainerServerMockRecorder) DeleteContainerBackup(arg0, arg1 inte
 }
 
 // DeleteContainerConsoleLog mocks base method
-func (m *MockContainerServer) DeleteContainerConsoleLog(arg0 string, arg1 *client.ContainerConsoleLogArgs) error {
+func (m *MockContainerServer) DeleteContainerConsoleLog(arg0 string, arg1 *lxd.ContainerConsoleLogArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteContainerConsoleLog", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1086,10 +1125,10 @@ func (mr *MockContainerServerMockRecorder) DeleteContainerLogfile(arg0, arg1 int
 }
 
 // DeleteContainerSnapshot mocks base method
-func (m *MockContainerServer) DeleteContainerSnapshot(arg0, arg1 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteContainerSnapshot(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteContainerSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1115,10 +1154,10 @@ func (mr *MockContainerServerMockRecorder) DeleteContainerTemplateFile(arg0, arg
 }
 
 // DeleteImage mocks base method
-func (m *MockContainerServer) DeleteImage(arg0 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteImage(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteImage", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1144,10 +1183,10 @@ func (mr *MockContainerServerMockRecorder) DeleteImageAlias(arg0 interface{}) *g
 }
 
 // DeleteInstance mocks base method
-func (m *MockContainerServer) DeleteInstance(arg0 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteInstance(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteInstance", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1159,10 +1198,10 @@ func (mr *MockContainerServerMockRecorder) DeleteInstance(arg0 interface{}) *gom
 }
 
 // DeleteInstanceBackup mocks base method
-func (m *MockContainerServer) DeleteInstanceBackup(arg0, arg1 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteInstanceBackup(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteInstanceBackup", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1174,7 +1213,7 @@ func (mr *MockContainerServerMockRecorder) DeleteInstanceBackup(arg0, arg1 inter
 }
 
 // DeleteInstanceConsoleLog mocks base method
-func (m *MockContainerServer) DeleteInstanceConsoleLog(arg0 string, arg1 *client.InstanceConsoleLogArgs) error {
+func (m *MockContainerServer) DeleteInstanceConsoleLog(arg0 string, arg1 *lxd.InstanceConsoleLogArgs) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteInstanceConsoleLog", arg0, arg1)
 	ret0, _ := ret[0].(error)
@@ -1216,10 +1255,10 @@ func (mr *MockContainerServerMockRecorder) DeleteInstanceLogfile(arg0, arg1 inte
 }
 
 // DeleteInstanceSnapshot mocks base method
-func (m *MockContainerServer) DeleteInstanceSnapshot(arg0, arg1 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteInstanceSnapshot(arg0, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteInstanceSnapshot", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1329,10 +1368,10 @@ func (mr *MockContainerServerMockRecorder) DeleteStoragePoolVolume(arg0, arg1, a
 }
 
 // DeleteStoragePoolVolumeSnapshot mocks base method
-func (m *MockContainerServer) DeleteStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string) (client.Operation, error) {
+func (m *MockContainerServer) DeleteStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeleteStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1343,11 +1382,23 @@ func (mr *MockContainerServerMockRecorder) DeleteStoragePoolVolumeSnapshot(arg0,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeleteStoragePoolVolumeSnapshot", reflect.TypeOf((*MockContainerServer)(nil).DeleteStoragePoolVolumeSnapshot), arg0, arg1, arg2, arg3)
 }
 
+// Disconnect mocks base method
+func (m *MockContainerServer) Disconnect() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Disconnect")
+}
+
+// Disconnect indicates an expected call of Disconnect
+func (mr *MockContainerServerMockRecorder) Disconnect() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Disconnect", reflect.TypeOf((*MockContainerServer)(nil).Disconnect))
+}
+
 // ExecContainer mocks base method
-func (m *MockContainerServer) ExecContainer(arg0 string, arg1 api.ContainerExecPost, arg2 *client.ContainerExecArgs) (client.Operation, error) {
+func (m *MockContainerServer) ExecContainer(arg0 string, arg1 api.ContainerExecPost, arg2 *lxd.ContainerExecArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExecContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1359,10 +1410,10 @@ func (mr *MockContainerServerMockRecorder) ExecContainer(arg0, arg1, arg2 interf
 }
 
 // ExecInstance mocks base method
-func (m *MockContainerServer) ExecInstance(arg0 string, arg1 api.InstanceExecPost, arg2 *client.InstanceExecArgs) (client.Operation, error) {
+func (m *MockContainerServer) ExecInstance(arg0 string, arg1 api.InstanceExecPost, arg2 *lxd.InstanceExecArgs) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExecInstance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1482,10 +1533,10 @@ func (mr *MockContainerServerMockRecorder) GetClusterMembers() *gomock.Call {
 }
 
 // GetConnectionInfo mocks base method
-func (m *MockContainerServer) GetConnectionInfo() (*client.ConnectionInfo, error) {
+func (m *MockContainerServer) GetConnectionInfo() (*lxd.ConnectionInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetConnectionInfo")
-	ret0, _ := ret[0].(*client.ConnectionInfo)
+	ret0, _ := ret[0].(*lxd.ConnectionInfo)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1529,10 +1580,10 @@ func (mr *MockContainerServerMockRecorder) GetContainerBackup(arg0, arg1 interfa
 }
 
 // GetContainerBackupFile mocks base method
-func (m *MockContainerServer) GetContainerBackupFile(arg0, arg1 string, arg2 *client.BackupFileRequest) (*client.BackupFileResponse, error) {
+func (m *MockContainerServer) GetContainerBackupFile(arg0, arg1 string, arg2 *lxd.BackupFileRequest) (*lxd.BackupFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerBackupFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*client.BackupFileResponse)
+	ret0, _ := ret[0].(*lxd.BackupFileResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1574,7 +1625,7 @@ func (mr *MockContainerServerMockRecorder) GetContainerBackups(arg0 interface{})
 }
 
 // GetContainerConsoleLog mocks base method
-func (m *MockContainerServer) GetContainerConsoleLog(arg0 string, arg1 *client.ContainerConsoleLogArgs) (io.ReadCloser, error) {
+func (m *MockContainerServer) GetContainerConsoleLog(arg0 string, arg1 *lxd.ContainerConsoleLogArgs) (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerConsoleLog", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
@@ -1589,11 +1640,11 @@ func (mr *MockContainerServerMockRecorder) GetContainerConsoleLog(arg0, arg1 int
 }
 
 // GetContainerFile mocks base method
-func (m *MockContainerServer) GetContainerFile(arg0, arg1 string) (io.ReadCloser, *client.ContainerFileResponse, error) {
+func (m *MockContainerServer) GetContainerFile(arg0, arg1 string) (io.ReadCloser, *lxd.ContainerFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetContainerFile", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(*client.ContainerFileResponse)
+	ret1, _ := ret[1].(*lxd.ContainerFileResponse)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -1788,10 +1839,10 @@ func (mr *MockContainerServerMockRecorder) GetContainersFull() *gomock.Call {
 }
 
 // GetEvents mocks base method
-func (m *MockContainerServer) GetEvents() (*client.EventListener, error) {
+func (m *MockContainerServer) GetEvents() (*lxd.EventListener, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetEvents")
-	ret0, _ := ret[0].(*client.EventListener)
+	ret0, _ := ret[0].(*lxd.EventListener)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1849,6 +1900,21 @@ func (mr *MockContainerServerMockRecorder) GetImageAlias(arg0 interface{}) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImageAlias", reflect.TypeOf((*MockContainerServer)(nil).GetImageAlias), arg0)
 }
 
+// GetImageAliasArchitectures mocks base method
+func (m *MockContainerServer) GetImageAliasArchitectures(arg0, arg1 string) (map[string]*api.ImageAliasesEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GetImageAliasArchitectures", arg0, arg1)
+	ret0, _ := ret[0].(map[string]*api.ImageAliasesEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GetImageAliasArchitectures indicates an expected call of GetImageAliasArchitectures
+func (mr *MockContainerServerMockRecorder) GetImageAliasArchitectures(arg0, arg1 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GetImageAliasArchitectures", reflect.TypeOf((*MockContainerServer)(nil).GetImageAliasArchitectures), arg0, arg1)
+}
+
 // GetImageAliasNames mocks base method
 func (m *MockContainerServer) GetImageAliasNames() ([]string, error) {
 	m.ctrl.T.Helper()
@@ -1896,10 +1962,10 @@ func (mr *MockContainerServerMockRecorder) GetImageAliases() *gomock.Call {
 }
 
 // GetImageFile mocks base method
-func (m *MockContainerServer) GetImageFile(arg0 string, arg1 client.ImageFileRequest) (*client.ImageFileResponse, error) {
+func (m *MockContainerServer) GetImageFile(arg0 string, arg1 lxd.ImageFileRequest) (*lxd.ImageFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetImageFile", arg0, arg1)
-	ret0, _ := ret[0].(*client.ImageFileResponse)
+	ret0, _ := ret[0].(*lxd.ImageFileResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1988,10 +2054,10 @@ func (mr *MockContainerServerMockRecorder) GetInstanceBackup(arg0, arg1 interfac
 }
 
 // GetInstanceBackupFile mocks base method
-func (m *MockContainerServer) GetInstanceBackupFile(arg0, arg1 string, arg2 *client.BackupFileRequest) (*client.BackupFileResponse, error) {
+func (m *MockContainerServer) GetInstanceBackupFile(arg0, arg1 string, arg2 *lxd.BackupFileRequest) (*lxd.BackupFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceBackupFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*client.BackupFileResponse)
+	ret0, _ := ret[0].(*lxd.BackupFileResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2033,7 +2099,7 @@ func (mr *MockContainerServerMockRecorder) GetInstanceBackups(arg0 interface{}) 
 }
 
 // GetInstanceConsoleLog mocks base method
-func (m *MockContainerServer) GetInstanceConsoleLog(arg0 string, arg1 *client.InstanceConsoleLogArgs) (io.ReadCloser, error) {
+func (m *MockContainerServer) GetInstanceConsoleLog(arg0 string, arg1 *lxd.InstanceConsoleLogArgs) (io.ReadCloser, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceConsoleLog", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
@@ -2048,11 +2114,11 @@ func (mr *MockContainerServerMockRecorder) GetInstanceConsoleLog(arg0, arg1 inte
 }
 
 // GetInstanceFile mocks base method
-func (m *MockContainerServer) GetInstanceFile(arg0, arg1 string) (io.ReadCloser, *client.InstanceFileResponse, error) {
+func (m *MockContainerServer) GetInstanceFile(arg0, arg1 string) (io.ReadCloser, *lxd.InstanceFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetInstanceFile", arg0, arg1)
 	ret0, _ := ret[0].(io.ReadCloser)
-	ret1, _ := ret[1].(*client.InstanceFileResponse)
+	ret1, _ := ret[1].(*lxd.InstanceFileResponse)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
@@ -2416,10 +2482,10 @@ func (mr *MockContainerServerMockRecorder) GetPrivateImage(arg0, arg1 interface{
 }
 
 // GetPrivateImageFile mocks base method
-func (m *MockContainerServer) GetPrivateImageFile(arg0, arg1 string, arg2 client.ImageFileRequest) (*client.ImageFileResponse, error) {
+func (m *MockContainerServer) GetPrivateImageFile(arg0, arg1 string, arg2 lxd.ImageFileRequest) (*lxd.ImageFileResponse, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GetPrivateImageFile", arg0, arg1, arg2)
-	ret0, _ := ret[0].(*client.ImageFileResponse)
+	ret0, _ := ret[0].(*lxd.ImageFileResponse)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2735,10 +2801,10 @@ func (mr *MockContainerServerMockRecorder) IsClustered() *gomock.Call {
 }
 
 // MigrateContainer mocks base method
-func (m *MockContainerServer) MigrateContainer(arg0 string, arg1 api.ContainerPost) (client.Operation, error) {
+func (m *MockContainerServer) MigrateContainer(arg0 string, arg1 api.ContainerPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrateContainer", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2750,10 +2816,10 @@ func (mr *MockContainerServerMockRecorder) MigrateContainer(arg0, arg1 interface
 }
 
 // MigrateContainerSnapshot mocks base method
-func (m *MockContainerServer) MigrateContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPost) (client.Operation, error) {
+func (m *MockContainerServer) MigrateContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrateContainerSnapshot", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2765,10 +2831,10 @@ func (mr *MockContainerServerMockRecorder) MigrateContainerSnapshot(arg0, arg1, 
 }
 
 // MigrateInstance mocks base method
-func (m *MockContainerServer) MigrateInstance(arg0 string, arg1 api.InstancePost) (client.Operation, error) {
+func (m *MockContainerServer) MigrateInstance(arg0 string, arg1 api.InstancePost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrateInstance", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2780,10 +2846,10 @@ func (mr *MockContainerServerMockRecorder) MigrateInstance(arg0, arg1 interface{
 }
 
 // MigrateInstanceSnapshot mocks base method
-func (m *MockContainerServer) MigrateInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPost) (client.Operation, error) {
+func (m *MockContainerServer) MigrateInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrateInstanceSnapshot", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2795,10 +2861,10 @@ func (mr *MockContainerServerMockRecorder) MigrateInstanceSnapshot(arg0, arg1, a
 }
 
 // MigrateStoragePoolVolume mocks base method
-func (m *MockContainerServer) MigrateStoragePoolVolume(arg0 string, arg1 api.StorageVolumePost) (client.Operation, error) {
+func (m *MockContainerServer) MigrateStoragePoolVolume(arg0 string, arg1 api.StorageVolumePost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MigrateStoragePoolVolume", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2810,10 +2876,10 @@ func (mr *MockContainerServerMockRecorder) MigrateStoragePoolVolume(arg0, arg1 i
 }
 
 // MoveStoragePoolVolume mocks base method
-func (m *MockContainerServer) MoveStoragePoolVolume(arg0 string, arg1 client.InstanceServer, arg2 string, arg3 api.StorageVolume, arg4 *client.StoragePoolVolumeMoveArgs) (client.RemoteOperation, error) {
+func (m *MockContainerServer) MoveStoragePoolVolume(arg0 string, arg1 lxd.InstanceServer, arg2 string, arg3 api.StorageVolume, arg4 *lxd.StoragePoolVolumeMoveArgs) (lxd.RemoteOperation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "MoveStoragePoolVolume", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(client.RemoteOperation)
+	ret0, _ := ret[0].(lxd.RemoteOperation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2825,10 +2891,10 @@ func (mr *MockContainerServerMockRecorder) MoveStoragePoolVolume(arg0, arg1, arg
 }
 
 // RawOperation mocks base method
-func (m *MockContainerServer) RawOperation(arg0, arg1 string, arg2 interface{}, arg3 string) (client.Operation, string, error) {
+func (m *MockContainerServer) RawOperation(arg0, arg1 string, arg2 interface{}, arg3 string) (lxd.Operation, string, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RawOperation", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(string)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
@@ -2872,10 +2938,10 @@ func (mr *MockContainerServerMockRecorder) RawWebsocket(arg0 interface{}) *gomoc
 }
 
 // RefreshImage mocks base method
-func (m *MockContainerServer) RefreshImage(arg0 string) (client.Operation, error) {
+func (m *MockContainerServer) RefreshImage(arg0 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RefreshImage", arg0)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2901,10 +2967,10 @@ func (mr *MockContainerServerMockRecorder) RenameClusterMember(arg0, arg1 interf
 }
 
 // RenameContainer mocks base method
-func (m *MockContainerServer) RenameContainer(arg0 string, arg1 api.ContainerPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameContainer(arg0 string, arg1 api.ContainerPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameContainer", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2916,10 +2982,10 @@ func (mr *MockContainerServerMockRecorder) RenameContainer(arg0, arg1 interface{
 }
 
 // RenameContainerBackup mocks base method
-func (m *MockContainerServer) RenameContainerBackup(arg0, arg1 string, arg2 api.ContainerBackupPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameContainerBackup(arg0, arg1 string, arg2 api.ContainerBackupPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameContainerBackup", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2931,10 +2997,10 @@ func (mr *MockContainerServerMockRecorder) RenameContainerBackup(arg0, arg1, arg
 }
 
 // RenameContainerSnapshot mocks base method
-func (m *MockContainerServer) RenameContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameContainerSnapshot", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2960,10 +3026,10 @@ func (mr *MockContainerServerMockRecorder) RenameImageAlias(arg0, arg1 interface
 }
 
 // RenameInstance mocks base method
-func (m *MockContainerServer) RenameInstance(arg0 string, arg1 api.InstancePost) (client.Operation, error) {
+func (m *MockContainerServer) RenameInstance(arg0 string, arg1 api.InstancePost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameInstance", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2975,10 +3041,10 @@ func (mr *MockContainerServerMockRecorder) RenameInstance(arg0, arg1 interface{}
 }
 
 // RenameInstanceBackup mocks base method
-func (m *MockContainerServer) RenameInstanceBackup(arg0, arg1 string, arg2 api.InstanceBackupPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameInstanceBackup(arg0, arg1 string, arg2 api.InstanceBackupPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameInstanceBackup", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -2990,10 +3056,10 @@ func (mr *MockContainerServerMockRecorder) RenameInstanceBackup(arg0, arg1, arg2
 }
 
 // RenameInstanceSnapshot mocks base method
-func (m *MockContainerServer) RenameInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameInstanceSnapshot", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3033,10 +3099,10 @@ func (mr *MockContainerServerMockRecorder) RenameProfile(arg0, arg1 interface{})
 }
 
 // RenameProject mocks base method
-func (m *MockContainerServer) RenameProject(arg0 string, arg1 api.ProjectPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameProject(arg0 string, arg1 api.ProjectPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameProject", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3062,10 +3128,10 @@ func (mr *MockContainerServerMockRecorder) RenameStoragePoolVolume(arg0, arg1, a
 }
 
 // RenameStoragePoolVolumeSnapshot mocks base method
-func (m *MockContainerServer) RenameStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string, arg4 api.StorageVolumeSnapshotPost) (client.Operation, error) {
+func (m *MockContainerServer) RenameStoragePoolVolumeSnapshot(arg0, arg1, arg2, arg3 string, arg4 api.StorageVolumeSnapshotPost) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RenameStoragePoolVolumeSnapshot", arg0, arg1, arg2, arg3, arg4)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3131,10 +3197,10 @@ func (mr *MockContainerServerMockRecorder) UpdateCertificate(arg0, arg1, arg2 in
 }
 
 // UpdateCluster mocks base method
-func (m *MockContainerServer) UpdateCluster(arg0 api.ClusterPut, arg1 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateCluster(arg0 api.ClusterPut, arg1 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateCluster", arg0, arg1)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3146,10 +3212,10 @@ func (mr *MockContainerServerMockRecorder) UpdateCluster(arg0, arg1 interface{})
 }
 
 // UpdateContainer mocks base method
-func (m *MockContainerServer) UpdateContainer(arg0 string, arg1 api.ContainerPut, arg2 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateContainer(arg0 string, arg1 api.ContainerPut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateContainer", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3161,10 +3227,10 @@ func (mr *MockContainerServerMockRecorder) UpdateContainer(arg0, arg1, arg2 inte
 }
 
 // UpdateContainerSnapshot mocks base method
-func (m *MockContainerServer) UpdateContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPut, arg3 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateContainerSnapshot(arg0, arg1 string, arg2 api.ContainerSnapshotPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateContainerSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3176,10 +3242,10 @@ func (mr *MockContainerServerMockRecorder) UpdateContainerSnapshot(arg0, arg1, a
 }
 
 // UpdateContainerState mocks base method
-func (m *MockContainerServer) UpdateContainerState(arg0 string, arg1 api.ContainerStatePut, arg2 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateContainerState(arg0 string, arg1 api.ContainerStatePut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateContainerState", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3233,10 +3299,10 @@ func (mr *MockContainerServerMockRecorder) UpdateImageAlias(arg0, arg1, arg2 int
 }
 
 // UpdateInstance mocks base method
-func (m *MockContainerServer) UpdateInstance(arg0 string, arg1 api.InstancePut, arg2 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateInstance(arg0 string, arg1 api.InstancePut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateInstance", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3248,10 +3314,10 @@ func (mr *MockContainerServerMockRecorder) UpdateInstance(arg0, arg1, arg2 inter
 }
 
 // UpdateInstanceSnapshot mocks base method
-func (m *MockContainerServer) UpdateInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPut, arg3 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateInstanceSnapshot(arg0, arg1 string, arg2 api.InstanceSnapshotPut, arg3 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateInstanceSnapshot", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3263,10 +3329,10 @@ func (mr *MockContainerServerMockRecorder) UpdateInstanceSnapshot(arg0, arg1, ar
 }
 
 // UpdateInstanceState mocks base method
-func (m *MockContainerServer) UpdateInstanceState(arg0 string, arg1 api.InstanceStatePut, arg2 string) (client.Operation, error) {
+func (m *MockContainerServer) UpdateInstanceState(arg0 string, arg1 api.InstanceStatePut, arg2 string) (lxd.Operation, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UpdateInstanceState", arg0, arg1, arg2)
-	ret0, _ := ret[0].(client.Operation)
+	ret0, _ := ret[0].(lxd.Operation)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -3390,10 +3456,10 @@ func (mr *MockContainerServerMockRecorder) UpdateStoragePoolVolumeSnapshot(arg0,
 }
 
 // UseProject mocks base method
-func (m *MockContainerServer) UseProject(arg0 string) client.InstanceServer {
+func (m *MockContainerServer) UseProject(arg0 string) lxd.InstanceServer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UseProject", arg0)
-	ret0, _ := ret[0].(client.InstanceServer)
+	ret0, _ := ret[0].(lxd.InstanceServer)
 	return ret0
 }
 
@@ -3404,10 +3470,10 @@ func (mr *MockContainerServerMockRecorder) UseProject(arg0 interface{}) *gomock.
 }
 
 // UseTarget mocks base method
-func (m *MockContainerServer) UseTarget(arg0 string) client.InstanceServer {
+func (m *MockContainerServer) UseTarget(arg0 string) lxd.InstanceServer {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "UseTarget", arg0)
-	ret0, _ := ret[0].(client.InstanceServer)
+	ret0, _ := ret[0].(lxd.InstanceServer)
 	return ret0
 }
 

@@ -12,11 +12,10 @@ import (
 	"strconv"
 	"strings"
 
+	jujuclock "github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
-	"github.com/juju/os/series"
 	"github.com/juju/romulus"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
@@ -47,6 +46,7 @@ import (
 	"github.com/juju/juju/core/devices"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/model"
+	"github.com/juju/juju/core/series"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/resource/resourceadapters"
 	"github.com/juju/juju/storage"
@@ -110,19 +110,7 @@ type SpacesAPI interface {
 	ListSpaces() ([]apiparams.Space, error)
 }
 
-var supportedJujuSeries = func() []string {
-	// We support all of the juju series AND all the ESM supported series.
-	// Juju is congruant with the Ubuntu release cycle for it's own series (not
-	// including centos and windows), so that should be reflected here.
-	//
-	// For non-LTS releases; they'll appear in juju/os as default available, but
-	// after reading the `/usr/share/distro-info/ubuntu.csv` on the Ubuntu distro
-	// the non-LTS should disapear if they're not in the release window for that
-	// series.
-	supportedJujuSeries := set.NewStrings(series.SupportedJujuWorkloadSeries()...)
-	esmSupportedJujuSeries := set.NewStrings(series.ESMSupportedJujuSeries()...)
-	return supportedJujuSeries.Union(esmSupportedJujuSeries).Values()
-}
+var supportedJujuSeries = series.WorkloadSeries
 
 // DeployAPI represents the methods of the API the deploy
 // command needs.
@@ -274,6 +262,7 @@ func newDeployCommand() *DeployCommand {
 	deployCmd := &DeployCommand{
 		Steps:           steps,
 		DeployResources: resourceadapters.DeployResources,
+		clock:           jujuclock.WallClock,
 	}
 	deployCmd.NewCharmRepo = func() (*charmStoreAdaptor, error) {
 		controllerAPIRoot, err := deployCmd.NewControllerAPIRoot()
@@ -333,6 +322,8 @@ func newDeployCommand() *DeployCommand {
 type DeployCommand struct {
 	modelcmd.ModelCommandBase
 	UnitCommandBase
+
+	clock jujuclock.Clock
 
 	// CharmOrBundle is either a charm URL, a path where a charm can be found,
 	// or a bundle name.
@@ -1241,11 +1232,16 @@ func (c *DeployCommand) validateCharmFlags() error {
 	return nil
 }
 
-func (c *DeployCommand) validateCharmSeries(seriesName string) error {
+func (c *DeployCommand) validateCharmSeries(seriesName string, imageStream string) error {
 	// attempt to locate the charm series from the list of known juju series
 	// that we currently support.
+	workloadSeries, err := supportedJujuSeries(c.clock.Now(), seriesName, imageStream)
+	if err != nil {
+		return errors.Trace(err)
+	}
+
 	var found bool
-	for _, name := range supportedJujuSeries() {
+	for _, name := range workloadSeries.Values() {
 		if name == seriesName {
 			found = true
 			break
@@ -1296,16 +1292,21 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 		return nil, nil
 	}
 
-	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name); err != nil {
-		return nil, errors.Trace(err)
-	}
+	return func(ctx *cmd.Context, apiRoot DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
+		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return errors.Trace(err)
+		}
 
-	return func(ctx *cmd.Context, api DeployAPI, deployResources resourceadapters.DeployResourcesFunc, cstore *charmStoreAdaptor) error {
+		// Avoid deploying charm if it's not valid for the model.
+		if err := c.validateCharmSeriesWithName(userCharmURL.Series, userCharmURL.Name, modelCfg.ImageStream()); err != nil {
+			return errors.Trace(err)
+		}
+
 		if err := c.validateCharmFlags(); err != nil {
 			return errors.Trace(err)
 		}
-		charmInfo, err := api.CharmInfo(userCharmURL.String())
+		charmInfo, err := apiRoot.CharmInfo(userCharmURL.String())
 		if err != nil {
 			return err
 		}
@@ -1320,7 +1321,7 @@ func (c *DeployCommand) maybePredeployedLocalCharm() (deployFn, error) {
 			(*macaroon.Macaroon)(nil),
 			userCharmURL.Series,
 			ctx,
-			api,
+			apiRoot,
 		))
 	}, nil
 }
@@ -1384,11 +1385,18 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	// below) where it is handled properly. This is just an expedient to get
 	// the correct series. A proper refactoring of the charmrepo package is
 	// needed for a more elegant fix.
-
 	ch, err := charm.ReadCharm(c.CharmOrBundle)
 	seriesName := c.Series
+
+	var imageStream string
 	if err == nil {
 		modelCfg, err := getModelConfig(apiRoot)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		imageStream = modelCfg.ImageStream()
+		workloadSeries, err := supportedJujuSeries(c.clock.Now(), c.Series, imageStream)
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
@@ -1396,7 +1404,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 		seriesSelector := seriesSelector{
 			seriesFlag:          seriesName,
 			supportedSeries:     ch.Meta().Series,
-			supportedJujuSeries: supportedJujuSeries(),
+			supportedJujuSeries: workloadSeries,
 			force:               c.Force,
 			conf:                modelCfg,
 			fromBundle:          false,
@@ -1436,7 +1444,7 @@ func (c *DeployCommand) maybeReadLocalCharm(apiRoot DeployAPI) (deployFn, error)
 	}
 
 	// Avoid deploying charm if it's not valid for the model.
-	if err := c.validateCharmSeriesWithName(seriesName, curl.Name); err != nil {
+	if err := c.validateCharmSeriesWithName(seriesName, curl.Name, imageStream); err != nil {
 		return nil, errors.Trace(err)
 	}
 	if err := c.validateResourcesNeededForLocalDeploy(ch.Meta()); err != nil {
@@ -1581,6 +1589,12 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			return errors.Trace(err)
 		}
 
+		imageStream := modelCfg.ImageStream()
+		workloadSeries, err := supportedJujuSeries(c.clock.Now(), userRequestedSeries, imageStream)
+		if err != nil {
+			return errors.Trace(err)
+		}
+
 		// Charm or bundle has been supplied as a URL so we resolve and
 		// deploy using the store but pass in the channel command line
 		// argument so users can target a specific channel.
@@ -1601,7 +1615,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 			charmURLSeries:      userRequestedSeries,
 			seriesFlag:          c.Series,
 			supportedSeries:     supportedSeries,
-			supportedJujuSeries: supportedJujuSeries(),
+			supportedJujuSeries: workloadSeries,
 			force:               c.Force,
 			conf:                modelCfg,
 			fromBundle:          false,
@@ -1613,7 +1627,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// Avoid deploying charm if it's not valid for the model.
 		// We check this first before possibly suggesting --force.
 		if err == nil {
-			if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name); err2 != nil {
+			if err2 := c.validateCharmSeriesWithName(series, storeCharmOrBundleURL.Name, imageStream); err2 != nil {
 				return errors.Trace(err2)
 			}
 		}
@@ -1649,7 +1663,7 @@ func (c *DeployCommand) charmStoreCharm() (deployFn, error) {
 		// what we deploy, we should converge the two so that both report identical
 		// values.
 		if curl != nil && series == "" {
-			if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name); err != nil {
+			if err := c.validateCharmSeriesWithName(curl.Series, storeCharmOrBundleURL.Name, imageStream); err != nil {
 				return errors.Trace(err)
 			}
 		}
@@ -1685,8 +1699,8 @@ func getPotentialSeriesName(series ...string) string {
 // validateCharmSeriesWithName calls the validateCharmSeries, but handles the
 // error return value to check for NotSupported error and returns a custom error
 // message if that's found.
-func (c *DeployCommand) validateCharmSeriesWithName(series, name string) error {
-	err := c.validateCharmSeries(series)
+func (c *DeployCommand) validateCharmSeriesWithName(series, name string, imageStream string) error {
+	err := c.validateCharmSeries(series, imageStream)
 	return charmValidationError(series, name, errors.Trace(err))
 }
 

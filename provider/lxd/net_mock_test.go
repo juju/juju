@@ -35,6 +35,7 @@ func (m *MockAddr) EXPECT() *MockAddrMockRecorder {
 
 // Network mocks base method
 func (m *MockAddr) Network() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Network")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -42,11 +43,13 @@ func (m *MockAddr) Network() string {
 
 // Network indicates an expected call of Network
 func (mr *MockAddrMockRecorder) Network() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Network", reflect.TypeOf((*MockAddr)(nil).Network))
 }
 
 // String mocks base method
 func (m *MockAddr) String() string {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "String")
 	ret0, _ := ret[0].(string)
 	return ret0
@@ -54,5 +57,6 @@ func (m *MockAddr) String() string {
 
 // String indicates an expected call of String
 func (mr *MockAddrMockRecorder) String() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "String", reflect.TypeOf((*MockAddr)(nil).String))
 }
