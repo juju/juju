@@ -74,8 +74,7 @@ bootstrap() {
     output=${1}
     shift
 
-    rnd=$(head /dev/urandom | tr -dc a-z0-9 | head -c 8; echo '')
-    name="ctrl-${rnd}"
+    name=$(rnd_name "ctrl")
 
     if [ ! -f "${TEST_DIR}/jujus" ]; then
         touch "${TEST_DIR}/jujus"

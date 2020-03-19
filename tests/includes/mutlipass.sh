@@ -3,7 +3,7 @@ multipass_version() {
     echo "${version}"
 }
 
-ensure() {
+ensure_vm() {
     local name
 
     name=${1}
@@ -123,6 +123,11 @@ destroy_vm() {
 }
 
 cleanup_multipasses() {
+    if ! which multipass >/dev/null 2>&1; then
+        echo "====> Multipass skipped"
+        exit 0
+    fi
+
     if [ -f "${TEST_DIR}/multipasses" ]; then
         echo "====> Cleaning up multipasses"
 
