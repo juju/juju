@@ -46,6 +46,11 @@ func (r *Relationer) IsImplicit() bool {
 	return r.ru.Endpoint().IsImplicit()
 }
 
+// RelationUnit returns the relation unit associated with this relationer instance.
+func (r *Relationer) RelationUnit() *apiuniter.RelationUnit {
+	return r.ru
+}
+
 // Join initializes local state and causes the unit to enter its relation
 // scope, allowing its counterpart units to detect its presence and settings
 // changes. Local state directory is not created until needed.
