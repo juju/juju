@@ -31148,6 +31148,17 @@
                         }
                     }
                 },
+                "MoveSubnets": {
+                    "type": "object",
+                    "properties": {
+                        "Params": {
+                            "$ref": "#/definitions/MoveSubnetsParams"
+                        },
+                        "Result": {
+                            "$ref": "#/definitions/MoveSubnetsResults"
+                        }
+                    }
+                },
                 "ReloadSpaces": {
                     "type": "object"
                 },
@@ -31316,6 +31327,96 @@
                     "additionalProperties": false,
                     "required": [
                         "results"
+                    ]
+                },
+                "MoveSubnetsParam": {
+                    "type": "object",
+                    "properties": {
+                        "force": {
+                            "type": "boolean"
+                        },
+                        "space-tag": {
+                            "type": "string"
+                        },
+                        "subnets": {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "subnets",
+                        "space-tag",
+                        "force"
+                    ]
+                },
+                "MoveSubnetsParams": {
+                    "type": "object",
+                    "properties": {
+                        "args": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveSubnetsParam"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "args"
+                    ]
+                },
+                "MoveSubnetsResult": {
+                    "type": "object",
+                    "properties": {
+                        "error": {
+                            "$ref": "#/definitions/Error"
+                        },
+                        "moved-subnets": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MovedSubnet"
+                            }
+                        },
+                        "new-space": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "new-space"
+                    ]
+                },
+                "MoveSubnetsResults": {
+                    "type": "object",
+                    "properties": {
+                        "results": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/MoveSubnetsResult"
+                            }
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "results"
+                    ]
+                },
+                "MovedSubnet": {
+                    "type": "object",
+                    "properties": {
+                        "old-space": {
+                            "type": "string"
+                        },
+                        "subnet": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false,
+                    "required": [
+                        "subnet",
+                        "old-space"
                     ]
                 },
                 "RemoveSpaceParam": {
