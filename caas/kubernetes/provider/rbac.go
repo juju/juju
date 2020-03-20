@@ -21,12 +21,21 @@ import (
 	"github.com/juju/juju/caas/specs"
 )
 
-func (k *kubernetesClient) getRBACLabels(appName string, global bool) map[string]string {
-	labels := map[string]string{
-		labelApplication: appName,
+// AppNameForServiceAccount returns the juju application name associated with a
+// given ServiceAccount. If app name cannot be obtained from the service
+// account, errors.NotFound is returned.
+func AppNameForServiceAccount(sa *core.ServiceAccount) (string, error) {
+	if appName, ok := sa.Labels[labelApplication]; ok {
+		return appName, nil
 	}
+	return "", errors.NotFoundf("application labels for service account %s", sa.Name)
+}
+
+// RBACLabels returns a set of labels that should be present for RBAC objects.
+func RBACLabels(appName, model string, global bool) map[string]string {
+	labels := LabelsForApp(appName)
 	if global {
-		labels[labelModel] = k.namespace
+		labels = AppendLabels(labels, LabelsForModel(model))
 	}
 	return labels
 }
@@ -61,7 +70,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        name,
 			Namespace:   k.namespace,
-			Labels:      k.getRBACLabels(appName, false),
+			Labels:      RBACLabels(appName, k.CurrentModel(), false),
 			Annotations: annotations,
 		}
 	}
@@ -84,7 +93,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index, false),
 			Namespace:   k.namespace,
-			Labels:      k.getRBACLabels(appName, false),
+			Labels:      RBACLabels(appName, k.CurrentModel(), false),
 			Annotations: annotations,
 		}
 	}
@@ -92,7 +101,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getRoleClusterRoleName(roleName, serviceAccountName, index, true),
 			Namespace:   k.namespace,
-			Labels:      k.getRBACLabels(appName, true),
+			Labels:      RBACLabels(appName, k.CurrentModel(), true),
 			Annotations: annotations,
 		}
 	}
@@ -100,7 +109,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getBindingName(sa, role),
 			Namespace:   k.namespace,
-			Labels:      k.getRBACLabels(appName, false),
+			Labels:      RBACLabels(appName, k.CurrentModel(), false),
 			Annotations: annotations,
 		}
 	}
@@ -108,7 +117,7 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 		return v1.ObjectMeta{
 			Name:        getBindingName(sa, clusterRole),
 			Namespace:   k.namespace,
-			Labels:      k.getRBACLabels(appName, true),
+			Labels:      RBACLabels(appName, k.CurrentModel(), true),
 			Annotations: annotations,
 		}
 	}
@@ -163,8 +172,8 @@ func (k *kubernetesClient) ensureServiceAccountForApp(
 }
 
 func (k *kubernetesClient) deleteAllServiceAccountResources(appName string) error {
-	selectorNamespaced := labelSetToSelector(k.getRBACLabels(appName, false))
-	selectorGlobal := labelSetToSelector(k.getRBACLabels(appName, true))
+	selectorNamespaced := labelSetToSelector(RBACLabels(appName, k.CurrentModel(), false))
+	selectorGlobal := labelSetToSelector(RBACLabels(appName, k.CurrentModel(), true))
 	if err := k.deleteRoleBindings(selectorNamespaced); err != nil {
 		return errors.Trace(err)
 	}

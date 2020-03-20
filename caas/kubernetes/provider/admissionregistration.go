@@ -36,7 +36,7 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 			},
 			Webhooks: webhooks,
 		}
-		cfgCleanup, err := k.ensureMutatingWebhookConfiguration(spec)
+		cfgCleanup, err := k.EnsureMutatingWebhookConfiguration(spec)
 		cleanUps = append(cleanUps, cfgCleanup)
 		if err != nil {
 			return cleanUps, errors.Trace(err)
@@ -45,7 +45,11 @@ func (k *kubernetesClient) ensureMutatingWebhookConfigurations(
 	return cleanUps, nil
 }
 
-func (k *kubernetesClient) ensureMutatingWebhookConfiguration(cfg *admissionregistration.MutatingWebhookConfiguration) (func(), error) {
+// EnsureMutatingWebhookConfiguration ensures the provided mutating webhook
+// exists in the given Kubernetes cluster.
+// Returned func is used for cleaning up the mutating webhook when error is non
+// nil.
+func (k *kubernetesClient) EnsureMutatingWebhookConfiguration(cfg *admissionregistration.MutatingWebhookConfiguration) (func(), error) {
 	cleanUp := func() {}
 	out, err := k.createMutatingWebhookConfiguration(cfg)
 	if err == nil {

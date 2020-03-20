@@ -5,13 +5,12 @@
 package mocks
 
 import (
-	reflect "reflect"
-
 	gomock "github.com/golang/mock/gomock"
 	OpenAPIv2 "github.com/googleapis/gnostic/OpenAPIv2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	version "k8s.io/apimachinery/pkg/version"
 	rest "k8s.io/client-go/rest"
+	reflect "reflect"
 )
 
 // MockDiscoveryInterface is a mock of DiscoveryInterface interface
@@ -39,6 +38,7 @@ func (m *MockDiscoveryInterface) EXPECT() *MockDiscoveryInterfaceMockRecorder {
 
 // OpenAPISchema mocks base method
 func (m *MockDiscoveryInterface) OpenAPISchema() (*OpenAPIv2.Document, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "OpenAPISchema")
 	ret0, _ := ret[0].(*OpenAPIv2.Document)
 	ret1, _ := ret[1].(error)
@@ -47,11 +47,13 @@ func (m *MockDiscoveryInterface) OpenAPISchema() (*OpenAPIv2.Document, error) {
 
 // OpenAPISchema indicates an expected call of OpenAPISchema
 func (mr *MockDiscoveryInterfaceMockRecorder) OpenAPISchema() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenAPISchema", reflect.TypeOf((*MockDiscoveryInterface)(nil).OpenAPISchema))
 }
 
 // RESTClient mocks base method
 func (m *MockDiscoveryInterface) RESTClient() rest.Interface {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "RESTClient")
 	ret0, _ := ret[0].(rest.Interface)
 	return ret0
@@ -59,11 +61,13 @@ func (m *MockDiscoveryInterface) RESTClient() rest.Interface {
 
 // RESTClient indicates an expected call of RESTClient
 func (mr *MockDiscoveryInterfaceMockRecorder) RESTClient() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RESTClient", reflect.TypeOf((*MockDiscoveryInterface)(nil).RESTClient))
 }
 
 // ServerGroups mocks base method
 func (m *MockDiscoveryInterface) ServerGroups() (*v1.APIGroupList, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerGroups")
 	ret0, _ := ret[0].(*v1.APIGroupList)
 	ret1, _ := ret[1].(error)
@@ -72,11 +76,13 @@ func (m *MockDiscoveryInterface) ServerGroups() (*v1.APIGroupList, error) {
 
 // ServerGroups indicates an expected call of ServerGroups
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerGroups() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroups", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerGroups))
 }
 
 // ServerGroupsAndResources mocks base method
 func (m *MockDiscoveryInterface) ServerGroupsAndResources() ([]*v1.APIGroup, []*v1.APIResourceList, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerGroupsAndResources")
 	ret0, _ := ret[0].([]*v1.APIGroup)
 	ret1, _ := ret[1].([]*v1.APIResourceList)
@@ -86,11 +92,13 @@ func (m *MockDiscoveryInterface) ServerGroupsAndResources() ([]*v1.APIGroup, []*
 
 // ServerGroupsAndResources indicates an expected call of ServerGroupsAndResources
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerGroupsAndResources() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerGroupsAndResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerGroupsAndResources))
 }
 
 // ServerPreferredNamespacedResources mocks base method
 func (m *MockDiscoveryInterface) ServerPreferredNamespacedResources() ([]*v1.APIResourceList, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerPreferredNamespacedResources")
 	ret0, _ := ret[0].([]*v1.APIResourceList)
 	ret1, _ := ret[1].(error)
@@ -99,11 +107,13 @@ func (m *MockDiscoveryInterface) ServerPreferredNamespacedResources() ([]*v1.API
 
 // ServerPreferredNamespacedResources indicates an expected call of ServerPreferredNamespacedResources
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredNamespacedResources() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerPreferredNamespacedResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerPreferredNamespacedResources))
 }
 
 // ServerPreferredResources mocks base method
 func (m *MockDiscoveryInterface) ServerPreferredResources() ([]*v1.APIResourceList, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerPreferredResources")
 	ret0, _ := ret[0].([]*v1.APIResourceList)
 	ret1, _ := ret[1].(error)
@@ -112,11 +122,13 @@ func (m *MockDiscoveryInterface) ServerPreferredResources() ([]*v1.APIResourceLi
 
 // ServerPreferredResources indicates an expected call of ServerPreferredResources
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerPreferredResources() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerPreferredResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerPreferredResources))
 }
 
 // ServerResources mocks base method
 func (m *MockDiscoveryInterface) ServerResources() ([]*v1.APIResourceList, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerResources")
 	ret0, _ := ret[0].([]*v1.APIResourceList)
 	ret1, _ := ret[1].(error)
@@ -125,11 +137,13 @@ func (m *MockDiscoveryInterface) ServerResources() ([]*v1.APIResourceList, error
 
 // ServerResources indicates an expected call of ServerResources
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerResources() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerResources", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerResources))
 }
 
 // ServerResourcesForGroupVersion mocks base method
 func (m *MockDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*v1.APIResourceList, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerResourcesForGroupVersion", arg0)
 	ret0, _ := ret[0].(*v1.APIResourceList)
 	ret1, _ := ret[1].(error)
@@ -138,11 +152,13 @@ func (m *MockDiscoveryInterface) ServerResourcesForGroupVersion(arg0 string) (*v
 
 // ServerResourcesForGroupVersion indicates an expected call of ServerResourcesForGroupVersion
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerResourcesForGroupVersion(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerResourcesForGroupVersion", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerResourcesForGroupVersion), arg0)
 }
 
 // ServerVersion mocks base method
 func (m *MockDiscoveryInterface) ServerVersion() (*version.Info, error) {
+	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ServerVersion")
 	ret0, _ := ret[0].(*version.Info)
 	ret1, _ := ret[1].(error)
@@ -151,5 +167,6 @@ func (m *MockDiscoveryInterface) ServerVersion() (*version.Info, error) {
 
 // ServerVersion indicates an expected call of ServerVersion
 func (mr *MockDiscoveryInterfaceMockRecorder) ServerVersion() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ServerVersion", reflect.TypeOf((*MockDiscoveryInterface)(nil).ServerVersion))
 }

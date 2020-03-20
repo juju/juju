@@ -442,6 +442,9 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 
 	update := false
 	requiredDNSNames := []string{"localhost", "juju-apiserver", "juju-mongodb"}
+	// TODO remove this line. Currently a quick hack to test admission workers
+	// in microk8s.
+	requiredDNSNames = append(requiredDNSNames, "controller-service.controller-microk8s-localhost.svc")
 	for _, dnsName := range requiredDNSNames {
 		if dnsNames.Contains(dnsName) {
 			continue
@@ -1113,12 +1116,14 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	manifoldsCfg := model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		AgentConfigChanged:          a.configChangedVal,
+		CertGetter:                  cfg.CertGetter,
 		Clock:                       clock.WallClock,
 		LoggingContext:              loggingContext,
 		RunFlagDuration:             time.Minute,
 		CharmRevisionUpdateInterval: 24 * time.Hour,
 		StatusHistoryPrunerInterval: 5 * time.Minute,
 		ActionPrunerInterval:        24 * time.Hour,
+		Mux:                         cfg.Mux,
 		NewEnvironFunc:              newEnvirons,
 		NewContainerBrokerFunc:      newCAASBroker,
 		NewMigrationMaster:          migrationmaster.NewWorker,

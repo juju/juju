@@ -1636,7 +1636,12 @@ func (s *K8sBrokerSuite) TestCreate(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: provider.LabelsForModel("test"),
+			Name:   "test",
+		},
+	})
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Create(ns).
 			Return(ns, nil),
@@ -1653,7 +1658,12 @@ func (s *K8sBrokerSuite) TestCreateAlreadyExists(c *gc.C) {
 	ctrl := s.setupController(c)
 	defer ctrl.Finish()
 
-	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{ObjectMeta: v1.ObjectMeta{Name: "test"}})
+	ns := s.ensureJujuNamespaceAnnotations(false, &core.Namespace{
+		ObjectMeta: v1.ObjectMeta{
+			Labels: provider.LabelsForModel("test"),
+			Name:   "test",
+		},
+	})
 	gomock.InOrder(
 		s.mockNamespaces.EXPECT().Create(ns).
 			Return(nil, s.k8sAlreadyExistsError()),

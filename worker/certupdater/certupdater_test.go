@@ -175,7 +175,7 @@ func (s *CertUpdaterSuite) TestAddressChange(c *gc.C) {
 	// also report "juju-mongodb" because these certificates are also
 	// used for serving MongoDB connections.
 	c.Assert(srvCert.DNSNames, jc.SameContents,
-		[]string{"localhost", "juju-apiserver", "juju-mongodb", "anything"})
+		[]string{"localhost", "juju-apiserver", "juju-mongodb", "anything", "controller-service.controller-microk8s-localhost.svc"})
 }
 
 type mockStateServingGetterNoCAKey struct{}

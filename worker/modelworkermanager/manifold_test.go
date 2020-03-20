@@ -4,6 +4,8 @@
 package modelworkermanager_test
 
 import (
+	"crypto/tls"
+
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
@@ -16,6 +18,7 @@ import (
 	"gopkg.in/juju/worker.v1/workertest"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/apiserver/apiserverhttp"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	jworker "github.com/juju/juju/worker"
@@ -32,6 +35,8 @@ type ManifoldSuite struct {
 	stub testing.Stub
 }
 
+type TestCertGetter func() *tls.Certificate
+
 var _ = gc.Suite(&ManifoldSuite{})
 
 func (s *ManifoldSuite) SetUpTest(c *gc.C) {
@@ -43,17 +48,23 @@ func (s *ManifoldSuite) SetUpTest(c *gc.C) {
 	s.context = s.newContext(nil)
 	s.manifold = modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 		AgentName:      "agent",
+		CertGetterName: "certgetter",
 		StateName:      "state",
+		MuxName:        "mux",
 		NewWorker:      s.newWorker,
 		NewModelWorker: s.newModelWorker,
 		Logger:         loggo.GetLogger("test"),
 	})
 }
 
+var mux = apiserverhttp.NewMux()
+
 func (s *ManifoldSuite) newContext(overlay map[string]interface{}) dependency.Context {
 	resources := map[string]interface{}{
-		"agent": &fakeAgent{},
-		"state": &s.stateTracker}
+		"agent":      &fakeAgent{},
+		"certgetter": func() *tls.Certificate { return nil },
+		"mux":        mux,
+		"state":      &s.stateTracker}
 	for k, v := range overlay {
 		resources[k] = v
 	}
@@ -76,7 +87,7 @@ func (s *ManifoldSuite) newModelWorker(config modelworkermanager.NewModelConfig)
 	return worker.NewRunner(worker.RunnerParams{}), nil
 }
 
-var expectedInputs = []string{"agent", "state"}
+var expectedInputs = []string{"agent", "certgetter", "mux", "state"}
 
 func (s *ManifoldSuite) TestInputs(c *gc.C) {
 	c.Assert(s.manifold.Inputs, jc.SameContents, expectedInputs)
@@ -113,9 +124,11 @@ func (s *ManifoldSuite) TestStart(c *gc.C) {
 	s.stub.CheckCallNames(c, "NewWorker", "NewModelWorker")
 	s.stub.CheckCall(c, 1, "NewModelWorker", modelConfig)
 	config.NewModelWorker = nil
+	config.CertGetter = nil
 
 	c.Assert(config, jc.DeepEquals, modelworkermanager.Config{
 		ModelWatcher: s.State,
+		Mux:          mux,
 		Controller:   modelworkermanager.StatePoolController{s.StatePool},
 		ErrorDelay:   jworker.RestartDelay,
 		Logger:       loggo.GetLogger("test"),
