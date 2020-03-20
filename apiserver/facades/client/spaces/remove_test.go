@@ -39,7 +39,7 @@ func (s *SpaceRemoveSuite) TestSuccess(c *gc.C) {
 	}}
 
 	s.space.EXPECT().RemoveSpaceOps().Return(removeSpaceOps)
-	s.subnet.EXPECT().MoveSubnetOps(network.AlphaSpaceId).Return(moveSubnetOps)
+	s.subnet.EXPECT().UpdateSpaceOps(network.AlphaSpaceId).Return(moveSubnetOps)
 	op := spaces.NewRemoveSpaceModelOp(s.space, []spaces.Subnet{s.subnet})
 
 	ops, err := op.Build(0)

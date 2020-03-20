@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/network"
-	"github.com/juju/juju/core/permission"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
 )
@@ -137,61 +136,51 @@ func (o *spaceRenameModelOp) getSettingsChanges(fromSpaceName, toName string) (s
 
 // RenameSpace renames a space.
 func (api *API) RenameSpace(args params.RenameSpacesParams) (params.ErrorResults, error) {
-	isAdmin, err := api.auth.HasPermission(permission.AdminAccess, api.backing.ModelTag())
-	if err != nil && !errors.IsNotFound(err) {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if !isAdmin {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
-	}
-	if err := api.check.ChangeAllowed(); err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
-	}
-	if err = api.checkSupportsProviderSpaces(); err != nil {
-		return params.ErrorResults{}, common.ServerError(errors.Trace(err))
-	}
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.SpacesRenames)),
+	result := params.ErrorResults{}
+
+	if err := api.ensureSpacesAreMutable(); err != nil {
+		return result, err
 	}
 
+	result.Results = make([]params.ErrorResult, len(args.SpacesRenames))
 	for i, spaceRename := range args.SpacesRenames {
 		fromTag, err := names.ParseSpaceTag(spaceRename.FromSpaceTag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 		if fromTag.Id() == network.AlphaSpaceName {
 			newErr := errors.Errorf("the %q space cannot be renamed", network.AlphaSpaceName)
-			results.Results[i].Error = common.ServerError(newErr)
+			result.Results[i].Error = common.ServerError(newErr)
 			continue
 		}
 		toTag, err := names.ParseSpaceTag(spaceRename.ToSpaceTag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 		toSpace, err := api.backing.SpaceByName(toTag.Id())
 		if err != nil && !errors.IsNotFound(err) {
 			newErr := errors.Annotatef(err, "retrieving space %q", toTag.Id())
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			result.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
 		if toSpace != nil {
 			newErr := errors.AlreadyExistsf("space %q", toTag.Id())
-			results.Results[i].Error = common.ServerError(errors.Trace(newErr))
+			result.Results[i].Error = common.ServerError(errors.Trace(newErr))
 			continue
 		}
 		operation, err := api.opFactory.NewRenameSpaceModelOp(fromTag.Id(), toTag.Id())
 		if err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 		if err = api.backing.ApplyOperation(operation); err != nil {
-			results.Results[i].Error = common.ServerError(errors.Trace(err))
+			result.Results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 	}
-	return results, nil
+	return result, nil
 }
 
 func (o *spaceRenameModelOp) Done(err error) error {

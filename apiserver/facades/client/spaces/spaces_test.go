@@ -246,7 +246,7 @@ func (s *SpaceTestMockSuite) TestRenameSpaceErrorProviderSpacesSupport(c *gc.C) 
 	args := s.getRenameArgs(from, to)
 
 	res, err := s.api.RenameSpace(args)
-	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
+	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
 	c.Assert(res, gc.DeepEquals, params.ErrorResults{Results: []params.ErrorResult(nil)})
 }
 
@@ -466,7 +466,7 @@ func (s *SpaceTestMockSuite) TestRemoveSpaceErrorProviderSpacesSupport(c *gc.C) 
 	args, _ := s.getRemoveArgs(space, false)
 
 	_, err := s.api.RemoveSpace(args)
-	c.Assert(err, gc.ErrorMatches, "renaming provider-sourced spaces not supported")
+	c.Assert(err, gc.ErrorMatches, "modifying provider-sourced spaces not supported")
 }
 
 func (s *SpaceTestMockSuite) expectAllTags(spaceName string) (names.ApplicationTag, names.ModelTag) {
@@ -652,6 +652,14 @@ func (sb *stubBacking) AllEndpointBindings() ([]spaces.ApplicationEndpointBindin
 }
 
 func (sb *stubBacking) AllMachines() ([]spaces.Machine, error) {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) AllConstraints() ([]spaces.Constraints, error) {
+	panic("should not be called")
+}
+
+func (sb *stubBacking) MovingSubnet(string) (spaces.MovingSubnet, error) {
 	panic("should not be called")
 }
 
