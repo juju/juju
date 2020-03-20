@@ -5,8 +5,8 @@ package spaces
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/apiserver/common/networkingcommon"
 
+	"github.com/juju/juju/apiserver/common/networkingcommon"
 	"github.com/juju/juju/state"
 )
 
@@ -20,7 +20,7 @@ type OpFactory interface {
 	NewRenameSpaceModelOp(spaceName, toName string) (state.ModelOperation, error)
 
 	// TODO (manadart 2020-03-19): Rename the methods above for consistency.
-	// We know they are are ModelOps; we can be brief with redundancy.
+	// We know they are are ModelOps; we can be brief without redundancy.
 	// NewMoveSubnetsOp returns an operation for updating a space with new CIDRs.
 	NewMoveSubnetsOp(spaceID string, subnets []MovingSubnet) (MoveSubnetsOp, error)
 }

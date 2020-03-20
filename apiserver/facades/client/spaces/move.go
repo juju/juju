@@ -82,7 +82,7 @@ func (o *moveSubnetsOp) Build(attempt int) ([]txn.Op, error) {
 // Done (ModelOperation) is called upon execution of the operations returned by
 // Build. It records the successfully moved subnets for later retrieval.
 func (o *moveSubnetsOp) Done(err error) error {
-	if err != nil {
+	if err == nil {
 		o.results = make([]MovedSubnet, len(o.subnets))
 		for i, subnet := range o.subnets {
 			mc := MovedSubnet{
