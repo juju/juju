@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/environs/sync"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/pki"
 	coretools "github.com/juju/juju/tools"
 	jujuversion "github.com/juju/juju/version"
 )
@@ -640,19 +641,30 @@ func finalizeInstanceBootstrapConfig(
 		Info:     mongo.Info{CACert: caCert},
 	}
 
-	// These really are directly relevant to running a controller.
-	// Initially, generate a controller certificate with no host IP
-	// addresses in the SAN field. Once the controller is up and the
-	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
+	authority, err := pki.NewDefaultAuthorityPemCAKey(
+		[]byte(caCert), []byte(args.CAPrivateKey))
 	if err != nil {
-		return errors.Annotate(err, "cannot generate controller certificate")
+		return errors.Annotate(err, "loading juju certificate authority")
 	}
+
+	leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+		AddDNSNames(controller.DefaultDNSNames...).
+		Commit()
+
+	if err != nil {
+		return errors.Annotate(err, "make juju default controller cert")
+	}
+
+	cert, key, err := leaf.ToPemParts()
+	if err != nil {
+		return errors.Annotate(err, "encoding default controller cert to pem")
+	}
+
 	icfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
-		Cert:         cert,
-		PrivateKey:   key,
+		Cert:         string(cert),
+		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {
@@ -703,19 +715,33 @@ func finalizePodBootstrapConfig(
 		Info:     mongo.Info{CACert: caCert},
 	}
 
-	// These really are directly relevant to running a controller.
-	// Initially, generate a controller certificate with no host IP
-	// addresses in the SAN field. Once the controller is up and the
-	// NIC addresses become known, the certificate can be regenerated.
-	cert, key, err := controller.GenerateControllerCertAndKey(caCert, args.CAPrivateKey, nil)
+	authority, err := pki.NewDefaultAuthorityPemCAKey(
+		[]byte(caCert), []byte(args.CAPrivateKey))
 	if err != nil {
-		return errors.Annotate(err, "cannot generate controller certificate")
+		return errors.Annotate(err, "loading juju certificate authority")
 	}
+
+	// We generate a controller certificate with a set of well known static dns
+	// names. IP addresses are left for other workers to make subsequent
+	// certificates.
+	leaf, err := authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+		AddDNSNames(controller.DefaultDNSNames...).
+		Commit()
+
+	if err != nil {
+		return errors.Annotate(err, "make juju default controller cert")
+	}
+
+	cert, key, err := leaf.ToPemParts()
+	if err != nil {
+		return errors.Annotate(err, "encoding default controller cert to pem")
+	}
+
 	pcfg.Bootstrap.StateServingInfo = controller.StateServingInfo{
 		StatePort:    controllerCfg.StatePort(),
 		APIPort:      controllerCfg.APIPort(),
-		Cert:         cert,
-		PrivateKey:   key,
+		Cert:         string(cert),
+		PrivateKey:   string(key),
 		CAPrivateKey: args.CAPrivateKey,
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

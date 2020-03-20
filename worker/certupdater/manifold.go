@@ -9,7 +9,7 @@ import (
 	"gopkg.in/juju/worker.v1/dependency"
 
 	jujuagent "github.com/juju/juju/agent"
-	"github.com/juju/juju/controller"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker/common"
 	workerstate "github.com/juju/juju/worker/state"
@@ -19,6 +19,7 @@ import (
 // in a dependency.Engine.
 type ManifoldConfig struct {
 	AgentName                string
+	AuthorityName            string
 	StateName                string
 	NewWorker                func(Config) worker.Worker
 	NewMachineAddressWatcher func(st *state.State, machineId string) (AddressWatcher, error)
@@ -28,6 +29,9 @@ type ManifoldConfig struct {
 func (config ManifoldConfig) Validate() error {
 	if config.AgentName == "" {
 		return errors.NotValidf("empty AgentName")
+	}
+	if config.AuthorityName == "" {
+		return errors.NotValidf("empty AuthorityName")
 	}
 	if config.StateName == "" {
 		return errors.NotValidf("empty StateName")
@@ -41,11 +45,12 @@ func (config ManifoldConfig) Validate() error {
 	return nil
 }
 
-// Manifold returns a dependency.Manifold that will run a certupdater.
+// Manifold returns a dependency.Manifold that will run a pki Authority.
 func Manifold(config ManifoldConfig) dependency.Manifold {
 	return dependency.Manifold{
 		Inputs: []string{
 			config.AgentName,
+			config.AuthorityName,
 			config.StateName,
 		},
 		Start: config.start,
@@ -63,6 +68,11 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 		return nil, errors.Trace(err)
 	}
 
+	var authority pki.Authority
+	if err := context.Get(config.AuthorityName, &authority); err != nil {
+		return nil, errors.Trace(err)
+	}
+
 	var stTracker workerstate.StateTracker
 	if err := context.Get(config.StateName, &stTracker); err != nil {
 		return nil, errors.Trace(err)
@@ -73,12 +83,6 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	agentConfig := agent.CurrentConfig()
-	setStateServingInfo := func(info controller.StateServingInfo) error {
-		return agent.ChangeConfig(func(config jujuagent.ConfigSetter) error {
-			config.SetStateServingInfo(info)
-			return nil
-		})
-	}
 
 	st := statePool.SystemState()
 	addressWatcher, err := config.NewMachineAddressWatcher(st, agentConfig.Tag().Id())
@@ -87,11 +91,9 @@ func (config ManifoldConfig) start(context dependency.Context) (worker.Worker, e
 	}
 
 	w := config.NewWorker(Config{
-		AddressWatcher:         addressWatcher,
-		StateServingInfoGetter: agentConfig,
-		StateServingInfoSetter: setStateServingInfo,
-		ControllerConfigGetter: st,
-		APIHostPortsGetter:     st,
+		AddressWatcher:     addressWatcher,
+		Authority:          authority,
+		APIHostPortsGetter: st,
 	})
 	return common.NewCleanupWorker(w, func() { _ = stTracker.Done() }), nil
 }

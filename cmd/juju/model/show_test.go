@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/api"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/juju/common"
 	"github.com/juju/juju/cmd/juju/model"
 	"github.com/juju/juju/core/life"
@@ -25,6 +24,7 @@ import (
 	"github.com/juju/juju/core/network"
 	"github.com/juju/juju/core/status"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/testing"
 )
 
@@ -657,7 +657,7 @@ func (s *ShowCommandSuite) assertShowOutput(c *gc.C, format string) {
 
 func (s *ShowCommandSuite) TestHandleRedirectError(c *gc.C) {
 	nhp, _ := network.ParseMachineHostPort("1.2.3.4:5555")
-	caFingerprint, _ := cert.Fingerprint(testing.CACert)
+	caFingerprint, _, _ := pki.Fingerprint([]byte(testing.CACert))
 	s.fake.SetErrors(
 		&api.RedirectError{
 			Servers:         []network.MachineHostPorts{{*nhp}},

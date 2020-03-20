@@ -450,8 +450,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		// and offers the result to other manifolds. This is only
 		// run by state servers.
 		certificateWatcherName: ifController(apiservercertwatcher.Manifold(apiservercertwatcher.ManifoldConfig{
-			AgentName:          agentName,
-			AgentConfigChanged: config.AgentConfigChanged,
+			AgentName: agentName,
 		})),
 
 		// The api caller is a thin concurrent wrapper around a connection
@@ -676,7 +675,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 		}),
 
 		httpServerName: httpserver.Manifold(httpserver.ManifoldConfig{
-			CertWatcherName:      certificateWatcherName,
+			AuthorityName:        certificateWatcherName,
 			HubName:              centralHubName,
 			StateName:            stateName,
 			MuxName:              httpServerArgsName,
@@ -719,7 +718,7 @@ func commonManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		modelWorkerManagerName: ifFullyUpgraded(modelworkermanager.Manifold(modelworkermanager.ManifoldConfig{
 			AgentName:      agentName,
-			CertGetterName: certificateWatcherName,
+			AuthorityName:  certificateWatcherName,
 			StateName:      stateName,
 			Clock:          config.Clock,
 			MuxName:        httpServerArgsName,
@@ -880,6 +879,7 @@ func IAASManifolds(config ManifoldsConfig) dependency.Manifolds {
 
 		certificateUpdaterName: ifFullyUpgraded(certupdater.Manifold(certupdater.ManifoldConfig{
 			AgentName:                agentName,
+			AuthorityName:            certificateWatcherName,
 			StateName:                stateName,
 			NewWorker:                certupdater.NewCertificateUpdater,
 			NewMachineAddressWatcher: certupdater.NewMachineAddressWatcher,

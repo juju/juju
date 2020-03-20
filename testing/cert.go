@@ -7,21 +7,11 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
 	"math/rand"
-	"time"
 
 	gitjujutesting "github.com/juju/testing"
 	utilscert "github.com/juju/utils/cert"
-
-	"github.com/juju/juju/cert"
 )
-
-func init() {
-	if err := verifyCertificates(); err != nil {
-		panic(err)
-	}
-}
 
 // CACert and CAKey make up a CA key pair.
 // CACertX509 and CAKeyRSA hold their parsed equivalents.
@@ -42,18 +32,6 @@ var (
 	OtherCACertX509, OtherCAKeyRSA = mustParseCertAndKey(OtherCACert, OtherCAKey)
 )
 
-func verifyCertificates() error {
-	_, err := tls.X509KeyPair([]byte(CACert), []byte(CAKey))
-	if err != nil {
-		return fmt.Errorf("bad CA cert key pair: %v", err)
-	}
-	_, err = tls.X509KeyPair([]byte(ServerCert), []byte(ServerKey))
-	if err != nil {
-		return fmt.Errorf("bad server cert key pair: %v", err)
-	}
-	return cert.Verify(ServerCert, CACert, time.Now())
-}
-
 func chooseGeneratedCA() (string, string, string, string) {
 	index := rand.Intn(len(generatedCA))
 	if len(generatedCA) != len(generatedServer) {
@@ -69,27 +47,6 @@ func chooseGeneratedOtherCA() (string, string) {
 	index := rand.Intn(len(otherCA))
 	ca := otherCA[index]
 	return ca.certPEM, ca.keyPEM
-}
-
-func mustNewCA() (string, string) {
-	caCert, caKey, err := cert.NewCA(
-		"juju testing",
-		"1234-ABCD-IS-NOT-A-REAL-UUID",
-		time.Now().AddDate(10, 0, 0))
-	if err != nil {
-		panic(err)
-	}
-	return caCert, caKey
-}
-
-func mustNewServer() (*tls.Certificate, string, string) {
-	var hostnames []string
-	srvCert, srvKey, err := cert.NewServer(CACert, CAKey, time.Now().AddDate(10, 0, 0), hostnames)
-	if err != nil {
-		panic(err)
-	}
-	tlsCert := mustParseServerCert(srvCert, srvKey)
-	return tlsCert, srvCert, srvKey
 }
 
 func mustParseServerCert(srvCert string, srvKey string) *tls.Certificate {

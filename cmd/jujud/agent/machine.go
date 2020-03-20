@@ -15,7 +15,6 @@ import (
 
 	"github.com/juju/clock"
 	"github.com/juju/cmd"
-	"github.com/juju/collections/set"
 	"github.com/juju/errors"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
@@ -23,7 +22,6 @@ import (
 	"github.com/juju/pubsub"
 	"github.com/juju/replicaset"
 	"github.com/juju/utils"
-	utilscert "github.com/juju/utils/cert"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"github.com/juju/version"
@@ -45,7 +43,6 @@ import (
 	"github.com/juju/juju/apiserver/params"
 	"github.com/juju/juju/caas"
 	k8sprovider "github.com/juju/juju/caas/kubernetes/provider"
-	"github.com/juju/juju/cert"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/jujud/agent/machine"
 	"github.com/juju/juju/cmd/jujud/agent/model"
@@ -54,6 +51,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/broker"
 	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/instance"
 	"github.com/juju/juju/core/life"
 	"github.com/juju/juju/core/machinelock"
@@ -66,6 +64,7 @@ import (
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/mongo/mongometrics"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/pubsub/centralhub"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/state"
@@ -426,41 +425,35 @@ func upgradeCertificateDNSNames(config agent.ConfigSetter) error {
 		return nil
 	}
 
+	authority, err := pki.NewDefaultAuthorityPemCAKey([]byte(config.CACert()),
+		[]byte(si.CAPrivateKey))
+	if err != nil {
+		return errors.Annotate(err, "building authority from ca pem")
+	}
+
 	// Validate the current certificate and private key pair, and then
 	// extract the current DNS names from the certificate. If the
 	// certificate validation fails, or it does not contain the DNS
 	// names we require, we will generate a new one.
-	var dnsNames set.Strings
-	serverCert, _, err := utilscert.ParseCertAndKey(si.Cert, si.PrivateKey)
-	if err != nil {
-		// The certificate is invalid, so create a new one.
+	leaf, err := authority.LeafGroupFromPemCertKey(pki.DefaultLeafGroup,
+		[]byte(si.Cert), []byte(si.PrivateKey))
+	if err != nil || !pki.LeafHasDNSNames(leaf, controller.DefaultDNSNames) {
 		logger.Infof("parsing certificate/key failed, will generate a new one: %v", err)
-		dnsNames = set.NewStrings()
-	} else {
-		dnsNames = set.NewStrings(serverCert.DNSNames...)
-	}
-
-	update := false
-	requiredDNSNames := []string{"localhost", "juju-apiserver", "juju-mongodb"}
-	// TODO remove this line. Currently a quick hack to test admission workers
-	// in microk8s.
-	requiredDNSNames = append(requiredDNSNames, "controller-service.controller-microk8s-localhost.svc")
-	for _, dnsName := range requiredDNSNames {
-		if dnsNames.Contains(dnsName) {
-			continue
+		leaf, err = authority.LeafRequestForGroup(pki.DefaultLeafGroup).
+			AddDNSNames(controller.DefaultDNSNames...).
+			Commit()
+		if err != nil {
+			return errors.Annotate(err, "generating new default controller certificate")
 		}
-		dnsNames.Add(dnsName)
-		update = true
-	}
-	if !update {
-		return nil
 	}
 
-	// Write a new certificate to the mongo pem and agent config files.
-	si.Cert, si.PrivateKey, err = cert.NewDefaultServer(config.CACert(), si.CAPrivateKey, dnsNames.Values())
+	cert, privateKey, err := leaf.ToPemParts()
 	if err != nil {
-		return err
+		return errors.Annotate(err, "transforming controller certificate to pem format")
 	}
+
+	si.Cert, si.PrivateKey = string(cert), string(privateKey)
+
 	if err := mongo.UpdateSSLKey(config.DataDir(), si.Cert, si.PrivateKey); err != nil {
 		return err
 	}
@@ -1116,7 +1109,7 @@ func (a *MachineAgent) startModelWorkers(cfg modelworkermanager.NewModelConfig) 
 	manifoldsCfg := model.ManifoldsConfig{
 		Agent:                       modelAgent,
 		AgentConfigChanged:          a.configChangedVal,
-		CertGetter:                  cfg.CertGetter,
+		Authority:                   cfg.Authority,
 		Clock:                       clock.WallClock,
 		LoggingContext:              loggingContext,
 		RunFlagDuration:             time.Minute,

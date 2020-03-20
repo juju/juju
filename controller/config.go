@@ -14,14 +14,13 @@ import (
 	"github.com/juju/romulus"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
-	utilscert "github.com/juju/utils/cert"
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/environschema.v1"
 	"gopkg.in/juju/names.v3"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/core/resources"
+	"github.com/juju/juju/pki"
 )
 
 const (
@@ -344,6 +343,18 @@ var (
 		MeteringURL,
 		MaxCharmStateSize,
 		MaxAgentStateSize,
+	}
+
+	// For backwards compatibility, we must include "anything", "juju-apiserver"
+	// and "juju-mongodb" as hostnames as that is what clients specify
+	// as the hostname for verification (this certificate is used both
+	// for serving MongoDB and API server connections).  We also
+	// explicitly include localhost.
+	DefaultDNSNames = []string{
+		"localhost",
+		"juju-apiserver",
+		"juju-mongodb",
+		"anything",
 	}
 
 	// AllowedUpdateConfigAttributes contains all of the controller
@@ -826,8 +837,10 @@ func Validate(c Config) error {
 	if !caCertOK {
 		return errors.Errorf("missing CA certificate")
 	}
-	if _, err := utilscert.ParseCert(caCert); err != nil {
+	if ok, err := pki.IsPemCA([]byte(caCert)); err != nil {
 		return errors.Annotate(err, "bad CA certificate in configuration")
+	} else if !ok {
+		return errors.New("ca certificate in configuration is not a CA")
 	}
 
 	if uuid, ok := c[ControllerUUIDKey].(string); ok && !utils.IsValidUUIDString(uuid) {
@@ -1050,12 +1063,6 @@ func (c Config) AsSpaceConstraints(spaces *[]string) *[]string {
 	}
 	ns := newSpaces.SortedValues()
 	return &ns
-}
-
-// GenerateControllerCertAndKey makes sure that the config has a CACert and
-// CAPrivateKey, generates and returns new certificate and key.
-func GenerateControllerCertAndKey(caCert, caKey string, hostAddresses []string) (string, string, error) {
-	return cert.NewDefaultServer(caCert, caKey, hostAddresses)
 }
 
 var configChecker = schema.FieldMap(schema.Fields{

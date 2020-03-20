@@ -16,11 +16,11 @@ import (
 	"github.com/juju/juju/api"
 	apibase "github.com/juju/juju/api/base"
 	"github.com/juju/juju/apiserver/params"
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/cmd/juju/user"
 	"github.com/juju/juju/cmd/modelcmd"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/jujuclient"
+	"github.com/juju/juju/pki"
 	"github.com/juju/juju/testing"
 )
 
@@ -264,7 +264,7 @@ There are no models available(.|\n)*`[1:])
 
 func (s *LoginCommandSuite) TestLoginWithCAVerification(c *gc.C) {
 	caCert := testing.CACertX509
-	fingerprint, err := cert.Fingerprint(testing.CACert)
+	fingerprint, _, err := pki.Fingerprint([]byte(testing.CACert))
 	c.Assert(err, jc.ErrorIsNil)
 
 	specs := []struct {
