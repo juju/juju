@@ -971,6 +971,16 @@ func (s *localServerSuite) TestDestroyControllerSpaceConstraints(c *gc.C) {
 }
 
 func (s *localServerSuite) assignDeviceIdToPort(c *gc.C, portId, deviceId string) {
+	err := s.srv.Nova.AddOSInterface(deviceId, nova.OSInterface{
+		FixedIPs: []nova.PortFixedIP{
+			{
+				IPAddress: "10.0.0.1",
+			},
+		},
+		IPAddress: "10.0.0.1",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
 	model := s.srv.Neutron.NeutronModel()
 	port, err := model.Port("1")
 	c.Assert(err, jc.ErrorIsNil)
