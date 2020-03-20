@@ -123,7 +123,7 @@ func (api *API) MoveSubnets(args params.MoveSubnetsParams) (params.MoveSubnetsRe
 
 		subnets, err := api.getMovingSubnets(toSpaceParams.SubnetTags)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(errors.Trace(err))
+			results[i].Error = common.ServerError(errors.Trace(err))
 			continue
 		}
 
