@@ -57,6 +57,7 @@ bootstrap() {
             shift
 
             provider="${manual_name}"
+            ;;
         "microstack")
             provider="microstack"
             ;;
@@ -102,6 +103,11 @@ bootstrap() {
         fi
     fi
 
+    if [ "$#" -ne 0 ]; then
+        echo "====> Unable to reuse bootstrapped juju - bootstrap required"
+        export BOOTSTRAP_REUSE="false"
+    fi
+
     version=$(juju_version)
 
     START_TIME=$(date +%s)
@@ -120,7 +126,7 @@ bootstrap() {
         name="${bootstrapped_name}"
     else
         echo "====> Bootstrapping juju ($(green "${version}:${provider}"))"
-        juju_bootstrap "${provider}" "${name}" "${model}" "${output}"
+        juju_bootstrap "${provider}" "${name}" "${model}" "${output}" "$@"
     fi
     END_TIME=$(date +%s)
 

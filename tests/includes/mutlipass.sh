@@ -88,17 +88,17 @@ multipass_launch() {
     output=${1}
     shift
 
-    verbose=""
+    v=""
     if [ "${VERBOSE}" -gt 1 ]; then
-        verbose="-v"
+        v="-v"
     fi
 
     if [ -z "${output}" ]; then
-        multipass launch "${verbose}" -n "${name}" "$@" > "${output}" 2>&1
+        multipass launch "${v}" -n "${name}" "$@" > "${output}" 2>&1
     else
-        multipass launch "${verbose}" -n "${name}" "$@"
+        multipass launch "${v}" -n "${name}" "$@"
     fi
-    
+
     echo "${name}" >> "${TEST_DIR}/multipasses"
 }
 
@@ -110,7 +110,7 @@ destroy_vm() {
 
     echo "====> Destroying vm ${name}"
     OUT=$(multipass list --format=json | jq -r ".list | .[] | .name" | grep "${name}" || true)
-    if [ ! -z "${OUT}" ]; then
+    if [ -n "${OUT}" ]; then
         output="${TEST_DIR}/${name}-vm-destroy.txt"
 
         set +e

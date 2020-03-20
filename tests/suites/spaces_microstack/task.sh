@@ -12,7 +12,7 @@ test_spaces_microstack() {
     vm_name=$(rnd_name "vm")
     vm_file="${TEST_DIR}/test-spaces-microstack_vm.txt"
 
-    launch_vm "${vm_name}" "${vm_file}" -c 8 -m 12G
+    launch_vm "${vm_name}" "${vm_file}" -c 12 -d 12G -m 24G
     mount_juju "${vm_name}"
     setup_microstack "${vm_name}"
 
@@ -32,7 +32,9 @@ mount_juju() {
 
     name=${1}
 
+    # shellcheck disable=SC2034
     OUT=$(which juju | grep -E "^${GOPATH}" || true)
+    # shellcheck disable=SC2181
     if [ $? -ne 0 ]; then
         echo "expected juju bin to be in GOPATH"
         exit 1
@@ -46,11 +48,15 @@ setup_microstack() {
 
     name=${1}
 
-    desc="Install Microstack"
+    desc="Dependency Install"
+    file="${TEST_DIR}/exec-install-jq.txt"
+    vm_exec "${name}" "${desc}" "${file}" sudo snap install jq shellcheck
+
+    desc="Microstack Install"
     file="${TEST_DIR}/exec-install-microstack.txt"
     vm_exec "${name}" "${desc}" "${file}" sudo snap install microstack --edge --devmode
 
-    desc="Init Microstack"
+    desc="Microstack Init"
     file="${TEST_DIR}/exec-init-microstack.txt"
     vm_exec "${name}" "${desc}" "${file}" sudo microstack.init --auto
 }

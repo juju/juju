@@ -10,7 +10,7 @@ test_spaces_microstack_nested() {
     export BOOTSTRAP_PROVIDER="microstack"
 
     echo "==> Checking for dependencies"
-    check_dependencies juju microstack.openstack
+    check_dependencies juju "microstack.openstack"
 
     export OS_SERIES=bionic
     export OS_REGION=microstack
@@ -47,21 +47,23 @@ setup_image_metadata() {
 }
 
 setup_simplestreams() {
+    file="${TEST_DIR}/juju-metadata.txt"
+
     mkdir -p "${TEST_DIR}/simplestreams"
     KEYSTONE_IP=10.20.20.1
     juju metadata generate-image \
         -d "${TEST_DIR}"/simplestreams \
-        -i $IMAGE_ID \
-        -s $OS_SERIES \
-        -r $OS_REGION \
-        -u http://$KEYSTONE_IP:5000/v3
+        -i "${IMAGE_ID}" \
+        -s "${OS_SERIES}" \
+        -r "${OS_REGION}" \
+        -u "http://${KEYSTONE_IP}:5000/v3" >"${file}" 2>&1
 }
 
 setup_cloud() {
     OUT=$(juju clouds --client --format=json 2>/dev/null | jq -r "select(.microstack)")
     if [ -n "${OUT}" ]; then
-        echo "Microstack cloud in juju already exists."
-        exit 0
+        OUT=$(juju remove-credential --client microstack admin >/dev/null 2>&1 || true)
+        OUT=$(juju remove-cloud --client microstack >/dev/null 2>&1 || true)
     fi
 
     CLOUD=$(cat <<'EOF'
@@ -75,14 +77,15 @@ clouds:
 EOF
     )
     echo "${CLOUD}" > "${TEST_DIR}"/microstack.yaml
-    juju add-cloud microstack --client -f "${TEST_DIR}"/microstack.yaml
+    juju add-cloud --client microstack -f "${TEST_DIR}"/microstack.yaml 2>/dev/null
 }
 
 setup_credentials() {
     OUT=$(juju credentials --format json | jq -r ".[\"client-credentials\"] | select(.microstack)")
     if [ -n "${OUT}" ]; then
-        echo "Microstack credentials in juju already exist."
-        exit 0
+        set +e
+        OUT=$(juju remove-credential --client microstack admin >/dev/null 2>&1 || true)
+        set_verbosity
     fi
 
     ENV_FILE="/var/snap/microstack/common/etc/microstack.rc"
@@ -91,6 +94,7 @@ setup_credentials() {
         exit 1
     fi
 
+    # shellcheck disable=SC1090
     . "${ENV_FILE}"
 
     CREDS=$(cat <<EOF
@@ -109,5 +113,5 @@ credentials:
 EOF
 )
     echo "${CREDS}" > "${TEST_DIR}"/creds.yaml
-    juju add-credential microstack --client -f "${TEST_DIR}"/creds.yaml
+    juju add-credential microstack --client -f "${TEST_DIR}"/creds.yaml 2>/dev/null
 }

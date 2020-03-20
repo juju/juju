@@ -67,8 +67,14 @@ def assess_profile_machines(client):
                 else:
                     machines = application_machines_from_app_info(info)
                 machine_profiles.append((charm_profile, machines))
-    if len(machine_profiles) > 0:
-        aligned_machine_profiles = align_machine_profiles(machine_profiles)
+    
+    # if the provider type is not lxd, then we should drop all machine profiles
+    # as profiles will not be applied 
+    if client.env.provider_type != 'lxd':
+        machine_profiles = select_containers(machine_profiles)
+
+    aligned_machine_profiles = align_machine_profiles(machine_profiles)
+    if len(aligned_machine_profiles) > 0:
         client.wait_for(WaitForLXDProfilesConditions(aligned_machine_profiles))
 
 def parse_args(argv):
