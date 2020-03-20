@@ -408,7 +408,8 @@ func (u *Uniter) loop(unitTag names.UnitTag) (err error) {
 			Actions:             actions.NewResolver(),
 			UpgradeSeries:       upgradeseries.NewResolver(),
 			Leadership:          uniterleadership.NewResolver(),
-			Relations:           relation.NewRelationsResolver(u.relationStateTracker, u.unit),
+			CreatedRelations:    relation.NewCreatedRelationResolver(u.relationStateTracker),
+			Relations:           relation.NewRelationResolver(u.relationStateTracker, u.unit),
 			Storage:             storage.NewResolver(u.storage, u.modelType),
 			Commands: runcommands.NewCommandsResolver(
 				u.commands, watcher.CommandCompleted,

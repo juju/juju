@@ -21,6 +21,8 @@ import (
 	"gopkg.in/juju/worker.v1"
 )
 
+//go:generate mockgen -package mocks -destination mocks/mock_statetracker.go github.com/juju/juju/worker/uniter/relation RelationStateTracker
+
 type RelationStateTracker interface {
 	// PrepareHook returns the name of the supplied relation hook, or an error
 	// if the hook is unknown or invalid given current state.
@@ -42,9 +44,21 @@ type RelationStateTracker interface {
 	// IsImplicit returns true if the endpoint for a relation ID is implicit.
 	IsImplicit(int) (bool, error)
 
+	// IsPeerRelation returns true if the endpoint for a relation ID has a
+	// Peer role.
+	IsPeerRelation(int) (bool, error)
+
 	// HasContainerScope returns true if the specified relation ID has a
 	// container scope.
 	HasContainerScope(int) (bool, error)
+
+	// RelationCreated returns true if a relation created hook has been
+	// fired for the specified relation ID.
+	RelationCreated(int) bool
+
+	// RemoteApplication returns the remote application name associated
+	// with the specified relation ID.
+	RemoteApplication(int) string
 
 	// StateDir returns a StateDir instance for accessing the local state
 	// for a relation ID.
@@ -75,15 +89,18 @@ type RelationStateTrackerConfig struct {
 
 // relationStateTracker implements RelationStateTracker.
 type relationStateTracker struct {
-	st            *uniter.State
-	unit          *uniter.Unit
-	leaderCtx     context.LeadershipContext
-	subordinate   bool
-	principalName string
-	charmDir      string
-	relationsDir  string
-	relationers   map[int]*Relationer
-	abort         <-chan struct{}
+	st              *uniter.State
+	unit            *uniter.Unit
+	leaderCtx       context.LeadershipContext
+	abort           <-chan struct{}
+	subordinate     bool
+	principalName   string
+	charmDir        string
+	relationsDir    string
+	relationers     map[int]*Relationer
+	remoteAppName   map[int]string
+	relationCreated map[int]bool
+	isPeerRelation  map[int]bool
 }
 
 // NewRelationStateTracker returns a new RelationStateTracker instance.
@@ -103,15 +120,18 @@ func NewRelationStateTracker(cfg RelationStateTrackerConfig) (RelationStateTrack
 	)
 
 	r := &relationStateTracker{
-		st:            cfg.State,
-		unit:          unit,
-		leaderCtx:     leadershipContext,
-		subordinate:   subordinate,
-		principalName: principalName,
-		charmDir:      cfg.CharmDir,
-		relationsDir:  cfg.RelationsDir,
-		relationers:   make(map[int]*Relationer),
-		abort:         cfg.Abort,
+		st:              cfg.State,
+		unit:            unit,
+		leaderCtx:       leadershipContext,
+		subordinate:     subordinate,
+		principalName:   principalName,
+		charmDir:        cfg.CharmDir,
+		relationsDir:    cfg.RelationsDir,
+		relationers:     make(map[int]*Relationer),
+		remoteAppName:   make(map[int]string),
+		relationCreated: make(map[int]bool),
+		isPeerRelation:  make(map[int]bool),
+		abort:           cfg.Abort,
 	}
 	if err := r.loadInitialState(); err != nil {
 		return nil, errors.Trace(err)
@@ -142,6 +162,12 @@ func (r *relationStateTracker) loadInitialState() error {
 		relationSuspended[relation.Id()] = rs.Suspended
 		activeRelations[relation.Id()] = relation
 		orderedIds = append(orderedIds, relation.Id())
+
+		// The relation-created hook always fires before joining.
+		// Since we are already in scope, the relation-created hook
+		// must have fired in the past so we can mark the relation as
+		// already created.
+		r.relationCreated[relation.Id()] = true
 	}
 
 	knownDirs, err := ReadAllStateDirs(r.relationsDir)
@@ -285,6 +311,11 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 			continue
 		}
 
+		// Keep track of peer relations
+		if ep.Role == charm.RolePeer {
+			r.isPeerRelation[id] = true
+		}
+
 		dir, err := ReadStateDir(r.relationsDir, id)
 		if err != nil {
 			return errors.Trace(err)
@@ -297,6 +328,9 @@ func (r *relationStateTracker) SynchronizeScopes(remote remotestate.Snapshot) er
 				return errors.Trace(removeErr)
 			}
 		}
+
+		// Keep track of the remote application
+		r.remoteAppName[id] = rel.OtherApplication()
 	}
 
 	if !r.subordinate {
@@ -352,6 +386,15 @@ func (r *relationStateTracker) IsImplicit(id int) (bool, error) {
 	return false, errors.Errorf("unknown relation: %d", id)
 }
 
+// IsPeerRelation returns true if the endpoint for a relation ID has a Peer role.
+func (r *relationStateTracker) IsPeerRelation(id int) (bool, error) {
+	if rel := r.relationers[id]; rel != nil {
+		return r.isPeerRelation[id], nil
+	}
+
+	return false, errors.Errorf("unknown relation: %d", id)
+}
+
 // HasContainerScope returns true if the specified relation ID has a container
 // scope.
 func (r *relationStateTracker) HasContainerScope(id int) (bool, error) {
@@ -360,6 +403,18 @@ func (r *relationStateTracker) HasContainerScope(id int) (bool, error) {
 	}
 
 	return false, errors.Errorf("unknown relation: %d", id)
+}
+
+// RelationCreated returns true if a relation created hook has been
+// fired for the specified relation ID.
+func (r *relationStateTracker) RelationCreated(id int) bool {
+	return r.relationCreated[id]
+}
+
+// RemoteApplication returns the remote application name associated with the
+// specified relation ID.
+func (r *relationStateTracker) RemoteApplication(id int) string {
+	return r.remoteAppName[id]
 }
 
 // StateDir returns a StateDir instance for accessing the local state for a
@@ -390,8 +445,13 @@ func (r *relationStateTracker) CommitHook(hookInfo hook.Info) (err error) {
 		if err != nil {
 			return
 		}
-		if hookInfo.Kind == hooks.RelationBroken {
+
+		if hookInfo.Kind == hooks.RelationCreated {
+			r.relationCreated[hookInfo.RelationId] = true
+		} else if hookInfo.Kind == hooks.RelationBroken {
 			delete(r.relationers, hookInfo.RelationId)
+			delete(r.relationCreated, hookInfo.RelationId)
+			delete(r.remoteAppName, hookInfo.RelationId)
 		}
 	}()
 	if !hookInfo.Kind.IsRelation() {

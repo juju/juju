@@ -315,6 +315,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
+
 	err := st.facade.FacadeCall("RelationById", args, &results)
 	if err != nil {
 		return nil, err

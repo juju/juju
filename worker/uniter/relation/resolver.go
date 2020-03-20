@@ -26,9 +26,10 @@ type SubordinateDestroyer interface {
 	DestroyAllSubordinates() error
 }
 
-// NewRelationsResolver returns a new Resolver that handles differences in
-// relation state.
-func NewRelationsResolver(stateTracker RelationStateTracker, subordinateDestroyer SubordinateDestroyer) resolver.Resolver {
+// NewRelationResolver returns a resolver that handles all relation-related
+// hooks (except relation-created) and is wired to the provided RelationStateTracker
+// instance.
+func NewRelationResolver(stateTracker RelationStateTracker, subordinateDestroyer SubordinateDestroyer) resolver.Resolver {
 	return &relationsResolver{
 		stateTracker:         stateTracker,
 		subordinateDestroyer: subordinateDestroyer,
@@ -185,8 +186,12 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 		}
 	}
 
-	// If the relation's meant to be broken, break it.
-	if remoteBroken {
+	// If the relation's meant to be broken, break it. A side-effect of
+	// the logic that generates the relation-created hooks is that we may
+	// end up in this block for a peer relation.  Since you cannot depart
+	// peer relations we can safely ignore this hook.
+	isPeer, _ := r.stateTracker.IsPeerRelation(relationId)
+	if remoteBroken && !isPeer {
 		if !localStateDir.Exists() {
 			// The relation may have been suspended and then
 			// removed, so we don't want to run the hook twice.
@@ -194,8 +199,9 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 		}
 
 		return hook.Info{
-			Kind:       hooks.RelationBroken,
-			RelationId: relationId,
+			Kind:              hooks.RelationBroken,
+			RelationId:        relationId,
+			RemoteApplication: r.stateTracker.RemoteApplication(relationId),
 		}, nil
 	}
 
@@ -275,4 +281,60 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 
 	// Nothing left to do for this relation.
 	return hook.Info{}, resolver.ErrNoOperation
+}
+
+// NewCreatedRelationResolver returns a resolver that handles relation-created
+// hooks and is wired to the provided RelationStateTracker instance.
+func NewCreatedRelationResolver(stateTracker RelationStateTracker) resolver.Resolver {
+	return &createdRelationsResolver{
+		stateTracker: stateTracker,
+	}
+}
+
+type createdRelationsResolver struct {
+	stateTracker RelationStateTracker
+}
+
+// NextOp implements resolver.Resolver.
+func (r *createdRelationsResolver) NextOp(localState resolver.LocalState, remoteState remotestate.Snapshot, opFactory operation.Factory) (operation.Operation, error) {
+	// Nothing to do if not yet installed or if the unit is dying.
+	if !localState.Installed || remoteState.Life == life.Dying {
+		return nil, resolver.ErrNoOperation
+	}
+
+	if err := r.stateTracker.SynchronizeScopes(remoteState); err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	for relationId, relationSnapshot := range remoteState.Relations {
+		if relationSnapshot.Life != life.Alive {
+			continue
+		}
+
+		hook, err := r.nextHookForRelation(relationId, relationSnapshot)
+		if err != nil {
+			if err == resolver.ErrNoOperation {
+				continue
+			}
+
+			return nil, errors.Trace(err)
+		}
+
+		return opFactory.NewRunHook(hook)
+	}
+
+	return nil, resolver.ErrNoOperation
+}
+
+func (r *createdRelationsResolver) nextHookForRelation(relationId int, relationSnapshot remotestate.RelationSnapshot) (hook.Info, error) {
+	isImplicit, _ := r.stateTracker.IsImplicit(relationId)
+	if r.stateTracker.RelationCreated(relationId) || isImplicit {
+		return hook.Info{}, resolver.ErrNoOperation
+	}
+
+	return hook.Info{
+		Kind:              hooks.RelationCreated,
+		RelationId:        relationId,
+		RemoteApplication: r.stateTracker.RemoteApplication(relationId),
+	}, nil
 }
