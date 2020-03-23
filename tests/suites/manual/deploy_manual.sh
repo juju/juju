@@ -45,6 +45,20 @@ EOF
     lxc profile edit "${profile_name}" < "${TEST_DIR}/${profile_name}.yaml"
 }
 
+delete_user_profile() {
+    local name
+
+    name=${1}
+    profile_name="profile-${name}"
+
+    set +e
+    OUT=$(lxc profile show profile-privileged || true)
+    if [ -n "${OUT}" ]; then
+        lxc profile delete "${profile_name}"
+    fi
+    set_verbosity
+}
+
 run_deploy_manual_lxd() {
     echo
 
@@ -154,6 +168,8 @@ EOF
     juju remove-application percona-cluster
 
     destroy_controller "test-${name}"
+
+    delete_user_profile "${name}"
 }
 
 test_deploy_manual() {
