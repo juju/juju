@@ -93,6 +93,11 @@ type MachineInfo struct {
 	Addresses                []network.ProviderAddress
 	HasVote                  bool
 	WantsVote                bool
+
+	// The preferred public and preferred private address are
+	// only stored on the machine info to populate the unit info.
+	PreferredPublicAddress  network.SpaceAddress
+	PreferredPrivateAddress network.SpaceAddress
 }
 
 // EntityID returns a unique identifier for a machine across
@@ -546,6 +551,7 @@ func (i *BlockInfo) Clone() EntityInfo {
 // tracked by multiwatcherStore.
 type ModelInfo struct {
 	ModelUUID       string
+	Type            model.ModelType
 	Name            string
 	Life            life.Value
 	Owner           string
