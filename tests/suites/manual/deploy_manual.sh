@@ -24,7 +24,7 @@ create_user_profile() {
     profile_name="profile-${name}"
 
     public_key="${TEST_DIR}/${name}.pub"
-    key=$(cat ${public_key} | tr -d '\n')
+    key=$(cat "${public_key}" | tr -d '\n')
 
     PROFILE=$(cat <<EOF
 config:
@@ -79,7 +79,7 @@ run_deploy_manual_lxd() {
 
         attempt=0
         while [ ${attempt} -lt 30 ]; do
-            address=$(lxc list $1 --format json | \
+            address=$(lxc list "$1" --format json | \
                 jq --raw-output '.[0].state.network.eth0.addresses | map(select( .family == "inet")) | .[0].address')
 
             if echo "${address}" | grep -q '^[0-9]\+\.[0-9]\+\.[0-9]\+\.[0-9]\+$'; then
@@ -89,7 +89,8 @@ run_deploy_manual_lxd() {
             sleep 1
             attempt=$((attempt+1))
         done
-        
+
+        # shellcheck disable=SC2086
         eval $addr_result="'${address}'"
     }
 
@@ -97,6 +98,7 @@ run_deploy_manual_lxd() {
     launch_and_wait_addr "${model1}" addr_m1
     launch_and_wait_addr "${model2}" addr_m2
 
+    # shellcheck disable=SC2154
     for addr in "${addr_c}" "${addr_m1}" "${addr_m2}"; do
         ssh-keygen -f "${HOME}/.ssh/known_hosts" -R "${addr}"
 
@@ -106,7 +108,7 @@ run_deploy_manual_lxd() {
                 -o IdentitiesOnly=yes \
                 -o StrictHostKeyChecking=no \
                 -o AddKeysToAgent=yes \
-                "ubuntu@${addr}" 2>&1 || true)
+                ubuntu@"${addr}" 2>&1 || true)
             if echo "${OUT}" | grep -q -v "Could not resolve hostname"; then
                 echo "Adding ssh key to ${addr}"
                 break
@@ -139,6 +141,19 @@ EOF
     file="${TEST_DIR}/test-${name}.txt"
 
     bootstrap "${cloud_name}" "test-${name}" "${file}"
+
+    juju add-machine ssh:ubuntu@"${addr_m1}" >"${TEST_DIR}/add-machine-1.log" 2>&1
+    juju add-machine ssh:ubuntu@"${addr_m2}" >"${TEST_DIR}/add-machine-2.log" 2>&1
+
+    juju enable-ha >"${TEST_DIR}/enable-ha.log" 2>&1
+
+    juju deploy percona-cluster
+
+    wait_for "percona-cluster" "$(idle_condition "percona-cluster")"
+
+    juju remove-application percona-cluster
+
+    destroy_controller "test-${name}"
 }
 
 test_deploy_manual() {
