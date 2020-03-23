@@ -37,6 +37,7 @@ TEST_NAMES="static_analysis \
             hooks \
             hook_tools \
             machine \
+            manual \
             relations \
             smoke \
             model"
@@ -94,7 +95,7 @@ show_help() {
     for test in ${TEST_NAMES}; do
         name=$(echo "${test}" | sed -E "s/^run_//g" | sed -E "s/_/ /g")
         # shellcheck disable=SC2086
-        output="${output}\n    $(green ${test})|Runs the ${name}"
+        output="${output}\n    $(green ${test})|Runs the ${name} tests"
     done
     echo "${output}" | column -t -s "|"
 

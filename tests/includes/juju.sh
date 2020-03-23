@@ -53,6 +53,12 @@ bootstrap() {
         "localhost")
             provider="lxd"
             ;;
+        "manual")
+            manual_name=${1}
+            shift
+
+            provider="${manual_name}"
+            ;;
         *)
             echo "Unexpected bootstrap provider (${BOOTSTRAP_PROVIDER})."
             exit 1

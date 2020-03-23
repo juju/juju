@@ -1,6 +1,6 @@
 test_deploy() {
     if [ "$(skip 'test_deploy')" ]; then
-        echo "==> TEST SKIPPED: CMR bundle tests"
+        echo "==> TEST SKIPPED: Deploy tests"
         return
     fi
 
