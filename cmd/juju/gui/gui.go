@@ -1,4 +1,4 @@
-// Copyright 2016 Canonical Ltd.
+// Copyright 2020 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package gui
@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -28,15 +27,9 @@ func NewGUICommand() cmd.Command {
 	return modelcmd.Wrap(&guiCommand{})
 }
 
-// guiCommand opens the Juju GUI in the default browser.
+// guiCommand opens the Juju Dashboard in the default browser.
 type guiCommand struct {
 	modelcmd.ModelCommandBase
-
-	// Deprecated - used with --no-browser
-	noBrowser bool
-
-	// Deprecated - used with --show-credentials
-	showCreds bool
 
 	hideCreds bool
 	browser   bool
@@ -44,42 +37,40 @@ type guiCommand struct {
 	getGUIVersions func(connection api.Connection) ([]params.GUIArchiveVersion, error)
 }
 
-const guiDoc = `
-Print the Juju GUI URL and show admin credential to use to log into it:
+const dashboardDoc = `
+Print the Juju Dashboard URL and show admin credential to use to log into it:
 
-	juju gui
+	juju dashboard
 
-Print the Juju GUI URL only:
+Print the Juju Dashboard URL only:
 
-	juju gui --hide-credential
+	juju dashboard --hide-credential
 
-Open the Juju GUI in the default browser and show admin credential to use to log into it:
+Open the Juju Dashboard in the default browser and show admin credential to use to log into it:
 
-	juju gui --browser
+	juju dashboard --browser
 
-Open the Juju GUI in the default browser without printing the login credential:
+Open the Juju Dashboard in the default browser without printing the login credential:
 
-	juju gui --hide-credential --browser
+	juju dashboard --hide-credential --browser
 
-An error is returned if the Juju GUI is not available in the controller.
+An error is returned if the Juju Dashboard is not available in the controller.
 `
 
 // Info implements the cmd.Command interface.
 func (c *guiCommand) Info() *cmd.Info {
 	return jujucmd.Info(&cmd.Info{
-		Name:    "gui",
-		Purpose: "Print the Juju GUI URL, or open the Juju GUI in the default browser.",
-		Doc:     guiDoc,
+		Name:    "dashboard",
+		Purpose: "Print the Juju Dashboard URL, or open the Juju Dashboard in the default browser.",
+		Doc:     dashboardDoc,
 	})
 }
 
 // SetFlags implements the cmd.Command interface.
 func (c *guiCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.ModelCommandBase.SetFlags(f)
-	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show admin credential to use for logging into the Juju GUI")
-	f.BoolVar(&c.showCreds, "show-credentials", true, "DEPRECATED. Show admin credential to use for logging into the Juju GUI")
-	f.BoolVar(&c.noBrowser, "no-browser", true, "DEPRECATED. --no-browser is now the default. Use --browser to open the web browser")
-	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju GUI URL")
+	f.BoolVar(&c.hideCreds, "hide-credential", false, "Do not show the admin credential to use for logging into the Juju Dashboard")
+	f.BoolVar(&c.browser, "browser", false, "Open the web browser, instead of just printing the Juju Dashboard URL")
 }
 
 func (c *guiCommand) guiVersions(conn api.Connection) ([]params.GUIArchiveVersion, error) {
@@ -99,39 +90,17 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	store, ok := c.ClientStore().(modelcmd.QualifyingClientStore)
-	if !ok {
-		store = modelcmd.QualifyingClientStore{
-			ClientStore: c.ClientStore(),
-		}
-	}
-	controllerName, err := c.ControllerName()
-	if err != nil {
-		return errors.Trace(err)
-	}
-	modelName, details, err := c.ModelCommandBase.ModelDetails()
-	if err != nil {
-		return errors.Annotate(err, "cannot retrieve model details: please make sure you switched to a valid model")
-	}
-
 	// Make 2 URLs to try - the old and the new.
 	addr := guiAddr(conn)
-	rawURL := fmt.Sprintf("https://%s/gui/%s/", addr, details.ModelUUID)
-	qualifiedModelName, err := store.QualifiedModelName(controllerName, modelName)
-	if err != nil {
-		return errors.Annotate(err, "cannot construct model name")
-	}
-	// Do not include any possible "@external" fragment in the path.
-	qualifiedModelName = strings.Replace(qualifiedModelName, "@external/", "/", 1)
-	newRawURL := fmt.Sprintf("https://%s/gui/u/%s", addr, qualifiedModelName)
+	generatedDashboardURL := fmt.Sprintf("https://%s/dashboard", addr)
 
-	// Check that the Juju GUI is available.
-	var guiURL string
-	if guiURL, err = c.checkAvailable(rawURL, newRawURL, conn); err != nil {
+	// Check that the Juju Dashboard is available.
+	var dashboardURL string
+	if dashboardURL, err = c.checkAvailable(generatedDashboardURL, conn); err != nil {
 		return errors.Trace(err)
 	}
 
-	// Get the GUI version to print.
+	// Get the Dashboard version to print.
 	versions, err := c.guiVersions(conn)
 	if err != nil {
 		return errors.Trace(err)
@@ -144,8 +113,8 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
-	// Open the Juju GUI in the browser.
-	if err = c.openBrowser(ctx, guiURL, vers); err != nil {
+	// Open the Juju Dashboard in the browser.
+	if err = c.openBrowser(ctx, dashboardURL, vers); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -156,7 +125,7 @@ func (c *guiCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-// guiAddr returns an address where the GUI is available.
+// guiAddr returns an address where the Dashboard is available.
 func guiAddr(conn api.Connection) string {
 	if dnsName := conn.PublicDNSName(); dnsName != "" {
 		return dnsName
@@ -164,18 +133,15 @@ func guiAddr(conn api.Connection) string {
 	return conn.Addr()
 }
 
-// checkAvailable ensures the Juju GUI is available on the controller at
+// checkAvailable ensures the Juju Dashboard is available on the controller at
 // one of the given URLs, returning the successful URL.
-func (c *guiCommand) checkAvailable(rawURL, newRawURL string, conn api.Connection) (string, error) {
+func (c *guiCommand) checkAvailable(rawURL string, conn api.Connection) (string, error) {
 	client, err := conn.HTTPClient()
 	if err != nil {
 		return "", errors.Annotate(err, "cannot retrieve HTTP client")
 	}
-	if err = clientGet(c.StdContext, client, newRawURL); err == nil {
-		return newRawURL, nil
-	}
 	if err = clientGet(c.StdContext, client, rawURL); err != nil {
-		return "", errors.Annotate(err, "Juju GUI is not available")
+		return "", errors.Annotate(err, "Juju Dashboard is not available")
 	}
 	return rawURL, nil
 }
@@ -184,23 +150,25 @@ func (c *guiCommand) checkAvailable(rawURL, newRawURL string, conn api.Connectio
 func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.Number) error {
 	u, err := url.Parse(rawURL)
 	if err != nil {
-		return errors.Annotate(err, "cannot parse Juju GUI URL")
+		return errors.Annotate(err, "cannot parse Juju Dashboard URL")
 	}
-	if c.noBrowser && !c.browser {
+	if !c.browser {
 		versInfo := ""
 		if vers != nil {
-			versInfo = fmt.Sprintf("%v ", vers)
+			versInfo = fmt.Sprintf("%v", vers)
 		}
-		modelName, err := c.ModelIdentifier()
+
+		controllerName, err := c.ControllerName()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		ctx.Infof("GUI %sfor model %q is enabled at:\n  %s", versInfo, modelName, u.String())
+
+		ctx.Infof("Dashboard %s for controller %q is enabled at:\n  %s", versInfo, controllerName, u.String())
 		return nil
 	}
 	err = webbrowserOpen(u)
 	if err == nil {
-		ctx.Infof("Opening the Juju GUI in your browser.")
+		ctx.Infof("Opening the Juju Dashboard in your browser.")
 		ctx.Infof("If it does not open, open this URL:\n%s", u)
 		return nil
 	}
@@ -213,7 +181,7 @@ func (c *guiCommand) openBrowser(ctx *cmd.Context, rawURL string, vers *version.
 
 // showCredentials shows the admin username and password.
 func (c *guiCommand) showCredentials(ctx *cmd.Context) error {
-	if c.hideCreds || !c.showCreds {
+	if c.hideCreds {
 		return nil
 	}
 	// TODO(wallyworld) - what to do if we are using a macaroon.
