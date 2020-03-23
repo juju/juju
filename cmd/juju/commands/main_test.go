@@ -129,7 +129,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown command with match",
 		args:    []string{"discombobulate"},
 		code:    1,
-		out:     missingCommandMessage("discombobulate", "diff-bundle"),
+		out:     missingCommandMessage("discombobulate", "dashboard"),
 	}, {
 		summary: "unknown command",
 		args:    []string{"pseudopseudohypoparathyroidism"},
@@ -502,6 +502,7 @@ var commandNames = []string{
 	"create-storage-pool",
 	"create-wallet",
 	"credentials",
+	"dashboard",
 	"debug-hook",
 	"debug-hooks",
 	"debug-log",
