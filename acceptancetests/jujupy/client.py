@@ -2179,11 +2179,15 @@ class ModelClient:
                 self.handle_openstack(child, cloud)
             if cloud['type'] == 'vsphere':
                 self.handle_vsphere(child, cloud)
-            match = child.expect(["Do you ONLY want to add cloud", "Can't validate endpoint"])
+            match = child.expect(["Do you ONLY want to add cloud", "Can't validate endpoint", pexpect.EOF])
             if match == 0:
                 child.sendline("y")
             if match == 1:
                 raise InvalidEndpoint()
+            if match == 2:
+                # The endpoint was validated and there isn't a controller to
+                # ask about.
+                return
             child.expect([pexpect.EOF, "Can't validate endpoint"])
             if child.match != pexpect.EOF:
                 if child.match.group(0) == "Can't validate endpoint":

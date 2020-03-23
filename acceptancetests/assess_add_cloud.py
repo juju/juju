@@ -133,7 +133,14 @@ def assess_cloud(client, cloud_name, example_cloud):
         raise JujuAssertionError('Clouds missing!')
     if clouds['clouds'].keys() != [cloud_name]:
         raise NameMismatch()
-    if clouds['clouds'][cloud_name] != example_cloud:
+
+    actual_cloud = clouds['clouds'][cloud_name]
+    # Accept the creation of a default region even though there's not one in
+    # the example cloud.
+    if 'regions' not in example_cloud and actual_cloud.get('regions') == {'default': {}}:
+        del actual_cloud['regions']
+
+    if actual_cloud != example_cloud:
         sys.stderr.write("\nMissmatch for cloud: {}\n".format(cloud_name))
         sys.stderr.write('\nExpected:\n')
         yaml.dump(example_cloud, sys.stderr)
