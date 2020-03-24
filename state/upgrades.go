@@ -2854,3 +2854,61 @@ func IncrementTasksSequence(pool *StatePool) error {
 	_, err = sequence(st, "tasks")
 	return errors.Trace(err)
 }
+
+// AddMachineIDToSubordinates ensures that the subordinate units
+// have the machine ID set that matches the principal.
+func AddMachineIDToSubordinates(pool *StatePool) error {
+	st := pool.SystemState()
+	coll, closer := st.db().GetRawCollection(unitsC)
+	defer closer()
+
+	// Load all the units into a map by full ID.
+	units := make(map[string]*unitDoc)
+
+	var doc unitDoc
+	iter := coll.Find(nil).Iter()
+	for iter.Next(&doc) {
+		// Make a copy of the unitDoc and put the copy
+		// into the map.
+		unit := doc
+		units[unit.DocID] = &unit
+	}
+	if err := iter.Close(); err != nil {
+		return errors.Trace(err)
+	}
+
+	// Iterate through he map and find any subordinates.
+	// For the subordinates, look up the principal and get their
+	// machine ID. If there is a machine ID (CAAS models won't have one),
+	// we create and operation to set the machine ID on the subordinate.
+	var ops []txn.Op
+	for _, unit := range units {
+		if unit.Principal == "" {
+			continue
+		}
+		// If we already have a machine id, no need to set one.
+		if unit.MachineId != "" {
+			continue
+		}
+		key := ensureModelUUID(unit.ModelUUID, unit.Principal)
+		principal, found := units[key]
+		if !found {
+			logger.Warningf("principal unit %q not found, how?", key)
+			continue
+		}
+		if principal.MachineId == "" {
+			// Principal has no machine ID, must be a CAAS unit.
+			continue
+		}
+		ops = append(ops, txn.Op{
+			C:      unitsC,
+			Id:     unit.DocID,
+			Update: bson.M{"$set": bson.M{"machineid": principal.MachineId}},
+		})
+	}
+
+	if len(ops) == 0 {
+		return nil
+	}
+	return st.runRawTransaction(ops)
+}

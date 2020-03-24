@@ -4226,6 +4226,84 @@ func (s *upgradesSuite) makeSpace(c *gc.C, uuid, name, id string) {
 	c.Assert(err, jc.ErrorIsNil)
 }
 
+func (s *upgradesSuite) TestAddMachineIDToSubordinates(c *gc.C) {
+	col, closer := s.state.db().GetRawCollection(unitsC)
+	defer closer()
+
+	uuid1 := utils.MustNewUUID().String()
+	uuid2 := utils.MustNewUUID().String()
+	uuid3 := utils.MustNewUUID().String()
+
+	err := col.Insert(bson.M{
+		"_id":        uuid1 + ":principal/1",
+		"model-uuid": uuid1,
+		"machineid":  "1",
+	}, bson.M{
+		"_id":        uuid1 + ":telegraf/1",
+		"model-uuid": uuid1,
+		"principal":  "principal/1",
+	}, bson.M{
+		"_id":        uuid2 + ":another/0",
+		"model-uuid": uuid2,
+		"machineid":  "42",
+	}, bson.M{
+		"_id":        uuid2 + ":telegraf/0",
+		"model-uuid": uuid2,
+		"principal":  "another/0",
+	}, bson.M{
+		"_id":        uuid2 + ":livepatch/0",
+		"model-uuid": uuid2,
+		"principal":  "another/0",
+	}, bson.M{
+		// uuid3 is our CAAS model that doesn't have machine IDs for the princpals.
+		"_id":        uuid3 + ":base/0",
+		"model-uuid": uuid3,
+	}, bson.M{
+		"_id":        uuid3 + ":subordinate/0",
+		"model-uuid": uuid3,
+		"principal":  "base/0",
+	})
+	c.Assert(err, jc.ErrorIsNil)
+
+	expected := bsonMById{
+		{
+			"_id":        uuid1 + ":principal/1",
+			"model-uuid": uuid1,
+			"machineid":  "1",
+		}, {
+			"_id":        uuid1 + ":telegraf/1",
+			"model-uuid": uuid1,
+			"principal":  "principal/1",
+			"machineid":  "1",
+		}, {
+			"_id":        uuid2 + ":another/0",
+			"model-uuid": uuid2,
+			"machineid":  "42",
+		}, {
+			"_id":        uuid2 + ":telegraf/0",
+			"model-uuid": uuid2,
+			"principal":  "another/0",
+			"machineid":  "42",
+		}, {
+			"_id":        uuid2 + ":livepatch/0",
+			"model-uuid": uuid2,
+			"principal":  "another/0",
+			"machineid":  "42",
+		}, {
+			// uuid3 is our CAAS model that doesn't have machine IDs for the princpals.
+			"_id":        uuid3 + ":base/0",
+			"model-uuid": uuid3,
+		}, {
+			"_id":        uuid3 + ":subordinate/0",
+			"model-uuid": uuid3,
+			"principal":  "base/0",
+		},
+	}
+
+	sort.Sort(expected)
+	s.assertUpgradedData(c, AddMachineIDToSubordinates, upgradedData(col, expected))
+}
+
 type docById []bson.M
 
 func (d docById) Len() int           { return len(d) }

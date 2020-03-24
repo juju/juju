@@ -5,9 +5,10 @@ package upgrades
 
 import (
 	"github.com/juju/errors"
+	"gopkg.in/juju/names.v3"
+
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/worker/common/reboot"
-	"gopkg.in/juju/names.v3"
 )
 
 // stateStepsFor28 returns upgrade steps for Juju 2.8.0.
@@ -18,6 +19,13 @@ func stateStepsFor28() []Step {
 			targets:     []Target{DatabaseMaster},
 			run: func(context Context) error {
 				return context.State().IncrementTasksSequence()
+			},
+		},
+		&upgradeStep{
+			description: "add machine ID to subordinate units",
+			targets:     []Target{DatabaseMaster},
+			run: func(context Context) error {
+				return context.State().AddMachineIDToSubordinates()
 			},
 		},
 	}

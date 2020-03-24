@@ -77,6 +77,7 @@ type StateBackend interface {
 	EnsureDefaultSpaceSetting() error
 	RemoveControllerConfigMaxLogAgeAndSize() error
 	IncrementTasksSequence() error
+	AddMachineIDToSubordinates() error
 }
 
 // Model is an interface providing access to the details of a model within the
@@ -312,4 +313,8 @@ func (s stateBackend) RemoveControllerConfigMaxLogAgeAndSize() error {
 
 func (s stateBackend) IncrementTasksSequence() error {
 	return state.IncrementTasksSequence(s.pool)
+}
+
+func (s stateBackend) AddMachineIDToSubordinates() error {
+	return state.AddMachineIDToSubordinates(s.pool)
 }
