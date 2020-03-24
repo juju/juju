@@ -176,12 +176,28 @@ func (r *relationsResolver) nextHookForRelation(localStateDir *StateDir, remote 
 			if err != nil {
 				return hook.Info{}, errors.Trace(err)
 			}
+
+			// Consult the life of the local unit and/or app to
+			// figure out if its the local or the remote unit going
+			// away. Note that if the app is removed, the unit will
+			// still be alive but its parent app will by dying.
+			localUnitLife, localAppLife, err := r.stateTracker.LocalUnitAndApplicationLife()
+			if err != nil {
+				return hook.Info{}, errors.Trace(err)
+			}
+
+			var departee = unitName
+			if localUnitLife != life.Alive || localAppLife != life.Alive {
+				departee = r.stateTracker.LocalUnitName()
+			}
+
 			return hook.Info{
 				Kind:              hooks.RelationDeparted,
 				RelationId:        relationId,
 				RemoteUnit:        unitName,
 				RemoteApplication: appName,
 				ChangeVersion:     changeVersion,
+				DepartingUnit:     departee,
 			}, nil
 		}
 	}
