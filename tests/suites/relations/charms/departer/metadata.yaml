@@ -1,0 +1,6 @@
+name: departer
+summary: "A test charm to verify that relation-departed hooks include departing unit"
+description: "This is a longer description."
+peers:
+  self:
+    interface: dummy

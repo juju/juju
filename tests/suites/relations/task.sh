@@ -14,6 +14,7 @@ test_relations() {
     bootstrap "test-relations" "${file}"
 
     test_relation_data_exchange
+    test_relation_departing_unit
 
     destroy_controller "test-relations"
 }
