@@ -13,7 +13,6 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/apiserver/facades/client/spaces"
-	"github.com/juju/juju/apiserver/facades/client/spaces/mocks"
 	"github.com/juju/juju/controller"
 	"github.com/juju/juju/core/settings"
 	"github.com/juju/juju/state"
@@ -23,11 +22,11 @@ import (
 type SpaceRenameSuite struct {
 	spaceName string
 
-	state    *mocks.MockRenameSpaceState
-	space    *mocks.MockRenameSpace
-	settings *mocks.MockSettings
-	cons1    *mocks.MockConstraints
-	cons2    *mocks.MockConstraints
+	state    *spaces.MockRenameSpaceState
+	space    *spaces.MockRenameSpace
+	settings *spaces.MockSettings
+	cons1    *spaces.MockConstraints
+	cons2    *spaces.MockConstraints
 }
 
 var _ = gc.Suite(&SpaceRenameSuite{})
@@ -116,13 +115,13 @@ func (s *SpaceRenameSuite) setupMocks(c *gc.C) *gomock.Controller {
 	ctrl := gomock.NewController(c)
 
 	s.spaceName = "db"
-	s.space = mocks.NewMockRenameSpace(ctrl)
+	s.space = spaces.NewMockRenameSpace(ctrl)
 	s.space.EXPECT().Name().Return(s.spaceName).AnyTimes()
 
-	s.state = mocks.NewMockRenameSpaceState(ctrl)
-	s.settings = mocks.NewMockSettings(ctrl)
-	s.cons1 = mocks.NewMockConstraints(ctrl)
-	s.cons2 = mocks.NewMockConstraints(ctrl)
+	s.state = spaces.NewMockRenameSpaceState(ctrl)
+	s.settings = spaces.NewMockSettings(ctrl)
+	s.cons1 = spaces.NewMockConstraints(ctrl)
+	s.cons2 = spaces.NewMockConstraints(ctrl)
 
 	return ctrl
 }
