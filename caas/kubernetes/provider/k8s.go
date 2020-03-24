@@ -1124,10 +1124,8 @@ func (k *kubernetesClient) EnsureService(
 		}
 	}
 
-	if params.Deployment.DeploymentType != caas.DeploymentStateful {
-		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
-			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s applications", caas.DeploymentStateful))
-		}
+	if err = validateDeploymentType(params.Deployment.DeploymentType, params, workloadSpec); err != nil {
+		return errors.Trace(err)
 	}
 
 	hasService := !params.PodSpec.OmitServiceFrontend && !params.Deployment.ServiceType.IsOmit()
@@ -1188,6 +1186,22 @@ func (k *kubernetesClient) EnsureService(
 	default:
 		// This should never happend because we have validated both in this method and in `charm.v6`.
 		return errors.NotSupportedf("deployment type %q", params.Deployment.DeploymentType)
+	}
+	return nil
+}
+
+func validateDeploymentType(t caas.DeploymentType, params *caas.ServiceParams, workloadSpec *workloadSpec) error {
+	if t != caas.DeploymentStateful {
+		if workloadSpec.Service != nil && workloadSpec.Service.ScalePolicy != "" {
+			return errors.NewNotValid(nil, fmt.Sprintf("ScalePolicy is only supported for %s applications", caas.DeploymentStateful))
+		}
+	}
+
+	if t != caas.DeploymentStateful && len(params.Filesystems) > 0 {
+		return errors.NewNotValid(nil, fmt.Sprintf(
+			"charm defined storage is only supported for deployment type %q, please instead define storage using volumeConfig in containers",
+			caas.DeploymentStateful,
+		))
 	}
 	return nil
 }
