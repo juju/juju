@@ -1413,32 +1413,38 @@ func (env *environ) Spaces(ctx context.ProviderCallContext) ([]corenetwork.Space
 	}
 	return []corenetwork.SpaceInfo{{
 		Name:       "foo",
-		ProviderId: corenetwork.Id("0"),
+		ProviderId: "0",
 		Subnets: []corenetwork.SubnetInfo{{
-			ProviderId:        corenetwork.Id("1"),
+			ProviderId:        "1",
 			AvailabilityZones: []string{"zone1"},
 		}, {
-			ProviderId:        corenetwork.Id("2"),
+			ProviderId:        "2",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "Another Foo 99!",
 		ProviderId: "1",
 		Subnets: []corenetwork.SubnetInfo{{
-			ProviderId:        corenetwork.Id("3"),
+			ProviderId:        "3",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "foo-",
 		ProviderId: "2",
 		Subnets: []corenetwork.SubnetInfo{{
-			ProviderId:        corenetwork.Id("4"),
+			ProviderId:        "4",
 			AvailabilityZones: []string{"zone1"},
 		}}}, {
 		Name:       "---",
 		ProviderId: "3",
 		Subnets: []corenetwork.SubnetInfo{{
-			ProviderId:        corenetwork.Id("5"),
+			ProviderId:        "5",
 			AvailabilityZones: []string{"zone1"},
 		}}}}, nil
+}
+
+// SpaceSetID (environs.Networking) returns a grouping key for use in
+// space/subnet definitions.
+func (env *environ) SpaceSetID(_ context.ProviderCallContext) (string, error) {
+	return "", errors.NotSupportedf("space sets")
 }
 
 // NetworkInterfaces implements Environ.NetworkInterfaces().
