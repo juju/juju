@@ -43,13 +43,14 @@ type Networking interface {
 	// returned.
 	NetworkInterfaces(ctx context.ProviderCallContext, ids []instance.Id) ([][]corenetwork.InterfaceInfo, error)
 
-	// SupportsSpaces returns whether the current environment supports
+	// SupportsSpaces returns whether the current environment supports network
 	// spaces. The returned error satisfies errors.IsNotSupported(),
 	// unless a general API failure occurs.
 	SupportsSpaces(ctx context.ProviderCallContext) (bool, error)
 
-	// SupportsProviderSpaces returns whether the current environment supports
-	// provider spaces. Some providers support specific crud actions, like renaming.
+	// SupportsProviderSpaces returns true if the provider is the source of
+	// network spaces and not the Juju operator, such as is the case with MAAS.
+	// For these providers, modifying spaces and subnets is not permitted.
 	// The returned error satisfies errors.IsNotSupported(),
 	// unless a general API failure occurs.
 	SupportsProviderSpaces(ctx context.ProviderCallContext) (bool, error)
@@ -63,6 +64,14 @@ type Networking interface {
 	// details of all associated subnets, about all spaces known to the
 	// provider that have subnets available.
 	Spaces(ctx context.ProviderCallContext) ([]corenetwork.SpaceInfo, error)
+
+	// SpaceSetID returns an ID for use in grouping space definitions.
+	// This ID is stored in the spaces collection so that a network topology
+	// is constant across an identified space set.
+	// In this way, for operator-determined spaces, we need not repeat space
+	// definitions per model - any new model with the same SpaceSetID will see
+	// the spaces and subnets as they are already defined.
+	SpaceSetID(ctx context.ProviderCallContext) (string, error)
 
 	// ProviderSpaceInfo returns the details of the space requested as
 	// a ProviderSpaceInfo. This will contain everything needed to

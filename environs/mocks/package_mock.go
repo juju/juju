@@ -18,7 +18,7 @@ import (
 	network0 "github.com/juju/juju/network"
 	storage "github.com/juju/juju/storage"
 	version "github.com/juju/version"
-	names_v3 "gopkg.in/juju/names.v3"
+	names "gopkg.in/juju/names.v3"
 	reflect "reflect"
 )
 
@@ -90,7 +90,7 @@ func (mr *MockNetworkingEnvironMockRecorder) AllRunningInstances(arg0 interface{
 }
 
 // AllocateContainerAddresses mocks base method
-func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names_v3.MachineTag, arg3 []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
+func (m *MockNetworkingEnviron) AllocateContainerAddresses(arg0 context.ProviderCallContext, arg1 instance.Id, arg2 names.MachineTag, arg3 []network.InterfaceInfo) ([]network.InterfaceInfo, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AllocateContainerAddresses", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].([]network.InterfaceInfo)
@@ -377,6 +377,21 @@ func (m *MockNetworkingEnviron) SetConfig(arg0 *config.Config) error {
 func (mr *MockNetworkingEnvironMockRecorder) SetConfig(arg0 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetConfig", reflect.TypeOf((*MockNetworkingEnviron)(nil).SetConfig), arg0)
+}
+
+// SpaceSetID mocks base method
+func (m *MockNetworkingEnviron) SpaceSetID(arg0 context.ProviderCallContext) (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SpaceSetID", arg0)
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SpaceSetID indicates an expected call of SpaceSetID
+func (mr *MockNetworkingEnvironMockRecorder) SpaceSetID(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SpaceSetID", reflect.TypeOf((*MockNetworkingEnviron)(nil).SpaceSetID), arg0)
 }
 
 // Spaces mocks base method
