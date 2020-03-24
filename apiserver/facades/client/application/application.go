@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/storage"
 	"github.com/juju/juju/storage/poolmanager"
 	"github.com/juju/juju/tools"
+	jujuversion "github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.apiserver.application")
@@ -523,26 +524,30 @@ func caasPrecheck(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	storageClassName, _ := cfg.AllAttrs()[k8s.OperatorStorageKey].(string)
-	if storageClassName == "" {
-		return errors.New(
-			"deploying a Kubernetes application requires a suitable storage class.\n" +
-				"None have been configured. Set the operator-storage model config to " +
-				"specify which storage class should be used to allocate operator storage.\n" +
-				"See https://discourse.jujucharms.com/t/getting-started/152.",
-		)
-	}
-	sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
-	if err != nil {
-		return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
-	}
-	if sp.Provider != string(k8s.K8s_ProviderType) {
-		poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
-		return errors.Errorf(
-			"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
-	}
-	if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
-		return errors.Trace(err)
+
+	// For older charms, operator-storage model config is mandatory.
+	if k8s.RequireOperatorStorage(ch.Meta().MinJujuVersion) {
+		storageClassName, _ := cfg.AllAttrs()[k8s.OperatorStorageKey].(string)
+		if storageClassName == "" {
+			return errors.New(
+				"deploying a Kubernetes application requires a suitable storage class.\n" +
+					"None have been configured. Set the operator-storage model config to " +
+					"specify which storage class should be used to allocate operator storage.\n" +
+					"See https://discourse.jujucharms.com/t/getting-started/152.",
+			)
+		}
+		sp, err := caasoperatorprovisioner.CharmStorageParams("", storageClassName, cfg, "", storagePoolManager, registry)
+		if err != nil {
+			return errors.Annotatef(err, "getting operator storage params for %q", args.ApplicationName)
+		}
+		if sp.Provider != string(k8s.K8s_ProviderType) {
+			poolName := cfg.AllAttrs()[k8s.OperatorStorageKey]
+			return errors.Errorf(
+				"the %q storage pool requires a provider type of %q, not %q", poolName, k8s.K8s_ProviderType, sp.Provider)
+		}
+		if err := caasBroker.ValidateStorageClass(sp.Attributes); err != nil {
+			return errors.Trace(err)
+		}
 	}
 
 	workloadStorageClass, _ := cfg.AllAttrs()[k8s.WorkloadStorageKey].(string)
@@ -599,7 +604,7 @@ func deployApplication(
 		return errors.Trace(err)
 	}
 
-	if err := checkJujuMinVersion(ch); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(ch.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return errors.Trace(err)
 	}
 

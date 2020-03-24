@@ -131,7 +131,7 @@ func AddCharmWithAuthorizationAndRepo(st State, args params.AddCharmWithAuthoriz
 		return errors.Trace(err)
 	}
 
-	if err := checkJujuMinVersion(downloadedCharm); err != nil {
+	if err := jujuversion.CheckJujuMinVersion(downloadedCharm.Meta().MinJujuVersion, jujuversion.Current); err != nil {
 		return errors.Trace(err)
 	}
 
@@ -242,14 +242,6 @@ func openCSClient(args OpenCSRepoParams) (*csclient.Client, error) {
 	return csClient, nil
 }
 
-func checkJujuMinVersion(ch charm.Charm) (err error) {
-	minver := ch.Meta().MinJujuVersion
-	if minver != version.Zero && minver.Compare(jujuversion.Current) > 0 {
-		return minVersionError(minver, jujuversion.Current)
-	}
-	return nil
-}
-
 func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error) {
 	// check caas min version.
 	charmDeployment := ch.Meta().Deployment
@@ -271,17 +263,6 @@ func checkCAASMinVersion(ch charm.Charm, caasVersion *version.Number) (err error
 		))
 	}
 	return nil
-}
-
-type minJujuVersionErr struct {
-	*errors.Err
-}
-
-func minVersionError(minver, jujuver version.Number) error {
-	err := errors.NewErr("charm's min version (%s) is higher than this juju model's version (%s)",
-		minver, jujuver)
-	err.SetLocation(1)
-	return minJujuVersionErr{&err}
 }
 
 // CharmArchive is the data that needs to be stored for a charm archive in
