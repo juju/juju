@@ -825,6 +825,20 @@ func (mr *MockMovingSubnetMockRecorder) CIDR() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CIDR", reflect.TypeOf((*MockMovingSubnet)(nil).CIDR))
 }
 
+// FanLocalUnderlay mocks base method
+func (m *MockMovingSubnet) FanLocalUnderlay() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FanLocalUnderlay")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// FanLocalUnderlay indicates an expected call of FanLocalUnderlay
+func (mr *MockMovingSubnetMockRecorder) FanLocalUnderlay() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FanLocalUnderlay", reflect.TypeOf((*MockMovingSubnet)(nil).FanLocalUnderlay))
+}
+
 // ID mocks base method
 func (m *MockMovingSubnet) ID() string {
 	m.ctrl.T.Helper()

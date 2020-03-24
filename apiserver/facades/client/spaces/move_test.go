@@ -105,7 +105,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsSuccess(c *gc.C) {
 	subnetID := "3"
 	cidr := "10.0.0.0/24"
 
-	subnet := expectMovingSubnet(ctrl, cidr)
+	subnet := expectMovingSubnet(ctrl, cidr, "")
 
 	moveSubnetsOp := spaces.NewMockMoveSubnetsOp(ctrl)
 	moveSubnetsOp.EXPECT().GetMovedSubnets().Return([]spaces.MovedSubnet{{
@@ -159,7 +159,7 @@ func (s *moveSubnetsAPISuite) TestMoveSubnetsConstraintsViolatedNoForceError(c *
 	subnetID := "3"
 	cidr := "10.0.0.0/24"
 
-	subnet := expectMovingSubnet(ctrl, cidr)
+	subnet := expectMovingSubnet(ctrl, cidr, "")
 
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -189,7 +189,7 @@ func (s *moveSubnetsAPISuite) TestSubnetsConstraintsViolatedForceSuccess(c *gc.C
 	subnetID := "3"
 	cidr := "10.0.0.0/24"
 
-	subnet := expectMovingSubnet(ctrl, cidr)
+	subnet := expectMovingSubnet(ctrl, cidr, "")
 
 	// MySQL is constrained to be in a different space.
 	cons := spaces.NewMockConstraints(ctrl)
@@ -223,9 +223,34 @@ func (s *moveSubnetsAPISuite) TestSubnetsConstraintsViolatedForceSuccess(c *gc.C
 	}})
 }
 
-func expectMovingSubnet(ctrl *gomock.Controller, cidr string) *spaces.MockMovingSubnet {
+func (s *moveSubnetsAPISuite) TestMoveSubnetsHasUnderlayError(c *gc.C) {
+	ctrl, unReg := s.SetupMocks(c, true, false)
+	defer ctrl.Finish()
+	defer unReg()
+
+	spaceName := "destination"
+	subnetID := "3"
+	cidr := "10.0.0.0/8"
+
+	subnet := expectMovingSubnet(ctrl, cidr, "20.0.0.0/24")
+
+	bExp := s.Backing.EXPECT()
+	bExp.MovingSubnet(subnetID).Return(subnet, nil)
+
+	res, err := s.API.MoveSubnets(moveSubnetsArg(subnetID, spaceName, false))
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(res.Results, gc.HasLen, 1)
+	c.Assert(res.Results[0].Error, gc.NotNil)
+	c.Assert(res.Results[0].Error.Message, gc.Equals,
+		`subnet "10.0.0.0/8" is a fan overlay of "20.0.0.0/24" and cannot be moved; move the underlay instead`)
+}
+
+func expectMovingSubnet(ctrl *gomock.Controller, cidr, underlay string) *spaces.MockMovingSubnet {
 	subnetMock := spaces.NewMockMovingSubnet(ctrl)
-	subnetMock.EXPECT().CIDR().Return(cidr)
+
+	subnetMock.EXPECT().CIDR().Return(cidr).MinTimes(1)
+	subnetMock.EXPECT().FanLocalUnderlay().Return(underlay).MinTimes(1)
+
 	return subnetMock
 }
 
