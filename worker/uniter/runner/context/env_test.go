@@ -128,12 +128,23 @@ func (s *EnvSuite) getContext(newProxyOnly bool) (ctx *context.HookContext, expe
 }
 
 func (s *EnvSuite) setRelation(ctx *context.HookContext) (expectVars []string) {
-	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app")
+	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "")
 	return []string{
 		"JUJU_RELATION=an-endpoint",
 		"JUJU_RELATION_ID=an-endpoint:22",
 		"JUJU_REMOTE_UNIT=that-unit/456",
 		"JUJU_REMOTE_APP=that-app",
+	}
+}
+
+func (s *EnvSuite) setDepartingRelation(ctx *context.HookContext) (expectVars []string) {
+	context.SetEnvironmentHookContextRelation(ctx, 22, "an-endpoint", "that-unit/456", "that-app", "that-unit/456")
+	return []string{
+		"JUJU_RELATION=an-endpoint",
+		"JUJU_RELATION_ID=an-endpoint:22",
+		"JUJU_REMOTE_UNIT=that-unit/456",
+		"JUJU_REMOTE_APP=that-app",
+		"JUJU_DEPARTING_UNIT=that-unit/456",
 	}
 }
 
@@ -198,7 +209,7 @@ func (s *EnvSuite) TestEnvUbuntu(c *gc.C) {
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars)
 
-		relationVars := s.setRelation(ctx)
+		relationVars := s.setDepartingRelation(ctx)
 		actualVars, err = ctx.HookVars(paths, false)
 		c.Assert(err, jc.ErrorIsNil)
 		s.assertVars(c, actualVars, contextVars, pathsVars, ubuntuVars, relationVars)

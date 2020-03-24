@@ -660,9 +660,10 @@ func (s *ContextFactorySuite) TestNewHookContextRelationDepartedUpdatesRelationC
 	s.updateCache(1, "r/4", params.Settings{"baz": "qux"})
 
 	ctx, err := s.factory.HookContext(hook.Info{
-		Kind:       hooks.RelationDeparted,
-		RelationId: 1,
-		RemoteUnit: "r/0",
+		Kind:          hooks.RelationDeparted,
+		RelationId:    1,
+		RemoteUnit:    "r/0",
+		DepartingUnit: "r/0",
 	})
 	c.Assert(err, jc.ErrorIsNil)
 	s.AssertCoreContext(c, ctx)

@@ -106,7 +106,7 @@ func NewMockUnitHookContextWithState(mockUnit *mocks.MockHookUnit, state *uniter
 
 // SetEnvironmentHookContextRelation exists purely to set the fields used in hookVars.
 // It makes no assumptions about the validity of context.
-func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName string, remoteAppName string) {
+func SetEnvironmentHookContextRelation(context *HookContext, relationId int, endpointName, remoteUnitName, remoteAppName, departingUnitName string) {
 	context.relationId = relationId
 	context.remoteUnitName = remoteUnitName
 	context.remoteApplicationName = remoteAppName
@@ -116,6 +116,7 @@ func SetEnvironmentHookContextRelation(context *HookContext, relationId int, end
 			relationId:   relationId,
 		},
 	}
+	context.departingUnitName = departingUnitName
 }
 
 func PatchCachedStatus(ctx jujuc.Context, status, info string, data map[string]interface{}) func() {
@@ -151,7 +152,7 @@ func StorageAddConstraints(ctx *HookContext) map[string][]params.StorageConstrai
 	return ctx.storageAddConstraints
 }
 
-// ModelHookContextParams encapsulatees the parameters for a NewModelHookContext call.
+// ModelHookContextParams encapsulates the parameters for a NewModelHookContext call.
 type ModelHookContextParams struct {
 	ID        string
 	HookName  string

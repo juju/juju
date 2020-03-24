@@ -210,6 +210,7 @@ func (f *contextFactory) HookContext(hookInfo hook.Info) (*HookContext, error) {
 		ctx.relationId = hookInfo.RelationId
 		ctx.remoteUnitName = hookInfo.RemoteUnit
 		ctx.remoteApplicationName = hookInfo.RemoteApplication
+		ctx.departingUnitName = hookInfo.DepartingUnit
 		relation, found := ctx.relations[hookInfo.RelationId]
 		if !found {
 			return nil, errors.Errorf("unknown relation id: %v", hookInfo.RelationId)

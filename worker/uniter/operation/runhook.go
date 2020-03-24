@@ -41,6 +41,8 @@ func (rh *runHook) String() string {
 	case rh.info.Kind.IsRelation():
 		if rh.info.RemoteUnit == "" {
 			suffix = fmt.Sprintf(" (%d; app: %s)", rh.info.RelationId, rh.info.RemoteApplication)
+		} else if rh.info.DepartingUnit != "" {
+			suffix = fmt.Sprintf(" (%d; unit: %s, departee: %s)", rh.info.RelationId, rh.info.RemoteUnit, rh.info.DepartingUnit)
 		} else {
 			suffix = fmt.Sprintf(" (%d; unit: %s)", rh.info.RelationId, rh.info.RemoteUnit)
 		}
